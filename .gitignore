@@ -13,3 +13,7 @@ build/
 *.xcodeproj/
 *.xcworkspace/
 xcuserdata/
+
+# Python bytecode from the vendored helper scripts
+__pycache__/
+*.pyc
