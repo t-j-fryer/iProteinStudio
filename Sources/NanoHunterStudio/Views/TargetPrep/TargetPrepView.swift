@@ -8,6 +8,10 @@ struct TargetPrepView: View {
     let targetSequence: String
     let targetSmiles: String
     var onUse: ([Int]) -> Void
+    /// Called with the predicted structure once it exists. The RFdiffusion3 tab
+    /// uses this to adopt the prediction as its design target, so a user with
+    /// only a sequence never has to find the file themselves.
+    var onStructure: ((String) -> Void)?
     var onClose: () -> Void
 
     @EnvironmentObject var predictions: PredictionStore
@@ -19,11 +23,14 @@ struct TargetPrepView: View {
     @State private var name: String = ""
 
     init(targetKind: TargetKind, targetSequence: String, targetSmiles: String,
-         onUse: @escaping ([Int]) -> Void, onClose: @escaping () -> Void) {
+         onUse: @escaping ([Int]) -> Void,
+         onStructure: ((String) -> Void)? = nil,
+         onClose: @escaping () -> Void) {
         self.targetKind = targetKind
         self.targetSequence = targetSequence
         self.targetSmiles = targetSmiles
         self.onUse = onUse
+        self.onStructure = onStructure
         self.onClose = onClose
         // Ligand-only prediction is verified with Boltz; protein defaults to IntelliFold.
         _engine = State(initialValue: targetKind == .ligand ? .boltz : .intellifold)
@@ -47,7 +54,10 @@ struct TargetPrepView: View {
         }
         .frame(width: 900, height: 700)
         .onChange(of: predictor.phase) { _, phase in
-            if case .done = phase { recordPrediction() }
+            if case .done(let cif) = phase {
+                recordPrediction()
+                onStructure?(cif)
+            }
         }
     }
 

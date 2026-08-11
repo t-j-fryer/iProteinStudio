@@ -9,11 +9,13 @@ reuses the same ``design_from_yaml.py`` front end -- and so inherits the atom
 preflight and, importantly, the binder-length versus Foundry-total-length
 accounting -- then inverse-folds with SolubleMPNN.
 
-**Verification is deliberately not attempted here.** Re-folding a protein
-complex needs a NanoHunter template and a cached target MSA, which this script
-has no way to construct from an RFD3 spec alone. Backbones and sequences are
-written where the design tab can pick them up. Pretending to verify would be
-worse than stopping.
+Verification is included. Re-folding a designed complex needs a target MSA, so
+the ``msa`` stage generates one **once** through Boltz's MSA server and every
+later prediction reuses it by path. That is the same rule NanoHunter follows:
+the binder chain is explicitly ``empty`` (a de-novo sequence has no homologues,
+and pretending otherwise is worse than useless), the target gets a real MSA, and
+a silent fall back to single-sequence mode is treated as an error rather than a
+degraded success.
 
 Progress markers match the campaign runner: RFSTAGE / RFINFO / RFDONE / RFFAIL.
 """
@@ -29,8 +31,8 @@ import sys
 import time
 from pathlib import Path
 
-STAGES = ("fixtures", "backbones", "mpnn")
-STAGE_PCT = {"fixtures": 10, "backbones": 30, "mpnn": 80}
+STAGES = ("fixtures", "backbones", "mpnn", "msa", "predict", "score")
+STAGE_PCT = {"fixtures": 5, "backbones": 20, "mpnn": 45, "msa": 55, "predict": 60, "score": 95}
 
 
 def stage(name: str, message: str) -> None:
@@ -72,6 +74,140 @@ def design_cmd(cfg: dict, rfd3_root: Path, campaign: Path, stage_name: str) -> l
             "--n-recycle", str(cfg["rfd3_recycles"]),
             "--seed-base", str(cfg["seed_base"]),
             "--stage", stage_name]
+
+
+def clean_sequence(text: str) -> str:
+    return "".join(c for c in (text or "").upper() if c.isalpha())
+
+
+def stage_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Path:
+    """Generate the target MSA once, and cache it for the whole campaign.
+
+    Mirrors NanoHunter's own auto-MSA path: predict the bare target through
+    Boltz with the MSA server enabled, then keep the A3M it produced. Doing this
+    once and passing it by path is what makes a multi-thousand-fold campaign
+    affordable.
+    """
+    cache = campaign / "assets" / "target_msa"
+    a3m = cache / "target_full_msa.a3m"
+    if a3m.exists() and a3m.stat().st_size > 0:
+        info(f"target MSA cached -> {a3m}")
+        return a3m
+
+    sequence = clean_sequence(cfg.get("target_sequence", ""))
+    if not sequence:
+        die("No target sequence was recorded, so the target MSA cannot be generated. "
+            "Re-enter the target sequence in the RFdiffusion3 tab.")
+
+    cache.mkdir(parents=True, exist_ok=True)
+    yaml_path = cache / "target.yaml"
+    yaml_path.write_text(
+        "sequences:\n"
+        "  - protein:\n"
+        f"      id: {cfg.get('target_chain', 'B')}\n"
+        f"      sequence: {sequence}\n"
+        "version: 1\n"
+    )
+
+    boltz = Path(cfg["nanohunter_root"]) / "venvs" / "NanoHunter_boltz" / "bin" / "boltz"
+    if not boltz.exists():
+        die(f"Boltz not found at {boltz}; the target MSA cannot be generated.")
+    out_dir = cache / "boltz"
+    run([str(boltz), "predict", str(yaml_path), "--out_dir", str(out_dir),
+         "--use_msa_server", "--override"],
+        campaign / "logs" / "msa.log", rfd3_root, env)
+
+    raw = sorted(out_dir.rglob("msa/*.csv"))
+    if not raw:
+        die("Boltz produced no MSA. The MSA server may be unreachable — a run "
+            "without a real target MSA would silently be much worse, so this stops here.")
+    csv_to_a3m(raw[0], a3m, sequence)
+    info(f"target MSA -> {a3m}")
+    return a3m
+
+
+def csv_to_a3m(csv_path: Path, a3m_path: Path, query: str) -> None:
+    """Convert Boltz's raw MSA CSV to the A3M the predictors consume.
+
+    The query row is forced to the exact target sequence: every consumer checks
+    that the first record matches, and a mismatch there is the classic way a
+    reused MSA silently corrupts a campaign.
+    """
+    rows = list(csv.DictReader(csv_path.open()))
+    if not rows:
+        die(f"No MSA records in {csv_path}")
+    key = "sequence" if "sequence" in rows[0] else list(rows[0])[0]
+    lines = [">query", query]
+    for i, row in enumerate(rows):
+        seq = (row.get(key) or "").strip()
+        if not seq:
+            continue
+        bare = "".join(c for c in seq if not c.islower() and c not in "-.").upper()
+        if i == 0 and bare == query:
+            continue
+        lines += [f">seq{i}", seq]
+    if len(lines) < 4:
+        die("The target MSA came back with only the query sequence in it.")
+    a3m_path.write_text("\n".join(lines) + "\n")
+
+
+def stage_predict(cfg: dict, campaign: Path, rfd3_root: Path, env: dict, a3m: Path) -> None:
+    """Re-fold every designed sequence in complex with the target."""
+    sequences = campaign / "mpnn" / "sequences.csv"
+    if not sequences.exists():
+        die(f"No sequences at {sequences}.")
+
+    # NanoHunter-style template: chain A is the binder (overwritten per design),
+    # chain B is the target.
+    template = campaign / "config" / "predictor_template.yaml"
+    placeholder = "G" * int(cfg.get("max_length", 100))
+    template.write_text(
+        "sequences:\n"
+        "  - protein:\n"
+        "      id: A\n"
+        f"      sequence: {placeholder}\n"
+        "  - protein:\n"
+        f"      id: {cfg.get('target_chain', 'B')}\n"
+        f"      sequence: {clean_sequence(cfg.get('target_sequence', ''))}\n"
+        "version: 1\n"
+    )
+
+    yaml_dir = campaign / "predictor_inputs" / "holo"
+    run([sys.executable, str(rfd3_root / "scripts" / "prepare_predictor_inputs.py"),
+         "--sequences", str(sequences),
+         "--template", str(template),
+         "--target-msa", str(a3m),
+         "--output", str(yaml_dir)],
+        campaign / "logs" / "prepare_predictor_inputs.log", rfd3_root, env)
+
+    # run_predictors.py implements Boltz and IntelliFold. Anything else the user
+    # selected is dropped here rather than silently mislabelled.
+    wanted = ["boltz"] + [p for p in cfg.get("extra_predictors", []) if p == "intellifold"]
+    dropped = [p for p in cfg.get("extra_predictors", []) if p != "intellifold"]
+    if dropped:
+        info(f"not run here (unsupported by the RFdiffusion3 checker): {', '.join(dropped)}")
+    run([sys.executable, str(rfd3_root / "scripts" / "run_predictors.py"),
+         "--inputs", str(yaml_dir),
+         "--output", str(campaign / "predictions" / "holo"),
+         "--predictors", ",".join(dict.fromkeys(wanted)),
+         "--max-parallel", str(cfg.get("predict_max_parallel", 4)),
+         "--nanohunter-root", cfg["nanohunter_root"],
+         "--resume"],
+        campaign / "logs" / "predict_holo.log", rfd3_root, env)
+
+
+def stage_score(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> None:
+    metrics = campaign / "predictions" / "holo" / "prediction_metrics.csv"
+    if not metrics.exists():
+        die(f"No prediction metrics at {metrics}.")
+    # No --require-pbind: the affinity head is small-molecule only, so a protein
+    # campaign ranks on confidence alone.
+    run([sys.executable, str(rfd3_root / "scripts" / "score_and_select.py"),
+         "--predictions", str(metrics),
+         "--output", str(campaign / "analysis"),
+         "--top-n", str(cfg.get("top_n", 100)),
+         "--nanohunter-root", cfg["nanohunter_root"]],
+        campaign / "logs" / "score.log", rfd3_root, env)
 
 
 def main() -> None:
@@ -133,12 +269,21 @@ def main() -> None:
             if rows < cfg["num_backbones"]:
                 die(f"Expected at least {cfg['num_backbones']} sequences, found {rows}.")
             info(f"{rows} sequences -> {sequences}")
+        elif name == "msa":
+            stage("msa", "Generating the target's MSA (once, then reused)")
+            msa_path = stage_msa(cfg, campaign, rfd3_root, env)
+        elif name == "predict":
+            stage("predict", "Re-folding designs with the target")
+            msa_path = campaign / "assets" / "target_msa" / "target_full_msa.a3m"
+            if not msa_path.exists():
+                msa_path = stage_msa(cfg, campaign, rfd3_root, env)
+            stage_predict(cfg, campaign, rfd3_root, env, msa_path)
+        elif name == "score":
+            stage("score", "Ranking designs")
+            stage_score(cfg, campaign, rfd3_root, env)
         completed.append(name)
         record(None)
 
-    info("Protein-target campaigns stop after sequence design: re-folding a complex "
-         "needs a NanoHunter template and a cached target MSA. Take the sequences in "
-         f"{campaign / 'mpnn' / 'sequences.csv'} to the design tab to verify them.")
     print(f"RFSTAGE|done|100|Finished in {(time.time() - started) / 60:.1f} min", flush=True)
     print("RFDONE|ok", flush=True)
 

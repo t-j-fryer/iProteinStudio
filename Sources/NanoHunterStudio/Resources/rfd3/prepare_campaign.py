@@ -234,6 +234,16 @@ def main() -> None:
         "rfd3_precision": req["precision"],
         "seed_base": req["seed_base"],
         "sequences_per_backbone": req["sequences_per_backbone"],
+        # Inverse folder and its temperatures. The orchestrator dispatches on
+        # sequence_model; it defaults to lasermpnn when absent, so an older
+        # campaign config keeps its original behaviour.
+        "sequence_model": req.get("sequence_model", "lasermpnn"),
+        "sequence_temperature": req.get("sequence_temperature", 0.10),
+        "first_shell_temperature": req.get("first_shell_temperature", 1.00),
+        "use_potentials": req.get("use_potentials", True),
+        "run_affinity": req.get("run_affinity", True),
+        "run_apo": req.get("run_apo", True),
+        "extra_predictors": req.get("extra_predictors", []),
         "mpnn_max_parallel": req.get("mpnn_max_parallel", 6),
         "boltz_chunk_size": req.get("boltz_chunk_size", 50),
         "boltz_calibrate_n": req.get("boltz_calibrate_n", 12),
@@ -247,6 +257,13 @@ def main() -> None:
             config["ccd_mirror"] = req["ccd_mirror"]
     else:
         config["target_kind"] = "protein"
+        config["rfd3_root"] = str(rfd3_root)
+        config["nanohunter_root"] = req["nanohunter_root"]
+        config["target_sequence"] = req.get("target_sequence", "")
+        config["target_chain"] = req.get("target_chain", "B")
+        # The predictor template needs a binder placeholder of the right length.
+        config["max_length"] = max(req["lengths"])
+        config["predict_max_parallel"] = req.get("predict_max_parallel", 4)
 
     config_path = campaign / "config" / "campaign.json"
     config_path.write_text(json.dumps(config, indent=2) + "\n")

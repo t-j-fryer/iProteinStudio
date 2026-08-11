@@ -344,7 +344,16 @@ final class RFD3Controller: ObservableObject {
         payload.precision = request.precision
         payload.seed_base = request.seedBase
         payload.sequences_per_backbone = request.sequencesPerBackbone
+        payload.sequence_model = request.sequenceModel.configValue
+        payload.sequence_temperature = request.sequenceTemperature
+        payload.first_shell_temperature = request.firstShellTemperature
         payload.top_n = request.verification.topN
+        payload.use_potentials = request.verification.useBoltzPotentials
+        // The affinity head is trained on small molecules; asking for it against
+        // a protein target would produce a number that means nothing.
+        payload.run_affinity = request.verification.runAffinityHead && request.targetKind == .smallMolecule
+        payload.run_apo = request.verification.runApoCheck
+        payload.extra_predictors = request.verification.extraPredictors.map(\.runnerValue)
         payload.is_non_loopy = request.preferStructured
         payload.infer_ori_strategy = request.originStrategy.specValue
         if request.originStrategy == .explicit { payload.ori_token = request.originXYZ }
@@ -358,6 +367,8 @@ final class RFD3Controller: ObservableObject {
             payload.ligand_residue = request.ligandResidueName
         case .protein:
             payload.target_structure = request.targetStructurePath
+            payload.target_sequence = request.targetSequence
+            payload.target_chain = request.targetChain
             // Contig carries the binder range plus the fixed target motif.
             // design_from_yaml.py converts binder length to Foundry's total
             // component length per bin; writing `length` here would break that.
@@ -388,6 +399,8 @@ struct RFD3StudioRequest: Codable {
     var ligand_residue: String?
 
     var target_structure: String?
+    var target_sequence: String?
+    var target_chain: String?
     var contig: String?
 
     var conditions: [String: [String]] = [:]
@@ -404,7 +417,14 @@ struct RFD3StudioRequest: Codable {
     var precision: String = "bf16"
     var seed_base: Int = 0
     var sequences_per_backbone: Int = 4
+    var sequence_model: String = "lasermpnn"
+    var sequence_temperature: Double = 0.10
+    var first_shell_temperature: Double = 1.00
     var top_n: Int = 100
+    var use_potentials: Bool = true
+    var run_affinity: Bool = true
+    var run_apo: Bool = true
+    var extra_predictors: [String] = []
     var mpnn_max_parallel: Int = 6
     var boltz_chunk_size: Int = 50
     var boltz_calibrate_n: Int = 12

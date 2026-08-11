@@ -86,6 +86,14 @@ detect() {
   [[ -x "${ANTIFOLD_VENV}/bin/python" ]]    && state antifold ok "AntiFold"                       || state antifold missing ""
   [[ -x "${INTELLIFOLD_VENV}/bin/python" ]] && state intellifold ok "IntelliFold PyTorch/MPS"     || state intellifold missing ""
   [[ -x "${OPENFOLD_VENV}/bin/python" ]]    && state openfold3 ok "OpenFold-3-MLX"                || state openfold3 missing ""
+  # LASErMPNN is ligand-aware inverse folding, used by both design tabs for
+  # small-molecule targets. It has no MPS build, so it runs on CPU.
+  if [[ -x "${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_lasermpnn/bin/python" \
+     && -d "${NANOHUNTER_ROOT}/src/LASErMPNN" ]]; then
+    state lasermpnn ok "LASErMPNN"
+  else
+    state lasermpnn missing ""
+  fi
   if [[ -x "${ALPHAFOLD3_VENV}/bin/python" ]]; then
     if [[ -f "${ALPHAFOLD3_MODEL_DIR}/af3.bin" ]]; then
       state alphafold3 ok "AlphaFold 3 with weights"
@@ -144,29 +152,58 @@ if [[ -n "${LINK_RFD3}" && -z "${LINK_EXISTING}" ]]; then
   exit 0
 fi
 
+# Link *individual* components rather than whole directories.
+#
+# Symlinking venvs/, src/ and models/ wholesale would hide an installation the
+# app already has -- on a machine where the app installed its own Boltz and
+# IntelliFold months ago, replacing the directory means those working
+# environments disappear behind the link, and the aside-moved copy wastes
+# gigabytes. Linking one venv / repo / model directory at a time adds only what
+# is genuinely missing and never touches what already works.
+link_component() {
+  local rel="$1"
+  local target="${LINK_EXISTING}/${rel}"
+  local link="${NANOHUNTER_ROOT}/${rel}"
+  [[ -e "${target}" ]] || return 1
+  if [[ -L "${link}" ]]; then
+    # An existing link is ours: repoint it, it costs nothing.
+    rm -f "${link}"
+  elif [[ -e "${link}" ]]; then
+    echo "  keep      ${rel} (already installed here)"
+    return 0
+  fi
+  mkdir -p "$(dirname "${link}")"
+  ln -s "${target}" "${link}" || fail "Could not link ${link} -> ${target}"
+  echo "  link      ${rel}"
+  return 0
+}
+
 if [[ -n "${LINK_EXISTING}" ]]; then
-  step link 5 "Linking to your existing NanoHunter installation"
+  step link 5 "Adding the engines you already have"
   [[ -d "${LINK_EXISTING}" ]] || fail "No such directory: ${LINK_EXISTING}"
   [[ -x "${LINK_EXISTING}/venvs/${VENV_PREFIX}_boltz/bin/python" ]] \
     || fail "${LINK_EXISTING} does not look like an installed NanoHunter (no Boltz venv)."
-  for sub in venvs src models; do
-    target="${LINK_EXISTING}/${sub}"
-    link="${NANOHUNTER_ROOT}/${sub}"
-    [[ -d "${target}" ]] || { mkdir -p "${target}"; }
-    if [[ -L "${link}" ]]; then
-      rm -f "${link}"
-    elif [[ -d "${link}" ]]; then
-      # Never destroy a real installed directory; move it aside instead.
-      mv "${link}" "${link}.replaced-$(date -u +%Y%m%d%H%M%S)" \
-        || fail "Could not move aside existing ${link}"
-    fi
-    ln -s "${target}" "${link}" || fail "Could not link ${link} -> ${target}"
-    echo "  ${sub} -> ${target}"
+
+  mkdir -p "${NANOHUNTER_ROOT}"/{venvs,src,models}
+  for rel in \
+    "venvs/${VENV_PREFIX}_boltz" \
+    "venvs/${VENV_PREFIX}_ligandmpnn" \
+    "venvs/${VENV_PREFIX}_antifold" \
+    "venvs/${VENV_PREFIX}_intellifold" \
+    "venvs/${VENV_PREFIX}_openfold3_mlx" \
+    "venvs/${VENV_PREFIX}_alphafold3" \
+    "venvs/${VENV_PREFIX}_lasermpnn" \
+    "src/LigandMPNN" "src/AntiFold" "src/IntelliFold" \
+    "src/openfold-3-mlx" "src/alphafold3" "src/LASErMPNN" \
+    "models/alphafold3" "models/intellifold_jax_flash"
+  do
+    link_component "${rel}" || echo "  absent    ${rel} (not in ${LINK_EXISTING})"
   done
+
   state link ok "${LINK_EXISTING}"
   [[ -n "${LINK_RFD3}" ]] && link_rfd3 "${LINK_RFD3}"
   detect
-  step done 100 "Linked to existing installation"
+  step done 100 "Added everything available from your existing installation"
   echo "NHDONE|ok"
   exit 0
 fi

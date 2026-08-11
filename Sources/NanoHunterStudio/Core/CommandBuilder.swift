@@ -22,6 +22,11 @@ enum CommandBuilder {
     static func arguments(request: DesignRequest, templateYAML: URL, outRoot: URL,
                           runName: String, cdrRanges: String? = nil, mpnnSeed: Int? = nil) -> [String] {
         var args: [String] = [
+            // Explicit workflow. The runner defaults to nanobody, and every
+            // ligand-aware designer (LigandMPNN, LASErMPNN) is rejected outside
+            // protein workflow -- so leaving this implicit silently constrains
+            // which designers can run.
+            "--workflow", request.workflow,
             "--predictor", request.designPredictor.runnerValue,
             "--sequence-designer", request.designer.rawValue,
             "--template-yaml", templateYAML.path,
@@ -61,6 +66,13 @@ enum CommandBuilder {
         // the MPNN designers (AbMPNN/ProteinMPNN/SolubleMPNN/LigandMPNN); AntiFold
         // ignores it. Passed always so it's recorded in the command.
         if let mpnnSeed { args += ["--mpnn-seed", String(mpnnSeed)] }
+
+        // Redesign temperature: hotter on the first cycle to explore, cooler
+        // afterwards to refine. The runner aliases the AntiFold and MPNN
+        // temperature flags onto this same pair, so one control covers every
+        // designer except LASErMPNN, which is configured through the environment.
+        args += ["--ligand-temp-cycle1", String(format: "%.2f", request.mpnnTempCycle1),
+                 "--ligand-temp-other", String(format: "%.2f", request.mpnnTempLater)]
 
         // Target MSA: use the current native-per-predictor path and require a
         // real MSA. `--require-target-msa` is the important one — without it an
@@ -137,6 +149,19 @@ enum CommandBuilder {
             args += ["--max-parallel", String(max(1, request.manualParallel))]
         }
         return args
+    }
+
+    /// Environment for a specific run. Adds the settings the runner only exposes
+    /// as environment variables.
+    static func environment(request: DesignRequest) -> [String: String] {
+        var env = environment()
+        if request.designer == .lasermpnn {
+            // LASErMPNN decodes sequence and side-chain rotamers jointly, so the
+            // binding site gets its own temperature. Neither is reachable by flag.
+            env["LASERMPNN_SEQ_TEMP"] = String(format: "%.2f", request.lasermpnnSeqTemp)
+            env["LASERMPNN_FS_TEMP"] = String(format: "%.2f", request.lasermpnnFirstShellTemp)
+        }
+        return env
     }
 
     /// Environment forcing the managed pipeline root and venv prefix.

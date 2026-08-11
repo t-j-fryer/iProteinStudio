@@ -3,7 +3,9 @@ import Foundation
 /// A backend component the setup wizard can install, keyed to the `NHSTATE|<key>`
 /// markers emitted by `setup_pipeline.sh`.
 enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
-    case boltz, mpnn, antifold, intellifold, openfold3, alphafold3, intellifoldJAX = "intellifold_jax", rfd3
+    case boltz, mpnn, antifold, lasermpnn, intellifold, openfold3, alphafold3
+    case intellifoldJAX = "intellifold_jax"
+    case rfd3
 
     var id: String { rawValue }
 
@@ -12,6 +14,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .boltz:          return "Boltz-2"
         case .mpnn:           return "Sequence designers"
         case .antifold:       return "AntiFold"
+        case .lasermpnn:      return "LASErMPNN"
         case .intellifold:    return "IntelliFold"
         case .openfold3:      return "OpenFold-3"
         case .alphafold3:     return "AlphaFold 3"
@@ -42,6 +45,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
 
     var downloadNote: String? {
         switch self {
+        case .lasermpnn:      return "Ligand-aware inverse folding. Runs on CPU — there is no Apple GPU build."
         case .openfold3:      return "Downloads a ~2 GB checkpoint."
         case .alphafold3:     return "Compiles from source (slow). Weights must be obtained from Google separately."
         case .intellifoldJAX: return "Needs the AlphaFold 3 environment. Converts an existing IntelliFold checkpoint."
@@ -151,8 +155,6 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .alphafold3:
             return "Needs af3.bin, which you must obtain from Google under their terms — it cannot be downloaded for you."
-        case .openfold3:
-            return "Its complex-pLDDT reporting has an unresolved scale problem, so Studio shows iPTM only for OpenFold-3."
         case .intellifold:
             return "Slowest of the four at its default ten recycles."
         default:
@@ -160,8 +162,16 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         }
     }
 
-    /// Sensible design-time choices. All five can post-predict.
-    static var designChoices: [Predictor] { [.boltz, .boltzPotentials, .intellifold, .alphafold3, .openfold3] }
+    /// Engines that can drive a design loop.
+    ///
+    /// OpenFold-3 is deliberately absent. It is a useful independent check, but
+    /// it was the weakest driver in the design-campaign comparison and its
+    /// per-design cost is high, so offering it here would mostly be a way to
+    /// spend hours getting a worse result. It remains available as a checker.
+    static var designChoices: [Predictor] { [.boltz, .boltzPotentials, .intellifold, .alphafold3] }
+
+    /// Engines that can independently re-fold finished designs. All of them.
+    static var checkChoices: [Predictor] { [.boltz, .boltzPotentials, .intellifold, .alphafold3, .openfold3] }
 }
 
 /// How the campaign is scheduled across the GPU.

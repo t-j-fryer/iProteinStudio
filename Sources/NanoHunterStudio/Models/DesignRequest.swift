@@ -2,30 +2,45 @@ import Foundation
 
 /// Inverse-folding backend used for sequence redesign.
 enum SequenceDesigner: String, CaseIterable, Codable, Identifiable {
-    case antifold, abmpnn, proteinmpnn, solublempnn, ligandmpnn
+    case antifold, abmpnn, proteinmpnn, solublempnn, ligandmpnn, lasermpnn
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .antifold:    return "AntiFold"
+        case .antifold:     return "AntiFold"
         case .abmpnn:       return "AbMPNN"
         case .proteinmpnn:  return "ProteinMPNN"
         case .solublempnn:  return "SolubleMPNN"
         case .ligandmpnn:   return "LigandMPNN"
+        case .lasermpnn:    return "LASErMPNN"
         }
     }
 
     /// One-line, novice-friendly description.
     var blurb: String {
         switch self {
-        case .antifold:    return "Antibody-aware. Best default for nanobody CDR design."
+        case .antifold:     return "Antibody-aware. Best default for nanobody CDR design."
         case .abmpnn:       return "Antibody-fine-tuned ProteinMPNN. Great for CDR redesign."
         case .proteinmpnn:  return "General-purpose protein sequence design."
-        case .solublempnn:  return "Tuned for soluble proteins."
-        case .ligandmpnn:   return "Ligand/small-molecule-aware design."
+        case .solublempnn:  return "Tuned for soluble proteins. The usual choice for a de-novo binder."
+        case .ligandmpnn:   return "Ligand-aware. Sees the small molecule while choosing residues."
+        case .lasermpnn:    return "Ligand-aware, and also places side chains. Tends to over-pack the pocket less than LigandMPNN."
         }
     }
+
+    /// Which installed component this designer needs.
+    var component: InstallComponent {
+        switch self {
+        case .antifold:  return .antifold
+        case .lasermpnn: return .lasermpnn
+        default:         return .mpnn
+        }
+    }
+
+    /// LASErMPNN has no MPS build, so it runs on CPU. Worth saying, because a
+    /// user watching GPU load will otherwise think it has stalled.
+    var runsOnCPU: Bool { self == .lasermpnn }
 }
 
 /// What kind of binder is being designed.
@@ -147,17 +162,31 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// keeps an orthogonal check affordable.
     var postOnlyHits: Bool = true
     var speedMode: SpeedMode = .standard
+
+    /// Sampling temperature for the first redesign cycle, and for later ones.
+    /// Cycle 1 starts hotter to explore, then cools to refine. These are the
+    /// pipeline's own defaults; they apply to AntiFold and the MPNN designers
+    /// alike, because the runner aliases both onto the same pair of flags.
+    var mpnnTempCycle1: Double = 0.30
+    var mpnnTempLater: Double = 0.10
+    /// LASErMPNN decodes sequence and side-chain rotamers together, so it has a
+    /// second temperature for the binding site specifically.
+    var lasermpnnSeqTemp: Double = 0.10
+    var lasermpnnFirstShellTemp: Double = 1.00
     /// Reuse completed cycles when a campaign is restarted. Idempotent, and safe
     /// on a fresh run name.
     var resumeIfPossible: Bool = true
 
     /// Designers valid for the current design + target combination.
+    /// LigandMPNN and LASErMPNN are ligand-aware and have nothing to work with
+    /// against a protein target, so they are not offered there. Conversely both
+    /// are offered for a small molecule, since they make different trade-offs.
     var allowedDesigners: [SequenceDesigner] {
         switch designType {
         case .nanobody:
             return [.antifold, .abmpnn]
         case .minibinder, .peptide:
-            return targetKind == .ligand ? [.ligandmpnn] : [.proteinmpnn, .solublempnn, .ligandmpnn]
+            return targetKind == .ligand ? [.ligandmpnn, .lasermpnn] : [.proteinmpnn, .solublempnn]
         }
     }
 
@@ -170,13 +199,18 @@ struct DesignRequest: Codable, Equatable, Hashable {
         }
     }
 
+    /// `--workflow` value. Nanobody workflow keeps the fixed-scaffold CDR
+    /// machinery; protein workflow is what de-novo binders and every
+    /// ligand-aware designer require.
+    var workflow: String { designType == .nanobody ? "nanobody" : "protein" }
+
     var hasProteinTarget: Bool { targetKind == .protein }
 
     /// Every backend this run needs installed before it can start.
     var requiredComponents: [InstallComponent] {
         var set: [InstallComponent] = [designPredictor.component]
         for p in postPredictors where !set.contains(p.component) { set.append(p.component) }
-        set.append(designer == .antifold ? .antifold : .mpnn)
+        if !set.contains(designer.component) { set.append(designer.component) }
         return set
     }
 
@@ -227,6 +261,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         case targetKind, targetName, targetSequence, targetSmiles, epitopeResidues
         case designer, numDesigns, numCycles, hitThreshold, parallelMode, manualParallel
         case designPredictor, postPredictors, postOnlyHits, speedMode, resumeIfPossible
+        case mpnnTempCycle1, mpnnTempLater, lasermpnnSeqTemp, lasermpnnFirstShellTemp
     }
 
     /// Resilient decoding: every field defaults if absent, so adding new fields
@@ -257,5 +292,9 @@ struct DesignRequest: Codable, Equatable, Hashable {
         postOnlyHits    = try c.decodeIfPresent(Bool.self, forKey: .postOnlyHits) ?? d.postOnlyHits
         speedMode       = try c.decodeIfPresent(SpeedMode.self, forKey: .speedMode) ?? d.speedMode
         resumeIfPossible = try c.decodeIfPresent(Bool.self, forKey: .resumeIfPossible) ?? d.resumeIfPossible
+        mpnnTempCycle1  = try c.decodeIfPresent(Double.self, forKey: .mpnnTempCycle1) ?? d.mpnnTempCycle1
+        mpnnTempLater   = try c.decodeIfPresent(Double.self, forKey: .mpnnTempLater) ?? d.mpnnTempLater
+        lasermpnnSeqTemp = try c.decodeIfPresent(Double.self, forKey: .lasermpnnSeqTemp) ?? d.lasermpnnSeqTemp
+        lasermpnnFirstShellTemp = try c.decodeIfPresent(Double.self, forKey: .lasermpnnFirstShellTemp) ?? d.lasermpnnFirstShellTemp
     }
 }

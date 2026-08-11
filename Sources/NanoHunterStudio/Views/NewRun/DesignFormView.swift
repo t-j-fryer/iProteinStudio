@@ -94,7 +94,11 @@ struct DesignFormView: View {
                     Card(title: "3 · What to design", systemImage: "slider.horizontal.3") {
                         CDRPicker(cdrs: request.cdrs)
                         Divider().padding(.vertical, 4)
-                        DesignerPicker(designer: request.designer, allowed: request.wrappedValue.allowedDesigners)
+                        DesignerPicker(designer: request.designer,
+                                       allowed: request.wrappedValue.allowedDesigners,
+                                       installer: app.installer)
+                        Divider().padding(.vertical, 4)
+                        MPNNTemperatureControl(request: request)
                     }
                 } else {
                     Card(title: "2 · Binder size & fold", systemImage: "ruler") {
@@ -103,7 +107,11 @@ struct DesignFormView: View {
                         HelixKillControl(value: request.helixKill)
                     }
                     Card(title: "3 · Designer", systemImage: "slider.horizontal.3") {
-                        DesignerPicker(designer: request.designer, allowed: request.wrappedValue.allowedDesigners)
+                        DesignerPicker(designer: request.designer,
+                                       allowed: request.wrappedValue.allowedDesigners,
+                                       installer: app.installer)
+                        Divider().padding(.vertical, 4)
+                        MPNNTemperatureControl(request: request)
                     }
                 }
 
@@ -294,6 +302,8 @@ struct CDRPicker: View {
 struct DesignerPicker: View {
     @Binding var designer: SequenceDesigner
     var allowed: [SequenceDesigner]
+    var installer: PipelineInstaller?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Sequence designer").font(.headline)
@@ -303,6 +313,69 @@ struct DesignerPicker: View {
             .pickerStyle(.segmented)
             .onAppear { if !allowed.contains(designer) { designer = allowed.first ?? .solublempnn } }
             Text(designer.blurb).font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if designer.runsOnCPU {
+                Label("Runs on the CPU — there is no Apple GPU build. It is a few seconds per design, so it is not the bottleneck.",
+                      systemImage: "cpu")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let installer, !installer.isUsable(designer.component) {
+                Label("\(designer.label) isn't installed yet — add it from Setup.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+        }
+    }
+}
+
+/// Redesign temperature. Higher explores more sequence space; lower refines what
+/// is already there. Cycle 1 runs hotter than later cycles by default, which is
+/// the pipeline's own behaviour rather than a Studio invention.
+struct MPNNTemperatureControl: View {
+    @Binding var request: DesignRequest
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Redesign temperature").font(.headline)
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
+                GridRow {
+                    Text("First cycle").font(.callout)
+                    Slider(value: $request.mpnnTempCycle1, in: 0.05...1.0, step: 0.05).frame(width: 200)
+                    Text(String(format: "%.2f", request.mpnnTempCycle1))
+                        .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
+                }
+                GridRow {
+                    Text("Later cycles").font(.callout)
+                    Slider(value: $request.mpnnTempLater, in: 0.05...1.0, step: 0.05).frame(width: 200)
+                    Text(String(format: "%.2f", request.mpnnTempLater))
+                        .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
+                }
+            }
+            Text("Higher explores more sequences; lower refines the one you have. The defaults start hot (0.30) and cool to 0.10.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if request.designer == .lasermpnn {
+                Divider().padding(.vertical, 2)
+                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
+                    GridRow {
+                        Text("LASErMPNN sequence").font(.callout)
+                        Slider(value: $request.lasermpnnSeqTemp, in: 0.05...1.0, step: 0.05).frame(width: 200)
+                        Text(String(format: "%.2f", request.lasermpnnSeqTemp))
+                            .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
+                    }
+                    GridRow {
+                        Text("Binding site").font(.callout)
+                        Slider(value: $request.lasermpnnFirstShellTemp, in: 0.1...2.0, step: 0.1).frame(width: 200)
+                        Text(String(format: "%.2f", request.lasermpnnFirstShellTemp))
+                            .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
+                    }
+                }
+                Text("LASErMPNN chooses side-chain positions as well as residues, so the pocket has its own temperature.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }
@@ -319,7 +392,9 @@ struct PredictorPicker: View {
     @ObservedObject var installer: PipelineInstaller
 
     private var checkChoices: [Predictor] {
-        Predictor.designChoices.filter { $0.runnerValue != request.designPredictor.runnerValue }
+        // Everything that can re-fold, minus whichever engine did the designing —
+        // a predictor cannot independently check its own work.
+        Predictor.checkChoices.filter { $0.runnerValue != request.designPredictor.runnerValue }
     }
 
     var body: some View {

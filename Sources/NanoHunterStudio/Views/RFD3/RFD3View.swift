@@ -18,6 +18,7 @@ struct RFD3View: View {
     @ObservedObject var controller: RFD3Controller
     @StateObject private var inspector = RFD3TargetInspector()
     @State private var showAdvanced = false
+    @State private var showTargetPrep = false
 
     private var request: Binding<RFD3Request> {
         Binding(
@@ -86,11 +87,15 @@ struct RFD3View: View {
                     lengthSection
                 }
 
-                Card(title: "4 · Verify with", systemImage: "checkmark.seal") {
+                Card(title: "4 · Sequence design", systemImage: "textformat.abc") {
+                    sequenceDesignSection
+                }
+
+                Card(title: "5 · Verify with", systemImage: "checkmark.seal") {
                     verificationSection
                 }
 
-                Card(title: "5 · Sampling", systemImage: "gauge.with.dots.needle.67percent") {
+                Card(title: "6 · Sampling", systemImage: "gauge.with.dots.needle.67percent") {
                     DisclosureGroup("Advanced sampling settings", isExpanded: $showAdvanced) {
                         samplingSection
                     }.font(.callout)
@@ -100,6 +105,93 @@ struct RFD3View: View {
                 startBar
             }
             .padding(28).frame(maxWidth: 860, alignment: .leading).frame(maxWidth: .infinity)
+        }
+        .sheet(isPresented: $showTargetPrep) {
+            TargetPrepView(
+                targetKind: .protein,
+                targetSequence: request.wrappedValue.targetSequence,
+                targetSmiles: "",
+                onUse: { residues in
+                    // Hotspots picked on the structure become RFdiffusion3
+                    // hotspot conditioning directly.
+                    var conditions = request.wrappedValue.conditions
+                    let chain = request.wrappedValue.targetChain
+                    for residue in residues {
+                        conditions["\(chain)\(residue)", default: []].insert(.hotspot)
+                    }
+                    request.wrappedValue.conditions = conditions
+                    if !residues.isEmpty { request.wrappedValue.originStrategy = .hotspots }
+                },
+                onStructure: { cif in
+                    // Adopt the prediction as the design target so the user never
+                    // has to go looking for the file.
+                    request.wrappedValue.targetStructurePath = cif
+                },
+                onClose: { showTargetPrep = false }
+            )
+        }
+    }
+
+    // MARK: Sequence design
+
+    private var sequenceDesignSection: some View {
+        let kind = request.wrappedValue.targetKind
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Backbones carry no sequence. This step decides what each one is actually made of.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker("Inverse folder", selection: Binding(
+                get: { request.wrappedValue.sequenceModel },
+                set: { nv in
+                    var r = request.wrappedValue
+                    r.sequenceModel = nv
+                    r.sequenceTemperature = nv.defaultTemperature
+                    r.firstShellTemperature = nv.defaultFirstShellTemperature
+                    request.wrappedValue = r
+                }
+            )) {
+                ForEach(kind.sequenceModels) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden()
+
+            Text(request.wrappedValue.sequenceModel.blurb)
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if !app.installer.isUsable(request.wrappedValue.sequenceModel.component) {
+                Label("\(request.wrappedValue.sequenceModel.label) isn't installed yet — add it from Setup.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+
+            LabeledContent("Sequences per backbone") {
+                Stepper(value: request.sequencesPerBackbone, in: 1...16) {
+                    Text("\(request.wrappedValue.sequencesPerBackbone)").monospacedDigit()
+                }
+            }
+
+            Divider().padding(.vertical, 2)
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
+                GridRow {
+                    Text("Temperature").font(.callout)
+                    Slider(value: request.sequenceTemperature, in: 0.05...1.0, step: 0.05).frame(width: 200)
+                    Text(String(format: "%.2f", request.wrappedValue.sequenceTemperature))
+                        .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
+                }
+                if request.wrappedValue.sequenceModel == .lasermpnn {
+                    GridRow {
+                        Text("Binding site").font(.callout)
+                        Slider(value: request.firstShellTemperature, in: 0.1...2.0, step: 0.1).frame(width: 200)
+                        Text(String(format: "%.2f", request.wrappedValue.firstShellTemperature))
+                            .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
+                    }
+                }
+            }
+            Text(request.wrappedValue.sequenceModel == .lasermpnn
+                 ? "Higher explores more sequences. LASErMPNN also places side chains, so the pocket has its own temperature — raise it to loosen packing, lower it to tighten."
+                 : "Higher explores more sequences; lower keeps close to what the model thinks is most likely.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -118,9 +210,12 @@ struct RFD3View: View {
             Picker("", selection: Binding(
                 get: { request.wrappedValue.targetKind },
                 set: { nv in
-                    request.wrappedValue.targetKind = nv
-                    request.wrappedValue.conditions = [:]
-                    request.wrappedValue.originStrategy = nv == .smallMolecule ? .com : .hotspots
+                    var r = request.wrappedValue
+                    r.targetKind = nv
+                    r.conditions = [:]
+                    r.originStrategy = nv == .smallMolecule ? .com : .hotspots
+                    r.reconcileSequenceModel()
+                    request.wrappedValue = r
                     inspector.reset()
                 }
             )) {
@@ -128,9 +223,6 @@ struct RFD3View: View {
             }
             .pickerStyle(.segmented).labelsHidden().frame(width: 320)
             Text(request.wrappedValue.targetKind.blurb)
-                .font(.caption).foregroundStyle(.secondary)
-            Label("Sequences will be designed with \(request.wrappedValue.targetKind.sequenceModelLabel).",
-                  systemImage: "info.circle")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -181,8 +273,24 @@ struct RFD3View: View {
 
     @ViewBuilder private var proteinInput: some View {
         VStack(alignment: .leading, spacing: 10) {
+            Text("RFdiffusion3 designs against a 3D structure. Paste a sequence and Studio will predict one, or choose a structure you already have.")
+                .font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            SequenceEditor(text: request.targetSequence, placeholder: "Target sequence…")
+            HStack {
+                Text("\(TemplateWriter.clean(request.wrappedValue.targetSequence).count) aa")
+                    .font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button { showTargetPrep = true } label: {
+                    Label("Predict structure & pick hotspots", systemImage: "scope")
+                }
+                .disabled(TemplateWriter.clean(request.wrappedValue.targetSequence).count < 10)
+            }
+
+            Divider().padding(.vertical, 2)
             filePicker(path: request.targetStructurePath,
-                       prompt: "Choose your target structure (PDB)",
+                       prompt: "…or choose a structure file (PDB)",
                        types: [.init(filenameExtension: "pdb") ?? .data])
             HStack {
                 Text("Chain").font(.callout)
@@ -198,10 +306,6 @@ struct RFD3View: View {
                 Text("Using residues \(request.wrappedValue.targetContig)")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Label("RFdiffusion3 designs against a structure, not a sequence. If you only have a sequence, predict it first in the design tab.",
-                  systemImage: "info.circle")
-                .font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
             inspectButton
         }
     }
@@ -439,54 +543,132 @@ struct RFD3View: View {
 
     // MARK: Verification
 
-    private var verificationSection: some View {
-        let kind = request.wrappedValue.targetKind
-        return VStack(alignment: .leading, spacing: 10) {
-            if kind.supportsVerification {
-                Text("Designed sequences are folded back with the ligand present, scored by ligand pLDDT plus predicted binding probability, and the best ones are folded again on their own.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+    private var extraCheckChoices: [Predictor] {
+        Predictor.checkChoices.filter { $0 != .boltz && $0 != .boltzPotentials }
+    }
 
-                LabeledContent("Sequences per backbone") {
-                    Stepper(value: request.sequencesPerBackbone, in: 1...16) {
-                        Text("\(request.wrappedValue.sequencesPerBackbone)").monospacedDigit()
+    /// One optional second-opinion predictor. Extracted from the section body so
+    /// the type checker can cope, and so the row reads as one idea.
+    /// Predictors the RFdiffusion3 verification runner can actually drive.
+    /// `RFD3/scripts/run_predictors.py` implements Boltz and IntelliFold only;
+    /// AlphaFold 3 and OpenFold-3 need their adapters wired into it before they
+    /// can be offered here. They remain available in the Iterative design tab,
+    /// where `nanohunter_run.sh` drives them natively.
+    private func isWiredForRFD3(_ p: Predictor) -> Bool {
+        p == .intellifold
+    }
+
+    @ViewBuilder private func checkerRow(_ p: Predictor) -> some View {
+        let installed = app.installer.isUsable(p.component)
+        let wired = isWiredForRFD3(p)
+        Toggle(isOn: Binding(
+            get: { request.wrappedValue.verification.extraPredictors.contains(p) },
+            set: { on in
+                var v = request.wrappedValue.verification
+                if on { v.extraPredictors.append(p) } else { v.extraPredictors.removeAll { $0 == p } }
+                request.wrappedValue.verification = v
+            }
+        )) {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 6) {
+                    Text(p.label)
+                    Text(String(format: "· ~%.1fx the time of Boltz-2", p.relativeCost))
+                        .font(.caption).foregroundStyle(.secondary)
+                    if !installed {
+                        Label("not installed", systemImage: "exclamationmark.circle")
+                            .font(.caption2).foregroundStyle(.orange)
+                    } else if !wired {
+                        Label("not yet available here", systemImage: "wrench.and.screwdriver")
+                            .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
-                LabeledContent("Keep the best") {
-                    Stepper(value: request.verification.topN, in: 10...500, step: 10) {
-                        Text("\(request.wrappedValue.verification.topN)").monospacedDigit()
-                    }
-                }
-
-                Divider().padding(.vertical, 2)
-                Toggle("Also fold the best designs on their own, without the ligand",
-                       isOn: request.verification.runApoCheck)
-                    .toggleStyle(.checkbox)
-                Text("Comparing the two tells you whether the binding site is already formed before the ligand arrives, or only assembles around it.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Label("Folding uses Boltz-2 with steering potentials and the affinity head. That combination is fixed: it is the only backend with an affinity head, and the ranking metric needs it.",
-                      systemImage: "info.circle")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                let folds = request.wrappedValue.numDesigns * request.wrappedValue.sequencesPerBackbone
-                Label("That is \(folds) folds with affinity enabled, which will dominate the run time — expect days, not hours, at this scale.",
-                      systemImage: "clock")
-                    .font(.caption).foregroundStyle(folds > 1000 ? .orange : .secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                LabeledContent("Sequences per backbone") {
-                    Stepper(value: request.sequencesPerBackbone, in: 1...16) {
-                        Text("\(request.wrappedValue.sequencesPerBackbone)").monospacedDigit()
-                    }
-                }
-                Label("Protein-target runs stop after sequence design. Folding a designed complex needs a target MSA that can't be built from an RFdiffusion3 spec alone — take the sequences to the Iterative design tab to check them.",
-                      systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout).foregroundStyle(.orange)
+                Text(wired
+                     ? p.blurb
+                     : "\(p.blurb) Not yet wired into the RFdiffusion3 checker — you can still use it in the Iterative design tab.")
+                    .font(.caption2).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+        .toggleStyle(.checkbox)
+        .disabled(!installed || !wired)
+        .help(p.caveat.isEmpty ? p.blurb : p.caveat)
+    }
+
+    private var verificationSection: some View {
+        let kind = request.wrappedValue.targetKind
+        let isLigand = kind == .smallMolecule
+        let folds = request.wrappedValue.numDesigns * request.wrappedValue.sequencesPerBackbone
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(isLigand
+                 ? "Designed sequences are folded back with the ligand present and ranked. Every fold here is a real cost — this stage dominates the run."
+                 : "Designed sequences are folded back with the target present and ranked. Studio generates the target's MSA once, on the first prediction, and reuses it for the rest of the campaign.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // --- Boltz, always on ---
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Boltz-2 — always used", systemImage: "checkmark.circle.fill")
+                    .font(.callout.weight(.medium)).foregroundStyle(.green)
+                Text("It is the only engine with a binding-affinity head, and the ranking needs it.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Toggle("Use steering potentials", isOn: request.verification.useBoltzPotentials)
+                    .toggleStyle(.checkbox)
+                Text("Physically cleaner poses, roughly twice the time. Worth it for a pocket; more marginal for a protein interface.")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if isLigand {
+                    Toggle("Predict binding probability, P(bind)", isOn: request.verification.runAffinityHead)
+                        .toggleStyle(.checkbox)
+                    Text(request.wrappedValue.verification.runAffinityHead
+                         ? "Designs are ranked on ligand pLDDT plus P(bind) — the combined metric."
+                         : "Without it, designs are ranked on ligand pLDDT alone.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label("The affinity head is trained on small molecules, so it is not used for a protein target.",
+                          systemImage: "info.circle")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 8).fill(.green.opacity(0.08)))
+
+            // --- Optional second opinions ---
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Add an independent second opinion").font(.callout.weight(.medium))
+                Text("Agreement between two unrelated models is much stronger evidence than a high score from one. Each one you add re-folds every design again, so pick deliberately.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(extraCheckChoices) { checkerRow($0) }
+            }
+
+            Divider().padding(.vertical, 2)
+            LabeledContent("Keep the best") {
+                Stepper(value: request.verification.topN, in: 10...500, step: 10) {
+                    Text("\(request.wrappedValue.verification.topN)").monospacedDigit()
+                }
+            }
+            if isLigand {
+                Toggle("Also fold the best designs without the ligand",
+                       isOn: request.verification.runApoCheck)
+                    .toggleStyle(.checkbox)
+                Text("Comparing the two tells you whether the pocket is already formed before the ligand arrives, or only assembles around it.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            let engines = request.wrappedValue.verification.allPredictors.count
+            Label("\(folds * engines) folds in total. This stage will dominate the run — expect days, not hours, at this scale.",
+                  systemImage: "clock")
+                .font(.caption)
+                .foregroundStyle(folds * engines > 1000 ? .orange : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

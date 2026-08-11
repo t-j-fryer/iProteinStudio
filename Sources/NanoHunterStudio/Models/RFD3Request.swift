@@ -29,20 +29,59 @@ enum RFD3TargetKind: String, CaseIterable, Codable, Identifiable, Hashable {
         }
     }
 
-    /// RFD3 routing is deliberately restricted. Small molecules use LASErMPNN
-    /// with NISE's exact settings -- it has a pretrained ligand encoder and
-    /// jointly decodes sequence and side-chain rotamers, which reduces
-    /// binding-site over-packing relative to LigandMPNN. Protein targets use
-    /// SolubleMPNN. AbMPNN and AntiFold stay nanobody-only.
-    var sequenceModelLabel: String {
+    /// Inverse folders that make sense for this target. AbMPNN and AntiFold stay
+    /// nanobody-only and never appear here.
+    var sequenceModels: [RFD3SequenceModel] {
         switch self {
-        case .protein:       return "SolubleMPNN"
-        case .smallMolecule: return "LASErMPNN (NISE settings)"
+        case .protein:       return [.solublempnn, .proteinmpnn]
+        case .smallMolecule: return [.lasermpnn, .ligandmpnn]
+        }
+    }
+}
+
+/// Inverse-folding model used to put sequences on RFdiffusion3 backbones.
+enum RFD3SequenceModel: String, CaseIterable, Codable, Identifiable, Hashable {
+    case lasermpnn
+    case ligandmpnn
+    case solublempnn
+    case proteinmpnn
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .lasermpnn:   return "LASErMPNN"
+        case .ligandmpnn:  return "LigandMPNN"
+        case .solublempnn: return "SolubleMPNN"
+        case .proteinmpnn: return "ProteinMPNN"
         }
     }
 
-    /// What the pipeline can carry through to verification for this target kind.
-    var supportsVerification: Bool { self == .smallMolecule }
+    var blurb: String {
+        switch self {
+        case .lasermpnn:
+            return "Ligand-aware, and places side chains at the same time. Tends to over-pack the pocket less. Runs on the CPU."
+        case .ligandmpnn:
+            return "Ligand-aware and fast. The established choice for small-molecule binders."
+        case .solublempnn:
+            return "Tuned for soluble proteins — the usual choice for a de-novo binder."
+        case .proteinmpnn:
+            return "The general-purpose original. Use it when you want the least opinionated model."
+        }
+    }
+
+    /// Key written into the campaign config; the orchestrator dispatches on it.
+    var configValue: String { rawValue }
+
+    var component: InstallComponent { self == .lasermpnn ? .lasermpnn : .mpnn }
+
+    var runsOnCPU: Bool { self == .lasermpnn }
+
+    /// LASErMPNN's own defaults differ from the MPNN family's, so the UI has to
+    /// reset the temperature when the model changes rather than carrying a value
+    /// that means something different.
+    var defaultTemperature: Double { self == .lasermpnn ? 0.10 : 0.10 }
+    var defaultFirstShellTemperature: Double { 1.00 }
 }
 
 /// How the user supplied the small molecule.
@@ -190,15 +229,43 @@ struct TargetSite: Codable, Hashable, Identifiable {
 
 /// Which predictors verify the finished designs.
 struct RFD3Verification: Codable, Hashable {
-    var predictors: [Predictor] = [.boltz]
-    /// Boltz's steering potentials and affinity head. Only Boltz has an affinity
-    /// head at all — AF3 explicitly has none.
+    /// Independent predictors added *alongside* Boltz. Boltz itself is always
+    /// used: it is the only backend with an affinity head, and the ranking
+    /// metric needs P(bind).
+    var extraPredictors: [Predictor] = []
+    /// Steering potentials roughly double Boltz's time but give physically
+    /// cleaner poses, which matters more for a pocket than for an interface.
     var useBoltzPotentials: Bool = true
+    /// The affinity head produces P(bind). Small molecules only — it is not
+    /// trained for protein–protein interfaces.
     var runAffinityHead: Bool = true
     /// Re-fold the top designs without the target, to check the binder folds on
     /// its own rather than only in complex.
     var runApoCheck: Bool = true
     var topN: Int = 100
+
+    /// Everything that will actually run, Boltz first.
+    var allPredictors: [Predictor] {
+        [useBoltzPotentials ? .boltzPotentials : .boltz] + extraPredictors
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case extraPredictors, useBoltzPotentials, runAffinityHead, runApoCheck, topN
+    }
+
+    init() {}
+
+    /// Resilient decoding, so a project saved before the predictor choice
+    /// existed still opens.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = RFD3Verification()
+        extraPredictors    = try c.decodeIfPresent([Predictor].self, forKey: .extraPredictors) ?? d.extraPredictors
+        useBoltzPotentials = try c.decodeIfPresent(Bool.self, forKey: .useBoltzPotentials) ?? d.useBoltzPotentials
+        runAffinityHead    = try c.decodeIfPresent(Bool.self, forKey: .runAffinityHead) ?? d.runAffinityHead
+        runApoCheck        = try c.decodeIfPresent(Bool.self, forKey: .runApoCheck) ?? d.runApoCheck
+        topN               = try c.decodeIfPresent(Int.self, forKey: .topN) ?? d.topN
+    }
 }
 
 /// Everything the user specifies for an RFdiffusion3 campaign.
@@ -215,6 +282,9 @@ struct RFD3Request: Codable, Hashable {
     var ligandResidueName: String = ""
 
     // --- Protein target ---
+    /// RFdiffusion3 needs a structure. A user with only a sequence can have one
+    /// predicted in the tab, which then becomes the target structure.
+    var targetSequence: String = ""
     var targetStructurePath: String = ""
     var targetChain: String = "B"
     /// Residue range kept from the target, e.g. "B1-71".
@@ -253,7 +323,13 @@ struct RFD3Request: Codable, Hashable {
     var seedBase: Int = 0
 
     // --- Sequence design & verification ---
+    var sequenceModel: RFD3SequenceModel = .lasermpnn
     var sequencesPerBackbone: Int = 4
+    /// Sampling temperature for the inverse-folding step.
+    var sequenceTemperature: Double = 0.10
+    /// LASErMPNN only: the binding site gets its own temperature, because it
+    /// decodes side-chain rotamers alongside the sequence.
+    var firstShellTemperature: Double = 1.00
     var verification = RFD3Verification()
 
     init() {}
@@ -272,6 +348,15 @@ struct RFD3Request: Codable, Hashable {
     }
 
     var designsPerBin: Int { max(1, numDesigns / max(1, binLengths.count)) }
+
+    /// Clamp the inverse folder to one that suits the current target.
+    mutating func reconcileSequenceModel() {
+        if !targetKind.sequenceModels.contains(sequenceModel) {
+            sequenceModel = targetKind.sequenceModels.first ?? .solublempnn
+            sequenceTemperature = sequenceModel.defaultTemperature
+            firstShellTemperature = sequenceModel.defaultFirstShellTemperature
+        }
+    }
 
     func sites(with condition: AtomCondition) -> [String] {
         conditions.filter { $0.value.contains(condition) }.keys.sorted()
@@ -329,6 +414,7 @@ struct RFD3Request: Codable, Hashable {
         case minLength, maxLength, numBins, numDesigns, explicitLengths, preferStructured
         case timesteps, recycles, batchSize, queuesPerBin, precision, seedBase
         case sequencesPerBackbone, verification
+        case targetSequence, sequenceModel, sequenceTemperature, firstShellTemperature
     }
 
     /// Resilient decoding: every field defaults if absent.
@@ -360,6 +446,10 @@ struct RFD3Request: Codable, Hashable {
         precision           = try c.decodeIfPresent(String.self, forKey: .precision) ?? d.precision
         seedBase            = try c.decodeIfPresent(Int.self, forKey: .seedBase) ?? d.seedBase
         sequencesPerBackbone = try c.decodeIfPresent(Int.self, forKey: .sequencesPerBackbone) ?? d.sequencesPerBackbone
+        targetSequence      = try c.decodeIfPresent(String.self, forKey: .targetSequence) ?? d.targetSequence
+        sequenceModel       = try c.decodeIfPresent(RFD3SequenceModel.self, forKey: .sequenceModel) ?? d.sequenceModel
+        sequenceTemperature = try c.decodeIfPresent(Double.self, forKey: .sequenceTemperature) ?? d.sequenceTemperature
+        firstShellTemperature = try c.decodeIfPresent(Double.self, forKey: .firstShellTemperature) ?? d.firstShellTemperature
         verification        = try c.decodeIfPresent(RFD3Verification.self, forKey: .verification) ?? d.verification
     }
 }

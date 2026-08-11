@@ -55,7 +55,7 @@ final class RunController: ObservableObject {
         runner.launch(
             executable: AppPaths.runnerScript,
             arguments: args,
-            environment: CommandBuilder.environment(),
+            environment: CommandBuilder.environment(request: request),
             workingDir: AppPaths.pipeline,
             onLine: { [weak self] line in self?.appendLog(line) },
             onExit: { [weak self] code in self?.finish(code: code) }
