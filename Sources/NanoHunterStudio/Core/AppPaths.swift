@@ -62,7 +62,8 @@ enum AppPaths {
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
-    static var rfd3CampaignScript: URL { rfd3ScriptsDir.appendingPathComponent("rfd3_campaign.py") }
+    static var rfd3PrepareScript: URL { rfd3ScriptsDir.appendingPathComponent("prepare_campaign.py") }
+    static var rfd3ProteinScript: URL { rfd3ScriptsDir.appendingPathComponent("rfd3_protein_campaign.py") }
     static var rfd3InspectScript: URL { rfd3ScriptsDir.appendingPathComponent("inspect_target.py") }
 
     static var runnerScript: URL { pipeline.appendingPathComponent("nanohunter_run.sh") }

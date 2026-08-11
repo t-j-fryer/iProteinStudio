@@ -1,9 +1,19 @@
 import Foundation
 import Combine
 
-/// Drives an RFdiffusion3 campaign: writes the campaign JSON, launches the
-/// vendored orchestrator, and parses its `RFSTAGE` / `RFINFO` / `RFDONE` /
-/// `RFFAIL` markers into progress the dashboard can show.
+/// Drives an RFdiffusion3 campaign.
+///
+/// **Studio does not orchestrate RFdiffusion3.** The production pipeline lives in
+/// the RFD3 repo and is validated end to end there; Studio prepares its inputs,
+/// launches it with the repo's own detached launcher, and polls the repo's own
+/// status script. That division matters for two reasons:
+///
+/// * A 1,000-backbone campaign runs for days. It must survive the app quitting,
+///   so it is double-forked under `caffeinate -dims` with a PID file — the app
+///   reattaches to a running campaign rather than owning it.
+/// * The pipeline encodes fixes that are invisible from the outside, above all
+///   the binder-length versus Foundry-total-length accounting. Reimplementing it
+///   here would silently reintroduce those bugs.
 @MainActor
 final class RFD3Controller: ObservableObject {
     @Published var phase: RunPhase = .idle
@@ -12,28 +22,38 @@ final class RFD3Controller: ObservableObject {
     @Published var currentMessage: String = ""
     @Published var log: [String] = []
     @Published var campaignRoot: URL?
+    @Published var counts: [String: Int] = [:]
+    @Published var completedStages: [String] = []
+    @Published var isPreparing = false
 
     private var runner: ProcessRunner?
+    private var pollTimer: Timer?
+    private var configURL: URL?
 
     var isRunning: Bool { if case .running = phase { return true }; return false }
 
-    /// The RFD3 checkout Studio should drive — either installed under the app's
-    /// managed directory or symlinked to an existing one.
+    // MARK: Availability
+
+    /// The RFD3 checkout Studio drives — installed under the managed directory
+    /// or symlinked to an existing one.
     static var rfd3Root: URL? {
         let root = AppPaths.rfd3Root
-        let marker = root.appendingPathComponent("scripts/generate_backbones.py")
+        let marker = root.appendingPathComponent("scripts/design_from_yaml.py")
         return AppPaths.fm.fileExists(atPath: marker.path) ? root : nil
     }
 
-    static var isAvailable: Bool {
-        guard let root = rfd3Root else { return false }
-        return AppPaths.fm.fileExists(atPath: root.appendingPathComponent(".venv/bin/python").path)
-    }
+    static var isAvailable: Bool { unavailableReason == nil }
 
     /// Why RFD3 cannot run, phrased for the user. `nil` when it can.
     static var unavailableReason: String? {
-        guard let root = rfd3Root else {
+        let root = AppPaths.rfd3Root
+        guard AppPaths.fm.fileExists(atPath: root.path) else {
             return "RFdiffusion3 isn't set up yet. Add it from Setup, or link an existing RFD3 folder."
+        }
+        // design_from_yaml.py carries the binder-length fix and the atom
+        // preflight. An older checkout would fail deep inside Foundry instead.
+        guard AppPaths.fm.fileExists(atPath: root.appendingPathComponent("scripts/design_from_yaml.py").path) else {
+            return "Your RFdiffusion3 checkout is missing scripts/design_from_yaml.py, so it predates the binder-length fix. Update it before running a campaign."
         }
         if !AppPaths.fm.fileExists(atPath: root.appendingPathComponent(".venv/bin/python").path) {
             return "The RFdiffusion3 Python environment is missing. Re-run setup with RFdiffusion3 selected."
@@ -44,114 +64,224 @@ final class RFD3Controller: ObservableObject {
         return nil
     }
 
+    /// True when the NISE small-molecule pipeline is present.
+    static var hasNISEPipeline: Bool {
+        guard let root = rfd3Root else { return false }
+        return AppPaths.fm.fileExists(atPath: root.appendingPathComponent("scripts/run_rfd3_nise_campaign.py").path)
+    }
+
     // MARK: Launch
 
     func start(project: Project, request: RFD3Request) {
-        guard !isRunning else { return }
+        guard !isRunning, !isPreparing else { return }
         guard let rfd3Root = Self.rfd3Root else {
             phase = .failed(Self.unavailableReason ?? "RFdiffusion3 is not available.")
             return
         }
+        AppPaths.stageRFD3Scripts()
 
         let campaign = AppPaths.projectDir(project).appendingPathComponent("rfd3", isDirectory: true)
-        try? AppPaths.fm.createDirectory(at: campaign, withIntermediateDirectories: true)
+        try? AppPaths.fm.createDirectory(at: campaign.appendingPathComponent("config"),
+                                         withIntermediateDirectories: true)
         campaignRoot = campaign
 
-        let configURL = campaign.appendingPathComponent("config").appendingPathComponent("campaign.json")
+        // Preparation is fast and GPU-free: it builds the ligand component,
+        // writes the design YAML, and runs the atom preflight. Doing it before
+        // detaching means a bad atom name is reported in the UI in a second,
+        // rather than turning up in a log file hours later.
+        let requestURL = campaign.appendingPathComponent("config/studio_request.json")
         do {
-            try AppPaths.fm.createDirectory(at: configURL.deletingLastPathComponent(),
-                                            withIntermediateDirectories: true)
-            let config = Self.campaignConfig(project: project, request: request,
+            let payload = Self.studioRequest(project: project, request: request,
                                              campaign: campaign, rfd3Root: rfd3Root)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(config).write(to: configURL)
+            try encoder.encode(payload).write(to: requestURL)
         } catch {
             phase = .failed("Could not write the campaign settings: \(error.localizedDescription)")
             return
         }
 
+        isPreparing = true
         phase = .running
         progress = 0
         log = []
-        currentStage = "target"
-        currentMessage = "Starting…"
+        currentStage = "prepare"
+        currentMessage = "Checking your design settings…"
 
-        let runner = ProcessRunner()
-        self.runner = runner
-        // caffeinate keeps a multi-hour campaign alive across idle sleep. Without
-        // it a laptop that dozes mid-run loses the GPU work in flight.
-        runner.launch(
-            executable: URL(fileURLWithPath: "/usr/bin/caffeinate"),
-            arguments: ["-dimsu",
-                        rfd3Root.appendingPathComponent(".venv/bin/python").path,
-                        AppPaths.rfd3CampaignScript.path,
-                        "--config", configURL.path],
+        let prepare = ProcessRunner()
+        self.runner = prepare
+        var prepared: URL?
+        prepare.launch(
+            executable: rfd3Root.appendingPathComponent(".venv/bin/python"),
+            arguments: [AppPaths.rfd3PrepareScript.path, requestURL.path],
             environment: CommandBuilder.environment(),
             workingDir: rfd3Root,
-            onLine: { [weak self] line in self?.handle(line) },
-            onExit: { [weak self] code in self?.exit(code) }
+            onLine: { [weak self] line in
+                guard let self else { return }
+                if line.hasPrefix("PREPOK|") {
+                    prepared = URL(fileURLWithPath: String(line.dropFirst("PREPOK|".count)))
+                } else if line.hasPrefix("PREPFAIL|") {
+                    self.phase = .failed(String(line.dropFirst("PREPFAIL|".count)))
+                } else if !line.isEmpty {
+                    self.log.append(line)
+                }
+            },
+            onExit: { [weak self] code in
+                guard let self else { return }
+                self.isPreparing = false
+                if case .failed = self.phase { return }
+                guard code == 0, let config = prepared else {
+                    self.phase = .failed("Your design settings were rejected. \(self.log.suffix(3).joined(separator: " "))")
+                    return
+                }
+                self.launchCampaign(config: config, request: request, rfd3Root: rfd3Root)
+            }
         )
     }
 
+    /// Hand the prepared campaign to the RFD3 repo's own detached launcher.
+    private func launchCampaign(config: URL, request: RFD3Request, rfd3Root: URL) {
+        configURL = config
+        currentStage = "validate"
+        currentMessage = "Starting the campaign…"
+
+        let isSmallMolecule = request.targetKind == .smallMolecule
+        let launcher = isSmallMolecule
+            ? rfd3Root.appendingPathComponent("scripts/launch_rfd3_nise_campaign.py").path
+            : AppPaths.rfd3ProteinScript.path
+
+        if isSmallMolecule && !Self.hasNISEPipeline {
+            phase = .failed("Your RFdiffusion3 checkout has no scripts/run_rfd3_nise_campaign.py, so the small-molecule pipeline isn't available. Update it.")
+            return
+        }
+
+        let runner = ProcessRunner()
+        self.runner = runner
+        // The small-molecule launcher double-forks and returns immediately, so
+        // the campaign outlives this process and the app. The protein path is
+        // shorter, so it is run in the foreground under caffeinate.
+        let executable = isSmallMolecule
+            ? rfd3Root.appendingPathComponent(".venv/bin/python")
+            : URL(fileURLWithPath: "/usr/bin/caffeinate")
+        let arguments = isSmallMolecule
+            ? [launcher, "--config", config.path]
+            : ["-dims", rfd3Root.appendingPathComponent(".venv/bin/python").path,
+               launcher, "--config", config.path]
+
+        runner.launch(
+            executable: executable,
+            arguments: arguments,
+            environment: CommandBuilder.environment(),
+            workingDir: rfd3Root,
+            onLine: { [weak self] line in self?.handle(line) },
+            onExit: { [weak self] code in self?.exit(code, detached: isSmallMolecule) }
+        )
+        if isSmallMolecule { startPolling() }
+    }
+
     func cancel() {
+        pollTimer?.invalidate(); pollTimer = nil
+        // A detached campaign is not ours to kill from here; stop the PID it
+        // recorded, then let polling notice.
+        if let campaign = campaignRoot {
+            let pidFile = campaign.appendingPathComponent("campaign.pid")
+            if let text = try? String(contentsOf: pidFile, encoding: .utf8),
+               let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                kill(pid, SIGTERM)
+            }
+        }
         runner?.cancel()
         phase = .cancelled
         currentMessage = "Cancelled."
     }
 
-    // MARK: Config
+    // MARK: Reattach + polling
 
-    /// Mirrors the JSON shape `rfd3_campaign.py` expects. Encoded through
-    /// `AnyCodable` rather than a struct-per-field so the ligand spec — whose
-    /// shape is owned by `prepare_ligand_target.py` — stays in one place.
-    static func campaignConfig(project: Project, request: RFD3Request,
-                               campaign: URL, rfd3Root: URL) -> RFD3CampaignConfig {
-        var config = RFD3CampaignConfig()
-        config.rfd3_root = rfd3Root.path
-        config.campaign_dir = campaign.path
-        config.design_name = project.slug
-        config.nanohunter_root = AppPaths.support.path
-        config.target_kind = request.targetKind == .smallMolecule ? "small_molecule" : "protein"
+    /// Look for a campaign already running for this project and reattach to it.
+    /// A multi-day run must not appear to have vanished because the app restarted.
+    func reattachIfRunning(project: Project) {
+        let campaign = AppPaths.projectDir(project).appendingPathComponent("rfd3", isDirectory: true)
+        let config = campaign.appendingPathComponent("config/campaign.json")
+        guard AppPaths.fm.fileExists(atPath: config.path) else { return }
+        campaignRoot = campaign
+        configURL = config
+        refreshStatus()
+        if isRunning { startPolling() }
+    }
 
-        config.min_length = request.minLength
-        config.max_length = request.maxLength
-        config.num_bins = max(1, request.numBins)
-        config.num_designs = max(1, request.numDesigns)
-        config.timesteps = request.timesteps
-        config.recycles = request.recycles
-        config.batch_size = request.batchSize
-        config.queues_per_bin = request.queuesPerBin
-        config.precision = request.precision
-        config.seed_base = request.seedBase
-
-        // Spelled is_non_loopy. The user-facing name is "prefer structured".
-        config.is_non_loopy = request.preferStructured
-        config.infer_ori_strategy = request.originStrategy.specValue
-        if request.originStrategy == .explicit { config.ori_token = request.originXYZ }
-
-        switch request.targetKind {
-        case .smallMolecule:
-            config.component_id = request.componentCode.uppercased()
-            var spec: [String: AnyCodable] = ["smiles": AnyCodable(request.smiles)]
-            for condition in AtomCondition.allCases {
-                let sites = request.sites(with: condition)
-                guard !sites.isEmpty else { continue }
-                spec[condition.specKey] = AnyCodable(["LIGAND": sites.joined(separator: ",")])
-            }
-            config.ligand_spec = spec
-        case .protein:
-            config.target_structure = request.targetStructurePath
-            config.contig = request.targetContig
-            config.hotspots = request.sites(with: .hotspot)
+    private func startPolling() {
+        pollTimer?.invalidate()
+        // Campaign stages are minutes to hours long; polling faster would only
+        // spawn processes for no new information.
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refreshStatus() }
         }
+        refreshStatus()
+    }
 
-        config.predictors = request.verification.predictors.map(\.runnerValue)
-        config.use_potentials = request.verification.useBoltzPotentials
-        config.run_affinity = request.verification.runAffinityHead
-        config.run_apo = request.verification.runApoCheck
-        config.top_n = request.verification.topN
-        return config
+    /// Ask the RFD3 repo's status script where the campaign is.
+    func refreshStatus() {
+        guard let config = configURL, let rfd3Root = Self.rfd3Root else { return }
+        let script = rfd3Root.appendingPathComponent("scripts/status_rfd3_nise_campaign.py")
+        guard AppPaths.fm.fileExists(atPath: script.path) else { return }
+
+        let process = Process()
+        process.executableURL = rfd3Root.appendingPathComponent(".venv/bin/python")
+        process.arguments = [script.path, "--config", config.path, "--tail", "0"]
+        process.currentDirectoryURL = rfd3Root
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        guard let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        completedStages = payload["completed_stages"] as? [String] ?? []
+        if let stage = payload["current_stage"] as? String { currentStage = stage }
+        counts = payload["counts"] as? [String: Int] ?? [:]
+
+        let alive = payload["process_alive"] as? Bool ?? false
+        if alive {
+            phase = .running
+            currentMessage = describe(stage: currentStage)
+        } else if completedStages.contains("rmsd") {
+            phase = .finished
+            progress = 1.0
+            currentMessage = "Campaign finished."
+            pollTimer?.invalidate(); pollTimer = nil
+        } else if case .running = phase {
+            phase = .failed("The campaign stopped during \(currentStage.isEmpty ? "startup" : currentStage). Check campaign.stdout.log in the campaign folder.")
+            pollTimer?.invalidate(); pollTimer = nil
+        }
+        progress = fractionComplete()
+    }
+
+    private func describe(stage: String) -> String {
+        switch stage {
+        case "validate":     return "Checking the target and building the chemical component…"
+        case "fixtures":     return "Building one fixture per binder length…"
+        case "backbones":    return "Generating backbones — \(counts["backbones"] ?? 0) so far"
+        case "mpnn":         return "Designing sequences — \(counts["sequences"] ?? 0) so far"
+        case "predict-holo": return "Folding designs with the target — \(counts["holo_predictions"] ?? 0) so far"
+        case "score":        return "Ranking by ligand pLDDT and P(bind)…"
+        case "predict-apo":  return "Folding the best designs on their own — \(counts["apo_predictions"] ?? 0) so far"
+        case "rmsd":         return "Measuring binding-site preorganisation…"
+        default:             return stage.isEmpty ? "Working…" : stage
+        }
+    }
+
+    /// Weighted by where the time actually goes: the affinity-enabled folds
+    /// dominate a campaign, so a stage-count progress bar would sit at "nearly
+    /// done" for days.
+    private func fractionComplete() -> Double {
+        let weights: [(String, Double)] = [("validate", 0.01), ("fixtures", 0.03),
+                                           ("backbones", 0.16), ("mpnn", 0.10),
+                                           ("predict-holo", 0.55), ("score", 0.01),
+                                           ("predict-apo", 0.12), ("rmsd", 0.02)]
+        var total = 0.0
+        for (stage, weight) in weights where completedStages.contains(stage) { total += weight }
+        return min(1.0, total)
     }
 
     // MARK: Output parsing
@@ -167,97 +297,115 @@ final class RFD3Controller: ObservableObject {
             log.append(parts[1])
         } else if line.hasPrefix("RFFAIL|"), parts.count >= 2 {
             phase = .failed(parts.dropFirst().joined(separator: "|"))
-        } else if line.hasPrefix("RFDONE|") {
-            progress = 1.0
         } else if !line.isEmpty {
             log.append(line)
         }
         if log.count > 500 { log.removeFirst(log.count - 500) }
     }
 
-    private func exit(_ code: Int32) {
+    private func exit(_ code: Int32, detached: Bool) {
         if case .failed = phase { return }
         if case .cancelled = phase { return }
+        if detached {
+            // The launcher returning only means the campaign was handed off.
+            // Polling decides whether it is actually alive.
+            refreshStatus()
+            return
+        }
         if code == 0 {
             phase = .finished
             progress = 1.0
-            currentMessage = "Campaign finished."
+            currentMessage = "Finished."
         } else {
             phase = .failed("RFdiffusion3 exited with code \(code). See the log below.")
         }
     }
+
+    // MARK: Request payload
+
+    /// What `prepare_campaign.py` consumes. Written to
+    /// `<project>/rfd3/config/studio_request.json` so a campaign can be rebuilt
+    /// from disk without the app.
+    static func studioRequest(project: Project, request: RFD3Request,
+                              campaign: URL, rfd3Root: URL) -> RFD3StudioRequest {
+        var payload = RFD3StudioRequest()
+        payload.rfd3_root = rfd3Root.path
+        payload.campaign_dir = campaign.path
+        payload.design_name = project.slug
+        payload.nanohunter_root = AppPaths.support.path
+        payload.target_kind = request.targetKind == .smallMolecule ? "small_molecule" : "protein"
+
+        payload.lengths = request.binLengths
+        payload.num_backbones = max(1, request.numDesigns)
+        payload.timesteps = request.timesteps
+        payload.recycles = request.recycles
+        payload.batch_size = request.batchSize
+        payload.queues_per_bin = request.queuesPerBin
+        payload.precision = request.precision
+        payload.seed_base = request.seedBase
+        payload.sequences_per_backbone = request.sequencesPerBackbone
+        payload.top_n = request.verification.topN
+        payload.is_non_loopy = request.preferStructured
+        payload.infer_ori_strategy = request.originStrategy.specValue
+        if request.originStrategy == .explicit { payload.ori_token = request.originXYZ }
+
+        switch request.targetKind {
+        case .smallMolecule:
+            payload.component_id = request.componentCode.uppercased()
+            payload.ligand_source = request.ligandSource == .smiles ? "smiles" : "structure_file"
+            payload.smiles = request.smiles
+            payload.ligand_structure = request.ligandStructurePath
+            payload.ligand_residue = request.ligandResidueName
+        case .protein:
+            payload.target_structure = request.targetStructurePath
+            // Contig carries the binder range plus the fixed target motif.
+            // design_from_yaml.py converts binder length to Foundry's total
+            // component length per bin; writing `length` here would break that.
+            let motif = request.targetContig.isEmpty
+                ? "\(request.targetChain)1-1"
+                : request.targetContig
+            payload.contig = "\(request.minLength)-\(request.maxLength),/0,\(motif)"
+        }
+
+        payload.conditions = request.conditions.mapValues { $0.map(\.rawValue).sorted() }
+        return payload
+    }
 }
 
-/// The on-disk campaign settings. Written verbatim to
-/// `<project>/rfd3/config/campaign.json` so a run is reproducible from the file
-/// alone — the same campaign can be re-run from a terminal without the app.
-struct RFD3CampaignConfig: Codable {
+/// The Studio-side request. Deliberately flat and JSON-native so
+/// `prepare_campaign.py` owns the translation into RFD3's own file formats.
+struct RFD3StudioRequest: Codable {
     var rfd3_root: String = ""
     var campaign_dir: String = ""
     var design_name: String = "design"
     var nanohunter_root: String = ""
     var target_kind: String = "small_molecule"
 
-    // Small molecule
     var component_id: String?
-    var ligand_spec: [String: AnyCodable]?
+    var ligand_source: String?
+    var smiles: String?
+    var ligand_structure: String?
+    var ligand_residue: String?
 
-    // Protein
     var target_structure: String?
     var contig: String?
-    var hotspots: [String]?
 
-    // Conditioning
+    var conditions: [String: [String]] = [:]
     var is_non_loopy: Bool = true
     var infer_ori_strategy: String?
     var ori_token: [Double]?
 
-    // Shape and sampling
-    var min_length: Int = 65
-    var max_length: Int = 150
-    var num_bins: Int = 10
-    var num_designs: Int = 100
+    var lengths: [Int] = [65]
+    var num_backbones: Int = 100
     var timesteps: Int = 200
     var recycles: Int = 2
-    var batch_size: Int = 8
+    var batch_size: Int = 4
     var queues_per_bin: Int = 2
     var precision: String = "bf16"
     var seed_base: Int = 0
-
-    // Verification
-    var predictors: [String] = ["boltz"]
-    var use_potentials: Bool = true
-    var run_affinity: Bool = true
-    var run_apo: Bool = true
+    var sequences_per_backbone: Int = 4
     var top_n: Int = 100
-    var predict_max_parallel: Int = 4
+    var mpnn_max_parallel: Int = 6
     var boltz_chunk_size: Int = 50
     var boltz_calibrate_n: Int = 12
-}
-
-/// Minimal type-erased JSON value, enough for the ligand spec whose shape is
-/// owned by `prepare_ligand_target.py` rather than by Studio.
-struct AnyCodable: Codable, Hashable {
-    private enum Value: Codable, Hashable {
-        case string(String)
-        case dictionary([String: String])
-    }
-    private let value: Value
-
-    init(_ string: String) { value = .string(string) }
-    init(_ dictionary: [String: String]) { value = .dictionary(dictionary) }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch value {
-        case .string(let s):     try container.encode(s)
-        case .dictionary(let d): try container.encode(d)
-        }
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if let s = try? container.decode(String.self) { value = .string(s); return }
-        value = .dictionary(try container.decode([String: String].self))
-    }
 }

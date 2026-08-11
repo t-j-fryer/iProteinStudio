@@ -440,49 +440,51 @@ struct RFD3View: View {
     // MARK: Verification
 
     private var verificationSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Designed sequences are re-folded independently. This is the evidence that a design is worth making.")
-                .font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        let kind = request.wrappedValue.targetKind
+        return VStack(alignment: .leading, spacing: 10) {
+            if kind.supportsVerification {
+                Text("Designed sequences are folded back with the ligand present, scored by ligand pLDDT plus predicted binding probability, and the best ones are folded again on their own.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            ForEach(Predictor.designChoices) { p in
-                Toggle(isOn: Binding(
-                    get: { request.wrappedValue.verification.predictors.contains(p) },
-                    set: { on in
-                        if on { request.wrappedValue.verification.predictors.append(p) }
-                        else { request.wrappedValue.verification.predictors.removeAll { $0 == p } }
-                    }
-                )) {
-                    HStack(spacing: 6) {
-                        Text(p.label)
-                        if p.hasAffinityHead {
-                            Text("· has an affinity head").font(.caption).foregroundStyle(.secondary)
-                        }
-                        if !app.installer.isUsable(p.component) {
-                            Label("not installed", systemImage: "exclamationmark.circle")
-                                .font(.caption2).foregroundStyle(.orange)
-                        }
+                LabeledContent("Sequences per backbone") {
+                    Stepper(value: request.sequencesPerBackbone, in: 1...16) {
+                        Text("\(request.wrappedValue.sequencesPerBackbone)").monospacedDigit()
                     }
                 }
-                .toggleStyle(.checkbox)
-                .disabled(!app.installer.isUsable(p.component))
-                .help(p.caveat.isEmpty ? p.blurb : p.caveat)
-            }
+                LabeledContent("Keep the best") {
+                    Stepper(value: request.verification.topN, in: 10...500, step: 10) {
+                        Text("\(request.wrappedValue.verification.topN)").monospacedDigit()
+                    }
+                }
 
-            Divider().padding(.vertical, 2)
-            Toggle("Predict binding affinity (Boltz only)", isOn: request.verification.runAffinityHead)
-                .toggleStyle(.checkbox)
-            Toggle("Also fold the best designs on their own, without the target",
-                   isOn: request.verification.runApoCheck)
-                .toggleStyle(.checkbox)
-            Text("The second check catches binders that only fold when the target holds them together — a common and expensive failure.")
-                .font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                Divider().padding(.vertical, 2)
+                Toggle("Also fold the best designs on their own, without the ligand",
+                       isOn: request.verification.runApoCheck)
+                    .toggleStyle(.checkbox)
+                Text("Comparing the two tells you whether the binding site is already formed before the ligand arrives, or only assembles around it.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            if request.wrappedValue.verification.predictors.isEmpty {
-                Label("With nothing selected you'll get backbones and sequences, but no evidence that any of them fold.",
+                Label("Folding uses Boltz-2 with steering potentials and the affinity head. That combination is fixed: it is the only backend with an affinity head, and the ranking metric needs it.",
+                      systemImage: "info.circle")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                let folds = request.wrappedValue.numDesigns * request.wrappedValue.sequencesPerBackbone
+                Label("That is \(folds) folds with affinity enabled, which will dominate the run time — expect days, not hours, at this scale.",
+                      systemImage: "clock")
+                    .font(.caption).foregroundStyle(folds > 1000 ? .orange : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                LabeledContent("Sequences per backbone") {
+                    Stepper(value: request.sequencesPerBackbone, in: 1...16) {
+                        Text("\(request.wrappedValue.sequencesPerBackbone)").monospacedDigit()
+                    }
+                }
+                Label("Protein-target runs stop after sequence design. Folding a designed complex needs a target MSA that can't be built from an RFdiffusion3 spec alone — take the sequences to the Iterative design tab to check them.",
                       systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption).foregroundStyle(.orange)
+                    .font(.callout).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -518,13 +520,13 @@ struct RFD3View: View {
                     }
                 }
             }
-            if request.wrappedValue.batchSize != 8 || request.wrappedValue.queuesPerBin != 2 {
-                Label("The defaults (batch 8, 2 queues) are the measured optimum on this class of Mac. Batch 16 was nearly twice as slow, and 4 queues were slower than 2 even with plenty of memory free.",
+            if request.wrappedValue.queuesPerBin != 2 {
+                Label("Two concurrent queues is the measured optimum: it beat running them one after another by about 19%, and four queues were slower than two even with plenty of memory free.",
                       systemImage: "exclamationmark.triangle")
                     .font(.caption).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("Batch 8 across 2 queues is the measured optimum. It is fixed from measurement rather than from free memory — memory use barely changed across batch sizes while speed fell off sharply above 8.")
+                Text("Batch 4 across 2 queues is the production setting. Batch size is fixed from measurement, not from free memory — memory use barely changed across batch sizes while speed fell off sharply past the optimum, and the optimum drops as the ligand and binder get bigger.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -579,24 +581,37 @@ struct RFD3View: View {
 }
 
 /// Live progress for a running campaign.
+///
+/// A small-molecule campaign is detached and can run for days, so this view is
+/// driven by polled counts from the RFD3 repo's own status script rather than by
+/// streamed stdout — the app may not have been running when most of the work
+/// happened.
 struct RFD3ProgressView: View {
     @ObservedObject var controller: RFD3Controller
 
     private let stageOrder: [(String, String)] = [
-        ("target", "Target"), ("fixtures", "Length bins"), ("backbones", "Backbones"),
-        ("mpnn", "Sequences"), ("predict", "Folding"), ("score", "Ranking"),
-        ("apo", "Apo check"), ("rmsd", "Self-consistency"),
+        ("validate", "Target"), ("fixtures", "Length bins"), ("backbones", "Backbones"),
+        ("mpnn", "Sequences"), ("predict-holo", "Folding"), ("score", "Ranking"),
+        ("predict-apo", "Apo folding"), ("rmsd", "Preorganisation"),
+    ]
+
+    private let countLabels: [(String, String)] = [
+        ("backbones", "Backbones"), ("sequences", "Sequences"),
+        ("holo_predictions", "Folds with ligand"), ("top", "Selected"),
+        ("apo_predictions", "Apo folds"), ("rmsd_rows", "Preorganisation"),
     ]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("RFdiffusion3 campaign").font(.title2.bold())
                     Text(controller.currentMessage).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 if controller.isRunning {
+                    Button("Refresh") { controller.refreshStatus() }
                     Button("Stop", role: .destructive) { controller.cancel() }
                 } else {
                     Button("Back") { controller.campaignRoot = nil; controller.phase = .idle }
@@ -607,8 +622,7 @@ struct RFD3ProgressView: View {
 
             HStack(spacing: 6) {
                 ForEach(stageOrder, id: \.0) { key, label in
-                    let done = (stageOrder.firstIndex { $0.0 == key } ?? 0)
-                             < (stageOrder.firstIndex { $0.0 == controller.currentStage } ?? 0)
+                    let done = controller.completedStages.contains(key)
                     let active = controller.currentStage == key
                     Text(label)
                         .font(.caption)
@@ -619,6 +633,28 @@ struct RFD3ProgressView: View {
                 }
             }
 
+            if controller.isRunning {
+                Label("This campaign keeps running if you quit Studio — it is detached and holds the Mac awake. Reopen this project to check on it.",
+                      systemImage: "moon.zzz")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if !controller.counts.isEmpty {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 10) {
+                    ForEach(countLabels, id: \.0) { key, label in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(controller.counts[key] ?? 0)")
+                                .font(.title3.bold()).monospacedDigit()
+                            Text(label).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.3)))
+                    }
+                }
+            }
+
             if case .failed(let message) = controller.phase {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout).foregroundStyle(.orange)
@@ -626,20 +662,23 @@ struct RFD3ProgressView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("Log").font(.headline)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(controller.log.suffix(200).enumerated()), id: \.offset) { _, line in
-                        Text(line)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+            if !controller.log.isEmpty {
+                Text("Log").font(.headline)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(controller.log.suffix(200).enumerated()), id: \.offset) { _, line in
+                            Text(line)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
+                    .padding(8)
                 }
-                .padding(8)
+                .frame(maxHeight: 220)
+                .background(RoundedRectangle(cornerRadius: 8).fill(.background))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
             }
-            .background(RoundedRectangle(cornerRadius: 8).fill(.background))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
 
             if let root = controller.campaignRoot {
                 Button {
@@ -649,8 +688,10 @@ struct RFD3ProgressView: View {
                 }
                 .controlSize(.small)
             }
+            Spacer(minLength: 0)
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear { controller.refreshStatus() }
     }
 }

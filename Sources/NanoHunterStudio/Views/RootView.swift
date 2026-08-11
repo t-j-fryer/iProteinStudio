@@ -105,6 +105,9 @@ struct ProjectDetailView: View {
             }
         }
         .onAppear {
+            // A detached RFdiffusion3 campaign can outlive the app; reattach so a
+            // multi-day run does not look like it vanished on restart.
+            app.rfd3.reattachIfRunning(project: project)
             if app.rfd3.isRunning { mode = .rfdiffusion }
         }
     }

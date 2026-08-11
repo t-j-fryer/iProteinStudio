@@ -29,21 +29,20 @@ enum RFD3TargetKind: String, CaseIterable, Codable, Identifiable, Hashable {
         }
     }
 
-    /// RFD3 routing is deliberately restricted: protein targets use SolubleMPNN,
-    /// small molecules use LigandMPNN. AbMPNN and AntiFold stay nanobody-only.
-    var sequenceModel: String {
-        switch self {
-        case .protein:       return "soluble_mpnn"
-        case .smallMolecule: return "ligand_mpnn"
-        }
-    }
-
+    /// RFD3 routing is deliberately restricted. Small molecules use LASErMPNN
+    /// with NISE's exact settings -- it has a pretrained ligand encoder and
+    /// jointly decodes sequence and side-chain rotamers, which reduces
+    /// binding-site over-packing relative to LigandMPNN. Protein targets use
+    /// SolubleMPNN. AbMPNN and AntiFold stay nanobody-only.
     var sequenceModelLabel: String {
         switch self {
         case .protein:       return "SolubleMPNN"
-        case .smallMolecule: return "LigandMPNN"
+        case .smallMolecule: return "LASErMPNN (NISE settings)"
         }
     }
+
+    /// What the pipeline can carry through to verification for this target kind.
+    var supportsVerification: Bool { self == .smallMolecule }
 }
 
 /// How the user supplied the small molecule.
@@ -232,6 +231,9 @@ struct RFD3Request: Codable, Hashable {
     var maxLength: Int = 150
     var numBins: Int = 10
     var numDesigns: Int = 100
+    /// Explicit bin lengths, when the user has pinned them. Empty means derive
+    /// them from min/max/numBins.
+    var explicitLengths: [Int] = []
     /// Non-loopy conditioning, on by default: de-novo binders otherwise come out
     /// loop-heavy. The RFD3 field is spelled `is_non_loopy`.
     var preferStructured: Bool = true
@@ -239,9 +241,12 @@ struct RFD3Request: Codable, Hashable {
     // --- Sampling ---
     var timesteps: Int = 200
     var recycles: Int = 2
-    /// Measured native-batch optimum on an M4 Max (8.00 s/design for a protein
-    /// target, 6.95 s/design for a ligand). Batch 16 regressed for both.
-    var batchSize: Int = 8
+    /// Native MLX trajectory batch. 8 was the measured optimum on small
+    /// fixtures (81-131 tokens); the validated production campaign uses 4 for a
+    /// 33-atom ligand with binders up to 150 aa, so 4 is the safer default as
+    /// systems grow. Not derived from free memory -- peak footprint barely moved
+    /// between batch 1 and 32 while throughput collapsed above the optimum.
+    var batchSize: Int = 4
     /// Two concurrent shape queues beat serial by 19.2%; four regressed.
     var queuesPerBin: Int = 2
     var precision: String = "bf16"
@@ -259,6 +264,7 @@ struct RFD3Request: Codable, Hashable {
     /// different lengths cannot share a native tensor batch — so a length range
     /// is covered by evenly spaced bins, each internally batched by shape.
     var binLengths: [Int] {
+        if !explicitLengths.isEmpty { return explicitLengths.sorted() }
         let bins = max(1, numBins)
         guard bins > 1 else { return [minLength] }
         let step = Double(maxLength - minLength) / Double(bins - 1)
@@ -320,7 +326,7 @@ struct RFD3Request: Codable, Hashable {
         case targetKind, ligandSource, smiles, componentCode, ligandStructurePath, ligandResidueName
         case targetStructurePath, targetChain, targetContig
         case conditions, originStrategy, originXYZ
-        case minLength, maxLength, numBins, numDesigns, preferStructured
+        case minLength, maxLength, numBins, numDesigns, explicitLengths, preferStructured
         case timesteps, recycles, batchSize, queuesPerBin, precision, seedBase
         case sequencesPerBackbone, verification
     }
@@ -345,6 +351,7 @@ struct RFD3Request: Codable, Hashable {
         maxLength           = try c.decodeIfPresent(Int.self, forKey: .maxLength) ?? d.maxLength
         numBins             = try c.decodeIfPresent(Int.self, forKey: .numBins) ?? d.numBins
         numDesigns          = try c.decodeIfPresent(Int.self, forKey: .numDesigns) ?? d.numDesigns
+        explicitLengths     = try c.decodeIfPresent([Int].self, forKey: .explicitLengths) ?? d.explicitLengths
         preferStructured    = try c.decodeIfPresent(Bool.self, forKey: .preferStructured) ?? d.preferStructured
         timesteps           = try c.decodeIfPresent(Int.self, forKey: .timesteps) ?? d.timesteps
         recycles            = try c.decodeIfPresent(Int.self, forKey: .recycles) ?? d.recycles
