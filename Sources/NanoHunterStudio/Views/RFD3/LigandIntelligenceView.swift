@@ -12,6 +12,9 @@ struct LigandIntelligenceView: View {
     @Binding var request: RFD3Request
     let outputDir: URL
 
+    @State private var isConjugated = false
+    @State private var atomSymbols: [String] = []
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             controls
@@ -32,6 +35,7 @@ struct LigandIntelligenceView: View {
             }
         }
         .onChange(of: intelligence.selected) { _, _ in syncPlan() }
+        .onAppear { isConjugated = request.attachmentAtom != nil }
     }
 
     // MARK: Controls
@@ -48,24 +52,13 @@ struct LigandIntelligenceView: View {
                 .font(.caption2).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack {
-                Text("Attached to something?").font(.callout)
-                TextField("linker atom", value: Binding(
-                    get: { request.attachmentAtom ?? -1 },
-                    set: { request.attachmentAtom = $0 < 0 ? nil : $0 }
-                ), format: .number)
-                .textFieldStyle(.roundedBorder).frame(width: 70)
-                Text("Atom number where the linker leaves. Leave blank for a free molecule.")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-            Text("Getting this right matters: a PEG tail's flexibility is not conformational diversity that binding cares about, and left in it will dominate the analysis.")
-                .font(.caption2).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
+            Divider().padding(.vertical, 2)
+            attachmentPicker
             HStack {
                 Button {
                     intelligence.analyse(smiles: request.smiles,
                                          attachmentAtom: request.attachmentAtom,
+                                         attachmentSymbol: pickedSymbol,
                                          searchPDB: request.searchPDB,
                                          outputDir: outputDir)
                 } label: {
@@ -79,6 +72,74 @@ struct LigandIntelligenceView: View {
                 }
             }
         }
+    }
+
+    // MARK: Attachment point
+
+    /// Clicking the atom is the whole point: a typed index gives the user no way
+    /// to notice they picked the wrong one, and picking the wrong one quietly
+    /// ruins the analysis by counting a linker as recognition core.
+    private var attachmentPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("This molecule is attached to something (a protein, a surface, a bead)",
+                   isOn: Binding(
+                    get: { isConjugated },
+                    set: { on in
+                        isConjugated = on
+                        if !on { request.attachmentAtom = nil }
+                    }))
+                .toggleStyle(.checkbox).font(.callout)
+
+            if isConjugated {
+                Text(request.attachmentAtom == nil
+                     ? "Click the atom where the linker leaves the molecule."
+                     : "Linker leaves from atom \(request.attachmentAtom!)\(symbolSuffix). Click it again to clear.")
+                    .font(.caption)
+                    .foregroundStyle(request.attachmentAtom == nil ? .orange : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                LigandAtomPicker(
+                    smiles: request.smiles,
+                    attachmentAtom: $request.attachmentAtom,
+                    coreAtoms: intelligence.analysis?.core.coreAtoms ?? [],
+                    presentationAtoms: intelligence.analysis?.core.presentationAtoms ?? [],
+                    onAtomsResolved: { symbols in atomSymbols = symbols }
+                )
+                .frame(height: 260)
+                .background(RoundedRectangle(cornerRadius: 8).fill(.white))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+
+                if intelligence.analysis?.core.presentationAtoms.isEmpty == false {
+                    HStack(spacing: 14) {
+                        legendDot(.green.opacity(0.5), "binding core")
+                        legendDot(.orange.opacity(0.6), "linker — ignored when judging shape")
+                    }
+                    .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func legendDot(_ colour: Color, _ label: String) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(colour).frame(width: 9, height: 9)
+            Text(label)
+        }
+    }
+
+    /// Shown next to the chosen index so an atom-numbering mismatch between the
+    /// depiction and the analysis would be visible rather than silent.
+    /// Element of the clicked atom, as the depiction understands it.
+    private var pickedSymbol: String? {
+        guard let index = request.attachmentAtom,
+              atomSymbols.indices.contains(index) else { return nil }
+        return atomSymbols[index]
+    }
+
+    private var symbolSuffix: String {
+        guard let index = request.attachmentAtom,
+              atomSymbols.indices.contains(index) else { return "" }
+        return " (\(atomSymbols[index]))"
     }
 
     // MARK: Results

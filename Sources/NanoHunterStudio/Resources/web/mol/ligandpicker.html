@@ -1,0 +1,348 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body { margin: 0; height: 100%; width: 100%; overflow: hidden; }
+    /* Depictions read best on white; keep it white in both themes. */
+    body { background: #ffffff; display: flex; align-items: center; justify-content: center; }
+    #draw { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    #draw svg { max-width: 100%; max-height: 100%; }
+    #msg { position: absolute; font: 12px -apple-system, sans-serif; color: #999; text-align: center; padding: 0 20px; }
+    #hint { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center;
+            font: 11px -apple-system, sans-serif; color: #8a8a8a; pointer-events: none; }
+    .hit { cursor: pointer; }
+    .hit:hover ~ * { }
+  </style>
+  <script src="RDKit_minimal.js"></script>
+</head>
+<body>
+  <div id="draw"></div>
+  <div id="msg">Enter a SMILES string</div>
+  <div id="hint"></div>
+  <script>
+    "use strict";
+    var ready = false, pendingSmiles = "", currentMol = null;
+    var attachment = null;          // atom index the linker leaves from
+    var coreAtoms = null;           // set by the host after analysis
+    var presentationAtoms = null;
+    var atomPoints = [];            // [{i, u, v, sym}] in SVG pixel space
+    var drawEl = document.getElementById('draw');
+    var msgEl = document.getElementById('msg');
+    var hintEl = document.getElementById('hint');
+
+    // ---------------------------------------------------------------- host API
+
+    // The host injects the WASM bytes (base64) — fetch() is blocked on file://.
+    window.initRDKitWithWasm = function (b64) {
+      var bin;
+      try { bin = Uint8Array.from(window.atob(b64), function (c) { return c.charCodeAt(0); }); }
+      catch (e) { setMsg('Could not load the molecule renderer.'); return; }
+      initRDKitModule({ wasmBinary: bin }).then(function (RDKit) {
+        window.RDKit = RDKit; ready = true; render();
+      }).catch(function () { setMsg('Could not load the molecule renderer.'); });
+    };
+
+    window.drawSmilesB64 = function (b64) {
+      var next = b64 ? decodeURIComponent(escape(window.atob(b64))).trim() : "";
+      if (next !== pendingSmiles) { attachment = null; coreAtoms = null; presentationAtoms = null; }
+      pendingSmiles = next;
+      if (ready) render();
+    };
+
+    window.setAttachment = function (index) {
+      attachment = (index === null || index < 0) ? null : index;
+      decorate();
+    };
+
+    // Called once the analysis has run, so the split it actually used is shown
+    // on the same picture the user clicked. A wrong attachment point is then
+    // obvious at a glance instead of hiding in the numbers.
+    window.setRegions = function (coreJSON, presentationJSON) {
+      try {
+        coreAtoms = coreJSON ? new Set(JSON.parse(coreJSON)) : null;
+        presentationAtoms = presentationJSON ? new Set(JSON.parse(presentationJSON)) : null;
+      } catch (e) { coreAtoms = null; presentationAtoms = null; }
+      decorate();
+    };
+
+    function post(payload) {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ligand) {
+        window.webkit.messageHandlers.ligand.postMessage(payload);
+      }
+    }
+
+    function setMsg(t) { drawEl.innerHTML = ''; msgEl.textContent = t; msgEl.style.display = 'block'; hintEl.textContent = ''; }
+
+    // ------------------------------------------------------------- geometry
+
+    // Atom coordinates as RDKit laid them out, in molfile units.
+    function molfileCoords(molblock) {
+      var lines = molblock.split('\n');
+      if (lines.length < 4) return [];
+      var counts = lines[3];
+      var n = parseInt(counts.substring(0, 3), 10);
+      if (!isFinite(n) || n <= 0) return [];
+      var out = [];
+      for (var i = 0; i < n; i++) {
+        var line = lines[4 + i];
+        if (!line) break;
+        var x = parseFloat(line.substring(0, 10));
+        var y = parseFloat(line.substring(10, 20));
+        var sym = line.substring(31, 34).trim();
+        if (!isFinite(x) || !isFinite(y)) break;
+        out.push({ i: i, x: x, y: y, sym: sym });
+      }
+      return out;
+    }
+
+    // Where RDKit actually put each atom, read back out of its own drawing.
+    //
+    // Atom *labels* are drawn as glyph outlines whose bounding boxes sit beside
+    // the atom, not on it, which made them useless for calibration (tens of
+    // pixels out). Bond paths are exact: a bond carries "bond-K atom-I atom-J"
+    // and its first and last points are the two atom centres -- except where a
+    // label is drawn, in which case the end is pulled back to clear it. So only
+    // unlabelled ends are used as anchors.
+    function bondEndpointAnchors(svgEl) {
+      var labelled = {};
+      var all = svgEl.querySelectorAll('[class]');
+      var i, j, cls, atoms, k;
+      for (i = 0; i < all.length; i++) {
+        cls = (all[i].getAttribute('class') || '').split(/\s+/);
+        atoms = []; var isBond = false;
+        for (j = 0; j < cls.length; j++) {
+          if (cls[j].indexOf('bond-') === 0) isBond = true;
+          else if (cls[j].indexOf('atom-') === 0) atoms.push(parseInt(cls[j].slice(5), 10));
+        }
+        if (!isBond && atoms.length === 1) labelled[atoms[0]] = true;
+      }
+
+      var sums = {};
+      var paths = svgEl.querySelectorAll('path[class*="bond-"]');
+      for (i = 0; i < paths.length; i++) {
+        cls = (paths[i].getAttribute('class') || '').split(/\s+/);
+        atoms = [];
+        for (j = 0; j < cls.length; j++) {
+          if (cls[j].indexOf('atom-') === 0) atoms.push(parseInt(cls[j].slice(5), 10));
+        }
+        if (atoms.length !== 2) continue;
+        var d = paths[i].getAttribute('d') || '';
+        var pts = [], m, re = /(-?\d+\.?\d*),(-?\d+\.?\d*)/g;
+        while ((m = re.exec(d)) !== null) pts.push([parseFloat(m[1]), parseFloat(m[2])]);
+        if (pts.length < 2) continue;
+        var ends = [[atoms[0], pts[0]], [atoms[1], pts[pts.length - 1]]];
+        for (k = 0; k < 2; k++) {
+          var atom = ends[k][0], pt = ends[k][1];
+          if (labelled[atom]) continue;
+          if (!sums[atom]) sums[atom] = { u: 0, v: 0, n: 0 };
+          sums[atom].u += pt[0]; sums[atom].v += pt[1]; sums[atom].n += 1;
+        }
+      }
+      var out = {};
+      for (var key in sums) {
+        if (sums.hasOwnProperty(key)) out[key] = { u: sums[key].u / sums[key].n, v: sums[key].v / sums[key].n };
+      }
+      return out;
+    }
+
+    // Fit u = a*x + tx, v = -a*y + ty by least squares. A similarity transform
+    // with a y-flip is exactly what the drawer applies, so two labelled atoms
+    // are enough to recover it precisely.
+    function fitTransform(coords, centres) {
+      var xs = [], ys = [], us = [], vs = [];
+      for (var i = 0; i < coords.length; i++) {
+        var c = centres[coords[i].i];
+        if (!c) continue;
+        xs.push(coords[i].x); ys.push(coords[i].y); us.push(c.u); vs.push(c.v);
+      }
+      if (xs.length < 2) return null;
+      var n = xs.length, mean = function (a) { var s = 0; for (var k = 0; k < a.length; k++) s += a[k]; return s / a.length; };
+      var xc = mean(xs), yc = mean(ys), uc = mean(us), vc = mean(vs);
+      var num = 0, den = 0;
+      for (var k = 0; k < n; k++) {
+        num += (xs[k] - xc) * (us[k] - uc) - (ys[k] - yc) * (vs[k] - vc);
+        den += (xs[k] - xc) * (xs[k] - xc) + (ys[k] - yc) * (ys[k] - yc);
+      }
+      if (den < 1e-9) return null;
+      var a = num / den;
+      if (!isFinite(a) || Math.abs(a) < 1e-6) return null;
+      return { a: a, tx: uc - a * xc, ty: vc + a * yc };
+    }
+
+    // Fallback when the molecule has too few labelled atoms to calibrate
+    // against — a plain hydrocarbon, for instance. Fits the bounding box into
+    // the viewport the way the drawer does.
+    function boundingBoxTransform(coords, width, height) {
+      var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (var i = 0; i < coords.length; i++) {
+        minX = Math.min(minX, coords[i].x); maxX = Math.max(maxX, coords[i].x);
+        minY = Math.min(minY, coords[i].y); maxY = Math.max(maxY, coords[i].y);
+      }
+      var pad = 0.06 * Math.min(width, height) + 10;
+      var spanX = Math.max(maxX - minX, 1e-6), spanY = Math.max(maxY - minY, 1e-6);
+      var a = Math.min((width - 2 * pad) / spanX, (height - 2 * pad) / spanY);
+      var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+      return { a: a, tx: width / 2 - a * cx, ty: height / 2 + a * cy };
+    }
+
+    // ---------------------------------------------------------------- render
+
+    function render() {
+      if (!pendingSmiles) { setMsg('Enter a SMILES string'); return; }
+      var mol = null;
+      try { mol = window.RDKit.get_mol(pendingSmiles); } catch (e) { mol = null; }
+      if (!mol || !mol.is_valid || !mol.is_valid()) {
+        if (mol) mol.delete();
+        setMsg('That SMILES could not be read');
+        post({ type: 'invalid' });
+        return;
+      }
+
+      var w = Math.max(160, drawEl.clientWidth || 460);
+      var h = Math.max(140, drawEl.clientHeight || 260);
+      var molblock = "";
+      try { mol.set_new_coords(); } catch (e) {}
+      try { molblock = mol.get_molblock(); } catch (e) { molblock = ""; }
+      var svg = mol.get_svg(w, h);
+      mol.delete();
+
+      drawEl.innerHTML = svg;
+      msgEl.style.display = 'none';
+      var svgEl = drawEl.querySelector('svg');
+      if (!svgEl) { setMsg('Could not draw this molecule'); return; }
+
+      var coords = molfileCoords(molblock);
+      if (!coords.length) { hintEl.textContent = ''; return; }
+
+      var transform = fitTransform(coords, bondEndpointAnchors(svgEl)) ||
+                      boundingBoxTransform(coords, w, h);
+
+      atomPoints = coords.map(function (c) {
+        return { i: c.i, sym: c.sym, u: transform.a * c.x + transform.tx, v: -transform.a * c.y + transform.ty };
+      });
+
+      // Typical bond length in pixels sets a sensible hit radius: big enough to
+      // click comfortably, small enough not to overlap a neighbour.
+      var bond = medianNeighbourDistance(atomPoints);
+      var radius = Math.max(7, Math.min(16, bond * 0.38));
+
+      buildOverlay(svgEl, radius);
+      decorate();
+      post({ type: 'atoms', count: atomPoints.length,
+             symbols: atomPoints.map(function (p) { return p.sym; }) });
+      hintEl.textContent = 'Click the atom where the linker leaves the molecule';
+    }
+
+    function medianNeighbourDistance(points) {
+      if (points.length < 2) return 24;
+      var d = [];
+      for (var i = 0; i < points.length; i++) {
+        var best = Infinity;
+        for (var j = 0; j < points.length; j++) {
+          if (i === j) continue;
+          var dx = points[i].u - points[j].u, dy = points[i].v - points[j].v;
+          best = Math.min(best, Math.sqrt(dx * dx + dy * dy));
+        }
+        if (isFinite(best)) d.push(best);
+      }
+      d.sort(function (a, b) { return a - b; });
+      return d.length ? d[Math.floor(d.length / 2)] : 24;
+    }
+
+    function buildOverlay(svgEl, radius) {
+      // Pick the nearest atom to the pointer rather than hit-testing circles.
+      // The fitted transform is accurate to a few pixels, which is far smaller
+      // than the gap between atoms, so nearest-atom selection is right even when
+      // the fit is slightly off -- whereas a small circle could be missed.
+      svgEl.style.cursor = 'pointer';
+      svgEl.addEventListener('click', function (event) {
+        var p = nearestAtom(svgEl, event, radius * 2.2);
+        if (p === null) return;
+        attachment = (attachment === p.i) ? null : p.i;
+        decorate();
+        post({ type: 'pick', index: attachment === null ? -1 : attachment,
+               symbol: attachment === null ? '' : p.sym });
+      });
+      svgEl.addEventListener('mousemove', function (event) {
+        var p = nearestAtom(svgEl, event, radius * 2.2);
+        highlightHover(p === null ? null : p.i, radius);
+      });
+      svgEl.addEventListener('mouseleave', function () { highlightHover(null, radius); });
+    }
+
+    function nearestAtom(svgEl, event, maxDistance) {
+      var ctm = svgEl.getScreenCTM();
+      if (!ctm) return null;
+      var pt = svgEl.createSVGPoint();
+      pt.x = event.clientX; pt.y = event.clientY;
+      var local = pt.matrixTransform(ctm.inverse());
+      var best = null, bestD = Infinity;
+      for (var i = 0; i < atomPoints.length; i++) {
+        var dx = atomPoints[i].u - local.x, dy = atomPoints[i].v - local.y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < bestD) { bestD = dist; best = atomPoints[i]; }
+      }
+      return (best && bestD <= maxDistance) ? best : null;
+    }
+
+    // Region shading is drawn *under* the structure so atom labels stay legible.
+    function decorate() {
+      var svgEl = drawEl.querySelector('svg');
+      if (!svgEl || !atomPoints.length) return;
+      var ns = 'http://www.w3.org/2000/svg';
+      var old = svgEl.querySelector('#nh-shade');
+      if (old) old.parentNode.removeChild(old);
+
+      var g = document.createElementNS(ns, 'g');
+      g.setAttribute('id', 'nh-shade');
+      var bond = medianNeighbourDistance(atomPoints);
+      var r = Math.max(8, Math.min(18, bond * 0.46));
+
+      atomPoints.forEach(function (p) {
+        var fill = null;
+        if (presentationAtoms && presentationAtoms.has(p.i)) fill = 'rgba(245, 158, 11, 0.22)';
+        else if (coreAtoms && coreAtoms.has(p.i)) fill = 'rgba(16, 185, 129, 0.18)';
+        if (fill) {
+          var c = document.createElementNS(ns, 'circle');
+          c.setAttribute('cx', p.u); c.setAttribute('cy', p.v); c.setAttribute('r', r);
+          c.setAttribute('fill', fill); c.setAttribute('stroke', 'none');
+          g.appendChild(c);
+        }
+        if (attachment === p.i) {
+          var ring = document.createElementNS(ns, 'circle');
+          ring.setAttribute('cx', p.u); ring.setAttribute('cy', p.v);
+          ring.setAttribute('r', r + 2);
+          ring.setAttribute('fill', 'rgba(59, 130, 246, 0.18)');
+          ring.setAttribute('stroke', '#2563eb');
+          ring.setAttribute('stroke-width', '2.2');
+          g.appendChild(ring);
+        }
+      });
+      svgEl.insertBefore(g, svgEl.firstChild);
+    }
+
+    function highlightHover(index, radius) {
+      var svgEl = drawEl.querySelector('svg');
+      if (!svgEl) return;
+      var ns = 'http://www.w3.org/2000/svg';
+      var old = svgEl.querySelector('#nh-hover');
+      if (old) old.parentNode.removeChild(old);
+      if (index === null) return;
+      var p = atomPoints[index];
+      if (!p) return;
+      var c = document.createElementNS(ns, 'circle');
+      c.setAttribute('id', 'nh-hover');
+      c.setAttribute('cx', p.u); c.setAttribute('cy', p.v);
+      c.setAttribute('r', radius + 1);
+      c.setAttribute('fill', 'none');
+      c.setAttribute('stroke', '#94a3b8');
+      c.setAttribute('stroke-width', '1.6');
+      c.setAttribute('pointer-events', 'none');
+      svgEl.appendChild(c);
+    }
+
+    window.addEventListener('resize', function () { if (ready && pendingSmiles) render(); });
+  </script>
+</body>
+</html>

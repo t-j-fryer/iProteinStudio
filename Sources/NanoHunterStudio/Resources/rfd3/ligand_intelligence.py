@@ -584,6 +584,18 @@ def main() -> None:
 
     attachment = req.get("attachment_atom")
     attachment = int(attachment) if attachment is not None else None
+
+    # The picker and this script both index atoms by SMILES input order, which
+    # RDKit preserves. Cross-checking the element makes a numbering mismatch
+    # loud instead of silently splitting the molecule in the wrong place.
+    expected_symbol = req.get("attachment_symbol")
+    if attachment is not None and expected_symbol:
+        if attachment >= mol.GetNumAtoms():
+            fail(f"Atom {attachment} does not exist in this molecule.")
+        actual = mol.GetAtomWithIdx(attachment).GetSymbol().upper()
+        if actual != str(expected_symbol).upper():
+            fail(f"The atom you picked reads as {expected_symbol} in the picture but "
+                 f"{actual} here, so the numbering does not line up. Re-enter the SMILES.")
     core, presentation, split_rule = split_core_and_presentation(mol, attachment)
 
     total_rot = rotatable_bonds(mol)

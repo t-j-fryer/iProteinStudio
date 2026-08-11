@@ -154,7 +154,8 @@ final class LigandIntelligence: ObservableObject {
         return Array(zip(chosen, shares))
     }
 
-    func analyse(smiles: String, attachmentAtom: Int?, searchPDB: Bool, outputDir: URL) {
+    func analyse(smiles: String, attachmentAtom: Int?, attachmentSymbol: String? = nil,
+                 searchPDB: Bool, outputDir: URL) {
         guard !isRunning else { return }
         guard let rfd3Root = RFD3Controller.rfd3Root else {
             error = RFD3Controller.unavailableReason ?? "RFdiffusion3 is not available."
@@ -168,6 +169,7 @@ final class LigandIntelligence: ObservableObject {
         let request: [String: Any] = [
             "smiles": smiles,
             "attachment_atom": attachmentAtom as Any,
+            "attachment_symbol": (attachmentSymbol ?? "") as Any,
             "search_pdb": searchPDB,
             "output_dir": outputDir.path,
         ].compactMapValues { $0 is NSNull ? nil : $0 }
