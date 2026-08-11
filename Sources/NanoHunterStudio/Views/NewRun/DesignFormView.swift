@@ -7,6 +7,8 @@ struct DesignFormView: View {
     let project: Project
     @State private var showAdvanced = false
     @State private var showTargetPrep = false
+    @StateObject private var ligandAtoms = BoltzLigandAtoms()
+    @StateObject private var ligandIntelligence = LigandIntelligence()
 
     private var request: Binding<DesignRequest> {
         Binding(
@@ -82,6 +84,16 @@ struct DesignFormView: View {
                             Label("Predict 3D structure of this ligand", systemImage: "cube.transparent")
                         }
                         .disabled(request.wrappedValue.targetSmiles.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                        if !request.wrappedValue.targetSmiles.trimmingCharacters(in: .whitespaces).isEmpty {
+                            Divider().padding(.vertical, 4)
+                            LigandTargetingView(
+                                request: request,
+                                atoms: ligandAtoms,
+                                intelligence: ligandIntelligence,
+                                outputDir: AppPaths.projectDir(project)
+                                    .appendingPathComponent("ligand", isDirectory: true))
+                        }
                     }
                 }
 
@@ -153,7 +165,7 @@ struct DesignFormView: View {
     private var startBar: some View {
         HStack(spacing: 12) {
             let r = request.wrappedValue
-            if !r.isRunnable {
+            if !r.isRunnable || r.ligandAtomsStale {
                 Label(missingReason(r), systemImage: "info.circle").font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
@@ -164,7 +176,8 @@ struct DesignFormView: View {
             } label: {
                 Label("Start Design Run", systemImage: "play.fill").frame(minWidth: 200)
             }
-            .buttonStyle(.borderedProminent).controlSize(.large).disabled(!r.isRunnable)
+            .buttonStyle(.borderedProminent).controlSize(.large)
+            .disabled(!r.isRunnable || r.ligandAtomsStale)
         }
         .padding(.top, 6)
     }
@@ -174,6 +187,9 @@ struct DesignFormView: View {
         if r.targetKind == .ligand && r.targetSmiles.trimmingCharacters(in: .whitespaces).isEmpty { return "Add a ligand SMILES to continue." }
         if r.designType == .nanobody && r.scaffoldSequence.isEmpty { return "Pick a nanobody scaffold." }
         if r.designType == .nanobody && r.cdrs.isEmpty { return "Select at least one CDR to design." }
+        if r.ligandAtomsStale {
+            return "Reload the ligand atoms — the saved names were generated for different settings."
+        }
         return ""
     }
 }
@@ -437,7 +453,7 @@ struct PredictorPicker: View {
                     )) {
                         HStack(spacing: 6) {
                             Text(p.label)
-                            Text(costHint(p)).font(.caption).foregroundStyle(.secondary)
+                            speedTag(p)
                             if !installer.isUsable(p.component) {
                                 Label("not installed", systemImage: "exclamationmark.circle")
                                     .font(.caption2).foregroundStyle(.orange).labelStyle(.titleAndIcon)
@@ -484,10 +500,20 @@ struct PredictorPicker: View {
         }
     }
 
-    private func costHint(_ p: Predictor) -> String {
-        let ratio = p.relativeCost
-        if ratio < 1.15 { return "· fastest" }
-        return String(format: "· ~%.1fx the time of Boltz-2", ratio)
+    /// A band and a bar, not a number: the seconds move with scheduling mode,
+    /// token count, recycles and machine, so a precise multiplier on screen
+    /// would be false precision.
+    @ViewBuilder private func speedTag(_ p: Predictor) -> some View {
+        let band = p.speed(in: request.speedMode)
+        HStack(spacing: 4) {
+            ForEach(0..<4, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(i < band.bars ? Color.secondary : Color.secondary.opacity(0.18))
+                    .frame(width: 4, height: 8)
+            }
+            Text(band.label).font(.caption).foregroundStyle(.secondary)
+        }
+        .help("Relative speed on the reference benchmark at this engine's best schedule.")
     }
 
     /// Deliberately labelled "at least": the estimate counts predictions only,
@@ -625,13 +651,34 @@ struct AdvancedSettings: View {
             }
 
             Divider()
+            DisclosureGroup("What settings will actually be used") {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(([request.designPredictor] + request.postPredictors)
+                        .reduce(into: [Predictor]()) { acc, p in if !acc.contains(p) { acc.append(p) } }) { p in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(p.label).font(.caption.weight(.medium))
+                            ForEach(p.settingsSummary, id: \.self) { line in
+                                Text("• " + line).font(.caption2).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    Text("Concurrency comes from the measured per-machine profile when one matches this Mac, and from a live memory check otherwise.")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .font(.callout)
+
             VStack(alignment: .leading, spacing: 4) {
                 Text("Design engine: \(request.designPredictor.label) · Checked with: "
                      + (request.postPredictors.isEmpty
                         ? "nothing"
                         : request.postPredictors.map(\.label).joined(separator: ", ")))
                     .font(.caption).foregroundStyle(.secondary)
-                Text("Token bucketing, the JAX compile cache and per-predictor thread limits are always on — they were measured as free wins and there is nothing useful to decide about them.")
+                Text("Token bucketing, the JAX compile cache and per-predictor thread limits are always on — measured free wins with nothing useful to decide about them.")
                     .font(.caption2).foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }

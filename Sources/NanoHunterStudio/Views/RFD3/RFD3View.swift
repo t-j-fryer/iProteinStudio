@@ -557,18 +557,74 @@ struct RFD3View: View {
     // MARK: Verification
 
     private var extraCheckChoices: [Predictor] {
-        Predictor.checkChoices.filter { $0 != .boltz && $0 != .boltzPotentials }
+        // For a protein target Boltz is one option among several, so it appears
+        // in the list like everything else rather than being pinned above it.
+        request.wrappedValue.targetKind == .smallMolecule
+            ? Predictor.checkChoices.filter { $0 != .boltz && $0 != .boltzPotentials }
+            : Predictor.checkChoices
+    }
+
+    /// Boltz, pinned, for small-molecule campaigns.
+    @ViewBuilder private func boltzCard(isLigand: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Boltz-2 — always used", systemImage: "checkmark.circle.fill")
+                .font(.callout.weight(.medium)).foregroundStyle(.green)
+            Text("It is the only engine with a binding-affinity head, and the ranking needs it.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle("Use steering potentials", isOn: request.verification.useBoltzPotentials)
+                .toggleStyle(.checkbox)
+            Text("Physically cleaner poses, roughly twice the time. Worth it for a pocket.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle("Predict binding probability, P(bind)", isOn: request.verification.runAffinityHead)
+                .toggleStyle(.checkbox)
+            Text(request.wrappedValue.verification.runAffinityHead
+                 ? "Designs are ranked on ligand pLDDT plus P(bind) — the combined metric."
+                 : "Without it, designs are ranked on ligand pLDDT alone.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.green.opacity(0.08)))
+    }
+
+    /// Protein targets: nothing is mandatory. The affinity head is trained on
+    /// small molecules, so the reason Boltz is pinned for a ligand simply does
+    /// not apply here — pick whichever engines you want.
+    @ViewBuilder private var proteinPredictorCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Pick one or more engines").font(.callout.weight(.medium))
+            Text("Nothing is compulsory here. The binding-affinity head is trained on small molecules, so it plays no part in a protein campaign and Boltz has no special claim — designs are ranked on confidence.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Toggle("Use Boltz steering potentials, if Boltz is selected",
+                   isOn: request.verification.useBoltzPotentials)
+                .toggleStyle(.checkbox).font(.callout)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.3)))
     }
 
     /// One optional second-opinion predictor. Extracted from the section body so
     /// the type checker can cope, and so the row reads as one idea.
-    /// Predictors the RFdiffusion3 verification runner can actually drive.
-    /// `RFD3/scripts/run_predictors.py` implements Boltz and IntelliFold only;
-    /// AlphaFold 3 and OpenFold-3 need their adapters wired into it before they
-    /// can be offered here. They remain available in the Iterative design tab,
-    /// where `nanohunter_run.sh` drives them natively.
+    /// Predictors the RFdiffusion3 checker can actually drive.
+    ///
+    /// OpenFold-3 is the one gap. Its input needs a query JSON and a runner YAML
+    /// that are built by functions living inside `nanohunter_run.sh`, not by any
+    /// standalone script, so offering it here would mean transcribing ~130 lines
+    /// of builder blind. It stays available in the Iterative design tab, where
+    /// the runner drives it natively.
     private func isWiredForRFD3(_ p: Predictor) -> Bool {
-        p == .intellifold
+        p != .openfold3
+    }
+
+    private func unwiredReason(_ p: Predictor) -> String {
+        "Its input has to be built by the main pipeline runner, so it isn't available here yet — use the Iterative design tab for an OpenFold-3 check."
     }
 
     @ViewBuilder private func checkerRow(_ p: Predictor) -> some View {
@@ -585,7 +641,7 @@ struct RFD3View: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(p.label)
-                    Text(String(format: "· ~%.1fx the time of Boltz-2", p.relativeCost))
+                    Text(p.speed(in: .batched).label)
                         .font(.caption).foregroundStyle(.secondary)
                     if !installed {
                         Label("not installed", systemImage: "exclamationmark.circle")
@@ -595,9 +651,7 @@ struct RFD3View: View {
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
-                Text(wired
-                     ? p.blurb
-                     : "\(p.blurb) Not yet wired into the RFdiffusion3 checker — you can still use it in the Iterative design tab.")
+                Text(wired ? p.blurb : "\(p.blurb) \(unwiredReason(p))")
                     .font(.caption2).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -618,38 +672,13 @@ struct RFD3View: View {
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            // --- Boltz, always on ---
-            VStack(alignment: .leading, spacing: 6) {
-                Label("Boltz-2 — always used", systemImage: "checkmark.circle.fill")
-                    .font(.callout.weight(.medium)).foregroundStyle(.green)
-                Text("It is the only engine with a binding-affinity head, and the ranking needs it.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Toggle("Use steering potentials", isOn: request.verification.useBoltzPotentials)
-                    .toggleStyle(.checkbox)
-                Text("Physically cleaner poses, roughly twice the time. Worth it for a pocket; more marginal for a protein interface.")
-                    .font(.caption2).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if isLigand {
-                    Toggle("Predict binding probability, P(bind)", isOn: request.verification.runAffinityHead)
-                        .toggleStyle(.checkbox)
-                    Text(request.wrappedValue.verification.runAffinityHead
-                         ? "Designs are ranked on ligand pLDDT plus P(bind) — the combined metric."
-                         : "Without it, designs are ranked on ligand pLDDT alone.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Label("The affinity head is trained on small molecules, so it is not used for a protein target.",
-                          systemImage: "info.circle")
-                        .font(.caption2).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            if isLigand {
+                // Boltz is mandatory only because the ranking metric needs
+                // P(bind), and Boltz is the only engine with an affinity head.
+                boltzCard(isLigand: true)
+            } else {
+                proteinPredictorCard
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 8).fill(.green.opacity(0.08)))
 
             // --- Optional second opinions ---
             VStack(alignment: .leading, spacing: 6) {
@@ -676,7 +705,7 @@ struct RFD3View: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            let engines = request.wrappedValue.verification.allPredictors.count
+            let engines = max(1, request.wrappedValue.verification.allPredictors(for: kind).count)
             Label("\(folds * engines) folds in total. This stage will dominate the run — expect days, not hours, at this scale.",
                   systemImage: "clock")
                 .font(.caption)

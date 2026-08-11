@@ -47,6 +47,32 @@ enum TemplateWriter {
         yaml += "      sequence: \(binderA)\n"
         yaml += "      msa: empty\n"
         yaml += targetBlock
+
+        // Ligand targeting: a Boltz pocket constraint naming the atoms the
+        // binder should wrap around, plus the affinity head.
+        //
+        // Only positive contacts exist in Boltz — there is no "keep this atom
+        // exposed" field. Leaving the linker atoms out of the contact list is
+        // therefore a nudge, not a guarantee, and the linker's exposure has to
+        // be checked afterwards rather than assumed.
+        if request.targetKind == .ligand {
+            let atoms = request.ligandContactAtoms.filter { !$0.isEmpty }
+            if !atoms.isEmpty {
+                yaml += "constraints:\n"
+                yaml += "  - pocket:\n"
+                yaml += "      binder: A\n"
+                yaml += "      contacts:\n"
+                for atom in atoms { yaml += "        - [B, \(atom)]\n" }
+                yaml += String(format: "      max_distance: %.1f\n", request.ligandContactDistance)
+                yaml += "      force: \(request.ligandContactForce)\n"
+            }
+            if request.ligandAffinityHead {
+                yaml += "properties:\n"
+                yaml += "  - affinity:\n"
+                yaml += "      binder: B\n"
+            }
+        }
+
         yaml += "version: 1\n"
 
         try yaml.write(to: url, atomically: true, encoding: .utf8)

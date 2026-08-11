@@ -353,7 +353,11 @@ final class RFD3Controller: ObservableObject {
         // a protein target would produce a number that means nothing.
         payload.run_affinity = request.verification.runAffinityHead && request.targetKind == .smallMolecule
         payload.run_apo = request.verification.runApoCheck
-        payload.extra_predictors = request.verification.extraPredictors.map(\.runnerValue)
+        // For a protein target this is the whole list, not "extras": nothing is
+        // pinned, because the affinity head that pins Boltz is ligand-only.
+        payload.extra_predictors = request.targetKind == .smallMolecule
+            ? request.verification.extraPredictors.map(\.runnerValue)
+            : request.verification.allPredictors(for: .protein).map(\.runnerValue)
         payload.is_non_loopy = request.preferStructured
         payload.infer_ori_strategy = request.originStrategy.specValue
         if request.originStrategy == .explicit { payload.ori_token = request.originXYZ }

@@ -252,9 +252,16 @@ struct RFD3Verification: Codable, Hashable {
     var runApoCheck: Bool = true
     var topN: Int = 100
 
-    /// Everything that will actually run, Boltz first.
-    var allPredictors: [Predictor] {
-        [useBoltzPotentials ? .boltzPotentials : .boltz] + extraPredictors
+    /// Everything that will actually run.
+    ///
+    /// For a small molecule Boltz is prepended unconditionally: the ranking
+    /// metric needs P(bind) and only Boltz produces it. For a protein target
+    /// that reason evaporates — the affinity head is trained on small molecules
+    /// — so the list is exactly what the user chose.
+    func allPredictors(for kind: RFD3TargetKind) -> [Predictor] {
+        guard kind == .smallMolecule else { return extraPredictors }
+        let boltz: Predictor = useBoltzPotentials ? .boltzPotentials : .boltz
+        return [boltz] + extraPredictors.filter { $0.runnerValue != boltz.runnerValue }
     }
 
     private enum CodingKeys: String, CodingKey {

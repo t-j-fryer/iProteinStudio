@@ -41,7 +41,14 @@ enum CommandBuilder {
         // they roughly double wall time (10.9 -> 24.1 s on the SUMO benchmark).
         // Passed explicitly in both directions so the recorded command is
         // unambiguous rather than depending on the runner's `auto` heuristic.
-        if request.designPredictor.usesSteeringPotentials {
+        // A forced pocket constraint is only *steered* towards when potentials
+        // are on. Writing `force: true` into the YAML and then running without
+        // them would look like targeting while doing almost nothing, so the two
+        // are tied together here.
+        let needsPotentialsForPocket = request.targetKind == .ligand
+            && !request.ligandContactAtoms.isEmpty
+            && request.ligandContactForce
+        if request.designPredictor.usesSteeringPotentials || needsPotentialsForPocket {
             args += ["--boltz-use-potentials"]
         } else if request.designPredictor == .boltz {
             args += ["--boltz-no-potentials"]

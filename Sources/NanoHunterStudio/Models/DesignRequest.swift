@@ -144,6 +144,30 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Optional epitope residues on a protein target, e.g. "B55 B57" (or "55 57").
     var epitopeResidues: String = ""
 
+    // --- Small-molecule targeting ---
+    /// Ligand atoms the binder should form a pocket around, in Boltz's own
+    /// naming. These go into a Boltz `pocket` constraint.
+    ///
+    /// The names are not SMILES indices and are not stable: Boltz derives them
+    /// from the canonical ranking, and enabling the affinity head standardises
+    /// the SMILES first, which renumbers everything. The same linker atoms are
+    /// O17/C24/N44 without affinity and O19/C26/N46 with it. They are therefore
+    /// regenerated whenever the SMILES or the affinity setting changes, never
+    /// carried across.
+    var ligandContactAtoms: [String] = []
+    /// Angstroms for the pocket constraint.
+    var ligandContactDistance: Double = 6.0
+    /// Expose the restraint to Boltz's steering potential. Requires
+    /// `--boltz-use-potentials` to actually steer, which is passed with it.
+    var ligandContactForce: Bool = true
+    /// Turn on Boltz's affinity head to get P(bind) for the ligand.
+    var ligandAffinityHead: Bool = true
+    /// Atom the linker leaves from, for the core/linker split.
+    var ligandAttachmentAtom: Int?
+    /// SMILES and affinity setting the current atom names were generated for.
+    /// A mismatch means they must be regenerated before use.
+    var ligandAtomsGeneratedFor: String = ""
+
     var designer: SequenceDesigner = .antifold
     var numDesigns: Int = 12
     var numCycles: Int = 5
@@ -206,6 +230,18 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     var hasProteinTarget: Bool { targetKind == .protein }
 
+    /// Key the ligand atom names were generated under. Changing either half
+    /// renumbers the atoms, so the names must be regenerated.
+    var ligandAtomKey: String {
+        "\(targetSmiles.trimmingCharacters(in: .whitespaces))|\(ligandAffinityHead ? 1 : 0)"
+    }
+    /// True when the stored atom names no longer correspond to the current
+    /// SMILES and affinity setting — the UI must not let a run start like this.
+    var ligandAtomsStale: Bool {
+        targetKind == .ligand && !ligandContactAtoms.isEmpty
+            && ligandAtomsGeneratedFor != ligandAtomKey
+    }
+
     /// Every backend this run needs installed before it can start.
     var requiredComponents: [InstallComponent] {
         var set: [InstallComponent] = [designPredictor.component]
@@ -214,18 +250,18 @@ struct DesignRequest: Codable, Equatable, Hashable {
         return set
     }
 
-    /// Rough wall-clock estimate in seconds, from the measured per-prediction
-    /// costs in `lab_book/0002-inherited-speed-lessons.md` §1. Deliberately
-    /// ignores MSA generation and inverse folding, so it under-reports; the UI
-    /// presents it as "at least".
+    /// Rough wall-clock estimate in seconds. The per-prediction figures are
+    /// already the best measured schedule, so they are not divided by a process
+    /// count again — doing that was double-counting the concurrency and made the
+    /// estimate several times too optimistic. Still ignores MSA generation and
+    /// inverse folding, so the UI presents it as "at least".
     var estimatedSecondsLowerBound: Double {
         let designPredictions = Double(max(1, numDesigns) * max(1, numCycles))
-        var total = designPredictions * designPredictor.measuredSecondsPerPrediction
-                  / Double(designPredictor.measuredBestProcesses)
+        var total = designPredictions * designPredictor.measuredSeconds(in: speedMode)
         // Post-prediction touches only the final cycle, and only hits when gated.
         let postCandidates = Double(max(1, numDesigns)) * (postOnlyHits ? 0.35 : 1.0)
         for p in postPredictors {
-            total += postCandidates * p.measuredSecondsPerPrediction / Double(p.measuredBestProcesses)
+            total += postCandidates * p.measuredSeconds(in: speedMode)
         }
         return total
     }
@@ -262,6 +298,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
         case designer, numDesigns, numCycles, hitThreshold, parallelMode, manualParallel
         case designPredictor, postPredictors, postOnlyHits, speedMode, resumeIfPossible
         case mpnnTempCycle1, mpnnTempLater, lasermpnnSeqTemp, lasermpnnFirstShellTemp
+        case ligandContactAtoms, ligandContactDistance, ligandContactForce
+        case ligandAffinityHead, ligandAttachmentAtom, ligandAtomsGeneratedFor
     }
 
     /// Resilient decoding: every field defaults if absent, so adding new fields
@@ -296,5 +334,11 @@ struct DesignRequest: Codable, Equatable, Hashable {
         mpnnTempLater   = try c.decodeIfPresent(Double.self, forKey: .mpnnTempLater) ?? d.mpnnTempLater
         lasermpnnSeqTemp = try c.decodeIfPresent(Double.self, forKey: .lasermpnnSeqTemp) ?? d.lasermpnnSeqTemp
         lasermpnnFirstShellTemp = try c.decodeIfPresent(Double.self, forKey: .lasermpnnFirstShellTemp) ?? d.lasermpnnFirstShellTemp
+        ligandContactAtoms   = try c.decodeIfPresent([String].self, forKey: .ligandContactAtoms) ?? d.ligandContactAtoms
+        ligandContactDistance = try c.decodeIfPresent(Double.self, forKey: .ligandContactDistance) ?? d.ligandContactDistance
+        ligandContactForce   = try c.decodeIfPresent(Bool.self, forKey: .ligandContactForce) ?? d.ligandContactForce
+        ligandAffinityHead   = try c.decodeIfPresent(Bool.self, forKey: .ligandAffinityHead) ?? d.ligandAffinityHead
+        ligandAttachmentAtom = try c.decodeIfPresent(Int.self, forKey: .ligandAttachmentAtom) ?? d.ligandAttachmentAtom
+        ligandAtomsGeneratedFor = try c.decodeIfPresent(String.self, forKey: .ligandAtomsGeneratedFor) ?? d.ligandAtomsGeneratedFor
     }
 }
