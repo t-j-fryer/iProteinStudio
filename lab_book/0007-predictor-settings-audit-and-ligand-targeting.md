@@ -74,6 +74,20 @@ why both AF3 and OpenFold-3 were greyed out. AF3 is now wired through a new
 `model_0.cif` + confidence contract. Reusing that adapter rather than writing a
 second one keeps one definition of the conversion.
 
+Two bugs in that change were caught only by *running* it, not by
+`python -m py_compile`, and both would have surfaced the first time a user
+selected AlphaFold 3:
+
+- `SUPPORTED` was referenced in the argument check but never defined — a
+  `NameError` on any `--predictors` value.
+- The OpenFold branch pointed at `openfold_predict_one.py`, a script I had
+  decided not to write. It would have accepted the flag and then failed on a
+  missing file.
+
+Both are the same lesson as everything else in this entry: a syntax check is not
+a test. `run_predictors.py` now rejects OpenFold-3 by name with the supported
+list, and accepts `boltz,alphafold3` without error.
+
 **OpenFold-3 stays gated**, and the reason is now stated in the UI. Its input
 needs a query JSON and a runner YAML built by `build_openfold_query_json` and
 `write_openfold_runner_yaml` — bash functions with embedded Python heredocs
