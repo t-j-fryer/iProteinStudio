@@ -73,7 +73,16 @@ def design_cmd(cfg: dict, rfd3_root: Path, campaign: Path, stage_name: str) -> l
             "--timesteps", str(cfg["rfd3_timesteps"]),
             "--n-recycle", str(cfg["rfd3_recycles"]),
             "--seed-base", str(cfg["seed_base"]),
-            "--stage", stage_name]
+            "--stage", stage_name] + conformer_args(cfg)
+
+
+def conformer_args(cfg: dict) -> list:
+    """Design across several ligand geometries, splitting the quota by weight."""
+    conformers = cfg.get("conformers") or []
+    if not conformers:
+        return []
+    spec = ",".join(f"{c['path']}:{c.get('weight', 1.0)}:{c.get('label', '')}" for c in conformers)
+    return ["--conformers", spec]
 
 
 def clean_sequence(text: str) -> str:

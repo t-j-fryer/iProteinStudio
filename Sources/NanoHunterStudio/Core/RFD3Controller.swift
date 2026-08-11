@@ -365,6 +365,9 @@ final class RFD3Controller: ObservableObject {
             payload.smiles = request.smiles
             payload.ligand_structure = request.ligandStructurePath
             payload.ligand_residue = request.ligandResidueName
+            payload.conformers = request.conformerPlan.map {
+                ["path": AnyJSON($0.path), "weight": AnyJSON($0.weight), "label": AnyJSON($0.label)]
+            }
         case .protein:
             payload.target_structure = request.targetStructurePath
             payload.target_sequence = request.targetSequence
@@ -425,7 +428,32 @@ struct RFD3StudioRequest: Codable {
     var run_affinity: Bool = true
     var run_apo: Bool = true
     var extra_predictors: [String] = []
+    var conformers: [[String: AnyJSON]] = []
     var mpnn_max_parallel: Int = 6
     var boltz_chunk_size: Int = 50
     var boltz_calibrate_n: Int = 12
+}
+
+/// A JSON scalar: string or number. Enough for the conformer plan, whose shape
+/// is fixed by `design_from_yaml.py --conformers` rather than by Studio.
+enum AnyJSON: Codable, Hashable {
+    case string(String)
+    case number(Double)
+
+    init(_ value: String) { self = .string(value) }
+    init(_ value: Double) { self = .number(value) }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let s): try container.encode(s)
+        case .number(let d): try container.encode(d)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let d = try? container.decode(Double.self) { self = .number(d); return }
+        self = .string(try container.decode(String.self))
+    }
 }

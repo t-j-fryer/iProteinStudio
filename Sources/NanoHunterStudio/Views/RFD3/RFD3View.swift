@@ -17,6 +17,7 @@ struct RFD3View: View {
     let project: Project
     @ObservedObject var controller: RFD3Controller
     @StateObject private var inspector = RFD3TargetInspector()
+    @StateObject private var intelligence = LigandIntelligence()
     @State private var showAdvanced = false
     @State private var showTargetPrep = false
 
@@ -77,25 +78,37 @@ struct RFD3View: View {
                     }
                 }
 
+                if request.wrappedValue.targetKind == .smallMolecule,
+                   request.wrappedValue.ligandSource == .smiles,
+                   !request.wrappedValue.smiles.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Card(title: "2 · Understand the molecule", systemImage: "sparkles.rectangle.stack") {
+                        LigandIntelligenceView(
+                            intelligence: intelligence,
+                            request: request,
+                            outputDir: AppPaths.projectDir(project)
+                                .appendingPathComponent("rfd3/assets/conformers", isDirectory: true))
+                    }
+                }
+
                 if inspector.hasResult || inspector.isInspecting || inspector.error != nil {
-                    Card(title: "2 · Shape the binding site", systemImage: "hand.point.up.left") {
+                    Card(title: "3 · Shape the binding site", systemImage: "hand.point.up.left") {
                         conditioningSection
                     }
                 }
 
-                Card(title: "3 · Binder size", systemImage: "ruler") {
+                Card(title: "4 · Binder size", systemImage: "ruler") {
                     lengthSection
                 }
 
-                Card(title: "4 · Sequence design", systemImage: "textformat.abc") {
+                Card(title: "5 · Sequence design", systemImage: "textformat.abc") {
                     sequenceDesignSection
                 }
 
-                Card(title: "5 · Verify with", systemImage: "checkmark.seal") {
+                Card(title: "6 · Verify with", systemImage: "checkmark.seal") {
                     verificationSection
                 }
 
-                Card(title: "6 · Sampling", systemImage: "gauge.with.dots.needle.67percent") {
+                Card(title: "7 · Sampling", systemImage: "gauge.with.dots.needle.67percent") {
                     DisclosureGroup("Advanced sampling settings", isExpanded: $showAdvanced) {
                         samplingSection
                     }.font(.callout)

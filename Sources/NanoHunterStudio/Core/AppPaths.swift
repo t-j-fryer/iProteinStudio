@@ -65,6 +65,7 @@ enum AppPaths {
     static var rfd3PrepareScript: URL { rfd3ScriptsDir.appendingPathComponent("prepare_campaign.py") }
     static var rfd3ProteinScript: URL { rfd3ScriptsDir.appendingPathComponent("rfd3_protein_campaign.py") }
     static var rfd3InspectScript: URL { rfd3ScriptsDir.appendingPathComponent("inspect_target.py") }
+    static var rfd3LigandScript: URL { rfd3ScriptsDir.appendingPathComponent("ligand_intelligence.py") }
 
     static var runnerScript: URL { pipeline.appendingPathComponent("nanohunter_run.sh") }
     static var setupScript: URL { pipeline.appendingPathComponent("setup_pipeline.sh") }

@@ -176,6 +176,56 @@ def prepare_ligand(req: dict, campaign: Path, rfd3_root: Path) -> tuple[Path, Pa
     return pdb, ccd
 
 
+def conformers_to_pdb(conformers: list[dict], reference_pdb: Path, component_id: str,
+                      out_dir: Path) -> list[dict]:
+    """Rewrite each chosen conformer as a PDB that matches the generated component.
+
+    The analysis writes conformers as SDF, but Foundry reads PDB/CIF and, more
+    importantly, every atom must carry the *same* name as the CCD component the
+    campaign generated -- otherwise the conditioning selections address atoms
+    that do not exist. So the coordinates are transplanted onto the reference
+    PDB's atom order rather than the SDF being handed over directly.
+    """
+    from rdkit import Chem
+
+    reference = Chem.MolFromPDBFile(str(reference_pdb), removeHs=True, sanitize=False)
+    if reference is None:
+        fail(f"Could not read the generated ligand PDB at {reference_pdb}.")
+    ref_lines = [l for l in reference_pdb.read_text().splitlines() if l.startswith("HETATM")]
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rewritten = []
+    for entry in conformers:
+        sdf = Path(entry["path"])
+        probe = Chem.MolFromMolFile(str(sdf), removeHs=True, sanitize=False)
+        if probe is None:
+            fail(f"Could not read the conformer at {sdf}.")
+        if probe.GetNumAtoms() != reference.GetNumAtoms():
+            fail(f"Conformer {entry.get('label', sdf.stem)} has {probe.GetNumAtoms()} atoms but the "
+                 f"generated component has {reference.GetNumAtoms()}.")
+
+        match = probe.GetSubstructMatch(reference)
+        if not match or len(match) != reference.GetNumAtoms():
+            # Fall back to input order. Both molecules come from the same SMILES
+            # through the same RDKit, so the orders normally agree; a mismatch
+            # here would silently scramble the geometry, hence the explicit check.
+            match = list(range(reference.GetNumAtoms()))
+
+        conf = probe.GetConformer()
+        lines = []
+        for ref_index, line in enumerate(ref_lines):
+            pos = conf.GetAtomPosition(match[ref_index])
+            lines.append(f"{line[:30]}{pos.x:8.3f}{pos.y:8.3f}{pos.z:8.3f}{line[54:]}")
+        # Keep the CONECT records: they are what stops the component being
+        # re-perceived as something else.
+        lines += [l for l in reference_pdb.read_text().splitlines()
+                  if l.startswith(("CONECT", "TER", "END"))]
+        target = out_dir / f"{component_id}_{entry.get('label', sdf.stem)}.pdb"
+        target.write_text("\n".join(lines) + "\n")
+        rewritten.append({**entry, "path": str(target), "sdf": str(sdf)})
+    return rewritten
+
+
 def _env() -> dict:
     import os
     return dict(os.environ)
@@ -218,6 +268,16 @@ def main() -> None:
     else:
         selection_key = None
 
+    conformers = req.get("conformers") or []
+    if conformers:
+        missing = [c["path"] for c in conformers if not Path(c["path"]).exists()]
+        if missing:
+            fail("These conformer files are missing: " + ", ".join(missing))
+        if ligand_input is None:
+            fail("Conformers were supplied but no ligand component was generated.")
+        conformers = conformers_to_pdb(conformers, ligand_input, req["component_id"].upper(),
+                                       campaign / "assets" / "conformers")
+
     design_yaml = write_design_yaml(req, campaign, ligand_input, selection_key)
 
     config = {
@@ -244,6 +304,10 @@ def main() -> None:
         "run_affinity": req.get("run_affinity", True),
         "run_apo": req.get("run_apo", True),
         "extra_predictors": req.get("extra_predictors", []),
+        # Ligand Intelligence may recommend designing across several ligand
+        # geometries. Each becomes its own set of fixtures and its own share of
+        # the design quota; absent, the single supplied structure is used.
+        "conformers": conformers,
         "mpnn_max_parallel": req.get("mpnn_max_parallel", 6),
         "boltz_chunk_size": req.get("boltz_chunk_size", 50),
         "boltz_calibrate_n": req.get("boltz_calibrate_n", 12),

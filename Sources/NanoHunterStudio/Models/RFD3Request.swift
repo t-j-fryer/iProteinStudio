@@ -172,6 +172,14 @@ enum AtomCondition: String, CaseIterable, Codable, Identifiable, Hashable {
     static var proteinCases: [AtomCondition] { [.hotspot] }
 }
 
+/// One ligand geometry the campaign will design against.
+struct ConformerChoice: Codable, Hashable, Identifiable {
+    var label: String
+    var path: String
+    var weight: Double
+    var id: String { label }
+}
+
 /// How the design is positioned relative to the target.
 enum OriginStrategy: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Centre of mass of the target.
@@ -289,6 +297,13 @@ struct RFD3Request: Codable, Hashable {
     var targetChain: String = "B"
     /// Residue range kept from the target, e.g. "B1-71".
     var targetContig: String = ""
+
+    /// Ligand geometries to design across, with their share of the budget.
+    /// Empty means the single generated conformer is used, as before.
+    var conformerPlan: [ConformerChoice] = []
+    /// Atom the linker leaves from, when the ligand is conjugated to something.
+    var attachmentAtom: Int?
+    var searchPDB: Bool = true
 
     // --- Conditioning ---
     /// Site name -> conditions applied to it.
@@ -415,6 +430,7 @@ struct RFD3Request: Codable, Hashable {
         case timesteps, recycles, batchSize, queuesPerBin, precision, seedBase
         case sequencesPerBackbone, verification
         case targetSequence, sequenceModel, sequenceTemperature, firstShellTemperature
+        case conformerPlan, attachmentAtom, searchPDB
     }
 
     /// Resilient decoding: every field defaults if absent.
@@ -450,6 +466,9 @@ struct RFD3Request: Codable, Hashable {
         sequenceModel       = try c.decodeIfPresent(RFD3SequenceModel.self, forKey: .sequenceModel) ?? d.sequenceModel
         sequenceTemperature = try c.decodeIfPresent(Double.self, forKey: .sequenceTemperature) ?? d.sequenceTemperature
         firstShellTemperature = try c.decodeIfPresent(Double.self, forKey: .firstShellTemperature) ?? d.firstShellTemperature
+        conformerPlan       = try c.decodeIfPresent([ConformerChoice].self, forKey: .conformerPlan) ?? d.conformerPlan
+        attachmentAtom      = try c.decodeIfPresent(Int.self, forKey: .attachmentAtom) ?? d.attachmentAtom
+        searchPDB           = try c.decodeIfPresent(Bool.self, forKey: .searchPDB) ?? d.searchPDB
         verification        = try c.decodeIfPresent(RFD3Verification.self, forKey: .verification) ?? d.verification
     }
 }
