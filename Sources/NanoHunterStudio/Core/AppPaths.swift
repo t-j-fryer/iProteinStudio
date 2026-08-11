@@ -56,6 +56,15 @@ enum AppPaths {
 
     static var configFile: URL { support.appendingPathComponent("config.json") }
 
+    /// Studio-authored RFdiffusion3 helpers, staged alongside the pipeline.
+    static var rfd3ScriptsDir: URL {
+        let dir = support.appendingPathComponent("rfd3_scripts", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+    static var rfd3CampaignScript: URL { rfd3ScriptsDir.appendingPathComponent("rfd3_campaign.py") }
+    static var rfd3InspectScript: URL { rfd3ScriptsDir.appendingPathComponent("inspect_target.py") }
+
     static var runnerScript: URL { pipeline.appendingPathComponent("nanohunter_run.sh") }
     static var setupScript: URL { pipeline.appendingPathComponent("setup_pipeline.sh") }
     static var catalogTSV: URL {
@@ -78,6 +87,11 @@ enum AppPaths {
     /// Offline 3Dmol.js viewer assets.
     static var webRoot: URL? {
         Bundle.module.url(forResource: "web", withExtension: nil)
+    }
+
+    /// Studio-authored RFdiffusion3 helpers shipped inside the app bundle.
+    static var bundledRFD3Scripts: URL? {
+        Bundle.module.url(forResource: "rfd3", withExtension: nil)
     }
 
     /// True once the pipeline runtime has been installed (venvs present).
@@ -111,6 +125,21 @@ enum AppPaths {
             if fm.fileExists(atPath: p) {
                 try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: p)
             }
+        }
+        stageRFD3Scripts()
+    }
+
+    /// Stage the RFdiffusion3 helpers. Kept separate from the pipeline assets
+    /// because they are Studio's own code, not vendored from NanoHunter.
+    static func stageRFD3Scripts() {
+        guard let src = bundledRFD3Scripts,
+              let items = try? fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
+        else { return }
+        for item in items {
+            let dest = rfd3ScriptsDir.appendingPathComponent(item.lastPathComponent)
+            try? fm.removeItem(at: dest)
+            try? fm.copyItem(at: item, to: dest)
+            try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dest.path)
         }
     }
 }

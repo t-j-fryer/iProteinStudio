@@ -11,6 +11,7 @@ let package = Package(
             resources: [
                 .copy("Resources/pipeline"),
                 .copy("Resources/web"),
+                .copy("Resources/rfd3"),
             ]
         )
     ]

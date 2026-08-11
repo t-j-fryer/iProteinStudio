@@ -47,17 +47,65 @@ struct WorkspaceView: View {
     }
 }
 
+/// The two ways to approach a target. They share the project, so a target
+/// entered once can be attacked either way.
+enum ProjectMode: String, CaseIterable, Identifiable, Hashable {
+    case iterative
+    case rfdiffusion
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .iterative:   return "Iterative design"
+        case .rfdiffusion: return "RFdiffusion3"
+        }
+    }
+    var systemImage: String {
+        switch self {
+        case .iterative:   return "arrow.triangle.2.circlepath"
+        case .rfdiffusion: return "sparkles"
+        }
+    }
+}
+
 /// Shows the design form until a run is launched, then the live dashboard.
 struct ProjectDetailView: View {
+    @EnvironmentObject var app: AppState
     let project: Project
     @ObservedObject var run: RunController
     @ObservedObject var metrics: MetricsWatcher
+    @State private var mode: ProjectMode = .iterative
 
     var body: some View {
-        if run.isRunning || run.campaignRoot != nil {
-            LiveDashboardView(project: project, run: run, metrics: metrics)
-        } else {
-            DesignFormView(project: project)
+        VStack(spacing: 0) {
+            // Hidden while a run is live: switching tabs mid-campaign invites
+            // starting a second GPU-heavy job on top of the first.
+            if !run.isRunning && !app.rfd3.isRunning {
+                Picker("", selection: $mode) {
+                    ForEach(ProjectMode.allCases) { m in
+                        Label(m.label, systemImage: m.systemImage).tag(m)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(maxWidth: 420)
+                .padding(.top, 12)
+                Divider().padding(.top, 10)
+            }
+
+            switch mode {
+            case .iterative:
+                if run.isRunning || run.campaignRoot != nil {
+                    LiveDashboardView(project: project, run: run, metrics: metrics)
+                } else {
+                    DesignFormView(project: project)
+                }
+            case .rfdiffusion:
+                RFD3View(project: project, controller: app.rfd3)
+            }
+        }
+        .onAppear {
+            if app.rfd3.isRunning { mode = .rfdiffusion }
         }
     }
 }

@@ -7,6 +7,10 @@ struct Project: Identifiable, Codable, Hashable {
     var name: String
     var createdAt: Date = Date()
     var request: DesignRequest = DesignRequest()
+    /// RFdiffusion3 settings for this project. Kept alongside the iterative
+    /// design request rather than in a separate project type, so a target can be
+    /// approached both ways without re-entering it.
+    var rfd3: RFD3Request = RFD3Request()
     /// Slug used as the on-disk folder name and pipeline --run-name.
     var slug: String
 
@@ -15,7 +19,7 @@ struct Project: Identifiable, Codable, Hashable {
         self.slug = Project.slugify(name)
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, createdAt, request, slug }
+    private enum CodingKeys: String, CodingKey { case id, name, createdAt, request, rfd3, slug }
 
     /// Resilient decoding so schema changes never drop saved projects.
     init(from decoder: Decoder) throws {
@@ -24,6 +28,7 @@ struct Project: Identifiable, Codable, Hashable {
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Untitled Design"
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         request = try c.decodeIfPresent(DesignRequest.self, forKey: .request) ?? DesignRequest()
+        rfd3 = try c.decodeIfPresent(RFD3Request.self, forKey: .rfd3) ?? RFD3Request()
         slug = try c.decodeIfPresent(String.self, forKey: .slug) ?? Project.slugify(name)
     }
 
