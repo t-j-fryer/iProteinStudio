@@ -17,11 +17,32 @@ import Foundation
 enum AppPaths {
     static let fm = FileManager.default
 
+    /// The managed runtime root.
+    ///
+    /// **Not** under Application Support, and that is not a style choice. A
+    /// Python console script carries an absolute shebang, and the kernel splits
+    /// a shebang on whitespace — so anything pip installs into a path containing
+    /// "Application Support" fails at run time with
+    /// `bad interpreter: /Users/…/Library/Application`. Every venv created there
+    /// would be quietly broken. A space-free home is the only way a from-scratch
+    /// install can work.
     static var support: URL {
-        let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = base.appendingPathComponent("NanoHunterStudio", isDirectory: true)
+        let dir = fm.homeDirectoryForCurrentUser.appendingPathComponent(".nanohunterstudio",
+                                                                        isDirectory: true)
+        if !fm.fileExists(atPath: dir.path) { migrateLegacyRootIfPresent(to: dir) }
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
+    }
+
+    /// Move an installation made by an earlier build out of Application Support.
+    /// A rename on the same volume, so it is effectively instant even at ~16 GB;
+    /// the venvs still need their shebangs re-pointed afterwards, which
+    /// `setup_pipeline.sh --materialise` does.
+    private static func migrateLegacyRootIfPresent(to destination: URL) {
+        let legacy = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("NanoHunterStudio", isDirectory: true)
+        guard fm.fileExists(atPath: legacy.path) else { return }
+        try? fm.moveItem(at: legacy, to: destination)
     }
 
     /// The pipeline REPO_ROOT — same as `support` so staged scripts/examples sit

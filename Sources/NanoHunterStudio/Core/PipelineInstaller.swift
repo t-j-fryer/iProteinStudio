@@ -40,6 +40,35 @@ final class PipelineInstaller: ObservableObject {
 
     init() {
         detectExistingCheckouts()
+        repairRelocatedVenvsIfNeeded()
+    }
+
+    /// A venv moved from another path keeps absolute references to where it came
+    /// from, in its console-script shebangs and its activate scripts. Left alone
+    /// it silently runs the *old* environment, or fails outright once that is
+    /// gone. Detect the mismatch cheaply and re-point in the background.
+    private func repairRelocatedVenvsIfNeeded() {
+        let venvs = AppPaths.support.appendingPathComponent("venvs", isDirectory: true)
+        guard let entries = try? AppPaths.fm.contentsOfDirectory(at: venvs,
+                                                                 includingPropertiesForKeys: nil)
+        else { return }
+        let needsRepair = entries.contains { venv in
+            let activate = venv.appendingPathComponent("bin/activate")
+            guard let text = try? String(contentsOf: activate, encoding: .utf8) else { return false }
+            return !text.contains(venv.path)
+        }
+        guard needsRepair, AppPaths.isPipelineStaged else { return }
+
+        let runner = ProcessRunner()
+        self.runner = runner
+        runner.launch(
+            executable: URL(fileURLWithPath: "/bin/bash"),
+            arguments: [AppPaths.setupScript.path, "--repair-venvs"],
+            environment: CommandBuilder.environment(),
+            workingDir: AppPaths.pipeline,
+            onLine: { [weak self] line in self?.handle(line, quiet: true) },
+            onExit: { [weak self] _ in self?.detectComponents() }
+        )
     }
 
     func refreshInstalledState() {

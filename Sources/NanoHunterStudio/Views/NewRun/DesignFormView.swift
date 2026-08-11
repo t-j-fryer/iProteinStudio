@@ -410,7 +410,9 @@ struct PredictorPicker: View {
     private var checkChoices: [Predictor] {
         // Everything that can re-fold, minus whichever engine did the designing —
         // a predictor cannot independently check its own work.
-        Predictor.checkChoices.filter { $0.runnerValue != request.designPredictor.runnerValue }
+        // The iterative pipeline cannot drive the JAX backend, so it is not
+        // offered here even though it is a valid checker elsewhere.
+        Predictor.iterativeChoices.filter { $0.runnerValue != request.designPredictor.runnerValue }
     }
 
     var body: some View {

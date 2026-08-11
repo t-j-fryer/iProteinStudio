@@ -612,20 +612,12 @@ struct RFD3View: View {
 
     /// One optional second-opinion predictor. Extracted from the section body so
     /// the type checker can cope, and so the row reads as one idea.
-    /// Predictors the RFdiffusion3 checker can actually drive.
-    ///
-    /// OpenFold-3 is the one gap. Its input needs a query JSON and a runner YAML
-    /// that are built by functions living inside `nanohunter_run.sh`, not by any
-    /// standalone script, so offering it here would mean transcribing ~130 lines
-    /// of builder blind. It stays available in the Iterative design tab, where
-    /// the runner drives it natively.
-    private func isWiredForRFD3(_ p: Predictor) -> Bool {
-        p != .openfold3
-    }
-
-    private func unwiredReason(_ p: Predictor) -> String {
-        "Its input has to be built by the main pipeline runner, so it isn't available here yet — use the Iterative design tab for an OpenFold-3 check."
-    }
+    /// All four engines can now drive the RFdiffusion3 checker. OpenFold-3's
+    /// query JSON and runner YAML used to be buildable only from inside
+    /// `nanohunter_run.sh`; those builders were extracted to standalone scripts
+    /// and verified to produce byte-identical output, so there is one definition
+    /// of each conversion rather than two.
+    private func isWiredForRFD3(_ p: Predictor) -> Bool { true }
 
     @ViewBuilder private func checkerRow(_ p: Predictor) -> some View {
         let installed = app.installer.isUsable(p.component)
@@ -651,7 +643,7 @@ struct RFD3View: View {
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
-                Text(wired ? p.blurb : "\(p.blurb) \(unwiredReason(p))")
+                Text(p.blurb)
                     .font(.caption2).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

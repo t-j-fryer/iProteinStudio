@@ -68,6 +68,10 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     case intellifold
     case alphafold3
     case openfold3
+    /// IntelliFold's JAX/MPS backend. A separate engine rather than a setting,
+    /// because it is a different implementation with different outputs, not a
+    /// faster route to the same numbers.
+    case intellifoldJAX
 
     var id: String { rawValue }
 
@@ -78,6 +82,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .intellifold:     return "IntelliFold"
         case .alphafold3:      return "AlphaFold 3"
         case .openfold3:       return "OpenFold-3"
+        case .intellifoldJAX:  return "IntelliFold (JAX)"
         }
     }
 
@@ -90,6 +95,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .intellifold:             return "intellifold"
         case .alphafold3:              return "alphafold3"
         case .openfold3:               return "openfold-3-mlx"
+        case .intellifoldJAX:          return "intellifold-jax"
         }
     }
 
@@ -101,6 +107,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .intellifold:             return .intellifold
         case .alphafold3:              return .alphafold3
         case .openfold3:               return .openfold3
+        case .intellifoldJAX:          return .intellifoldJAX
         }
     }
 
@@ -119,6 +126,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .alphafold3:      return mode == .batched ? 22.1 : 27.7   // p2 x b4 / p2
         case .openfold3:       return 27.5      // p2
         case .intellifold:     return mode == .batched ? 11.4 : 41.5   // p4 x dir16 / p4
+        case .intellifoldJAX:  return mode == .batched ? 9.2 : 14.9     // p4 x dir16 / p1 x dir4
         }
     }
 
@@ -145,6 +153,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
             return .moderate
         case .alphafold3, .openfold3:
             return .slow
+        case .intellifoldJAX:
+            return .fastest
         }
     }
 
@@ -166,6 +176,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
             return "DeepMind's model, run on the Apple GPU. Strong orthogonal check; no binding-affinity head."
         case .openfold3:
             return "Open reimplementation with Apple MLX kernels. Orthogonal check."
+        case .intellifoldJAX:
+            return "The same IntelliFold weights on a JAX/MPS engine — the fastest option, at roughly twice the memory."
         }
     }
 
@@ -176,6 +188,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
             return "Needs af3.bin, which you must obtain from Google under their terms — it cannot be downloaded for you."
         case .intellifold:
             return "Slowest of the four at its default ten recycles."
+        case .intellifoldJAX:
+            return "Needs ~27 GiB at four concurrent processes, against ~14 for the PyTorch backend. Its outputs are close to, but not identical to, that backend's."
         default:
             return ""
         }
@@ -207,6 +221,12 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
                     "persistent JAX compilation cache, so a shape compiles once per campaign",
                     "async dispatch off — measured neutral here, negative elsewhere",
                     "native batching only in Batched scheduling (~1.4x)"]
+        case .intellifoldJAX:
+            return ["IntelliFold v2-flash weights on AlphaFold 3's JAX/MPS engine",
+                    "portable XLA attention, async dispatch off (measured negative here)",
+                    "token buckets chosen from the actual token count",
+                    "persistent JAX compilation cache",
+                    "~1.24x the PyTorch backend, at roughly twice the memory"]
         case .openfold3:
             return ["MLX attention/triangle/activation kernels enabled",
                     "3 recycles, 1 diffusion sample, 1 model seed (its defaults)",
@@ -224,7 +244,17 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     static var designChoices: [Predictor] { [.boltz, .boltzPotentials, .intellifold, .alphafold3] }
 
     /// Engines that can independently re-fold finished designs. All of them.
-    static var checkChoices: [Predictor] { [.boltz, .boltzPotentials, .intellifold, .alphafold3, .openfold3] }
+    static var checkChoices: [Predictor] {
+        [.boltz, .boltzPotentials, .intellifold, .intellifoldJAX, .alphafold3, .openfold3]
+    }
+
+    /// Engines the iterative pipeline can drive. The JAX backend is absent
+    /// because `nanohunter_run.sh` hard-assigns IntelliFold's environment and
+    /// runner; it is reachable from the RFdiffusion3 checker, which calls its
+    /// adapter directly.
+    static var iterativeChoices: [Predictor] {
+        [.boltz, .boltzPotentials, .intellifold, .alphafold3, .openfold3]
+    }
 }
 
 /// Relative speed, as a band rather than a number.

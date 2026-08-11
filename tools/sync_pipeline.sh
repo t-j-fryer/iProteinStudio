@@ -44,6 +44,8 @@ FILES=(
   scripts/patch_intellifold_mps.py       # skips CUDA-only cleanup on MPS (setup_pipeline.sh)
   scripts/repair_intellifold_jax_cifs.py # fixes NUL-padded model id in converted JAX CIFs
   scripts/calibrate_device_throughput.py # opt-in per-machine schedule calibration
+  scripts/openfold_query_json.py         # OpenFold-3 query JSON (extracted from the runner)
+  scripts/openfold_runner_yaml.py        # OpenFold-3 runner YAML (extracted from the runner)
   examples/NanoHunter_nanobody.yaml
   examples/aCbx_bind.yaml
   examples/nanobody_scaffolds/catalog.tsv

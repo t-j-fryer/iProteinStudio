@@ -41,6 +41,9 @@ WITH_OPENFOLD3=0
 WITH_ALPHAFOLD3=0
 WITH_INTELLIFOLD_JAX=0
 WITH_RFD3=0
+WITH_LASERMPNN=0
+MATERIALISE=0
+REPAIR_VENVS=0
 LINK_EXISTING=""
 LINK_RFD3=""
 DETECT_ONLY=0
@@ -52,8 +55,13 @@ while [[ $# -gt 0 ]]; do
     --with-intellifold-jax) WITH_INTELLIFOLD_JAX=1; WITH_ALPHAFOLD3=1; shift ;;
     --with-rfd3)            WITH_RFD3=1; shift ;;
     --link-existing)        LINK_EXISTING="$2"; shift 2 ;;
+    --materialise|--materialize) MATERIALISE=1; shift ;;
+    --all)                  WITH_OPENFOLD3=1; WITH_ALPHAFOLD3=1; WITH_INTELLIFOLD_JAX=1
+                            WITH_LASERMPNN=1; WITH_RFD3=1; shift ;;
+    --with-lasermpnn)       WITH_LASERMPNN=1; shift ;;
     --link-rfd3)            LINK_RFD3="$2"; shift 2 ;;
     --detect)               DETECT_ONLY=1; shift ;;
+    --repair-venvs)         REPAIR_VENVS=1; shift ;;
     *) echo "NHFAIL|Unknown option: $1"; exit 2 ;;
   esac
 done
@@ -208,6 +216,168 @@ if [[ -n "${LINK_EXISTING}" ]]; then
   exit 0
 fi
 
+# ---------------------------------------------------------- materialisation ---
+#
+# Replace symlinked components with real local copies, so the installation is
+# self-contained and reproducible rather than depending on another checkout
+# staying where it is. Copies first and swaps afterwards, so an interrupted run
+# leaves the working symlink in place rather than a half-copied directory.
+
+relocate_venv() {
+  local venv="${1%/}"
+  local name; name="$(basename "${venv}")"
+  local script old_root
+
+  # Console scripts come in two shapes: a plain "#!<venv>/bin/python" shebang,
+  # and a two-line /bin/sh wrapper that execs the interpreter on line 2. Only
+  # rewriting line 1 fixes the first and silently leaves the second pointing at
+  # the old location, so both are handled by replacing the old root wherever it
+  # appears in a wrapper.
+  old_root=""
+  for script in "${venv}"/bin/*; do
+    [[ -f "${script}" ]] || continue
+    case "$(basename "${script}")" in
+      activate|activate.*|*.sh) ;;
+      *) [[ "$(head -c 2 "${script}" 2>/dev/null)" == "#!" ]] || continue ;;
+    esac
+    local found
+    found="$(LC_ALL=C grep -o "/[^\"']*/venvs/${name}" "${script}" 2>/dev/null | head -n 1 || true)"
+    if [[ -n "${found}" && "${found}" != "${venv}" ]]; then old_root="${found}"; break; fi
+  done
+  [[ -n "${old_root}" ]] || return 0
+
+  local rewritten=0
+  for script in "${venv}"/bin/*; do
+    [[ -f "${script}" ]] || continue
+    # Text wrappers only, never a binary that happens to contain the bytes.
+    # activate/activate.csh/activate.fish start with "# ", not "#!", and are
+    # sourced by the runner -- a stale one silently re-points VIRTUAL_ENV and
+    # PATH back at the old location, so they have to be included.
+    case "$(basename "${script}")" in
+      activate|activate.*|*.sh) ;;
+      *) [[ "$(head -c 2 "${script}" 2>/dev/null)" == "#!" ]] || continue ;;
+    esac
+    if LC_ALL=C grep -q "${old_root}" "${script}" 2>/dev/null; then
+      LC_ALL=C sed -i '' "s|${old_root}|${venv}|g" "${script}" 2>/dev/null && rewritten=$((rewritten+1))
+    fi
+  done
+  if [[ -f "${venv}/pyvenv.cfg" ]]; then
+    LC_ALL=C sed -i '' "s|${old_root}|${venv}|g" "${venv}/pyvenv.cfg" 2>/dev/null || true
+  fi
+  [[ "${rewritten}" -eq 0 ]] || echo "  relocated ${rewritten} script(s) in ${name}"
+}
+
+# Editable installs (`pip install -e`) record the *source* directory as an
+# absolute path in site-packages. Copying the venv does not move that pointer, so
+# the copy keeps importing the original checkout -- an installation that looks
+# self-contained and silently is not, and that breaks the moment the original is
+# deleted. This re-points them at this installation's own src/.
+relocate_editables() {
+  local venv="${1%/}" old_root="$2" new_root="$3"
+  [[ -n "${old_root}" && "${old_root}" != "${new_root}" ]] || return 0
+  local site rewritten=0 file
+  for site in "${venv}"/lib/python*/site-packages; do
+    [[ -d "${site}" ]] || continue
+    while IFS= read -r file; do
+      [[ -n "${file}" ]] || continue
+      LC_ALL=C sed -i '' "s|${old_root}|${new_root}|g" "${file}" 2>/dev/null && rewritten=$((rewritten+1))
+    done < <(LC_ALL=C grep -rl "${old_root}" "${site}" \
+               --include='*.pth' --include='*.egg-link' --include='__editable__*' 2>/dev/null)
+  done
+  [[ "${rewritten}" -eq 0 ]] || echo "  re-pointed ${rewritten} editable install(s) in $(basename "${venv}")"
+}
+
+materialise_component() {
+  local rel="$1"
+  local link="${NANOHUNTER_ROOT}/${rel}"
+  [[ -L "${link}" ]] || return 0
+  local target
+  target="$(readlink "${link}")"
+  [[ -e "${target}" ]] || { echo "  BROKEN    ${rel} -> ${target}"; return 1; }
+
+  local staging="${link}.materialising"
+  rm -rf "${staging}"
+  mkdir -p "$(dirname "${staging}")"
+
+  # RFdiffusion3 checkouts carry campaign outputs and cached fixtures that can
+  # run to gigabytes and belong to whoever produced them, not to this
+  # installation. Copy the code, environment and weights; leave the results.
+  local -a excludes=()
+  if [[ "${rel}" == "rfd3" ]]; then
+    excludes=(--exclude campaigns --exclude .git --exclude 'oracle/*.npz'
+              --exclude 'oracle/out' --exclude benchmarks --exclude figures)
+  fi
+
+  # -a preserves symlinks *inside* a venv (its python is one) and permissions.
+  # ${arr[@]+...} guards an empty array: with `set -u`, bash 3.2 on macOS treats
+  # "${arr[@]}" on an empty array as unbound rather than as no arguments.
+  if rsync -a ${excludes[@]+"${excludes[@]}"} "${target}/" "${staging}/" 2>/dev/null \
+     || cp -a "${target}/" "${staging}/" 2>/dev/null; then
+    rm -f "${link}"
+    mv "${staging}" "${link}" || { echo "  FAILED    ${rel}"; return 1; }
+    echo "  copied    ${rel}"
+  else
+    rm -rf "${staging}"
+    echo "  FAILED    ${rel} (copy error)"
+    return 1
+  fi
+}
+
+if [[ "${REPAIR_VENVS}" -eq 1 ]]; then
+  step repair 10 "Re-pointing environments after a move"
+  for venv in "${NANOHUNTER_ROOT}"/venvs/*/; do
+    [[ -d "${venv}" ]] || continue
+    relocate_venv "${venv}"
+    relocate_editables "${venv}" "${REPAIR_EDITABLE_SOURCE:-}" "${NANOHUNTER_ROOT}"
+  done
+  detect
+  step done 100 "Environments repaired"
+  echo "NHDONE|ok"
+  exit 0
+fi
+
+if [[ "${MATERIALISE}" -eq 1 ]]; then
+  step materialise 5 "Making this installation self-contained"
+  failed=0
+  # Remember where the components came from, so editable installs pointing back
+  # at that checkout can be re-pointed once the copies are in place.
+  MATERIALISE_SOURCE=""
+  for probe in "venvs/${VENV_PREFIX}_openfold3_mlx" "venvs/${VENV_PREFIX}_alphafold3" "src/alphafold3"; do
+    if [[ -L "${NANOHUNTER_ROOT}/${probe}" ]]; then
+      MATERIALISE_SOURCE="$(readlink "${NANOHUNTER_ROOT}/${probe}")"
+      MATERIALISE_SOURCE="${MATERIALISE_SOURCE%/${probe}}"
+      break
+    fi
+  done
+  for rel in \
+    "venvs/${VENV_PREFIX}_boltz" "venvs/${VENV_PREFIX}_ligandmpnn" \
+    "venvs/${VENV_PREFIX}_antifold" "venvs/${VENV_PREFIX}_intellifold" \
+    "venvs/${VENV_PREFIX}_openfold3_mlx" "venvs/${VENV_PREFIX}_alphafold3" \
+    "venvs/${VENV_PREFIX}_lasermpnn" \
+    "src/LigandMPNN" "src/AntiFold" "src/IntelliFold" \
+    "src/openfold-3-mlx" "src/alphafold3" "src/LASErMPNN" \
+    "models/alphafold3" "models/intellifold_jax_flash" \
+    "rfd3" "venvs" "src" "models"
+  do
+    materialise_component "${rel}" || failed=1
+  done
+  # A copied venv still points at where it came from: every console script in
+  # bin/ carries a shebang with the *original* absolute path. Left alone the
+  # copy would silently keep using the original environment, which defeats the
+  # point of making this installation self-contained -- and would break the
+  # moment the original was deleted.
+  for venv in "${NANOHUNTER_ROOT}"/venvs/*/; do
+    [[ -d "${venv}" ]] || continue
+    relocate_venv "${venv}"
+    [[ -n "${MATERIALISE_SOURCE}" ]] && relocate_editables "${venv}" "${MATERIALISE_SOURCE}" "${NANOHUNTER_ROOT}"
+  done
+  detect
+  step done 100 "Installation is now self-contained"
+  echo "NHDONE|ok"
+  [[ "${failed}" -eq 0 ]] || exit 1
+  exit 0
+fi
+
 # --------------------------------------------------------------- toolchain ---
 
 ensure_uv() {
@@ -227,6 +397,13 @@ ensure_python() {
   command -v "python${want}" >/dev/null 2>&1 || fail "Python ${want} still unavailable after install."
   printf -v "$var" '%s' "$(command -v "python${want}")"
 }
+
+# A shebang line cannot contain a space: the kernel splits on whitespace, so a
+# console script installed under ".../Application Support/..." fails with
+# "bad interpreter". Every venv pip creates here would be quietly broken.
+case "${NANOHUNTER_ROOT}" in
+  *" "*) fail "The install path contains a space (${NANOHUNTER_ROOT}). Python console scripts cannot run from such a path. Use a path without spaces, e.g. ~/.nanohunterstudio." ;;
+esac
 
 mkdir -p "${NANOHUNTER_ROOT}"/{venvs,src,examples,models,output}
 
@@ -326,6 +503,30 @@ if [[ -f "${NANOHUNTER_ROOT}/scripts/patch_intellifold_mps.py" ]]; then
 fi
 state intellifold ok "IntelliFold v2-flash (PyTorch/MPS)"
 
+# ---- LASErMPNN (ligand-aware inverse folding) ----
+if [[ "${WITH_LASERMPNN}" -eq 1 ]]; then
+  step lasermpnn 66 "Installing LASErMPNN (ligand-aware sequence design)"
+  LASERMPNN_REPO="${SRC_DIR}/LASErMPNN"
+  LASERMPNN_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_lasermpnn"
+  [[ -d "${LASERMPNN_REPO}" ]] || git clone --depth 1 https://github.com/polizzilab/LASErMPNN.git "${LASERMPNN_REPO}" \
+    || fail "LASErMPNN clone failed."
+  [[ -d "${LASERMPNN_VENV}" ]] || "${PYTHON_BIN}" -m venv "${LASERMPNN_VENV}" || fail "LASErMPNN venv creation failed."
+  source "${LASERMPNN_VENV}/bin/activate"
+  pip install --upgrade pip >/dev/null || fail "pip upgrade failed (LASErMPNN)."
+  # torch-scatter/torch-cluster have no MPS kernels, so this runs on CPU. It is
+  # seconds per design, so CPU is not the bottleneck.
+  pip install torch >/dev/null || fail "torch install failed (LASErMPNN)."
+  pip install torch-scatter torch-cluster >/dev/null 2>&1 || \
+    echo "  note: torch-scatter/torch-cluster build failed; LASErMPNN may be unavailable"
+  pip install -e "${LASERMPNN_REPO}" >/dev/null 2>&1 || \
+    pip install numpy scipy biopython >/dev/null 2>&1 || true
+  deactivate
+  [[ -x "${LASERMPNN_VENV}/bin/python" && -d "${LASERMPNN_REPO}" ]] \
+    && state lasermpnn ok "LASErMPNN (CPU)" || state lasermpnn missing "install incomplete"
+else
+  state lasermpnn skipped "not requested"
+fi
+
 # ---- OpenFold-3-MLX (optional predictor) ----
 if [[ "${WITH_OPENFOLD3}" -eq 1 ]]; then
   step openfold3 72 "Installing OpenFold-3 (MLX kernels) — downloading ~2 GB checkpoint"
@@ -422,12 +623,18 @@ fi
 # ---- RFdiffusion3 (optional backbone generator) ----
 if [[ "${WITH_RFD3}" -eq 1 ]]; then
   step rfd3 96 "Installing RFdiffusion3 (MLX)"
+  if [[ ! -e "${RFD3_ROOT}/install_rfd3.sh" ]]; then
+    # The MLX port is the upstream this workflow extends; the campaign scripts
+    # Studio drives live alongside it.
+    git clone https://github.com/javierbq/rfd3-mlx.git "${RFD3_ROOT}" >/dev/null 2>&1 \
+      || state rfd3 missing "could not clone the RFdiffusion3 MLX port"
+  fi
   if [[ -x "${RFD3_ROOT}/install_rfd3.sh" ]]; then
     bash "${RFD3_ROOT}/install_rfd3.sh" --download-weights >/dev/null 2>&1 \
       && state rfd3 ok "RFdiffusion3 MLX" \
       || state rfd3 missing "install_rfd3.sh failed — see the log"
   else
-    state rfd3 missing "no RFD3 checkout at ${RFD3_ROOT}; link an existing one in Settings"
+    state rfd3 missing "no RFdiffusion3 checkout at ${RFD3_ROOT}"
   fi
 else
   state rfd3 skipped "not requested"
