@@ -155,10 +155,9 @@ print(parse_conformers('a.sdf:0.5:A,b.sdf:0.3:B,c.sdf:0.2:C'))"
 - **No campaign has been run against a multi-conformer plan.** Bin planning,
   quota splitting and file preparation are verified; nothing has reached the GPU.
   The dTF140 production campaign was folding throughout.
-- The **attachment atom is a raw index typed into a box.** The proposal called for
-  clicking the atom on the 2D depiction; that needs the RDKit-JS depiction to
-  report atom indices back, which is not wired. Until it is, this feature is
-  usable but not noob-proof — the single most valuable follow-up.
+- The attachment atom **was** a typed index; it is now clickable — see the
+  addendum below. Still untested with a real pointer: the coordinate mapping is
+  measured, but nobody has clicked it.
 - **Tier 2 similarity search is not implemented.** Only exact-graph matches are
   used. When there is no exact match the analysis is purely computational, where
   close analogues could have informed torsions.
@@ -176,9 +175,81 @@ print(parse_conformers('a.sdf:0.5:A,b.sdf:0.3:B,c.sdf:0.2:C'))"
 
 ## Next
 
-1. Make the attachment atom clickable on the 2D depiction. Typing an index is the
-   weakest part of an otherwise noob-proof flow.
-2. Run one small multi-conformer campaign end to end once the GPU is free.
-3. Add the Tier 2 similarity search for molecules with no exact PDB match.
-4. Offer the same analysis in the iterative design tab, which has the identical
+1. Run one small multi-conformer campaign end to end once the GPU is free.
+2. Add the Tier 2 similarity search for molecules with no exact PDB match.
+3. Offer the same analysis in the iterative design tab, which has the identical
    problem for ligand targets and none of this machinery.
+
+---
+
+## Addendum, 2026-08-11 — the attachment atom is now clicked, not typed
+
+### Why it needed doing
+
+Picking the wrong atom makes a linker count as recognition core. Its flexibility
+then dominates the clustering and the design budget is spread across shapes that
+differ only in a floppy tail. With a number box the user gets no feedback at all;
+the analysis simply comes back subtly wrong.
+
+### Getting pixel coordinates out of RDKit's SVG
+
+RDKit-JS gives a drawing and a molblock, but no mapping between them. Two
+approaches were tried.
+
+**Atom labels — failed.** RDKit draws heteroatom labels as glyph outlines. Their
+bounding boxes sit *beside* the atom, not on it. Fitting a similarity transform
+against them gave:
+
+| Molecule | mean error | max error |
+|---|---:|---:|
+| fluorescein-HEA | 27.0 px | 52.6 px |
+| ATP | 30.1 px | 62.7 px |
+
+Atoms are 16–28 px apart in these drawings, so the error exceeded the spacing —
+this would have selected the wrong atom routinely.
+
+**Bond endpoints — works.** A bond path carries `bond-K atom-I atom-J`, and its
+first and last points *are* the two atom centres, except where an end is pulled
+back to clear a label. Using only unlabelled ends as anchors:
+
+| Molecule | anchors | mean error | max error | atom spacing |
+|---|---:|---:|---:|---:|
+| benzene | 6 | 0.03 px | 0.04 px | 127 px |
+| fluorescein-HEA | 23 | 2.02 px | 4.69 px | 16.5 px |
+| BG-PEG4 | 23 | 1.88 px | 3.14 px | 18.4 px |
+| ATP | 10 | 7.42 px | 16.04 px | 27.9 px |
+
+ATP is the worst case — few unlabelled carbons, and double-bond paths contribute
+extra sub-paths — but the error is still comfortably under half the atom spacing.
+
+**Picking is nearest-atom, not hit-testing.** A small transparent circle per atom
+would have to be larger than the residual error to be reliable, and larger circles
+overlap. Taking the nearest atom to the pointer is correct whenever the residual
+is under half the spacing, which every case above satisfies with margin.
+
+A bounding-box fit remains as a fallback for molecules with too few anchors.
+
+### Two safeguards
+
+- **The analysis result is shaded back onto the same picture** — green for
+  recognition core, amber for the linker. A wrong attachment point stops being an
+  invisible numeric error and becomes an obviously wrong picture.
+- **The element is cross-checked.** The picker reports the clicked atom's symbol
+  alongside its index, and the analysis refuses to run if the symbol at that index
+  disagrees. Atom numbering was verified to agree — RDKit preserves SMILES input
+  order through the molblock in both the JS and Python paths, checked on four
+  molecules — but a silent numbering drift would corrupt every result, so it fails
+  loudly instead. Verified: a correct atom is accepted, a mismatched one rejected.
+
+### Limits
+
+- **Nobody has clicked it.** The coordinate mapping is measured against RDKit's
+  own SVG from Python, and the atom ordering is verified, but the WKWebView path —
+  message handler, hover, click-to-clear — has not been exercised by a pointer.
+  That is the remaining risk and it is a UI risk, not a scientific one.
+- Anchor accuracy was measured at one canvas size (460×260). The fit is a
+  similarity transform so it should scale, but that was not tested.
+- The Python-side check of the browser's `getBBox` behaviour is an approximation;
+  the label-based approach was rejected on the strength of it, which is safe
+  (it was rejected in favour of something more accurate), but the exact browser
+  numbers may differ.
