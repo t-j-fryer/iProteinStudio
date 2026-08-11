@@ -136,6 +136,21 @@ struct DesignRequest: Codable, Equatable, Hashable {
     var parallelMode: ParallelMode = .auto
     var manualParallel: Int = 2
 
+    /// Structure predictor that drives the design loop. Boltz-2 is 3.4x cheaper
+    /// per proposal than the slowest alternative and needs only one process.
+    var designPredictor: Predictor = .boltz
+    /// Orthogonal predictors that re-fold hits after the design loop. This is the
+    /// number that should drive selection: the design predictor's own iPTM is
+    /// self-scored, because the loop optimises against it.
+    var postPredictors: [Predictor] = [.intellifold]
+    /// Only hits at or above `hitThreshold` are post-predicted, which is what
+    /// keeps an orthogonal check affordable.
+    var postOnlyHits: Bool = true
+    var speedMode: SpeedMode = .standard
+    /// Reuse completed cycles when a campaign is restarted. Idempotent, and safe
+    /// on a fresh run name.
+    var resumeIfPossible: Bool = true
+
     /// Designers valid for the current design + target combination.
     var allowedDesigners: [SequenceDesigner] {
         switch designType {
@@ -156,6 +171,30 @@ struct DesignRequest: Codable, Equatable, Hashable {
     }
 
     var hasProteinTarget: Bool { targetKind == .protein }
+
+    /// Every backend this run needs installed before it can start.
+    var requiredComponents: [InstallComponent] {
+        var set: [InstallComponent] = [designPredictor.component]
+        for p in postPredictors where !set.contains(p.component) { set.append(p.component) }
+        set.append(designer == .antifold ? .antifold : .mpnn)
+        return set
+    }
+
+    /// Rough wall-clock estimate in seconds, from the measured per-prediction
+    /// costs in `lab_book/0002-inherited-speed-lessons.md` §1. Deliberately
+    /// ignores MSA generation and inverse folding, so it under-reports; the UI
+    /// presents it as "at least".
+    var estimatedSecondsLowerBound: Double {
+        let designPredictions = Double(max(1, numDesigns) * max(1, numCycles))
+        var total = designPredictions * designPredictor.measuredSecondsPerPrediction
+                  / Double(designPredictor.measuredBestProcesses)
+        // Post-prediction touches only the final cycle, and only hits when gated.
+        let postCandidates = Double(max(1, numDesigns)) * (postOnlyHits ? 0.35 : 1.0)
+        for p in postPredictors {
+            total += postCandidates * p.measuredSecondsPerPrediction / Double(p.measuredBestProcesses)
+        }
+        return total
+    }
 
     var isRunnable: Bool {
         let targetOK = targetKind == .protein ? !targetSequence.isEmpty : !targetSmiles.isEmpty
@@ -187,6 +226,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         case designType, scaffoldID, scaffoldSequence, cdrs, binderMinLen, binderMaxLen, helixKill
         case targetKind, targetName, targetSequence, targetSmiles, epitopeResidues
         case designer, numDesigns, numCycles, hitThreshold, parallelMode, manualParallel
+        case designPredictor, postPredictors, postOnlyHits, speedMode, resumeIfPossible
     }
 
     /// Resilient decoding: every field defaults if absent, so adding new fields
@@ -212,5 +252,10 @@ struct DesignRequest: Codable, Equatable, Hashable {
         hitThreshold    = try c.decodeIfPresent(Double.self, forKey: .hitThreshold) ?? d.hitThreshold
         parallelMode    = try c.decodeIfPresent(ParallelMode.self, forKey: .parallelMode) ?? d.parallelMode
         manualParallel  = try c.decodeIfPresent(Int.self, forKey: .manualParallel) ?? d.manualParallel
+        designPredictor = try c.decodeIfPresent(Predictor.self, forKey: .designPredictor) ?? d.designPredictor
+        postPredictors  = try c.decodeIfPresent([Predictor].self, forKey: .postPredictors) ?? d.postPredictors
+        postOnlyHits    = try c.decodeIfPresent(Bool.self, forKey: .postOnlyHits) ?? d.postOnlyHits
+        speedMode       = try c.decodeIfPresent(SpeedMode.self, forKey: .speedMode) ?? d.speedMode
+        resumeIfPossible = try c.decodeIfPresent(Bool.self, forKey: .resumeIfPossible) ?? d.resumeIfPossible
     }
 }

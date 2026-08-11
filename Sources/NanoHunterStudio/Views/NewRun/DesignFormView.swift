@@ -107,7 +107,11 @@ struct DesignFormView: View {
                     }
                 }
 
-                Card(title: "4 · Run settings", systemImage: "gauge.with.dots.needle.67percent") {
+                Card(title: "4 · Prediction & checking", systemImage: "checkmark.seal") {
+                    PredictorPicker(request: request, installer: app.installer)
+                }
+
+                Card(title: "5 · Run settings", systemImage: "gauge.with.dots.needle.67percent") {
                     RunSettings(request: request)
                     DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
                         AdvancedSettings(request: request, projectDir: AppPaths.projectDir(project))
@@ -303,6 +307,134 @@ struct DesignerPicker: View {
     }
 }
 
+/// Design predictor + orthogonal checking predictors.
+///
+/// The framing matters scientifically. The design loop optimises sequences
+/// against whichever predictor drives it, so that predictor's own confidence is
+/// self-scored and is the number most at risk of being gamed. An independent
+/// re-fold is the honest measure, so the UI presents post-prediction as
+/// "checking" rather than as an optional extra, and pre-selects one.
+struct PredictorPicker: View {
+    @Binding var request: DesignRequest
+    @ObservedObject var installer: PipelineInstaller
+
+    private var checkChoices: [Predictor] {
+        Predictor.designChoices.filter { $0.runnerValue != request.designPredictor.runnerValue }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // --- Design predictor ---
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Design engine").font(.headline)
+                Text("Folds each design as it is optimised. Every extra second here is paid on every design of every cycle.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Picker("Design engine", selection: $request.designPredictor) {
+                    ForEach(Predictor.designChoices) { p in
+                        Text(p.label).tag(p)
+                    }
+                }
+                .pickerStyle(.menu).labelsHidden()
+                .onChange(of: request.designPredictor) { _, new in
+                    // A predictor cannot meaningfully check its own designs.
+                    request.postPredictors.removeAll { $0.runnerValue == new.runnerValue }
+                }
+                predictorNote(request.designPredictor, isDesign: true)
+            }
+
+            Divider()
+
+            // --- Orthogonal checking ---
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Check hits with").font(.headline)
+                Text("Independently re-folds your best designs with a different model. This is the score to trust — the design engine's own confidence is self-scored, because the loop optimises against it.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(checkChoices) { p in
+                    Toggle(isOn: Binding(
+                        get: { request.postPredictors.contains(p) },
+                        set: { on in
+                            if on { request.postPredictors.append(p) }
+                            else { request.postPredictors.removeAll { $0 == p } }
+                        }
+                    )) {
+                        HStack(spacing: 6) {
+                            Text(p.label)
+                            Text(costHint(p)).font(.caption).foregroundStyle(.secondary)
+                            if !installer.isUsable(p.component) {
+                                Label("not installed", systemImage: "exclamationmark.circle")
+                                    .font(.caption2).foregroundStyle(.orange).labelStyle(.titleAndIcon)
+                            }
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                    .disabled(!installer.isUsable(p.component))
+                    .help(p.caveat.isEmpty ? p.blurb : p.caveat)
+                }
+
+                if request.postPredictors.isEmpty {
+                    Label("Without an independent check you only have the design engine's own opinion of its designs.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Toggle("Only check designs that pass the hit threshold", isOn: $request.postOnlyHits)
+                        .toggleStyle(.checkbox).font(.callout)
+                }
+            }
+
+            Divider()
+            estimate
+        }
+    }
+
+    @ViewBuilder private func predictorNote(_ p: Predictor, isDesign: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(p.blurb).font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if !p.caveat.isEmpty {
+                Label(p.caveat, systemImage: "info.circle")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if isDesign, !installer.isUsable(p.component) {
+                let detail = installer.detail(p.component)
+                Label(detail.isEmpty ? "\(p.label) is not installed yet — add it from Setup." : detail,
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func costHint(_ p: Predictor) -> String {
+        let ratio = p.relativeCost
+        if ratio < 1.15 { return "· fastest" }
+        return String(format: "· ~%.1fx the time of Boltz-2", ratio)
+    }
+
+    /// Deliberately labelled "at least": the estimate counts predictions only,
+    /// not MSA generation or inverse folding.
+    private var estimate: some View {
+        let seconds = request.estimatedSecondsLowerBound
+        return Label {
+            Text("Rough estimate: at least \(formatted(seconds)) of compute on this Mac.")
+        } icon: {
+            Image(systemName: "clock")
+        }
+        .font(.callout)
+        .foregroundStyle(.secondary)
+    }
+
+    private func formatted(_ seconds: Double) -> String {
+        if seconds < 90 { return "\(Int(seconds.rounded())) s" }
+        if seconds < 5400 { return String(format: "%.0f min", seconds / 60) }
+        return String(format: "%.1f h", seconds / 3600)
+    }
+}
+
 struct RunSettings: View {
     @Binding var request: DesignRequest
     var body: some View {
@@ -337,6 +469,28 @@ struct AdvancedSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // --- Scheduling ---
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Scheduling").font(.headline)
+                Picker("", selection: $request.speedMode) {
+                    ForEach(SpeedMode.allCases) { Text($0.label).tag($0) }
+                }.pickerStyle(.segmented).labelsHidden().frame(width: 300)
+                Text(request.speedMode.blurb).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if request.speedMode.isExperimental {
+                    Label("Not yet validated for ligand targets or steering potentials. If a run misbehaves, switch back to Standard.",
+                          systemImage: "flask")
+                        .font(.caption).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Toggle("Reuse finished work if this run is restarted", isOn: $request.resumeIfPossible)
+                    .toggleStyle(.checkbox).font(.callout)
+                Text("Long campaigns get interrupted. With this on, completed cycles, sequences and checks are read back from disk instead of recomputed.")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Divider()
+
             // --- Parallelisation ---
             VStack(alignment: .leading, spacing: 6) {
                 Text("Parallelisation").font(.headline)
@@ -395,8 +549,17 @@ struct AdvancedSettings: View {
                 calibrationResults
             }
 
-            Text("Design engine: Boltz · Post-prediction: IntelliFold (fixed for now)")
-                .font(.caption).foregroundStyle(.secondary)
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Design engine: \(request.designPredictor.label) · Checked with: "
+                     + (request.postPredictors.isEmpty
+                        ? "nothing"
+                        : request.postPredictors.map(\.label).joined(separator: ", ")))
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("Token bucketing, the JAX compile cache and per-predictor thread limits are always on — they were measured as free wins and there is nothing useful to decide about them.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(.top, 6)
     }

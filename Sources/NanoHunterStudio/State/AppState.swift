@@ -27,6 +27,9 @@ final class AppState: ObservableObject {
         }
         scaffolds = ScaffoldCatalog.load()
         if selectedProjectID == nil { selectedProjectID = projects.first?.id }
+        // Ask the pipeline which backends are actually present, so the design
+        // form can refuse to offer a predictor that would fail at run time.
+        installer.detectComponents()
     }
 
     var selectedProject: Project? {

@@ -1,11 +1,26 @@
 import Foundation
 import Combine
 
-/// Drives first-run setup: stages vendored assets, then runs setup_pipeline.sh,
-/// parsing NHSTEP/NHDONE/NHFAIL markers into friendly progress.
+/// Drives setup: stages vendored assets, then runs `setup_pipeline.sh`, parsing
+/// its `NHSTEP` / `NHSTATE` / `NHDONE` / `NHFAIL` markers into friendly progress
+/// and a per-component availability map.
+///
+/// The availability map matters for more than cosmetics: it is what lets the
+/// design form refuse to offer a predictor that cannot actually run, instead of
+/// letting a novice start a campaign that fails twenty minutes in.
 @MainActor
 final class PipelineInstaller: ObservableObject {
     struct Step: Identifiable { let id = UUID(); let message: String }
+
+    /// What `setup_pipeline.sh` reported about one backend.
+    struct ComponentState: Equatable {
+        enum Availability: String { case ok, missing, skipped }
+        var availability: Availability
+        /// Human-readable qualifier, e.g. "environment ready — place af3.bin at …".
+        var detail: String
+
+        var isUsable: Bool { availability == .ok }
+    }
 
     @Published var isInstalling = false
     @Published var progress: Double = 0          // 0...1
@@ -14,19 +29,97 @@ final class PipelineInstaller: ObservableObject {
     @Published var finished = false
     @Published var failure: String?
     @Published var installed = AppPaths.isPipelineInstalled
+    @Published var components: [InstallComponent: ComponentState] = [:]
+    /// Extra backends the user asked for on top of the core four.
+    @Published var optionalSelection: Set<InstallComponent> = []
+    /// An existing NanoHunter checkout found on this machine, if any.
+    @Published var detectedNanoHunter: URL?
+    @Published var detectedRFD3: URL?
 
     private var runner: ProcessRunner?
 
-    func refreshInstalledState() { installed = AppPaths.isPipelineInstalled }
+    init() {
+        detectExistingCheckouts()
+    }
+
+    func refreshInstalledState() {
+        installed = AppPaths.isPipelineInstalled
+        detectComponents()
+    }
+
+    func isUsable(_ component: InstallComponent) -> Bool {
+        components[component]?.isUsable ?? false
+    }
+
+    func detail(_ component: InstallComponent) -> String {
+        components[component]?.detail ?? ""
+    }
+
+    // MARK: Reuse of an existing local install
+
+    /// Look for an already-installed NanoHunter / RFD3 next to the user's home
+    /// directory. Reusing one avoids duplicating tens of gigabytes of venvs and
+    /// model weights on a machine that already has them.
+    private func detectExistingCheckouts() {
+        let home = AppPaths.fm.homeDirectoryForCurrentUser
+        for name in ["NanoHunter", "iProteinHunter"] {
+            let candidate = home.appendingPathComponent(name)
+            let marker = candidate.appendingPathComponent("venvs/NanoHunter_boltz/bin/python")
+            if AppPaths.fm.fileExists(atPath: marker.path) { detectedNanoHunter = candidate; break }
+        }
+        for name in ["RFD3", "rfd3"] {
+            let candidate = home.appendingPathComponent(name)
+            if AppPaths.fm.fileExists(atPath: candidate.appendingPathComponent("install_rfd3.sh").path) {
+                detectedRFD3 = candidate; break
+            }
+        }
+    }
+
+    /// Point the app at an existing installation via symlink instead of
+    /// reinstalling. The app keeps its own vendored runner and examples, so the
+    /// pinned pipeline version still applies — only the heavy environments are
+    /// shared.
+    func linkExisting(nanoHunter: URL?, rfd3: URL?) {
+        var extra: [String] = []
+        if let nanoHunter { extra += ["--link-existing", nanoHunter.path] }
+        if let rfd3 { extra += ["--link-rfd3", rfd3.path] }
+        guard !extra.isEmpty else { return }
+        launch(extraArguments: extra, startMessage: "Linking to your existing installation…")
+    }
+
+    // MARK: Install
 
     func install() {
+        var extra: [String] = []
+        for component in optionalSelection.sorted(by: { $0.rawValue < $1.rawValue }) {
+            if let flag = component.installFlag { extra.append(flag) }
+        }
+        launch(extraArguments: extra, startMessage: "Preparing…")
+    }
+
+    /// Ask the script what is already present, without installing anything.
+    func detectComponents() {
+        guard !isInstalling, AppPaths.isPipelineStaged else { return }
+        let runner = ProcessRunner()
+        self.runner = runner
+        runner.launch(
+            executable: URL(fileURLWithPath: "/bin/bash"),
+            arguments: [AppPaths.setupScript.path, "--detect"],
+            environment: CommandBuilder.environment(),
+            workingDir: AppPaths.pipeline,
+            onLine: { [weak self] line in self?.handle(line, quiet: true) },
+            onExit: { _ in }
+        )
+    }
+
+    private func launch(extraArguments: [String], startMessage: String) {
         guard !isInstalling else { return }
         isInstalling = true
         finished = false
         failure = nil
         progress = 0
         steps = []
-        currentMessage = "Preparing…"
+        currentMessage = startMessage
 
         // Stage vendored scripts/examples into the managed pipeline dir.
         do { try AppPaths.stagePipelineAssets() }
@@ -37,11 +130,10 @@ final class PipelineInstaller: ObservableObject {
 
         let runner = ProcessRunner()
         self.runner = runner
-        let env = CommandBuilder.environment()
         runner.launch(
             executable: URL(fileURLWithPath: "/bin/bash"),
-            arguments: [AppPaths.setupScript.path],
-            environment: env,
+            arguments: [AppPaths.setupScript.path] + extraArguments,
+            environment: CommandBuilder.environment(),
             workingDir: AppPaths.pipeline,
             onLine: { [weak self] line in self?.handle(line) },
             onExit: { [weak self] code in self?.exit(code) }
@@ -54,15 +146,24 @@ final class PipelineInstaller: ObservableObject {
         currentMessage = "Setup cancelled."
     }
 
-    private func handle(_ line: String) {
-        if line.hasPrefix("NHSTEP|") {
-            let parts = line.components(separatedBy: "|")
-            if parts.count >= 4 {
-                progress = (Double(parts[2]) ?? 0) / 100.0
-                currentMessage = parts[3]
-                steps.append(Step(message: parts[3]))
-            }
+    // MARK: Output parsing
+
+    private func handle(_ line: String, quiet: Bool = false) {
+        let parts = line.components(separatedBy: "|")
+        if line.hasPrefix("NHSTEP|"), parts.count >= 4 {
+            guard !quiet else { return }
+            progress = (Double(parts[2]) ?? 0) / 100.0
+            currentMessage = parts[3]
+            steps.append(Step(message: parts[3]))
+        } else if line.hasPrefix("NHSTATE|"), parts.count >= 3 {
+            guard let component = InstallComponent(rawValue: parts[1]),
+                  let availability = ComponentState.Availability(rawValue: parts[2]) else { return }
+            components[component] = ComponentState(
+                availability: availability,
+                detail: parts.count >= 4 ? parts[3] : ""
+            )
         } else if line.hasPrefix("NHDONE|") {
+            guard !quiet else { return }
             progress = 1.0
             currentMessage = "Setup complete."
         } else if line.hasPrefix("NHFAIL|") {

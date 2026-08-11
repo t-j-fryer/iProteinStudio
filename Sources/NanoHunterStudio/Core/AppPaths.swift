@@ -35,6 +35,19 @@ enum AppPaths {
         return dir
     }
 
+    /// Persistent JAX/XLA compilation cache. AlphaFold 3 and the IntelliFold JAX
+    /// backend pay a compile cost per new token shape; without a cache that is
+    /// paid again on every cycle of every campaign.
+    static var jaxCompileCache: URL {
+        let dir = support.appendingPathComponent("jax_compile_cache", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// RFdiffusion3 checkout — either installed here or symlinked to an existing
+    /// one by `setup_pipeline.sh --link-rfd3`.
+    static var rfd3Root: URL { support.appendingPathComponent("rfd3", isDirectory: true) }
+
     static var projects: URL {
         let dir = support.appendingPathComponent("projects", isDirectory: true)
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
