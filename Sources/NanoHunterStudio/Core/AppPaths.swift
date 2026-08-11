@@ -1,0 +1,109 @@
+import Foundation
+
+/// Central owner of on-disk locations and vendored resource access.
+///
+/// Managed data lives under Application Support so the app is fully
+/// self-contained and never touches the user's home dir layout:
+///
+///   ~/Library/Application Support/NanoHunterStudio/     (== REPO_ROOT)
+///     nanohunter_run.sh, scripts/, examples/   vendored pipeline (staged here)
+///     venvs/, src/                              installed runtime
+///     scaffold_msa_cache/                       persistent scaffold-MSA cache
+///     projects/     one folder per design campaign (--out-root)
+///     config.json   app state
+///
+/// Everything the runner references as ${REPO_ROOT}/… (scripts, examples, venvs,
+/// src) lives directly under this dir, so the staged runner works unmodified.
+enum AppPaths {
+    static let fm = FileManager.default
+
+    static var support: URL {
+        let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = base.appendingPathComponent("NanoHunterStudio", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// The pipeline REPO_ROOT — same as `support` so staged scripts/examples sit
+    /// alongside the installed venvs/src the runner expects.
+    static var pipeline: URL { support }
+
+    /// Persistent scaffold-MSA cache (kept out of examples/, which is re-staged).
+    static var scaffoldMSACache: URL {
+        let dir = support.appendingPathComponent("scaffold_msa_cache", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    static var projects: URL {
+        let dir = support.appendingPathComponent("projects", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    static var configFile: URL { support.appendingPathComponent("config.json") }
+
+    static var runnerScript: URL { pipeline.appendingPathComponent("nanohunter_run.sh") }
+    static var setupScript: URL { pipeline.appendingPathComponent("setup_pipeline.sh") }
+    static var catalogTSV: URL {
+        pipeline.appendingPathComponent("examples/nanobody_scaffolds/catalog.tsv")
+    }
+
+    static func projectDir(_ project: Project) -> URL {
+        let dir = projects.appendingPathComponent(project.slug, isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    // MARK: Bundled resources
+
+    /// Vendored pipeline assets shipped inside the app bundle.
+    static var bundledPipeline: URL? {
+        Bundle.module.url(forResource: "pipeline", withExtension: nil)
+    }
+
+    /// Offline 3Dmol.js viewer assets.
+    static var webRoot: URL? {
+        Bundle.module.url(forResource: "web", withExtension: nil)
+    }
+
+    /// True once the pipeline runtime has been installed (venvs present).
+    static var isPipelineInstalled: Bool {
+        let venvs = support.appendingPathComponent("venvs", isDirectory: true)
+        let boltz = venvs.appendingPathComponent("NanoHunter_boltz/bin/python")
+        return fm.fileExists(atPath: boltz.path)
+    }
+
+    /// True once the vendored scripts have been copied into the managed dir.
+    static var isPipelineStaged: Bool {
+        fm.fileExists(atPath: runnerScript.path)
+    }
+
+    /// Copy vendored scripts/examples into the managed pipeline dir (idempotent).
+    static func stagePipelineAssets() throws {
+        guard let src = bundledPipeline else {
+            throw NHError.message("Bundled pipeline assets are missing from the app.")
+        }
+        let items = try fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
+        for item in items {
+            let dest = pipeline.appendingPathComponent(item.lastPathComponent)
+            if fm.fileExists(atPath: dest.path) {
+                try? fm.removeItem(at: dest)
+            }
+            try fm.copyItem(at: item, to: dest)
+        }
+        // Ensure scripts are executable.
+        for name in ["nanohunter_run.sh", "setup_pipeline.sh"] {
+            let p = pipeline.appendingPathComponent(name).path
+            if fm.fileExists(atPath: p) {
+                try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: p)
+            }
+        }
+    }
+}
+
+struct NHError: LocalizedError {
+    let text: String
+    var errorDescription: String? { text }
+    static func message(_ s: String) -> NHError { NHError(text: s) }
+}

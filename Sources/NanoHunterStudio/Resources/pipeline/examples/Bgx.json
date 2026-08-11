@@ -1,0 +1,14 @@
+{
+  "nanohunter": {
+    "target_epitope_residues": [
+      "B55"
+    ],
+    "boltz_contact_distance": 6,
+    "boltz_contact_mode": "pocket+cdr3",
+    "boltz_contact_force": true,
+    "nanobody_seed_percent_x": 50,
+    "target_msa_mode": "auto",
+    "nanobody_scaffold_msa": "masked-cdr",
+    "nanobody_scaffold_msa_mask_cdrs": "CDR3"
+  }
+}

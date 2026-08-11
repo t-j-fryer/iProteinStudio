@@ -1,0 +1,22 @@
+{
+  "campaign": "Nanobody_no_epitope",
+  "target_sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+  "predictor": "intellifold",
+  "sequence_designer": "antifold",
+  "post_predictor": "none",
+  "intellifold_model": "v2-flash",
+  "num_runs": 6,
+  "num_opt_cycles": 5,
+  "nanobody_cdrs": [
+    "CDR3"
+  ],
+  "nanobody_seed_mode": "cdr-random",
+  "nanobody_seed_percent_x": 100,
+  "target_msa_mode": "auto",
+  "nanobody_scaffold_msa": "masked-cdr",
+  "nanobody_scaffold_msa_mask_cdrs": [
+    "CDR3"
+  ],
+  "target_epitope_residues": [],
+  "boltz_contact_mode": "none"
+}

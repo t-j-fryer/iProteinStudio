@@ -1,0 +1,76 @@
+import Foundation
+
+/// Writes the Boltz/NanoHunter template YAML for a design request:
+/// chain A = nanobody scaffold, chain B = target antigen, plus an optional
+/// `nanohunter:` block for epitope-directed contacts.
+enum TemplateWriter {
+    static func write(_ request: DesignRequest, to url: URL) throws {
+        // Chain A = binder. For a nanobody it's the fixed scaffold; for de-novo
+        // modes it's a placeholder the runner overwrites via --random-binder.
+        let binderA: String
+        switch request.designType {
+        case .nanobody:
+            binderA = clean(request.scaffoldSequence)
+            guard !binderA.isEmpty else { throw NHError.message("Scaffold sequence is empty.") }
+        case .minibinder, .peptide:
+            binderA = String(repeating: "G", count: max(1, request.binderMinLen))
+        }
+
+        // Chain B = target: a protein sequence or a small-molecule SMILES.
+        let targetBlock: String
+        switch request.targetKind {
+        case .protein:
+            let target = clean(request.targetSequence)
+            guard !target.isEmpty else { throw NHError.message("Target sequence is empty.") }
+            targetBlock = "  - protein:\n      id: B\n      sequence: \(target)\n      msa: empty\n"
+        case .ligand:
+            let smiles = request.targetSmiles.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !smiles.isEmpty else { throw NHError.message("Ligand SMILES is empty.") }
+            let quoted = smiles.replacingOccurrences(of: "'", with: "''")   // YAML single-quote escape
+            targetBlock = "  - ligand:\n      id: B\n      smiles: '\(quoted)'\n"
+        }
+
+        var yaml = ""
+        // Epitope-directed contacts only make sense for a protein target.
+        let epitopes = request.targetKind == .protein ? residueTokens(request.epitopeResidues) : []
+        if !epitopes.isEmpty {
+            yaml += "nanohunter:\n"
+            yaml += "  target_epitope_residues:\n"
+            for r in epitopes { yaml += "    - \(r)\n" }
+            yaml += "  boltz_contact_distance: 6\n"
+            yaml += "  boltz_contact_mode: pocket+cdr3\n"
+            yaml += "  boltz_contact_force: true\n"
+        }
+        yaml += "sequences:\n"
+        yaml += "  - protein:\n"
+        yaml += "      id: A\n"
+        yaml += "      sequence: \(binderA)\n"
+        yaml += "      msa: empty\n"
+        yaml += targetBlock
+        yaml += "version: 1\n"
+
+        try yaml.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    static func clean(_ s: String) -> String {
+        String(s.uppercased().unicodeScalars.filter { ("A"..."Z").contains(Character($0)) })
+    }
+
+    /// Normalize epitope tokens to chain-qualified residues on the target
+    /// (chain B). Accepts bare numbers ("32" -> "B32"), chain-qualified
+    /// ("b32" -> "B32"), and colon form ("B:32" -> "B32").
+    /// The target is always chain B in the generated template.
+    static func residueTokens(_ raw: String, targetChain: String = "B") -> [String] {
+        raw.split(whereSeparator: { ", ;".contains($0) })
+            .compactMap { tok in
+                let t = tok.uppercased().replacingOccurrences(of: ":", with: "")
+                if t.range(of: "^[0-9]+$", options: .regularExpression) != nil {
+                    return targetChain + t
+                }
+                if t.range(of: "^[A-Z][0-9]+$", options: .regularExpression) != nil {
+                    return t
+                }
+                return nil
+            }
+    }
+}

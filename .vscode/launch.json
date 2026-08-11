@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:NanoHunterStudio}",
+            "name": "Debug NanoHunterStudio",
+            "target": "NanoHunterStudio",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug NanoHunterStudio"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:NanoHunterStudio}",
+            "name": "Release NanoHunterStudio",
+            "target": "NanoHunterStudio",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release NanoHunterStudio"
+        }
+    ]
+}
