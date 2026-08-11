@@ -1,8 +1,8 @@
 # NanoHunter Studio
 
-A native macOS app for designing nanobodies against your target — with a
-guided setup, a clean design form, and a **live dashboard** that shows your
-design metrics updating in real time and the 3D structures of every hit.
+A native macOS app for designing protein binders on Apple Silicon — with a
+guided setup, clean design forms, and a **live dashboard** showing metrics
+updating in real time and the 3D structure of every hit.
 
 Built for people who want to design binders without touching a terminal.
 
@@ -10,18 +10,39 @@ Built for people who want to design binders without touching a terminal.
 
 ## What it does
 
-1. **One-click setup** — installs the design engines (Boltz, IntelliFold,
-   AntiFold, and the MPNN designers incl. AbMPNN) and their model weights behind
-   a friendly progress screen. One time, no terminal.
-2. **Guided design** — paste your target sequence, pick a validated nanobody
-   scaffold, choose which CDR loops to redesign, set how many designs and your
-   hit threshold. Sensible defaults throughout.
-3. **Live dashboard** — watch iPTM climb per cycle across all runs, see the
-   running hit count (iPTM ≥ your threshold, default 0.70), and inspect the 3D
-   structure of every hit as it appears.
+**Iterative design** — paste a target sequence or SMILES, pick a validated
+nanobody scaffold or a de-novo binder size, choose your design engine, and watch
+iPTM climb per cycle. Designs that pass your hit threshold are re-folded with an
+independent model, because a design engine scoring its own designs is marking its
+own homework.
 
-Default pipeline: **Boltz** design → **IntelliFold** prediction, with automatic
-parallelization across your Mac's cores.
+**RFdiffusion3** — generate binder backbones from scratch against a protein or a
+small molecule. Choose which ligand atoms end up buried, exposed, or hydrogen
+bonded by clicking them in a list read out of your own molecule. Small-molecule
+campaigns run the full pipeline: backbones → LASErMPNN sequences → Boltz-2 with
+steering potentials and the affinity head → ranking by ligand pLDDT + P(bind) →
+apo re-folding of the best designs to see whether the binding site is already
+formed before the ligand arrives.
+
+**One-click setup** — installs the design engines and their weights behind a
+friendly progress screen. If you already have NanoHunter installed, Studio links
+to it in about a second instead of downloading tens of gigabytes again.
+
+## Engines
+
+| | |
+|---|---|
+| Structure prediction | Boltz-2 (± steering potentials), IntelliFold, AlphaFold 3, OpenFold-3 |
+| Sequence design | AntiFold, AbMPNN, ProteinMPNN, SolubleMPNN, LigandMPNN, LASErMPNN |
+| Backbone generation | RFdiffusion3 on MLX |
+
+Boltz-2 is the default design engine: on the reference benchmark it is roughly
+3.4× cheaper per design than the slowest alternative and needs only one process.
+The others are offered with their real measured cost shown, so the trade is
+visible rather than guessed at.
+
+AlphaFold 3 weights (`af3.bin`) are governed by Google's terms and are **not**
+downloaded — obtain them from Google and place them where the setup screen says.
 
 ## Requirements
 
@@ -42,21 +63,33 @@ Or during development:
 swift build && swift run
 ```
 
-To work on it in Xcode, just `open Package.swift`.
+To work on it in Xcode, `open Package.swift`.
 
 ## How it works
 
-NanoHunter Studio is a friendly front end over the NanoHunter pipeline. It
-vendors the pipeline scripts inside the app, installs the heavy dependencies
-into `~/Library/Application Support/NanoHunterStudio/`, and drives
-`nanohunter_run.sh` as a subprocess — parsing its per-cycle output to power the
-live charts and the hits structure gallery.
+Studio is a front end. The science lives in sibling repositories — **NanoHunter**
+for iterative design and prediction, **RFD3** for RFdiffusion3 — and Studio drives
+their validated scripts rather than reimplementing them. It vendors the NanoHunter
+pipeline into its bundle (see `tools/sync_pipeline.sh` and
+`Resources/pipeline/PIPELINE_VERSION` for exactly which version), installs into
+`~/Library/Application Support/NanoHunterStudio/`, and parses the runners' output
+to drive the live views.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
+RFdiffusion3 campaigns can run for days, so they are launched detached and keep
+going if you quit the app; reopening the project reattaches to the running
+campaign.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the design, and
+**[LAB_BOOK.md](LAB_BOOK.md) for why things are the way they are** — every
+measurement, decision and dead end is recorded there.
+
+## Working on this repo
+
+Read [CLAUDE.md](CLAUDE.md) first. Any AI agent working here is required to
+record what it did in the Lab Book, including what it did not test.
 
 ## Status
 
-Alpha foundation. Working: setup wizard, project management, design form, live
-metrics + hits gallery + structure viewer, run orchestration. For public
-distribution the app still needs an icon and Developer ID notarization (open in
-Xcode to archive).
+Alpha. Builds and runs. Not signed or notarised, and no campaign has yet been run
+end to end through the app — see the Known gaps list at the top of
+[LAB_BOOK.md](LAB_BOOK.md).
