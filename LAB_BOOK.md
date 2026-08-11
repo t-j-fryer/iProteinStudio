@@ -41,14 +41,10 @@ validated production pipeline and survives quitting the app.
 3. **AlphaFold 3 and OpenFold-3 cannot check RFdiffusion3 designs** —
    `RFD3/scripts/run_predictors.py` implements Boltz and IntelliFold only. They
    are shown but disabled, with the reason stated in the UI.
-4. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
+5. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
    and self-consistency are written to disk but must be opened by hand.
-5. The IntelliFold JAX backend (1.24x) is installable but **not selectable** —
-   `nanohunter_run.sh` hard-assigns its venv and runner, so there is no supported
-   route to it. Upstream fix needed — see [0003](lab_book/0003-predictor-choice-and-scheduling.md).
-6. OpenFold-3 complex pLDDT has an unresolved scale problem and must not be surfaced in
-   the UI — see [0002](lab_book/0002-inherited-speed-lessons.md) §7. It is a checker
-   only, never a design engine.
+6. OpenFold-3 complex pLDDT has an unresolved scale problem — see
+   [0002](lab_book/0002-inherited-speed-lessons.md) §7. It is a checker only.
 7. No app icon, no Developer ID signing/notarisation.
 
 **Deliberately out of scope:** NISE (experimental, stays in NanoHunter); RFdiffusion3
@@ -79,6 +75,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0007 | 2026-08-11 | [Predictor settings audit, corrected speed claims, and ligand-atom targeting](lab_book/0007-predictor-settings-audit-and-ligand-targeting.md) | What each engine actually runs with and whether it is optimal, why the old speed multipliers were inverted, and how Boltz ligand atom names shift under the affinity head |
 | 0006 | 2026-08-11 | [Ligand Intelligence — conformer analysis and evidence-based design allocation](lab_book/0006-ligand-intelligence.md) | How a flexible ligand's shapes are found, weighed against the PDB, and turned into a design budget — and three silent failures found doing it |
 | 0005 | 2026-08-11 | [Designer routing, predictor roles, install detection, and RFD3 options](lab_book/0005-designer-routing-and-install-detection.md) | Why per-component linking beats all-or-nothing, the missing `--workflow` flag, and which predictors belong in which role |
 | 0004 | 2026-08-10 | [RFdiffusion3 tab, rebuilt on the validated production pipeline](lab_book/0004-rfdiffusion3-tab.md) | Why Studio drives the RFD3 repo's scripts instead of its own, and the binder-length-versus-total-length bug that decided it |
