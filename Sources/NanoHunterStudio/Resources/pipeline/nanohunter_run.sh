@@ -2,10 +2,60 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_NAME="${NANOHUNTER_APP_NAME:-NanoHunter}"
+REPO_ROOT="${PROTEINHUNTER_ROOT:-${IPROTEINHUNTER_ROOT:-${NANOHUNTER_ROOT:-$SCRIPT_DIR}}}"
+
+# One implementation serves both the original iProteinHunter protein-binder
+# workflow and NanoHunter fixed-scaffold nanobody design.  Resolve the workflow
+# before assigning defaults so `--workflow protein` receives protein-safe
+# defaults without requiring a compatibility wrapper.
+WORKFLOW="${PROTEINHUNTER_WORKFLOW_DEFAULT:-${NANOHUNTER_WORKFLOW_DEFAULT:-nanobody}}"
+_workflow_args=("$@")
+for ((_workflow_i = 0; _workflow_i < ${#_workflow_args[@]}; _workflow_i++)); do
+  case "${_workflow_args[_workflow_i]}" in
+    --workflow|--design-mode)
+      ((_workflow_i + 1 < ${#_workflow_args[@]})) || {
+        echo "ERROR: ${_workflow_args[_workflow_i]} requires protein or nanobody." >&2
+        exit 2
+      }
+      WORKFLOW="${_workflow_args[_workflow_i + 1]}"
+      ;;
+    --workflow=*|--design-mode=*)
+      WORKFLOW="${_workflow_args[_workflow_i]#*=}"
+      ;;
+  esac
+done
+unset _workflow_args _workflow_i
+WORKFLOW="$(printf '%s' "${WORKFLOW}" | tr '[:upper:]' '[:lower:]' | tr '_' '-')"
+case "${WORKFLOW}" in
+  protein|protein-binder|binder|iproteinhunter) WORKFLOW="protein" ;;
+  nanobody|vhh|nanohunter) WORKFLOW="nanobody" ;;
+  *)
+    echo "ERROR: --workflow must be protein or nanobody (got: ${WORKFLOW})." >&2
+    exit 2
+    ;;
+esac
+
+if [[ "${WORKFLOW}" == "nanobody" ]]; then
+  DEFAULT_TEMPLATE_YAML="${REPO_ROOT}/examples/NanoHunter_nanobody.yaml"
+  DEFAULT_POST_PREDICTOR="intellifold"
+  DEFAULT_SCAFFOLD_FROM_TEMPLATE=1
+  DEFAULT_SEQUENCE_DESIGNER="antifold"
+  DEFAULT_NANOBODY_SEED_MODE="cdr-random"
+  DEFAULT_NANOBODY_SEED_PERCENT_X=50
+  DEFAULT_NANOBODY_SCAFFOLD_MSA_MODE="masked-cdr"
+else
+  DEFAULT_TEMPLATE_YAML="${REPO_ROOT}/examples/aCbx_bind.yaml"
+  DEFAULT_POST_PREDICTOR="none"
+  DEFAULT_SCAFFOLD_FROM_TEMPLATE=0
+  DEFAULT_SEQUENCE_DESIGNER="auto"
+  DEFAULT_NANOBODY_SEED_MODE="native"
+  DEFAULT_NANOBODY_SEED_PERCENT_X=0
+  DEFAULT_NANOBODY_SCAFFOLD_MSA_MODE="off"
+fi
+
+APP_NAME="${PROTEINHUNTER_APP_NAME:-${IPROTEINHUNTER_APP_NAME:-${NANOHUNTER_APP_NAME:-NanoHunter + iProteinHunter}}}"
 RUNNER_DISPLAY_NAME="${RUNNER_DISPLAY_NAME:-$(basename "$0")}"
-VENV_PREFIX="${NANOHUNTER_VENV_PREFIX:-NanoHunter}"
-REPO_ROOT="${NANOHUNTER_ROOT:-$SCRIPT_DIR}"
+VENV_PREFIX="${PROTEINHUNTER_VENV_PREFIX:-${IPROTEINHUNTER_VENV_PREFIX:-${NANOHUNTER_VENV_PREFIX:-NanoHunter}}}"
 
 BOLTZ_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_boltz"
 LIGAND_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_ligandmpnn"
@@ -18,6 +68,7 @@ INTELLIFOLD_CLI="intellifold"
 OPENFOLD_CLI="run_openfold"
 OPENFOLD_CACHE_DIR="${OPENFOLD_CACHE:-$HOME/.openfold3}"
 OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_CACHE_DIR}/of3_ft3_v1.pt"
+OPENFOLD_A3M_QUERY_REWRITER="${REPO_ROOT}/scripts/rewrite_a3m_query.py"
 
 LIGANDMPNN_REPO="${REPO_ROOT}/src/LigandMPNN"
 LIGANDMPNN_RUN="python run.py"
@@ -27,19 +78,64 @@ LIGANDMPNN_CHECKPOINT_LIGAND="${LIGANDMPNN_REPO}/model_params/ligandmpnn_v_32_01
 # AbMPNN: antibody-fine-tuned ProteinMPNN (Zenodo 10.5281/zenodo.8164693), runs on the
 # ProteinMPNN architecture, so it loads via --model_type protein_mpnn.
 LIGANDMPNN_CHECKPOINT_ABMPNN="${LIGANDMPNN_REPO}/model_params/abmpnn.pt"
+# LASErMPNN: ligand-aware inverse folder (Fry, Slaw & Polizzi, Nature 2026).
+# Only wired in for small-molecule minibinder design (--workflow protein + ligand).
+# torch_cluster/torch_scatter kernels are CPU-only, so LASErMPNN runs on CPU on
+# Apple Silicon (MPS is unsupported); inference is fast enough that this is fine.
+LASERMPNN_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_lasermpnn"
+LASERMPNN_REPO="${REPO_ROOT}/src/LASErMPNN"
+LASERMPNN_WEIGHTS="${LASERMPNN_REPO}/model_weights/laser_weights_0p1A_nothing_heldout.pt"
+LASERMPNN_PREPARE="${REPO_ROOT}/scripts/lasermpnn_prepare_input.py"
+LASERMPNN_DEVICE="${LASERMPNN_DEVICE:-cpu}"
+LASERMPNN_NUM_SEQ="${LASERMPNN_NUM_SEQ:-1}"
+LASERMPNN_SEQ_TEMP="${LASERMPNN_SEQ_TEMP:-0.1}"
+LASERMPNN_FS_TEMP="${LASERMPNN_FS_TEMP:-1.0}"
+LASERMPNN_SEED="${LASERMPNN_SEED:-0}"
+LASERMPNN_LIGAND_SMILES=""
+LASERMPNN_EXTRA_FLAGS=()
 ANTIFOLD_REPO="${REPO_ROOT}/src/AntiFold"
 ANTIFOLD_RUN="python antifold/main.py"
 ANTIFOLD_EXACT_SAMPLER="${REPO_ROOT}/scripts/sample_antifold_positions.py"
 INTELLIFOLD_REPO="${REPO_ROOT}/src/IntelliFold"
 INTELLIFOLD_RUNNER="${INTELLIFOLD_REPO}/run_intellifold.py"
+# IntelliFold's CPU-side BLAS/OpenMP work contends with MPS command submission
+# when every process uses all performance cores. Paired M4 Max benchmarks found
+# one thread faster with byte-identical structures; users can override either.
+INTELLIFOLD_OMP_NUM_THREADS="${NANOHUNTER_INTELLIFOLD_OMP_NUM_THREADS:-1}"
+INTELLIFOLD_VECLIB_MAXIMUM_THREADS="${NANOHUNTER_INTELLIFOLD_VECLIB_MAXIMUM_THREADS:-1}"
+# AlphaFold 3 (v3.0.4+): runs on Apple Silicon via the jax-mps Metal backend, or
+# on CPU. Driven with --norun_data_pipeline and precomputed/empty MSAs so none of
+# the ~1 TB genetic databases are needed. Weights (af3.bin) are ToU-restricted:
+# they must be obtained from Google and are never committed (models/ is ignored).
+ALPHAFOLD3_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_alphafold3"
+ALPHAFOLD3_REPO="${REPO_ROOT}/src/alphafold3"
+ALPHAFOLD3_RUNNER="${ALPHAFOLD3_REPO}/run_alphafold.py"
+ALPHAFOLD3_MODEL_DIR="${ALPHAFOLD3_MODEL_DIR:-${REPO_ROOT}/models/alphafold3}"
+ALPHAFOLD3_ADAPTER="${REPO_ROOT}/scripts/alphafold3_adapter.py"
+ALPHAFOLD3_BACKEND="${ALPHAFOLD3_BACKEND:-mps}"          # mps | cpu | gpu
+ALPHAFOLD3_NUM_RECYCLES="${ALPHAFOLD3_NUM_RECYCLES:-10}"
+ALPHAFOLD3_NUM_DIFFUSION_SAMPLES="${ALPHAFOLD3_NUM_DIFFUSION_SAMPLES:-1}"
+# Persist XLA executables between per-cycle invocations.  AF3 otherwise pays a
+# substantial avoidable compile cost every time NanoHunter advances a design.
+ALPHAFOLD3_COMPILATION_CACHE_DIR="${ALPHAFOLD3_COMPILATION_CACHE_DIR:-${REPO_ROOT}/output/.alphafold3_jax_cache}"
+# ``auto`` resolves to the maximum requested protein length for a design
+# campaign, avoiding unnecessary padding while preserving one compiled shape.
+ALPHAFOLD3_BUCKETS="${ALPHAFOLD3_BUCKETS:-auto}"
+ALPHAFOLD3_ASYNC_DISPATCH="${ALPHAFOLD3_ASYNC_DISPATCH:-0}"
+ALPHAFOLD3_EXTRA_FLAGS=()
 
-TEMPLATE_YAML="${NANOHUNTER_TEMPLATE_DEFAULT:-${REPO_ROOT}/examples/NanoHunter_nanobody.yaml}"
-NANOHUNTER_CONFIG_JSON="${NANOHUNTER_CONFIG_JSON:-}"
+# IntelliFold's PyTorch/MPS runner historically padded to hard-coded
+# 256-residue intervals. ``auto`` requests the exact campaign maximum; use
+# ``default`` to retain the upstream 256,512,... list.
+INTELLIFOLD_BUCKETS="${NANOHUNTER_INTELLIFOLD_BUCKETS:-auto}"
+
+TEMPLATE_YAML="${PROTEINHUNTER_TEMPLATE_DEFAULT:-${NANOHUNTER_TEMPLATE_DEFAULT:-${DEFAULT_TEMPLATE_YAML}}}"
+NANOHUNTER_CONFIG_JSON="${PROTEINHUNTER_CONFIG_JSON:-${NANOHUNTER_CONFIG_JSON:-}}"
 BASE_RUN_ROOT="${REPO_ROOT}/output"
 
 RUN_NAME="test_run"
 PREDICTOR="${NANOHUNTER_PREDICTOR_DEFAULT:-boltz}"
-POST_PREDICTOR="${NANOHUNTER_POST_PREDICTOR_DEFAULT:-intellifold}"
+POST_PREDICTOR="${NANOHUNTER_POST_PREDICTOR_DEFAULT:-${DEFAULT_POST_PREDICTOR}}"
 POST_MODE="all"
 POST_IPTM_THRESHOLD="0.70"
 POST_INCLUDE_CYCLE00=0
@@ -52,8 +148,15 @@ NO_PARALLEL=0
 MAX_PARALLEL_USER="auto"
 CALIBRATE_ONLY=0
 SKIP_PREDICTOR_CALIBRATION=0
+CHECK_CONFIG_ONLY=0
+# Reuse completed per-cycle predictions in an existing --run-name output tree
+# instead of recomputing them. Safe to pass on a fresh run (it is a no-op).
+RESUME=0
 DESIGN_SCHEDULER="${NANOHUNTER_DESIGN_SCHEDULER_DEFAULT:-run}"
 WAVE_BATCH_SIZE="${NANOHUNTER_WAVE_BATCH_SIZE_DEFAULT:-all}"
+WAVE_BATCH_SIZE_USER_SET=0
+MPNN_WAVE_MAX_PARALLEL="${NANOHUNTER_MPNN_WAVE_MAX_PARALLEL_DEFAULT:-2}"
+THROUGHPUT_PROFILE="${NANOHUNTER_THROUGHPUT_PROFILE:-auto}"
 MPS_AWARE=1
 MPS_MAX_PARALLEL="${NANOHUNTER_MPS_MAX_PARALLEL_DEFAULT:-auto}"
 MPS_MEM_FRACTION="${NANOHUNTER_MPS_MEM_FRACTION_DEFAULT:-0.65}"
@@ -70,7 +173,10 @@ MEM_BASIS="${NANOHUNTER_MEM_BASIS_DEFAULT:-available}"
 BINDER_MIN_LEN=65
 BINDER_MAX_LEN=150
 BINDER_PERCENT_X=50
-SCAFFOLD_FROM_TEMPLATE="${NANOHUNTER_SCAFFOLD_FROM_TEMPLATE_DEFAULT:-1}"
+BINDER_RANDOM_SEED="${NANOHUNTER_BINDER_RANDOM_SEED:-}"
+SCAFFOLD_FROM_TEMPLATE="${NANOHUNTER_SCAFFOLD_FROM_TEMPLATE_DEFAULT:-${DEFAULT_SCAFFOLD_FROM_TEMPLATE}}"
+INITIAL_STRUCTURE=""
+INITIAL_CONFIDENCE_JSON=""
 
 MOTIF_SCAFFOLDING=0
 MOTIF_POSITIONS=""
@@ -95,7 +201,7 @@ LIGAND_TEMP_CYCLE01="0.30"
 LIGAND_BIAS_AA_DEFAULT=""
 LIGAND_BIAS_AA_CYCLE01=""
 LIGANDMPNN_SEED=111
-SEQUENCE_DESIGNER="${SEQUENCE_DESIGNER_DEFAULT:-antifold}"
+SEQUENCE_DESIGNER="${SEQUENCE_DESIGNER_DEFAULT:-${DEFAULT_SEQUENCE_DESIGNER}}"
 SEQUENCE_DESIGNER_LABEL="auto"
 ANTIFOLD_REGIONS="${NANOHUNTER_CDRS_DEFAULT:-CDR3}"
 ANTIFOLD_NANOBODY_CHAIN="${NANOHUNTER_CHAIN_DEFAULT:-A}"
@@ -105,10 +211,10 @@ ANTIFOLD_BATCH_SIZE=1
 ANTIFOLD_NUM_THREADS=0
 ANTIFOLD_SEED=42
 ANTIFOLD_LIMIT_VARIATION=0
-NANOBODY_SEED_MODE="${NANOHUNTER_SEED_MODE_DEFAULT:-cdr-random}"
+NANOBODY_SEED_MODE="${NANOHUNTER_SEED_MODE_DEFAULT:-${DEFAULT_NANOBODY_SEED_MODE}}"
 NANOBODY_SEED_CDRS="${NANOHUNTER_SEED_CDRS_DEFAULT:-auto}"
 NANOBODY_SEED_CDR_RANGES="auto"
-NANOBODY_SEED_PERCENT_X="${NANOHUNTER_SEED_PERCENT_X_DEFAULT:-50}"
+NANOBODY_SEED_PERCENT_X="${NANOHUNTER_SEED_PERCENT_X_DEFAULT:-${DEFAULT_NANOBODY_SEED_PERCENT_X}}"
 NANOBODY_SEED_MAX_ATTEMPTS=500
 NANOBODY_ALLOW_CDR_CYS=0
 NANOBODY_CHARGE_MIN="-4"
@@ -119,7 +225,7 @@ TARGET_MSA_MODE="${NANOHUNTER_TARGET_MSA_MODE_DEFAULT:-auto}"
 TARGET_MSA_GENERATOR="${NANOHUNTER_TARGET_MSA_GENERATOR_DEFAULT:-auto}"
 TARGET_MSA_PATH_OVERRIDE="${NANOHUNTER_TARGET_MSA_PATH_DEFAULT:-}"
 TARGET_MSA_REQUIRED="${NANOHUNTER_TARGET_MSA_REQUIRED_DEFAULT:-0}"
-NANOBODY_SCAFFOLD_MSA_MODE="${NANOHUNTER_SCAFFOLD_MSA_MODE_DEFAULT:-masked-cdr}"
+NANOBODY_SCAFFOLD_MSA_MODE="${NANOHUNTER_SCAFFOLD_MSA_MODE_DEFAULT:-${DEFAULT_NANOBODY_SCAFFOLD_MSA_MODE}}"
 NANOBODY_SCAFFOLD_MSA_SOURCE="${NANOHUNTER_SCAFFOLD_MSA_SOURCE_DEFAULT:-}"
 NANOBODY_SCAFFOLD_MSA_CACHE_DIR="${NANOHUNTER_SCAFFOLD_MSA_CACHE_DIR_DEFAULT:-${REPO_ROOT}/examples/nanobody_scaffolds/msas}"
 NANOBODY_SCAFFOLD_MSA_LEGACY_CACHE_DIR="${REPO_ROOT}/output/nanobody_scaffold_msas"
@@ -167,6 +273,7 @@ BOLTZ_EXTRA_FLAGS_DEFAULT=(
   "--use_msa_server"
   "--msa_server_url" "https://api.colabfold.com"
   "--msa_pairing_strategy" "greedy"
+  "--override"
 )
 
 INTELLIFOLD_EXTRA_FLAGS_DEFAULT=(
@@ -202,8 +309,12 @@ usage() {
 Usage: ${RUNNER_DISPLAY_NAME} [options]
 
 Core:
-  --predictor TOOL                 boltz | intellifold | openfold-3-mlx
-  --sequence-designer TOOL         auto | proteinmpnn | solublempnn | ligandmpnn | abmpnn | antifold
+  --workflow MODE                  protein | nanobody (default: ${WORKFLOW})
+                                   protein: generic binders, motifs, partial redesign, ligands
+                                   nanobody: fixed VHH scaffold with exact CDR-only redesign
+  --predictor TOOL                 boltz | intellifold | openfold-3-mlx | alphafold3
+  --sequence-designer TOOL         auto | proteinmpnn | solublempnn | ligandmpnn | lasermpnn | abmpnn | antifold
+                                   (lasermpnn: small-molecule minibinders only; --workflow protein + ligand; CPU-only)
                                    default: ${SEQUENCE_DESIGNER}
   --post-predictor LIST            none | TOOL[,TOOL] (default: ${POST_PREDICTOR})
   --post-mode MODE                 none | all | iptm (default: ${POST_MODE})
@@ -215,7 +326,8 @@ Core:
   --num-cycles N                   alias of --num-opt-cycles
   --model NAME                     IntelliFold model when used (default: ${INTELLIFOLD_MODEL})
   --template-yaml PATH             default: ${TEMPLATE_YAML}
-  --nanohunter-config-json PATH    optional NanoHunter settings JSON; CLI flags override it
+  --config-json PATH               optional workflow settings JSON; CLI flags override it
+  --nanohunter-config-json PATH    backward-compatible alias
   --input-json PATH                alias of --nanohunter-config-json
   --out-root PATH                  default: ${BASE_RUN_ROOT}
 
@@ -223,9 +335,13 @@ Binder:
   --binder-min-len N               default: ${BINDER_MIN_LEN}
   --binder-max-len N               default: ${BINDER_MAX_LEN}
   --binder-percent-x P             default: ${BINDER_PERCENT_X}
-                                   (OpenFold-3 uses A/N/G/H/F/S/Y spikes at this rate; others use X)
+                                   (OpenFold-3 and AlphaFold3 use A/N/G/H/F/S/Y spikes at this rate;
+                                   Boltz and IntelliFold use X)
+  --binder-random-seed N           deterministic cycle_00 base seed; run_index is added
   --scaffold-from-template         seed cycle_00 from template chain A instead of random length
   --random-binder                  seed cycle_00 with the random binder mode
+  --initial-structure PATH         import an archived cycle_00 CIF/PDB instead of re-predicting it
+  --initial-confidence-json PATH   optional confidence JSON paired with --initial-structure
   --motif-scaffolding              enable motif scaffolding mode (Boltz design only)
   --motif-positions STR            motifs as JSON or ranges like "31-45,63-106" (1-based ranges)
   --motif-source-seq STR           source sequence used to extract motif residues
@@ -303,9 +419,14 @@ Parallelism:
   --no-parallel
   --max-parallel N|auto            default: ${MAX_PARALLEL_USER}
   --calibrate-only                 calibrate memory and exit before design runs
+  --resume                         reuse completed cycle predictions in an existing --run-name tree
+  --check-config                   validate routing, inputs, envs, and checkpoints; do not predict
   --skip-predictor-calibration     requires an explicit --max-parallel value
   --design-scheduler MODE          run | cycle-wave (default: ${DESIGN_SCHEDULER})
   --wave-batch-size N|all          predictor inputs per model load in cycle-wave mode
+  --wave-mpnn-max-parallel N       concurrent MPNN redesigns between waves (default: ${MPNN_WAVE_MAX_PARALLEL})
+  --throughput-profile PATH|auto|off
+                                   use a per-device calibrated process/batch recommendation
   --mps-aware                      default on
   --no-mps-aware
   --mps-max-parallel N|auto        compatibility knob
@@ -319,6 +440,8 @@ Hardware:
   --cpu-only                       force CPU where supported
 
 Extra flags passthrough:
+  --intellifold-buckets MODE       auto | default | comma-separated token sizes
+  --alphafold3-buckets MODE        auto | comma-separated token sizes
   --boltz-extra "ARGS"
   --intellifold-extra "ARGS"
   --openfold-extra "ARGS"
@@ -336,6 +459,7 @@ norm_predictor() {
     boltz) echo "boltz" ;;
     intellifold) echo "intellifold" ;;
     openfold-3-mlx|openfold3|openfold|of3) echo "openfold-3-mlx" ;;
+    alphafold3|alphafold-3|af3) echo "alphafold3" ;;
     none|"") echo "none" ;;
     *) return 1 ;;
   esac
@@ -349,6 +473,7 @@ norm_sequence_designer() {
     proteinmpnn|protein-mpnn) echo "proteinmpnn" ;;
     solublempnn|soluble-mpnn) echo "solublempnn" ;;
     ligandmpnn|ligand-mpnn|mpnn) echo "ligandmpnn" ;;
+    lasermpnn|laser-mpnn|laser) echo "lasermpnn" ;;
     abmpnn|ab-mpnn) echo "abmpnn" ;;
     antifold|anti-fold) echo "antifold" ;;
     *) return 1 ;;
@@ -360,6 +485,37 @@ sequence_designer_uses_ligandmpnn() {
     auto|proteinmpnn|solublempnn|ligandmpnn|abmpnn) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+# Extract the first ligand SMILES from a Boltz-style template YAML. Returns an
+# empty string if the only ligand is specified by CCD code (no SMILES), which
+# LASErMPNN's SMILES-based protonation cannot use.
+extract_ligand_smiles_from_yaml() {
+  python3 - "$1" <<'PY'
+import sys, re
+path = sys.argv[1]
+in_ligand = False
+indent = None
+smiles = ""
+for raw in open(path):
+    line = raw.rstrip("\n")
+    stripped = line.strip()
+    if re.match(r"-\s*ligand\s*:", stripped):
+        in_ligand = True
+        indent = len(line) - len(line.lstrip())
+        continue
+    if in_ligand:
+        cur_indent = len(line) - len(line.lstrip())
+        # A new top-level list item at or below the ligand indent ends the block.
+        if stripped.startswith("- ") and cur_indent <= indent:
+            in_ligand = False
+        else:
+            m = re.match(r"smiles\s*:\s*(.+)$", stripped)
+            if m:
+                smiles = m.group(1).strip().strip("'\"")
+                break
+print(smiles)
+PY
 }
 
 normalize_antifold_regions() {
@@ -526,6 +682,8 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --workflow|--design-mode) WORKFLOW="$2"; shift 2 ;;
+    --workflow=*|--design-mode=*) WORKFLOW="${1#*=}"; shift 1 ;;
     --predictor) PREDICTOR="$2"; shift 2 ;;
     --sequence-designer|--seq-designer) SEQUENCE_DESIGNER="$2"; shift 2 ;;
     --post-predictor) POST_PREDICTOR="$2"; shift 2 ;;
@@ -538,14 +696,17 @@ while [[ $# -gt 0 ]]; do
     --num-opt-cycles|--num-cycles) N_CYCLES="$2"; shift 2 ;;
     --model) INTELLIFOLD_MODEL="$2"; shift 2 ;;
     --template-yaml) TEMPLATE_YAML="$2"; shift 2 ;;
-    --nanohunter-config-json|--input-json) NANOHUNTER_CONFIG_JSON="$2"; shift 2 ;;
+    --config-json|--nanohunter-config-json|--input-json) NANOHUNTER_CONFIG_JSON="$2"; shift 2 ;;
     --out-root) BASE_RUN_ROOT="$2"; shift 2 ;;
 
     --binder-min-len) BINDER_MIN_LEN="$2"; shift 2 ;;
     --binder-max-len) BINDER_MAX_LEN="$2"; shift 2 ;;
     --binder-percent-x) BINDER_PERCENT_X="$2"; shift 2 ;;
+    --binder-random-seed) BINDER_RANDOM_SEED="$2"; shift 2 ;;
     --scaffold-from-template) SCAFFOLD_FROM_TEMPLATE=1; shift 1 ;;
     --random-binder) SCAFFOLD_FROM_TEMPLATE=0; shift 1 ;;
+    --initial-structure) INITIAL_STRUCTURE="$2"; shift 2 ;;
+    --initial-confidence-json) INITIAL_CONFIDENCE_JSON="$2"; shift 2 ;;
     --motif-scaffolding) MOTIF_SCAFFOLDING=1; shift 1 ;;
     --motif-positions) MOTIF_POSITIONS="$2"; shift 2 ;;
     --motif-source-seq) MOTIF_SOURCE_SEQ="$2"; shift 2 ;;
@@ -608,9 +769,13 @@ while [[ $# -gt 0 ]]; do
     --no-parallel) NO_PARALLEL=1; shift 1 ;;
     --max-parallel) MAX_PARALLEL_USER="$2"; shift 2 ;;
     --calibrate-only) CALIBRATE_ONLY=1; shift 1 ;;
+    --resume) RESUME=1; shift 1 ;;
+    --check-config) CHECK_CONFIG_ONLY=1; shift 1 ;;
     --skip-predictor-calibration) SKIP_PREDICTOR_CALIBRATION=1; shift 1 ;;
     --design-scheduler|--scheduler) DESIGN_SCHEDULER="$2"; shift 2 ;;
-    --wave-batch-size) WAVE_BATCH_SIZE="$2"; shift 2 ;;
+    --wave-batch-size) WAVE_BATCH_SIZE="$2"; WAVE_BATCH_SIZE_USER_SET=1; shift 2 ;;
+    --wave-mpnn-max-parallel) MPNN_WAVE_MAX_PARALLEL="$2"; shift 2 ;;
+    --throughput-profile) THROUGHPUT_PROFILE="$2"; shift 2 ;;
     --mps-aware) MPS_AWARE=1; shift 1 ;;
     --no-mps-aware) MPS_AWARE=0; shift 1 ;;
     --mps-max-parallel) MPS_MAX_PARALLEL="$2"; shift 2 ;;
@@ -623,6 +788,8 @@ while [[ $# -gt 0 ]]; do
 
     --cpu-only) CPU_ONLY=1; shift 1 ;;
 
+    --intellifold-buckets) INTELLIFOLD_BUCKETS="$2"; shift 2 ;;
+    --alphafold3-buckets) ALPHAFOLD3_BUCKETS="$2"; shift 2 ;;
     --boltz-extra) BOLTZ_EXTRA_CLI_STRING="$2"; shift 2 ;;
     --intellifold-extra) INTELLIFOLD_EXTRA_CLI_STRING="$2"; shift 2 ;;
     --openfold-extra) OPENFOLD_EXTRA_CLI_STRING="$2"; shift 2 ;;
@@ -727,10 +894,16 @@ if [[ -f "${TEMPLATE_YAML}" ]]; then
   apply_nanohunter_settings_payload "$(load_nanohunter_input_settings "${TEMPLATE_YAML}" || true)" "${TEMPLATE_YAML}"
 fi
 if [[ -n "${NANOHUNTER_CONFIG_JSON}" ]]; then
-  [[ -f "${NANOHUNTER_CONFIG_JSON}" ]] || die "NanoHunter config JSON not found: ${NANOHUNTER_CONFIG_JSON}"
+  [[ -f "${NANOHUNTER_CONFIG_JSON}" ]] || die "Workflow config JSON not found: ${NANOHUNTER_CONFIG_JSON}"
   apply_nanohunter_settings_payload "$(load_nanohunter_input_settings "${NANOHUNTER_CONFIG_JSON}" || true)" "${NANOHUNTER_CONFIG_JSON}"
 fi
 
+WORKFLOW="$(printf '%s' "${WORKFLOW}" | tr '[:upper:]' '[:lower:]' | tr '_' '-')"
+case "${WORKFLOW}" in
+  protein|protein-binder|binder|iproteinhunter) WORKFLOW="protein" ;;
+  nanobody|vhh|nanohunter) WORKFLOW="nanobody" ;;
+  *) die "--workflow must be protein or nanobody" ;;
+esac
 PREDICTOR="$(norm_predictor "$PREDICTOR")" || die "Unsupported --predictor: ${PREDICTOR}"
 SEQUENCE_DESIGNER="$(norm_sequence_designer "$SEQUENCE_DESIGNER")" || die "Unsupported --sequence-designer: ${SEQUENCE_DESIGNER}"
 ANTIFOLD_REGIONS_RAW="${ANTIFOLD_REGIONS}"
@@ -756,10 +929,13 @@ case "${TARGET_MSA_GENERATOR}" in
       boltz) TARGET_MSA_GENERATOR="boltz" ;;
       intellifold) TARGET_MSA_GENERATOR="intellifold" ;;
       openfold-3-mlx) TARGET_MSA_GENERATOR="openfold" ;;
+      # AF3 has no MSA server of its own here; it consumes a precomputed A3M, so
+      # reuse Boltz's MSA-server path to generate it (or run single-sequence).
+      alphafold3) TARGET_MSA_GENERATOR="boltz" ;;
       *) die "Cannot infer target MSA generator for predictor ${PREDICTOR}" ;;
     esac
     ;;
-  boltz|intellifold|openfold) : ;;
+  boltz|intellifold|openfold|alphafold3) : ;;
   *) die "--target-msa-generator must be auto, boltz, intellifold, or openfold" ;;
 esac
 case "${TARGET_MSA_REQUIRED}" in
@@ -807,6 +983,30 @@ if [[ "${POST_MODE}" == "none" ]]; then
   POST_PREDICTORS=()
 fi
 
+if [[ "${WORKFLOW}" == "protein" ]]; then
+  case "${SEQUENCE_DESIGNER}" in
+    antifold|abmpnn)
+      die "--sequence-designer ${SEQUENCE_DESIGNER} is antibody-specific and requires --workflow nanobody."
+      ;;
+  esac
+  if [[ "${NANOBODY_SCAFFOLD_MSA_MODE}" != "off" ]]; then
+    die "--nanobody-scaffold-msa is only valid with --workflow nanobody."
+  fi
+  if [[ -n "${TARGET_EPITOPE_RESIDUES}" ]]; then
+    die "--target-epitope-residues is a nanobody CDR-contact control; use template YAML constraints for --workflow protein."
+  fi
+else
+  if [[ "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 ]]; then
+    die "--workflow nanobody requires a fixed scaffold; remove --random-binder or pass --scaffold-from-template."
+  fi
+  if [[ "${MOTIF_SCAFFOLDING}" -eq 1 || "${PARTIAL_REDESIGN}" -eq 1 ]]; then
+    die "Motif scaffolding and arbitrary partial redesign belong to --workflow protein; nanobody mode redesigns exact CDR positions."
+  fi
+fi
+if [[ -n "${TARGET_EPITOPE_RESIDUES}" && "${PREDICTOR}" != "boltz" ]]; then
+  echo "WARNING: Boltz epitope/contact controls are ignored because the design predictor is ${PREDICTOR}." >&2
+fi
+
 if [[ "${MOTIF_SCAFFOLDING}" -eq 1 && "${PREDICTOR}" != "boltz" ]]; then
   die "--motif-scaffolding currently supports --predictor boltz only."
 fi
@@ -840,12 +1040,23 @@ esac
 if [[ "${WAVE_BATCH_SIZE}" != "all" && ! "${WAVE_BATCH_SIZE}" =~ ^[1-9][0-9]*$ ]]; then
   die "--wave-batch-size must be all or a positive integer."
 fi
+if [[ ! "${MPNN_WAVE_MAX_PARALLEL}" =~ ^[1-9][0-9]*$ ]]; then
+  die "--wave-mpnn-max-parallel must be a positive integer."
+fi
 if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" ]]; then
-  if [[ "${PREDICTOR}" != "boltz" && "${PREDICTOR}" != "intellifold" ]]; then
-    die "--design-scheduler cycle-wave currently supports Boltz and IntelliFold."
+  case "${WORKFLOW}" in
+    nanobody|protein) ;;
+    *) die "--design-scheduler cycle-wave supports protein and nanobody workflows." ;;
+  esac
+  case "${PREDICTOR}" in
+    boltz|intellifold|openfold-3-mlx|alphafold3) ;;
+    *) die "--design-scheduler cycle-wave does not support predictor ${PREDICTOR}." ;;
+  esac
+  if [[ "${WORKFLOW}" == "nanobody" && "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 ]]; then
+    die "--design-scheduler cycle-wave requires fixed-scaffold nanobody design."
   fi
-  if [[ "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 || "${SEQUENCE_DESIGNER}" != "antifold" ]]; then
-    die "--design-scheduler cycle-wave currently requires fixed-scaffold AntiFold nanobody design."
+  if [[ "${WORKFLOW}" == "protein" && "${SEQUENCE_DESIGNER}" == "antifold" ]]; then
+    die "AntiFold is nanobody-specific; use a ProteinMPNN-family designer for protein cycle-wave jobs."
   fi
   if [[ "${MOTIF_SCAFFOLDING}" -eq 1 || "${PARTIAL_REDESIGN}" -eq 1 ]]; then
     die "--design-scheduler cycle-wave does not support motif or partial-redesign modes."
@@ -855,17 +1066,22 @@ fi
 if [[ ! "${LIGANDMPNN_SEED}" =~ ^[0-9]+$ ]]; then
   die "--mpnn-seed must be a non-negative integer."
 fi
+if [[ -n "${BINDER_RANDOM_SEED}" && ! "${BINDER_RANDOM_SEED}" =~ ^[0-9]+$ ]]; then
+  die "--binder-random-seed must be a non-negative integer."
+fi
 
 python3 - "$N_RUNS" "$N_CYCLES" "$IPTM_THRESHOLD" "$POST_IPTM_THRESHOLD" "$MEM_SAFETY" "$LIGAND_TEMP_DEFAULT" "$LIGAND_TEMP_CYCLE01" "$NEGATIVE_HELIX_CONSTANT" "$LOOP_KILL" "$ANTIFOLD_SEED" "$ANTIFOLD_NUM_SEQ_PER_TARGET" "$ANTIFOLD_BATCH_SIZE" "$ANTIFOLD_NUM_THREADS" "$NANOBODY_SEED_MAX_ATTEMPTS" "$NANOBODY_CHARGE_MIN" "$NANOBODY_CHARGE_MAX" "$NANOBODY_HYDRO_MAX" "$NANOBODY_SEED_PERCENT_X" "$BOLTZ_CONTACT_DISTANCE" "$NANOBODY_SCAFFOLD_MSA_MAX_SEQS" <<'PY'
 import sys
-ints = ["--num-runs", "--num-opt-cycles"]
-for idx, name in enumerate(ints, start=1):
+for idx, name, minimum in (
+    (1, "--num-runs", 1),
+    (2, "--num-opt-cycles", 0),
+):
     try:
         v = int(sys.argv[idx])
     except Exception:
         raise SystemExit(f"{name} must be an integer")
-    if v < 1:
-        raise SystemExit(f"{name} must be >= 1")
+    if v < minimum:
+        raise SystemExit(f"{name} must be >= {minimum}")
 for idx, name in ((3,"--iptm-threshold"),(4,"--post-iptm-threshold"),(5,"--mem-safety"),(6,"--ligand-temp-other"),(7,"--ligand-temp-cycle1")):
     try:
         float(sys.argv[idx])
@@ -1035,6 +1251,25 @@ fi
 
 [[ -d "${REPO_ROOT}" ]] || die "Repo root not found: ${REPO_ROOT}"
 [[ -f "${TEMPLATE_YAML}" ]] || die "Template YAML not found: ${TEMPLATE_YAML}"
+if [[ -n "${INITIAL_CONFIDENCE_JSON}" && -z "${INITIAL_STRUCTURE}" ]]; then
+  die "--initial-confidence-json requires --initial-structure."
+fi
+if [[ -n "${INITIAL_STRUCTURE}" ]]; then
+  [[ -f "${INITIAL_STRUCTURE}" ]] || die "Initial structure not found: ${INITIAL_STRUCTURE}"
+  case "$(printf '%s' "${INITIAL_STRUCTURE##*.}" | tr '[:upper:]' '[:lower:]')" in
+    cif|pdb) : ;;
+    *) die "--initial-structure must be a CIF or PDB file." ;;
+  esac
+  [[ "${N_RUNS}" == "1" ]] || die "--initial-structure currently requires --num-runs 1."
+  [[ "${DESIGN_SCHEDULER}" == "run" ]] || die "--initial-structure requires --design-scheduler run."
+  [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]] || die "--initial-structure requires --scaffold-from-template with its exact chain A sequence."
+  [[ "${MOTIF_SCAFFOLDING}" -eq 0 && "${PARTIAL_REDESIGN}" -eq 0 ]] || die "--initial-structure cannot be combined with motif scaffolding or partial redesign."
+  INITIAL_STRUCTURE="$(cd "$(dirname "${INITIAL_STRUCTURE}")" && pwd)/$(basename "${INITIAL_STRUCTURE}")"
+  if [[ -n "${INITIAL_CONFIDENCE_JSON}" ]]; then
+    [[ -f "${INITIAL_CONFIDENCE_JSON}" ]] || die "Initial confidence JSON not found: ${INITIAL_CONFIDENCE_JSON}"
+    INITIAL_CONFIDENCE_JSON="$(cd "$(dirname "${INITIAL_CONFIDENCE_JSON}")" && pwd)/$(basename "${INITIAL_CONFIDENCE_JSON}")"
+  fi
+fi
 
 # Only validate venvs for predictors actually in use (design predictor + any
 # post-predictors). This avoids requiring, e.g., OpenFold when running
@@ -1047,7 +1282,13 @@ require_predictor_venv() {
       [[ -x "${INTELLIFOLD_VENV}/bin/python" ]] || die "IntelliFold venv not found: ${INTELLIFOLD_VENV}"
       [[ -f "${INTELLIFOLD_RUNNER}" ]] || die "IntelliFold YAML runner not found: ${INTELLIFOLD_RUNNER}" ;;
     openfold-3-mlx)
-      [[ -x "${OPENFOLD_VENV}/bin/python" ]] || die "OpenFold venv not found: ${OPENFOLD_VENV}" ;;
+      [[ -x "${OPENFOLD_VENV}/bin/python" ]] || die "OpenFold venv not found: ${OPENFOLD_VENV}"
+      [[ -f "${OPENFOLD_A3M_QUERY_REWRITER}" ]] || die "OpenFold A3M query helper not found: ${OPENFOLD_A3M_QUERY_REWRITER}" ;;
+    alphafold3)
+      [[ -x "${ALPHAFOLD3_VENV}/bin/python" ]] || die "AlphaFold3 venv not found: ${ALPHAFOLD3_VENV} (run install_nanohunter.sh)"
+      [[ -f "${ALPHAFOLD3_RUNNER}" ]] || die "AlphaFold3 runner not found: ${ALPHAFOLD3_RUNNER}"
+      [[ -f "${ALPHAFOLD3_ADAPTER}" ]] || die "AlphaFold3 adapter not found: ${ALPHAFOLD3_ADAPTER}"
+      [[ -f "${ALPHAFOLD3_MODEL_DIR}/af3.bin" ]] || die "AlphaFold3 weights not found: ${ALPHAFOLD3_MODEL_DIR}/af3.bin (ToU-restricted; obtain from Google and place there, or set ALPHAFOLD3_MODEL_DIR)" ;;
     none|"") : ;;
     *) die "Unknown predictor for venv check: $1" ;;
   esac
@@ -1065,6 +1306,12 @@ if [[ "${SEQUENCE_DESIGNER}" == "antifold" ]]; then
   [[ -x "${ANTIFOLD_VENV}/bin/python" ]] || die "AntiFold venv not found: ${ANTIFOLD_VENV}"
   [[ -f "${ANTIFOLD_REPO}/antifold/main.py" ]] || die "AntiFold main.py not found: ${ANTIFOLD_REPO}/antifold/main.py"
   [[ -f "${ANTIFOLD_EXACT_SAMPLER}" ]] || die "NanoHunter exact-position AntiFold sampler not found: ${ANTIFOLD_EXACT_SAMPLER}"
+fi
+if [[ "${SEQUENCE_DESIGNER}" == "lasermpnn" ]]; then
+  [[ -x "${LASERMPNN_VENV}/bin/python" ]] || die "LASErMPNN venv not found: ${LASERMPNN_VENV} (run install_nanohunter.sh)"
+  [[ -f "${LASERMPNN_REPO}/run_batch_inference.py" ]] || die "LASErMPNN not found: ${LASERMPNN_REPO}/run_batch_inference.py"
+  [[ -f "${LASERMPNN_WEIGHTS}" ]] || die "LASErMPNN weights not found: ${LASERMPNN_WEIGHTS}"
+  [[ -f "${LASERMPNN_PREPARE}" ]] || die "LASErMPNN input-prep helper not found: ${LASERMPNN_PREPARE}"
 fi
 
 if [[ "${MOTIF_SCAFFOLDING}" -eq 1 ]]; then
@@ -1173,10 +1420,22 @@ PY
 )"
 
 if [[ "${SEQUENCE_DESIGNER}" == "auto" ]]; then
-  if [[ "${HAS_SMALL_MOLECULE_LIGAND}" == "1" ]]; then
+  if [[ "${WORKFLOW}" == "nanobody" ]]; then
+    SEQUENCE_DESIGNER="abmpnn"
+  elif [[ "${HAS_SMALL_MOLECULE_LIGAND}" == "1" ]]; then
     SEQUENCE_DESIGNER="ligandmpnn"
   else
     SEQUENCE_DESIGNER="solublempnn"
+  fi
+fi
+
+# LASErMPNN is deliberately restricted to small-molecule minibinder design:
+# it is a ligand-aware inverse folder and is never auto-selected.
+if [[ "${SEQUENCE_DESIGNER}" == "lasermpnn" ]]; then
+  [[ "${WORKFLOW}" == "protein" ]] || die "--sequence-designer lasermpnn is only for small-molecule minibinder design (--workflow protein), not --workflow ${WORKFLOW}."
+  [[ "${HAS_SMALL_MOLECULE_LIGAND}" == "1" ]] || die "--sequence-designer lasermpnn requires a small-molecule ligand in the template; ${TEMPLATE_YAML} has none."
+  if [[ "${MOTIF_SCAFFOLDING}" -eq 1 ]]; then
+    die "--sequence-designer lasermpnn does not support motif scaffolding; use ligandmpnn for that mode."
   fi
 fi
 
@@ -1219,6 +1478,13 @@ case "${SEQUENCE_DESIGNER}" in
     LIGANDMPNN_MODEL_LABEL="soluble_mpnn"
     SEQUENCE_DESIGNER_LABEL="soluble_mpnn"
     ;;
+  lasermpnn)
+    # Only for small-molecule minibinder design: enforced in the workflow guard below.
+    [[ -f "${LASERMPNN_WEIGHTS}" ]] || die "LASErMPNN weights not found: ${LASERMPNN_WEIGHTS}"
+    LASERMPNN_LIGAND_SMILES="$(extract_ligand_smiles_from_yaml "${TEMPLATE_YAML}")"
+    [[ -n "${LASERMPNN_LIGAND_SMILES}" ]] || die "LASErMPNN requires a ligand SMILES in ${TEMPLATE_YAML} (CCD-only ligands are not supported for LASErMPNN; add a 'smiles:' field)."
+    SEQUENCE_DESIGNER_LABEL="lasermpnn"
+    ;;
   antifold)
     SEQUENCE_DESIGNER_LABEL="antifold"
     ;;
@@ -1226,6 +1492,11 @@ case "${SEQUENCE_DESIGNER}" in
     die "Unsupported sequence designer: ${SEQUENCE_DESIGNER}"
     ;;
 esac
+
+if [[ "${CHECK_CONFIG_ONLY}" -eq 1 ]]; then
+  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} template=${TEMPLATE_YAML} scheduler=${DESIGN_SCHEDULER}"
+  exit 0
+fi
 
 mkdir -p "${BASE_RUN_ROOT}"
 
@@ -1393,16 +1664,23 @@ generate_random_binder_seq() {
   local neg_helix_constant="$5"
   local loop_kill="${6:-0}"
   local predictor="${7:-}"
-  python3 - "$min_len" "$max_len" "$percent_x" "$helix_kill" "$neg_helix_constant" "$loop_kill" "$predictor" <<'PY'
+  local random_seed="${8:-}"
+  python3 - "$min_len" "$max_len" "$percent_x" "$helix_kill" "$neg_helix_constant" "$loop_kill" "$predictor" "$random_seed" <<'PY'
 import sys, random
-min_len, max_len, pct_x, helix_kill, neg_helix_constant, loop_kill, predictor = sys.argv[1:8]
+min_len, max_len, pct_x, helix_kill, neg_helix_constant, loop_kill, predictor, random_seed = sys.argv[1:9]
 min_len = int(min_len); max_len = int(max_len)
 pct_x = float(pct_x); helix_kill = int(helix_kill)
 neg_helix_constant = max(0.0, min(1.0, float(neg_helix_constant)))
 loop_kill = max(0.0, min(1.0, float(loop_kill)))
 if max_len < min_len:
     raise SystemExit("binder-max-len must be >= binder-min-len")
-L = random.randint(min_len, max_len)
+seed = int(random_seed) if random_seed else None
+rng = random.Random(seed)
+# Unsupported X positions receive deterministic predictor-compatible spikes,
+# but spike draws must not perturb the paired latent sequence used by models
+# that accept X/UNK.
+spike_rng = random.Random(None if seed is None else seed + 1_000_000_007)
+L = rng.randint(min_len, max_len)
 p_x = max(0.0, min(1.0, pct_x / 100.0))
 n_x = max(0, min(L, int(round(L * p_x))))
 AA_POOL = list("ADEFGHIKLMNPQRSTVWY")
@@ -1426,25 +1704,25 @@ for aa in AA_POOL:
         w *= proline_scale
     base_weights.append(w)
 seq = [None] * L
-idx = list(range(L)); random.shuffle(idx)
+idx = list(range(L)); rng.shuffle(idx)
 x_positions = set(idx[:n_x])
 of3_spike_pool = list("ANGHFSY")
 for i in range(L):
     if i in x_positions:
-        if predictor == "openfold-3-mlx":
-            seq[i] = random.choice(of3_spike_pool)
+        if predictor in {"openfold-3-mlx", "alphafold3"}:
+            seq[i] = spike_rng.choice(of3_spike_pool)
         else:
             seq[i] = "X"
         continue
     if not helix_kill:
-        seq[i] = random.choices(AA_POOL, weights=base_weights, k=1)[0]
+        seq[i] = rng.choices(AA_POOL, weights=base_weights, k=1)[0]
         continue
     w = base_weights[:]
     if i >= 4 and seq[i-4] in HELIX_PRONE:
         for j, aa in enumerate(AA_POOL):
             if aa in HELIX_PRONE:
                 w[j] *= local_helix_penalty
-    seq[i] = random.choices(AA_POOL, weights=w, k=1)[0]
+    seq[i] = rng.choices(AA_POOL, weights=w, k=1)[0]
 print("".join(seq))
 PY
 }
@@ -1457,10 +1735,11 @@ generate_partial_redesign_seed_seq() {
   local neg_helix_constant="$5"
   local loop_kill="${6:-0}"
   local predictor="${7:-}"
+  local random_seed="${8:-}"
 
   local seq_len seeded_random
   seq_len="${#base_seq}"
-  seeded_random="$(generate_random_binder_seq "${seq_len}" "${seq_len}" "${percent_x}" "${helix_kill}" "${neg_helix_constant}" "${loop_kill}" "${predictor}")"
+  seeded_random="$(generate_random_binder_seq "${seq_len}" "${seq_len}" "${percent_x}" "${helix_kill}" "${neg_helix_constant}" "${loop_kill}" "${predictor}" "${random_seed}")"
 
   python3 - "${base_seq}" "${seeded_random}" "${ranges_csv}" <<'PY'
 import re
@@ -2155,6 +2434,32 @@ for line in Path(template).read_text().splitlines(keepends=True):
 
     out_lines.append(line)
 
+
+def remove_top_level_block(lines, block_name):
+    """Remove one top-level YAML mapping and all of its indented children."""
+    kept = []
+    skipping = False
+    for line in lines:
+        stripped = line.strip()
+        is_top_level = bool(stripped) and not line.startswith((" ", "\t"))
+        if is_top_level and stripped == f"{block_name}:":
+            skipping = True
+            continue
+        if skipping:
+            if is_top_level:
+                skipping = False
+            else:
+                continue
+        kept.append(line)
+    return kept
+
+
+# Boltz restraints are a design-time steering mechanism. IntelliFold and
+# OpenFold do not consume the Boltz schema, and post-prediction should score the
+# resulting sequence without the restraints that generated it.
+if predictor != "boltz" or phase != "design":
+    out_lines = remove_top_level_block(out_lines, "constraints")
+
 dynamic_constraints = build_dynamic_constraints()
 if dynamic_constraints:
     constraints_idx = None
@@ -2277,6 +2582,38 @@ for raw in open(path):
         if val and low not in {"empty", "none", "null"}:
             print(val)
             break
+PY
+}
+
+extract_chain_msa_from_yaml() {
+  local template_yaml="$1"
+  local chain_id="$2"
+  python3 - "$template_yaml" "$chain_id" <<'PY'
+import sys
+
+path, wanted = sys.argv[1:3]
+cur = None
+in_protein = False
+for raw in open(path):
+    stripped = raw.strip()
+    if stripped.startswith("- protein:"):
+        in_protein = True
+        cur = None
+        continue
+    if not in_protein:
+        continue
+    if stripped.startswith("-") and not stripped.startswith("- protein:"):
+        in_protein = False
+        cur = None
+        continue
+    if stripped.startswith("id:"):
+        cur = stripped.split(":", 1)[1].strip().strip("'\"")
+        continue
+    if stripped.startswith("msa:") and cur == wanted:
+        value = stripped.split(":", 1)[1].strip().strip("'\"")
+        if value and value.lower() not in {"empty", "none", "null"}:
+            print(value)
+        break
 PY
 }
 
@@ -2699,7 +3036,7 @@ PY
 
   source "${INTELLIFOLD_VENV}/bin/activate"
   set +e
-  KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml_path}" \
+  OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml_path}" \
     --out_dir "${out_dir}" \
     "${INTELLIFOLD_EXTRA_FLAGS[@]}" \
     --msa_server_url "https://api.colabfold.com" \
@@ -2733,7 +3070,7 @@ PY
 }
 
 prepare_nanobody_scaffold_msa_cache() {
-  if [[ "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 || "${NANOBODY_SCAFFOLD_MSA_MODE}" == "off" ]]; then
+  if [[ "${WORKFLOW}" != "nanobody" || "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 || "${NANOBODY_SCAFFOLD_MSA_MODE}" == "off" ]]; then
     NANOBODY_SCAFFOLD_MSA_BASE_A3M=""
     return 0
   fi
@@ -2885,12 +3222,12 @@ make_masked_nanobody_scaffold_msa() {
   local out_a3m="$2"
   local predictor="$3"
 
-  if [[ "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 || "${NANOBODY_SCAFFOLD_MSA_MODE}" == "off" ]]; then
+  if [[ "${WORKFLOW}" != "nanobody" || "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 || "${NANOBODY_SCAFFOLD_MSA_MODE}" == "off" ]]; then
     echo ""
     return 0
   fi
   case "${predictor}" in
-    boltz|intellifold) : ;;
+    boltz|intellifold|openfold-3-mlx|alphafold3) : ;;
     *) echo ""; return 0 ;;
   esac
   [[ -n "${NANOBODY_SCAFFOLD_MSA_BASE_A3M}" ]] || { echo ""; return 0; }
@@ -3922,9 +4259,9 @@ run_intellifold_predict_monitored() {
 
   source "${INTELLIFOLD_VENV}/bin/activate"
   if [[ "${CPU_ONLY}" -eq 1 ]]; then
-    ACCELERATE_USE_CPU=true KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1 &
+    ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1 &
   else
-    KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1 &
+    OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1 &
   fi
   local pid=$!
 
@@ -4026,9 +4363,9 @@ run_predict_intellifold() {
   source "${INTELLIFOLD_VENV}/bin/activate"
   set +e
   if [[ "${CPU_ONLY}" -eq 1 ]]; then
-    ACCELERATE_USE_CPU=true KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1
+    ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1
   else
-    KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1
+    OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1
   fi
   rc=$?
   set -e
@@ -4069,12 +4406,14 @@ run_predict_openfold() {
   local pred_min="$5"
   local target_msa_path="$6"
 
-  local query_json runner_yaml binder_msa_path use_server
+  local query_json runner_yaml binder_msa_path binder_msa_source use_server
   local predict_log rc
   local binder_seq_clean changed_count
   query_json="${out_dir}/${query_name}_query.json"
   runner_yaml="${out_dir}/${query_name}_runner.yml"
-  # Use an OF3-style filename so default MSA settings ingest it without custom runner config.
+  # Use an OF3-style filename so default MSA settings ingest it without custom
+  # runner config. For nanobody jobs, preserve the masked scaffold support rows
+  # and rewrite only the query to the OpenFold-safe sequence.
   binder_msa_path="${out_dir}/binder_msa/uniref90_hits.a3m"
   predict_log="${out_dir}/predict.log"
   mkdir -p "${out_dir}"
@@ -4084,7 +4423,21 @@ run_predict_openfold() {
     echo "WARN: OpenFold input sequence had ${changed_count} non-standard residues; replaced with 'A' for prediction." >&2
   fi
 
-  write_single_seq_a3m "${binder_seq_clean}" "${binder_msa_path}"
+  binder_msa_source="$(extract_chain_msa_from_yaml "${input_yaml}" "A" || true)"
+  if [[ -n "${binder_msa_source}" && "${binder_msa_source}" != /* ]]; then
+    binder_msa_source="$(dirname "${input_yaml}")/${binder_msa_source}"
+  fi
+  if [[ -n "${binder_msa_source}" && -s "${binder_msa_source}" && "${binder_msa_source##*.}" == "a3m" ]]; then
+    "${OPENFOLD_VENV}/bin/python" "${OPENFOLD_A3M_QUERY_REWRITER}" \
+      --input "${binder_msa_source}" \
+      --output "${binder_msa_path}" \
+      --query "${binder_seq_clean}"
+  elif [[ -n "${binder_msa_source}" && -s "${binder_msa_source}" && "${changed_count}" == "0" ]] && \
+       is_openfold_msa_path_compatible "${binder_msa_source}"; then
+    binder_msa_path="${binder_msa_source}"
+  else
+    write_single_seq_a3m "${binder_seq_clean}" "${binder_msa_path}"
+  fi
   use_server="$(build_openfold_query_json "${input_yaml}" "${binder_seq_clean}" "${query_name}" "${query_json}" "${target_msa_path}" "${binder_msa_path}")"
   write_openfold_runner_yaml "${runner_yaml}"
 
@@ -4154,6 +4507,13 @@ from botocore.config import Config
 target = pathlib.Path(sys.argv[1]).expanduser()
 target.parent.mkdir(parents=True, exist_ok=True)
 
+# Runtime prediction must remain offline once the complete checkpoint has been
+# installed. The released checkpoint is ~2.13 GiB; anything smaller is treated
+# as incomplete and validated/redownloaded against S3 below.
+if target.exists() and target.stat().st_size >= 2_000_000_000:
+    print(f"OpenFold checkpoint ready: {target}", file=sys.stderr)
+    raise SystemExit(0)
+
 bucket = "openfold"
 key = "openfold3_params/of3_ft3_v1.pt"
 s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
@@ -4191,7 +4551,7 @@ make_calibration_binder_sequence() {
     scaffold_seq="$(extract_binder_sequence_from_yaml "${TEMPLATE_YAML}" "${ANTIFOLD_NANOBODY_CHAIN}")"
     [[ -n "${scaffold_seq}" ]] || die "Template chain ${ANTIFOLD_NANOBODY_CHAIN} sequence is empty; calibration requires a concrete scaffold sequence."
 
-    if [[ "${NANOBODY_SEED_MODE}" == "cdr-random" ]]; then
+    if [[ "${WORKFLOW}" == "nanobody" && "${NANOBODY_SEED_MODE}" == "cdr-random" ]]; then
       generate_nanobody_seed_seq "${scaffold_seq}" "${NANOBODY_SEED_CDRS}" "${ANTIFOLD_SEED}" "${cal_dir}/${report_name}"
     else
       printf '%s\n' "${scaffold_seq}"
@@ -4199,7 +4559,7 @@ make_calibration_binder_sequence() {
   else
     # Generic (non-scaffold) mode still calibrates with the longest binder in
     # the configured range.
-    generate_random_binder_seq "${BINDER_MAX_LEN}" "${BINDER_MAX_LEN}" "${BINDER_PERCENT_X}" "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${predictor}"
+    generate_random_binder_seq "${BINDER_MAX_LEN}" "${BINDER_MAX_LEN}" "${BINDER_PERCENT_X}" "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${predictor}" "${BINDER_RANDOM_SEED}"
   fi
 }
 
@@ -4212,9 +4572,17 @@ run_predictor_calibration_once() {
   qname="calibration_input"
   mkdir -p "${cal_dir}"
 
-  # NanoHunter calibration must preserve the fixed scaffold; only the selected
-  # CDR regions should receive randomized residues or X masks.
+  # Nanobody calibration preserves the fixed scaffold and only masks selected
+  # CDRs. Protein workflow calibration uses either the concrete fixed binder or
+  # the maximum configured random-binder length.
   cal_seq="$(make_calibration_binder_sequence "${predictor}" "${cal_dir}" "nanobody_seed_calibration.json")"
+  printf '%s\n' "${#cal_seq}" > "${cal_dir}/calibration_binder_length.txt"
+  {
+    printf 'workflow\t%s\n' "${WORKFLOW}"
+    printf 'predictor\t%s\n' "${predictor}"
+    printf 'binder_length\t%s\n' "${#cal_seq}"
+    printf 'target_length\t%s\n' "${#TARGET_SEQ}"
+  } > "${cal_dir}/calibration_context.tsv"
   cal_target_msa="$(pick_target_msa_for_predictor "${target_msa_path}" "${predictor}")"
   cal_binder_msa="$(make_masked_nanobody_scaffold_msa "${cal_seq}" "${cal_dir}/nanobody_scaffold_masked.a3m" "${predictor}")"
   make_yaml_with_binder_sequence "${TEMPLATE_YAML}" "${cal_yaml}" "${cal_seq}" "${cal_target_msa}" "${predictor}" "${cal_binder_msa}" "design"
@@ -4259,6 +4627,70 @@ run_predictor_calibration_once() {
   esac
 }
 
+run_predict_alphafold3() {
+  local cycle_yaml="$1"
+  local query_name="$2"
+  local work_dir="$3"
+  local pred_min="$4"
+
+  mkdir -p "${work_dir}" "${pred_min}"
+  local af3_json="${work_dir}/af3_input.json"
+  local af3_out="${work_dir}/out"
+  local safe_name
+  # Convert the per-cycle Boltz YAML into AF3 JSON, carrying precomputed A3M MSAs
+  # (or empty MSAs) so --norun_data_pipeline needs no genetic databases.
+  safe_name="$("${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_ADAPTER}" to-json \
+    --in-yaml "${cycle_yaml}" --out-json "${af3_json}" --name "${query_name}")" \
+    || die "AlphaFold3 input conversion failed for ${cycle_yaml}"
+
+  # cpu/mps backends require the portable XLA attention implementation.
+  local flash_impl="triton"
+  case "${ALPHAFOLD3_BACKEND}" in
+    cpu|mps) flash_impl="xla" ;;
+  esac
+
+  mkdir -p "${af3_out}"
+  mkdir -p "${ALPHAFOLD3_COMPILATION_CACHE_DIR}"
+  ( cd "${ALPHAFOLD3_REPO}" && \
+    JAX_MPS_ASYNC_DISPATCH="${ALPHAFOLD3_ASYNC_DISPATCH}" \
+    "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_RUNNER}" \
+      --json_path="${af3_json}" \
+      --output_dir="${af3_out}" \
+      --model_dir="${ALPHAFOLD3_MODEL_DIR}" \
+      --norun_data_pipeline \
+      --jax_backend="${ALPHAFOLD3_BACKEND}" \
+      --flash_attention_implementation="${flash_impl}" \
+      --num_recycles="${ALPHAFOLD3_NUM_RECYCLES}" \
+      --num_diffusion_samples="${ALPHAFOLD3_NUM_DIFFUSION_SAMPLES}" \
+      --buckets="${ALPHAFOLD3_BUCKETS}" \
+      --jax_compilation_cache_dir="${ALPHAFOLD3_COMPILATION_CACHE_DIR}" \
+      ${ALPHAFOLD3_EXTRA_FLAGS[@]+"${ALPHAFOLD3_EXTRA_FLAGS[@]}"} \
+  ) > "${work_dir}/alphafold3.log" 2>&1 \
+    || { tail -n 25 "${work_dir}/alphafold3.log" >&2; die "AlphaFold3 prediction failed (see ${work_dir}/alphafold3.log)"; }
+
+  # Normalise AF3 outputs into the predictor contract: model_0.cif + confidence.json
+  "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_ADAPTER}" from-output \
+    --af3-out "${af3_out}" --pred-min "${pred_min}" \
+    > "${work_dir}/af3_metrics.json" 2>>"${work_dir}/alphafold3.log" \
+    || die "AlphaFold3 output normalisation failed (see ${work_dir}/alphafold3.log)"
+
+  [[ -f "${pred_min}/model_0.cif" ]] || die "AlphaFold3 produced no model_0.cif in ${pred_min}"
+
+  # Emit the same result line every other predictor returns, otherwise the caller
+  # reads an empty string and records nan for iPTM/pLDDT even though the adapter
+  # wrote valid confidences.
+  local iptm plddt conf_out
+  conf_out="${pred_min}/confidence.json"
+  [[ -f "${conf_out}" ]] || conf_out=""
+  iptm="nan"; plddt="nan"
+  if [[ -n "${conf_out}" ]]; then
+    IFS=',' read -r iptm plddt <<< "$(extract_metrics_from_conf_json "${conf_out}")"
+    echo "$iptm" > "${pred_min}/iptm.txt" || true
+  fi
+
+  echo "${pred_min}/model_0.cif|${conf_out}|${iptm}|${plddt}"
+}
+
 run_predictor_once() {
   local predictor="$1"
   local cycle_yaml="$2"
@@ -4285,10 +4717,62 @@ run_predictor_once() {
     openfold-3-mlx)
       run_predict_openfold "${cycle_yaml}" "${binder_seq}" "${query_name}" "${cycle_dir}/openfold3" "${pred_min}" "${target_msa_path}"
       ;;
+    alphafold3)
+      run_predict_alphafold3 "${cycle_yaml}" "${query_name}" "${cycle_dir}/alphafold3" "${pred_min}"
+      ;;
     *)
       die "Unsupported predictor: ${predictor}"
       ;;
   esac
+}
+
+import_initial_cycle_structure() {
+  local cycle_dir="$1"
+  local expected_sequence="$2"
+  local pred_min="${cycle_dir}/pred_min"
+  local extension struct_out conf_out iptm plddt
+  extension="$(printf '%s' "${INITIAL_STRUCTURE##*.}" | tr '[:upper:]' '[:lower:]')"
+  mkdir -p "${pred_min}"
+  struct_out="${pred_min}/model_0.${extension}"
+  cp -f "${INITIAL_STRUCTURE}" "${struct_out}"
+
+  "${BOLTZ_VENV}/bin/python" - \
+    "${REPO_ROOT}" \
+    "${struct_out}" \
+    "${ANTIFOLD_NANOBODY_CHAIN}" \
+    "${#expected_sequence}" <<'PY'
+import sys
+from pathlib import Path
+
+root, structure, chain, expected_length = sys.argv[1:5]
+sys.path.insert(0, root)
+from score_motif_scaffolding import atom_index, load_atoms
+
+atoms = load_atoms(Path(structure))
+residues = {
+    atom_index(atom, "auto")
+    for atom in atoms
+    if atom.chain_id == chain and atom_index(atom, "auto") is not None
+}
+if len(residues) != int(expected_length):
+    raise SystemExit(
+        "Imported structure/template binder length mismatch for "
+        f"chain {chain}: structure={len(residues)}, sequence={expected_length}"
+    )
+PY
+
+  conf_out=""
+  iptm="nan"
+  plddt="nan"
+  if [[ -n "${INITIAL_CONFIDENCE_JSON}" ]]; then
+    conf_out="${pred_min}/confidence.json"
+    cp -f "${INITIAL_CONFIDENCE_JSON}" "${conf_out}"
+    IFS=',' read -r iptm plddt <<< "$(extract_metrics_from_conf_json "${conf_out}")"
+    [[ -n "${iptm:-}" ]] || iptm="nan"
+    [[ -n "${plddt:-}" ]] || plddt="nan"
+    printf '%s\n' "${iptm}" > "${pred_min}/iptm.txt"
+  fi
+  printf '%s|%s|%s|%s\n' "${struct_out}" "${conf_out}" "${iptm}" "${plddt}"
 }
 
 run_ligandmpnn_redesign() {
@@ -4404,6 +4888,125 @@ PY
   cp -f "$fasta" "${cycle_dir}/ligandmpnn_min/seqs.fa"
 
   extract_redesigned_sequence_from_fastas "${seqs_dir}"/*.fa
+}
+
+# Pick the highest-scoring chain-A design from a LASErMPNN designs.fasta.
+# LASErMPNN's score is the mean log10 per-residue selection probability, so the
+# maximum score is the most confident design.
+select_best_lasermpnn_sequence() {
+  python3 - "$1" <<'PY'
+import sys, re
+fasta = sys.argv[1]
+best_seq, best_score = None, None
+header, seq = None, []
+def flush():
+    global best_seq, best_score
+    if header is None:
+        return
+    s = "".join(seq).strip()
+    if not s:
+        return
+    m = re.search(r"score=(-?\d+(?:\.\d+)?)", header)
+    score = float(m.group(1)) if m else float("-inf")
+    if best_score is None or score > best_score:
+        best_score, best_seq = score, s
+for line in open(fasta):
+    line = line.rstrip("\n")
+    if line.startswith(">"):
+        flush()
+        header, seq = line, []
+    elif line.strip():
+        seq.append(line.strip())
+flush()
+if best_seq is None:
+    raise SystemExit("No sequence found in LASErMPNN designs.fasta")
+print(best_seq)
+PY
+}
+
+run_lasermpnn_redesign() {
+  local cycle_dir="$1"
+  local struct_path="$2"
+  local cycle_idx="$3"
+  local fixed_residues="${4:-}"
+  local redesigned_residues="${5:-}"
+  local run_index="${6:-0}"
+  cycle_dir="$(cd "${cycle_dir}" && pwd)"
+
+  local seed
+  seed="$((LASERMPNN_SEED + run_index * 1000 + cycle_idx))"
+
+  # X-seeded designs: Boltz emits UNK for masked (X) positions. Patch UNK ->
+  # real residues (cycle 0 only, matching the MPNN path) so LASErMPNN receives a
+  # valid all-atom backbone. LASErMPNN designs on backbone coords + ligand, so
+  # the patched identities are irrelevant to the redesigned positions.
+  local input_struct="${struct_path}"
+  if [[ "${struct_path##*.}" == "cif" && "${cycle_idx}" -eq 0 ]]; then
+    local patched="${cycle_dir}/pred_min/model_0_UNKPATCH.cif"
+    patch_cif_unk "${struct_path}" "${patched}" "${UNK_PATCH_MODE}"
+    input_struct="${patched}"
+  fi
+
+  local laser_pdb_raw="${cycle_dir}/model_for_lasermpnn_raw.pdb"
+  if [[ "${input_struct##*.}" == "cif" ]]; then
+    convert_cif_to_pdb "${input_struct}" "${laser_pdb_raw}"
+  else
+    cp -f "${input_struct}" "${laser_pdb_raw}"
+  fi
+
+  local laser_out="${cycle_dir}/lasermpnn"
+  mkdir -p "${laser_out}"
+  printf '%s\n' "${seed}" > "${laser_out}/seed.txt"
+
+  # Map NanoHunter's fixed/redesigned residue spec to LASErMPNN's B-factor mask.
+  local pos_flags=()
+  local fixbeta_flag=()
+  if [[ -n "${redesigned_residues}" ]]; then
+    pos_flags=(--designed-positions "$(residue_spec_to_positions "${redesigned_residues}")")
+    fixbeta_flag=(--fix_beta)
+  elif [[ -n "${fixed_residues}" ]]; then
+    pos_flags=(--fixed-positions "$(residue_spec_to_positions "${fixed_residues}")")
+    fixbeta_flag=(--fix_beta)
+  else
+    pos_flags=(--designed-positions all)
+  fi
+
+  # Automatic ligand protonation (SMILES-consistent H) + fix_beta masking.
+  "${LASERMPNN_VENV}/bin/python" "${LASERMPNN_PREPARE}" \
+    --in-pdb "${laser_pdb_raw}" \
+    --out-pdb "${laser_out}/model_prepared.pdb" \
+    --smiles "${LASERMPNN_LIGAND_SMILES}" \
+    "${pos_flags[@]}" \
+    > "${laser_out}/prepare.log" 2>&1 \
+    || { sed 's/^/[lasermpnn-prepare] /' "${laser_out}/prepare.log" >&2; die "LASErMPNN input preparation failed (see ${laser_out}/prepare.log)"; }
+
+  # LASErMPNN runs as a package module; sys.path[0] must be src/ (the parent of
+  # the LASErMPNN repo dir) so `import LASErMPNN` resolves. CPU only on macOS.
+  (
+    cd "${LASERMPNN_REPO}/.." || exit 1
+    KMP_USE_SHM=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+    "${LASERMPNN_VENV}/bin/python" -m LASErMPNN.run_batch_inference \
+      "${laser_out}/model_prepared.pdb" \
+      "${laser_out}/designs" \
+      "${LASERMPNN_NUM_SEQ}" \
+      --device "${LASERMPNN_DEVICE}" \
+      --model_weights_path "${LASERMPNN_WEIGHTS}" \
+      --sequence_temp "${LASERMPNN_SEQ_TEMP}" \
+      --first_shell_sequence_temp "${LASERMPNN_FS_TEMP}" \
+      --disabled_residues "X,C" \
+      --output_fasta_only --silent \
+      ${fixbeta_flag[@]+"${fixbeta_flag[@]}"} \
+      ${LASERMPNN_EXTRA_FLAGS[@]+"${LASERMPNN_EXTRA_FLAGS[@]}"}
+  ) > "${laser_out}/lasermpnn.log" 2>&1 \
+    || { sed 's/^/[lasermpnn] /' "${laser_out}/lasermpnn.log" >&2; die "LASErMPNN inference failed (see ${laser_out}/lasermpnn.log)"; }
+
+  local fasta="${laser_out}/designs/designs.fasta"
+  [[ -f "${fasta}" ]] || die "LASErMPNN produced no designs.fasta in ${laser_out}/designs"
+
+  mkdir -p "${cycle_dir}/lasermpnn_min"
+  cp -f "${fasta}" "${cycle_dir}/lasermpnn_min/seqs.fa"
+
+  select_best_lasermpnn_sequence "${fasta}"
 }
 
 run_antifold_redesign() {
@@ -4537,6 +5140,9 @@ run_sequence_redesign() {
     proteinmpnn|solublempnn|ligandmpnn|abmpnn)
       candidate_sequence="$(run_ligandmpnn_redesign "${cycle_dir}" "${struct_path}" "${cycle_idx}" "${fixed_residues}" "${redesigned_residues}" "${run_index}")"
       ;;
+    lasermpnn)
+      candidate_sequence="$(run_lasermpnn_redesign "${cycle_dir}" "${struct_path}" "${cycle_idx}" "${fixed_residues}" "${redesigned_residues}" "${run_index}")"
+      ;;
     *)
       die "Unsupported sequence designer: ${SEQUENCE_DESIGNER}"
       ;;
@@ -4573,6 +5179,56 @@ export_cif() {
   fi
 }
 
+# ---------------------------------------------------------------------------
+# Resume support
+#
+# A cycle is "complete" when its normalised prediction exists, which is the same
+# contract every predictor backend satisfies (pred_min/model_0.cif|pdb). The
+# per-cycle input YAML is the authoritative record of which binder sequence that
+# cycle used, so a resumed run recovers sequences from disk rather than replaying
+# the stochastic seeding/redesign steps that produced them.
+# ---------------------------------------------------------------------------
+
+cycle_prediction_complete() {
+  local cycle_dir="$1"
+  [[ -f "${cycle_dir}/pred_min/model_0.cif" || -f "${cycle_dir}/pred_min/model_0.pdb" ]]
+}
+
+cycle_structure_path() {
+  local cycle_dir="$1"
+  if [[ -f "${cycle_dir}/pred_min/model_0.cif" ]]; then
+    printf '%s\n' "${cycle_dir}/pred_min/model_0.cif"
+  elif [[ -f "${cycle_dir}/pred_min/model_0.pdb" ]]; then
+    printf '%s\n' "${cycle_dir}/pred_min/model_0.pdb"
+  fi
+}
+
+# Sequence a completed cycle actually used, read back from its input YAML.
+binder_seq_from_cycle_yaml() {
+  local cycle_yaml="$1"
+  [[ -f "${cycle_yaml}" ]] || return 1
+  local seq
+  seq="$(extract_binder_sequence_from_yaml "${cycle_yaml}" "${ANTIFOLD_NANOBODY_CHAIN}" 2>/dev/null || true)"
+  seq="$(printf '%s' "${seq}" | tr -d '[:space:]')"
+  [[ -n "${seq}" ]] || return 1
+  printf '%s\n' "${seq}"
+}
+
+# Highest cycle index c such that cycles 0..c are all complete, or -1 if none.
+last_complete_cycle() {
+  local run_root="$1"
+  local n_cycles="$2"
+  local cycle last=-1
+  for cycle in $(seq 0 "${n_cycles}"); do
+    if cycle_prediction_complete "${run_root}/$(printf 'cycle_%02d' "${cycle}")"; then
+      last="${cycle}"
+    else
+      break
+    fi
+  done
+  printf '%s\n' "${last}"
+}
+
 wait_for_slot() {
   local limit="$1"
   while true; do
@@ -4586,6 +5242,46 @@ wait_for_slot() {
 }
 
 initialize_cycle_wave_designs() {
+  # Generic protein design uses the same cycle-wave state contract as the
+  # nanobody path, but redesigns the complete binder and therefore has no CDR
+  # position mask.  Keeping this branch separate avoids weakening the exact-CDR
+  # safeguards below.
+  if [[ "${WORKFLOW}" == "protein" ]]; then
+    local run_index run_tag run_root current_seq seed_value scaffold_seq=""
+    if [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]]; then
+      scaffold_seq="$(extract_binder_sequence_from_yaml "${TEMPLATE_YAML}" "${ANTIFOLD_NANOBODY_CHAIN}")"
+      [[ -n "${scaffold_seq}" ]] || die "Cycle-wave fixed protein design requires a concrete chain ${ANTIFOLD_NANOBODY_CHAIN} sequence."
+    fi
+    for run_index in $(seq 1 "${N_RUNS}"); do
+      run_tag="$(printf "run_%03d" "${run_index}")"
+      run_root="${EXPT_ROOT}/${run_tag}"
+      mkdir -p "${run_root}"
+      echo "cycle,iptm,complex_plddt,confidence_json,structure_path,binder_sequence" > "${run_root}/metrics_per_cycle.csv"
+      echo "run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json" > "${run_root}/rows.csv"
+      echo "cycle,start_ts,end_ts,duration_sec" > "${run_root}/timing_cycles.csv"
+      : > "${run_root}/nanobody_exact_residues.txt"
+      : > "${run_root}/nanobody_antifold_positions.txt"
+      if [[ "${RESUME}" -ne 1 || ! -s "${run_root}/run_start_epoch.txt" ]]; then
+        printf '%s\n' "$(now_epoch)" > "${run_root}/run_start_epoch.txt"
+      fi
+      if [[ -n "${scaffold_seq}" ]]; then
+        current_seq="${scaffold_seq}"
+      else
+        seed_value=""
+        if [[ -n "${BINDER_RANDOM_SEED}" ]]; then
+          seed_value="$((BINDER_RANDOM_SEED + run_index))"
+        fi
+        current_seq="$(generate_random_binder_seq \
+          "${BINDER_MIN_LEN}" "${BINDER_MAX_LEN}" "${BINDER_PERCENT_X}" \
+          "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${PREDICTOR}" "${seed_value}")"
+      fi
+      [[ -n "${current_seq}" ]] || die "Cycle-wave protein initialization produced an empty sequence for ${run_tag}."
+      printf '%s\n' "${current_seq}" > "${run_root}/state_current_seq.txt"
+      echo ">>> ${run_tag}: cycle-wave protein binder initialized (length=${#current_seq})"
+    done
+    return 0
+  fi
+
   local scaffold_seq nanobody_exact_residues nanobody_antifold_positions
   scaffold_seq="$(extract_binder_sequence_from_yaml "${TEMPLATE_YAML}" "${ANTIFOLD_NANOBODY_CHAIN}")"
   [[ -n "${scaffold_seq}" ]] || die "Cycle-wave scheduling requires a concrete scaffold sequence on chain ${ANTIFOLD_NANOBODY_CHAIN}."
@@ -4615,7 +5311,10 @@ initialize_cycle_wave_designs() {
     echo "cycle,start_ts,end_ts,duration_sec" > "${run_root}/timing_cycles.csv"
     printf '%s\n' "${nanobody_exact_residues}" > "${run_root}/nanobody_exact_residues.txt"
     printf '%s\n' "${nanobody_antifold_positions}" > "${run_root}/nanobody_antifold_positions.txt"
-    printf '%s\n' "$(now_epoch)" > "${run_root}/run_start_epoch.txt"
+    # Keep the original start stamp on resume so campaign timing stays meaningful.
+    if [[ "${RESUME}" -ne 1 || ! -s "${run_root}/run_start_epoch.txt" ]]; then
+      printf '%s\n' "$(now_epoch)" > "${run_root}/run_start_epoch.txt"
+    fi
 
     if [[ "${NANOBODY_SEED_MODE}" == "cdr-random" ]]; then
       seed_value="$((ANTIFOLD_SEED + run_index * 1000))"
@@ -4643,9 +5342,22 @@ prepare_cycle_wave_input() {
   cycle_tag="$(printf "cycle_%02d" "${cycle_idx}")"
   cycle_dir="${run_root}/${cycle_tag}"
   cycle_yaml="${cycle_dir}/${run_tag}_${cycle_tag}.yaml"
+  mkdir -p "${cycle_dir}"
+
+  # Resume: adopt the recorded sequence for an already-predicted cycle and leave
+  # its input YAML untouched, so record_cycle_wave_predictions pairs the right
+  # sequence with the existing structure.
+  if [[ "${RESUME}" -eq 1 ]] && cycle_prediction_complete "${cycle_dir}"; then
+    local recovered_seq
+    if recovered_seq="$(binder_seq_from_cycle_yaml "${cycle_yaml}")"; then
+      printf '%s\n' "${recovered_seq}" > "${run_root}/state_current_seq.txt"
+      printf '%s\n' "${cycle_yaml}"
+      return 0
+    fi
+  fi
+
   current_seq="$(tr -d '[:space:]' < "${run_root}/state_current_seq.txt")"
   [[ -n "${current_seq}" ]] || die "Cycle-wave state sequence is empty for ${run_tag}."
-  mkdir -p "${cycle_dir}"
 
   local target_msa_for_pred binder_msa_for_pred
   target_msa_for_pred="$(pick_target_msa_for_predictor "${target_msa_path}" "${PREDICTOR}")"
@@ -4670,26 +5382,43 @@ run_cycle_wave_predictor_batch() {
   local first_run="$3"
   local last_run="$4"
   local wave_root="${EXPT_ROOT}/_cycle_wave"
-  local cycle_tag batch_tag batch_root input_dir output_dir log_path
+  local cycle_tag batch_tag batch_root input_dir yaml_input_dir output_dir log_path
   cycle_tag="$(printf "cycle_%02d" "${cycle_idx}")"
   batch_tag="$(printf "batch_%02d" "${batch_idx}")"
   batch_root="${wave_root}/${cycle_tag}/${batch_tag}"
-  input_dir="${batch_root}/inputs"
+  # Keep the historical basename `inputs`: Boltz and IntelliFold include that
+  # basename in their output tree contracts.
+  yaml_input_dir="${batch_root}/inputs"
+  input_dir="${yaml_input_dir}"
   output_dir="${batch_root}/${PREDICTOR}"
   log_path="${batch_root}/predict.log"
-  mkdir -p "${input_dir}" "${output_dir}"
+  mkdir -p "${yaml_input_dir}" "${output_dir}"
 
+  # Only fold runs that do not already have a prediction for this cycle. On a
+  # resume this can empty the batch entirely, in which case the predictor (and
+  # its model load) is skipped rather than invoked with no inputs.
   local run_index run_tag cycle_yaml
+  local pending_runs=()
   for run_index in $(seq "${first_run}" "${last_run}"); do
     run_tag="$(printf "run_%03d" "${run_index}")"
+    if [[ "${RESUME}" -eq 1 ]] && cycle_prediction_complete "${EXPT_ROOT}/${run_tag}/${cycle_tag}"; then
+      continue
+    fi
     cycle_yaml="${EXPT_ROOT}/${run_tag}/${cycle_tag}/${run_tag}_${cycle_tag}.yaml"
     [[ -f "${cycle_yaml}" ]] || die "Cycle-wave input missing: ${cycle_yaml}"
-    ln -sfn "${cycle_yaml}" "${input_dir}/$(basename "${cycle_yaml}")"
+    cycle_yaml="$(cd "$(dirname "${cycle_yaml}")" && pwd)/$(basename "${cycle_yaml}")"
+    ln -sfn "${cycle_yaml}" "${yaml_input_dir}/$(basename "${cycle_yaml}")"
+    pending_runs+=("${run_index}")
   done
+
+  if [[ "${#pending_runs[@]}" -eq 0 ]]; then
+    echo ">>> ${cycle_tag} ${batch_tag}: all runs ${first_run}-${last_run} already predicted; skipping ${PREDICTOR}"
+    return 0
+  fi
 
   local start_ts end_ts duration rc
   start_ts="$(now_epoch)"
-  echo ">>> ${cycle_tag} ${batch_tag}: ${PREDICTOR} model load for runs ${first_run}-${last_run}"
+  echo ">>> ${cycle_tag} ${batch_tag}: ${PREDICTOR} model load for ${#pending_runs[@]} run(s) in ${first_run}-${last_run}"
   set +e
   case "${PREDICTOR}" in
     boltz)
@@ -4710,12 +5439,12 @@ run_cycle_wave_predictor_batch() {
     intellifold)
       source "${INTELLIFOLD_VENV}/bin/activate"
       if [[ "${CPU_ONLY}" -eq 1 ]]; then
-        ACCELERATE_USE_CPU=true KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
+        ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
           --out_dir "${output_dir}" \
           "${INTELLIFOLD_EXTRA_FLAGS[@]}" \
           > "${log_path}" 2>&1
       else
-        KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
+        OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
           --out_dir "${output_dir}" \
           "${INTELLIFOLD_EXTRA_FLAGS[@]}" \
           > "${log_path}" 2>&1
@@ -4723,18 +5452,104 @@ run_cycle_wave_predictor_batch() {
       rc=$?
       deactivate || true
       ;;
+    alphafold3)
+      local af3_input_dir="${batch_root}/af3_inputs"
+      local af3_cache_dir="${ALPHAFOLD3_COMPILATION_CACHE_DIR}"
+      local flash_impl="triton" af3_yaml af3_stem
+      case "${ALPHAFOLD3_BACKEND}" in
+        cpu|mps) flash_impl="xla" ;;
+      esac
+      mkdir -p "${af3_input_dir}" "${af3_cache_dir}"
+      for run_index in "${pending_runs[@]}"; do
+        run_tag="$(printf "run_%03d" "${run_index}")"
+        af3_stem="${run_tag}_${cycle_tag}"
+        af3_yaml="${EXPT_ROOT}/${run_tag}/${cycle_tag}/${af3_stem}.yaml"
+        "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_ADAPTER}" to-json \
+          --in-yaml "${af3_yaml}" \
+          --out-json "${af3_input_dir}/${af3_stem}.json" \
+          --name "${af3_stem}" \
+          >> "${batch_root}/af3_adapter.log" 2>&1 || { rc=$?; break; }
+      done
+      if [[ "${rc:-0}" -eq 0 ]]; then
+        ( cd "${ALPHAFOLD3_REPO}" && \
+          JAX_MPS_ASYNC_DISPATCH="${ALPHAFOLD3_ASYNC_DISPATCH}" \
+          "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_RUNNER}" \
+            --input_dir="${af3_input_dir}" \
+            --output_dir="${output_dir}" \
+            --model_dir="${ALPHAFOLD3_MODEL_DIR}" \
+            --norun_data_pipeline \
+            --jax_backend="${ALPHAFOLD3_BACKEND}" \
+            --flash_attention_implementation="${flash_impl}" \
+            --num_recycles="${ALPHAFOLD3_NUM_RECYCLES}" \
+            --num_diffusion_samples="${ALPHAFOLD3_NUM_DIFFUSION_SAMPLES}" \
+            --buckets="${ALPHAFOLD3_BUCKETS}" \
+            --jax_compilation_cache_dir="${af3_cache_dir}" \
+            ${ALPHAFOLD3_EXTRA_FLAGS[@]+"${ALPHAFOLD3_EXTRA_FLAGS[@]}"} \
+        ) > "${log_path}" 2>&1
+        rc=$?
+      fi
+      ;;
+    openfold-3-mlx)
+      local of_query_dir="${batch_root}/openfold_queries"
+      local of_batch_query="${batch_root}/openfold_batch_query.json"
+      local of_runner="${batch_root}/openfold_runner.yml"
+      local of_yaml of_stem of_seq of_binder_msa of_target_msa of_need_server
+      local of_query_files=()
+      mkdir -p "${of_query_dir}"
+      rc=0
+      for run_index in "${pending_runs[@]}"; do
+        run_tag="$(printf "run_%03d" "${run_index}")"
+        of_stem="${run_tag}_${cycle_tag}"
+        of_yaml="${EXPT_ROOT}/${run_tag}/${cycle_tag}/${of_stem}.yaml"
+        of_seq="$(binder_seq_from_cycle_yaml "${of_yaml}")"
+        of_binder_msa="${of_query_dir}/${of_stem}_binder/uniref90_hits.a3m"
+        write_single_seq_a3m "${of_seq}" "${of_binder_msa}"
+        of_target_msa="$(extract_chain_msa_from_yaml "${of_yaml}" "${TARGET_CHAIN_ID:-B}" || true)"
+        if [[ -n "${of_target_msa}" && "${of_target_msa}" != /* ]]; then
+          of_target_msa="$(dirname "${of_yaml}")/${of_target_msa}"
+        fi
+        of_need_server="$(build_openfold_query_json \
+          "${of_yaml}" "${of_seq}" "${of_stem}" \
+          "${of_query_dir}/${of_stem}.json" "${of_target_msa}" "${of_binder_msa}")" || { rc=$?; break; }
+        if [[ "${of_need_server}" != "false" ]]; then
+          echo "ERROR: cycle-wave OpenFold query ${of_stem} lacks a cached MSA." >&2
+          rc=1
+          break
+        fi
+        of_query_files+=("${of_query_dir}/${of_stem}.json")
+      done
+      if [[ "${rc}" -eq 0 ]]; then
+        python3 "${REPO_ROOT}/scripts/merge_openfold_queries.py" \
+          --output "${of_batch_query}" "${of_query_files[@]}" || rc=$?
+      fi
+      if [[ "${rc}" -eq 0 ]]; then
+        write_openfold_runner_yaml "${of_runner}"
+        ensure_openfold_checkpoint_noninteractive
+        source "${OPENFOLD_VENV}/bin/activate"
+        OPENFOLD_CACHE="${OPENFOLD_CACHE_DIR}" KMP_USE_SHM=0 "${OPENFOLD_CLI}" predict \
+          --query_json "${of_batch_query}" \
+          --output_dir "${output_dir}" \
+          --inference_ckpt_path "${OPENFOLD_CHECKPOINT_PATH}" \
+          --runner_yaml "${of_runner}" \
+          --use_msa_server false \
+          "${OPENFOLD_EXTRA_FLAGS[@]}" \
+          > "${log_path}" 2>&1
+        rc=$?
+        deactivate || true
+      fi
+      ;;
   esac
   set -e
   end_ts="$(now_epoch)"
   duration="$(calc_duration "${start_ts}" "${end_ts}")"
-  echo "${cycle_idx},${batch_idx},$((last_run - first_run + 1)),${start_ts},${end_ts},${duration}" >> "${wave_root}/predictor_batches.csv"
+  echo "${cycle_idx},${batch_idx},${#pending_runs[@]},${start_ts},${end_ts},${duration}" >> "${wave_root}/predictor_batches.csv"
   if [[ "${rc}" -ne 0 ]]; then
     tail -n 120 "${log_path}" >&2 || true
     die "Cycle-wave ${PREDICTOR} batch failed for ${cycle_tag}/${batch_tag}."
   fi
 
   local stem leaf conf struct pred_min predictor_dir iptm plddt
-  for run_index in $(seq "${first_run}" "${last_run}"); do
+  for run_index in "${pending_runs[@]}"; do
     run_tag="$(printf "run_%03d" "${run_index}")"
     stem="${run_tag}_${cycle_tag}"
     pred_min="${EXPT_ROOT}/${run_tag}/${cycle_tag}/pred_min"
@@ -4752,12 +5567,29 @@ run_cycle_wave_predictor_batch() {
         conf="$(find "${leaf}" -maxdepth 1 -type f -name '*_summary_confidences.json' | sort | head -n 1 || true)"
         struct="$(find "${leaf}" -maxdepth 1 -type f \( -name '*.cif' -o -name '*.pdb' \) | sort | head -n 1 || true)"
         ;;
+      alphafold3)
+        leaf="${output_dir}/${stem}"
+        "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_ADAPTER}" from-output \
+          --af3-out "${leaf}" --pred-min "${pred_min}" \
+          > "${predictor_dir}/af3_metrics.json" 2>>"${predictor_dir}/predict.log" \
+          || die "Cycle-wave AF3 output normalization failed for ${stem}."
+        conf="${pred_min}/confidence.json"
+        struct="${pred_min}/model_0.cif"
+        ;;
+      openfold-3-mlx)
+        leaf="${output_dir}/${stem}/seed_42"
+        [[ -d "${leaf}" ]] || leaf="$(find "${output_dir}/${stem}" -maxdepth 2 -type d -name 'seed_*' | sort | head -n 1 || true)"
+        conf="$(find "${leaf}" -maxdepth 1 -type f -name '*_confidences_aggregated.json' | sort | head -n 1 || true)"
+        struct="$(find "${leaf}" -maxdepth 1 -type f \( -name '*_model.cif' -o -name '*_model.pdb' \) | sort | head -n 1 || true)"
+        ;;
     esac
     [[ -n "${struct}" && -f "${struct}" ]] || die "Cycle-wave structure not found for ${stem} in ${leaf}."
-    if [[ -n "${conf}" ]]; then
+    if [[ -n "${conf}" && "${conf}" != "${pred_min}/confidence.json" ]]; then
       cp -f "${conf}" "${pred_min}/confidence.json"
     fi
-    if [[ "${struct##*.}" == "cif" ]]; then
+    if [[ "${struct}" == "${pred_min}/model_0.cif" || "${struct}" == "${pred_min}/model_0.pdb" ]]; then
+      :
+    elif [[ "${struct##*.}" == "cif" ]]; then
       cp -f "${struct}" "${pred_min}/model_0.cif"
     else
       cp -f "${struct}" "${pred_min}/model_0.pdb"
@@ -4917,6 +5749,102 @@ run_cycle_wave_antifold_batch() {
     cp -f "${exact_fasta}" "${cycle_dir}/antifold_min/seqs.fasta"
     cp -f "${logits_csv}" "${cycle_dir}/antifold_min/logits.csv"
   done
+  echo "${cycle_idx},${N_RUNS},${start_ts},${end_ts},${duration},antifold" >> "${wave_root}/inverse_folding_batches.csv"
+}
+
+run_cycle_wave_mpnn_redesigns() {
+  local cycle_idx="$1"
+  local wave_root="${EXPT_ROOT}/_cycle_wave"
+  local start_ts end_ts duration
+  start_ts="$(now_epoch)"
+
+  # Predictor batching amortizes the expensive structure-model load. MPNN
+  # redesigns remain independent so every run retains its run/cycle seed.
+  # Two concurrent MPNN jobs is a conservative Apple-Silicon default and can be
+  # lowered without changing predictor batch size.
+  local redesign_parallel="${MPNN_WAVE_MAX_PARALLEL}"
+  if (( redesign_parallel > N_RUNS )); then
+    redesign_parallel="${N_RUNS}"
+  fi
+
+  local run_index run_tag run_root cycle_tag cycle_dir struct current_seq
+  local exact_residues exact_positions candidate
+  local status_file run_rc
+  local status_files=()
+  cycle_tag="$(printf "cycle_%02d" "${cycle_idx}")"
+  for run_index in $(seq 1 "${N_RUNS}"); do
+    wait_for_slot "${redesign_parallel}"
+    run_tag="$(printf "run_%03d" "${run_index}")"
+    status_file="${EXPT_ROOT}/${run_tag}/${cycle_tag}/mpnn_wave_exit_code.txt"
+    printf 'running\n' > "${status_file}"
+    status_files+=("${status_file}")
+    (
+      run_rc=1
+      trap 'printf "%s\n" "${run_rc}" > "${status_file}"' EXIT
+      run_tag="$(printf "run_%03d" "${run_index}")"
+      run_root="${EXPT_ROOT}/${run_tag}"
+      cycle_dir="${run_root}/${cycle_tag}"
+      if [[ -f "${cycle_dir}/pred_min/model_0.cif" ]]; then
+        struct="${cycle_dir}/pred_min/model_0.cif"
+      else
+        struct="${cycle_dir}/pred_min/model_0.pdb"
+      fi
+      [[ -f "${struct}" ]] || die "Cycle-wave redesign structure missing for ${run_tag}/${cycle_tag}."
+      current_seq="$(tr -d '[:space:]' < "${run_root}/state_current_seq.txt")"
+      exact_residues="$(cat "${run_root}/nanobody_exact_residues.txt")"
+      exact_positions="$(cat "${run_root}/nanobody_antifold_positions.txt")"
+      candidate="$(run_sequence_redesign \
+        "${cycle_dir}" \
+        "${struct}" \
+        "${cycle_idx}" \
+        "" \
+        "${exact_residues}" \
+        "${run_index}" \
+        "${current_seq}" \
+        "${exact_positions}")"
+      printf '%s\n' "${candidate}" > "${run_root}/state_current_seq.txt"
+      run_rc=0
+    ) &
+  done
+
+  set +e
+  wait
+  set -e
+  local failed=0
+  for status_file in "${status_files[@]}"; do
+    run_rc="$(tr -d '[:space:]' < "${status_file}" 2>/dev/null || true)"
+    if [[ "${run_rc}" != "0" ]]; then
+      echo "ERROR: cycle-wave MPNN status ${status_file} is ${run_rc:-missing}" >&2
+      failed=1
+    fi
+  done
+  [[ "${failed}" -eq 0 ]] || die "One or more cycle-wave MPNN redesigns failed for ${cycle_tag}."
+
+  end_ts="$(now_epoch)"
+  duration="$(calc_duration "${start_ts}" "${end_ts}")"
+  echo "${cycle_idx},${N_RUNS},${start_ts},${end_ts},${duration},${SEQUENCE_DESIGNER_LABEL}" >> "${wave_root}/inverse_folding_batches.csv"
+}
+
+# True when every run already has the next cycle's cycle-wave input YAML, i.e. the
+# redesign wave after `cycle_idx` completed. Restores each run's state sequence
+# from those YAMLs so the next wave continues from the recorded trajectory.
+cycle_wave_redesign_recorded() {
+  local cycle_idx="$1"
+  local next_tag run_index run_tag run_root next_yaml seq
+  next_tag="$(printf "cycle_%02d" $((cycle_idx + 1)))"
+  for run_index in $(seq 1 "${N_RUNS}"); do
+    run_tag="$(printf "run_%03d" "${run_index}")"
+    next_yaml="${EXPT_ROOT}/${run_tag}/${next_tag}/${run_tag}_${next_tag}.yaml"
+    binder_seq_from_cycle_yaml "${next_yaml}" >/dev/null || return 1
+  done
+  for run_index in $(seq 1 "${N_RUNS}"); do
+    run_tag="$(printf "run_%03d" "${run_index}")"
+    run_root="${EXPT_ROOT}/${run_tag}"
+    next_yaml="${run_root}/${next_tag}/${run_tag}_${next_tag}.yaml"
+    seq="$(binder_seq_from_cycle_yaml "${next_yaml}")"
+    printf '%s\n' "${seq}" > "${run_root}/state_current_seq.txt"
+  done
+  return 0
 }
 
 run_designs_cycle_wave() {
@@ -4925,6 +5853,7 @@ run_designs_cycle_wave() {
   mkdir -p "${wave_root}"
   echo "cycle,batch,batch_size,start_ts,end_ts,duration_sec" > "${wave_root}/predictor_batches.csv"
   echo "cycle,batch_size,start_ts,end_ts,duration_sec" > "${wave_root}/antifold_batches.csv"
+  echo "cycle,batch_size,start_ts,end_ts,duration_sec,sequence_designer" > "${wave_root}/inverse_folding_batches.csv"
   printf '%s\n' "$(now_epoch)" > "${wave_root}/campaign_start_epoch.txt"
   initialize_cycle_wave_designs
 
@@ -4947,20 +5876,59 @@ run_designs_cycle_wave() {
 
     batch_idx=0
     first_run=1
+    local predictor_batch_status_files=()
     while (( first_run <= N_RUNS )); do
       batch_idx=$((batch_idx + 1))
       last_run=$((first_run + wave_batch_size - 1))
       if (( last_run > N_RUNS )); then
         last_run="${N_RUNS}"
       fi
-      run_cycle_wave_predictor_batch "${cycle}" "${batch_idx}" "${first_run}" "${last_run}"
+      # Each background task is one native directory/query batch (one model
+      # process). MAX_PARALLEL controls how many such persistent batches share
+      # the MPS device; WAVE_BATCH_SIZE controls inputs amortized per model load.
+      wait_for_slot "${MAX_PARALLEL}"
+      local predictor_batch_status="${wave_root}/$(printf 'cycle_%02d' "${cycle}")/$(printf 'batch_%02d' "${batch_idx}")/exit_code.txt"
+      mkdir -p "$(dirname "${predictor_batch_status}")"
+      printf 'running\n' > "${predictor_batch_status}"
+      predictor_batch_status_files+=("${predictor_batch_status}")
+      (
+        local batch_rc=1
+        trap 'printf "%s\n" "${batch_rc}" > "${predictor_batch_status}"' EXIT
+        run_cycle_wave_predictor_batch "${cycle}" "${batch_idx}" "${first_run}" "${last_run}"
+        batch_rc=0
+      ) &
       first_run=$((last_run + 1))
     done
 
+    set +e
+    wait
+    set -e
+    local predictor_batch_failed=0 predictor_batch_status_value
+    for predictor_batch_status in "${predictor_batch_status_files[@]}"; do
+      predictor_batch_status_value="$(tr -d '[:space:]' < "${predictor_batch_status}" 2>/dev/null || true)"
+      if [[ "${predictor_batch_status_value}" != "0" ]]; then
+        echo "ERROR: cycle-wave predictor batch status ${predictor_batch_status} is ${predictor_batch_status_value:-missing}" >&2
+        predictor_batch_failed=1
+      fi
+    done
+    [[ "${predictor_batch_failed}" -eq 0 ]] || die "One or more cycle-wave predictor batches failed for cycle $(printf '%02d' "${cycle}")."
+
     record_cycle_wave_predictions "${cycle}"
     if (( cycle < N_CYCLES )); then
-      echo ">>> Cycle-wave: one AntiFold model load for all ${N_RUNS} cycle $(printf '%02d' "${cycle}") structures"
-      run_cycle_wave_antifold_batch "${cycle}"
+      # Resume: if every run already has the next cycle's input YAML, the whole
+      # redesign wave was completed before the interruption. Adopt the recorded
+      # sequences rather than re-sampling inverse folding for the entire wave.
+      if [[ "${RESUME}" -eq 1 ]] && cycle_wave_redesign_recorded "${cycle}"; then
+        echo ">>> Cycle-wave: reusing recorded cycle $(printf '%02d' "${cycle}") redesign for all ${N_RUNS} runs"
+        continue
+      fi
+      if [[ "${SEQUENCE_DESIGNER}" == "antifold" ]]; then
+        echo ">>> Cycle-wave: one AntiFold model load for all ${N_RUNS} cycle $(printf '%02d' "${cycle}") structures"
+        run_cycle_wave_antifold_batch "${cycle}"
+      else
+        echo ">>> Cycle-wave: ${SEQUENCE_DESIGNER_LABEL} redesign for all ${N_RUNS} cycle $(printf '%02d' "${cycle}") structures"
+        run_cycle_wave_mpnn_redesigns "${cycle}"
+      fi
     fi
   done
 
@@ -4995,6 +5963,16 @@ run_one_design() {
   timing_run_csv="${run_root}/timing_run.csv"
   motif_cycle_csv="${run_root}/motif_positions_by_cycle.csv"
 
+  # Snapshot the previous rows before truncating, so a resumed cycle can re-record
+  # the exact predictor paths it originally reported rather than the normalised
+  # pred_min copies. Keeps resumed summaries byte-identical to uninterrupted ones.
+  local rows_prev="${run_root}/.rows_prev.csv"
+  if [[ "${RESUME}" -eq 1 && -s "${rows_csv}" ]]; then
+    cp -f "${rows_csv}" "${rows_prev}"
+  else
+    rm -f "${rows_prev}"
+  fi
+
   echo "cycle,iptm,complex_plddt,confidence_json,structure_path,binder_sequence" > "${metrics_csv}"
   echo "run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json" > "${rows_csv}"
   echo "cycle,start_ts,end_ts,duration_sec" > "${timing_cycle_csv}"
@@ -5003,7 +5981,7 @@ run_one_design() {
   run_start="$(now_epoch)"
   echo ">>> Starting ${run_tag}"
 
-  local current_seq motif_fixed_residues motif_shifted_summary partial_redesigned_residues
+  local current_seq motif_fixed_residues motif_shifted_summary partial_redesigned_residues binder_seed
   local motif_shifted_positions motif_shifted_ranges motif_source_ranges
   local nanobody_exact_residues nanobody_antifold_positions
   motif_fixed_residues=""
@@ -5014,9 +5992,23 @@ run_one_design() {
   motif_source_ranges=""
   nanobody_exact_residues=""
   nanobody_antifold_positions=""
+  binder_seed=""
+  if [[ -n "${BINDER_RANDOM_SEED}" ]]; then
+    binder_seed="$((BINDER_RANDOM_SEED + run_index))"
+  fi
   if [[ "${MOTIF_SCAFFOLDING}" -eq 1 ]]; then
-    local motif_bundle
-    motif_bundle="$(generate_motif_scaffold_bundle "${BINDER_MIN_LEN}" "${BINDER_MAX_LEN}")"
+    local motif_bundle motif_bundle_file
+    motif_bundle_file="${run_root}/motif_bundle.json"
+    # Motif placement is randomised per run, and the fixed-residue mask derived
+    # from it must be identical across a resume or the redesign would be allowed
+    # to mutate motif positions. Persist the bundle and reuse it verbatim.
+    if [[ "${RESUME}" -eq 1 && -s "${motif_bundle_file}" ]]; then
+      motif_bundle="$(cat "${motif_bundle_file}")"
+      echo ">>> ${run_tag}: resume reusing stored motif placement (${motif_bundle_file})"
+    else
+      motif_bundle="$(generate_motif_scaffold_bundle "${BINDER_MIN_LEN}" "${BINDER_MAX_LEN}")"
+      printf '%s\n' "${motif_bundle}" > "${motif_bundle_file}"
+    fi
     local motif_values
     motif_values="$(python3 - "${motif_bundle}" <<'PY'
 import json, sys
@@ -5056,19 +6048,19 @@ PY
     echo ">>> ${run_tag}: motif scaffolding active (len=${#current_seq})"
     echo ">>> ${run_tag}: motif placements ${motif_shifted_summary}"
   elif [[ "${PARTIAL_REDESIGN}" -eq 1 ]]; then
-    current_seq="$(generate_partial_redesign_seed_seq "${PARTIAL_BINDER_SEQ}" "${PARTIAL_REDESIGN_RANGES}" "${BINDER_PERCENT_X}" "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${PREDICTOR}")"
+    current_seq="$(generate_partial_redesign_seed_seq "${PARTIAL_BINDER_SEQ}" "${PARTIAL_REDESIGN_RANGES}" "${BINDER_PERCENT_X}" "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${PREDICTOR}" "${binder_seed}")"
     partial_redesigned_residues="${PARTIAL_REDESIGNED_RESIDUES}"
     [[ -n "${current_seq}" ]] || die "Partial redesign seeding produced an empty initial sequence."
     echo ">>> ${run_tag}: partial redesign active (len=${#current_seq}, ranges=${PARTIAL_REDESIGN_RANGES}, cycle_00 seeded in-range)"
   elif [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]]; then
     local scaffold_seq
     scaffold_seq="$(extract_binder_sequence_from_yaml "${TEMPLATE_YAML}" "${ANTIFOLD_NANOBODY_CHAIN}")"
-    [[ -n "${scaffold_seq}" ]] || die "Template chain ${ANTIFOLD_NANOBODY_CHAIN} sequence is empty; --scaffold-from-template requires a concrete nanobody scaffold sequence."
+    [[ -n "${scaffold_seq}" ]] || die "Template chain ${ANTIFOLD_NANOBODY_CHAIN} sequence is empty; --scaffold-from-template requires a concrete binder sequence."
     # Resolve exact scaffold-specific sequence positions for every inverse-folding
     # backend. AntiFold's named IMGT regions do not necessarily match sequential
     # residue numbering in these scaffold structures, so NanoHunter samples its
     # logits at these exact positions and restores all framework residues.
-    if sequence_designer_uses_ligandmpnn || [[ "${SEQUENCE_DESIGNER}" == "antifold" ]]; then
+    if [[ "${WORKFLOW}" == "nanobody" ]] && { sequence_designer_uses_ligandmpnn || [[ "${SEQUENCE_DESIGNER}" == "antifold" ]]; }; then
       local cdr_explicit_flags=()
       if [[ "$(printf '%s' "${NANOBODY_SEED_CDR_RANGES}" | tr '[:upper:]' '[:lower:]')" != "auto" ]]; then
         cdr_explicit_flags=(--explicit "${NANOBODY_SEED_CDR_RANGES}")
@@ -5085,7 +6077,7 @@ PY
       nanobody_antifold_positions="$(residue_spec_to_positions "${nanobody_exact_residues}")"
       echo ">>> ${run_tag}: ${SEQUENCE_DESIGNER_LABEL} restricted to exact CDRs [${ANTIFOLD_REGIONS}] -> $(printf '%s' "${nanobody_exact_residues}" | wc -w | tr -d ' ') residues"
     fi
-    if [[ "${NANOBODY_SEED_MODE}" == "cdr-random" ]]; then
+    if [[ "${WORKFLOW}" == "nanobody" && "${NANOBODY_SEED_MODE}" == "cdr-random" ]]; then
       local seed_report seed_value
       seed_report="${run_root}/nanobody_seed_cycle00.json"
       seed_value="$((ANTIFOLD_SEED + run_index * 1000))"
@@ -5094,12 +6086,24 @@ PY
       echo ">>> ${run_tag}: seed constraints report ${seed_report}"
     else
       current_seq="${scaffold_seq}"
-      echo ">>> ${run_tag}: native scaffold seed active (chain=${ANTIFOLD_NANOBODY_CHAIN}, len=${#current_seq})"
+      if [[ "${WORKFLOW}" == "nanobody" ]]; then
+        echo ">>> ${run_tag}: native nanobody scaffold seed active (chain=${ANTIFOLD_NANOBODY_CHAIN}, len=${#current_seq})"
+      else
+        echo ">>> ${run_tag}: fixed protein binder seed active (chain=${ANTIFOLD_NANOBODY_CHAIN}, len=${#current_seq})"
+      fi
     fi
   else
-    current_seq="$(generate_random_binder_seq "${BINDER_MIN_LEN}" "${BINDER_MAX_LEN}" "${BINDER_PERCENT_X}" "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${PREDICTOR}")"
+    current_seq="$(generate_random_binder_seq "${BINDER_MIN_LEN}" "${BINDER_MAX_LEN}" "${BINDER_PERCENT_X}" "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${PREDICTOR}" "${binder_seed}")"
   fi
   echo "$current_seq" > "$state_seq"
+
+  if [[ "${RESUME}" -eq 1 ]]; then
+    local resume_last
+    resume_last="$(last_complete_cycle "${run_root}" "${N_CYCLES}")"
+    if (( resume_last >= 0 )); then
+      echo ">>> ${run_tag}: resume found cycles 00-$(printf '%02d' "${resume_last}") already predicted"
+    fi
+  fi
 
   local cycle
   for cycle in $(seq 0 "${N_CYCLES}"); do
@@ -5110,22 +6114,70 @@ PY
     qname="${run_tag}_${cycle_tag}"
     mkdir -p "${cycle_dir}"
 
-    local target_msa_for_pred
-    target_msa_for_pred="$(pick_target_msa_for_predictor "${target_msa_path}" "${PREDICTOR}")"
-    local binder_msa_for_pred
-    binder_msa_for_pred="$(make_masked_nanobody_scaffold_msa "${current_seq}" "${cycle_dir}/nanobody_scaffold_masked.a3m" "${PREDICTOR}")"
-    make_yaml_with_binder_sequence "${TEMPLATE_YAML}" "${cycle_yaml}" "${current_seq}" "${target_msa_for_pred}" "${PREDICTOR}" "${binder_msa_for_pred}" "design"
+    # Resume: a cycle is reusable only if both its prediction and the input YAML
+    # that produced it survive, so the recorded sequence always matches the
+    # recorded structure.
+    local cycle_reused=0 recovered_seq
+    if [[ "${RESUME}" -eq 1 ]] && cycle_prediction_complete "${cycle_dir}"; then
+      if recovered_seq="$(binder_seq_from_cycle_yaml "${cycle_yaml}")"; then
+        current_seq="${recovered_seq}"
+        echo "$current_seq" > "$state_seq"
+        cycle_reused=1
+      else
+        echo ">>> ${run_tag} ${cycle_tag}: prediction present but input YAML unusable; recomputing" >&2
+      fi
+    fi
 
     local cstart cend cdur result struct conf iptm plddt
-    cstart="$(now_epoch)"
-    echo ">>> ${run_tag} ${cycle_tag}: ${PREDICTOR} predict..."
-    result="$(run_predictor_once "${PREDICTOR}" "${cycle_yaml}" "${current_seq}" "${qname}" "${cycle_dir}" "${target_msa_for_pred}" "design")"
-    result="$(normalize_predictor_result_line "${result}")"
-    cend="$(now_epoch)"
-    cdur="$(calc_duration "$cstart" "$cend")"
-    echo "$(printf '%02d' "$cycle"),${cstart},${cend},${cdur}" >> "${timing_cycle_csv}"
+    if [[ "${cycle_reused}" -eq 1 ]]; then
+      struct="$(cycle_structure_path "${cycle_dir}")"
+      conf="${cycle_dir}/pred_min/confidence.json"
+      [[ -f "${conf}" ]] || conf=""
+      # Prefer the paths this cycle originally reported, when they still resolve.
+      if [[ -s "${rows_prev}" ]]; then
+        local prev_struct prev_conf
+        prev_struct="$(awk -F',' -v c="${cycle}" '$2==c {print $6; exit}' "${rows_prev}")"
+        prev_conf="$(awk -F',' -v c="${cycle}" '$2==c {print $7; exit}' "${rows_prev}")"
+        [[ -n "${prev_struct}" && -f "${prev_struct}" ]] && struct="${prev_struct}"
+        [[ -n "${prev_conf}" && -f "${prev_conf}" ]] && conf="${prev_conf}"
+      fi
+      iptm="nan"
+      plddt="nan"
+      if [[ -n "${conf}" ]]; then
+        IFS=',' read -r iptm plddt <<< "$(extract_metrics_from_conf_json "${conf}")"
+      fi
+      # Restore the original wall-clock so timing CSVs stay comparable; older
+      # trees without the marker report a zero-duration reused cycle.
+      if [[ -f "${cycle_dir}/pred_min/cycle_timing.txt" ]]; then
+        IFS=',' read -r cstart cend cdur < "${cycle_dir}/pred_min/cycle_timing.txt"
+      else
+        cstart="$(now_epoch)"; cend="${cstart}"; cdur=0
+      fi
+      echo "$(printf '%02d' "$cycle"),${cstart},${cend},${cdur}" >> "${timing_cycle_csv}"
+      echo ">>> ${run_tag} ${cycle_tag}: reusing existing prediction (iPTM=${iptm})"
+    else
+      local target_msa_for_pred
+      target_msa_for_pred="$(pick_target_msa_for_predictor "${target_msa_path}" "${PREDICTOR}")"
+      local binder_msa_for_pred
+      binder_msa_for_pred="$(make_masked_nanobody_scaffold_msa "${current_seq}" "${cycle_dir}/nanobody_scaffold_masked.a3m" "${PREDICTOR}")"
+      make_yaml_with_binder_sequence "${TEMPLATE_YAML}" "${cycle_yaml}" "${current_seq}" "${target_msa_for_pred}" "${PREDICTOR}" "${binder_msa_for_pred}" "design"
 
-    IFS='|' read -r struct conf iptm plddt <<< "$result"
+      cstart="$(now_epoch)"
+      if [[ "${cycle}" -eq 0 && -n "${INITIAL_STRUCTURE}" ]]; then
+        echo ">>> ${run_tag} ${cycle_tag}: importing exact archived structure..."
+        result="$(import_initial_cycle_structure "${cycle_dir}" "${current_seq}")"
+      else
+        echo ">>> ${run_tag} ${cycle_tag}: ${PREDICTOR} predict..."
+        result="$(run_predictor_once "${PREDICTOR}" "${cycle_yaml}" "${current_seq}" "${qname}" "${cycle_dir}" "${target_msa_for_pred}" "design")"
+      fi
+      result="$(normalize_predictor_result_line "${result}")"
+      cend="$(now_epoch)"
+      cdur="$(calc_duration "$cstart" "$cend")"
+      echo "$(printf '%02d' "$cycle"),${cstart},${cend},${cdur}" >> "${timing_cycle_csv}"
+      printf '%s,%s,%s\n' "${cstart}" "${cend}" "${cdur}" > "${cycle_dir}/pred_min/cycle_timing.txt" 2>/dev/null || true
+
+      IFS='|' read -r struct conf iptm plddt <<< "$result"
+    fi
     [[ -n "${iptm:-}" ]] || iptm="nan"
     [[ -n "${plddt:-}" ]] || plddt="nan"
     local conf_val struct_val
@@ -5137,11 +6189,26 @@ PY
     if [[ "${MOTIF_SCAFFOLDING}" -eq 1 ]]; then
       echo "${run_index},$(printf '%02d' "$cycle"),${motif_shifted_positions},${motif_shifted_ranges},${motif_source_ranges}" >> "${motif_cycle_csv}"
     fi
-    echo ">>> ${run_tag} ${cycle_tag}: done in ${cdur}s (iPTM=${iptm})"
+    if [[ "${cycle_reused}" -ne 1 ]]; then
+      echo ">>> ${run_tag} ${cycle_tag}: done in ${cdur}s (iPTM=${iptm})"
+    fi
 
     export_cif "$run_tag" "$cycle" "${cycle_dir}/pred_min" "$iptm"
 
     if (( cycle < N_CYCLES )); then
+      # Resume: if the next cycle's YAML exists it already records the sequence
+      # this redesign produced. Adopting it keeps a resumed trajectory identical
+      # to the interrupted one instead of re-sampling the inverse-folding step.
+      local next_cycle_yaml next_seq
+      next_cycle_yaml="${run_root}/$(printf 'cycle_%02d' $((cycle + 1)))/boltz_input.yaml"
+      if [[ "${RESUME}" -eq 1 && "${cycle_reused}" -eq 1 ]] \
+         && next_seq="$(binder_seq_from_cycle_yaml "${next_cycle_yaml}")"; then
+        current_seq="${next_seq}"
+        echo "$current_seq" > "$state_seq"
+        echo ">>> ${run_tag} ${cycle_tag}: reusing recorded redesign for next cycle"
+        continue
+      fi
+
       echo ">>> ${run_tag} ${cycle_tag}: ${SEQUENCE_DESIGNER_LABEL} redesign..."
       local redesign_struct
       if [[ -f "${cycle_dir}/pred_min/model_0.cif" ]]; then
@@ -5190,6 +6257,14 @@ run_post_task() {
   post_root="${EXPT_ROOT}/${run_tag}/post_${pred_safe}"
   post_cycle_root="${post_root}/${cycle_tag}"
   mkdir -p "${post_cycle_root}"
+
+  # Resume: a post-prediction is reusable when its recorded metrics row and its
+  # normalised structure both survive.
+  if [[ "${RESUME}" -eq 1 && -s "${post_cycle_root}/post_metrics_row.csv" ]] \
+     && cycle_prediction_complete "${post_cycle_root}"; then
+    echo ">>> ${run_tag} ${cycle_tag}: reusing existing ${predictor} post-prediction"
+    return 0
+  fi
 
   input_yaml="${post_cycle_root}/post_input.yaml"
   qname="${run_tag}_post_$(printf '%02d' "$cycle_index")"
@@ -5321,6 +6396,58 @@ else
 fi
 TARGET_SEQ="$(extract_target_sequence_from_yaml "${TEMPLATE_YAML}" || true)"
 TARGET_CHAIN_ID="$(extract_target_chain_id_from_yaml "${TEMPLATE_YAML}" || true)"
+
+# Resolve predictor padding buckets only after both the target and requested
+# binder-length regime are known. Standard fixed-length campaigns therefore
+# use one exact tensor shape; variable-length campaigns use their configured
+# maximum and do not trigger a new shape when a shorter sequence is sampled.
+MAX_REQUESTED_BINDER_LENGTH="${BINDER_MAX_LEN}"
+if [[ "${PARTIAL_REDESIGN}" -eq 1 && "${PARTIAL_BINDER_LEN}" -gt 0 ]]; then
+  MAX_REQUESTED_BINDER_LENGTH="${PARTIAL_BINDER_LEN}"
+elif [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]]; then
+  _bucket_scaffold_seq="$(extract_binder_sequence_from_yaml "${TEMPLATE_YAML}" "${ANTIFOLD_NANOBODY_CHAIN}" || true)"
+  if [[ -n "${_bucket_scaffold_seq}" ]]; then
+    MAX_REQUESTED_BINDER_LENGTH="${#_bucket_scaffold_seq}"
+  fi
+fi
+MAX_REQUESTED_POLYMER_TOKENS="$((MAX_REQUESTED_BINDER_LENGTH + ${#TARGET_SEQ}))"
+
+validate_bucket_spec() {
+  python3 - "$1" <<'PY'
+import sys
+parts = [item.strip() for item in sys.argv[1].split(",") if item.strip()]
+try:
+    values = [int(item) for item in parts]
+except ValueError:
+    raise SystemExit(1)
+if not values or any(value <= 0 for value in values):
+    raise SystemExit(1)
+if any(left >= right for left, right in zip(values, values[1:])):
+    raise SystemExit(1)
+print(",".join(str(value) for value in values))
+PY
+}
+
+case "${ALPHAFOLD3_BUCKETS}" in
+  auto) ALPHAFOLD3_BUCKETS="${MAX_REQUESTED_POLYMER_TOKENS}" ;;
+  default) ALPHAFOLD3_BUCKETS="256,512,768,1024,1280,1536,2048" ;;
+  *) ALPHAFOLD3_BUCKETS="$(validate_bucket_spec "${ALPHAFOLD3_BUCKETS}")" \
+       || die "Invalid --alphafold3-buckets specification." ;;
+esac
+
+if [[ "${INTELLIFOLD_EXTRA_CLI_STRING}" == *"--buckets"* ]]; then
+  echo "==> IntelliFold buckets supplied through --intellifold-extra; automatic bucket selection disabled."
+elif [[ "${INTELLIFOLD_BUCKETS}" != "default" ]]; then
+  if [[ "${INTELLIFOLD_BUCKETS}" == "auto" ]]; then
+    INTELLIFOLD_BUCKETS="${MAX_REQUESTED_POLYMER_TOKENS}"
+  else
+    INTELLIFOLD_BUCKETS="$(validate_bucket_spec "${INTELLIFOLD_BUCKETS}")" \
+      || die "Invalid --intellifold-buckets specification."
+  fi
+  INTELLIFOLD_EXTRA_FLAGS+=("--buckets" "${INTELLIFOLD_BUCKETS}")
+fi
+echo "==> Predictor token buckets: IntelliFold=${INTELLIFOLD_BUCKETS}; AlphaFold3=${ALPHAFOLD3_BUCKETS}; campaign_max_polymer_tokens=${MAX_REQUESTED_POLYMER_TOKENS}"
+
 OPENFOLD_TARGET_MSA_PATH=""
 PEAK_RSS_MB=0
 PEAK_FOOTPRINT_MB=0
@@ -5446,11 +6573,21 @@ if [[ "${NEED_OPENFOLD_TARGET_MSA}" -eq 1 ]]; then
   fi
 fi
 
-# Predictor-specific calibration run (one longest-length prediction) for all design tools.
+# Predictor-specific calibration uses the actual fixed scaffold length in
+# nanobody/fixed-binder mode, or the configured maximum random-binder length.
 if [[ "${SKIP_PREDICTOR_CALIBRATION}" -eq 1 ]]; then
   echo "==> Skipping predictor memory calibration (explicit --max-parallel ${MAX_PARALLEL_USER})."
 elif [[ "${CAL_PRED_DONE}" -eq 0 ]]; then
-  echo "==> Calibration: running one ${PREDICTOR} prediction at binder length ${BINDER_MAX_LEN}..."
+  if [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]]; then
+    CALIBRATION_LENGTH_HINT="$(
+      extract_binder_sequence_from_yaml "${TEMPLATE_YAML}" "${ANTIFOLD_NANOBODY_CHAIN}" |
+        tr -d '[:space:]' |
+        awk '{print length($0)}'
+    )"
+  else
+    CALIBRATION_LENGTH_HINT="${BINDER_MAX_LEN}"
+  fi
+  echo "==> Calibration: running one ${PREDICTOR} prediction at binder length ${CALIBRATION_LENGTH_HINT}..."
   run_predictor_calibration_once "${PREDICTOR}" "${TARGET_MSA_PATH}"
 fi
 
@@ -5530,7 +6667,7 @@ PY
   AUTO_MAX_BY_MPS="${N_RUNS}"
   if [[ "${MPS_AWARE}" -eq 1 && "${CPU_ONLY}" -eq 0 ]]; then
     case "${PREDICTOR}" in
-      boltz|intellifold|openfold-3-mlx)
+      boltz|intellifold|openfold-3-mlx|alphafold3)
         AUTO_MAX_BY_MPS="$(python3 - "${MPS_MAX_PARALLEL}" "${N_RUNS}" <<'PY'
 import sys
 cap_raw=sys.argv[1]
@@ -5552,6 +6689,85 @@ PY
 )"
 else
   MAX_PARALLEL="${MAX_PARALLEL_USER}"
+fi
+
+# A device profile adds measured throughput information to the single-run live
+# memory calibration above.  Memory remains a hard cap; the profile can only
+# choose a lower process count and, for cycle-wave jobs, a native batch size.
+THROUGHPUT_PROFILE_USED=""
+THROUGHPUT_PROFILE_CONFIDENCE=""
+THROUGHPUT_PROFILE_RECOMMENDED_BATCH=""
+if [[ "${MAX_PARALLEL_USER}" == "auto" && "${THROUGHPUT_PROFILE}" != "off" ]] \
+   && [[ "$(template_has_small_molecule_ligand "${TEMPLATE_YAML}")" != "1" ]]; then
+  _profile_path="${THROUGHPUT_PROFILE}"
+  if [[ "${_profile_path}" == "auto" ]]; then
+    _profile_path="$(find "${BASE_RUN_ROOT}" -maxdepth 3 -type f -name 'device_profile.json' -path '*device_throughput_calibration*' 2>/dev/null | sort | tail -n 1 || true)"
+  elif [[ -n "${_profile_path}" && "${_profile_path}" != /* ]]; then
+    _profile_path="${REPO_ROOT}/${_profile_path}"
+  fi
+  if [[ -n "${_profile_path}" && -s "${_profile_path}" ]]; then
+    _profile_predictor="${PREDICTOR}"
+    [[ "${_profile_predictor}" == "openfold-3-mlx" ]] && _profile_predictor="openfold"
+    _profile_potential_args=()
+    if [[ "${PREDICTOR}" == "boltz" && "${BOLTZ_USE_POTENTIALS_DEFAULT}" -eq 1 ]]; then
+      _profile_potential_args=(--potentials)
+    fi
+    _profile_target_msa_depth=0
+    if [[ -n "${TARGET_MSA_PATH}" && -s "${TARGET_MSA_PATH}" ]]; then
+      _profile_target_msa_depth="$(python3 - "${TARGET_MSA_PATH}" <<'PY'
+import sys
+from pathlib import Path
+p = Path(sys.argv[1])
+try:
+    print(sum(line.startswith(">") for line in p.open(errors="ignore")))
+except OSError:
+    print(0)
+PY
+)"
+    fi
+    set +e
+    _profile_choice="$(python3 "${REPO_ROOT}/scripts/compute_throughput_profile.py" recommend \
+      --profile "${_profile_path}" \
+      --predictor "${_profile_predictor}" \
+      --binder-length "${CALIBRATION_LENGTH_HINT:-${BINDER_MAX_LEN}}" \
+      --target-length "${#TARGET_SEQ}" \
+      --binder-msa-depth 1 \
+      --target-msa-depth "${_profile_target_msa_depth}" \
+      --memory-budget-gb "$(python3 - "${SAFE_MB:-1024}" <<'PY'
+import sys
+print(max(1.0, float(sys.argv[1]) / 1024.0))
+PY
+)" \
+      ${_profile_potential_args[@]+"${_profile_potential_args[@]}"} 2>"${EXPT_ROOT}/throughput_profile_warning.log")"
+    _profile_rc=$?
+    set -e
+    if [[ "${_profile_rc}" -eq 0 && -n "${_profile_choice}" ]]; then
+      IFS=$'\t' read -r _profile_processes _profile_batch _profile_confidence <<< "$(python3 - "${_profile_choice}" <<'PY'
+import json, sys
+x=json.loads(sys.argv[1])
+print(f"{int(x.get('processes',1))}\t{int(x.get('native_batch_per_process',1))}\t{x.get('confidence','low')}")
+PY
+)"
+      MAX_PARALLEL="$(python3 - "${MAX_PARALLEL}" "${_profile_processes}" <<'PY'
+import sys
+print(max(1, min(int(sys.argv[1]), int(sys.argv[2]))))
+PY
+)"
+      if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" && "${WAVE_BATCH_SIZE_USER_SET}" -eq 0 ]]; then
+        WAVE_BATCH_SIZE="${_profile_batch}"
+      fi
+      THROUGHPUT_PROFILE_USED="${_profile_path}"
+      THROUGHPUT_PROFILE_CONFIDENCE="${_profile_confidence}"
+      THROUGHPUT_PROFILE_RECOMMENDED_BATCH="${_profile_batch}"
+    else
+      echo "WARNING: throughput profile could not be used; retaining live-calibration scheduling (see ${EXPT_ROOT}/throughput_profile_warning.log)." >&2
+    fi
+  elif [[ "${THROUGHPUT_PROFILE}" != "auto" ]]; then
+    die "Throughput profile not found: ${_profile_path}"
+  fi
+elif [[ "${MAX_PARALLEL_USER}" == "auto" && "${THROUGHPUT_PROFILE}" != "off" ]] \
+     && [[ "$(template_has_small_molecule_ligand "${TEMPLATE_YAML}")" == "1" ]]; then
+  echo "WARNING: no ligand-atom device profile is installed; using live one-run memory calibration for this ligand workload." >&2
 fi
 
 if [[ "${NO_PARALLEL}" -eq 1 ]]; then
@@ -5577,6 +6793,7 @@ fi
 echo "========================================"
 echo "${APP_NAME}"
 echo "Repo root               : ${REPO_ROOT}"
+echo "Workflow                : ${WORKFLOW}"
 echo "Run name                : ${RUN_NAME}"
 echo "Predictor               : ${PREDICTOR}"
 if [[ "$(post_predictors_count)" -gt 0 ]]; then
@@ -5588,11 +6805,20 @@ echo "Runs                    : ${N_RUNS}"
 echo "Optimization cycles     : ${N_CYCLES} (plus cycle_00 seed)"
 echo "MAX_PARALLEL            : ${MAX_PARALLEL}"
 echo "Design scheduler        : ${DESIGN_SCHEDULER}"
+if [[ "${RESUME}" -eq 1 ]]; then
+  echo "Resume                  : on (reusing completed cycle predictions)"
+fi
 if [[ "${SEQUENCE_DESIGNER}" =~ ^(proteinmpnn|solublempnn|ligandmpnn|abmpnn)$ ]]; then
   echo "MPNN seed scheme        : ${LIGANDMPNN_SEED} + run_index*1000 + redesign_cycle"
 fi
+if [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 0 && -n "${BINDER_RANDOM_SEED}" ]]; then
+  echo "Cycle-00 seed scheme    : ${BINDER_RANDOM_SEED} + run_index"
+fi
 if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" ]]; then
   echo "Wave batch size         : ${WAVE_BATCH_SIZE}"
+  if [[ "${SEQUENCE_DESIGNER}" != "antifold" ]]; then
+    echo "Wave MPNN parallelism   : ${MPNN_WAVE_MAX_PARALLEL}"
+  fi
 fi
 if [[ "${MOTIF_SCAFFOLDING}" -eq 1 ]]; then
   echo "Motif scaffolding       : on (Boltz-only design mode)"
@@ -5612,6 +6838,12 @@ if [[ "${PARTIAL_REDESIGN}" -eq 1 ]]; then
 fi
 if [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]]; then
   echo "Scaffold from template  : on (chain ${ANTIFOLD_NANOBODY_CHAIN})"
+fi
+if [[ -n "${INITIAL_STRUCTURE}" ]]; then
+  echo "Imported cycle_00       : ${INITIAL_STRUCTURE}"
+  echo "Imported confidence     : ${INITIAL_CONFIDENCE_JSON:-none}"
+fi
+if [[ "${WORKFLOW}" == "nanobody" ]]; then
   echo "Nanobody seed mode      : ${NANOBODY_SEED_MODE}"
   if [[ "${NANOBODY_SEED_MODE}" == "cdr-random" ]]; then
     echo "Nanobody seed CDRs      : ${NANOBODY_SEED_CDRS}"
@@ -5634,6 +6866,11 @@ if [[ "${MAX_PARALLEL_USER}" == "auto" ]]; then
   echo "Calibration peak phys MB: ${PEAK_FOOTPRINT_MB:-na}"
   echo "Calibration peak sys MB : ${PEAK_SYS_DELTA_MB:-na}"
   echo "Calibration effective MB: ${PEAK_EFFECTIVE_MB:-na}"
+  if [[ -n "${THROUGHPUT_PROFILE_USED:-}" ]]; then
+    echo "Throughput profile      : ${THROUGHPUT_PROFILE_USED}"
+    echo "Profile confidence      : ${THROUGHPUT_PROFILE_CONFIDENCE}"
+    echo "Profile native batch    : ${THROUGHPUT_PROFILE_RECOMMENDED_BATCH}"
+  fi
 fi
 echo "CPU only                : ${CPU_ONLY}"
 echo "Sequence designer       : ${SEQUENCE_DESIGNER_LABEL}"
@@ -5673,7 +6910,7 @@ fi
 if [[ -n "${OPENFOLD_TARGET_MSA_PATH:-}" ]]; then
   echo "OpenFold target MSA     : ${OPENFOLD_TARGET_MSA_PATH}"
 fi
-if [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]]; then
+if [[ "${WORKFLOW}" == "nanobody" && "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]]; then
   echo "Scaffold MSA mode       : ${NANOBODY_SCAFFOLD_MSA_MODE}"
   if [[ "${NANOBODY_SCAFFOLD_MSA_MODE}" != "off" ]]; then
     echo "Scaffold MSA mask CDRs  : ${NANOBODY_SCAFFOLD_MSA_MASK_CDRS}"
@@ -5783,17 +7020,30 @@ print(len(rows))
 PY
 
     if [[ -s "$task_tsv" ]]; then
-      POST_PIDS=()
+      POST_STATUS_FILES=()
       while IFS=$'\t' read -r run_i cyc_i bseq; do
         wait_for_slot "${MAX_PARALLEL}"
+        post_run_tag="$(printf "run_%03d" "${run_i}")"
+        post_cycle_tag="$(printf "cycle_%02d" "${cyc_i}")"
+        post_status_file="${EXPT_ROOT}/${post_run_tag}/post_${pred_safe}/${post_cycle_tag}/post_exit_code.txt"
+        mkdir -p "$(dirname "${post_status_file}")"
+        printf 'running\n' > "${post_status_file}"
         (
+          post_rc=1
+          trap 'printf "%s\n" "${post_rc}" > "${post_status_file}"' EXIT
           run_post_task "$post_pred" "$run_i" "$cyc_i" "$bseq" "$TARGET_MSA_PATH"
+          post_rc=0
         ) &
-        POST_PIDS+=("$!")
+        POST_STATUS_FILES+=("${post_status_file}")
       done < "$task_tsv"
+      set +e
+      wait
+      set -e
       POST_FAILED=0
-      for pid in "${POST_PIDS[@]}"; do
-        if ! wait "${pid}"; then
+      for post_status_file in "${POST_STATUS_FILES[@]}"; do
+        post_rc="$(tr -d '[:space:]' < "${post_status_file}" 2>/dev/null || true)"
+        if [[ "${post_rc}" != "0" ]]; then
+          echo "ERROR: post-prediction status ${post_status_file} is ${post_rc:-missing}" >&2
           POST_FAILED=1
         fi
       done
