@@ -22,7 +22,9 @@ _Last updated: 2026-08-11_
 live metrics dashboard, hits gallery, offline 3D structure viewer, target prep,
 predictions library.
 
-**Also working:** choice of design predictor (Boltz-2 ± potentials, IntelliFold,
+**Also working:** Ligand Intelligence — chemistry QA, recognition-core vs linker
+separation, conformer ensembles weighed against experimental PDB structures, and a
+design budget split across the shapes a molecule actually adopts; choice of design predictor (Boltz-2 ± potentials, IntelliFold,
 AlphaFold 3, OpenFold-3) with orthogonal checking; measured-optimum scheduling
 delegated to NanoHunter's runner; reuse of an existing local NanoHunter/RFD3
 install instead of a second multi-GB download; an RFdiffusion3 tab that drives the
@@ -77,6 +79,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0006 | 2026-08-11 | [Ligand Intelligence — conformer analysis and evidence-based design allocation](lab_book/0006-ligand-intelligence.md) | How a flexible ligand's shapes are found, weighed against the PDB, and turned into a design budget — and three silent failures found doing it |
 | 0005 | 2026-08-11 | [Designer routing, predictor roles, install detection, and RFD3 options](lab_book/0005-designer-routing-and-install-detection.md) | Why per-component linking beats all-or-nothing, the missing `--workflow` flag, and which predictors belong in which role |
 | 0004 | 2026-08-10 | [RFdiffusion3 tab, rebuilt on the validated production pipeline](lab_book/0004-rfdiffusion3-tab.md) | Why Studio drives the RFD3 repo's scripts instead of its own, and the binder-length-versus-total-length bug that decided it |
 | 0003 | 2026-08-10 | [Refresh the vendored pipeline, add AlphaFold 3 and OpenFold-3, expose scheduling](lab_book/0003-predictor-choice-and-scheduling.md) | Predictor choice, what scheduling is delegated rather than reimplemented, and which flags must never be overridden |
