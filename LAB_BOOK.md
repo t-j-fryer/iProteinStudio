@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-08-10_
+_Last updated: 2026-08-11_
 
 | | |
 |---|---|
@@ -33,17 +33,21 @@ validated production pipeline and survives quitting the app.
 1. **Studio has no measurements of its own.** Every performance number in this repo
    was measured in a sibling repo. No campaign has yet been run end to end
    *through the app*.
-2. The RFdiffusion3 **protein path is entirely untested**, and stops after sequence
-   design because re-folding a complex needs a target MSA it cannot build —
-   see [0004](lab_book/0004-rfdiffusion3-tab.md).
-3. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
+2. The RFdiffusion3 **protein path is untested end to end**. It now generates the
+   target MSA, re-folds and ranks, but none of those stages has ever run —
+   see [0005](lab_book/0005-designer-routing-and-install-detection.md).
+3. **AlphaFold 3 and OpenFold-3 cannot check RFdiffusion3 designs** —
+   `RFD3/scripts/run_predictors.py` implements Boltz and IntelliFold only. They
+   are shown but disabled, with the reason stated in the UI.
+4. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
    and self-consistency are written to disk but must be opened by hand.
-4. The IntelliFold JAX backend (1.24x) is installable but **not selectable** —
+5. The IntelliFold JAX backend (1.24x) is installable but **not selectable** —
    `nanohunter_run.sh` hard-assigns its venv and runner, so there is no supported
    route to it. Upstream fix needed — see [0003](lab_book/0003-predictor-choice-and-scheduling.md).
-5. OpenFold-3 complex pLDDT has an unresolved scale problem and must not be surfaced in
-   the UI — see [0002](lab_book/0002-inherited-speed-lessons.md) §7.
-6. No app icon, no Developer ID signing/notarisation.
+6. OpenFold-3 complex pLDDT has an unresolved scale problem and must not be surfaced in
+   the UI — see [0002](lab_book/0002-inherited-speed-lessons.md) §7. It is a checker
+   only, never a design engine.
+7. No app icon, no Developer ID signing/notarisation.
 
 **Deliberately out of scope:** NISE (experimental, stays in NanoHunter); RFdiffusion3
 against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
@@ -73,6 +77,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0005 | 2026-08-11 | [Designer routing, predictor roles, install detection, and RFD3 options](lab_book/0005-designer-routing-and-install-detection.md) | Why per-component linking beats all-or-nothing, the missing `--workflow` flag, and which predictors belong in which role |
 | 0004 | 2026-08-10 | [RFdiffusion3 tab, rebuilt on the validated production pipeline](lab_book/0004-rfdiffusion3-tab.md) | Why Studio drives the RFD3 repo's scripts instead of its own, and the binder-length-versus-total-length bug that decided it |
 | 0003 | 2026-08-10 | [Refresh the vendored pipeline, add AlphaFold 3 and OpenFold-3, expose scheduling](lab_book/0003-predictor-choice-and-scheduling.md) | Predictor choice, what scheduling is delegated rather than reimplemented, and which flags must never be overridden |
 | 0002 | 2026-08-10 | [Inherited Apple-Silicon speed lessons](lab_book/0002-inherited-speed-lessons.md) | Every measured performance number Studio's scheduling is based on, and the optimisations that were tried and rejected |
