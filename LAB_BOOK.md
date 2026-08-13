@@ -19,8 +19,9 @@ _Last updated: 2026-08-11_
 | **Repo** | Private — `github.com/t-j-fryer/iProteinStudio` (renamed from NanoHunterStudio) |
 | **Runtime** | `~/.iproteinstudio` — **not** Application Support: a space in the path breaks every Python console-script shebang |
 
-**Working:** setup wizard, project management, a prediction-only tab that reuses
-every alignment on the machine, nanobody/mini-binder/peptide design form,
+**Working:** setup wizard with per-engine choice, worked examples (α-cobratoxin
+with its alignment included, and fluorescein), project management, a
+prediction-only tab that reuses every alignment on the machine, nanobody/mini-binder/peptide design form,
 live metrics dashboard, hits gallery, offline 3D structure viewer, target prep,
 predictions library.
 
@@ -77,6 +78,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0012 | 2026-08-13 | [Worked examples with a shipped alignment, and the first real from-scratch install](lab_book/0012-worked-examples-and-fresh-install.md) | Why the aCbx alignment ships with the app, and what a from-scratch install actually proves |
 | 0011 | 2026-08-13 | [Rename to iProteinStudio, per-engine installs, and a clean-clone check](lab_book/0011-rename-and-fresh-user-install.md) | The local paths that were being shipped, per-engine installation, and what a new user actually receives |
 | 0010 | 2026-08-13 | [A fresh install was missing the entire RFdiffusion3 script layer](lab_book/0010-shipping-the-rfd3-overlay.md) | Why a clean clone could not run anything, how the overlay ships, and exactly what an update does and does not carry |
 | 0009 | 2026-08-13 | [A prediction-only tab, and an alignment cache shared with the design side](lab_book/0009-prediction-tab.md) | Why the MSA cache is the feature rather than the folding, how batches are shaped, and the per-engine schedules |
