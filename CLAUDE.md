@@ -12,14 +12,21 @@ reachable, reproducible and hard to misuse for someone who has never opened a te
 
 The sibling repos and what we take from each:
 
-| Repo | Path on the dev machine | What Studio uses it for |
-|---|---|---|
-| NanoHunter / iProteinHunter | `/Users/thomasfryer/NanoHunter` | The iterative design runner (`nanohunter_run.sh`), all four structure predictors, every MPNN/AntiFold designer, MSA handling, device calibration |
-| RFD3 | `/Users/thomasfryer/RFD3` | RFdiffusion3 backbone generation on MLX, ligand conditioning, length-binned batching |
+| Repo | What Studio uses it for |
+|---|---|
+| NanoHunter / iProteinHunter | The iterative design runner (`nanohunter_run.sh`), all four structure predictors, every MPNN/AntiFold designer, MSA handling, device calibration |
+| RFD3 | RFdiffusion3 backbone generation on MLX, ligand conditioning, length-binned batching |
 
-Those repos are the **upstream source of truth for the science**. When Studio needs a
-capability that exists there, port the *validated* behaviour — do not reinvent it, and
-do not silently diverge from its defaults.
+Both are **vendored into this repo** — the NanoHunter pipeline by
+`tools/sync_pipeline.sh`, the RFdiffusion3 script layer by `tools/sync_rfd3.sh` — and
+written out to `$ROOT` (`~/.iproteinstudio`) on first launch. You do **not** need a
+local checkout of either to work on Studio or to run anything.
+
+If you do have one, it is the **upstream source of truth for the science**: when Studio
+needs a capability that exists there, port the *validated* behaviour and re-vendor it.
+Do not reinvent it, and do not silently diverge from its defaults. Never hard-code a
+path to your own checkout in shipped code — derive roots from `NANOHUNTER_ROOT` or from
+the script's own location.
 
 ## The four standing requirements
 
