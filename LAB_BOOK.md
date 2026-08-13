@@ -19,7 +19,8 @@ _Last updated: 2026-08-11_
 | **Repo** | Private — `github.com/t-j-fryer/NanoHunterStudio` |
 | **Runtime** | `~/.nanohunterstudio` — **not** Application Support: a space in the path breaks every Python console-script shebang |
 
-**Working:** setup wizard, project management, nanobody/mini-binder/peptide design form,
+**Working:** setup wizard, project management, a prediction-only tab that reuses
+every alignment on the machine, nanobody/mini-binder/peptide design form,
 live metrics dashboard, hits gallery, offline 3D structure viewer, target prep,
 predictions library.
 
@@ -76,6 +77,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0009 | 2026-08-13 | [A prediction-only tab, and an alignment cache shared with the design side](lab_book/0009-prediction-tab.md) | Why the MSA cache is the feature rather than the folding, how batches are shaped, and the per-engine schedules |
 | 0008 | 2026-08-11 | [Self-contained installation, OpenFold-3 and the IntelliFold JAX backend](lab_book/0008-self-contained-install-and-remaining-backends.md) | Why the old install path could never have worked, the three ways a copied venv stays tied to its origin, and the last two backends |
 | 0007 | 2026-08-11 | [Predictor settings audit, corrected speed claims, and ligand-atom targeting](lab_book/0007-predictor-settings-audit-and-ligand-targeting.md) | What each engine actually runs with and whether it is optimal, why the old speed multipliers were inverted, and how Boltz ligand atom names shift under the affinity head |
 | 0006 | 2026-08-11 | [Ligand Intelligence — conformer analysis and evidence-based design allocation](lab_book/0006-ligand-intelligence.md) | How a flexible ligand's shapes are found, weighed against the PDB, and turned into a design budget — and three silent failures found doing it |
