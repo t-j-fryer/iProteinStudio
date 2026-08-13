@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "NanoHunterStudio",
+    name: "iProteinStudio",
     platforms: [.macOS(.v14)],
     targets: [
         .executableTarget(
-            name: "NanoHunterStudio",
-            path: "Sources/NanoHunterStudio",
+            name: "iProteinStudio",
+            path: "Sources/iProteinStudio",
             resources: [
                 .copy("Resources/pipeline"),
                 .copy("Resources/web"),

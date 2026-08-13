@@ -12,11 +12,11 @@
 #
 #   ./tools/sync_pipeline.sh [/path/to/NanoHunter]
 #
-# Defaults to ../NanoHunter, then /Users/thomasfryer/NanoHunter.
+# Defaults to ../NanoHunter, then ~/NanoHunter.
 set -euo pipefail
 
 STUDIO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VENDOR="${STUDIO_ROOT}/Sources/NanoHunterStudio/Resources/pipeline"
+VENDOR="${STUDIO_ROOT}/Sources/iProteinStudio/Resources/pipeline"
 
 UPSTREAM="${1:-}"
 if [[ -z "${UPSTREAM}" ]]; then
@@ -91,7 +91,7 @@ git -C "${UPSTREAM}" diff --quiet 2>/dev/null || DIRTY=" (working tree dirty —
 
 cat > "${VENDOR}/PIPELINE_VERSION" <<EOF
 # Provenance of the vendored NanoHunter pipeline. Regenerate with tools/sync_pipeline.sh.
-upstream_path:   ${UPSTREAM}
+upstream_repo:   $(git -C "${UPSTREAM}" remote get-url origin 2>/dev/null || echo "local checkout")
 upstream_commit: ${COMMIT}${DIRTY}
 upstream_head:   ${DESCRIBE}
 vendored_on:     $(date -u '+%Y-%m-%dT%H:%M:%SZ')

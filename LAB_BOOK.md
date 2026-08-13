@@ -16,8 +16,8 @@ _Last updated: 2026-08-11_
 |---|---|
 | **Stage** | Alpha. Builds and runs; not signed or notarised for distribution. |
 | **Platform** | macOS 14+, Apple Silicon only. Developed on M4 Max / 64 GB / macOS 26.x. |
-| **Repo** | Private — `github.com/t-j-fryer/NanoHunterStudio` |
-| **Runtime** | `~/.nanohunterstudio` — **not** Application Support: a space in the path breaks every Python console-script shebang |
+| **Repo** | Private — `github.com/t-j-fryer/iProteinStudio` |
+| **Runtime** | `~/.iproteinstudio` — **not** Application Support: a space in the path breaks every Python console-script shebang |
 
 **Working:** setup wizard, project management, a prediction-only tab that reuses
 every alignment on the machine, nanobody/mini-binder/peptide design form,

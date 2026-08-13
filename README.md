@@ -1,4 +1,4 @@
-# NanoHunter Studio
+# iProteinStudio
 
 A native macOS app for designing protein binders on Apple Silicon — with a
 guided setup, clean design forms, and a **live dashboard** showing metrics
@@ -60,7 +60,7 @@ downloaded — obtain them from Google and place them where the setup screen say
 
 ```bash
 ./build_app.sh
-open "build/NanoHunter Studio.app"
+open "build/iProteinStudio.app"
 ```
 
 Or during development:
@@ -78,7 +78,7 @@ for iterative design and prediction, **RFD3** for RFdiffusion3 — and Studio dr
 their validated scripts rather than reimplementing them. It vendors the NanoHunter
 pipeline into its bundle (see `tools/sync_pipeline.sh` and
 `Resources/pipeline/PIPELINE_VERSION` for exactly which version), installs into
-`~/Library/Application Support/NanoHunterStudio/`, and parses the runners' output
+`~/Library/Application Support/iProteinStudio/`, and parses the runners' output
 to drive the live views.
 
 RFdiffusion3 campaigns can run for days, so they are launched detached and keep

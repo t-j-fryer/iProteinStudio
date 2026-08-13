@@ -1,0 +1,7 @@
+# Provenance of the vendored NanoHunter pipeline. Regenerate with tools/sync_pipeline.sh.
+upstream_repo:   https://github.com/t-j-fryer/iProteinHunter.git
+upstream_commit: 434b8fff6d7d220db57ccafb4b0bd3883dbfe18e (working tree dirty — vendored copy may not match any commit)
+upstream_head:   434b8ff 2026-08-06 Merge branch 'agent/fix-nise-resume-crash-and-seed-doc'
+vendored_on:     2026-08-13T21:43:26Z
+runner_lines:    7073
+runner_sha256:   bf20651948b700c59e2277f83cc4d481357e8003ee807ae5ec3c331abaac230e

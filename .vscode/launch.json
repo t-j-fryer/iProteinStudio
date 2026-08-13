@@ -4,21 +4,21 @@
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:NanoHunterStudio}",
-            "name": "Debug NanoHunterStudio",
-            "target": "NanoHunterStudio",
+            "cwd": "${workspaceFolder:iProteinStudio}",
+            "name": "Debug iProteinStudio",
+            "target": "iProteinStudio",
             "configuration": "debug",
-            "preLaunchTask": "swift: Build Debug NanoHunterStudio"
+            "preLaunchTask": "swift: Build Debug iProteinStudio"
         },
         {
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:NanoHunterStudio}",
-            "name": "Release NanoHunterStudio",
-            "target": "NanoHunterStudio",
+            "cwd": "${workspaceFolder:iProteinStudio}",
+            "name": "Release iProteinStudio",
+            "target": "iProteinStudio",
             "configuration": "release",
-            "preLaunchTask": "swift: Build Release NanoHunterStudio"
+            "preLaunchTask": "swift: Build Release iProteinStudio"
         }
     ]
 }

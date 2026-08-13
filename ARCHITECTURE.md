@@ -1,4 +1,4 @@
-# NanoHunter Studio — Architecture
+# iProteinStudio — Architecture
 
 A native macOS app that wraps the NanoHunter nanobody-design pipeline in a
 friendly GUI: guided design setup, one-click install, and a **live dashboard**
@@ -20,7 +20,7 @@ environment setup.
 ## Layering (UI-agnostic core + SwiftUI on top)
 
 ```
-Sources/NanoHunterStudio/
+Sources/iProteinStudio/
   Models/           value types: DesignRequest, RFD3Request, Predictor,
                     InstallComponent, DesignPoint, Project, RunPhase
   Core/             the engine (no SwiftUI):
@@ -90,7 +90,7 @@ RFD3 spec.
 ## Data locations (managed, sandbox-friendly)
 
 ```
-~/Library/Application Support/NanoHunterStudio/
+~/Library/Application Support/iProteinStudio/
   pipeline/       staged scripts + installed src/ (cloned tools)
   venvs/          NanoHunter_boltz, _ligandmpnn, _antifold, _intellifold
   projects/<slug>/<run-name>/   pipeline --out-root for each campaign
@@ -135,7 +135,7 @@ optimum, and the optimum falls as the ligand and binder grow.
 ## Build / distribution
 
 - `swift build` — compiles with Command Line Tools alone.
-- `./build_app.sh` — assembles a runnable, ad-hoc-signed `NanoHunter Studio.app`.
+- `./build_app.sh` — assembles a runnable, ad-hoc-signed `iProteinStudio.app`.
 - For public distribution: open `Package.swift` in Xcode, add an app icon, and
   archive with a Developer ID certificate for notarization.
 

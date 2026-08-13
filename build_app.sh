@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build NanoHunter Studio and assemble a double-clickable .app bundle.
+# Build iProteinStudio and assemble a double-clickable .app bundle.
 #
 # Works with just the Command Line Tools (no full Xcode needed). For a
 # distributable, notarized app, open Package.swift in Xcode and archive with a
@@ -8,8 +8,8 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 CONFIG="${1:-release}"
-APP_NAME="NanoHunter Studio"
-BIN_NAME="NanoHunterStudio"
+APP_NAME="iProteinStudio"
+BIN_NAME="iProteinStudio"
 BUNDLE_ID="ai.nanohunter.studio"
 
 echo "==> swift build -c ${CONFIG}"
@@ -42,7 +42,7 @@ cat > "${APP}/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>1</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSHumanReadableCopyright</key><string>NanoHunter Studio</string>
+  <key>NSHumanReadableCopyright</key><string>iProteinStudio</string>
 </dict>
 </plist>
 PLIST

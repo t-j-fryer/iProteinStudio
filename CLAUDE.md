@@ -1,11 +1,11 @@
-# Working rules for AI agents on NanoHunter Studio
+# Working rules for AI agents on iProteinStudio
 
 Read this file, then read [`LAB_BOOK.md`](LAB_BOOK.md) before doing anything else.
 The Lab Book is the project's memory. This file is how you are expected to behave.
 
 ## What this repo is
 
-NanoHunter Studio is the **native macOS front end to our whole Apple-Silicon protein
+iProteinStudio is the **native macOS front end to our whole Apple-Silicon protein
 design tool suite**. It is a SwiftUI app. It contains almost no science of its own:
 the science lives in sibling repositories, and this app's job is to make that science
 reachable, reproducible and hard to misuse for someone who has never opened a terminal.
