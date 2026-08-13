@@ -43,11 +43,11 @@ validated production pipeline and survives quitting the app.
 3. **AlphaFold 3 and OpenFold-3 cannot check RFdiffusion3 designs** —
    `RFD3/scripts/run_predictors.py` implements Boltz and IntelliFold only. They
    are shown but disabled, with the reason stated in the UI.
-5. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
+6. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
    and self-consistency are written to disk but must be opened by hand.
-6. OpenFold-3 complex pLDDT has an unresolved scale problem — see
-   [0002](lab_book/0002-inherited-speed-lessons.md) §7. It is a checker only.
-7. No app icon, no Developer ID signing/notarisation.
+7. OpenFold-3 complex pLDDT has an unresolved scale problem — see
+   [0002](lab_book/0002-inherited-speed-lessons.md) §7.
+8. No app icon, no Developer ID signing/notarisation, no self-update.
 
 **Deliberately out of scope:** NISE (experimental, stays in NanoHunter); RFdiffusion3
 against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
@@ -77,6 +77,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0010 | 2026-08-13 | [A fresh install was missing the entire RFdiffusion3 script layer](lab_book/0010-shipping-the-rfd3-overlay.md) | Why a clean clone could not run anything, how the overlay ships, and exactly what an update does and does not carry |
 | 0009 | 2026-08-13 | [A prediction-only tab, and an alignment cache shared with the design side](lab_book/0009-prediction-tab.md) | Why the MSA cache is the feature rather than the folding, how batches are shaped, and the per-engine schedules |
 | 0008 | 2026-08-11 | [Self-contained installation, OpenFold-3 and the IntelliFold JAX backend](lab_book/0008-self-contained-install-and-remaining-backends.md) | Why the old install path could never have worked, the three ways a copied venv stays tied to its origin, and the last two backends |
 | 0007 | 2026-08-11 | [Predictor settings audit, corrected speed claims, and ligand-atom targeting](lab_book/0007-predictor-settings-audit-and-ligand-targeting.md) | What each engine actually runs with and whether it is optimal, why the old speed multipliers were inverted, and how Boltz ligand atom names shift under the affinity head |
