@@ -68,6 +68,11 @@ struct RFD3View: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                ExamplesBar { example in
+                    request.wrappedValue.apply(example)
+                    inspector.reset()
+                    intelligence.reset()
+                }
 
                 Card(title: "1 · What are you designing against?", systemImage: "target") {
                     targetKindPicker

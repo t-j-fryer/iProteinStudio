@@ -13,6 +13,7 @@ let package = Package(
                 .copy("Resources/web"),
                 .copy("Resources/rfd3"),
                 .copy("Resources/rfd3_overlay"),
+                .copy("Resources/examples"),
             ]
         )
     ]

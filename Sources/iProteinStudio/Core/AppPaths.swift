@@ -105,6 +105,39 @@ enum AppPaths {
     static var predictBatchScript: URL { rfd3ScriptsDir.appendingPathComponent("predict_batch.py") }
     static var parseSequencesScript: URL { rfd3ScriptsDir.appendingPathComponent("parse_sequences.py") }
 
+    /// Worked examples, written out of the bundle on first launch.
+    static var examplesDir: URL {
+        let dir = support.appendingPathComponent("examples_data", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    static var bundledExamples: URL? {
+        Bundle.module.url(forResource: "examples", withExtension: nil)
+    }
+
+    /// Copy the examples out, and seed the alignment cache with the one they
+    /// ship. Without that seeding a new user's first action queues behind a
+    /// public MSA server, which often takes longer than the fold and sometimes
+    /// simply fails — the worst possible first impression, and avoidable
+    /// because the alignment is already in the bundle.
+    static func stageExamples() {
+        guard let src = bundledExamples,
+              let items = try? fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
+        else { return }
+        for item in items {
+            let dest = examplesDir.appendingPathComponent(item.lastPathComponent)
+            if !fm.fileExists(atPath: dest.path) {
+                try? fm.copyItem(at: item, to: dest)
+            }
+        }
+        let alignment = examplesDir.appendingPathComponent("acbx/target_msa.a3m")
+        let seeded = msaCache.appendingPathComponent("example_acbx.a3m")
+        if fm.fileExists(atPath: alignment.path), !fm.fileExists(atPath: seeded.path) {
+            try? fm.copyItem(at: alignment, to: seeded)
+        }
+    }
+
     /// Shared alignment cache. Everything the app generates lands here, and the
     /// design side's older alignments are indexed into it, so a target aligned
     /// once is never aligned again.
@@ -184,6 +217,7 @@ enum AppPaths {
         }
         stageRFD3Scripts()
         stageRFD3Overlay()
+        stageExamples()
     }
 
     /// Apply the RFdiffusion3 overlay to the installed checkout.

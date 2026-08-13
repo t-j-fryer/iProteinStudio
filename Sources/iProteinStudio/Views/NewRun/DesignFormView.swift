@@ -23,6 +23,11 @@ struct DesignFormView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                ExamplesBar { example in
+                    var r = request.wrappedValue
+                    r.apply(example)
+                    request.wrappedValue = r
+                }
 
                 Card(title: "Design type", systemImage: "square.on.square") {
                     Picker("", selection: Binding(

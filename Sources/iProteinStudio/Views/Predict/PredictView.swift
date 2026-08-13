@@ -37,6 +37,10 @@ struct PredictView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                ExamplesBar(kinds: [.protein]) { example in
+                    request.wrappedValue.apply(example)
+                    parse()
+                }
                 Card(title: "1 · Sequences", systemImage: "text.alignleft") { sequencesSection }
                 Card(title: "2 · How to fold them", systemImage: "square.on.square") { pairingSection }
                 Card(title: "3 · Alignments", systemImage: "square.stack.3d.down.right") { msaSection }
