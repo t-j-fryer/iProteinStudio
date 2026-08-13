@@ -1,0 +1,14 @@
+# Directly validated environment on macOS 26.6 / Apple M4 Max.
+mlx==0.32.0
+mlx-metal==0.32.0
+safetensors==0.8.0
+torch==2.13.0
+rc-foundry[all] @ git+https://github.com/fnachon/foundry.git@a24335323b8fe8a927319d47b10f5bffffc17969
+atomworks==2.2.1
+biotite==1.4.0
+rdkit==2026.3.5
+numpy==2.5.1
+scipy==1.18.0
+pyyaml==6.0.3
+psutil==7.2.2
+matplotlib==3.11.1

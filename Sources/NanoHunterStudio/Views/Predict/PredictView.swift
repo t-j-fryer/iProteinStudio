@@ -193,9 +193,12 @@ struct PredictView: View {
 
     private var engineSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(Predictor.checkChoices.filter { $0 != .boltzPotentials }) { predictor in
+            ForEach(Predictor.predictionChoices) { predictor in
                 engineRow(predictor)
             }
+            Text("IntelliFold appears twice on purpose: the same weights on two different engines. PyTorch is the stock build; JAX/MPS is faster but hungrier.")
+                .font(.caption2).foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
             Divider().padding(.vertical, 2)
             Toggle("Boltz steering potentials", isOn: request.useBoltzPotentials)
                 .toggleStyle(.checkbox).font(.callout)

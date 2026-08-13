@@ -79,10 +79,10 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .boltz:           return "Boltz-2"
         case .boltzPotentials: return "Boltz-2 + potentials"
-        case .intellifold:     return "IntelliFold"
+        case .intellifold:     return "IntelliFold (PyTorch)"
         case .alphafold3:      return "AlphaFold 3"
         case .openfold3:       return "OpenFold-3"
-        case .intellifoldJAX:  return "IntelliFold (JAX)"
+        case .intellifoldJAX:  return "IntelliFold (JAX/MPS)"
         }
     }
 
@@ -171,13 +171,13 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .boltzPotentials:
             return "Boltz-2 with steering potentials — physically cleaner poses, about twice the time."
         case .intellifold:
-            return "An independent model, and the natural second opinion to Boltz. Fast when batched, slow when not."
+            return "The stock PyTorch build. An independent model and the natural second opinion to Boltz — fast when batched, slow when not."
         case .alphafold3:
             return "DeepMind's model, run on the Apple GPU. Strong orthogonal check; no binding-affinity head."
         case .openfold3:
             return "Open reimplementation with Apple MLX kernels. Orthogonal check."
         case .intellifoldJAX:
-            return "The same IntelliFold weights on a JAX/MPS engine — the fastest option, at roughly twice the memory."
+            return "The same IntelliFold weights on a JAX/Metal engine instead of PyTorch. About 1.24x faster, needs about twice the memory, and gives very slightly different numbers."
         }
     }
 
@@ -246,6 +246,13 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Engines that can independently re-fold finished designs. All of them.
     static var checkChoices: [Predictor] {
         [.boltz, .boltzPotentials, .intellifold, .intellifoldJAX, .alphafold3, .openfold3]
+    }
+
+    /// Everything the prediction tab offers, in the order it shows them.
+    /// Written out rather than derived, so an engine cannot quietly disappear
+    /// from the list because of a filter somewhere else.
+    static var predictionChoices: [Predictor] {
+        [.boltz, .intellifold, .intellifoldJAX, .alphafold3, .openfold3]
     }
 
     /// Engines the iterative pipeline can drive. The JAX backend is absent

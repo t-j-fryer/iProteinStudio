@@ -24,6 +24,12 @@ steering potentials and the affinity head → ranking by ligand pLDDT + P(bind) 
 apo re-folding of the best designs to see whether the binding site is already
 formed before the ligand arrives.
 
+**Predict** — fold sequences you already have, with no design involved. Paste
+them, or bring a FASTA or CSV; fold as monomers, all against one partner, or each
+with its own. Alignments are per chain, so a de-novo binder can be folded from its
+single sequence while its target gets a deep MSA — and every alignment this
+machine has ever made is reused rather than re-fetched.
+
 **One-click setup** — installs the design engines and their weights behind a
 friendly progress screen. If you already have NanoHunter installed, Studio links
 to it in about a second instead of downloading tens of gigabytes again.
@@ -32,7 +38,7 @@ to it in about a second instead of downloading tens of gigabytes again.
 
 | | |
 |---|---|
-| Structure prediction | Boltz-2 (± steering potentials), IntelliFold, AlphaFold 3, OpenFold-3 |
+| Structure prediction | Boltz-2 (± steering potentials), IntelliFold (PyTorch **and** JAX/MPS), AlphaFold 3, OpenFold-3 |
 | Sequence design | AntiFold, AbMPNN, ProteinMPNN, SolubleMPNN, LigandMPNN, LASErMPNN |
 | Backbone generation | RFdiffusion3 on MLX |
 
@@ -82,6 +88,38 @@ campaign.
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the design, and
 **[LAB_BOOK.md](LAB_BOOK.md) for why things are the way they are** — every
 measurement, decision and dead end is recorded there.
+
+## What a fresh install gets, and how updates reach people
+
+Everything needed to run is shipped **inside the app bundle** and written out on
+first launch:
+
+| Layer | What it is | Where it comes from |
+|---|---|---|
+| Pipeline | `nanohunter_run.sh` and its helper scripts | vendored from NanoHunter by `tools/sync_pipeline.sh` |
+| Studio helpers | prediction batching, ligand analysis, campaign preparation | written here |
+| RFdiffusion3 overlay | the whole RFD3 script layer — campaign orchestrators, ligand preparation, predictor adapters, length binning | vendored by `tools/sync_rfd3.sh` |
+
+The last one matters more than it sounds: **none of it is upstream**. A clean
+clone of the RFdiffusion3 MLX port contains zero of those scripts, so without the
+overlay a new user gets a checkout that cannot run anything. The installer
+applies it straight after cloning, before RFdiffusion3's own installer runs —
+which is necessary, because that installer calls scripts the overlay provides.
+
+The heavy parts — Python environments, model weights — are downloaded by
+`setup_pipeline.sh` on first run, or linked from an existing NanoHunter
+installation if one is found.
+
+**Updates.** Push a change here and users get it the next time they launch a new
+build: the bundled scripts are re-staged on every launch, and the overlay is
+version-stamped so it is rewritten whenever the bundle differs from what is
+installed. Environments and weights are *not* touched — they rarely change, and
+re-downloading gigabytes on every update would be indefensible. If a change needs
+a new dependency or a new model, that is a setup step and the app says so rather
+than silently working differently.
+
+Nothing here auto-updates the app itself. There is no updater and no signing yet,
+so a new build is a new build someone has to run.
 
 ## Working on this repo
 

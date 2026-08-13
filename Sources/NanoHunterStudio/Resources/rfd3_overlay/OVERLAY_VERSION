@@ -1,0 +1,5 @@
+# Provenance of the vendored RFdiffusion3 overlay. Regenerate with tools/sync_rfd3.sh.
+source_path:  /Users/thomasfryer/RFD3
+vendored_on:  2026-08-13T19:57:50Z
+files:        32
+checksum:     0a4cd336c518f3019c09aee635fac87c7db155dcd369e4d2a2331695429ebbb7

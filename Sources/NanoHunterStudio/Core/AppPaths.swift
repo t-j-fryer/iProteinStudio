@@ -129,6 +129,13 @@ enum AppPaths {
         Bundle.module.url(forResource: "rfd3", withExtension: nil)
     }
 
+    /// The RFdiffusion3 script layer — campaign orchestrators, ligand
+    /// preparation, predictor adapters, length binning. None of it is upstream,
+    /// so a checkout without this overlay cannot run anything Studio offers.
+    static var bundledRFD3Overlay: URL? {
+        Bundle.module.url(forResource: "rfd3_overlay", withExtension: nil)
+    }
+
     /// True once the pipeline runtime has been installed (venvs present).
     static var isPipelineInstalled: Bool {
         let venvs = support.appendingPathComponent("venvs", isDirectory: true)
@@ -162,6 +169,76 @@ enum AppPaths {
             }
         }
         stageRFD3Scripts()
+        stageRFD3Overlay()
+    }
+
+    /// Apply the RFdiffusion3 overlay to the installed checkout.
+    ///
+    /// This is also how an existing installation gets updates. The venvs and the
+    /// multi-gigabyte weights never change, but the scripts do; re-staging them
+    /// on every launch means a fix shipped in a new build reaches a machine that
+    /// installed months ago, without reinstalling anything. Version-stamped so
+    /// the copy only happens when the bundle actually differs.
+    @discardableResult
+    static func stageRFD3Overlay(force: Bool = false) -> Bool {
+        guard let src = bundledRFD3Overlay else { return false }
+        // Also drop a copy beside the pipeline so setup_pipeline.sh can apply it
+        // during a fresh install, before the app has an RFdiffusion3 to overlay.
+        let staged = support.appendingPathComponent("rfd3_overlay", isDirectory: true)
+        if !fm.fileExists(atPath: staged.appendingPathComponent("OVERLAY_VERSION").path)
+            || force {
+            try? fm.removeItem(at: staged)
+            try? fm.copyItem(at: src, to: staged)
+        }
+
+        let root = rfd3Root
+        // Nothing to overlay onto until RFdiffusion3 is installed or linked.
+        guard fm.fileExists(atPath: root.path) else { return false }
+
+        let stampFile = src.appendingPathComponent("OVERLAY_VERSION")
+        let installedStamp = root.appendingPathComponent(".studio_overlay_version")
+        let bundled = (try? String(contentsOf: stampFile, encoding: .utf8)) ?? ""
+        let installed = (try? String(contentsOf: installedStamp, encoding: .utf8)) ?? ""
+        guard force || bundled != installed else { return false }
+
+        guard let items = try? fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
+        else { return false }
+        for item in items where item.lastPathComponent != "OVERLAY_VERSION" {
+            let dest = root.appendingPathComponent(item.lastPathComponent)
+            var isDir: ObjCBool = false
+            fm.fileExists(atPath: item.path, isDirectory: &isDir)
+            if isDir.boolValue {
+                // Merge rather than replace: assets/ and scripts/ may hold files
+                // a campaign produced that the overlay knows nothing about.
+                mergeDirectory(from: item, into: dest)
+            } else {
+                try? fm.removeItem(at: dest)
+                try? fm.copyItem(at: item, to: dest)
+                try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dest.path)
+            }
+        }
+        try? bundled.write(to: installedStamp, atomically: true, encoding: .utf8)
+        return true
+    }
+
+    private static func mergeDirectory(from src: URL, into dest: URL) {
+        try? fm.createDirectory(at: dest, withIntermediateDirectories: true)
+        guard let items = try? fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
+        else { return }
+        for item in items {
+            let target = dest.appendingPathComponent(item.lastPathComponent)
+            var isDir: ObjCBool = false
+            fm.fileExists(atPath: item.path, isDirectory: &isDir)
+            if isDir.boolValue {
+                mergeDirectory(from: item, into: target)
+            } else {
+                try? fm.removeItem(at: target)
+                try? fm.copyItem(at: item, to: target)
+                if item.pathExtension == "py" || item.pathExtension == "sh" {
+                    try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: target.path)
+                }
+            }
+        }
     }
 
     /// Stage the RFdiffusion3 helpers. Kept separate from the pipeline assets

@@ -81,6 +81,9 @@ ALPHAFOLD3_REPO="${SRC_DIR}/alphafold3"
 ALPHAFOLD3_MODEL_DIR="${NANOHUNTER_ROOT}/models/alphafold3"
 INTELLIFOLD_JAX_MODEL_DIR="${NANOHUNTER_ROOT}/models/intellifold_jax_flash"
 RFD3_ROOT="${NANOHUNTER_ROOT}/rfd3"
+# Staged out of the app bundle next to this script; absent when the script is
+# run standalone, in which case the overlay step is simply skipped.
+STUDIO_RFD3_OVERLAY="${NANOHUNTER_ROOT}/rfd3_overlay"
 
 step()  { echo "NHSTEP|$1|$2|$3"; }
 state() { echo "NHSTATE|$1|$2|$3"; }
@@ -623,12 +626,30 @@ fi
 # ---- RFdiffusion3 (optional backbone generator) ----
 if [[ "${WITH_RFD3}" -eq 1 ]]; then
   step rfd3 96 "Installing RFdiffusion3 (MLX)"
-  if [[ ! -e "${RFD3_ROOT}/install_rfd3.sh" ]]; then
-    # The MLX port is the upstream this workflow extends; the campaign scripts
-    # Studio drives live alongside it.
+  if [[ ! -d "${RFD3_ROOT}" ]]; then
+    # The MLX port is the upstream this workflow extends. None of the campaign
+    # orchestrators, ligand preparation or predictor adapters are in it -- those
+    # arrive from the overlay below, which the app stages out of its own bundle.
     git clone https://github.com/javierbq/rfd3-mlx.git "${RFD3_ROOT}" >/dev/null 2>&1 \
       || state rfd3 missing "could not clone the RFdiffusion3 MLX port"
   fi
+
+  # Apply the overlay before installing: install_rfd3.sh calls scripts that only
+  # exist because of it, so a clean clone fails without this.
+  if [[ -d "${STUDIO_RFD3_OVERLAY}" && -d "${RFD3_ROOT}" ]]; then
+    mkdir -p "${RFD3_ROOT}/scripts"
+    cp -f "${STUDIO_RFD3_OVERLAY}"/scripts/*.py "${RFD3_ROOT}/scripts/" 2>/dev/null || true
+    for extra in milestone0_oracle.py export_weights.py install_rfd3.sh \
+                 requirements-rfd3.txt rfd3_env.sh; do
+      [[ -f "${STUDIO_RFD3_OVERLAY}/${extra}" ]] && cp -f "${STUDIO_RFD3_OVERLAY}/${extra}" "${RFD3_ROOT}/"
+    done
+    [[ -d "${STUDIO_RFD3_OVERLAY}/assets" ]] && cp -R "${STUDIO_RFD3_OVERLAY}/assets/." "${RFD3_ROOT}/assets/" 2>/dev/null
+    chmod 755 "${RFD3_ROOT}"/scripts/*.py "${RFD3_ROOT}"/*.sh 2>/dev/null || true
+    [[ -f "${STUDIO_RFD3_OVERLAY}/OVERLAY_VERSION" ]] && \
+      cp -f "${STUDIO_RFD3_OVERLAY}/OVERLAY_VERSION" "${RFD3_ROOT}/.studio_overlay_version"
+    echo "  applied the RFdiffusion3 script overlay"
+  fi
+
   if [[ -x "${RFD3_ROOT}/install_rfd3.sh" ]]; then
     bash "${RFD3_ROOT}/install_rfd3.sh" --download-weights >/dev/null 2>&1 \
       && state rfd3 ok "RFdiffusion3 MLX" \
