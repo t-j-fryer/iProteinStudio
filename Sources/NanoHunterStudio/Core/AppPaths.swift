@@ -88,6 +88,17 @@ enum AppPaths {
     static var rfd3InspectScript: URL { rfd3ScriptsDir.appendingPathComponent("inspect_target.py") }
     static var rfd3LigandScript: URL { rfd3ScriptsDir.appendingPathComponent("ligand_intelligence.py") }
     static var boltzLigandAtomsScript: URL { rfd3ScriptsDir.appendingPathComponent("boltz_ligand_atoms.py") }
+    static var predictBatchScript: URL { rfd3ScriptsDir.appendingPathComponent("predict_batch.py") }
+    static var parseSequencesScript: URL { rfd3ScriptsDir.appendingPathComponent("parse_sequences.py") }
+
+    /// Shared alignment cache. Everything the app generates lands here, and the
+    /// design side's older alignments are indexed into it, so a target aligned
+    /// once is never aligned again.
+    static var msaCache: URL {
+        let dir = support.appendingPathComponent("msa_cache", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
 
     static var runnerScript: URL { pipeline.appendingPathComponent("nanohunter_run.sh") }
     static var setupScript: URL { pipeline.appendingPathComponent("setup_pipeline.sh") }

@@ -52,18 +52,21 @@ struct WorkspaceView: View {
 enum ProjectMode: String, CaseIterable, Identifiable, Hashable {
     case iterative
     case rfdiffusion
+    case predict
 
     var id: String { rawValue }
     var label: String {
         switch self {
         case .iterative:   return "Iterative design"
         case .rfdiffusion: return "RFdiffusion3"
+        case .predict:     return "Predict"
         }
     }
     var systemImage: String {
         switch self {
         case .iterative:   return "arrow.triangle.2.circlepath"
         case .rfdiffusion: return "sparkles"
+        case .predict:     return "cube.transparent"
         }
     }
 }
@@ -80,7 +83,7 @@ struct ProjectDetailView: View {
         VStack(spacing: 0) {
             // Hidden while a run is live: switching tabs mid-campaign invites
             // starting a second GPU-heavy job on top of the first.
-            if !run.isRunning && !app.rfd3.isRunning {
+            if !run.isRunning && !app.rfd3.isRunning && !app.prediction.isRunning {
                 Picker("", selection: $mode) {
                     ForEach(ProjectMode.allCases) { m in
                         Label(m.label, systemImage: m.systemImage).tag(m)
@@ -102,6 +105,8 @@ struct ProjectDetailView: View {
                 }
             case .rfdiffusion:
                 RFD3View(project: project, controller: app.rfd3)
+            case .predict:
+                PredictView(project: project, controller: app.prediction)
             }
         }
         .onAppear {

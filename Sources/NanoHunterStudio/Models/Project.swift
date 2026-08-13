@@ -11,6 +11,8 @@ struct Project: Identifiable, Codable, Hashable {
     /// design request rather than in a separate project type, so a target can be
     /// approached both ways without re-entering it.
     var rfd3: RFD3Request = RFD3Request()
+    /// Prediction-only batches for this project.
+    var prediction: PredictionRequest = PredictionRequest()
     /// Slug used as the on-disk folder name and pipeline --run-name.
     var slug: String
 
@@ -19,7 +21,7 @@ struct Project: Identifiable, Codable, Hashable {
         self.slug = Project.slugify(name)
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, createdAt, request, rfd3, slug }
+    private enum CodingKeys: String, CodingKey { case id, name, createdAt, request, rfd3, prediction, slug }
 
     /// Resilient decoding so schema changes never drop saved projects.
     init(from decoder: Decoder) throws {
@@ -29,6 +31,7 @@ struct Project: Identifiable, Codable, Hashable {
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         request = try c.decodeIfPresent(DesignRequest.self, forKey: .request) ?? DesignRequest()
         rfd3 = try c.decodeIfPresent(RFD3Request.self, forKey: .rfd3) ?? RFD3Request()
+        prediction = try c.decodeIfPresent(PredictionRequest.self, forKey: .prediction) ?? PredictionRequest()
         slug = try c.decodeIfPresent(String.self, forKey: .slug) ?? Project.slugify(name)
     }
 

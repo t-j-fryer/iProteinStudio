@@ -11,6 +11,7 @@ final class AppState: ObservableObject {
     let installer = PipelineInstaller()
     let run = RunController()
     let rfd3 = RFD3Controller()
+    let prediction = PredictionController()
     let metrics = MetricsWatcher()
     let thumbnails = ThumbnailStore()
     let smilesThumbnails = SmilesThumbnailStore()
