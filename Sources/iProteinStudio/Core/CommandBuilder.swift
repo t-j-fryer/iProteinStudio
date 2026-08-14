@@ -163,13 +163,19 @@ enum CommandBuilder {
     /// as environment variables.
     static func environment(request: DesignRequest) -> [String: String] {
         var env = environment()
-        if request.designer == .lasermpnn {
-            // LASErMPNN decodes sequence and side-chain rotamers jointly, so the
-            // binding site gets its own temperature. Neither is reachable by flag.
-            env["LASERMPNN_SEQ_TEMP"] = String(format: "%.2f", request.lasermpnnSeqTemp)
-            env["LASERMPNN_FS_TEMP"] = String(format: "%.2f", request.lasermpnnFirstShellTemp)
-        }
+        env.merge(environmentOverrides(request: request)) { _, new in new }
         return env
+    }
+
+    /// Scientific environment settings that are not represented by arguments.
+    /// This deliberately excludes the user's ambient process environment so a
+    /// durable run manifest never captures unrelated credentials or tokens.
+    static func environmentOverrides(request: DesignRequest) -> [String: String] {
+        guard request.designer == .lasermpnn else { return [:] }
+        return [
+            "LASERMPNN_SEQ_TEMP": String(format: "%.2f", request.lasermpnnSeqTemp),
+            "LASERMPNN_FS_TEMP": String(format: "%.2f", request.lasermpnnFirstShellTemp),
+        ]
     }
 
     /// Environment forcing the managed pipeline root and venv prefix.

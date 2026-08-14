@@ -90,12 +90,19 @@ Results land as `predictions.csv`, `run_summary.json` and per-engine folders.
 Every alignment on the machine is indexed by the sequence it describes, so a
 target aligned once during a design campaign is never aligned again.
 
+New GUI batches are stored under
+`projects/<slug>/prediction_runs/prediction-<timestamp>/`; the older single
+`predictions/` directory is still discovered by run history.
+
 ---
 
 ## Iterative design
 
 The design tabs drive `nanohunter_run.sh`. The app prints the exact command it
-used into the run log; copy it. A minimal example:
+used into both the live log and the campaign's durable `studio.log`. It also
+writes `studio_run.json` beside the output; Activity uses that exact manifest
+for Resume rather than rebuilding settings from the current form. A minimal
+example:
 
 ```bash
 "$ROOT/nanohunter_run.sh" \
@@ -173,6 +180,12 @@ Design across several ligand conformers, splitting the budget:
   --conformers A.pdb:0.5:A,B.pdb:0.3:B,C.pdb:0.2:C --lengths 65,100,150
 ```
 
+New GUI campaigns live under
+`projects/<slug>/rfd3_runs/rfd3-<timestamp>/`. Protein-target campaigns write
+`campaign_progress.json` and accept `--resume`; the Activity panel detects the
+PID, checkpoints and final `analysis/top100.csv`. Existing `projects/<slug>/rfd3`
+campaigns remain visible as legacy history.
+
 ---
 
 ## Where things go
@@ -187,5 +200,5 @@ $ROOT/
   venvs/  src/  models/      environments, code, weights
   msa_cache/                 shared alignments, indexed by sequence
   scaffold_msa_cache/        bundled deep MSAs for all seven nanobody scaffolds
-  projects/<slug>/           campaign and prediction outputs
+  projects/<slug>/           durable, separately timestamped run outputs
 ```

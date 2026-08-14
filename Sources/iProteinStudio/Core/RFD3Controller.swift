@@ -9,7 +9,7 @@ import Combine
 /// status script. That division matters for two reasons:
 ///
 /// * A 1,000-backbone campaign runs for days. It must survive the app quitting,
-///   so it is double-forked under `caffeinate -dims` with a PID file — the app
+///   so it is double-forked under `caffeinate -dimsu` with a PID file — the app
 ///   reattaches to a running campaign rather than owning it.
 /// * The pipeline encodes fixes that are invisible from the outside, above all
 ///   the binder-length versus Foundry-total-length accounting. Reimplementing it
@@ -29,8 +29,10 @@ final class RFD3Controller: ObservableObject {
     private var runner: ProcessRunner?
     private var pollTimer: Timer?
     private var configURL: URL?
+    private var lastWasProtein = false
 
     var isRunning: Bool { if case .running = phase { return true }; return false }
+    var isProteinCampaign: Bool { lastWasProtein }
 
     // MARK: Availability
 
@@ -79,8 +81,10 @@ final class RFD3Controller: ObservableObject {
             return
         }
         AppPaths.stageRFD3Scripts()
+        lastWasProtein = request.targetKind == .protein
 
-        let campaign = AppPaths.projectDir(project).appendingPathComponent("rfd3", isDirectory: true)
+        let runsRoot = AppPaths.projectDir(project).appendingPathComponent("rfd3_runs", isDirectory: true)
+        let campaign = uniqueCampaignDirectory(in: runsRoot)
         try? AppPaths.fm.createDirectory(at: campaign.appendingPathComponent("config"),
                                          withIntermediateDirectories: true)
         campaignRoot = campaign
@@ -142,6 +146,7 @@ final class RFD3Controller: ObservableObject {
     /// Hand the prepared campaign to the RFD3 repo's own detached launcher.
     private func launchCampaign(config: URL, request: RFD3Request, rfd3Root: URL) {
         configURL = config
+        lastWasProtein = request.targetKind == .protein
         currentStage = "validate"
         currentMessage = "Starting the campaign…"
 
@@ -165,7 +170,7 @@ final class RFD3Controller: ObservableObject {
             : URL(fileURLWithPath: "/usr/bin/caffeinate")
         let arguments = isSmallMolecule
             ? [launcher, "--config", config.path]
-            : ["-dims", rfd3Root.appendingPathComponent(".venv/bin/python").path,
+            : ["-dimsu", rfd3Root.appendingPathComponent(".venv/bin/python").path,
                launcher, "--config", config.path]
 
         runner.launch(
@@ -176,6 +181,27 @@ final class RFD3Controller: ObservableObject {
             onLine: { [weak self] line in self?.handle(line) },
             onExit: { [weak self] code in self?.exit(code, detached: isSmallMolecule) }
         )
+        if isSmallMolecule { startPolling() }
+    }
+
+    private func launchSavedCampaign(config: URL, protein: Bool, rfd3Root: URL) {
+        let isSmallMolecule = !protein
+        let launcher = isSmallMolecule
+            ? rfd3Root.appendingPathComponent("scripts/launch_rfd3_nise_campaign.py").path
+            : AppPaths.rfd3ProteinScript.path
+        let executable = isSmallMolecule
+            ? rfd3Root.appendingPathComponent(".venv/bin/python")
+            : URL(fileURLWithPath: "/usr/bin/caffeinate")
+        let arguments = isSmallMolecule
+            ? [launcher, "--config", config.path]
+            : ["-dimsu", rfd3Root.appendingPathComponent(".venv/bin/python").path,
+               launcher, "--config", config.path, "--resume"]
+        let runner = ProcessRunner()
+        self.runner = runner
+        runner.launch(executable: executable, arguments: arguments,
+                      environment: CommandBuilder.environment(), workingDir: rfd3Root,
+                      onLine: { [weak self] line in self?.handle(line) },
+                      onExit: { [weak self] code in self?.exit(code, detached: isSmallMolecule) })
         if isSmallMolecule { startPolling() }
     }
 
@@ -195,16 +221,32 @@ final class RFD3Controller: ObservableObject {
         currentMessage = "Cancelled."
     }
 
+    func retry() {
+        guard !isRunning, let config = configURL, let rfd3Root = Self.rfd3Root else { return }
+        phase = .running
+        progress = 0
+        currentMessage = "Retrying from saved campaign settings…"
+        log.append("Retrying the saved campaign; completed checkpoint outputs are reused.")
+        launchSavedCampaign(config: config, protein: lastWasProtein, rfd3Root: rfd3Root)
+    }
+
     // MARK: Reattach + polling
 
     /// Look for a campaign already running for this project and reattach to it.
     /// A multi-day run must not appear to have vanished because the app restarted.
     func reattachIfRunning(project: Project) {
-        let campaign = AppPaths.projectDir(project).appendingPathComponent("rfd3", isDirectory: true)
+        let projectRoot = AppPaths.projectDir(project)
+        var candidates = campaignDirectories(in: projectRoot.appendingPathComponent("rfd3_runs"))
+        let legacy = projectRoot.appendingPathComponent("rfd3", isDirectory: true)
+        if AppPaths.fm.fileExists(atPath: legacy.appendingPathComponent("config/campaign.json").path) {
+            candidates.append(legacy)
+        }
+        guard let campaign = candidates.sorted(by: { fileDate($0) > fileDate($1) })
+            .first(where: { processAlive(in: $0) }) else { return }
         let config = campaign.appendingPathComponent("config/campaign.json")
-        guard AppPaths.fm.fileExists(atPath: config.path) else { return }
         campaignRoot = campaign
         configURL = config
+        lastWasProtein = isProteinConfig(config)
         refreshStatus()
         if isRunning { startPolling() }
     }
@@ -222,6 +264,10 @@ final class RFD3Controller: ObservableObject {
     /// Ask the RFD3 repo's status script where the campaign is.
     func refreshStatus() {
         guard let config = configURL, let rfd3Root = Self.rfd3Root else { return }
+        if isProteinConfig(config) {
+            refreshProteinStatus()
+            return
+        }
         let script = rfd3Root.appendingPathComponent("scripts/status_rfd3_nise_campaign.py")
         guard AppPaths.fm.fileExists(atPath: script.path) else { return }
 
@@ -257,14 +303,42 @@ final class RFD3Controller: ObservableObject {
         progress = fractionComplete()
     }
 
+    private func refreshProteinStatus() {
+        guard let campaign = campaignRoot else { return }
+        let progressURL = campaign.appendingPathComponent("campaign_progress.json")
+        guard let data = try? Data(contentsOf: progressURL),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return }
+        completedStages = payload["completed_stages"] as? [String] ?? []
+        currentStage = payload["current_stage"] as? String ?? ""
+        if completedStages.contains("score") && currentStage.isEmpty {
+            phase = .finished
+            progress = 1
+            currentMessage = "Campaign finished. Ranked results are ready."
+            pollTimer?.invalidate(); pollTimer = nil
+        } else if processAlive(in: campaign) {
+            phase = .running
+            currentMessage = describe(stage: currentStage)
+        } else if case .running = phase {
+            phase = .failed("The campaign stopped during \(currentStage.isEmpty ? "startup" : currentStage). Completed stages remain on disk and Retry will resume them.")
+            pollTimer?.invalidate(); pollTimer = nil
+        }
+        let proteinWeights: [String: Double] = ["fixtures": 0.08, "backbones": 0.25,
+                                                "mpnn": 0.12, "msa": 0.10,
+                                                "predict": 0.40, "score": 0.05]
+        progress = min(1, completedStages.reduce(0) { $0 + (proteinWeights[$1] ?? 0) })
+    }
+
     private func describe(stage: String) -> String {
         switch stage {
         case "validate":     return "Checking the target and building the chemical component…"
         case "fixtures":     return "Building one fixture per binder length…"
         case "backbones":    return "Generating backbones — \(counts["backbones"] ?? 0) so far"
         case "mpnn":         return "Designing sequences — \(counts["sequences"] ?? 0) so far"
+        case "msa":          return "Preparing and validating the target alignment…"
+        case "predict":      return "Folding designs with the target…"
         case "predict-holo": return "Folding designs with the target — \(counts["holo_predictions"] ?? 0) so far"
-        case "score":        return "Ranking by ligand pLDDT and P(bind)…"
+        case "score":        return "Ranking successful designs…"
         case "predict-apo":  return "Folding the best designs on their own — \(counts["apo_predictions"] ?? 0) so far"
         case "rmsd":         return "Measuring binding-site preorganisation…"
         default:             return stage.isEmpty ? "Working…" : stage
@@ -282,6 +356,46 @@ final class RFD3Controller: ObservableObject {
         var total = 0.0
         for (stage, weight) in weights where completedStages.contains(stage) { total += weight }
         return min(1.0, total)
+    }
+
+    private func uniqueCampaignDirectory(in root: URL) -> URL {
+        try? AppPaths.fm.createDirectory(at: root, withIntermediateDirectories: true)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let base = "rfd3-\(formatter.string(from: Date()))"
+        var candidate = root.appendingPathComponent(base, isDirectory: true)
+        var suffix = 1
+        while AppPaths.fm.fileExists(atPath: candidate.path) {
+            suffix += 1
+            candidate = root.appendingPathComponent("\(base)-\(suffix)", isDirectory: true)
+        }
+        return candidate
+    }
+
+    private func campaignDirectories(in root: URL) -> [URL] {
+        (try? AppPaths.fm.contentsOfDirectory(at: root,
+             includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]))?
+            .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true } ?? []
+    }
+
+    private func fileDate(_ url: URL) -> Date {
+        let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .creationDateKey])
+        return values?.contentModificationDate ?? values?.creationDate ?? .distantPast
+    }
+
+    private func processAlive(in campaign: URL) -> Bool {
+        let pidFile = campaign.appendingPathComponent("campaign.pid")
+        guard let text = try? String(contentsOf: pidFile, encoding: .utf8),
+              let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 1
+        else { return false }
+        return kill(pid, 0) == 0
+    }
+
+    private func isProteinConfig(_ url: URL) -> Bool {
+        guard let data = try? Data(contentsOf: url),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return false }
+        return payload["target_kind"] as? String == "protein"
     }
 
     // MARK: Output parsing

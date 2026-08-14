@@ -16,6 +16,7 @@ struct PredictView: View {
     @State private var warnings: [String] = []
     @State private var parseError: String?
     @State private var isParsing = false
+    @State private var setupExperience: SetupExperience = .quick
 
     private var request: Binding<PredictionRequest> {
         Binding(get: { app.selectedProject?.prediction ?? project.prediction },
@@ -23,7 +24,11 @@ struct PredictView: View {
     }
 
     private var outputDir: URL {
-        AppPaths.projectDir(project).appendingPathComponent("predictions", isDirectory: true)
+        AppPaths.projectDir(project).appendingPathComponent("prediction_runs", isDirectory: true)
+    }
+
+    private var inputDir: URL {
+        AppPaths.projectDir(project).appendingPathComponent("prediction_input", isDirectory: true)
     }
 
     var body: some View {
@@ -35,21 +40,34 @@ struct PredictView: View {
     }
 
     private var form: some View {
-        ScrollView {
+        VStack(spacing: 0) {
+            ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                SetupExperiencePicker(selection: $setupExperience)
                 ExamplesBar(kinds: [.protein]) { example in
                     request.wrappedValue.apply(example)
                     parse()
                 }
                 Card(title: "1 · Sequences", systemImage: "text.alignleft") { sequencesSection }
                 Card(title: "2 · How to fold them", systemImage: "square.on.square") { pairingSection }
-                Card(title: "3 · Alignments", systemImage: "square.stack.3d.down.right") { msaSection }
+                if setupExperience == .advanced {
+                    Card(title: "3 · Alignments", systemImage: "square.stack.3d.down.right") { msaSection }
+                }
                 Card(title: "4 · Engines", systemImage: "cpu") { engineSection }
-                Card(title: "5 · Throughput", systemImage: "gauge.with.dots.needle.67percent") { throughputSection }
-                startBar
+                if setupExperience == .advanced {
+                    Card(title: "5 · Throughput", systemImage: "gauge.with.dots.needle.67percent") { throughputSection }
+                } else {
+                    Label("Alignments are reused automatically; measured throughput settings remain selected.",
+                          systemImage: "checkmark.seal")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             .padding(28).frame(maxWidth: 860, alignment: .leading).frame(maxWidth: .infinity)
+            }
+            Divider()
+            startBar.padding(.horizontal, 28).padding(.vertical, 14)
+                .background(.bar)
         }
     }
 
@@ -141,6 +159,7 @@ struct PredictView: View {
             Picker("", selection: request.pairing) {
                 ForEach(PairingMode.allCases) { Text($0.label).tag($0) }
             }.pickerStyle(.segmented).labelsHidden()
+                .accessibilityLabel("Pairing mode")
             Text(request.wrappedValue.pairing.blurb)
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -188,6 +207,7 @@ struct PredictView: View {
             Picker("", selection: selection) {
                 ForEach(MSAPolicy.allCases) { Text($0.label).tag($0) }
             }.pickerStyle(.segmented).labelsHidden().frame(width: 320)
+                .accessibilityLabel("Alignment policy for \(title)")
             Text(selection.wrappedValue.blurb)
                 .font(.caption2).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -354,7 +374,7 @@ struct PredictView: View {
         parseError = nil
         warnings = []
         controller.buildJobs(request: request.wrappedValue,
-                             workDir: outputDir.appendingPathComponent("input")) { jobs, notes, error in
+                             workDir: inputDir) { jobs, notes, error in
             isParsing = false
             parseError = error
             warnings = notes
@@ -390,23 +410,16 @@ struct PredictProgressView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if case .failed(let message) = controller.phase {
-                Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout).foregroundStyle(.orange)
-                    .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                ActionableErrorCard(title: "Prediction needs attention", message: message,
+                                    retryTitle: "Retry failed work", retry: controller.retry,
+                                    output: controller.outputRoot, log: controller.log)
             }
 
-            Text("Log").font(.headline)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(controller.log.suffix(200).enumerated()), id: \.offset) { _, line in
-                        Text(line).font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }.padding(8)
+            if case .failed = controller.phase {
+                EmptyView()
+            } else {
+                TechnicalLogDisclosure(lines: controller.log)
             }
-            .background(RoundedRectangle(cornerRadius: 8).fill(.background))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
 
             if let root = controller.outputRoot {
                 Button { NSWorkspace.shared.activateFileViewerSelecting([root]) } label: {

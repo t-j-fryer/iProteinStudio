@@ -23,7 +23,8 @@ _Last updated: 2026-08-14_
 with its alignment included, and fluorescein), project management, a
 prediction-only tab that reuses every alignment on the machine, nanobody/mini-binder/peptide design form,
 live metrics dashboard, hits gallery, offline 3D structure viewer, target prep,
-predictions library.
+predictions library, persistent per-project run history and a global Activity
+panel with exact checkpoint Resume for newly recorded iterative campaigns.
 
 **Also working:** Ligand Intelligence — chemistry QA, recognition-core vs linker
 separation, conformer ensembles weighed against experimental PDB structures, and a
@@ -32,27 +33,26 @@ AlphaFold 3, OpenFold-3) with orthogonal checking; measured-optimum scheduling
 delegated to NanoHunter's runner; a pinned standalone installation that does not
 need a sibling checkout, with explicit reuse of an existing NanoHunter/RFD3
 install as an option; an RFdiffusion3 tab that drives the
-validated production pipeline and survives quitting the app.
+validated production pipeline, survives quitting the app, resumes protein stages
+from checkpoints and presents its ranked-result summary.
 
 **Known gaps, in priority order:**
 
-1. Completed Iterative runs remain on disk but do not reappear as project run
-   history after the app restarts. Persistent recovery/results UI is the most
-   important remaining robustness and usability gap.
-2. The RFdiffusion3 protein fixture and MLX backbone path now have a real local
-   GPU acceptance run, but SolubleMPNN, target-MSA generation, verification and
-   ranking remain untested end to end from a GUI click — see
-   [0015](lab_book/0015-gui-gpu-and-usability-audit.md).
-3. Accessibility labels now cover examples, primary Start actions, navigation
+1. Exact-manifest Resume is implemented, but still needs a deliberate
+   interrupt/relaunch/resume acceptance run from GUI controls. Complete RFD3 and
+   nanobody routes were exercised through their production entry points rather
+   than a heavy GUI click — see [0016](lab_book/0016-complete-campaigns-and-run-recovery.md).
+2. Accessibility labels now cover examples, primary Start actions, navigation
    and the active-run banner, but the remaining forms have not had a complete
    VoiceOver, keyboard-focus, large-text or contrast pass.
-4. AlphaFold 3's environment installs, but its gated `af3.bin` parameter file
+3. AlphaFold 3's environment installs, but its gated `af3.bin` parameter file
    cannot be distributed or downloaded by Studio; the user must supply it.
-5. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
-   and self-consistency are written to disk but must be opened by hand.
-6. OpenFold-3 complex pLDDT has an unresolved scale problem — see
+4. RFdiffusion3 exposes completion and a basic ranked summary, but does not yet
+   provide a full structure/ranking browser for apo–holo preorganisation and
+   self-consistency.
+5. OpenFold-3 complex pLDDT has an unresolved scale problem — see
    [0002](lab_book/0002-inherited-speed-lessons.md) §7.
-7. No app icon, no Developer ID signing/notarisation, no self-update.
+6. No app icon, no Developer ID signing/notarisation, no self-update.
 
 **Deliberately out of scope:** NISE (experimental, stays in NanoHunter); RFdiffusion3
 against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
@@ -83,6 +83,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0016 | 2026-08-14 | [Complete RFD3 and nanobody campaigns, then make runs recoverable](lab_book/0016-complete-campaigns-and-run-recovery.md) | Full staged protein and nanobody acceptance, protein ranking semantics, exact run manifests, activity/history UI and sleep inhibition |
 | 0015 | 2026-08-14 | [Exercise real GUI GPU jobs and audit the app as a product](lab_book/0015-gui-gpu-and-usability-audit.md) | Real MPS/MLX launch evidence, active navigation, two acceptance bugs, and the prioritized usability/accessibility roadmap |
 | 0014 | 2026-08-13 | [Promote the standalone runtime and keep workflow navigation available](lab_book/0014-runtime-promotion-and-persistent-navigation.md) | Why navigation stays visible during campaigns, how concurrent starts are blocked, and which validated runtime the GUI uses |
 | 0013 | 2026-08-13 | [A standalone install with both IntelliFold v2 models and bundled nanobody MSAs](lab_book/0013-standalone-intellifold-and-scaffold-msas.md) | Managed caches, pinned sources/checkpoints, v2-flash versus full-v2 routing, scaffold alignments, and real isolated-root acceptance runs |

@@ -82,9 +82,12 @@ examples, seven nanobody scaffolds, and their sequence-validated deep MSAs.
 Setup clones pinned upstream revisions and installs everything beneath the
 space-free managed root `~/.iproteinstudio/`; no sibling checkout is required.
 
-RFdiffusion3 campaigns can run for days, so they are launched detached and keep
-going if you quit the app; reopening the project reattaches to the running
-campaign.
+Runs are written to separate, durable directories. The global Activity panel and
+per-project history show completed, failed, active and interrupted work after a
+restart, with Reveal and checkpoint Resume where the recorded command supports
+it. RFdiffusion3 campaigns can run for days, so Studio also reattaches to their
+live PID after relaunch. Every workload is launched under `caffeinate` for its
+actual lifetime so a sleeping Mac does not strand a GPU campaign.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the design, and
 **[LAB_BOOK.md](LAB_BOOK.md) for why things are the way they are** — every
@@ -131,6 +134,6 @@ record what it did in the Lab Book, including what it did not test.
 
 ## Status
 
-Alpha. Builds and runs. Not signed or notarised, and no campaign has yet been run
-end to end through the app — see the Known gaps list at the top of
-[LAB_BOOK.md](LAB_BOOK.md).
+Alpha. Builds and runs. Complete protein RFdiffusion3 and nanobody routes have
+local Apple-GPU acceptance evidence, but the app is not signed or notarised; see
+the Known gaps list at the top of [LAB_BOOK.md](LAB_BOOK.md).

@@ -23,9 +23,11 @@ Progress markers match the campaign runner: RFSTAGE / RFINFO / RFDONE / RFFAIL.
 from __future__ import annotations
 
 import argparse
+import atexit
 import csv
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -99,14 +101,27 @@ def stage_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Path:
     """
     cache = campaign / "assets" / "target_msa"
     a3m = cache / "target_full_msa.a3m"
-    if a3m.exists() and a3m.stat().st_size > 0:
-        info(f"target MSA cached -> {a3m}")
-        return a3m
-
     sequence = clean_sequence(cfg.get("target_sequence", ""))
     if not sequence:
         die("No target sequence was recorded, so the target MSA cannot be generated. "
             "Re-enter the target sequence in the RFdiffusion3 tab.")
+
+    if a3m.exists() and validate_a3m(a3m, sequence):
+        info(f"target MSA cached -> {a3m}")
+        return a3m
+    if a3m.exists():
+        die(f"The cached target MSA query does not match the recorded target sequence: {a3m}")
+
+    root = Path(cfg["nanohunter_root"])
+    for search_root in (root / "msa_cache", root / "examples_data", root / "projects"):
+        if not search_root.exists():
+            continue
+        for candidate in search_root.rglob("*.a3m"):
+            if validate_a3m(candidate, sequence):
+                cache.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(candidate, a3m)
+                info(f"reused exact target MSA -> {candidate}")
+                return a3m
 
     cache.mkdir(parents=True, exist_ok=True)
     yaml_path = cache / "target.yaml"
@@ -133,6 +148,28 @@ def stage_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Path:
     csv_to_a3m(raw[0], a3m, sequence)
     info(f"target MSA -> {a3m}")
     return a3m
+
+
+def validate_a3m(path: Path, query: str) -> bool:
+    """Require an exact first record and at least one real homologue."""
+    try:
+        records = []
+        current = []
+        for line in path.read_text(errors="replace").splitlines():
+            if line.startswith(">"):
+                if current:
+                    records.append("".join(current))
+                    current = []
+            elif line.strip():
+                current.append(line.strip())
+        if current:
+            records.append("".join(current))
+        if len(records) < 2:
+            return False
+        first = "".join(c for c in records[0] if not c.islower() and c not in "-.").upper()
+        return first == query
+    except OSError:
+        return False
 
 
 def csv_to_a3m(csv_path: Path, a3m_path: Path, query: str) -> None:
@@ -217,6 +254,9 @@ def stage_score(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> None:
          "--predictions", str(metrics),
          "--output", str(campaign / "analysis"),
          "--top-n", str(cfg.get("top_n", 100)),
+         "--protein",
+         "--predictors", ",".join(dict.fromkeys(cfg.get("extra_predictors", []))),
+         "--sequences", str(campaign / "mpnn" / "sequences.csv"),
          "--nanohunter-root", cfg["nanohunter_root"]],
         campaign / "logs" / "score.log", rfd3_root, env)
 
@@ -225,6 +265,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--stage", choices=("all", *STAGES), default="all")
+    parser.add_argument("--resume", action="store_true",
+                        help="skip stages already recorded complete on disk")
     args = parser.parse_args()
 
     try:
@@ -238,6 +280,9 @@ def main() -> None:
     campaign = Path(cfg["campaign_dir"]).resolve()
     logs = campaign / "logs"
     logs.mkdir(parents=True, exist_ok=True)
+    pid_file = campaign / "campaign.pid"
+    pid_file.write_text(str(os.getpid()) + "\n")
+    atexit.register(lambda: pid_file.unlink(missing_ok=True))
 
     env = dict(os.environ)
     env.update({"DEBUG": "false", "TOKENIZERS_PARALLELISM": "false"})
@@ -245,9 +290,19 @@ def main() -> None:
     selected = STAGES if args.stage == "all" else (args.stage,)
     started = time.time()
     completed: list[str] = []
+    progress_file = campaign / "campaign_progress.json"
+    if args.resume and progress_file.exists():
+        try:
+            completed = [name for name in json.loads(progress_file.read_text()).get("completed_stages", [])
+                         if name in STAGES]
+        except (OSError, json.JSONDecodeError):
+            completed = []
+        selected = tuple(name for name in selected if name not in completed)
+        if completed:
+            info("resuming after completed stages: " + ", ".join(completed))
 
     def record(current):
-        (campaign / "campaign_progress.json").write_text(json.dumps({
+        progress_file.write_text(json.dumps({
             "completed_stages": completed, "current_stage": current,
             "updated_epoch": time.time(), "wall_sec": time.time() - started,
         }, indent=2) + "\n")

@@ -34,6 +34,7 @@ struct WorkspaceView: View {
     @ObservedObject var run: RunController
     @ObservedObject var installer: PipelineInstaller
     @State private var showComponents = false
+    @State private var showActivity = false
 
     var body: some View {
         NavigationSplitView {
@@ -50,10 +51,26 @@ struct WorkspaceView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Button { showActivity.toggle() } label: {
+                    Label("Activity", systemImage: app.run.isRunning || app.rfd3.isRunning || app.prediction.isRunning
+                          ? "waveform.path" : "clock.arrow.circlepath")
+                }
+                .help("See running work, previous results, and resumable campaigns")
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+                .accessibilityLabel("Open activity centre")
+                .accessibilityIdentifier("activity-center-button")
+                .popover(isPresented: $showActivity, arrowEdge: .bottom) {
+                    ActivityCenterView(run: app.run, rfd3: app.rfd3,
+                                       prediction: app.prediction, history: app.history,
+                                       projectFilter: nil)
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Button { showComponents = true } label: {
                     Label("Engines", systemImage: "square.grid.2x2")
                 }
                 .help("Add folding and design engines, or point Studio at AlphaFold 3 weights")
+                .keyboardShortcut(",", modifiers: .command)
             }
         }
         .sheet(isPresented: $showComponents) {
@@ -109,6 +126,7 @@ struct ProjectDetailView: View {
     @ObservedObject var prediction: PredictionController
     @ObservedObject var installer: PipelineInstaller
     @State private var mode: ProjectMode = .iterative
+    @State private var showRunHistory = false
 
     private var activeMode: ProjectMode? {
         if run.isRunning { return .iterative }
@@ -122,16 +140,31 @@ struct ProjectDetailView: View {
             // Navigation must remain available while a long campaign runs. The
             // individual Start buttons prevent concurrent GPU work; hiding this
             // picker trapped users inside RFdiffusion3 for multi-day campaigns.
-            Picker("", selection: $mode) {
-                ForEach(ProjectMode.allCases) { m in
-                    Label(m.label, systemImage: m.systemImage).tag(m)
+            HStack(spacing: 10) {
+                Picker("", selection: $mode) {
+                    ForEach(ProjectMode.allCases) { m in
+                        Label(m.label, systemImage: m.systemImage).tag(m)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(maxWidth: 420)
+                .accessibilityLabel("Workflow")
+                .accessibilityIdentifier("project-mode-picker")
+
+                Button { showRunHistory.toggle() } label: {
+                    Label("Runs", systemImage: "clock.arrow.circlepath")
+                }
+                .help("Open this project's completed and resumable runs")
+                .accessibilityLabel("Open run history for \(project.name)")
+                .accessibilityIdentifier("project-run-history-button")
+                .popover(isPresented: $showRunHistory, arrowEdge: .bottom) {
+                    ActivityCenterView(run: app.run, rfd3: app.rfd3,
+                                       prediction: app.prediction, history: app.history,
+                                       projectFilter: project.id)
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: 420)
             .padding(.top, 12)
-            .accessibilityIdentifier("project-mode-picker")
 
             if let activeMode {
                 Label("\(activeMode.label) is running. You can inspect every tab; starting another run is paused.",
@@ -157,6 +190,7 @@ struct ProjectDetailView: View {
             }
         }
         .onAppear {
+            app.history.refresh(projects: app.projects)
             // A detached RFdiffusion3 campaign can outlive the app; reattach so a
             // multi-day run does not look like it vanished on restart.
             rfd3.reattachIfRunning(project: project)
