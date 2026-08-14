@@ -90,7 +90,7 @@ def main() -> None:
     cli = venv / "bin" / "run_openfold"
     query_builder = root / "scripts" / "openfold_query_json.py"
     yaml_builder = root / "scripts" / "openfold_runner_yaml.py"
-    cache_dir = Path(os.environ.get("OPENFOLD_CACHE", Path.home() / ".openfold3"))
+    cache_dir = Path(os.environ.get("OPENFOLD_CACHE", root / "models" / "openfold3"))
     checkpoint = Path(os.environ.get("OPENFOLD_CHECKPOINT_PATH", cache_dir / "of3_ft3_v1.pt"))
 
     for path, what in ((cli, "OpenFold CLI"), (query_builder, "OpenFold query builder"),

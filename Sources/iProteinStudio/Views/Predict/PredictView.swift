@@ -200,9 +200,21 @@ struct PredictView: View {
             ForEach(Predictor.predictionChoices) { predictor in
                 engineRow(predictor)
             }
-            Text("IntelliFold appears twice on purpose: the same weights on two different engines. PyTorch is the stock build; JAX/MPS is faster but hungrier.")
+            Text("IntelliFold appears twice on purpose: the selected architecture on two different engines. PyTorch is the stock build; JAX/MPS is a separately implemented check.")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
+            if request.wrappedValue.predictors.contains(where: {
+                $0 == .intellifold || $0 == .intellifoldJAX
+            }) {
+                Picker("IntelliFold model", selection: request.intellifoldModel) {
+                    ForEach(IntelliFoldModel.allCases) { model in
+                        Text(model.label).tag(model)
+                    }
+                }
+                .pickerStyle(.menu)
+                Text("The choice applies to both PyTorch and JAX/MPS when both are selected.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
             Divider().padding(.vertical, 2)
             Toggle("Boltz steering potentials", isOn: request.useBoltzPotentials)
                 .toggleStyle(.checkbox).font(.callout)
@@ -225,8 +237,13 @@ struct PredictView: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(predictor.label)
-                    Text(predictor.speed(in: .batched).label)
-                        .font(.caption).foregroundStyle(.secondary)
+                    if request.wrappedValue.intellifoldModel == .v2
+                        && (predictor == .intellifold || predictor == .intellifoldJAX) {
+                        Text("not benchmarked").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text(predictor.speed(in: .batched).label)
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     if !installed {
                         Label("not installed", systemImage: "exclamationmark.circle")
                             .font(.caption2).foregroundStyle(.orange)
@@ -271,7 +288,15 @@ struct PredictView: View {
                     .font(.caption).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if !request.wrappedValue.jobs.isEmpty {
+            let fullV2Selected = request.wrappedValue.intellifoldModel == .v2
+                && request.wrappedValue.predictors.contains {
+                    $0 == .intellifold || $0 == .intellifoldJAX
+                }
+            if !request.wrappedValue.jobs.isEmpty, fullV2Selected {
+                Label("No time estimate: full IntelliFold v2 has not been benchmarked on this Mac yet.",
+                      systemImage: "clock")
+                    .font(.callout).foregroundStyle(.secondary)
+            } else if !request.wrappedValue.jobs.isEmpty {
                 Label("Rough estimate: at least \(formatted(request.wrappedValue.estimatedSeconds(in: .batched))) of folding, plus any new alignments.",
                       systemImage: "clock")
                     .font(.callout).foregroundStyle(.secondary)

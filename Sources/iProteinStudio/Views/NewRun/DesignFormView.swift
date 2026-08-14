@@ -420,6 +420,12 @@ struct PredictorPicker: View {
         Predictor.iterativeChoices.filter { $0.runnerValue != request.designPredictor.runnerValue }
     }
 
+    private var usesIntelliFold: Bool {
+        ([request.designPredictor] + request.postPredictors).contains {
+            $0 == .intellifold || $0 == .intellifoldJAX
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // --- Design predictor ---
@@ -481,6 +487,21 @@ struct PredictorPicker: View {
                     Toggle("Only check designs that pass the hit threshold", isOn: $request.postOnlyHits)
                         .toggleStyle(.checkbox).font(.callout)
                 }
+
+                if usesIntelliFold {
+                    Picker("IntelliFold model", selection: Binding(
+                        get: { request.intellifoldModel ?? .v2flash },
+                        set: { request.intellifoldModel = $0 }
+                    )) {
+                        ForEach(IntelliFoldModel.allCases) { model in
+                            Text(model.label).tag(model)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    Text("Applied to every selected IntelliFold engine. v2-flash is the smaller validated default; v2 is the full model.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Divider()
@@ -511,29 +532,44 @@ struct PredictorPicker: View {
     /// token count, recycles and machine, so a precise multiplier on screen
     /// would be false precision.
     @ViewBuilder private func speedTag(_ p: Predictor) -> some View {
-        let band = p.speed(in: request.speedMode)
-        HStack(spacing: 4) {
-            ForEach(0..<4, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(i < band.bars ? Color.secondary : Color.secondary.opacity(0.18))
-                    .frame(width: 4, height: 8)
+        if request.intellifoldModel == .v2
+            && (p == .intellifold || p == .intellifoldJAX) {
+            Text("not benchmarked").font(.caption).foregroundStyle(.secondary)
+        } else {
+            let band = p.speed(in: request.speedMode)
+            HStack(spacing: 4) {
+                ForEach(0..<4, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(i < band.bars ? Color.secondary : Color.secondary.opacity(0.18))
+                        .frame(width: 4, height: 8)
+                }
+                Text(band.label).font(.caption).foregroundStyle(.secondary)
             }
-            Text(band.label).font(.caption).foregroundStyle(.secondary)
+            .help("Relative speed on the v2-flash reference benchmark at this engine's best schedule.")
         }
-        .help("Relative speed on the reference benchmark at this engine's best schedule.")
     }
 
     /// Deliberately labelled "at least": the estimate counts predictions only,
     /// not MSA generation or inverse folding.
     private var estimate: some View {
+        let fullV2Selected = request.intellifoldModel == .v2 && usesIntelliFold
+        if fullV2Selected {
+            return AnyView(Label {
+                Text("No time estimate: full IntelliFold v2 has not been benchmarked on this Mac yet.")
+            } icon: {
+                Image(systemName: "clock")
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary))
+        }
         let seconds = request.estimatedSecondsLowerBound
-        return Label {
+        return AnyView(Label {
             Text("Rough estimate: at least \(formatted(seconds)) of compute on this Mac.")
         } icon: {
             Image(systemName: "clock")
         }
         .font(.callout)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.secondary))
     }
 
     private func formatted(_ seconds: Double) -> String {

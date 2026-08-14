@@ -31,11 +31,11 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 import os
 from pathlib import Path
 
 import numpy as np
+import studio_runtime
 
 
 BACKBONE_ATOMS = {"N", "CA", "C", "O"}
@@ -180,9 +180,8 @@ def main() -> None:
     parser.add_argument("--nanohunter-root", type=Path, default=default_root())
     args = parser.parse_args()
 
-    nise_dir = args.nanohunter_root.resolve() / "scripts" / "nise"
-    sys.path.insert(0, str(nise_dir))
-    import nise_lib  # noqa: E402
+    studio_runtime.configure(args.nanohunter_root)
+    nise_lib = studio_runtime
 
     campaign = args.campaign.resolve()
     holo_rows = {r["name"]: r for r in csv.DictReader((campaign / "predictions" / "holo" / "prediction_metrics.csv").open()) if r.get("ok") == "True"}

@@ -9,16 +9,14 @@ enum TargetEngine: String, CaseIterable, Identifiable, Hashable {
 }
 
 /// IntelliFold model variants (run_intellifold.py --model choices).
-enum IntelliFoldModel: String, CaseIterable, Identifiable, Hashable {
+enum IntelliFoldModel: String, CaseIterable, Codable, Identifiable, Hashable {
     case v2flash = "v2-flash"
     case v2 = "v2"
-    case v1 = "v1"
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .v2flash: return "v2-flash (fast)"
-        case .v2: return "v2"
-        case .v1: return "v1"
+        case .v2flash: return "v2-flash — smaller, validated default"
+        case .v2: return "v2 — full model"
         }
     }
 }
@@ -142,7 +140,8 @@ final class TargetPredictor: ObservableObject {
         //  --override          : always regenerate
         let args = [runner.path, yaml.path, "--out_dir", outDir.path,
                     "--precision", "no", "--num_workers", "0", "--seed", "42",
-                    "--num_diffusion_samples", "1", "--override", "--model", model.rawValue]
+                    "--num_diffusion_samples", "1", "--override", "--model", model.rawValue,
+                    "--cache", AppPaths.intelliFoldCache.path]
         appendLog("$ intellifold run_intellifold.py \(yaml.lastPathComponent) --model \(model.rawValue)")
         // IntelliFold hangs on teardown after finishing; complete on this log line.
         successMarker = "Inference completed successfully"

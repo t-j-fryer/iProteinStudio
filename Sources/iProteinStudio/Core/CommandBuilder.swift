@@ -35,6 +35,7 @@ enum CommandBuilder {
             "--num-runs", String(max(1, request.numDesigns)),
             "--num-opt-cycles", String(max(1, request.numCycles)),
             "--post-iptm-threshold", String(format: "%.2f", request.hitThreshold),
+            "--model", (request.intellifoldModel ?? .v2flash).rawValue,
         ]
 
         // Steering potentials are a separate method, not a cosmetic Boltz option:
@@ -181,6 +182,9 @@ enum CommandBuilder {
         // Persist XLA executables across cycles. Without this AlphaFold 3 pays a
         // fresh compile cost every time the campaign advances a design.
         env["ALPHAFOLD3_COMPILATION_CACHE_DIR"] = AppPaths.jaxCompileCache.path
+        env["BOLTZ_CACHE"] = AppPaths.boltzCache.path
+        env["NUMBA_CACHE_DIR"] = AppPaths.numbaCache.path
+        env["INTELLIFOLD_CACHE"] = AppPaths.intelliFoldCache.path
         // Ensure user-local tools (uv, gh) are reachable.
         let localBin = AppPaths.fm.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin").path
         env["PATH"] = "\(localBin):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + (env["PATH"] ?? "")

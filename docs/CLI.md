@@ -66,6 +66,7 @@ has no homologues, so an alignment costs a server round trip and adds nothing.
   "output": "…/my_batch",
   "predictors": ["boltz"],           // boltz | intellifold | intellifold-jax
                                      // alphafold3 | openfold-3-mlx
+  "intellifold_model": "v2-flash",  // v2-flash | v2; applies to PyTorch + JAX
   "use_potentials": false,
   "affinity": false,                 // Boltz only, small molecules only
   "max_parallel": 0,                 // 0 = the measured optimum per engine
@@ -101,6 +102,7 @@ used into the run log; copy it. A minimal example:
   --workflow protein --predictor boltz --sequence-designer solublempnn \
   --template-yaml my_target.yaml --run-name my_campaign \
   --num-runs 20 --num-opt-cycles 5 \
+  --model v2-flash \
   --random-binder --binder-min-len 60 --binder-max-len 120 \
   --post-predictor intellifold --post-mode iptm --post-iptm-threshold 0.7 \
   --target-msa-mode auto --target-msa-generator auto --require-target-msa \
@@ -115,6 +117,7 @@ Flags worth knowing:
 | `--throughput-profile auto` | uses a measured per-machine schedule, and *rejects* one from a different Mac |
 | `--resume` | idempotent; reuses completed cycles after an interruption |
 | `--design-scheduler cycle-wave` | native batching — where AlphaFold 3 and IntelliFold win most |
+| `--model v2-flash` | choose `v2-flash` or the larger full `v2` IntelliFold model |
 
 Leave `--intellifold-buckets` and `--alphafold3-buckets` alone. Their `auto`
 default resolves to the exact campaign token count, which is the single largest
@@ -183,5 +186,6 @@ $ROOT/
   rfd3/                      RFdiffusion3 + its script overlay
   venvs/  src/  models/      environments, code, weights
   msa_cache/                 shared alignments, indexed by sequence
+  scaffold_msa_cache/        bundled deep MSAs for all seven nanobody scaffolds
   projects/<slug>/           campaign and prediction outputs
 ```

@@ -358,6 +358,7 @@ final class RFD3Controller: ObservableObject {
         payload.extra_predictors = request.targetKind == .smallMolecule
             ? request.verification.extraPredictors.map(\.runnerValue)
             : request.verification.allPredictors(for: .protein).map(\.runnerValue)
+        payload.intellifold_model = request.verification.intellifoldModel.rawValue
         payload.is_non_loopy = request.preferStructured
         payload.infer_ori_strategy = request.originStrategy.specValue
         if request.originStrategy == .explicit { payload.ori_token = request.originXYZ }
@@ -432,6 +433,7 @@ struct RFD3StudioRequest: Codable {
     var run_affinity: Bool = true
     var run_apo: Bool = true
     var extra_predictors: [String] = []
+    var intellifold_model: String = "v2-flash"
     var conformers: [[String: AnyJSON]] = []
     var mpnn_max_parallel: Int = 6
     var boltz_chunk_size: Int = 50

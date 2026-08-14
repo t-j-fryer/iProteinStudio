@@ -189,16 +189,18 @@ def stage_predict(cfg: dict, campaign: Path, rfd3_root: Path, env: dict, a3m: Pa
          "--output", str(yaml_dir)],
         campaign / "logs" / "prepare_predictor_inputs.log", rfd3_root, env)
 
-    # run_predictors.py implements Boltz and IntelliFold. Anything else the user
-    # selected is dropped here rather than silently mislabelled.
-    wanted = ["boltz"] + [p for p in cfg.get("extra_predictors", []) if p == "intellifold"]
-    dropped = [p for p in cfg.get("extra_predictors", []) if p != "intellifold"]
+    supported = {"boltz", "intellifold", "intellifold-jax", "alphafold3", "openfold-3-mlx"}
+    wanted = [p for p in cfg.get("extra_predictors", []) if p in supported]
+    dropped = [p for p in cfg.get("extra_predictors", []) if p not in supported]
     if dropped:
-        info(f"not run here (unsupported by the RFdiffusion3 checker): {', '.join(dropped)}")
+        raise SystemExit(f"Unsupported predictors: {', '.join(dropped)}")
+    if not wanted:
+        raise SystemExit("Protein campaigns require at least one verification predictor.")
     run([sys.executable, str(rfd3_root / "scripts" / "run_predictors.py"),
          "--inputs", str(yaml_dir),
          "--output", str(campaign / "predictions" / "holo"),
          "--predictors", ",".join(dict.fromkeys(wanted)),
+         "--intellifold-model", cfg.get("intellifold_model", "v2-flash"),
          "--max-parallel", str(cfg.get("predict_max_parallel", 4)),
          "--nanohunter-root", cfg["nanohunter_root"],
          "--resume"],

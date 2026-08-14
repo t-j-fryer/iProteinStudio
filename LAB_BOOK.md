@@ -10,11 +10,11 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-08-11_
+_Last updated: 2026-08-13_
 
 | | |
 |---|---|
-| **Stage** | Alpha. Builds and runs; not signed or notarised for distribution. |
+| **Stage** | Alpha. Debug and release builds pass; a standalone managed install has completed acceptance folds; not signed or notarised. |
 | **Platform** | macOS 14+, Apple Silicon only. Developed on M4 Max / 64 GB / macOS 26.x. |
 | **Repo** | Private — `github.com/t-j-fryer/iProteinStudio` (renamed from NanoHunterStudio) |
 | **Runtime** | `~/.iproteinstudio` — **not** Application Support: a space in the path breaks every Python console-script shebang |
@@ -27,28 +27,29 @@ predictions library.
 
 **Also working:** Ligand Intelligence — chemistry QA, recognition-core vs linker
 separation, conformer ensembles weighed against experimental PDB structures, and a
-design budget split across the shapes a molecule actually adopts; choice of design predictor (Boltz-2 ± potentials, IntelliFold,
+design budget split across the shapes a molecule actually adopts; choice of design predictor (Boltz-2 ± potentials, IntelliFold v2-flash or full v2,
 AlphaFold 3, OpenFold-3) with orthogonal checking; measured-optimum scheduling
-delegated to NanoHunter's runner; reuse of an existing local NanoHunter/RFD3
-install instead of a second multi-GB download; an RFdiffusion3 tab that drives the
+delegated to NanoHunter's runner; a pinned standalone installation that does not
+need a sibling checkout, with explicit reuse of an existing NanoHunter/RFD3
+install as an option; an RFdiffusion3 tab that drives the
 validated production pipeline and survives quitting the app.
 
 **Known gaps, in priority order:**
 
-1. **Studio has no measurements of its own.** Every performance number in this repo
-   was measured in a sibling repo. No campaign has yet been run end to end
-   *through the app*.
+1. No campaign has yet been run end to end by clicking through the built app.
+   Individual engines and the prediction batch route have run from the isolated
+   managed install; existing performance claims still come from the recorded
+   NanoHunter/RFD3 measurements rather than this acceptance run.
 2. The RFdiffusion3 **protein path is untested end to end**. It now generates the
    target MSA, re-folds and ranks, but none of those stages has ever run —
    see [0005](lab_book/0005-designer-routing-and-install-detection.md).
-3. **AlphaFold 3 and OpenFold-3 cannot check RFdiffusion3 designs** —
-   `RFD3/scripts/run_predictors.py` implements Boltz and IntelliFold only. They
-   are shown but disabled, with the reason stated in the UI.
-6. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
+3. AlphaFold 3's environment installs, but its gated `af3.bin` parameter file
+   cannot be distributed or downloaded by Studio; the user must supply it.
+4. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
    and self-consistency are written to disk but must be opened by hand.
-7. OpenFold-3 complex pLDDT has an unresolved scale problem — see
+5. OpenFold-3 complex pLDDT has an unresolved scale problem — see
    [0002](lab_book/0002-inherited-speed-lessons.md) §7.
-8. No app icon, no Developer ID signing/notarisation, no self-update.
+6. No app icon, no Developer ID signing/notarisation, no self-update.
 
 **Deliberately out of scope:** NISE (experimental, stays in NanoHunter); RFdiffusion3
 against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
@@ -58,8 +59,9 @@ against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
 
 ## Where the science lives
 
-Studio is a front end. The implementations it drives are in sibling repositories, which
-are the source of truth for anything scientific:
+Studio is a front end. The implementations it drives originate in sibling
+repositories, which remain the development references for scientific behaviour.
+They are not runtime dependencies of a standalone install:
 
 - **NanoHunter / iProteinHunter** — `/Users/thomasfryer/NanoHunter` — iterative design
   runner, Boltz-2 / IntelliFold / AlphaFold 3 / OpenFold-3, MPNN + AntiFold designers,
@@ -78,6 +80,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0013 | 2026-08-13 | [A standalone install with both IntelliFold v2 models and bundled nanobody MSAs](lab_book/0013-standalone-intellifold-and-scaffold-msas.md) | Managed caches, pinned sources/checkpoints, v2-flash versus full-v2 routing, scaffold alignments, and real isolated-root acceptance runs |
 | 0012 | 2026-08-13 | [Worked examples with a shipped alignment, and the first real from-scratch install](lab_book/0012-worked-examples-and-fresh-install.md) | Why the aCbx alignment ships with the app, and what a from-scratch install actually proves |
 | 0011 | 2026-08-13 | [Rename to iProteinStudio, per-engine installs, and a clean-clone check](lab_book/0011-rename-and-fresh-user-install.md) | The local paths that were being shipped, per-engine installation, and what a new user actually receives |
 | 0010 | 2026-08-13 | [A fresh install was missing the entire RFdiffusion3 script layer](lab_book/0010-shipping-the-rfd3-overlay.md) | Why a clean clone could not run anything, how the overlay ships, and exactly what an update does and does not carry |

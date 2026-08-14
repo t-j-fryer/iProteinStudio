@@ -100,7 +100,10 @@ def main():
         manifest[k] = {"shape": list(arr.shape), "dtype": "float32"}
 
     out = wdir / "rfd3_core.safetensors"
-    mx.save_safetensors(str(out), flat, metadata={"which": which, "source": str(ckpt)})
+    # A machine-specific absolute source path changes the artifact hash even
+    # when every tensor is identical. Record the pinned checkpoint filename so
+    # independently installed roots produce byte-identical weights.
+    mx.save_safetensors(str(out), flat, metadata={"which": which, "source": ckpt.name})
     (wdir / "keys.json").write_text(json.dumps(
         {"which": which, "n_tensors": len(flat), "n_scalars": n_scalar,
          "n_params": int(sum(v.numel() for v in sd.values() if torch.is_tensor(v) and v.ndim > 0)),

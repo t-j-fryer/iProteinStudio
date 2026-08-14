@@ -638,8 +638,13 @@ struct RFD3View: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(p.label)
-                    Text(p.speed(in: .batched).label)
-                        .font(.caption).foregroundStyle(.secondary)
+                    if request.wrappedValue.verification.intellifoldModel == .v2
+                        && (p == .intellifold || p == .intellifoldJAX) {
+                        Text("not benchmarked").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text(p.speed(in: .batched).label)
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     if !installed {
                         Label("not installed", systemImage: "exclamationmark.circle")
                             .font(.caption2).foregroundStyle(.orange)
@@ -685,6 +690,16 @@ struct RFD3View: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 ForEach(extraCheckChoices) { checkerRow($0) }
+                if request.wrappedValue.verification.extraPredictors.contains(where: {
+                    $0 == .intellifold || $0 == .intellifoldJAX
+                }) {
+                    Picker("IntelliFold model", selection: request.verification.intellifoldModel) {
+                        ForEach(IntelliFoldModel.allCases) { model in
+                            Text(model.label).tag(model)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
             }
 
             Divider().padding(.vertical, 2)

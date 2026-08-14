@@ -15,11 +15,15 @@ from pathlib import Path
 SUPPORTED = {"boltz", "intellifold", "intellifold-jax", "alphafold3", "openfold-3-mlx"}
 
 
-def command_for(predictor: str, yaml_path: Path, output: Path, root: Path):
+def command_for(predictor: str, yaml_path: Path, output: Path, root: Path,
+                intellifold_model: str):
     env = os.environ.copy()
+    adapters = Path(__file__).resolve().parent
     if predictor == "boltz":
         venv = root / "venvs" / "NanoHunter_boltz"
-        env.update({"PATH": f"{venv / 'bin'}:{env.get('PATH', '')}", "VIRTUAL_ENV": str(venv)})
+        env.update({"PATH": f"{venv / 'bin'}:{env.get('PATH', '')}", "VIRTUAL_ENV": str(venv),
+                    "BOLTZ_CACHE": str(root / "models" / "boltz2"),
+                    "NUMBA_CACHE_DIR": str(root / "numba_cache")})
         command = [
             str(venv / "bin" / "boltz"), "predict", str(yaml_path),
             "--out_dir", str(output), "--accelerator", "gpu", "--devices", "1",
@@ -32,6 +36,7 @@ def command_for(predictor: str, yaml_path: Path, output: Path, root: Path):
                 "PATH": f"{venv / 'bin'}:{env.get('PATH', '')}",
                 "VIRTUAL_ENV": str(venv),
                 "KMP_USE_SHM": "0",
+                "INTELLIFOLD_CACHE": str(root / "models" / "intellifold"),
                 # Host BLAS/OpenMP contends with MPS submission. One thread was
                 # measured ~1.3x faster with byte-identical structures, and this
                 # is IntelliFold-specific: the same setting makes Boltz slower.
@@ -42,7 +47,8 @@ def command_for(predictor: str, yaml_path: Path, output: Path, root: Path):
         command = [
             str(venv / "bin" / "python"), str(root / "src" / "IntelliFold" / "run_intellifold.py"),
             str(yaml_path), "--out_dir", str(output), "--precision", "no", "--num_workers", "0",
-            "--seed", "42", "--num_diffusion_samples", "1", "--override", "--model", "v2-flash",
+            "--seed", "42", "--num_diffusion_samples", "1", "--override", "--model", intellifold_model,
+            "--cache", str(root / "models" / "intellifold"),
         ]
 
     elif predictor == "intellifold-jax":
@@ -56,9 +62,10 @@ def command_for(predictor: str, yaml_path: Path, output: Path, root: Path):
         })
         command = [
             str(venv / "bin" / "python"),
-            str(root / "scripts" / "intellifold_jax_predict_one.py"),
+            str(adapters / "intellifold_jax_predict_one.py"),
             "--yaml", str(yaml_path), "--output", str(output),
             "--nanohunter-root", str(root),
+            "--model", intellifold_model,
         ]
 
     elif predictor == "alphafold3":
@@ -75,7 +82,7 @@ def command_for(predictor: str, yaml_path: Path, output: Path, root: Path):
             "JAX_MPS_ASYNC_DISPATCH": env.get("ALPHAFOLD3_ASYNC_DISPATCH", "0"),
         })
         command = [
-            str(venv / "bin" / "python"), str(root / "scripts" / "af3_predict_one.py"),
+            str(venv / "bin" / "python"), str(adapters / "af3_predict_one.py"),
             "--yaml", str(yaml_path), "--output", str(output),
             "--nanohunter-root", str(root),
         ]
@@ -88,7 +95,7 @@ def command_for(predictor: str, yaml_path: Path, output: Path, root: Path):
             "KMP_USE_SHM": "0",
         })
         command = [
-            str(venv / "bin" / "python"), str(root / "scripts" / "openfold_predict_one.py"),
+            str(venv / "bin" / "python"), str(adapters / "openfold_predict_one.py"),
             "--yaml", str(yaml_path), "--output", str(output),
             "--nanohunter-root", str(root),
         ]
@@ -157,6 +164,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--predictors", default="boltz,intellifold")
     parser.add_argument("--max-parallel", type=int, default=4)
+    parser.add_argument("--intellifold-model", choices=("v2-flash", "v2"), default="v2-flash")
     parser.add_argument("--nanohunter-root", type=Path, default=default_root())
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
@@ -192,7 +200,8 @@ def main() -> None:
                     "log": str(job_out / "predict.log"), **cached,
                 })
                 continue
-            command, env = command_for(predictor, yaml_path, job_out, root)
+            command, env = command_for(
+                predictor, yaml_path, job_out, root, args.intellifold_model)
             queue.append((predictor, yaml_path, job_out, command, env))
 
     running = []

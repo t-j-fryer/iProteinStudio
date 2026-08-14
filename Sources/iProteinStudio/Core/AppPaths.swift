@@ -2,10 +2,10 @@ import Foundation
 
 /// Central owner of on-disk locations and vendored resource access.
 ///
-/// Managed data lives under Application Support so the app is fully
-/// self-contained and never touches the user's home dir layout:
+/// Managed data lives under one space-free, app-owned root so the app is fully
+/// self-contained and never borrows engine caches elsewhere in the home dir:
 ///
-///   ~/Library/Application Support/iProteinStudio/     (== REPO_ROOT)
+///   ~/.iproteinstudio/                                (== REPO_ROOT)
 ///     nanohunter_run.sh, scripts/, examples/   vendored pipeline (staged here)
 ///     venvs/, src/                              installed runtime
 ///     scaffold_msa_cache/                       persistent scaffold-MSA cache
@@ -37,7 +37,7 @@ enum AppPaths {
     /// Move an installation made by an earlier build out of Application Support.
     /// A rename on the same volume, so it is effectively instant even at ~16 GB;
     /// the venvs still need their shebangs re-pointed afterwards, which
-    /// `setup_pipeline.sh --materialise` does.
+    /// `setup_pipeline.sh --repair-venvs` does.
     private static func migrateLegacyRootIfPresent(to destination: URL) {
         let home = fm.homeDirectoryForCurrentUser
         // In order of age. Application Support came first and could never have
@@ -77,6 +77,29 @@ enum AppPaths {
         let dir = support.appendingPathComponent("jax_compile_cache", isDirectory: true)
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
+    }
+
+    /// Boltz's model and chemical-component cache. Keeping it under the managed
+    /// root prevents a clean install from borrowing an existing ~/.boltz.
+    static var boltzCache: URL {
+        let dir = support.appendingPathComponent("models/boltz2", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// Writable cache for Boltz's Numba kernels, separate from the venv so it
+    /// survives upgrades and works when installed source is read-only.
+    static var numbaCache: URL {
+        let dir = support.appendingPathComponent("numba_cache", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// IntelliFold checkpoints and chemical/template data. Upstream otherwise
+    /// defaults to ~/.intellifold, which would hide a dependency on an older
+    /// developer install.
+    static var intelliFoldCache: URL {
+        support.appendingPathComponent("models/intellifold", isDirectory: true)
     }
 
     /// RFdiffusion3 checkout — either installed here or symlinked to an existing
@@ -138,6 +161,27 @@ enum AppPaths {
         }
     }
 
+    /// Seed every catalogued nanobody scaffold alignment into the persistent
+    /// cache configured for design runs. Existing/generated copies win.
+    static func stageScaffoldMSAs() {
+        let src = pipeline.appendingPathComponent("examples/nanobody_scaffolds/msas",
+                                                  isDirectory: true)
+        guard let scaffolds = try? fm.contentsOfDirectory(at: src,
+                                                          includingPropertiesForKeys: nil)
+        else { return }
+        for scaffold in scaffolds {
+            let alignment = scaffold.appendingPathComponent("full_msa.a3m")
+            guard fm.fileExists(atPath: alignment.path) else { continue }
+            let destDir = scaffoldMSACache.appendingPathComponent(scaffold.lastPathComponent,
+                                                                   isDirectory: true)
+            try? fm.createDirectory(at: destDir, withIntermediateDirectories: true)
+            let dest = destDir.appendingPathComponent("full_msa.a3m")
+            if !fm.fileExists(atPath: dest.path) {
+                try? fm.copyItem(at: alignment, to: dest)
+            }
+        }
+    }
+
     /// Shared alignment cache. Everything the app generates lands here, and the
     /// design side's older alignments are indexed into it, so a target aligned
     /// once is never aligned again.
@@ -186,8 +230,11 @@ enum AppPaths {
     /// True once the pipeline runtime has been installed (venvs present).
     static var isPipelineInstalled: Bool {
         let venvs = support.appendingPathComponent("venvs", isDirectory: true)
-        let boltz = venvs.appendingPathComponent("NanoHunter_boltz/bin/python")
-        return fm.fileExists(atPath: boltz.path)
+        // LigandMPNN is the unconditional core install. Boltz is selected by
+        // default, but remains optional so a user can intentionally install a
+        // different predictor without setup being reported as a failure.
+        let mpnn = venvs.appendingPathComponent("NanoHunter_ligandmpnn/bin/python")
+        return fm.fileExists(atPath: mpnn.path)
     }
 
     /// True once the vendored scripts have been copied into the managed dir.
@@ -218,6 +265,7 @@ enum AppPaths {
         stageRFD3Scripts()
         stageRFD3Overlay()
         stageExamples()
+        stageScaffoldMSAs()
     }
 
     /// Apply the RFdiffusion3 overlay to the installed checkout.

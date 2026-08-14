@@ -66,8 +66,13 @@ OPENFOLD_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_openfold3_mlx"
 BOLTZ_CLI="boltz"
 INTELLIFOLD_CLI="intellifold"
 OPENFOLD_CLI="run_openfold"
-OPENFOLD_CACHE_DIR="${OPENFOLD_CACHE:-$HOME/.openfold3}"
+INTELLIFOLD_CACHE_DIR="${INTELLIFOLD_CACHE:-${REPO_ROOT}/models/intellifold}"
+OPENFOLD_CACHE_DIR="${OPENFOLD_CACHE:-${REPO_ROOT}/models/openfold3}"
 OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_CACHE_DIR}/of3_ft3_v1.pt"
+BOLTZ_CACHE="${BOLTZ_CACHE:-${REPO_ROOT}/models/boltz2}"
+NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-${REPO_ROOT}/numba_cache}"
+export BOLTZ_CACHE NUMBA_CACHE_DIR
+mkdir -p "${NUMBA_CACHE_DIR}"
 OPENFOLD_A3M_QUERY_REWRITER="${REPO_ROOT}/scripts/rewrite_a3m_query.py"
 
 LIGANDMPNN_REPO="${REPO_ROOT}/src/LigandMPNN"
@@ -277,6 +282,7 @@ BOLTZ_EXTRA_FLAGS_DEFAULT=(
 )
 
 INTELLIFOLD_EXTRA_FLAGS_DEFAULT=(
+  "--cache" "${INTELLIFOLD_CACHE_DIR}"
   "--precision" "no"
   "--num_workers" "0"
   "--seed" "42"

@@ -159,6 +159,7 @@ final class PredictionController: ObservableObject {
         config.root = AppPaths.support.path
         config.output = outputDir.path
         config.predictors = request.predictors.map(\.runnerValue)
+        config.intellifold_model = request.intellifoldModel.rawValue
         config.use_potentials = request.useBoltzPotentials
         config.affinity = request.runAffinityHead
         config.max_parallel = request.maxParallel
@@ -236,6 +237,7 @@ struct PredictionConfig: Codable {
     var root: String = ""
     var output: String = ""
     var predictors: [String] = ["boltz"]
+    var intellifold_model: String = "v2-flash"
     var use_potentials: Bool = false
     var affinity: Bool = false
     var seed: Int = 42

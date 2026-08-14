@@ -14,9 +14,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 import os
 from pathlib import Path
+
+import studio_runtime
 
 
 def to_float(value, default=float("nan")):
@@ -59,9 +60,8 @@ def main() -> None:
     parser.add_argument("--nanohunter-root", type=Path, default=default_root())
     args = parser.parse_args()
 
-    nise_dir = args.nanohunter_root.resolve() / "scripts" / "nise"
-    sys.path.insert(0, str(nise_dir))
-    import nise_lib  # noqa: E402
+    studio_runtime.configure(args.nanohunter_root)
+    nise_lib = studio_runtime
 
     rows = list(csv.DictReader(args.predictions.open()))
     if not rows:
