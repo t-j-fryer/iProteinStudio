@@ -28,9 +28,25 @@ struct ComponentsView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Engines").font(.largeTitle.bold())
+            HStack {
+                Text("Engines").font(.largeTitle.bold())
+                Spacer()
+                Button { installer.refreshInstalledState() } label: {
+                    Label("Refresh status", systemImage: "arrow.clockwise")
+                }
+                .controlSize(.small)
+            }
             Text("Install only what you need. You can come back and add more at any time — nothing already installed is touched.")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            LabeledContent("Managed runtime") {
+                Text(AppPaths.support.path)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            Text("Models and environments live in this managed folder, not inside the app bundle or the source repository.")
+                .font(.caption2).foregroundStyle(.tertiary)
         }
     }
 

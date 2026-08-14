@@ -791,6 +791,7 @@ struct RFD3View: View {
     private var startBar: some View {
         let r = request.wrappedValue
         let issues = r.validationIssues
+        let anotherWorkflowIsRunning = app.run.isRunning || app.prediction.isRunning
         return VStack(alignment: .leading, spacing: 8) {
             ForEach(issues, id: \.self) { issue in
                 Label(issue, systemImage: "exclamationmark.triangle.fill")
@@ -798,7 +799,11 @@ struct RFD3View: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack {
-                if !r.isRunnable {
+                if anotherWorkflowIsRunning {
+                    Label("Finish or stop the active \(app.prediction.isRunning ? "prediction" : "iterative design") run before starting RFdiffusion3.",
+                          systemImage: "hourglass")
+                        .font(.callout).foregroundStyle(.secondary)
+                } else if !r.isRunnable {
                     Label("Add your target above to continue.", systemImage: "info.circle")
                         .font(.callout).foregroundStyle(.secondary)
                 }
@@ -809,7 +814,7 @@ struct RFD3View: View {
                     Label("Start RFdiffusion3 Run", systemImage: "play.fill").frame(minWidth: 220)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
-                .disabled(!r.isRunnable || !issues.isEmpty)
+                .disabled(!r.isRunnable || !issues.isEmpty || anotherWorkflowIsRunning)
             }
         }
         .padding(.top, 6)

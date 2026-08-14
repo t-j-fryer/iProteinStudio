@@ -334,7 +334,11 @@ relocate_venv() {
       *) [[ "$(head -c 2 "${script}" 2>/dev/null)" == "#!" ]] || continue ;;
     esac
     local found
-    found="$(LC_ALL=C grep -o "/[^\"']*/venvs/${name}" "${script}" 2>/dev/null | head -n 1 || true)"
+    # Derive the environment root from its interpreter path. This works for
+    # both the main <root>/venvs/<name> layout and RFdiffusion3's
+    # <root>/rfd3/.venv layout.
+    found="$(LC_ALL=C grep -Eo "/[^\"']*/bin/python[0-9.]*" "${script}" 2>/dev/null \
+      | head -n 1 | sed -E 's|/bin/python[0-9.]*$||' || true)"
     if [[ -n "${found}" && "${found}" != "${venv}" ]]; then old_root="${found}"; break; fi
   done
   [[ -n "${old_root}" ]] || return 0
@@ -383,10 +387,14 @@ import os, re, sys
 venv, old_root, new_root = sys.argv[1], sys.argv[2], sys.argv[3]
 targets = []
 for base, _dirs, files in os.walk(venv):
-    if os.path.basename(base) != "site-packages":
+    parts = base.split(os.sep)
+    if "site-packages" not in parts:
         continue
     for name in files:
-        if name.endswith((".pth", ".egg-link")) or name.startswith("__editable__"):
+        at_site_root = os.path.basename(base) == "site-packages"
+        if (at_site_root and (name.endswith((".pth", ".egg-link"))
+                              or name.startswith("__editable__"))) \
+                or name == "direct_url.json":
             targets.append(os.path.join(base, name))
 
 if not old_root:
@@ -396,7 +404,10 @@ if not old_root:
             text = open(path, errors="replace").read()
         except OSError:
             continue
-        match = probe.search(text)
+        # direct_url.json stores editable sources as file:///absolute/path;
+        # strip the URI prefix before extracting the filesystem root so the
+        # captured value is /Users/... rather than ///Users/....
+        match = probe.search(text.replace("file://", ""))
         if match and match.group(1) != new_root:
             old_root = match.group(1)
             break
@@ -460,7 +471,7 @@ materialise_component() {
 
 if [[ "${REPAIR_VENVS}" -eq 1 ]]; then
   step repair 10 "Re-pointing environments after a move"
-  for venv in "${NANOHUNTER_ROOT}"/venvs/*/; do
+  for venv in "${NANOHUNTER_ROOT}"/venvs/*/ "${NANOHUNTER_ROOT}"/rfd3/.venv/; do
     [[ -d "${venv}" ]] || continue
     relocate_venv "${venv}"
     relocate_editables "${venv}" "${REPAIR_EDITABLE_SOURCE:-}" "${NANOHUNTER_ROOT}"
@@ -502,7 +513,7 @@ if [[ "${MATERIALISE}" -eq 1 ]]; then
   # copy would silently keep using the original environment, which defeats the
   # point of making this installation self-contained -- and would break the
   # moment the original was deleted.
-  for venv in "${NANOHUNTER_ROOT}"/venvs/*/; do
+  for venv in "${NANOHUNTER_ROOT}"/venvs/*/ "${NANOHUNTER_ROOT}"/rfd3/.venv/; do
     [[ -d "${venv}" ]] || continue
     relocate_venv "${venv}"
     [[ -n "${MATERIALISE_SOURCE}" ]] && relocate_editables "${venv}" "${MATERIALISE_SOURCE}" "${NANOHUNTER_ROOT}"

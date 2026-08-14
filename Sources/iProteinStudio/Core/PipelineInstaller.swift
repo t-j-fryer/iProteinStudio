@@ -51,9 +51,10 @@ final class PipelineInstaller: ObservableObject {
     /// gone. Detect the mismatch cheaply and re-point in the background.
     private func repairRelocatedVenvsIfNeeded() {
         let venvs = AppPaths.support.appendingPathComponent("venvs", isDirectory: true)
-        guard let entries = try? AppPaths.fm.contentsOfDirectory(at: venvs,
-                                                                 includingPropertiesForKeys: nil)
-        else { return }
+        var entries = (try? AppPaths.fm.contentsOfDirectory(at: venvs,
+                                                            includingPropertiesForKeys: nil)) ?? []
+        let rfd3Venv = AppPaths.rfd3Root.appendingPathComponent(".venv", isDirectory: true)
+        if AppPaths.fm.fileExists(atPath: rfd3Venv.path) { entries.append(rfd3Venv) }
         let needsRepair = entries.contains { venv in
             let activate = venv.appendingPathComponent("bin/activate")
             guard let text = try? String(contentsOf: activate, encoding: .utf8) else { return false }

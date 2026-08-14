@@ -168,9 +168,14 @@ struct DesignFormView: View {
     }
 
     private var startBar: some View {
-        HStack(spacing: 12) {
+        let anotherWorkflowIsRunning = app.rfd3.isRunning || app.prediction.isRunning
+        return HStack(spacing: 12) {
             let r = request.wrappedValue
-            if !r.isRunnable || r.ligandAtomsStale {
+            if anotherWorkflowIsRunning {
+                Label("Finish or stop the active \(app.rfd3.isRunning ? "RFdiffusion3" : "prediction") run before starting iterative design.",
+                      systemImage: "hourglass")
+                    .font(.callout).foregroundStyle(.secondary)
+            } else if !r.isRunnable || r.ligandAtomsStale {
                 Label(missingReason(r), systemImage: "info.circle").font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
@@ -182,7 +187,7 @@ struct DesignFormView: View {
                 Label("Start Design Run", systemImage: "play.fill").frame(minWidth: 200)
             }
             .buttonStyle(.borderedProminent).controlSize(.large)
-            .disabled(!r.isRunnable || r.ligandAtomsStale)
+            .disabled(!r.isRunnable || r.ligandAtomsStale || anotherWorkflowIsRunning)
         }
         .padding(.top, 6)
     }
