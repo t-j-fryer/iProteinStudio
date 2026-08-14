@@ -16,6 +16,7 @@ struct RFD3View: View {
     @EnvironmentObject var app: AppState
     let project: Project
     @ObservedObject var controller: RFD3Controller
+    @ObservedObject var installer: PipelineInstaller
     @StateObject private var inspector = RFD3TargetInspector()
     @StateObject private var intelligence = LigandIntelligence()
     @State private var showAdvanced = false
@@ -50,9 +51,9 @@ struct RFD3View: View {
             Text(reason)
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
                 .frame(maxWidth: 420).fixedSize(horizontal: false, vertical: true)
-            if let existing = app.installer.detectedRFD3 {
+            if let existing = installer.detectedRFD3 {
                 Button {
-                    app.installer.linkExisting(nanoHunter: nil, rfd3: existing)
+                    installer.linkExisting(nanoHunter: nil, rfd3: existing)
                 } label: {
                     Label("Use the RFdiffusion3 at \(existing.lastPathComponent)", systemImage: "link")
                 }
@@ -176,7 +177,7 @@ struct RFD3View: View {
             Text(request.wrappedValue.sequenceModel.blurb)
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if !app.installer.isUsable(request.wrappedValue.sequenceModel.component) {
+            if !installer.isUsable(request.wrappedValue.sequenceModel.component) {
                 Label("\(request.wrappedValue.sequenceModel.label) isn't installed yet — add it from Setup.",
                       systemImage: "exclamationmark.triangle.fill")
                     .font(.caption).foregroundStyle(.orange)
@@ -625,7 +626,7 @@ struct RFD3View: View {
     private func isWiredForRFD3(_ p: Predictor) -> Bool { true }
 
     @ViewBuilder private func checkerRow(_ p: Predictor) -> some View {
-        let installed = app.installer.isUsable(p.component)
+        let installed = installer.isUsable(p.component)
         let wired = isWiredForRFD3(p)
         Toggle(isOn: Binding(
             get: { request.wrappedValue.verification.extraPredictors.contains(p) },

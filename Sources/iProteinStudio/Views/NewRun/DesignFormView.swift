@@ -5,6 +5,7 @@ import SwiftUI
 struct DesignFormView: View {
     @EnvironmentObject var app: AppState
     let project: Project
+    @ObservedObject var installer: PipelineInstaller
     @State private var showAdvanced = false
     @State private var showTargetPrep = false
     @StateObject private var ligandAtoms = BoltzLigandAtoms()
@@ -113,7 +114,7 @@ struct DesignFormView: View {
                         Divider().padding(.vertical, 4)
                         DesignerPicker(designer: request.designer,
                                        allowed: request.wrappedValue.allowedDesigners,
-                                       installer: app.installer)
+                                       installer: installer)
                         Divider().padding(.vertical, 4)
                         MPNNTemperatureControl(request: request)
                     }
@@ -126,14 +127,14 @@ struct DesignFormView: View {
                     Card(title: "3 · Designer", systemImage: "slider.horizontal.3") {
                         DesignerPicker(designer: request.designer,
                                        allowed: request.wrappedValue.allowedDesigners,
-                                       installer: app.installer)
+                                       installer: installer)
                         Divider().padding(.vertical, 4)
                         MPNNTemperatureControl(request: request)
                     }
                 }
 
                 Card(title: "4 · Prediction & checking", systemImage: "checkmark.seal") {
-                    PredictorPicker(request: request, installer: app.installer)
+                    PredictorPicker(request: request, installer: installer)
                 }
 
                 Card(title: "5 · Run settings", systemImage: "gauge.with.dots.needle.67percent") {

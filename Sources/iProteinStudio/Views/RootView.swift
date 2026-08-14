@@ -18,7 +18,7 @@ private struct RouterView: View {
     var body: some View {
         Group {
             if installer.installed {
-                WorkspaceView(run: app.run)
+                WorkspaceView(run: app.run, installer: installer)
             } else {
                 SetupView()
             }
@@ -32,6 +32,7 @@ private struct RouterView: View {
 struct WorkspaceView: View {
     @EnvironmentObject var app: AppState
     @ObservedObject var run: RunController
+    @ObservedObject var installer: PipelineInstaller
     @State private var showComponents = false
 
     var body: some View {
@@ -41,7 +42,8 @@ struct WorkspaceView: View {
         } detail: {
             if let project = app.selectedProject {
                 ProjectDetailView(project: project, run: run, metrics: app.metrics,
-                                  rfd3: app.rfd3, prediction: app.prediction)
+                                  rfd3: app.rfd3, prediction: app.prediction,
+                                  installer: installer)
             } else {
                 EmptyWorkspace()
             }
@@ -56,7 +58,7 @@ struct WorkspaceView: View {
         }
         .sheet(isPresented: $showComponents) {
             VStack(spacing: 0) {
-                ComponentsView(installer: app.installer)
+                ComponentsView(installer: installer)
                 Divider()
                 HStack {
                     Spacer()
@@ -68,7 +70,7 @@ struct WorkspaceView: View {
         .onAppear {
             // AlphaFold 3 installed but unfed is the one state that looks like a
             // broken install and is actually a missing file the user must fetch.
-            if app.installer.needsAlphaFoldWeights { showComponents = true }
+            if installer.needsAlphaFoldWeights { showComponents = true }
         }
     }
 }
@@ -105,6 +107,7 @@ struct ProjectDetailView: View {
     @ObservedObject var metrics: MetricsWatcher
     @ObservedObject var rfd3: RFD3Controller
     @ObservedObject var prediction: PredictionController
+    @ObservedObject var installer: PipelineInstaller
     @State private var mode: ProjectMode = .iterative
 
     private var activeMode: ProjectMode? {
@@ -145,12 +148,12 @@ struct ProjectDetailView: View {
                 if run.isRunning || run.campaignRoot != nil {
                     LiveDashboardView(project: project, run: run, metrics: metrics)
                 } else {
-                    DesignFormView(project: project)
+                    DesignFormView(project: project, installer: installer)
                 }
             case .rfdiffusion:
-                RFD3View(project: project, controller: rfd3)
+                RFD3View(project: project, controller: rfd3, installer: installer)
             case .predict:
-                PredictView(project: project, controller: prediction)
+                PredictView(project: project, controller: prediction, installer: installer)
             }
         }
         .onAppear {

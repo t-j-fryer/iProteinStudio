@@ -31,6 +31,10 @@ the user in its progress screen for the lifetime of the campaign.
 - Added a stable accessibility identifier to the workflow selector and banner.
 - Added the exact managed-runtime path and a Refresh status button to the Engines
   sheet, and explained that models live outside both the app and source repo.
+- Made the workspace and all three workflow forms observe `PipelineInstaller`
+  directly. GUI testing exposed that reading it only through `AppState` left
+  forms displaying stale “isn't installed” warnings after asynchronous
+  detection, even while the Engines sheet correctly showed the component ready.
 - Extended environment relocation to RFdiffusion3's separate `rfd3/.venv`.
   Relocation now rewrites console scripts, activation files, editable import
   hooks and nested `direct_url.json` metadata for both venv layouts.
@@ -62,6 +66,14 @@ wrapper or package metadata beneath its venvs retained the old
 `swift build` passed and `build_app.sh` produced the release app. The release app
 launched from the clean clone, staged a byte-identical updated setup script into
 the promoted runtime, and its detector reported every component ready.
+
+macOS Accessibility automation then selected Iterative design → RFdiffusion3 →
+Predict → Iterative design. Each selected-state transition was observed and the
+segmented control remained present. After rebuilding the direct-installer
+observation fix, the same four-transition test produced no stale “not installed”
+warning in any workflow. The Engines sheet reported the managed root as
+`/Users/thomasfryer/.iproteinstudio` and displayed `installed` for all eight
+optional engine groups. A Screen Recording capture visually confirmed the sheet.
 
 ## Decision and rationale
 
@@ -105,12 +117,9 @@ open -n /Users/thomasfryer/iProteinStudio/build/iProteinStudio.app
 ## Limits and what was not tested
 
 - A real campaign was not started merely to hold the router in a running state;
-  therefore the mutual-exclusion button state was compiled and inspected but
-  not exercised during costly live GPU work.
-- macOS denied this automation process Accessibility and Screen Recording
-  permission. The release app launched and its process/runtime state was
-  verified, but scripted clicking and screenshots were not possible. A human
-  GUI click-through remains required.
+  therefore idle-state navigation was clicked in the release GUI, while the
+  active-run banner and mutual-exclusion button state were compiled and
+  inspected but not exercised during costly live GPU work.
 - The promoted engines passed detection and RFdiffusion3 passed its full
   self-check. This pass did not repeat the inference matrix already recorded in
   entry 0013.
@@ -119,8 +128,7 @@ open -n /Users/thomasfryer/iProteinStudio/build/iProteinStudio.app
 
 ## Next
 
-1. In the already-built app, click RFdiffusion3, Predict and Iterative design in
-   both idle and active-run states and confirm the selector remains present.
-2. Run one small bundled-scaffold nanobody campaign through the GUI.
-3. Run one minimal RFdiffusion3 protein campaign through the GUI, then remove
+1. Run one small bundled-scaffold nanobody campaign through the GUI.
+2. Run one minimal RFdiffusion3 protein campaign through the GUI and confirm
+   navigation remains available while it is active, then remove
    the dated runtime backup only after both campaigns succeed.

@@ -11,6 +11,7 @@ struct PredictView: View {
     @EnvironmentObject var app: AppState
     let project: Project
     @ObservedObject var controller: PredictionController
+    @ObservedObject var installer: PipelineInstaller
 
     @State private var warnings: [String] = []
     @State private var parseError: String?
@@ -226,7 +227,7 @@ struct PredictView: View {
     }
 
     @ViewBuilder private func engineRow(_ predictor: Predictor) -> some View {
-        let installed = app.installer.isUsable(predictor.component)
+        let installed = installer.isUsable(predictor.component)
         Toggle(isOn: Binding(
             get: { request.wrappedValue.predictors.contains(predictor) },
             set: { on in
