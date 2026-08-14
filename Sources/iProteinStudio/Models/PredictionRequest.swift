@@ -107,6 +107,22 @@ struct PredictionRequest: Codable, Hashable {
     var jobs: [FoldJob] = []
 
     var isRunnable: Bool { !jobs.isEmpty && !predictors.isEmpty }
+    var includesBoltz: Bool { predictors.contains(.boltz) }
+    var containsLigand: Bool {
+        jobs.contains { job in job.chains.contains { $0.kind == "ligand" } }
+    }
+
+    /// Boltz-only switches must never survive a change to an incompatible
+    /// engine selection. This also repairs stale saved projects created before
+    /// the UI constrained these controls.
+    mutating func normalizeEngineOptions() {
+        if !includesBoltz {
+            useBoltzPotentials = false
+            runAffinityHead = false
+        } else if !containsLigand {
+            runAffinityHead = false
+        }
+    }
 
     /// Rough lower bound: predictions only, ignoring alignment generation.
     func estimatedSeconds(in mode: SpeedMode) -> Double {
@@ -121,10 +137,13 @@ struct PredictionRequest: Codable, Hashable {
            partnerSmiles.trimmingCharacters(in: .whitespaces).isEmpty {
             issues.append("Choose a partner sequence or SMILES to fold everything against.")
         }
-        if runAffinityHead, !predictors.contains(where: { $0.hasAffinityHead }) {
+        if useBoltzPotentials, !includesBoltz {
+            issues.append("Steering potentials need Boltz-2.")
+        }
+        if runAffinityHead, !includesBoltz {
             issues.append("Binding strength needs Boltz-2 — it is the only engine with an affinity head.")
         }
-        if runAffinityHead, !jobs.contains(where: { $0.chains.contains { $0.kind == "ligand" } }) {
+        if runAffinityHead, !containsLigand {
             issues.append("Binding strength only applies when there is a small molecule in the fold.")
         }
         return issues

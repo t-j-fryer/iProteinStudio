@@ -955,6 +955,7 @@ struct RFD3ProgressView: View {
 
 private struct RFD3ResultsSummary: View {
     let root: URL
+    @State private var showResults = false
 
     private var rows: [[String: Any]] {
         let url = root.appendingPathComponent("analysis/top100_manifest.json")
@@ -973,15 +974,19 @@ private struct RFD3ResultsSummary: View {
                 Text(summary).font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
-            Button { NSWorkspace.shared.activateFileViewerSelecting([root.appendingPathComponent("analysis")]) } label: {
-                Label("Open Results", systemImage: "list.number")
+            Button { showResults = true } label: {
+                Label("View Results", systemImage: "cube.transparent")
             }
             .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("view-rfd3-results")
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.09)))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Ranked RFdiffusion3 results ready. \(summary)")
+        .sheet(isPresented: $showResults) {
+            RunResultsView(root: root, workflow: .rfdiffusion3)
+        }
     }
 
     private var summary: String {

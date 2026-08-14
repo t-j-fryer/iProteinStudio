@@ -48,7 +48,13 @@ struct StructureInspector: View {
             HStack {
                 VStack(alignment: .leading) {
                     Text("\(point.stage.label) · \(point.label)").font(.headline)
-                    Text("iPTM \(point.iptmText)").font(.subheadline).foregroundStyle(.green)
+                    HStack(spacing: 12) {
+                        Text("iPTM \(point.iptmText)").foregroundStyle(.green)
+                        if point.plddt.isFinite {
+                            Text("pLDDT \(point.plddtText)").foregroundStyle(.blue)
+                        }
+                    }
+                    .font(.subheadline)
                 }
                 Spacer()
                 Button("Done", action: close).keyboardShortcut(.defaultAction)

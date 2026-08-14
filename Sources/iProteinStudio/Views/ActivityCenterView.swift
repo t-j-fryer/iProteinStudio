@@ -11,6 +11,7 @@ struct ActivityCenterView: View {
     @ObservedObject var prediction: PredictionController
     @ObservedObject var history: RunHistoryStore
     let projectFilter: Project.ID?
+    @State private var selectedResults: StudioRunRecord?
 
     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
@@ -67,6 +68,10 @@ struct ActivityCenterView: View {
         .frame(width: 500, height: 520, alignment: .topLeading)
         .onAppear { refresh() }
         .onReceive(refreshTimer) { _ in refresh() }
+        .sheet(item: $selectedResults) { record in
+            RunResultsView(root: record.root, workflow: record.workflow,
+                           title: "\(record.name) results")
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(projectFilter == nil ? "Global activity centre" : "Project run history")
     }
@@ -111,6 +116,14 @@ struct ActivityCenterView: View {
                     .disabled(hasLiveActivity)
                     .help(hasLiveActivity ? "Stop the active GPU job before resuming this run." : "Continue from completed checkpoints")
             }
+            if record.state == .completed {
+                Button { selectedResults = record } label: {
+                    Label("View", systemImage: "cube.transparent")
+                }
+                .controlSize(.small)
+                .help("View structures and metrics")
+                .accessibilityLabel("View results for \(record.name)")
+            }
             Button { NSWorkspace.shared.activateFileViewerSelecting([record.root]) } label: {
                 Image(systemName: "folder")
             }
@@ -120,7 +133,7 @@ struct ActivityCenterView: View {
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 10).fill(.quaternary.opacity(0.35)))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("\(record.workflow.label), \(record.name), \(record.state.label), \(record.detail)")
     }
 
