@@ -44,6 +44,8 @@ Sources/iProteinStudio/
   Resources/
     pipeline/       vendored NanoHunter assets + setup_pipeline.sh + PIPELINE_VERSION
     rfd3/           Studio-authored RFdiffusion3 helpers (see below)
+    rfd3_overlay/   complete campaign/adaptor layer applied to pinned RFD3
+    examples/       aCbx (+ shipped target MSA) and fluorescein
     web/mol/        offline 3Dmol.js + viewer.html
 tools/
   sync_pipeline.sh  reproducible vendoring from a NanoHunter checkout
@@ -82,23 +84,30 @@ RFD3View ──▶ prepare_campaign.py
 The campaign outlives the app. `RFD3Controller.reattachIfRunning` picks up a
 running campaign when the project is reopened.
 
-Protein targets take a shorter path — `rfd3_protein_campaign.py` → backbones and
-SolubleMPNN sequences — and stop there, because re-folding a designed complex
-needs a NanoHunter template and cached target MSA that cannot be derived from an
-RFD3 spec.
+Protein targets take a separate path — `rfd3_protein_campaign.py` generates
+backbones and MPNN sequences, creates the target MSA once, builds predictor
+inputs with an empty binder MSA and the real target MSA, then re-folds and ranks.
+Missing alignments or requested predictors fail rather than being dropped.
 
 ## Data locations (managed, sandbox-friendly)
 
 ```
-~/Library/Application Support/iProteinStudio/
-  pipeline/       staged scripts + installed src/ (cloned tools)
+~/.iproteinstudio/
+  setup_pipeline.sh + scripts/   staged pipeline and helpers
+  src/            pinned upstream source checkouts
+  models/         managed, verified checkpoints and model data
   venvs/          NanoHunter_boltz, _ligandmpnn, _antifold, _intellifold
+  rfd3/           pinned RFdiffusion3 checkout with bundled overlay
+  msa_cache/ + scaffold_msa_cache/  persistent alignments
   projects/<slug>/<run-name>/   pipeline --out-root for each campaign
   config.json     projects + settings
 ```
 
-The app **vendors** the pipeline scripts into its bundle and stages them into
-the managed dir on first run, so it is independent of the NanoHunter source repo.
+The path is deliberately space-free: Python console-script shebangs fail under
+`Application Support`. The app **vendors** the pipeline, examples, IntelliFold
+patch and RFD3 overlay into its bundle, then stages them into the managed root,
+so a standalone install is independent of sibling source repos and old home
+directory model caches.
 
 ## Live dashboard data flow
 
@@ -124,7 +133,10 @@ A **hit** is any design with design-stage iPTM ≥ the user's threshold
 
 Iterative design: Boltz-2 (design) + IntelliFold (independent check), AntiFold
 designer, `--max-parallel auto` with `--throughput-profile auto`, `--resume` on.
-AlphaFold 3, OpenFold-3 and the IntelliFold JAX backend are opt-in installs.
+The default setup installs Boltz-2, AntiFold and IntelliFold plus the
+unconditional MPNN family. AlphaFold 3, OpenFold-3, IntelliFold JAX, LASErMPNN
+and RFdiffusion3 are opt-in. IntelliFold defaults to v2-flash; full v2 is an
+explicit per-run choice shared by selected PyTorch/JAX IntelliFold backends.
 
 RFdiffusion3: native batch 4 across 2 concurrent shape queues, bf16, structured
 folds (`is_non_loopy`) on, 4 sequences per backbone, top 100 re-folded apo.

@@ -40,6 +40,7 @@ struct LiveDashboardView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .frame(maxWidth: 360)
+            .accessibilityLabel("Dashboard section")
 
             switch tab {
             case .overview:   overviewTab
@@ -55,11 +56,19 @@ struct LiveDashboardView: View {
     private var overviewTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                if case .failed(let message) = run.phase {
+                    ActionableErrorCard(title: "Design run needs attention", message: message,
+                                        retryTitle: "Retry from checkpoints", retry: run.retry,
+                                        output: run.campaignRoot, log: run.log)
+                }
                 Card(title: "Design iPTM by cycle", systemImage: "chart.xyaxis.line") {
                     MetricsChartsView(points: designPoints, threshold: threshold)
                 }
-                Card(title: "Activity log", systemImage: "text.alignleft") {
-                    LogView(lines: run.log)
+                if case .failed = run.phase { EmptyView() }
+                else {
+                    Card(title: "Activity log", systemImage: "text.alignleft") {
+                        TechnicalLogDisclosure(lines: run.log)
+                    }
                 }
             }
         }
@@ -95,7 +104,7 @@ struct LiveDashboardView: View {
         switch run.phase {
         case .running:      Label("Running…", systemImage: "circle.fill").foregroundStyle(.green).font(.subheadline)
         case .finished:     Label("Finished", systemImage: "checkmark.circle.fill").foregroundStyle(.blue).font(.subheadline)
-        case .failed(let m): Label(m, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.subheadline)
+        case .failed(_):    Label("Needs attention", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.subheadline)
         case .cancelled:    Label("Stopped", systemImage: "stop.circle").foregroundStyle(.secondary).font(.subheadline)
         case .idle:         Text("Idle").font(.subheadline).foregroundStyle(.secondary)
         }

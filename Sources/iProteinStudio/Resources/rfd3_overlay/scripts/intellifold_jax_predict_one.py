@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Fold one Boltz-style YAML with IntelliFold's JAX/MPS v2-flash backend.
+"""Fold one Boltz-style YAML with IntelliFold's JAX/MPS backend.
 
 IntelliFold ships two backends. The PyTorch one reads NanoHunter YAML directly
-and is what the main runner uses. The JAX/MPS one is ~1.24x faster on the
-reference benchmark but reuses AlphaFold 3's inference engine, so it reads **AF3
+and is what the main runner uses. The JAX/MPS one reuses AlphaFold 3's inference
+engine, so it reads **AF3
 fold-input JSON** and lives in the AlphaFold 3 environment — which is why there
 was no route to it from a YAML-driven pipeline.
 
@@ -11,13 +11,10 @@ This bridges the gap by reusing NanoHunter's own `alphafold3_adapter.py` for
 both directions: YAML to AF3 JSON going in, and AF3-style output back to the
 `model_0.cif` + confidence contract coming out. No new conversion logic.
 
-Two consequences worth knowing:
-  * it needs more memory than the PyTorch backend (~27 GiB against ~14 at four
-    concurrent processes on the reference workload), so it is not automatically
-    the right choice on a smaller Mac;
-  * its outputs are not bit-identical to the PyTorch backend's — mean pLDDT
-    differed slightly on the reference workload. It is a different
-    implementation, not a faster route to the same numbers.
+The full-v2 JAX weights are upstream's release. The v2-flash route is the
+validated NanoHunter conversion and graph patch. They live in separate model
+directories and are selected explicitly; a missing selection fails rather than
+silently falling back to the other architecture.
 """
 
 from __future__ import annotations
@@ -61,6 +58,7 @@ def main() -> None:
     parser.add_argument("--yaml", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--nanohunter-root", type=Path, required=True)
+    parser.add_argument("--model", choices=("v2-flash", "v2"), default="v2-flash")
     args = parser.parse_args()
 
     root = args.nanohunter_root.resolve()
@@ -68,15 +66,19 @@ def main() -> None:
     python = venv / "bin" / "python"
     cli = venv / "bin" / "intellifold"
     adapter = root / "scripts" / "alphafold3_adapter.py"
-    model_dir = Path(os.environ.get("INTELLIFOLD_JAX_MODEL_DIR",
-                                    root / "models" / "intellifold_jax_flash"))
+    default_dir = root / "models" / (
+        "intellifold_jax_flash" if args.model == "v2-flash" else "intellifold_jax_v2"
+    )
+    model_dir = Path(os.environ.get("INTELLIFOLD_JAX_MODEL_DIR", default_dir))
 
     for path, what in ((python, "AlphaFold 3 environment"), (cli, "IntelliFold JAX CLI"),
                        (adapter, "AF3 adapter")):
         if not path.exists():
             die(f"{what} not found at {path}")
-    if not any(model_dir.glob("*flash*.bin.zst")):
-        die(f"Converted v2-flash JAX weights not found in {model_dir}. Run setup with the "
+    expected = ("intellifold_v2_flash.bin.zst"
+                if args.model == "v2-flash" else "intellifold_v2.bin.zst")
+    if not (model_dir / expected).is_file():
+        die(f"IntelliFold {args.model} JAX weights not found in {model_dir}. Run setup with the "
             f"IntelliFold JAX component selected.")
 
     args.output.mkdir(parents=True, exist_ok=True)
@@ -91,7 +93,7 @@ def main() -> None:
 
     convert = subprocess.run(
         [str(python), str(adapter), "to-json",
-         "--in-yaml", str(args.yaml), "--out-json", str(fold_json), "--name", name],
+         "--in-yaml", str(args.yaml), "--out-json", str(fold_json), f"--name={name}"],
         capture_output=True, text=True)
     if convert.returncode:
         die(f"input conversion failed: {convert.stderr.strip()[:400]}")
@@ -111,9 +113,10 @@ def main() -> None:
 
     log = args.output / "intellifold_jax.log"
     with log.open("w") as handle:
-        predict = subprocess.run(
-            [str(cli), "predict", str(fold_json),
-             "--v2-flash",
+        command = [str(cli), "predict", str(fold_json)]
+        if args.model == "v2-flash":
+            command.append("--v2-flash")
+        command += [
              "--model-dir", str(model_dir),
              "--output-dir", str(jax_out),
              "--flash", "xla",
@@ -121,7 +124,9 @@ def main() -> None:
              "--norun_data_pipeline",
              "--jax_backend=mps",
              f"--buckets={buckets}",
-             f"--jax_compilation_cache_dir={cache}"],
+             f"--jax_compilation_cache_dir={cache}"]
+        predict = subprocess.run(
+            command,
             env=env, stdout=handle, stderr=subprocess.STDOUT)
     if predict.returncode:
         tail = "\n".join(log.read_text(errors="replace").splitlines()[-25:])
@@ -154,11 +159,13 @@ def main() -> None:
     except Exception:
         metrics = {}
     metrics["predictor"] = "intellifold-jax"
+    metrics["model"] = args.model
     conf_path = pred_min / "confidence.json"
     if conf_path.exists():
         try:
             conf = _json.loads(conf_path.read_text())
             conf["predictor"] = "intellifold-jax"
+            conf["model"] = args.model
             conf_path.write_text(_json.dumps(conf, indent=2))
         except Exception:
             pass

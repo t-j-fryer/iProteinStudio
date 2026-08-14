@@ -182,6 +182,10 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// number that should drive selection: the design predictor's own iPTM is
     /// self-scored, because the loop optimises against it.
     var postPredictors: [Predictor] = [.intellifold]
+    /// Shared architecture choice whenever an IntelliFold engine is selected.
+    /// Optional so projects saved before this control existed still decode;
+    /// nil has the validated v2-flash meaning.
+    var intellifoldModel: IntelliFoldModel? = .v2flash
     /// Only hits at or above `hitThreshold` are post-predicted, which is what
     /// keeps an orthogonal check affordable.
     var postOnlyHits: Bool = true
@@ -296,7 +300,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         case designType, scaffoldID, scaffoldSequence, cdrs, binderMinLen, binderMaxLen, helixKill
         case targetKind, targetName, targetSequence, targetSmiles, epitopeResidues
         case designer, numDesigns, numCycles, hitThreshold, parallelMode, manualParallel
-        case designPredictor, postPredictors, postOnlyHits, speedMode, resumeIfPossible
+        case designPredictor, postPredictors, intellifoldModel, postOnlyHits, speedMode, resumeIfPossible
         case mpnnTempCycle1, mpnnTempLater, lasermpnnSeqTemp, lasermpnnFirstShellTemp
         case ligandContactAtoms, ligandContactDistance, ligandContactForce
         case ligandAffinityHead, ligandAttachmentAtom, ligandAtomsGeneratedFor
@@ -327,6 +331,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         manualParallel  = try c.decodeIfPresent(Int.self, forKey: .manualParallel) ?? d.manualParallel
         designPredictor = try c.decodeIfPresent(Predictor.self, forKey: .designPredictor) ?? d.designPredictor
         postPredictors  = try c.decodeIfPresent([Predictor].self, forKey: .postPredictors) ?? d.postPredictors
+        intellifoldModel = try c.decodeIfPresent(IntelliFoldModel.self, forKey: .intellifoldModel) ?? d.intellifoldModel
         postOnlyHits    = try c.decodeIfPresent(Bool.self, forKey: .postOnlyHits) ?? d.postOnlyHits
         speedMode       = try c.decodeIfPresent(SpeedMode.self, forKey: .speedMode) ?? d.speedMode
         resumeIfPossible = try c.decodeIfPresent(Bool.self, forKey: .resumeIfPossible) ?? d.resumeIfPossible

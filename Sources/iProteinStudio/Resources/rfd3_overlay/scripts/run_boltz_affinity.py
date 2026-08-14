@@ -28,10 +28,11 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 import time
 import os
 from pathlib import Path
+
+import studio_runtime
 
 
 def shard_and_predict(nise_lib, yaml_paths: list[Path], work_dir: Path, use_potentials: bool, parallel: int):
@@ -137,9 +138,8 @@ def main() -> None:
     parser.add_argument("--nanohunter-root", type=Path, default=default_root())
     args = parser.parse_args()
 
-    nise_dir = args.nanohunter_root.resolve() / "scripts" / "nise"
-    sys.path.insert(0, str(nise_dir))
-    import nise_lib  # noqa: E402
+    studio_runtime.configure(args.nanohunter_root)
+    nise_lib = studio_runtime
 
     inputs = args.inputs.resolve()
     manifest_path = inputs / "manifest.json"

@@ -35,6 +35,7 @@ enum CommandBuilder {
             "--num-runs", String(max(1, request.numDesigns)),
             "--num-opt-cycles", String(max(1, request.numCycles)),
             "--post-iptm-threshold", String(format: "%.2f", request.hitThreshold),
+            "--model", (request.intellifoldModel ?? .v2flash).rawValue,
         ]
 
         // Steering potentials are a separate method, not a cosmetic Boltz option:
@@ -162,13 +163,19 @@ enum CommandBuilder {
     /// as environment variables.
     static func environment(request: DesignRequest) -> [String: String] {
         var env = environment()
-        if request.designer == .lasermpnn {
-            // LASErMPNN decodes sequence and side-chain rotamers jointly, so the
-            // binding site gets its own temperature. Neither is reachable by flag.
-            env["LASERMPNN_SEQ_TEMP"] = String(format: "%.2f", request.lasermpnnSeqTemp)
-            env["LASERMPNN_FS_TEMP"] = String(format: "%.2f", request.lasermpnnFirstShellTemp)
-        }
+        env.merge(environmentOverrides(request: request)) { _, new in new }
         return env
+    }
+
+    /// Scientific environment settings that are not represented by arguments.
+    /// This deliberately excludes the user's ambient process environment so a
+    /// durable run manifest never captures unrelated credentials or tokens.
+    static func environmentOverrides(request: DesignRequest) -> [String: String] {
+        guard request.designer == .lasermpnn else { return [:] }
+        return [
+            "LASERMPNN_SEQ_TEMP": String(format: "%.2f", request.lasermpnnSeqTemp),
+            "LASERMPNN_FS_TEMP": String(format: "%.2f", request.lasermpnnFirstShellTemp),
+        ]
     }
 
     /// Environment forcing the managed pipeline root and venv prefix.
@@ -181,6 +188,9 @@ enum CommandBuilder {
         // Persist XLA executables across cycles. Without this AlphaFold 3 pays a
         // fresh compile cost every time the campaign advances a design.
         env["ALPHAFOLD3_COMPILATION_CACHE_DIR"] = AppPaths.jaxCompileCache.path
+        env["BOLTZ_CACHE"] = AppPaths.boltzCache.path
+        env["NUMBA_CACHE_DIR"] = AppPaths.numbaCache.path
+        env["INTELLIFOLD_CACHE"] = AppPaths.intelliFoldCache.path
         // Ensure user-local tools (uv, gh) are reachable.
         let localBin = AppPaths.fm.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin").path
         env["PATH"] = "\(localBin):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + (env["PATH"] ?? "")

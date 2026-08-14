@@ -32,7 +32,7 @@ def main() -> None:
             pid_path.unlink()
 
     cmd = [
-        "caffeinate", "-dims", sys.executable, str(ROOT / "scripts" / "run_rfd3_nise_campaign.py"),
+        "caffeinate", "-dimsu", sys.executable, str(ROOT / "scripts" / "run_rfd3_nise_campaign.py"),
         "--config", str(config), "--stage", args.stage,
     ]
     if os.fork() == 0:

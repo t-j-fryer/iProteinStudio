@@ -16,9 +16,11 @@ struct RFD3View: View {
     @EnvironmentObject var app: AppState
     let project: Project
     @ObservedObject var controller: RFD3Controller
+    @ObservedObject var installer: PipelineInstaller
     @StateObject private var inspector = RFD3TargetInspector()
     @StateObject private var intelligence = LigandIntelligence()
     @State private var showAdvanced = false
+    @State private var setupExperience: SetupExperience = .quick
     @State private var showTargetPrep = false
 
     private var request: Binding<RFD3Request> {
@@ -50,9 +52,9 @@ struct RFD3View: View {
             Text(reason)
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
                 .frame(maxWidth: 420).fixedSize(horizontal: false, vertical: true)
-            if let existing = app.installer.detectedRFD3 {
+            if let existing = installer.detectedRFD3 {
                 Button {
-                    app.installer.linkExisting(nanoHunter: nil, rfd3: existing)
+                    installer.linkExisting(nanoHunter: nil, rfd3: existing)
                 } label: {
                     Label("Use the RFdiffusion3 at \(existing.lastPathComponent)", systemImage: "link")
                 }
@@ -65,9 +67,11 @@ struct RFD3View: View {
     // MARK: Form
 
     private var form: some View {
-        ScrollView {
+        VStack(spacing: 0) {
+            ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                SetupExperiencePicker(selection: $setupExperience)
                 ExamplesBar { example in
                     request.wrappedValue.apply(example)
                     inspector.reset()
@@ -105,24 +109,36 @@ struct RFD3View: View {
                     lengthSection
                 }
 
-                Card(title: "5 · Sequence design", systemImage: "textformat.abc") {
-                    sequenceDesignSection
+                if setupExperience == .advanced {
+                    Card(title: "5 · Sequence design", systemImage: "textformat.abc") {
+                        sequenceDesignSection
+                    }
+                } else {
+                    Label("\(request.wrappedValue.sequenceModel.label) will design \(request.wrappedValue.sequencesPerBackbone) sequence(s) per backbone using its recommended temperatures.",
+                          systemImage: "textformat.abc")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
 
                 Card(title: "6 · Verify with", systemImage: "checkmark.seal") {
                     verificationSection
                 }
 
-                Card(title: "7 · Sampling", systemImage: "gauge.with.dots.needle.67percent") {
-                    DisclosureGroup("Advanced sampling settings", isExpanded: $showAdvanced) {
-                        samplingSection
-                    }.font(.callout)
-                    estimateRow
+                if setupExperience == .advanced {
+                    Card(title: "7 · Sampling", systemImage: "gauge.with.dots.needle.67percent") {
+                        DisclosureGroup("Advanced sampling settings", isExpanded: $showAdvanced) {
+                            samplingSection
+                        }.font(.callout)
+                        estimateRow
+                    }
+                } else {
+                    Card(title: "7 · Run estimate", systemImage: "clock") { estimateRow }
                 }
-
-                startBar
             }
             .padding(28).frame(maxWidth: 860, alignment: .leading).frame(maxWidth: .infinity)
+            }
+            Divider()
+            startBar.padding(.horizontal, 28).padding(.vertical, 14)
+                .background(.bar)
         }
         .sheet(isPresented: $showTargetPrep) {
             TargetPrepView(
@@ -176,7 +192,7 @@ struct RFD3View: View {
             Text(request.wrappedValue.sequenceModel.blurb)
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if !app.installer.isUsable(request.wrappedValue.sequenceModel.component) {
+            if !installer.isUsable(request.wrappedValue.sequenceModel.component) {
                 Label("\(request.wrappedValue.sequenceModel.label) isn't installed yet — add it from Setup.",
                       systemImage: "exclamationmark.triangle.fill")
                     .font(.caption).foregroundStyle(.orange)
@@ -240,6 +256,7 @@ struct RFD3View: View {
                 ForEach(RFD3TargetKind.allCases) { Text($0.label).tag($0) }
             }
             .pickerStyle(.segmented).labelsHidden().frame(width: 320)
+            .accessibilityLabel("RFdiffusion3 target type")
             Text(request.wrappedValue.targetKind.blurb)
                 .font(.caption).foregroundStyle(.secondary)
         }
@@ -250,6 +267,7 @@ struct RFD3View: View {
             Picker("", selection: request.ligandSource) {
                 ForEach(LigandSource.allCases) { Text($0.label).tag($0) }
             }.pickerStyle(.segmented).labelsHidden().frame(width: 340)
+                .accessibilityLabel("Ligand input type")
             Text(request.wrappedValue.ligandSource.blurb)
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -486,6 +504,7 @@ struct RFD3View: View {
             Picker("", selection: request.originStrategy) {
                 ForEach(OriginStrategy.allCases) { Text($0.label).tag($0) }
             }.pickerStyle(.segmented).labelsHidden().frame(width: 420)
+                .accessibilityLabel("Design centre strategy")
             Text(request.wrappedValue.originStrategy.blurb)
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -625,7 +644,7 @@ struct RFD3View: View {
     private func isWiredForRFD3(_ p: Predictor) -> Bool { true }
 
     @ViewBuilder private func checkerRow(_ p: Predictor) -> some View {
-        let installed = app.installer.isUsable(p.component)
+        let installed = installer.isUsable(p.component)
         let wired = isWiredForRFD3(p)
         Toggle(isOn: Binding(
             get: { request.wrappedValue.verification.extraPredictors.contains(p) },
@@ -638,8 +657,13 @@ struct RFD3View: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(p.label)
-                    Text(p.speed(in: .batched).label)
-                        .font(.caption).foregroundStyle(.secondary)
+                    if request.wrappedValue.verification.intellifoldModel == .v2
+                        && (p == .intellifold || p == .intellifoldJAX) {
+                        Text("not benchmarked").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text(p.speed(in: .batched).label)
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     if !installed {
                         Label("not installed", systemImage: "exclamationmark.circle")
                             .font(.caption2).foregroundStyle(.orange)
@@ -685,6 +709,16 @@ struct RFD3View: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 ForEach(extraCheckChoices) { checkerRow($0) }
+                if request.wrappedValue.verification.extraPredictors.contains(where: {
+                    $0 == .intellifold || $0 == .intellifoldJAX
+                }) {
+                    Picker("IntelliFold model", selection: request.verification.intellifoldModel) {
+                        ForEach(IntelliFoldModel.allCases) { model in
+                            Text(model.label).tag(model)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
             }
 
             Divider().padding(.vertical, 2)
@@ -776,6 +810,7 @@ struct RFD3View: View {
     private var startBar: some View {
         let r = request.wrappedValue
         let issues = r.validationIssues
+        let anotherWorkflowIsRunning = app.run.isRunning || app.prediction.isRunning
         return VStack(alignment: .leading, spacing: 8) {
             ForEach(issues, id: \.self) { issue in
                 Label(issue, systemImage: "exclamationmark.triangle.fill")
@@ -783,7 +818,11 @@ struct RFD3View: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack {
-                if !r.isRunnable {
+                if anotherWorkflowIsRunning {
+                    Label("Finish or stop the active \(app.prediction.isRunning ? "prediction" : "iterative design") run before starting RFdiffusion3.",
+                          systemImage: "hourglass")
+                        .font(.callout).foregroundStyle(.secondary)
+                } else if !r.isRunnable {
                     Label("Add your target above to continue.", systemImage: "info.circle")
                         .font(.callout).foregroundStyle(.secondary)
                 }
@@ -794,7 +833,9 @@ struct RFD3View: View {
                     Label("Start RFdiffusion3 Run", systemImage: "play.fill").frame(minWidth: 220)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
-                .disabled(!r.isRunnable || !issues.isEmpty)
+                .accessibilityLabel("Start RFdiffusion3 run")
+                .accessibilityIdentifier("start-rfdiffusion3-run")
+                .disabled(!r.isRunnable || !issues.isEmpty || anotherWorkflowIsRunning)
             }
         }
         .padding(.top, 6)
@@ -810,11 +851,16 @@ struct RFD3View: View {
 struct RFD3ProgressView: View {
     @ObservedObject var controller: RFD3Controller
 
-    private let stageOrder: [(String, String)] = [
-        ("validate", "Target"), ("fixtures", "Length bins"), ("backbones", "Backbones"),
-        ("mpnn", "Sequences"), ("predict-holo", "Folding"), ("score", "Ranking"),
-        ("predict-apo", "Apo folding"), ("rmsd", "Preorganisation"),
-    ]
+    private var stageOrder: [(String, String)] {
+        if controller.isProteinCampaign {
+            return [("fixtures", "Length bins"), ("backbones", "Backbones"),
+                    ("mpnn", "Sequences"), ("msa", "Alignment"),
+                    ("predict", "Folding"), ("score", "Ranking")]
+        }
+        return [("validate", "Target"), ("fixtures", "Length bins"), ("backbones", "Backbones"),
+                ("mpnn", "Sequences"), ("predict-holo", "Folding"), ("score", "Ranking"),
+                ("predict-apo", "Apo folding"), ("rmsd", "Preorganisation")]
+    }
 
     private let countLabels: [(String, String)] = [
         ("backbones", "Backbones"), ("sequences", "Sequences"),
@@ -877,28 +923,18 @@ struct RFD3ProgressView: View {
             }
 
             if case .failed(let message) = controller.phase {
-                Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout).foregroundStyle(.orange)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
+                ActionableErrorCard(title: "RFdiffusion3 needs attention", message: message,
+                                    retryTitle: "Resume campaign", retry: controller.retry,
+                                    output: controller.campaignRoot, log: controller.log)
             }
 
-            if !controller.log.isEmpty {
-                Text("Log").font(.headline)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(Array(controller.log.suffix(200).enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    .padding(8)
-                }
-                .frame(maxHeight: 220)
-                .background(RoundedRectangle(cornerRadius: 8).fill(.background))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+            if case .finished = controller.phase, let root = controller.campaignRoot {
+                RFD3ResultsSummary(root: root)
+            }
+
+            if !controller.log.isEmpty, controller.phase != .finished {
+                if case .failed = controller.phase { EmptyView() }
+                else { TechnicalLogDisclosure(lines: controller.log) }
             }
 
             if let root = controller.campaignRoot {
@@ -914,5 +950,45 @@ struct RFD3ProgressView: View {
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear { controller.refreshStatus() }
+    }
+}
+
+private struct RFD3ResultsSummary: View {
+    let root: URL
+
+    private var rows: [[String: Any]] {
+        let url = root.appendingPathComponent("analysis/top100_manifest.json")
+        guard let data = try? Data(contentsOf: url),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return [] }
+        return payload
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.title).foregroundStyle(.green)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Ranked results are ready").font(.headline)
+                Text(summary).font(.callout).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button { NSWorkspace.shared.activateFileViewerSelecting([root.appendingPathComponent("analysis")]) } label: {
+                Label("Open Results", systemImage: "list.number")
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.09)))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Ranked RFdiffusion3 results ready. \(summary)")
+    }
+
+    private var summary: String {
+        guard let first = rows.first else { return "Open the campaign folder to inspect its outputs." }
+        let score = first["score"] as? Double
+        let metric = first["mean_iptm"] != nil ? "mean iPTM" : "score"
+        if let score { return "\(rows.count) selected design(s); top \(metric) \(String(format: "%.3f", score))." }
+        return "\(rows.count) selected design(s)."
     }
 }

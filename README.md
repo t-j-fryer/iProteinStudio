@@ -30,9 +30,10 @@ with its own. Alignments are per chain, so a de-novo binder can be folded from i
 single sequence while its target gets a deep MSA — and every alignment this
 machine has ever made is reused rather than re-fetched.
 
-**One-click setup** — installs the design engines and their weights behind a
-friendly progress screen. If you already have NanoHunter installed, Studio links
-to it in about a second instead of downloading tens of gigabytes again.
+**One-click setup** — installs pinned engine revisions and verified model weights
+under iProteinStudio's own managed root. A new user does not need NanoHunter or
+any developer-machine model cache. Reusing an existing NanoHunter remains an
+explicit disk-saving option.
 
 ## Engines
 
@@ -73,17 +74,20 @@ To work on it in Xcode, `open Package.swift`.
 
 ## How it works
 
-Studio is a front end. The science lives in sibling repositories — **NanoHunter**
-for iterative design and prediction, **RFD3** for RFdiffusion3 — and Studio drives
-their validated scripts rather than reimplementing them. It vendors the NanoHunter
-pipeline into its bundle (see `tools/sync_pipeline.sh` and
-`Resources/pipeline/PIPELINE_VERSION` for exactly which version), installs into
-`~/Library/Application Support/iProteinStudio/`, and parses the runners' output
-to drive the live views.
+Studio is a front end: the scientific implementations originate in NanoHunter
+and upstream engine repositories, and Studio ports their validated behaviour
+rather than reimplementing it. The app bundle contains the pipeline, the
+IntelliFold v2-flash JAX patch, RFdiffusion3's complete script overlay, worked
+examples, seven nanobody scaffolds, and their sequence-validated deep MSAs.
+Setup clones pinned upstream revisions and installs everything beneath the
+space-free managed root `~/.iproteinstudio/`; no sibling checkout is required.
 
-RFdiffusion3 campaigns can run for days, so they are launched detached and keep
-going if you quit the app; reopening the project reattaches to the running
-campaign.
+Runs are written to separate, durable directories. The global Activity panel and
+per-project history show completed, failed, active and interrupted work after a
+restart, with Reveal and checkpoint Resume where the recorded command supports
+it. RFdiffusion3 campaigns can run for days, so Studio also reattaches to their
+live PID after relaunch. Every workload is launched under `caffeinate` for its
+actual lifetime so a sleeping Mac does not strand a GPU campaign.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the design, and
 **[LAB_BOOK.md](LAB_BOOK.md) for why things are the way they are** — every
@@ -106,9 +110,11 @@ overlay a new user gets a checkout that cannot run anything. The installer
 applies it straight after cloning, before RFdiffusion3's own installer runs —
 which is necessary, because that installer calls scripts the overlay provides.
 
-The heavy parts — Python environments, model weights — are downloaded by
-`setup_pipeline.sh` on first run, or linked from an existing NanoHunter
-installation if one is found.
+The heavy parts — Python environments and model weights — are downloaded by
+`setup_pipeline.sh` on first run. Source revisions, critical package versions,
+and downloaded checkpoint hashes are pinned; an incomplete or changed artifact
+fails setup. Existing NanoHunter/RFD3 installations can be linked explicitly,
+then materialised into real local copies when a fully standalone root is wanted.
 
 **Updates.** Push a change here and users get it the next time they launch a new
 build: the bundled scripts are re-staged on every launch, and the overlay is
@@ -128,6 +134,6 @@ record what it did in the Lab Book, including what it did not test.
 
 ## Status
 
-Alpha. Builds and runs. Not signed or notarised, and no campaign has yet been run
-end to end through the app — see the Known gaps list at the top of
-[LAB_BOOK.md](LAB_BOOK.md).
+Alpha. Builds and runs. Complete protein RFdiffusion3 and nanobody routes have
+local Apple-GPU acceptance evidence, but the app is not signed or notarised; see
+the Known gaps list at the top of [LAB_BOOK.md](LAB_BOOK.md).

@@ -4,10 +4,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="${ROOT}/.venv"
 CKPT="${ROOT}/checkpoints/rfd3_latest.ckpt"
+CKPT_PART="${CKPT}.part"
 WEIGHTS="${ROOT}/weights/rfd3_core.safetensors"
 CKPT_URL="https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt"
 CKPT_SHA="9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1"
-WEIGHTS_SHA="9d84774c3cf50519991493ab1ee3ffa78597c0ce03f5ea2ffcbd4b42cf3b9c75"
+WEIGHTS_SHA="0beb87ff872d946a8af58428ae7c679eb364057bf12df77dba5994f6a0f1271b"
 
 DOWNLOAD=0
 CHECK_ONLY=0
@@ -40,14 +41,26 @@ if [[ "${CHECK_ONLY}" -eq 0 ]]; then
   env DEBUG=false "${VENV}/bin/python" "${ROOT}/scripts/prepare_fluorescein.py" --output-dir "${ROOT}/assets/fluorescein"
 fi
 
-if [[ "${DOWNLOAD}" -eq 1 && ! -f "${CKPT}" ]]; then
+if [[ "${DOWNLOAD}" -eq 1 ]] && ! check_sha "${CKPT}" "${CKPT_SHA}" >/dev/null 2>&1; then
   mkdir -p "$(dirname "${CKPT}")"
-  caffeinate -dimsu curl -fL --retry 3 "${CKPT_URL}" -o "${CKPT}"
+  # Older installers wrote downloads directly to CKPT. Preserve any partial
+  # bytes as the resumable .part file, then expose the real checkpoint only
+  # after its published checksum passes.
+  if [[ -f "${CKPT}" && ! -f "${CKPT_PART}" ]]; then
+    mv "${CKPT}" "${CKPT_PART}"
+  fi
+  caffeinate -dimsu curl -fL --retry 3 -C - "${CKPT_URL}" -o "${CKPT_PART}" || {
+    rm -f "${CKPT_PART}"
+    caffeinate -dimsu curl -fL --retry 3 "${CKPT_URL}" -o "${CKPT_PART}"
+  }
+  check_sha "${CKPT_PART}" "${CKPT_SHA}"
+  mv "${CKPT_PART}" "${CKPT}"
 fi
 
 if [[ -f "${CKPT}" ]]; then
   check_sha "${CKPT}" "${CKPT_SHA}"
-  if [[ ! -f "${WEIGHTS}" && "${CHECK_ONLY}" -eq 0 ]]; then
+  if [[ "${CHECK_ONLY}" -eq 0 ]] && ! check_sha "${WEIGHTS}" "${WEIGHTS_SHA}" >/dev/null 2>&1; then
+    rm -f "${WEIGHTS}"
     env DEBUG=false TOKENIZERS_PARALLELISM=false caffeinate -dimsu \
       "${VENV}/bin/python" "${ROOT}/export_weights.py"
   fi
@@ -66,6 +79,8 @@ assert len(atom_array_from_ccd_code("FHE")) == 31
 print("MLX Metal, PyTorch MPS, and FHE CCD: OK")
 PY
 
-check_sha "${CKPT}" "${CKPT_SHA}" && echo "Official checkpoint checksum: OK"
-check_sha "${WEIGHTS}" "${WEIGHTS_SHA}" && echo "MLX weight checksum: OK"
+check_sha "${CKPT}" "${CKPT_SHA}" || exit 1
+echo "Official checkpoint checksum: OK"
+check_sha "${WEIGHTS}" "${WEIGHTS_SHA}" || exit 1
+echo "MLX weight checksum: OK"
 echo "RFD3 installation check complete."

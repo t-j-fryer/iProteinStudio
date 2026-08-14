@@ -315,14 +315,15 @@ def run_directory_batch(predictor: str, yamls: list, out_dir: Path, root: Path,
                    str(root / "src" / "IntelliFold" / "run_intellifold.py"), str(batch_dir),
                    "--out_dir", str(out_dir), "--precision", "no", "--num_workers", "0",
                    "--seed", str(cfg.get("seed", 42)), "--num_diffusion_samples", "1",
-                   "--override", "--model", "v2-flash"]
+                   "--override", "--model", cfg.get("intellifold_model", "v2-flash"),
+                   "--cache", str(root / "models" / "intellifold")]
 
     handle = log_path.open("w")
     return subprocess.Popen(command, env=env, stdout=handle, stderr=subprocess.STDOUT), handle
 
 
 def run_single(predictor: str, yaml_path: Path, out_dir: Path, root: Path,
-               env: dict, log_path: Path) -> int:
+               env: dict, log_path: Path, intellifold_model: str) -> int:
     rfd3 = root / "rfd3"
     adapters = {
         "alphafold3": ("NanoHunter_alphafold3", "af3_predict_one.py"),
@@ -334,6 +335,8 @@ def run_single(predictor: str, yaml_path: Path, out_dir: Path, root: Path,
                str(rfd3 / "scripts" / script),
                "--yaml", str(yaml_path), "--output", str(out_dir),
                "--nanohunter-root", str(root)]
+    if predictor == "intellifold-jax":
+        command += ["--model", intellifold_model]
     handle = log_path.open("w")
     return subprocess.Popen(command, cwd=str(rfd3), env=env,
                             stdout=handle, stderr=subprocess.STDOUT), handle
@@ -358,6 +361,9 @@ def main() -> None:
 
     env = dict(os.environ)
     env["ALPHAFOLD3_COMPILATION_CACHE_DIR"] = str(root / "jax_compile_cache")
+    env["BOLTZ_CACHE"] = str(root / "models" / "boltz2")
+    env["NUMBA_CACHE_DIR"] = str(root / "numba_cache")
+    Path(env["NUMBA_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
 
     resolved = resolve_msas(jobs, cfg, root, env)
 
@@ -412,7 +418,8 @@ def main() -> None:
                                                            out_dir, root, env, cfg, log_path)
                     else:
                         proc, handle = run_single(predictor, chunk[0]["yaml"], out_dir,
-                                                  root, env, log_path)
+                                                  root, env, log_path,
+                                                  cfg.get("intellifold_model", "v2-flash"))
                     running.append((proc, handle, chunk, tag, out_dir))
 
                 time.sleep(1.0)
@@ -446,7 +453,10 @@ def main() -> None:
                "msa_cache": cfg["msa"]["cache_dir"]}
     (output / "run_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     info(json.dumps(summary))
-    print(f"PBSTAGE|done|100|{len(results) - failures} of {len(results)} folds succeeded", flush=True)
+    succeeded = len(results) - failures
+    print(f"PBSTAGE|done|100|{succeeded} of {len(results)} folds succeeded", flush=True)
+    if failures:
+        die(f"{failures} of {len(results)} folds failed. See predictions.csv and logs/ for details.")
     print("PBDONE|ok", flush=True)
 
 

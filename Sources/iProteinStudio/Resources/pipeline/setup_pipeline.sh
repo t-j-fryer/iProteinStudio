@@ -9,7 +9,7 @@
 #   Core     Boltz-2 · LigandMPNN family (+AbMPNN) · AntiFold · IntelliFold
 #   Optional --with-openfold3        OpenFold-3-MLX      (~2.1 GB checkpoint)
 #            --with-alphafold3       AlphaFold 3 3.0.4   (weights NOT downloaded)
-#            --with-intellifold-jax  IntelliFold JAX/MPS (1.24x, needs AF3 env)
+#            --with-intellifold-jax  IntelliFold JAX/MPS (v2-flash + full v2; needs AF3 env)
 #            --with-rfd3             RFdiffusion3 on MLX (~1.3 GB checkpoint)
 #
 # Reuse instead of reinstall:
@@ -36,6 +36,20 @@ ANTIFOLD_PYTHON_BIN="${ANTIFOLD_PYTHON_BIN:-python3.10}"
 INTELLIFOLD_PYTHON_BIN="${INTELLIFOLD_PYTHON_BIN:-python3.12}"
 LOCAL_BIN="${HOME}/.local/bin"
 UV_BIN="${LOCAL_BIN}/uv"
+
+# Source and package versions validated by the isolated-install acceptance run
+# recorded in Lab Book 0013.  A setup script that clones moving default branches
+# cannot recreate a run a month later, even when every output lives under the
+# managed root.
+BOLTZ_VERSION="2.2.1"
+BOLTZ_TORCH_VERSION="2.13.0"
+LIGANDMPNN_REV="26ec57ac976ade5379920dbd43c7f97a91cf82de"
+ANTIFOLD_REV="789d46786624c01eb44f177ef4c0deeeb6e77469"
+INTELLIFOLD_REV="4e420db7482b4f50dbb86800ff710ee4ec7c7b7b"
+LASERMPNN_REV="5df210fced6764d83f01425d1fc4319a22b70c2a"
+OPENFOLD_REV="eeac37eb82dc2b80cf043eb26105a16d2493d052"
+ALPHAFOLD3_REV="85c4d20505fd5cef05eac22b534d4e793971ae69" # v3.0.4
+RFD3_REV="47a42e8f40207e66b994d4863f9b1911f1bc36eb"
 
 # Every engine is opt-in. Only the sequence designers are unconditional.
 WITH_BOLTZ=0
@@ -86,29 +100,86 @@ ANTIFOLD_REPO="${SRC_DIR}/AntiFold"
 INTELLIFOLD_REPO="${SRC_DIR}/IntelliFold"
 OPENFOLD_REPO="${SRC_DIR}/openfold-3-mlx"
 ALPHAFOLD3_REPO="${SRC_DIR}/alphafold3"
+BOLTZ_MODEL_DIR="${NANOHUNTER_ROOT}/models/boltz2"
+NUMBA_CACHE_DIR="${NANOHUNTER_ROOT}/numba_cache"
 ALPHAFOLD3_MODEL_DIR="${NANOHUNTER_ROOT}/models/alphafold3"
-INTELLIFOLD_JAX_MODEL_DIR="${NANOHUNTER_ROOT}/models/intellifold_jax_flash"
+INTELLIFOLD_MODEL_DIR="${NANOHUNTER_ROOT}/models/intellifold"
+INTELLIFOLD_JAX_FLASH_MODEL_DIR="${NANOHUNTER_ROOT}/models/intellifold_jax_flash"
+INTELLIFOLD_JAX_V2_MODEL_DIR="${NANOHUNTER_ROOT}/models/intellifold_jax_v2"
+OPENFOLD_MODEL_DIR="${NANOHUNTER_ROOT}/models/openfold3"
+OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_MODEL_DIR}/of3_ft3_v1.pt"
 RFD3_ROOT="${NANOHUNTER_ROOT}/rfd3"
+RFD3_CHECKPOINT_PATH="${RFD3_ROOT}/checkpoints/rfd3_latest.ckpt"
+RFD3_WEIGHTS_PATH="${RFD3_ROOT}/weights/rfd3_core.safetensors"
 # Staged out of the app bundle next to this script; absent when the script is
 # run standalone, in which case the overlay step is simply skipped.
 STUDIO_RFD3_OVERLAY="${NANOHUNTER_ROOT}/rfd3_overlay"
+INTELLIFOLD_STUDIO_PATCH="${NANOHUNTER_ROOT}/patches/intellifold_nanohunter.patch"
 
 step()  { echo "NHSTEP|$1|$2|$3"; }
 state() { echo "NHSTATE|$1|$2|$3"; }
 fail()  { echo "NHFAIL|$1"; exit 1; }
 
+ensure_pinned_repo() {
+  local label="$1" url="$2" revision="$3" target="$4" actual
+  if [[ ! -e "${target}" ]]; then
+    mkdir -p "$(dirname "${target}")"
+    git init -q "${target}" || fail "${label} repository initialisation failed."
+    git -C "${target}" remote add origin "${url}" \
+      || fail "${label} remote configuration failed."
+    git -C "${target}" fetch -q --depth 1 origin "${revision}" \
+      || fail "${label} pinned revision download failed."
+    git -C "${target}" checkout -q --detach FETCH_HEAD \
+      || fail "${label} pinned revision checkout failed."
+  elif [[ ! -d "${target}/.git" ]]; then
+    fail "${target} exists but is not a ${label} Git checkout."
+  fi
+  actual="$(git -C "${target}" rev-parse HEAD 2>/dev/null)" \
+    || fail "Could not identify the installed ${label} revision."
+  [[ "${actual}" == "${revision}" ]] \
+    || fail "${label} is revision ${actual}, expected ${revision}. Move it aside and run setup again."
+}
+
+check_sha256() {
+  local file="$1" expected="$2" actual
+  [[ -f "${file}" ]] || return 1
+  actual="$(shasum -a 256 "${file}" | awk '{print $1}')" || return 1
+  [[ "${actual}" == "${expected}" ]]
+}
+
 # ---------------------------------------------------------------- detection --
 
 detect() {
-  [[ -x "${BOLTZ_VENV}/bin/python" ]]       && state boltz ok "$(basename "${BOLTZ_VENV}")"       || state boltz missing ""
+  if [[ -x "${BOLTZ_VENV}/bin/python" \
+     && -f "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt" \
+     && -f "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt" \
+     && -d "${BOLTZ_MODEL_DIR}/mols" ]]; then
+    state boltz ok "Boltz-2 environment with managed model and CCD data"
+  else
+    state boltz missing "environment, model weights, affinity weights, or CCD data absent"
+  fi
   [[ -x "${LIGAND_VENV}/bin/python" ]]      && state mpnn ok "LigandMPNN family"                  || state mpnn missing ""
   [[ -x "${ANTIFOLD_VENV}/bin/python" ]]    && state antifold ok "AntiFold"                       || state antifold missing ""
-  [[ -x "${INTELLIFOLD_VENV}/bin/python" ]] && state intellifold ok "IntelliFold PyTorch/MPS"     || state intellifold missing ""
-  [[ -x "${OPENFOLD_VENV}/bin/python" ]]    && state openfold3 ok "OpenFold-3-MLX"                || state openfold3 missing ""
+  if [[ -x "${INTELLIFOLD_VENV}/bin/python" \
+     && -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
+     && -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" \
+     && -f "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl" ]]; then
+    state intellifold ok "IntelliFold PyTorch/MPS with v2-flash and full-v2 weights"
+  else
+    state intellifold missing "environment, v2-flash/full-v2 weights, or CCD absent"
+  fi
+  if [[ -x "${OPENFOLD_VENV}/bin/python" && -f "${OPENFOLD_CHECKPOINT_PATH}" ]]; then
+    state openfold3 ok "OpenFold-3-MLX with checkpoint"
+  else
+    state openfold3 missing "environment or checkpoint absent"
+  fi
   # LASErMPNN is ligand-aware inverse folding, used by both design tabs for
   # small-molecule targets. It has no MPS build, so it runs on CPU.
   if [[ -x "${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_lasermpnn/bin/python" \
-     && -d "${NANOHUNTER_ROOT}/src/LASErMPNN" ]]; then
+     && -f "${NANOHUNTER_ROOT}/src/LASErMPNN/model_weights/laser_weights_0p1A_nothing_heldout.pt" ]] \
+     && (cd "${SRC_DIR}" && "${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_lasermpnn/bin/python" -c \
+       "import LASErMPNN.run_batch_inference; from torch_cluster import knn_graph; from torch_scatter import scatter" \
+       >/dev/null 2>&1); then
     state lasermpnn ok "LASErMPNN"
   else
     state lasermpnn missing ""
@@ -122,11 +193,21 @@ detect() {
   else
     state alphafold3 missing ""
   fi
-  [[ -d "${INTELLIFOLD_JAX_MODEL_DIR}" ]] && state intellifold_jax ok "JAX/MPS v2-flash" || state intellifold_jax missing ""
+  [[ -f "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash.bin.zst" \
+     && -f "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash_fourier.npz" \
+     && -f "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2.bin.zst" \
+     && -f "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2_fourier.npz" ]] \
+    && state intellifold_jax ok "JAX/MPS v2-flash and full v2" \
+    || state intellifold_jax missing "v2-flash conversion or full-v2 weights absent"
   if [[ -x "${RFD3_ROOT}/.venv/bin/python" ]]; then
-    [[ -f "${RFD3_ROOT}/weights/rfd3_core.safetensors" ]] \
-      && state rfd3 ok "RFdiffusion3 MLX with exported weights" \
-      || state rfd3 missing "environment installed, MLX weights absent"
+    # Installation and `install_rfd3.sh --check` verify both multi-GB hashes.
+    # Do not re-read them on every app launch merely to populate the Engines
+    # sheet; that makes detection take many seconds on an otherwise ready app.
+    if [[ -f "${RFD3_CHECKPOINT_PATH}" && -f "${RFD3_WEIGHTS_PATH}" ]]; then
+      state rfd3 ok "RFdiffusion3 MLX with checkpoint and exported weights"
+    else
+      state rfd3 missing "checkpoint or exported MLX weight checksum mismatch"
+    fi
   else
     state rfd3 missing ""
   fi
@@ -214,7 +295,8 @@ if [[ -n "${LINK_EXISTING}" ]]; then
     "venvs/${VENV_PREFIX}_lasermpnn" \
     "src/LigandMPNN" "src/AntiFold" "src/IntelliFold" \
     "src/openfold-3-mlx" "src/alphafold3" "src/LASErMPNN" \
-    "models/alphafold3" "models/intellifold_jax_flash"
+    "models/alphafold3" "models/boltz2" "models/intellifold" \
+    "models/intellifold_jax_flash" "models/intellifold_jax_v2" "models/openfold3"
   do
     link_component "${rel}" || echo "  absent    ${rel} (not in ${LINK_EXISTING})"
   done
@@ -252,7 +334,11 @@ relocate_venv() {
       *) [[ "$(head -c 2 "${script}" 2>/dev/null)" == "#!" ]] || continue ;;
     esac
     local found
-    found="$(LC_ALL=C grep -o "/[^\"']*/venvs/${name}" "${script}" 2>/dev/null | head -n 1 || true)"
+    # Derive the environment root from its interpreter path. This works for
+    # both the main <root>/venvs/<name> layout and RFdiffusion3's
+    # <root>/rfd3/.venv layout.
+    found="$(LC_ALL=C grep -Eo "/[^\"']*/bin/python[0-9.]*" "${script}" 2>/dev/null \
+      | head -n 1 | sed -E 's|/bin/python[0-9.]*$||' || true)"
     if [[ -n "${found}" && "${found}" != "${venv}" ]]; then old_root="${found}"; break; fi
   done
   [[ -n "${old_root}" ]] || return 0
@@ -301,10 +387,14 @@ import os, re, sys
 venv, old_root, new_root = sys.argv[1], sys.argv[2], sys.argv[3]
 targets = []
 for base, _dirs, files in os.walk(venv):
-    if os.path.basename(base) != "site-packages":
+    parts = base.split(os.sep)
+    if "site-packages" not in parts:
         continue
     for name in files:
-        if name.endswith((".pth", ".egg-link")) or name.startswith("__editable__"):
+        at_site_root = os.path.basename(base) == "site-packages"
+        if (at_site_root and (name.endswith((".pth", ".egg-link"))
+                              or name.startswith("__editable__"))) \
+                or name == "direct_url.json":
             targets.append(os.path.join(base, name))
 
 if not old_root:
@@ -314,7 +404,10 @@ if not old_root:
             text = open(path, errors="replace").read()
         except OSError:
             continue
-        match = probe.search(text)
+        # direct_url.json stores editable sources as file:///absolute/path;
+        # strip the URI prefix before extracting the filesystem root so the
+        # captured value is /Users/... rather than ///Users/....
+        match = probe.search(text.replace("file://", ""))
         if match and match.group(1) != new_root:
             old_root = match.group(1)
             break
@@ -378,7 +471,7 @@ materialise_component() {
 
 if [[ "${REPAIR_VENVS}" -eq 1 ]]; then
   step repair 10 "Re-pointing environments after a move"
-  for venv in "${NANOHUNTER_ROOT}"/venvs/*/; do
+  for venv in "${NANOHUNTER_ROOT}"/venvs/*/ "${NANOHUNTER_ROOT}"/rfd3/.venv/; do
     [[ -d "${venv}" ]] || continue
     relocate_venv "${venv}"
     relocate_editables "${venv}" "${REPAIR_EDITABLE_SOURCE:-}" "${NANOHUNTER_ROOT}"
@@ -409,7 +502,8 @@ if [[ "${MATERIALISE}" -eq 1 ]]; then
     "venvs/${VENV_PREFIX}_lasermpnn" \
     "src/LigandMPNN" "src/AntiFold" "src/IntelliFold" \
     "src/openfold-3-mlx" "src/alphafold3" "src/LASErMPNN" \
-    "models/alphafold3" "models/intellifold_jax_flash" \
+    "models/alphafold3" "models/boltz2" "models/intellifold" \
+    "models/intellifold_jax_flash" "models/intellifold_jax_v2" "models/openfold3" \
     "rfd3" "venvs" "src" "models"
   do
     materialise_component "${rel}" || failed=1
@@ -419,7 +513,7 @@ if [[ "${MATERIALISE}" -eq 1 ]]; then
   # copy would silently keep using the original environment, which defeats the
   # point of making this installation self-contained -- and would break the
   # moment the original was deleted.
-  for venv in "${NANOHUNTER_ROOT}"/venvs/*/; do
+  for venv in "${NANOHUNTER_ROOT}"/venvs/*/ "${NANOHUNTER_ROOT}"/rfd3/.venv/; do
     [[ -d "${venv}" ]] || continue
     relocate_venv "${venv}"
     [[ -n "${MATERIALISE_SOURCE}" ]] && relocate_editables "${venv}" "${MATERIALISE_SOURCE}" "${NANOHUNTER_ROOT}"
@@ -458,7 +552,7 @@ case "${NANOHUNTER_ROOT}" in
   *" "*) fail "The install path contains a space (${NANOHUNTER_ROOT}). Python console scripts cannot run from such a path. Use a path without spaces, e.g. ~/.iproteinstudio." ;;
 esac
 
-mkdir -p "${NANOHUNTER_ROOT}"/{venvs,src,examples,models,output}
+mkdir -p "${NANOHUNTER_ROOT}"/{venvs,src,examples,models,output,numba_cache}
 
 step python 2 "Preparing Python environments"
 command -v git >/dev/null 2>&1 || fail "git not found. Install Xcode Command Line Tools: xcode-select --install"
@@ -472,9 +566,93 @@ step boltz 8 "Installing Boltz-2"
 [[ -d "${BOLTZ_VENV}" ]] || "${PYTHON_BIN}" -m venv "${BOLTZ_VENV}" || fail "Boltz venv creation failed."
 source "${BOLTZ_VENV}/bin/activate"
 pip install --upgrade pip >/dev/null || fail "pip upgrade failed (Boltz)."
-pip install torch >/dev/null || fail "torch install failed (Boltz)."
-pip install boltz >/dev/null || fail "boltz install failed."
+pip install "torch==${BOLTZ_TORCH_VERSION}" >/dev/null || fail "torch install failed (Boltz)."
+pip install "boltz==${BOLTZ_VERSION}" >/dev/null || fail "boltz install failed."
 deactivate
+mkdir -p "${BOLTZ_MODEL_DIR}"
+"${BOLTZ_VENV}/bin/python" - "${BOLTZ_MODEL_DIR}" <<'PY' \
+  || fail "Boltz-2 model or CCD download failed."
+import hashlib
+import os
+import shutil
+import sys
+import tarfile
+import urllib.request
+from pathlib import Path
+
+root = Path(sys.argv[1])
+root.mkdir(parents=True, exist_ok=True)
+artifacts = {
+    "boltz2_conf.ckpt": (
+        "https://model-gateway.boltz.bio/boltz2_conf.ckpt",
+        "090e82ac8c92f5e943fa1b39e7410a44027bea7243c0bbb3caa67a77fc1428e1",
+    ),
+    "boltz2_aff.ckpt": (
+        "https://model-gateway.boltz.bio/boltz2_aff.ckpt",
+        "dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e",
+    ),
+}
+
+def digest(path):
+    value = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(8 << 20), b""):
+            value.update(block)
+    return value.hexdigest()
+
+for name, (url, expected) in artifacts.items():
+    target = root / name
+    if target.is_file() and digest(target) == expected:
+        print(f"  have {name}")
+        continue
+    partial = target.with_suffix(target.suffix + ".part")
+    partial.unlink(missing_ok=True)
+    print(f"  downloading {name}")
+    urllib.request.urlretrieve(url, partial)
+    if digest(partial) != expected:
+        partial.unlink(missing_ok=True)
+        raise RuntimeError(f"Boltz-2 checksum mismatch: {name}")
+    os.replace(partial, target)
+
+# Extract only after the archive has passed its checksum. Refuse path traversal
+# rather than trusting a remote tarball with the managed installation root.
+mols = root / "mols"
+if not mols.is_dir():
+    archive_path = root / "mols.tar"
+    archive_sha = "39e076d96dbec6b4e86982bbda16f3a53a2a60c9bdc17828d88f6f9a0c7d1fd7"
+    if not archive_path.is_file() or digest(archive_path) != archive_sha:
+        partial = root / "mols.tar.part"
+        partial.unlink(missing_ok=True)
+        print("  downloading mols.tar")
+        urllib.request.urlretrieve(
+            "https://huggingface.co/boltz-community/boltz-2/resolve/main/mols.tar",
+            partial,
+        )
+        if digest(partial) != archive_sha:
+            partial.unlink(missing_ok=True)
+            raise RuntimeError("Boltz-2 checksum mismatch: mols.tar")
+        os.replace(partial, archive_path)
+    stage = root / ".mols-extract"
+    shutil.rmtree(stage, ignore_errors=True)
+    stage.mkdir()
+    with tarfile.open(archive_path) as archive:
+        for member in archive.getmembers():
+            resolved = (stage / member.name).resolve()
+            if stage.resolve() not in resolved.parents and resolved != stage.resolve():
+                raise RuntimeError(f"unsafe path in Boltz CCD archive: {member.name}")
+        archive.extractall(stage)
+    extracted = stage / "mols"
+    if not extracted.is_dir():
+        raise RuntimeError("Boltz CCD archive contained no mols directory")
+    os.replace(extracted, mols)
+    shutil.rmtree(stage, ignore_errors=True)
+    archive_path.unlink()
+else:
+    # Older setup builds retained this 1.7 GB archive after extraction. It is a
+    # reproducible download, not a runtime input, so do not charge every user
+    # twice for the same CCD data.
+    (root / "mols.tar").unlink(missing_ok=True)
+PY
 state boltz ok "Boltz-2"
 else
   state boltz skipped "not requested"
@@ -486,9 +664,8 @@ step ligandmpnn 22 "Installing sequence designers (ProteinMPNN / SolubleMPNN / L
 source "${LIGAND_VENV}/bin/activate"
 pip install --upgrade pip >/dev/null || fail "pip upgrade failed (LigandMPNN)."
 pip install torch==2.2.1 >/dev/null || fail "torch install failed (LigandMPNN)."
-if [[ ! -d "${LIGANDMPNN_REPO}" ]]; then
-  git clone --depth 1 https://github.com/dauparas/LigandMPNN.git "${LIGANDMPNN_REPO}" || fail "LigandMPNN clone failed."
-fi
+ensure_pinned_repo "LigandMPNN" "https://github.com/dauparas/LigandMPNN.git" \
+  "${LIGANDMPNN_REV}" "${LIGANDMPNN_REPO}"
 REQ_OUT="${LIGANDMPNN_REPO}/requirements.macos_nocuda.txt"
 grep -Ev 'cuda|cublas|cudnn|nccl|nvidia|triton' "${LIGANDMPNN_REPO}/requirements.txt" > "${REQ_OUT}"
 pip install -r "${REQ_OUT}" >/dev/null || fail "LigandMPNN requirements install failed."
@@ -497,20 +674,27 @@ step weights 32 "Downloading designer weights"
 python - "${MODEL_DIR}" <<'PY' || exit 1
 import sys, urllib.request, pathlib
 out = pathlib.Path(sys.argv[1])
-urls = {
-  "proteinmpnn_v_48_020.pt": "https://files.ipd.uw.edu/pub/ligandmpnn/proteinmpnn_v_48_020.pt",
-  "solublempnn_v_48_020.pt": "https://files.ipd.uw.edu/pub/ligandmpnn/solublempnn_v_48_020.pt",
-  "ligandmpnn_v_32_010_25.pt": "https://files.ipd.uw.edu/pub/ligandmpnn/ligandmpnn_v_32_010_25.pt",
-  "abmpnn.pt": "https://zenodo.org/records/8164693/files/abmpnn.pt?download=1",
+import hashlib
+artifacts = {
+  "proteinmpnn_v_48_020.pt": ("https://files.ipd.uw.edu/pub/ligandmpnn/proteinmpnn_v_48_020.pt", "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd"),
+  "solublempnn_v_48_020.pt": ("https://files.ipd.uw.edu/pub/ligandmpnn/solublempnn_v_48_020.pt", "7af52d090172c230c7f0e9d21e02203f6b3a38b16db58d3c7a3960e0a9a6e31a"),
+  "ligandmpnn_v_32_010_25.pt": ("https://files.ipd.uw.edu/pub/ligandmpnn/ligandmpnn_v_32_010_25.pt", "161cd264061fda9680cbb940255522ae42f2966c552d045d87913d9452a80970"),
+  "abmpnn.pt": ("https://zenodo.org/records/8164693/files/abmpnn.pt?download=1", "fd41b40ee0f51974d73e1acb754cd8acaa36b3327543d5d28bcf4aa4e07b4a1b"),
 }
-for name, url in urls.items():
+def valid(path, expected):
+    return path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == expected
+for name, (url, expected) in artifacts.items():
     p = out / name
-    if p.exists() and p.stat().st_size > 0:
+    if valid(p, expected):
         print(f"  have {name}"); continue
     print(f"  downloading {name}")
-    urllib.request.urlretrieve(url, p)
-    if p.stat().st_size == 0:
-        print(f"NHFAIL|empty download {name}"); sys.exit(1)
+    partial = p.with_suffix(p.suffix + ".part")
+    partial.unlink(missing_ok=True)
+    urllib.request.urlretrieve(url, partial)
+    if not valid(partial, expected):
+        partial.unlink(missing_ok=True)
+        print(f"NHFAIL|checksum mismatch for {name}"); sys.exit(1)
+    partial.replace(p)
 PY
 deactivate
 state mpnn ok "ProteinMPNN / SolubleMPNN / LigandMPNN / AbMPNN"
@@ -518,7 +702,8 @@ state mpnn ok "ProteinMPNN / SolubleMPNN / LigandMPNN / AbMPNN"
 # ---- AntiFold ----
 if [[ "${WITH_ANTIFOLD}" -eq 1 ]]; then
 step antifold 45 "Installing AntiFold (antibody-aware designer)"
-[[ -d "${ANTIFOLD_REPO}" ]] || git clone --depth 1 https://github.com/oxpig/AntiFold.git "${ANTIFOLD_REPO}" || fail "AntiFold clone failed."
+ensure_pinned_repo "AntiFold" "https://github.com/oxpig/AntiFold.git" \
+  "${ANTIFOLD_REV}" "${ANTIFOLD_REPO}"
 [[ -d "${ANTIFOLD_VENV}" ]] || "${ANTIFOLD_PYTHON_BIN}" -m venv "${ANTIFOLD_VENV}" || fail "AntiFold venv creation failed."
 source "${ANTIFOLD_VENV}/bin/activate"
 pip install --upgrade pip >/dev/null || fail "pip upgrade failed (AntiFold)."
@@ -528,11 +713,26 @@ pip install torch_geometric==2.4.0 biopython==1.83 biotite==0.38 "pygam==0.9.*" 
 pip install -e "${ANTIFOLD_REPO}" --no-deps >/dev/null || fail "AntiFold install failed."
 ANTIFOLD_MODEL_PATH="${ANTIFOLD_REPO}/models/model.pt"
 python - "${ANTIFOLD_MODEL_PATH}" <<'PY' || exit 1
-import pathlib, sys, urllib.request
+import hashlib, pathlib, sys, urllib.request
 t = pathlib.Path(sys.argv[1]); t.parent.mkdir(parents=True, exist_ok=True)
-if t.exists() and t.stat().st_size > 0: print("  have antifold weights"); sys.exit(0)
+expected = "d5c442fa0372c28f4d0026d2f551b6f8ba7e7a127cb6837813a88093ed233e9e"
+def valid(path):
+    if not path.is_file():
+        return False
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(8 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest() == expected
+if valid(t): print("  have antifold weights"); sys.exit(0)
 print("  downloading antifold weights")
-urllib.request.urlretrieve("https://opig.stats.ox.ac.uk/data/downloads/AntiFold/models/model.pt", t)
+partial = t.with_suffix(t.suffix + ".part")
+partial.unlink(missing_ok=True)
+urllib.request.urlretrieve("https://opig.stats.ox.ac.uk/data/downloads/AntiFold/models/model.pt", partial)
+if not valid(partial):
+    partial.unlink(missing_ok=True)
+    raise RuntimeError("AntiFold weight checksum mismatch")
+partial.replace(t)
 PY
 deactivate
 state antifold ok "AntiFold"
@@ -543,7 +743,18 @@ fi
 # ---- IntelliFold (PyTorch) ----
 if [[ "${WITH_INTELLIFOLD}" -eq 1 || "${WITH_INTELLIFOLD_JAX}" -eq 1 ]]; then
 step intellifold 60 "Installing IntelliFold prediction engine"
-[[ -d "${INTELLIFOLD_REPO}" ]] || git clone --depth 1 https://github.com/IntelliGen-AI/IntelliFold.git "${INTELLIFOLD_REPO}" || fail "IntelliFold clone failed."
+ensure_pinned_repo "IntelliFold" "https://github.com/IntelliGen-AI/IntelliFold.git" \
+  "${INTELLIFOLD_REV}" "${INTELLIFOLD_REPO}"
+[[ -f "${INTELLIFOLD_STUDIO_PATCH}" ]] \
+  || fail "Bundled IntelliFold JAX/v2-flash patch is missing: ${INTELLIFOLD_STUDIO_PATCH}"
+if git -C "${INTELLIFOLD_REPO}" apply --check "${INTELLIFOLD_STUDIO_PATCH}" >/dev/null 2>&1; then
+  git -C "${INTELLIFOLD_REPO}" apply "${INTELLIFOLD_STUDIO_PATCH}" \
+    || fail "Could not apply the validated IntelliFold JAX/v2-flash patch."
+elif git -C "${INTELLIFOLD_REPO}" apply --reverse --check "${INTELLIFOLD_STUDIO_PATCH}" >/dev/null 2>&1; then
+  echo "  IntelliFold JAX/v2-flash patch already applied"
+else
+  fail "IntelliFold source does not match the validated JAX/v2-flash patch base."
+fi
 [[ -d "${INTELLIFOLD_VENV}" ]] || "${INTELLIFOLD_PYTHON_BIN}" -m venv "${INTELLIFOLD_VENV}" || fail "IntelliFold venv creation failed."
 source "${INTELLIFOLD_VENV}/bin/activate"
 pip install --upgrade pip >/dev/null || fail "pip upgrade failed (IntelliFold)."
@@ -555,15 +766,70 @@ pip install accelerate==1.1.1 biopython==1.85 click==8.1.8 einops==0.8.0 einx==0
   tqdm==4.67.1 fsspec==2025.3.0 zstandard==0.23.0 ml_dtypes==0.5.3 >/dev/null \
   || fail "IntelliFold dependency install failed."
 deactivate
-# Idempotent Apple-Silicon patch: skip CUDA-only empty_cache()/pinned-memory
-# paths when the device is not CUDA. Verified to leave structures and all
-# confidence metrics byte-identical (NanoHunter docs/MPS_OPTIMIZATION.md).
-if [[ -f "${NANOHUNTER_ROOT}/scripts/patch_intellifold_mps.py" ]]; then
-  "${INTELLIFOLD_VENV}/bin/python" "${NANOHUNTER_ROOT}/scripts/patch_intellifold_mps.py" \
-    --repo "${INTELLIFOLD_REPO}" >/dev/null 2>&1 \
-    || echo "  note: IntelliFold MPS patch not applied (non-fatal)"
-fi
-state intellifold ok "IntelliFold v2-flash (PyTorch/MPS)"
+# The unified, revision-checked patch above also carries the validated
+# Apple-Silicon PyTorch changes. Keeping it atomic prevents a half-patched
+# predictor from being reported as installed.
+# Upstream defaults to ~/.intellifold. That makes an apparently fresh install
+# pass on a developer machine while a new user's first prediction still needs
+# to fetch its model. Keep every required artifact under the managed root and
+# download it as part of installing the engine.
+mkdir -p "${INTELLIFOLD_MODEL_DIR}"
+INTELLIFOLD_CACHE="${INTELLIFOLD_MODEL_DIR}" PYTHONPATH="${INTELLIFOLD_REPO}" \
+  "${INTELLIFOLD_VENV}/bin/python" - "${INTELLIFOLD_MODEL_DIR}" <<'PY' \
+  || fail "IntelliFold v2-flash model download failed."
+import hashlib
+import sys
+import os
+import shutil
+from pathlib import Path
+from intellifold.data.inference.utils import download
+
+target = Path(sys.argv[1])
+required = {
+    "intellifold_v2_flash.pt": "ac405f91c59a1b135dab0fbddd103d032bcb1ea1cb59f162348c0b90d4ab4fa5",
+    "intellifold_v2.pt": "8ee1c03344a94c8d3408f9579b3869f791701b7945e23255331d44fb7cc41aaa",
+    "ccd_v2.pkl": "8766edb6a88e01461a123e8a4e2d5e33846821b808444737cd82e441998801f8",
+    "unique_protein_sequences.fasta": "bcba48b77ee37b2eca0af50d05e71f7d68d36135b4884c47795d4d7ba47ac73f",
+    "unique_nucleic_acid_sequences.fasta": "67c703969c2d3f28ff39eb0e20c28541bce45b44514f5a6cbccc8070d08e3ddf",
+    "protein_id_groups.json": "b5a46c434278f5ea1aedd8a84ac2c7664acc08817c244c7d13396d4459632eaa",
+    "nucleic_acid_id_groups.json": "0aa0da461f7a36eed6921b1b3f7ea59f50d806fb0c12f94073a3d3b052491d12",
+}
+def valid(path, expected):
+    if not path.is_file():
+        return False
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(8 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest() == expected
+if all(valid(target / name, expected) for name, expected in required.items()):
+    raise SystemExit(0)
+
+# IntelliFold's downloader writes directly to its destination and treats any
+# existing file as complete. Download into a disposable sibling first, verify
+# every artifact, then atomically replace the managed copies. An interrupted
+# run can therefore be resumed instead of preserving a plausible partial file.
+stage = target.parent / ".intellifold-download"
+shutil.rmtree(stage, ignore_errors=True)
+stage.mkdir(parents=True)
+try:
+    download(stage, "v2-flash", use_template=False)
+    download(stage, "v2", use_template=False)
+    for name, expected in required.items():
+        source = stage / name
+        if not valid(source, expected):
+            raise RuntimeError(f"IntelliFold artifact checksum mismatch: {name}")
+    target.mkdir(parents=True, exist_ok=True)
+    for name in required:
+        os.replace(stage / name, target / name)
+finally:
+    shutil.rmtree(stage, ignore_errors=True)
+PY
+[[ -s "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
+   && -s "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" \
+   && -s "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl" ]] \
+  || fail "IntelliFold install finished without v2-flash/full-v2 weights or CCD data."
+state intellifold ok "IntelliFold v2-flash and full v2 (PyTorch/MPS)"
 else
   state intellifold skipped "not requested"
 fi
@@ -573,21 +839,37 @@ if [[ "${WITH_LASERMPNN}" -eq 1 ]]; then
   step lasermpnn 66 "Installing LASErMPNN (ligand-aware sequence design)"
   LASERMPNN_REPO="${SRC_DIR}/LASErMPNN"
   LASERMPNN_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_lasermpnn"
-  [[ -d "${LASERMPNN_REPO}" ]] || git clone --depth 1 https://github.com/polizzilab/LASErMPNN.git "${LASERMPNN_REPO}" \
-    || fail "LASErMPNN clone failed."
+  ensure_pinned_repo "LASErMPNN" "https://github.com/polizzilab/LASErMPNN.git" \
+    "${LASERMPNN_REV}" "${LASERMPNN_REPO}"
   [[ -d "${LASERMPNN_VENV}" ]] || "${PYTHON_BIN}" -m venv "${LASERMPNN_VENV}" || fail "LASErMPNN venv creation failed."
   source "${LASERMPNN_VENV}/bin/activate"
   pip install --upgrade pip >/dev/null || fail "pip upgrade failed (LASErMPNN)."
   # torch-scatter/torch-cluster have no MPS kernels, so this runs on CPU. It is
   # seconds per design, so CPU is not the bottleneck.
-  pip install torch >/dev/null || fail "torch install failed (LASErMPNN)."
-  pip install torch-scatter torch-cluster >/dev/null 2>&1 || \
-    echo "  note: torch-scatter/torch-cluster build failed; LASErMPNN may be unavailable"
-  pip install -e "${LASERMPNN_REPO}" >/dev/null 2>&1 || \
-    pip install numpy scipy biopython >/dev/null 2>&1 || true
+  # This is the validated Apple-Silicon environment from NanoHunter. PyTorch
+  # 2.2.x uses the NumPy 1.x ABI; the PyG extensions must be compiled against
+  # that exact installed torch rather than in pip's isolated build env.
+  pip install "torch==2.2.1" "numpy==1.26.4" >/dev/null \
+    || fail "torch/numpy install failed (LASErMPNN)."
+  pip install "setuptools==79.0.1" "wheel==0.48.0" "ninja==1.13.0" >/dev/null \
+    || fail "build tools install failed (LASErMPNN)."
+  # The macOS 26 libc++ headers mark std::is_arithmetic as unspecialisable;
+  # PyTorch 2.2.1's strong_type.h predates that annotation. Clang exposes this
+  # exact compatibility diagnostic as -Winvalid-specialization. Suppressing it
+  # restores the previously validated build without hiding other C++ errors.
+  MACOSX_DEPLOYMENT_TARGET=11.0 CXXFLAGS="-Wno-invalid-specialization" \
+    pip install --no-build-isolation \
+    "torch-scatter==2.1.2" "torch-cluster==1.6.3" >/dev/null \
+    || fail "torch-scatter/torch-cluster build failed (LASErMPNN)."
+  pip install "prody==2.6.1" "rdkit==2026.3.5" "pydssp==0.9.1" "h5py==3.16.0" \
+    "logomaker==0.8.7" "matplotlib==3.11.1" "scipy==1.17.1" "pandas==3.0.5" \
+    "scikit-learn==1.9.0" "tqdm==4.70.0" >/dev/null \
+    || fail "runtime dependency install failed (LASErMPNN)."
+  (cd "${SRC_DIR}" && python -c \
+    "import LASErMPNN.run_batch_inference; from torch_cluster import knn_graph; from torch_scatter import scatter") \
+    >/dev/null 2>&1 || fail "LASErMPNN import check failed."
   deactivate
-  [[ -x "${LASERMPNN_VENV}/bin/python" && -d "${LASERMPNN_REPO}" ]] \
-    && state lasermpnn ok "LASErMPNN (CPU)" || state lasermpnn missing "install incomplete"
+  state lasermpnn ok "LASErMPNN (CPU)"
 else
   state lasermpnn skipped "not requested"
 fi
@@ -595,17 +877,17 @@ fi
 # ---- OpenFold-3-MLX (optional predictor) ----
 if [[ "${WITH_OPENFOLD3}" -eq 1 ]]; then
   step openfold3 72 "Installing OpenFold-3 (MLX kernels) — downloading ~2 GB checkpoint"
-  if [[ ! -d "${OPENFOLD_REPO}" ]]; then
-    git clone https://github.com/latent-spacecraft/openfold-3-mlx.git "${OPENFOLD_REPO}" || fail "openfold-3-mlx clone failed."
-  fi
+  ensure_pinned_repo "openfold-3-mlx" "https://github.com/latent-spacecraft/openfold-3-mlx.git" \
+    "${OPENFOLD_REV}" "${OPENFOLD_REPO}"
   [[ -d "${OPENFOLD_VENV}" ]] || "${PYTHON_BIN}" -m venv "${OPENFOLD_VENV}" || fail "OpenFold venv creation failed."
   source "${OPENFOLD_VENV}/bin/activate"
   pip install --upgrade pip >/dev/null || fail "pip upgrade failed (OpenFold)."
   pip install torch==2.6.0 >/dev/null || fail "torch install failed (OpenFold)."
   pip install -e "${OPENFOLD_REPO}" >/dev/null || fail "openfold-3-mlx install failed."
-  OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_CACHE:-$HOME/.openfold3}/of3_ft3_v1.pt"
+  mkdir -p "${OPENFOLD_MODEL_DIR}"
   python - "${OPENFOLD_CHECKPOINT_PATH}" <<'PY' || fail "OpenFold checkpoint download failed."
 import pathlib, sys
+import hashlib
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
@@ -615,15 +897,24 @@ target.parent.mkdir(parents=True, exist_ok=True)
 bucket, key = "openfold", "openfold3_params/of3_ft3_v1.pt"
 s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 remote_size = int(s3.head_object(Bucket=bucket, Key=key)["ContentLength"])
-if target.exists() and target.stat().st_size == remote_size:
+expected = "aedd8f3eb814e3926c8974ef34c9499df224443f173b7e396c97684da6e3eeb6"
+def valid(path):
+    if not path.is_file() or path.stat().st_size != remote_size:
+        return False
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(8 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest() == expected
+if valid(target):
     print(f"  have OpenFold checkpoint: {target}"); raise SystemExit(0)
 tmp = target.with_suffix(target.suffix + ".part")
 tmp.unlink(missing_ok=True)
 print(f"  downloading OpenFold checkpoint ({remote_size / (1024**3):.2f} GB)")
 s3.download_file(bucket, key, str(tmp))
-if tmp.stat().st_size != remote_size:
+if not valid(tmp):
     tmp.unlink(missing_ok=True)
-    raise RuntimeError("OpenFold checkpoint download incomplete")
+    raise RuntimeError("OpenFold checkpoint download incomplete or checksum mismatch")
 tmp.replace(target)
 print(f"  OpenFold checkpoint ready: {target}")
 PY
@@ -637,16 +928,16 @@ fi
 if [[ "${WITH_ALPHAFOLD3}" -eq 1 ]]; then
   step alphafold3 84 "Installing AlphaFold 3 (compiles C++ dependencies — this is slow)"
   ensure_uv
-  if [[ ! -d "${ALPHAFOLD3_REPO}" ]]; then
-    git clone --branch v3.0.4 https://github.com/google-deepmind/alphafold3.git "${ALPHAFOLD3_REPO}" \
-      || fail "AlphaFold 3 clone failed."
-  fi
+  ensure_pinned_repo "AlphaFold 3" "https://github.com/google-deepmind/alphafold3.git" \
+    "${ALPHAFOLD3_REV}" "${ALPHAFOLD3_REPO}"
   [[ -d "${ALPHAFOLD3_VENV}" ]] || "${UV_BIN}" venv "${ALPHAFOLD3_VENV}" --python 3.12 \
     || fail "AlphaFold 3 venv creation failed."
   # Cap compile parallelism so a design run in progress keeps its CPU and RAM.
-  CMAKE_BUILD_PARALLEL_LEVEL=2 MAKEFLAGS=-j2 \
-    "${UV_BIN}" pip install --python "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_REPO}" >/dev/null \
-    || fail "AlphaFold 3 install failed."
+  if ! "${ALPHAFOLD3_VENV}/bin/python" -c "import alphafold3" >/dev/null 2>&1; then
+    CMAKE_BUILD_PARALLEL_LEVEL=2 MAKEFLAGS=-j2 \
+      "${UV_BIN}" pip install --python "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_REPO}" >/dev/null \
+      || fail "AlphaFold 3 install failed."
+  fi
   # The JAX IntelliFold runner reuses AF3's inference engine, so its wrapper
   # lives in this environment while PyTorch IntelliFold stays separate.
   "${UV_BIN}" pip install --python "${ALPHAFOLD3_VENV}/bin/python" \
@@ -668,19 +959,58 @@ fi
 
 # ---- IntelliFold JAX/MPS backend (optional speed path) ----
 if [[ "${WITH_INTELLIFOLD_JAX}" -eq 1 ]]; then
-  step intellifold_jax 92 "Converting IntelliFold v2-flash to the JAX/MPS backend"
-  FLASH_PT="${HOME}/.intellifold/intellifold_v2_flash.pt"
-  if [[ ! -f "${FLASH_PT}" ]]; then
-    state intellifold_jax missing "PyTorch v2-flash checkpoint absent — run one IntelliFold prediction first"
-  else
-    mkdir -p "${INTELLIFOLD_JAX_MODEL_DIR}"
-    PYTHONPATH="${INTELLIFOLD_REPO}" "${INTELLIFOLD_VENV}/bin/python" -m intellifold.convert_flash \
-      --schema "${INTELLIFOLD_REPO}/intellifold/af3_schema.pkl" \
-      --flash-pt "${FLASH_PT}" \
-      --out-dir "${INTELLIFOLD_JAX_MODEL_DIR}" >/dev/null 2>&1 \
-      && state intellifold_jax ok "JAX/MPS v2-flash" \
-      || state intellifold_jax missing "conversion failed — PyTorch backend remains available"
+  step intellifold_jax 92 "Installing IntelliFold v2-flash and full v2 for JAX/MPS"
+  # Full v2 is the upstream JAX release. Keep it separate from NanoHunter's
+  # validated v2-flash conversion: they are different architectures and the UI
+  # must never select one while silently loading the other.
+  mkdir -p "${INTELLIFOLD_JAX_V2_MODEL_DIR}" "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}"
+  # Migrate the short-lived Studio layout that put upstream full-v2 files in a
+  # directory named "flash". Exact filenames make this unambiguous.
+  if [[ -f "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2.bin.zst" ]]; then
+    mv "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2.bin.zst" \
+       "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2.bin.zst"
   fi
+  if [[ -f "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_fourier.npz" ]]; then
+    mv "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_fourier.npz" \
+       "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2_fourier.npz"
+  fi
+  PYTHONPATH="${INTELLIFOLD_REPO}" "${ALPHAFOLD3_VENV}/bin/python" - \
+    "${INTELLIFOLD_JAX_V2_MODEL_DIR}" <<'PY' \
+    || fail "IntelliFold JAX weight download failed."
+import contextlib
+import os
+import sys
+from intellifold.weights import ensure_weights
+with open(os.devnull, "w") as sink, contextlib.redirect_stderr(sink):
+    ensure_weights(sys.argv[1], log=lambda _message: None)
+PY
+  [[ -s "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2.bin.zst" \
+     && -s "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2_fourier.npz" ]] \
+    || fail "IntelliFold JAX download produced incomplete weights."
+  check_sha256 "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2.bin.zst" \
+    "16ae6c2002989a3eb3fae60714f2802fc336f6b1fdfb1a90a74a91745cdcdef2" \
+    || fail "IntelliFold JAX v2 weight checksum mismatch."
+  check_sha256 "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2_fourier.npz" \
+    "4453bf29ac0a0f921a67a15155d0dd61e3f7214ec124d6deb91ce935d6a93201" \
+    || fail "IntelliFold JAX Fourier weight checksum mismatch."
+  if ! check_sha256 "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash.bin.zst" \
+         "3ad0c524213d73a65fba2af8ec55a68c5691f82b71e903b93cf5ceaa200e6e1a" \
+     || ! check_sha256 "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash_fourier.npz" \
+         "78e46890f7ef7f8a27ab37aa7535c11661ce7c28d962088095683e9113a4241f"; then
+    PYTHONPATH="${INTELLIFOLD_REPO}" "${INTELLIFOLD_VENV}/bin/python" \
+      -m intellifold.convert_flash \
+      --schema "${INTELLIFOLD_REPO}/intellifold/af3_schema.pkl" \
+      --flash-pt "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
+      --out-dir "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}" \
+      || fail "IntelliFold JAX v2-flash conversion failed."
+  fi
+  check_sha256 "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash.bin.zst" \
+    "3ad0c524213d73a65fba2af8ec55a68c5691f82b71e903b93cf5ceaa200e6e1a" \
+    || fail "IntelliFold JAX v2-flash weight checksum mismatch."
+  check_sha256 "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash_fourier.npz" \
+    "78e46890f7ef7f8a27ab37aa7535c11661ce7c28d962088095683e9113a4241f" \
+    || fail "IntelliFold JAX v2-flash Fourier checksum mismatch."
+  state intellifold_jax ok "JAX/MPS v2-flash and full v2"
 else
   state intellifold_jax skipped "not requested"
 fi
@@ -688,13 +1018,11 @@ fi
 # ---- RFdiffusion3 (optional backbone generator) ----
 if [[ "${WITH_RFD3}" -eq 1 ]]; then
   step rfd3 96 "Installing RFdiffusion3 (MLX)"
-  if [[ ! -d "${RFD3_ROOT}" ]]; then
-    # The MLX port is the upstream this workflow extends. None of the campaign
-    # orchestrators, ligand preparation or predictor adapters are in it -- those
-    # arrive from the overlay below, which the app stages out of its own bundle.
-    git clone https://github.com/javierbq/rfd3-mlx.git "${RFD3_ROOT}" >/dev/null 2>&1 \
-      || state rfd3 missing "could not clone the RFdiffusion3 MLX port"
-  fi
+  # The MLX port is the upstream this workflow extends. None of the campaign
+  # orchestrators, ligand preparation or predictor adapters are in it -- those
+  # arrive from the overlay below, which the app stages out of its own bundle.
+  ensure_pinned_repo "RFdiffusion3 MLX" "https://github.com/javierbq/rfd3-mlx.git" \
+    "${RFD3_REV}" "${RFD3_ROOT}"
 
   # Apply the overlay before installing: install_rfd3.sh calls scripts that only
   # exist because of it, so a clean clone fails without this.
@@ -713,11 +1041,14 @@ if [[ "${WITH_RFD3}" -eq 1 ]]; then
   fi
 
   if [[ -x "${RFD3_ROOT}/install_rfd3.sh" ]]; then
-    bash "${RFD3_ROOT}/install_rfd3.sh" --download-weights >/dev/null 2>&1 \
-      && state rfd3 ok "RFdiffusion3 MLX" \
-      || state rfd3 missing "install_rfd3.sh failed — see the log"
+    mkdir -p "${NANOHUNTER_ROOT}/logs"
+    RFD3_INSTALL_LOG="${NANOHUNTER_ROOT}/logs/rfd3-install.log"
+    bash "${RFD3_ROOT}/install_rfd3.sh" --download-weights \
+      >"${RFD3_INSTALL_LOG}" 2>&1 \
+      || fail "RFdiffusion3 install failed — see ${RFD3_INSTALL_LOG}"
+    state rfd3 ok "RFdiffusion3 MLX"
   else
-    state rfd3 missing "no RFdiffusion3 checkout at ${RFD3_ROOT}"
+    fail "No RFdiffusion3 checkout at ${RFD3_ROOT}."
   fi
 else
   state rfd3 skipped "not requested"

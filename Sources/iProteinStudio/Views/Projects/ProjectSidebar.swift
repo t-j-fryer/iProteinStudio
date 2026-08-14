@@ -39,6 +39,7 @@ struct ProjectSidebar: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .keyboardShortcut("n", modifiers: .command)
                 Button {
                     showLibrary = true
                 } label: {
@@ -103,6 +104,8 @@ struct ProjectRow: View {
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(project.name), \(subtitle)")
     }
 }
 

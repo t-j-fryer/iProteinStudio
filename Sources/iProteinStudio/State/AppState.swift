@@ -16,6 +16,7 @@ final class AppState: ObservableObject {
     let thumbnails = ThumbnailStore()
     let smilesThumbnails = SmilesThumbnailStore()
     let predictions = PredictionStore()
+    let history = RunHistoryStore()
 
     private struct Persisted: Codable { var projects: [Project] }
 
@@ -29,6 +30,7 @@ final class AppState: ObservableObject {
         }
         scaffolds = ScaffoldCatalog.load()
         if selectedProjectID == nil { selectedProjectID = projects.first?.id }
+        history.refresh(projects: projects)
         // Ask the pipeline which backends are actually present, so the design
         // form can refuse to offer a predictor that would fail at run time.
         installer.detectComponents()
@@ -53,6 +55,7 @@ final class AppState: ObservableObject {
         projects.append(p)
         selectedProjectID = p.id
         save()
+        history.refresh(projects: projects)
     }
 
     func renameProject(_ project: Project, to newName: String) {
@@ -68,6 +71,7 @@ final class AppState: ObservableObject {
         // Remove on-disk outputs.
         try? AppPaths.fm.removeItem(at: AppPaths.projectDir(project))
         save()
+        history.refresh(projects: projects)
     }
 
     func updateSelected(_ mutate: (inout Project) -> Void) {

@@ -17,6 +17,7 @@ final class PredictionController: ObservableObject {
     @Published var cacheHits: String?
 
     private var runner: ProcessRunner?
+    private var configURL: URL?
 
     var isRunning: Bool { if case .running = phase { return true }; return false }
 
@@ -117,10 +118,12 @@ final class PredictionController: ObservableObject {
         }
         AppPaths.stageRFD3Scripts()
         try? AppPaths.fm.createDirectory(at: outputDir, withIntermediateDirectories: true)
-        outputRoot = outputDir
+        let runDir = uniqueRunDirectory(in: outputDir)
+        try? AppPaths.fm.createDirectory(at: runDir, withIntermediateDirectories: true)
+        outputRoot = runDir
 
-        let config = Self.config(request: request, outputDir: outputDir)
-        let configURL = outputDir.appendingPathComponent("prediction_config.json")
+        let config = Self.config(request: request, outputDir: runDir)
+        let configURL = runDir.appendingPathComponent("prediction_config.json")
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -134,7 +137,21 @@ final class PredictionController: ObservableObject {
         log = []
         cacheHits = nil
         currentMessage = "Starting…"
+        self.configURL = configURL
+        launch(configURL)
+    }
 
+    func retry() {
+        guard !isRunning, let configURL else { return }
+        phase = .running
+        progress = 0
+        currentMessage = "Retrying failed work…"
+        log.append("Retrying from the saved prediction settings; completed outputs are reused.")
+        launch(configURL)
+    }
+
+    private func launch(_ configURL: URL) {
+        let python = AppPaths.support.appendingPathComponent("venvs/NanoHunter_boltz/bin/python")
         let runner = ProcessRunner()
         self.runner = runner
         // caffeinate: a large batch is a long job, and a sleeping Mac loses it.
@@ -148,6 +165,19 @@ final class PredictionController: ObservableObject {
             onExit: { [weak self] code in self?.finish(code) })
     }
 
+    private func uniqueRunDirectory(in root: URL) -> URL {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let base = "prediction-\(formatter.string(from: Date()))"
+        var candidate = root.appendingPathComponent(base, isDirectory: true)
+        var suffix = 1
+        while AppPaths.fm.fileExists(atPath: candidate.path) {
+            suffix += 1
+            candidate = root.appendingPathComponent("\(base)-\(suffix)", isDirectory: true)
+        }
+        return candidate
+    }
+
     func cancel() {
         runner?.cancel()
         phase = .cancelled
@@ -159,6 +189,7 @@ final class PredictionController: ObservableObject {
         config.root = AppPaths.support.path
         config.output = outputDir.path
         config.predictors = request.predictors.map(\.runnerValue)
+        config.intellifold_model = request.intellifoldModel.rawValue
         config.use_potentials = request.useBoltzPotentials
         config.affinity = request.runAffinityHead
         config.max_parallel = request.maxParallel
@@ -236,6 +267,7 @@ struct PredictionConfig: Codable {
     var root: String = ""
     var output: String = ""
     var predictors: [String] = ["boltz"]
+    var intellifold_model: String = "v2-flash"
     var use_potentials: Bool = false
     var affinity: Bool = false
     var seed: Int = 42

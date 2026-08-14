@@ -24,14 +24,16 @@ final class PipelineInstaller: ObservableObject {
 
     @Published var isInstalling = false
     @Published var progress: Double = 0          // 0...1
-    @Published var currentMessage = "Ready to set up NanoHunter."
+    @Published var currentMessage = "Ready to set up iProteinStudio."
     @Published var steps: [Step] = []
     @Published var finished = false
     @Published var failure: String?
     @Published var installed = AppPaths.isPipelineInstalled
     @Published var components: [InstallComponent: ComponentState] = [:]
-    /// Extra backends the user asked for on top of the core four.
-    @Published var optionalSelection: Set<InstallComponent> = []
+    /// The practical default installation: the folding engine, nanobody
+    /// designer, independent checker, and unconditional MPNN family described
+    /// by onboarding. Heavy alternative predictors remain opt-in.
+    @Published var optionalSelection: Set<InstallComponent> = [.boltz, .antifold, .intellifold]
     /// An existing NanoHunter checkout found on this machine, if any.
     @Published var detectedNanoHunter: URL?
     @Published var detectedRFD3: URL?
@@ -49,9 +51,10 @@ final class PipelineInstaller: ObservableObject {
     /// gone. Detect the mismatch cheaply and re-point in the background.
     private func repairRelocatedVenvsIfNeeded() {
         let venvs = AppPaths.support.appendingPathComponent("venvs", isDirectory: true)
-        guard let entries = try? AppPaths.fm.contentsOfDirectory(at: venvs,
-                                                                 includingPropertiesForKeys: nil)
-        else { return }
+        var entries = (try? AppPaths.fm.contentsOfDirectory(at: venvs,
+                                                            includingPropertiesForKeys: nil)) ?? []
+        let rfd3Venv = AppPaths.rfd3Root.appendingPathComponent(".venv", isDirectory: true)
+        if AppPaths.fm.fileExists(atPath: rfd3Venv.path) { entries.append(rfd3Venv) }
         let needsRepair = entries.contains { venv in
             let activate = venv.appendingPathComponent("bin/activate")
             guard let text = try? String(contentsOf: activate, encoding: .utf8) else { return false }
@@ -241,7 +244,7 @@ final class PipelineInstaller: ObservableObject {
         if code == 0 && installed {
             finished = true
             progress = 1.0
-            currentMessage = "NanoHunter is ready."
+            currentMessage = "iProteinStudio is ready."
         } else {
             fail(failure ?? "Setup exited with code \(code). See the log for details.")
         }

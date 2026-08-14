@@ -11,6 +11,10 @@ final class RunController: ObservableObject {
 
     private var runner: ProcessRunner?
     private let maxLog = 500
+    private var manifestURL: URL?
+    private var persistentLogURL: URL?
+    private var lastArguments: [String]?
+    private var lastEnvironment: [String: String]?
 
     var isRunning: Bool { if case .running = phase { return true } else { return false } }
 
@@ -28,6 +32,7 @@ final class RunController: ObservableObject {
         let templateURL = projectDir.appendingPathComponent("\(runName)_template.yaml")
 
         do {
+            try AppPaths.fm.createDirectory(at: campaign, withIntermediateDirectories: true)
             try TemplateWriter.write(request, to: templateURL)
         } catch {
             phase = .failed("Could not write template: \(error.localizedDescription)")
@@ -46,25 +51,57 @@ final class RunController: ObservableObject {
                                              outRoot: projectDir, runName: runName,
                                              cdrRanges: cdrRanges, mpnnSeed: mpnnSeed)
         log = []
-        appendLog("$ nanohunter_run.sh " + args.joined(separator: " "))
         campaignRoot = campaign
+        manifestURL = campaign.appendingPathComponent("studio_run.json")
+        persistentLogURL = campaign.appendingPathComponent("studio.log")
+        lastArguments = args
+        let environment = CommandBuilder.environment(request: request)
+        lastEnvironment = environment
+        writeManifest(StudioRunManifest(projectID: project.id, projectName: project.name,
+                                        runName: runName, arguments: args,
+                                        environmentOverrides: CommandBuilder.environmentOverrides(request: request)))
+        try? "".write(to: persistentLogURL!, atomically: true, encoding: .utf8)
+        appendLog("$ nanohunter_run.sh " + args.joined(separator: " "))
         phase = .running
+        launch(arguments: args, environment: environment)
+    }
 
-        let runner = ProcessRunner()
-        self.runner = runner
-        runner.launch(
-            executable: AppPaths.runnerScript,
-            arguments: args,
-            environment: CommandBuilder.environment(request: request),
-            workingDir: AppPaths.pipeline,
-            onLine: { [weak self] line in self?.appendLog(line) },
-            onExit: { [weak self] code in self?.finish(code: code) }
-        )
+    /// Continue an interrupted campaign using the exact recorded command. The
+    /// runner's --resume checkpoints completed cycles and predictions, so the
+    /// app never reconstructs scientific settings from today's form values.
+    func resume(_ record: StudioRunRecord) {
+        guard !isRunning, let url = record.manifestURL,
+              let data = try? Data(contentsOf: url),
+              var manifest = try? JSONDecoder().decode(StudioRunManifest.self, from: data)
+        else { return }
+        manifest.state = .running
+        manifest.updatedAt = Date()
+        manifestURL = url
+        campaignRoot = record.root
+        persistentLogURL = record.root.appendingPathComponent("studio.log")
+        lastArguments = manifest.arguments
+        writeManifest(manifest)
+        log = []
+        appendLog("— resuming from durable checkpoints —")
+        appendLog("$ nanohunter_run.sh " + manifest.arguments.joined(separator: " "))
+        phase = .running
+        var environment = CommandBuilder.environment()
+        environment.merge(manifest.environmentOverrides ?? [:]) { _, new in new }
+        lastEnvironment = environment
+        launch(arguments: manifest.arguments, environment: environment)
+    }
+
+    func retry() {
+        guard !isRunning, let args = lastArguments else { return }
+        phase = .running
+        appendLog("— retrying with the recorded settings —")
+        launch(arguments: args, environment: lastEnvironment ?? CommandBuilder.environment())
     }
 
     func cancel() {
         runner?.cancel()
         phase = .cancelled
+        updateManifest(state: .stopped)
         appendLog("— cancelled by user —")
     }
 
@@ -78,9 +115,12 @@ final class RunController: ObservableObject {
 
     private func finish(code: Int32) {
         switch phase {
-        case .cancelled: break
+        case .cancelled:
+            appendLog("— stopped process exited (\(code)) —")
+            return
         default:
             phase = code == 0 ? .finished : .failed("Pipeline exited with code \(code).")
+            updateManifest(state: code == 0 ? .completed : .failed)
         }
         appendLog(code == 0 ? "✓ run finished" : "✗ run exited (\(code))")
     }
@@ -88,6 +128,38 @@ final class RunController: ObservableObject {
     private func appendLog(_ line: String) {
         log.append(line)
         if log.count > maxLog { log.removeFirst(log.count - maxLog) }
+        guard let url = persistentLogURL,
+              let data = (line + "\n").data(using: .utf8),
+              let handle = try? FileHandle(forWritingTo: url) else { return }
+        do {
+            try handle.seekToEnd()
+            try handle.write(contentsOf: data)
+            try handle.close()
+        } catch { try? handle.close() }
+    }
+
+    private func launch(arguments: [String], environment: [String: String]) {
+        let runner = ProcessRunner()
+        self.runner = runner
+        runner.launch(executable: URL(fileURLWithPath: "/usr/bin/caffeinate"),
+                      arguments: ["-dimsu", AppPaths.runnerScript.path] + arguments,
+                      environment: environment, workingDir: AppPaths.pipeline,
+                      onLine: { [weak self] line in self?.appendLog(line) },
+                      onExit: { [weak self] code in self?.finish(code: code) })
+    }
+
+    private func writeManifest(_ manifest: StudioRunManifest) {
+        guard let url = manifestURL, let data = try? JSONEncoder().encode(manifest) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    private func updateManifest(state: StudioRunState) {
+        guard let url = manifestURL, let data = try? Data(contentsOf: url),
+              var manifest = try? JSONDecoder().decode(StudioRunManifest.self, from: data)
+        else { return }
+        manifest.state = state
+        manifest.updatedAt = Date()
+        writeManifest(manifest)
     }
 
     private func uniqueRunName(project: Project, in dir: URL) -> String {

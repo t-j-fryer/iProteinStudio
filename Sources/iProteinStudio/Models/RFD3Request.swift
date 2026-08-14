@@ -241,6 +241,7 @@ struct RFD3Verification: Codable, Hashable {
     /// used: it is the only backend with an affinity head, and the ranking
     /// metric needs P(bind).
     var extraPredictors: [Predictor] = []
+    var intellifoldModel: IntelliFoldModel = .v2flash
     /// Steering potentials roughly double Boltz's time but give physically
     /// cleaner poses, which matters more for a pocket than for an interface.
     var useBoltzPotentials: Bool = true
@@ -265,7 +266,7 @@ struct RFD3Verification: Codable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case extraPredictors, useBoltzPotentials, runAffinityHead, runApoCheck, topN
+        case extraPredictors, intellifoldModel, useBoltzPotentials, runAffinityHead, runApoCheck, topN
     }
 
     init() {}
@@ -276,6 +277,7 @@ struct RFD3Verification: Codable, Hashable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = RFD3Verification()
         extraPredictors    = try c.decodeIfPresent([Predictor].self, forKey: .extraPredictors) ?? d.extraPredictors
+        intellifoldModel   = try c.decodeIfPresent(IntelliFoldModel.self, forKey: .intellifoldModel) ?? d.intellifoldModel
         useBoltzPotentials = try c.decodeIfPresent(Bool.self, forKey: .useBoltzPotentials) ?? d.useBoltzPotentials
         runAffinityHead    = try c.decodeIfPresent(Bool.self, forKey: .runAffinityHead) ?? d.runAffinityHead
         runApoCheck        = try c.decodeIfPresent(Bool.self, forKey: .runApoCheck) ?? d.runApoCheck

@@ -166,7 +166,8 @@ def prepare_and_predict(cfg: dict, campaign: Path, logs: Path, mode: str) -> Non
 
     # Optional independent second opinions, run over the same inputs. Agreement
     # between unrelated models is far stronger evidence than one high score.
-    extra = [p for p in cfg.get("extra_predictors", []) if p in {"intellifold"}]
+    supported = {"intellifold", "intellifold-jax", "alphafold3", "openfold-3-mlx"}
+    extra = [p for p in cfg.get("extra_predictors", []) if p in supported]
     if extra and mode == "holo":
         run([
             sys.executable, str(ROOT / "scripts" / "run_predictors.py"),
@@ -174,6 +175,7 @@ def prepare_and_predict(cfg: dict, campaign: Path, logs: Path, mode: str) -> Non
             "--output", str(campaign / "predictions" / f"{mode}_second_opinion"),
             "--predictors", ",".join(extra),
             "--max-parallel", str(cfg.get("predict_max_parallel", 4)),
+            "--intellifold-model", cfg.get("intellifold_model", "v2-flash"),
             "--nanohunter-root", cfg.get("nanohunter_root") or os.environ.get("NANOHUNTER_ROOT", str(ROOT.parent)),
             "--resume",
         ], logs / f"predict_{mode}_second_opinion.log")

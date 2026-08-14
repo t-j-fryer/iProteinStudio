@@ -5,7 +5,9 @@ import SwiftUI
 struct DesignFormView: View {
     @EnvironmentObject var app: AppState
     let project: Project
+    @ObservedObject var installer: PipelineInstaller
     @State private var showAdvanced = false
+    @State private var setupExperience: SetupExperience = .quick
     @State private var showTargetPrep = false
     @StateObject private var ligandAtoms = BoltzLigandAtoms()
     @StateObject private var ligandIntelligence = LigandIntelligence()
@@ -20,9 +22,11 @@ struct DesignFormView: View {
     private var type: DesignType { request.wrappedValue.designType }
 
     var body: some View {
-        ScrollView {
+        VStack(spacing: 0) {
+            ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                SetupExperiencePicker(selection: $setupExperience)
                 ExamplesBar { example in
                     var r = request.wrappedValue
                     r.apply(example)
@@ -42,6 +46,7 @@ struct DesignFormView: View {
                         ForEach(DesignType.allCases) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented).labelsHidden()
+                    .accessibilityLabel("Design type")
                     Text(type.blurb).font(.caption).foregroundStyle(.secondary)
                 }
 
@@ -58,6 +63,7 @@ struct DesignFormView: View {
                         ForEach(TargetKind.allCases) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 320)
+                    .accessibilityLabel("Target type")
 
                     if request.wrappedValue.targetKind == .protein {
                         Text("Paste the amino-acid sequence of the protein you want to bind.")
@@ -110,12 +116,14 @@ struct DesignFormView: View {
                     }
                     Card(title: "3 · What to design", systemImage: "slider.horizontal.3") {
                         CDRPicker(cdrs: request.cdrs)
-                        Divider().padding(.vertical, 4)
-                        DesignerPicker(designer: request.designer,
-                                       allowed: request.wrappedValue.allowedDesigners,
-                                       installer: app.installer)
-                        Divider().padding(.vertical, 4)
-                        MPNNTemperatureControl(request: request)
+                        if setupExperience == .advanced {
+                            Divider().padding(.vertical, 4)
+                            DesignerPicker(designer: request.designer,
+                                           allowed: request.wrappedValue.allowedDesigners,
+                                           installer: installer)
+                            Divider().padding(.vertical, 4)
+                            MPNNTemperatureControl(request: request)
+                        }
                     }
                 } else {
                     Card(title: "2 · Binder size & fold", systemImage: "ruler") {
@@ -123,29 +131,44 @@ struct DesignFormView: View {
                         Divider().padding(.vertical, 4)
                         HelixKillControl(value: request.helixKill)
                     }
-                    Card(title: "3 · Designer", systemImage: "slider.horizontal.3") {
+                    if setupExperience == .advanced {
+                        Card(title: "3 · Designer", systemImage: "slider.horizontal.3") {
                         DesignerPicker(designer: request.designer,
                                        allowed: request.wrappedValue.allowedDesigners,
-                                       installer: app.installer)
+                                       installer: installer)
                         Divider().padding(.vertical, 4)
                         MPNNTemperatureControl(request: request)
+                        }
                     }
                 }
 
-                Card(title: "4 · Prediction & checking", systemImage: "checkmark.seal") {
-                    PredictorPicker(request: request, installer: app.installer)
+                if setupExperience == .advanced {
+                    Card(title: "4 · Prediction & checking", systemImage: "checkmark.seal") {
+                        PredictorPicker(request: request, installer: installer)
+                    }
+                } else {
+                    Card(title: "4 · Recommended models", systemImage: "checkmark.seal") {
+                        Label(quickModelSummary, systemImage: "cpu")
+                            .font(.callout)
+                        Text("Switch to Advanced to change the designer, checking models, temperatures, or scheduling.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
 
                 Card(title: "5 · Run settings", systemImage: "gauge.with.dots.needle.67percent") {
                     RunSettings(request: request)
-                    DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
-                        AdvancedSettings(request: request, projectDir: AppPaths.projectDir(project))
-                    }.font(.callout)
+                    if setupExperience == .advanced {
+                        DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+                            AdvancedSettings(request: request, projectDir: AppPaths.projectDir(project))
+                        }.font(.callout)
+                    }
                 }
-
-                startBar
             }
             .padding(28).frame(maxWidth: 820, alignment: .leading).frame(maxWidth: .infinity)
+            }
+            Divider()
+            startBar.padding(.horizontal, 28).padding(.vertical, 14)
+                .background(.bar)
         }
         .sheet(isPresented: $showTargetPrep) {
             TargetPrepView(
@@ -160,6 +183,12 @@ struct DesignFormView: View {
         }
     }
 
+    private var quickModelSummary: String {
+        let r = request.wrappedValue
+        let checks = r.postPredictors.isEmpty ? "no extra checker" : r.postPredictors.map(\.label).joined(separator: ", ")
+        return "\(r.designer.label) designs; \(r.designPredictor.label) guides each cycle; \(checks)."
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(project.name).font(.largeTitle.bold())
@@ -168,9 +197,14 @@ struct DesignFormView: View {
     }
 
     private var startBar: some View {
-        HStack(spacing: 12) {
+        let anotherWorkflowIsRunning = app.rfd3.isRunning || app.prediction.isRunning
+        return HStack(spacing: 12) {
             let r = request.wrappedValue
-            if !r.isRunnable || r.ligandAtomsStale {
+            if anotherWorkflowIsRunning {
+                Label("Finish or stop the active \(app.rfd3.isRunning ? "RFdiffusion3" : "prediction") run before starting iterative design.",
+                      systemImage: "hourglass")
+                    .font(.callout).foregroundStyle(.secondary)
+            } else if !r.isRunnable || r.ligandAtomsStale {
                 Label(missingReason(r), systemImage: "info.circle").font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
@@ -182,7 +216,9 @@ struct DesignFormView: View {
                 Label("Start Design Run", systemImage: "play.fill").frame(minWidth: 200)
             }
             .buttonStyle(.borderedProminent).controlSize(.large)
-            .disabled(!r.isRunnable || r.ligandAtomsStale)
+            .accessibilityLabel("Start iterative design run")
+            .accessibilityIdentifier("start-iterative-run")
+            .disabled(!r.isRunnable || r.ligandAtomsStale || anotherWorkflowIsRunning)
         }
         .padding(.top, 6)
     }
@@ -226,6 +262,8 @@ struct SequenceEditor: View {
         }
         .background(RoundedRectangle(cornerRadius: 8).fill(.background))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+        .accessibilityLabel(placeholder)
+        .accessibilityHint("Enter an amino-acid sequence using one-letter codes")
     }
 }
 
@@ -243,6 +281,7 @@ struct ScaffoldPicker: View {
             ForEach(app.scaffolds) { Text($0.displayName).tag($0.id) }
         }
         .pickerStyle(.menu)
+        .accessibilityLabel("Nanobody scaffold")
         if let s = app.scaffolds.first(where: { $0.id == request.scaffoldID }) {
             Text(s.recommendedUse).font(.caption).foregroundStyle(.secondary)
         }
@@ -420,6 +459,12 @@ struct PredictorPicker: View {
         Predictor.iterativeChoices.filter { $0.runnerValue != request.designPredictor.runnerValue }
     }
 
+    private var usesIntelliFold: Bool {
+        ([request.designPredictor] + request.postPredictors).contains {
+            $0 == .intellifold || $0 == .intellifoldJAX
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // --- Design predictor ---
@@ -481,6 +526,21 @@ struct PredictorPicker: View {
                     Toggle("Only check designs that pass the hit threshold", isOn: $request.postOnlyHits)
                         .toggleStyle(.checkbox).font(.callout)
                 }
+
+                if usesIntelliFold {
+                    Picker("IntelliFold model", selection: Binding(
+                        get: { request.intellifoldModel ?? .v2flash },
+                        set: { request.intellifoldModel = $0 }
+                    )) {
+                        ForEach(IntelliFoldModel.allCases) { model in
+                            Text(model.label).tag(model)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    Text("Applied to every selected IntelliFold engine. v2-flash is the smaller validated default; v2 is the full model.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Divider()
@@ -511,29 +571,44 @@ struct PredictorPicker: View {
     /// token count, recycles and machine, so a precise multiplier on screen
     /// would be false precision.
     @ViewBuilder private func speedTag(_ p: Predictor) -> some View {
-        let band = p.speed(in: request.speedMode)
-        HStack(spacing: 4) {
-            ForEach(0..<4, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(i < band.bars ? Color.secondary : Color.secondary.opacity(0.18))
-                    .frame(width: 4, height: 8)
+        if request.intellifoldModel == .v2
+            && (p == .intellifold || p == .intellifoldJAX) {
+            Text("not benchmarked").font(.caption).foregroundStyle(.secondary)
+        } else {
+            let band = p.speed(in: request.speedMode)
+            HStack(spacing: 4) {
+                ForEach(0..<4, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(i < band.bars ? Color.secondary : Color.secondary.opacity(0.18))
+                        .frame(width: 4, height: 8)
+                }
+                Text(band.label).font(.caption).foregroundStyle(.secondary)
             }
-            Text(band.label).font(.caption).foregroundStyle(.secondary)
+            .help("Relative speed on the v2-flash reference benchmark at this engine's best schedule.")
         }
-        .help("Relative speed on the reference benchmark at this engine's best schedule.")
     }
 
     /// Deliberately labelled "at least": the estimate counts predictions only,
     /// not MSA generation or inverse folding.
     private var estimate: some View {
+        let fullV2Selected = request.intellifoldModel == .v2 && usesIntelliFold
+        if fullV2Selected {
+            return AnyView(Label {
+                Text("No time estimate: full IntelliFold v2 has not been benchmarked on this Mac yet.")
+            } icon: {
+                Image(systemName: "clock")
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary))
+        }
         let seconds = request.estimatedSecondsLowerBound
-        return Label {
+        return AnyView(Label {
             Text("Rough estimate: at least \(formatted(seconds)) of compute on this Mac.")
         } icon: {
             Image(systemName: "clock")
         }
         .font(.callout)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.secondary))
     }
 
     private func formatted(_ seconds: Double) -> String {
@@ -583,6 +658,7 @@ struct AdvancedSettings: View {
                 Picker("", selection: $request.speedMode) {
                     ForEach(SpeedMode.allCases) { Text($0.label).tag($0) }
                 }.pickerStyle(.segmented).labelsHidden().frame(width: 300)
+                    .accessibilityLabel("Scheduling mode")
                 Text(request.speedMode.blurb).font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if request.speedMode.isExperimental {
@@ -605,6 +681,7 @@ struct AdvancedSettings: View {
                 Picker("", selection: $request.parallelMode) {
                     ForEach(ParallelMode.allCases) { Text($0.label).tag($0) }
                 }.pickerStyle(.segmented).labelsHidden().frame(width: 300)
+                    .accessibilityLabel("Memory and parallelism mode")
                 Text(request.parallelMode.blurb).font(.caption).foregroundStyle(.secondary)
                 if request.parallelMode == .manual {
                     Stepper(value: $request.manualParallel, in: 1...max(1, cpuCount)) {

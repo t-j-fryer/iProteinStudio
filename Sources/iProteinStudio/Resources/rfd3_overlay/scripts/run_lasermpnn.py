@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Design N LASErMPNN sequences per RFD3 backbone, using NISE's exact settings.
+"""Design N LASErMPNN sequences per RFD3 backbone.
 
-Reuses NanoHunter's ``scripts/nise/nise_lib.py`` by import rather than
-reimplementing its LASErMPNN invocation: that module is a dependency-light
-(stdlib + numpy), import-side-effect-free library already used in production
-by the NISE campaign, so calling ``nise_lib.lasermpnn_design`` directly keeps
-this pipeline's inverse-folding step bit-for-bit identical to NISE's own,
-just with ``n_designs`` set to 4 (NISE's own default is 64/lineage/cycle).
+The invocation below is the validated LASErMPNN path from NanoHunter's NISE
+implementation, ported here without importing NISE itself. iProteinStudio does
+not ship ``scripts/nise``; depending on it made a clean install fail before the
+first sequence was designed. Keep these arguments aligned with
+``NanoHunter/scripts/nise/nise_lib.py::lasermpnn_design``.
 
 The ligand pose LASErMPNN protonates comes straight from each RFD3 backbone's
 own chain-B HETATM coordinates (``generate_backbones.py``'s ``Fixture.write_pdb``
@@ -23,7 +22,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
+import re
+import shlex
+import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
@@ -38,17 +39,86 @@ def _read_fasta_count(fasta_path: Path) -> int:
     return sum(1 for line in fasta_path.read_text().splitlines() if line.startswith(">"))
 
 
-def design_one(nise_lib, backbone: Path, out_dir: Path, args) -> list[dict]:
+def _read_lasermpnn_fasta(fasta_path: Path) -> list[tuple[str, float]]:
+    """Return (sequence, score) pairs using NanoHunter's validated parser."""
+    pairs: list[tuple[str, float]] = []
+    header: str | None = None
+    sequence: list[str] = []
+    for line in fasta_path.read_text().splitlines():
+        if line.startswith(">"):
+            if header is not None and sequence:
+                match = re.search(r"score=(-?\d+(?:\.\d+)?)", header)
+                pairs.append(("".join(sequence), float(match.group(1)) if match else float("-inf")))
+            header, sequence = line, []
+        elif line.strip():
+            sequence.append(line.strip())
+    if header is not None and sequence:
+        match = re.search(r"score=(-?\d+(?:\.\d+)?)", header)
+        pairs.append(("".join(sequence), float(match.group(1)) if match else float("-inf")))
+    return pairs
+
+
+def _run(command: list[Path | str], *, cwd: Path | None, log: Path, env: dict[str, str]) -> None:
+    merged_env = dict(os.environ)
+    merged_env.update(env)
+    result = subprocess.run(
+        [str(item) for item in command], cwd=cwd, env=merged_env,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text(f"$ {shlex.join([str(item) for item in command])}\n{result.stdout or ''}")
+    if result.returncode:
+        tail = "\n".join((result.stdout or "").splitlines()[-40:])
+        raise RuntimeError(f"command failed ({result.returncode}); see {log}\n{tail}")
+
+
+def _design(backbone: Path, out_dir: Path, args) -> list[tuple[str, float]]:
+    root = args.nanohunter_root.resolve()
+    python = root / "venvs" / "NanoHunter_lasermpnn" / "bin" / "python"
+    repo = root / "src" / "LASErMPNN"
+    weights = repo / "model_weights" / "laser_weights_0p1A_nothing_heldout.pt"
+    prepare = root / "scripts" / "lasermpnn_prepare_input.py"
+    for path, label in ((python, "LASErMPNN Python"), (weights, "LASErMPNN weights"),
+                        (prepare, "LASErMPNN input helper")):
+        if not path.exists():
+            raise RuntimeError(f"{label} not found at {path}")
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    prepared = out_dir / "prepared.pdb"
+    _run(
+        [python, prepare, "--in-pdb", backbone, "--out-pdb", prepared,
+         "--smiles", args.smiles, "--designed-positions", "all"],
+        cwd=None, log=out_dir / "prepare.log", env={})
+
+    designs = out_dir / "designs"
+    designs.mkdir(exist_ok=True)
+    command: list[Path | str] = [
+        python, "-m", "LASErMPNN.run_batch_inference", prepared, designs, str(args.n_seqs),
+        "--device", "cpu",
+        "--model_weights_path", weights,
+        "--sequence_temp", str(args.seq_temp),
+        "--first_shell_sequence_temp", str(args.fs_temp),
+        "--fs_calc_ca_distance", str(args.fs_distance),
+        "--disabled_residues", "X,C",
+        "--output_fasta_only", "--silent",
+    ]
+    if not args.no_constrain_ss:
+        command += ["-c", "--ala_budget", str(args.ala_budget),
+                    "--gly_budget", str(args.gly_budget)]
+    _run(command, cwd=repo.parent, log=out_dir / "lasermpnn.log", env={
+        "KMP_USE_SHM": "0", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
+    })
+    fasta = designs / "designs.fasta"
+    if not fasta.exists():
+        raise RuntimeError(f"LASErMPNN produced no {fasta}")
+    return sorted(_read_lasermpnn_fasta(fasta), key=lambda item: item[1], reverse=True)
+
+
+def design_one(backbone: Path, out_dir: Path, args) -> list[dict]:
     fasta = out_dir / "designs" / "designs.fasta"
     if not args.overwrite and _read_fasta_count(fasta) >= args.n_seqs:
-        pairs = sorted(nise_lib._read_lasermpnn_fasta(fasta), key=lambda x: x[1], reverse=True)[: args.n_seqs]
+        pairs = sorted(_read_lasermpnn_fasta(fasta), key=lambda x: x[1], reverse=True)[: args.n_seqs]
     else:
-        pairs = nise_lib.lasermpnn_design(
-            str(backbone), out_dir, args.n_seqs, args.smiles,
-            seq_temp=args.seq_temp, fs_temp=args.fs_temp, fs_distance=args.fs_distance,
-            ala_budget=args.ala_budget, gly_budget=args.gly_budget,
-            constrain_ss=not args.no_constrain_ss, designed="all", device="cpu",
-        )
+        pairs = _design(backbone, out_dir, args)
     return [
         {
             "design": backbone.stem, "seq_index": i, "sequence": seq,
@@ -96,12 +166,6 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
-    nise_dir = args.nanohunter_root.resolve() / "scripts" / "nise"
-    if not (nise_dir / "nise_lib.py").exists():
-        raise SystemExit(f"nise_lib.py not found under {nise_dir}")
-    sys.path.insert(0, str(nise_dir))
-    import nise_lib  # noqa: E402
-
     backbones = sorted(args.backbones.resolve().glob("*.pdb"))
     if not backbones:
         raise SystemExit(f"No PDB files found in {args.backbones}")
@@ -113,7 +177,7 @@ def main() -> None:
     failures: list[str] = []
     with ThreadPoolExecutor(max_workers=args.max_parallel) as pool:
         futures = {
-            pool.submit(design_one, nise_lib, backbone, output / backbone.stem, args): backbone
+            pool.submit(design_one, backbone, output / backbone.stem, args): backbone
             for backbone in backbones
         }
         done = 0

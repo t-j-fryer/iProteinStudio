@@ -17,9 +17,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 import os
 from pathlib import Path
+
+import studio_runtime
 
 
 def write_apo_yaml(path: Path, sequence: str) -> None:
@@ -69,9 +70,8 @@ def main() -> None:
     if args.mode == "holo" and not args.smiles:
         raise SystemExit("--smiles is required for --mode holo")
 
-    nise_dir = args.nanohunter_root.resolve() / "scripts" / "nise"
-    sys.path.insert(0, str(nise_dir))
-    import nise_lib  # noqa: E402
+    studio_runtime.configure(args.nanohunter_root)
+    nise_lib = studio_runtime
 
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)

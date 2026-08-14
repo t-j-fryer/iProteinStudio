@@ -93,6 +93,7 @@ struct PredictionRequest: Codable, Hashable {
     var partnerMSA: MSAPolicy = .auto
 
     var predictors: [Predictor] = [.boltz]
+    var intellifoldModel: IntelliFoldModel = .v2flash
     var useBoltzPotentials: Bool = false
     var runAffinityHead: Bool = false
     /// Never call the MSA server; fail instead if something isn't cached. Useful
@@ -131,7 +132,7 @@ struct PredictionRequest: Codable, Hashable {
 
     private enum CodingKeys: String, CodingKey {
         case pastedSequences, sequenceFile, pairing, partnerSequence, partnerSmiles
-        case binderMSA, partnerMSA, predictors, useBoltzPotentials, runAffinityHead
+        case binderMSA, partnerMSA, predictors, intellifoldModel, useBoltzPotentials, runAffinityHead
         case offlineOnly, maxParallel, batchSize, jobs
     }
 
@@ -148,6 +149,7 @@ struct PredictionRequest: Codable, Hashable {
         binderMSA         = try c.decodeIfPresent(MSAPolicy.self, forKey: .binderMSA) ?? d.binderMSA
         partnerMSA        = try c.decodeIfPresent(MSAPolicy.self, forKey: .partnerMSA) ?? d.partnerMSA
         predictors        = try c.decodeIfPresent([Predictor].self, forKey: .predictors) ?? d.predictors
+        intellifoldModel   = try c.decodeIfPresent(IntelliFoldModel.self, forKey: .intellifoldModel) ?? d.intellifoldModel
         useBoltzPotentials = try c.decodeIfPresent(Bool.self, forKey: .useBoltzPotentials) ?? d.useBoltzPotentials
         runAffinityHead   = try c.decodeIfPresent(Bool.self, forKey: .runAffinityHead) ?? d.runAffinityHead
         offlineOnly       = try c.decodeIfPresent(Bool.self, forKey: .offlineOnly) ?? d.offlineOnly

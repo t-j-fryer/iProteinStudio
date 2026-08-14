@@ -99,7 +99,7 @@ def main() -> None:
 
     convert = subprocess.run(
         [str(venv_python), str(adapter), "to-json",
-         "--in-yaml", str(args.yaml), "--out-json", str(af3_json), "--name", name],
+         "--in-yaml", str(args.yaml), "--out-json", str(af3_json), f"--name={name}"],
         capture_output=True, text=True)
     if convert.returncode:
         die(f"input conversion failed: {convert.stderr.strip()[:400]}")

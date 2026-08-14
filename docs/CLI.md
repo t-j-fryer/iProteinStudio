@@ -66,6 +66,7 @@ has no homologues, so an alignment costs a server round trip and adds nothing.
   "output": "…/my_batch",
   "predictors": ["boltz"],           // boltz | intellifold | intellifold-jax
                                      // alphafold3 | openfold-3-mlx
+  "intellifold_model": "v2-flash",  // v2-flash | v2; applies to PyTorch + JAX
   "use_potentials": false,
   "affinity": false,                 // Boltz only, small molecules only
   "max_parallel": 0,                 // 0 = the measured optimum per engine
@@ -89,18 +90,26 @@ Results land as `predictions.csv`, `run_summary.json` and per-engine folders.
 Every alignment on the machine is indexed by the sequence it describes, so a
 target aligned once during a design campaign is never aligned again.
 
+New GUI batches are stored under
+`projects/<slug>/prediction_runs/prediction-<timestamp>/`; the older single
+`predictions/` directory is still discovered by run history.
+
 ---
 
 ## Iterative design
 
 The design tabs drive `nanohunter_run.sh`. The app prints the exact command it
-used into the run log; copy it. A minimal example:
+used into both the live log and the campaign's durable `studio.log`. It also
+writes `studio_run.json` beside the output; Activity uses that exact manifest
+for Resume rather than rebuilding settings from the current form. A minimal
+example:
 
 ```bash
 "$ROOT/nanohunter_run.sh" \
   --workflow protein --predictor boltz --sequence-designer solublempnn \
   --template-yaml my_target.yaml --run-name my_campaign \
   --num-runs 20 --num-opt-cycles 5 \
+  --model v2-flash \
   --random-binder --binder-min-len 60 --binder-max-len 120 \
   --post-predictor intellifold --post-mode iptm --post-iptm-threshold 0.7 \
   --target-msa-mode auto --target-msa-generator auto --require-target-msa \
@@ -115,6 +124,7 @@ Flags worth knowing:
 | `--throughput-profile auto` | uses a measured per-machine schedule, and *rejects* one from a different Mac |
 | `--resume` | idempotent; reuses completed cycles after an interruption |
 | `--design-scheduler cycle-wave` | native batching — where AlphaFold 3 and IntelliFold win most |
+| `--model v2-flash` | choose `v2-flash` or the larger full `v2` IntelliFold model |
 
 Leave `--intellifold-buckets` and `--alphafold3-buckets` alone. Their `auto`
 default resolves to the exact campaign token count, which is the single largest
@@ -170,6 +180,12 @@ Design across several ligand conformers, splitting the budget:
   --conformers A.pdb:0.5:A,B.pdb:0.3:B,C.pdb:0.2:C --lengths 65,100,150
 ```
 
+New GUI campaigns live under
+`projects/<slug>/rfd3_runs/rfd3-<timestamp>/`. Protein-target campaigns write
+`campaign_progress.json` and accept `--resume`; the Activity panel detects the
+PID, checkpoints and final `analysis/top100.csv`. Existing `projects/<slug>/rfd3`
+campaigns remain visible as legacy history.
+
 ---
 
 ## Where things go
@@ -183,5 +199,6 @@ $ROOT/
   rfd3/                      RFdiffusion3 + its script overlay
   venvs/  src/  models/      environments, code, weights
   msa_cache/                 shared alignments, indexed by sequence
-  projects/<slug>/           campaign and prediction outputs
+  scaffold_msa_cache/        bundled deep MSAs for all seven nanobody scaffolds
+  projects/<slug>/           durable, separately timestamped run outputs
 ```

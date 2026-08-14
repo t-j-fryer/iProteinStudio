@@ -115,7 +115,7 @@ def software_identity() -> dict[str, Any]:
     }
     for label, path in (
         ("af3_model", REPO / "models/alphafold3/af3.bin"),
-        ("openfold_model", Path.home() / ".openfold3/of3_ft3_v1.pt"),
+        ("openfold_model", REPO / "models/openfold3/of3_ft3_v1.pt"),
     ):
         if path.is_file():
             stat = path.stat()

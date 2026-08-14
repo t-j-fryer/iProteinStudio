@@ -104,12 +104,14 @@ struct TargetPrepView: View {
                     Picker("", selection: $engine) {
                         ForEach(TargetEngine.allCases) { Text($0.label).tag($0) }
                     }.pickerStyle(.segmented).labelsHidden().frame(width: 240)
+                        .accessibilityLabel("Target prediction engine")
                 }
                 if engine == .intellifold {
                     LabeledContent("Model") {
                         Picker("", selection: $model) {
                             ForEach(IntelliFoldModel.allCases) { Text($0.label).tag($0) }
                         }.labelsHidden().frame(width: 240)
+                            .accessibilityLabel("IntelliFold model")
                     }
                 }
                 if cachedCIF == nil {

@@ -79,8 +79,15 @@ extension RFD3Request {
         switch example.kind {
         case .protein:
             targetKind = .protein
+            targetSequence = example.sequence
             targetStructurePath = example.structurePath ?? ""
             targetChain = "B"
+            // The bundled example PDB contains the complete mature toxin as
+            // chain B. Record the full motif explicitly: the protein campaign
+            // needs the sequence to build its cached target MSA, while RFD3
+            // needs the complete residue range rather than the one-residue
+            // fallback used for an otherwise unspecified target.
+            targetContig = "B1-\(example.sequence.count)"
             // The validated surface patch, and the origin strategy that goes
             // with aiming at one face rather than the whole molecule.
             conditions = Dictionary(uniqueKeysWithValues:

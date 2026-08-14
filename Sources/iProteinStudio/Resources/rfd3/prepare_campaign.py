@@ -304,6 +304,7 @@ def main() -> None:
         "run_affinity": req.get("run_affinity", True),
         "run_apo": req.get("run_apo", True),
         "extra_predictors": req.get("extra_predictors", []),
+        "intellifold_model": req.get("intellifold_model", "v2-flash"),
         # Ligand Intelligence may recommend designing across several ligand
         # geometries. Each becomes its own set of fixtures and its own share of
         # the design quota; absent, the single supplied structure is used.

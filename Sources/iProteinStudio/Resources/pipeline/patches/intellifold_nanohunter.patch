@@ -1,0 +1,892 @@
+diff --git a/README.md b/README.md
+index 67c9ab7..23cca65 100644
+--- a/README.md
++++ b/README.md
+@@ -128,6 +128,32 @@ convert your own `.pt` (needs torch, `pip install '.[convert]'`):
+ python convert_ifv2_to_jax.py --schema intellifold/af3_schema.pkl --v2-pt intellifold_v2.pt --out-dir model_v2
+ ```
+ 
++#### IntelliFold-v2-flash on the JAX engine
++
++The upstream hosted JAX checkpoint is the 3.2 GB full-v2 model. This fork also
++supports the smaller v2-flash architecture, including its learned advanced
++diffusion-conditioning path. Convert the local PyTorch checkpoint once:
++
++```bash
++PYTHONPATH=. python -m intellifold.convert_flash \
++  --schema intellifold/af3_schema.pkl \
++  --flash-pt ~/.intellifold/intellifold_v2_flash.pt \
++  --out-dir model_v2_flash
++```
++
++Then select it explicitly at inference time:
++
++```bash
++intellifold predict fold_input.json --v2-flash \
++  --model-dir model_v2_flash --output-dir results -- \
++  --norun_data_pipeline
++```
++
++On Apple Silicon also pass `--flash xla` before `--` and
++`--jax_backend=mps` after it. A directory input loads the checkpoint once and
++processes its JSON files sequentially, amortising model loading and JAX
++compilation; it is directory batching, not a tensor batch.
++
+ 
+ ## 🌐 IntelliFold Server
+ 
+diff --git a/intellifold/cli.py b/intellifold/cli.py
+index cd53d28..359a52c 100644
+--- a/intellifold/cli.py
++++ b/intellifold/cli.py
+@@ -118,6 +118,9 @@ def _build_parser() -> argparse.ArgumentParser:
+                     help='use IntelliFold-v2 (full_fat) config dims [default]')
+   pred.add_argument('--no-full-fat', dest='full_fat', action='store_false',
+                     help='run the stock AF3 config instead (for stock af3.bin)')
++  pred.add_argument('--v2-flash', action='store_true',
++                    help='use a locally converted IntelliFold-v2-flash checkpoint; '
++                         'see `python -m intellifold.convert_flash --help`')
+   return p
+ 
+ 
+@@ -146,7 +149,25 @@ def _run_predict(args, af3_extra) -> int:
+   # pre-converted intellifold_v2.bin.zst + intellifold_v2_fourier.npz from Hugging
+   # Face into --model-dir (no torch / no conversion); later runs just load them.
+   # (full_fat only; --no-full-fat expects a user-supplied stock af3.bin.zst.)
+-  if args.full_fat:
++  if args.v2_flash:
++    if not os.path.isdir(args.model_dir):
++      sys.exit(f'error: v2-flash model directory does not exist: {args.model_dir}')
++    if not any(
++        name.endswith(('.bin', '.bin.zst'))
++        for name in os.listdir(args.model_dir)
++    ):
++      sys.exit(
++          f'error: no converted v2-flash .bin[.zst] found in {args.model_dir}')
++    if not args.fourier:
++      args.fourier = os.path.join(
++          args.model_dir, 'intellifold_v2_flash_fourier.npz')
++    if not os.path.isfile(args.fourier):
++      sys.exit(
++          f'error: v2-flash Fourier file not found: {args.fourier}\n'
++          '  Convert the PyTorch checkpoint with:\n'
++          '    python -m intellifold.convert_flash --schema AF3_SCHEMA '
++          '--flash-pt CHECKPOINT --out-dir MODEL_DIR')
++  elif args.full_fat:
+     from intellifold.weights import ensure_weights
+     _bin, _fourier = ensure_weights(args.model_dir)
+     if not args.fourier:
+@@ -160,7 +181,11 @@ def _run_predict(args, af3_extra) -> int:
+     return _run_orchestrator(args, af3_extra)
+ 
+   # IntelliFold switches consumed by intellifold.patches inside run_jax_inference.
+-  if args.full_fat:
++  if args.v2_flash:
++    os.environ.pop('INTFOLD_FULLFAT', None)
++    os.environ['INTFOLD_FLASH'] = '1'
++    os.environ['INTFOLD_FOURIER'] = os.path.abspath(args.fourier)
++  elif args.full_fat:
+     os.environ['INTFOLD_FULLFAT'] = '1'
+     os.environ['INTFOLD_FOURIER'] = os.path.abspath(args.fourier)
+ 
+@@ -240,7 +265,9 @@ def _run_orchestrator(args, af3_extra) -> int:
+   ]
+   if args.fourier:
+     worker_argv += ['--fourier', args.fourier]
+-  if not args.full_fat:
++  if args.v2_flash:
++    worker_argv += ['--v2-flash']
++  elif not args.full_fat:
+     worker_argv += ['--no-full-fat']
+   worker_argv += ['--cache-dir', args.cache_dir] if args.cache_dir else ['--no-cache']
+   worker_argv += ['--', *worker_extra]
+diff --git a/intellifold/data/module/inference.py b/intellifold/data/module/inference.py
+index eb6be4f..df06f81 100644
+--- a/intellifold/data/module/inference.py
++++ b/intellifold/data/module/inference.py
+@@ -27,6 +27,7 @@ import itertools
+ import bisect
+ import os
+ import shutil
++from functools import partial
+ 
+ import numpy as np
+ import torch
+@@ -312,6 +313,7 @@ def construct_template_featurizer():
+ 
+ def transform(
+     boltz_input_features,
++    buckets: Sequence[int] | None = _BUCKETS,
+     ):
+     """
+     Transform the input features to the format required by the model.
+@@ -328,7 +330,7 @@ def transform(
+     ### calculate the bucket size for padding
+     total_tokens = len(boltz_input_features['token_index'][0])
+     padded_token_length = calculate_bucket_size(
+-        total_tokens, _BUCKETS
++        total_tokens, buckets
+     )
+     
+     boltz_input_features['token_index'] = F.pad(boltz_input_features['token_index']+1, (0, padded_token_length - boltz_input_features['token_index'].shape[1]), 'constant', 0)
+@@ -589,7 +591,10 @@ def transform(
+     
+     return input_features
+         
+-def collate(data: list[dict[str, Tensor]]) -> dict[str, Tensor]:
++def collate(
++    data: list[dict[str, Tensor]],
++    buckets: Sequence[int] | None = _BUCKETS,
++) -> dict[str, Tensor]:
+     """Collate the data.
+ 
+     Parameters
+@@ -637,7 +642,7 @@ def collate(data: list[dict[str, Tensor]]) -> dict[str, Tensor]:
+ 
+         # Stack the values
+         collated[key] = values
+-    collated = transform(collated)
++    collated = transform(collated, buckets=buckets)
+     return collated
+ 
+ 
+@@ -876,13 +881,17 @@ def get_inference_dataloader(
+         constraints_dir=constraints_dir,
+     )
+     
++    cleanup_mode = os.environ.get("NANOHUNTER_INTELLIFOLD_MPS_CLEANUP", "auto")
++    # Pinned host memory accelerates CUDA transfers but is unsupported on MPS.
++    # Preserve the old behavior only for a paired legacy benchmark.
++    pin_memory = cleanup_mode == "legacy" or torch.cuda.is_available()
+     dataloader = DataLoader(
+         dataset,
+         batch_size=1,
+         num_workers=args.num_workers,
+-        pin_memory=True,
++        pin_memory=pin_memory,
+         shuffle=False,
+-        collate_fn=collate,
++        collate_fn=partial(collate, buckets=args.buckets),
+         )
+     
+-    return dataloader
+\ No newline at end of file
++    return dataloader
+diff --git a/intellifold/patches.py b/intellifold/patches.py
+index 8143771..731d026 100644
+--- a/intellifold/patches.py
++++ b/intellifold/patches.py
+@@ -14,10 +14,11 @@
+ 
+ """Runtime patches that let the stock AlphaFold 3 JAX network load IntelliFold-v2.
+ 
+-IntelliFold-v2 is architecturally identical to AlphaFold 3 except for (a) a few
+-hidden sizes (the "full_fat" preset) and (b) its own trained Fourier
+-noise-embedding. The official AF3 code can therefore run v2 with two small
+-changes, applied here at runtime instead of by hand-editing installed files:
++Full IntelliFold-v2 is architecturally identical to AlphaFold 3 except for (a)
++a few hidden sizes (the "full_fat" preset) and (b) its own trained Fourier
++noise-embedding. IntelliFold-v2-flash additionally uses shorter stacks and an
++advanced diffusion-conditioning path. The official AF3 code can therefore run
++both variants with small env-gated changes applied here at runtime:
+ 
+   * `apply_fourier_patch()` rebinds
+     `alphafold3.model.network.noise_level_embeddings.noise_embeddings` so it reads
+@@ -30,9 +31,9 @@ changes, applied here at runtime instead of by hand-editing installed files:
+   * `widen_config_full_fat(config)` widens the model config (c_z/c_m/c_t and a
+     few head counts) to v2's dimensions.
+ 
+-Both functions are **env-gated and idempotent**: with neither $INTFOLD_FOURIER
+-nor $INTFOLD_FULLFAT set they are no-ops, so importing this module never changes
+-stock AlphaFold 3 behaviour.
++The patches are **env-gated and idempotent**: with none of $INTFOLD_FOURIER,
++$INTFOLD_FULLFAT, or $INTFOLD_FLASH set they are no-ops, so importing this
++module never changes stock AlphaFold 3 behaviour.
+ """
+ 
+ from __future__ import annotations
+@@ -40,6 +41,7 @@ from __future__ import annotations
+ import os
+ 
+ _FOURIER_PATCH_APPLIED = False
++_FLASH_PATCH_APPLIED = False
+ 
+ 
+ def apply_fourier_patch(npz_path: str | None = None) -> bool:
+@@ -145,3 +147,144 @@ def widen_config_full_fat(config) -> bool:
+     _set_dotted(config, dotted, value)
+   print('[intellifold] model config widened to full_fat (IntelliFold-v2)', flush=True)
+   return True
++
++
++def _flash_conditioning(
++    self,
++    batch,
++    embeddings,
++    noise_level,
++    use_conditioning,
++):
++  """IntelliFold-v2-flash's advanced diffusion conditioning in JAX.
++
++  Full IntelliFold-v2 uses the stock AF3 conditioning layout.  The flash model
++  instead projects and normalises relative-position and target features before
++  concatenating them with the trunk representations.  This is a direct JAX
++  transcription of ``DiffusionConditioning.forward`` with
++  ``advanced_conditioning=True`` in the PyTorch release.
++  """
++  from alphafold3.model.components import haiku_modules as hm
++  from alphafold3.model.network import diffusion_head
++  from alphafold3.model.network import diffusion_transformer
++  from alphafold3.model.network import featurization
++  from alphafold3.model.network import noise_level_embeddings
++  import jax.numpy as jnp
++
++  single_embedding = use_conditioning * embeddings['single']
++  pair_embedding = use_conditioning * embeddings['pair']
++
++  rel_features = featurization.create_relative_encoding(
++      seq_features=batch.token_features,
++      max_relative_idx=32,
++      max_relative_chain=2,
++  ).astype(pair_embedding.dtype)
++  rel_features = hm.Linear(
++      self.config.conditioning.pair_channel,
++      use_bias=False,
++      precision='highest',
++      name='pair_relpos_initial_projection',
++  )(rel_features)
++  pair_cond = jnp.concatenate([
++      hm.LayerNorm(
++          use_fast_variance=False,
++          create_offset=False,
++          name='pair_cond_initial_norm',
++      )(pair_embedding),
++      hm.LayerNorm(
++          use_fast_variance=False,
++          create_offset=False,
++          name='pair_relpos_initial_norm',
++      )(rel_features),
++  ], axis=-1)
++  pair_cond = hm.Linear(
++      self.config.conditioning.pair_channel,
++      use_bias=False,
++      precision='highest',
++      name='pair_cond_initial_projection',
++  )(pair_cond)
++
++  for idx in range(2):
++    pair_cond += diffusion_transformer.transition_block(
++        pair_cond, 2, self.global_config, name=f'pair_transition_{idx}'
++    )
++
++  target_cond = hm.Linear(
++      self.config.conditioning.seq_channel,
++      use_bias=False,
++      precision='highest',
++      name='single_target_initial_projection',
++  )(embeddings['target_feat'])
++  single_cond = jnp.concatenate([
++      hm.LayerNorm(
++          use_fast_variance=False,
++          create_offset=False,
++          name='single_cond_initial_norm',
++      )(single_embedding),
++      hm.LayerNorm(
++          use_fast_variance=False,
++          create_offset=False,
++          name='single_target_initial_norm',
++      )(target_cond),
++  ], axis=-1)
++  single_cond = hm.Linear(
++      self.config.conditioning.seq_channel,
++      use_bias=False,
++      precision='highest',
++      name='single_cond_initial_projection',
++  )(single_cond)
++
++  noise_embedding = noise_level_embeddings.noise_embeddings(
++      sigma_scaled_noise_level=noise_level / diffusion_head.SIGMA_DATA
++  )
++  single_cond += hm.Linear(
++      self.config.conditioning.seq_channel,
++      use_bias=False,
++      precision='highest',
++      name='noise_embedding_initial_projection',
++  )(
++      hm.LayerNorm(
++          use_fast_variance=False,
++          create_offset=False,
++          name='noise_embedding_initial_norm',
++      )(noise_embedding)
++  )
++
++  for idx in range(2):
++    single_cond += diffusion_transformer.transition_block(
++        single_cond, 2, self.global_config, name=f'single_transition_{idx}'
++    )
++  return single_cond, pair_cond
++
++
++def configure_v2_flash(config) -> bool:
++  """Configure and patch the AF3 JAX network for IntelliFold-v2-flash.
++
++  Enabled only by ``INTFOLD_FLASH=1``.  The transformer super-block size is
++  three so six PyTorch diffusion blocks map exactly to a 2x3 Haiku layer stack.
++  """
++  global _FLASH_PATCH_APPLIED
++  if os.environ.get('INTFOLD_FLASH') != '1':
++    return False
++  if os.environ.get('INTFOLD_FULLFAT') == '1':
++    raise ValueError('INTFOLD_FLASH=1 and INTFOLD_FULLFAT=1 are mutually exclusive')
++
++  _set_dotted(config, 'evoformer.pairformer.num_layer', 12)
++  _set_dotted(config, 'heads.diffusion.atom_transformer.num_blocks', 2)
++  _set_dotted(config, 'heads.diffusion.transformer.num_blocks', 6)
++  _set_dotted(config, 'heads.diffusion.transformer.super_block_size', 3)
++
++  if not _FLASH_PATCH_APPLIED:
++    from alphafold3.model.network import diffusion_head
++    import haiku as hk
++
++    diffusion_head.DiffusionHead._conditioning = hk.transparent(
++        _flash_conditioning
++    )
++    _FLASH_PATCH_APPLIED = True
++  print(
++      '[intellifold] model configured for v2-flash '
++      '(12 pairformer, 6 diffusion, 2 atom blocks; advanced conditioning)',
++      flush=True,
++  )
++  return True
+diff --git a/intellifold/run_jax_inference.py b/intellifold/run_jax_inference.py
+index b1b9a32..d307800 100644
+--- a/intellifold/run_jax_inference.py
++++ b/intellifold/run_jax_inference.py
+@@ -48,6 +48,7 @@ from collections.abc import Callable, Sequence
+ import csv
+ import dataclasses
+ import datetime
++import enum
+ import functools
+ import os
+ import pathlib
+@@ -68,6 +69,7 @@ from alphafold3.data import featurisation
+ from alphafold3.data import pipeline
+ from alphafold3.data.tools import shards
+ from alphafold3.model import features
++from alphafold3.model import mmcif_metadata as af3_mmcif_metadata
+ from alphafold3.model import model
+ from alphafold3.model import params
+ from alphafold3.model import post_processing
+@@ -79,11 +81,54 @@ from jax import numpy as jnp
+ import numpy as np
+ import tokamax
+ 
++
++_AF3_ADD_METADATA_TO_MMCIF = af3_mmcif_metadata.add_metadata_to_mmcif
++
++
++def _add_intellifold_metadata_to_mmcif(old_cif, version: str, model_id: bytes):
++  """Write valid, explicit IntelliFold identity into the AF3 ModelCIF schema.
++
++  Converted IntelliFold checkpoints inherit the AF3 schema's fixed-width empty
++  ``__identifier__`` record.  Serialising that record verbatim writes NUL bytes
++  into ``_software.version`` and produces invalid mmCIF.  The AF3-derived JAX
++  engine and ModelCIF schema remain acknowledged in the description and legal
++  header, while the model software itself is labelled as IntelliFold.
++  """
++  variant = (
++      'IntelliFold-v2-flash'
++      if os.environ.get('INTFOLD_FLASH') == '1'
++      else 'IntelliFold-v2'
++  )
++  safe_model_id = model_id.rstrip(b'\x00') or variant.encode('ascii')
++  cif = _AF3_ADD_METADATA_TO_MMCIF(
++      old_cif=old_cif, version=version, model_id=safe_model_id
++  )
++  return cif.copy_and_update({
++      '_software.name': ['IntelliFold'],
++      '_software.version': [f'{variant} JAX ({version})'],
++      '_software.description': [
++          'IntelliFold structure prediction using an AlphaFold 3-derived JAX engine'
++      ],
++      '_ma_model_list.model_group_name': [f'{variant} JAX'],
++  })
++
++
++# post_processing imports this module object, so replacing the function here
++# updates only this IntelliFold runner without editing the vendored AF3 source.
++af3_mmcif_metadata.add_metadata_to_mmcif = _add_intellifold_metadata_to_mmcif
++
+ _HOME_DIR = pathlib.Path.home()
+ _DEFAULT_MODEL_DIR = _HOME_DIR / 'models'
+ _DEFAULT_DB_DIR = _HOME_DIR / 'public_databases'
+ 
+ 
++@enum.unique
++class JaxBackend(enum.StrEnum):
++  CPU = enum.auto()
++  GPU = enum.auto()
++  MPS = enum.auto()
++
++
+ # Input and output paths.
+ _JSON_PATH = flags.DEFINE_string(
+     'json_path',
+@@ -248,11 +293,20 @@ _SEQRES_DATABASE_PATH = flags.DEFINE_string(
+     'PDB sequence database path, used for template search.',
+ )
+ 
++
++def _num_cpus_for_msa_tools() -> int:
++  try:
++    # Python 3.12 has no process_cpu_count(); macOS has no sched_getaffinity().
++    num_cpus = len(os.sched_getaffinity(0))
++  except AttributeError:
++    num_cpus = os.cpu_count()
++  return min(num_cpus if num_cpus is not None else 8, 8)
++
++
+ # Number of CPUs to use for MSA tools.
+ _JACKHMMER_N_CPU = flags.DEFINE_integer(
+     'jackhmmer_n_cpu',
+-    # Unfortunately, os.process_cpu_count() is only available in Python 3.13+.
+-    min(len(os.sched_getaffinity(0)), 8),
++    _num_cpus_for_msa_tools(),
+     'Number of CPUs to use for Jackhmmer. Defaults to min(cpu_count, 8). Going'
+     ' above 8 CPUs provides very little additional speedup.',
+     lower_bound=0,
+@@ -267,8 +321,7 @@ _JACKHMMER_MAX_PARALLEL_SHARDS = flags.DEFINE_integer(
+ )
+ _NHMMER_N_CPU = flags.DEFINE_integer(
+     'nhmmer_n_cpu',
+-    # Unfortunately, os.process_cpu_count() is only available in Python 3.13+.
+-    min(len(os.sched_getaffinity(0)), 8),
++    _num_cpus_for_msa_tools(),
+     'Number of CPUs to use for Nhmmer. Defaults to min(cpu_count, 8). Going'
+     ' above 8 CPUs provides very little additional speedup.',
+     lower_bound=0,
+@@ -343,11 +396,18 @@ _WORK_QUEUE_RETRY_FAILED = flags.DEFINE_bool(
+ _GPU_DEVICE = flags.DEFINE_integer(
+     'gpu_device',
+     0,
+-    'Optional override for the GPU device to use for inference, uses zero-based'
+-    ' indexing. Defaults to the 0th GPU on the system. Useful on multi-GPU'
+-    ' systems to pin each run to a specific GPU. Note that if GPUs are already'
+-    ' pre-filtered by the environment (e.g. by using CUDA_VISIBLE_DEVICES),'
+-    ' this flag refers to the GPU index after the filtering has been done.',
++    'Optional override for the JAX device used for inference, using zero-based'
++    ' indexing. Despite its historical name, this also selects CPU and MPS'
++    ' devices.',
++)
++_JAX_BACKEND = flags.DEFINE_enum_class(
++    'jax_backend',
++    default=JaxBackend.GPU,
++    enum_class=JaxBackend,
++    help=(
++        'JAX backend to use: GPU, CPU, or Apple-Silicon MPS. CPU and MPS'
++        ' require --flash_attention_implementation=xla.'
++    ),
+ )
+ _BUCKETS = flags.DEFINE_list(
+     'buckets',
+@@ -461,6 +521,7 @@ def make_model_config(
+   # are set, so unpatched AlphaFold 3 behaviour is unchanged. See intellifold.patches.
+   intellifold_patches.apply_fourier_patch()       # inject v2's trained Fourier embedding
+   intellifold_patches.widen_config_full_fat(config)  # widen c_z/c_m/c_t + head counts to v2
++  intellifold_patches.configure_v2_flash(config)  # smaller v2-flash + advanced conditioning
+   config.global_config.flash_attention_implementation = (
+       flash_attention_implementation
+   )
+@@ -524,7 +585,13 @@ class ModelRunner:
+         result,
+     )
+     result = dict(result)
+-    identifier = self.model_params['__meta__']['__identifier__'].tobytes()
++    identifier = self.model_params['__meta__']['__identifier__'].tobytes().rstrip(b'\x00')
++    if not identifier:
++      identifier = (
++          b'IntelliFold-v2-flash'
++          if os.environ.get('INTFOLD_FLASH') == '1'
++          else b'IntelliFold-v2'
++      )
+     result['__identifier__'] = identifier
+     return result
+ 
+@@ -1005,31 +1072,40 @@ def main(_):
+ 
+   if _RUN_INFERENCE.value:
+     # Fail early on incompatible devices, but only if we're running inference.
+-    gpu_devices = jax.local_devices(backend='gpu')
+-    if gpu_devices:
+-      compute_capability = float(
+-          gpu_devices[_GPU_DEVICE.value].compute_capability
+-      )
+-      if compute_capability < 6.0:
++    if _JAX_BACKEND.value in {JaxBackend.CPU, JaxBackend.MPS}:
++      if _FLASH_ATTENTION_IMPLEMENTATION.value != 'xla':
+         raise ValueError(
+-            'AlphaFold 3 requires at least GPU compute capability 6.0 (see'
+-            ' https://developer.nvidia.com/cuda-gpus).'
++            'For CPU or MPS inference, --flash_attention_implementation must'
++            ' be set to "xla".'
+         )
+-      elif 7.0 <= compute_capability < 8.0:
+-        xla_flags = os.environ.get('XLA_FLAGS')
+-        required_flag = '--xla_disable_hlo_passes=custom-kernel-fusion-rewriter'
+-        if not xla_flags or required_flag not in xla_flags:
+-          raise ValueError(
+-              'For devices with GPU compute capability 7.x (see'
+-              ' https://developer.nvidia.com/cuda-gpus) the ENV XLA_FLAGS must'
+-              f' include "{required_flag}".'
+-          )
+-        if _FLASH_ATTENTION_IMPLEMENTATION.value != 'xla':
++    elif _JAX_BACKEND.value == JaxBackend.GPU:
++      gpu_devices = jax.local_devices(backend='gpu')
++      if gpu_devices:
++        compute_capability = float(
++            gpu_devices[_GPU_DEVICE.value].compute_capability
++        )
++        if compute_capability < 6.0:
+           raise ValueError(
+-              'For devices with GPU compute capability 7.x (see'
+-              ' https://developer.nvidia.com/cuda-gpus) the'
+-              ' --flash_attention_implementation must be set to "xla".'
++              'AlphaFold 3 requires at least GPU compute capability 6.0 (see'
++              ' https://developer.nvidia.com/cuda-gpus).'
+           )
++        elif 7.0 <= compute_capability < 8.0:
++          xla_flags = os.environ.get('XLA_FLAGS')
++          required_flag = '--xla_disable_hlo_passes=custom-kernel-fusion-rewriter'
++          if not xla_flags or required_flag not in xla_flags:
++            raise ValueError(
++                'For devices with GPU compute capability 7.x (see'
++                ' https://developer.nvidia.com/cuda-gpus) the ENV XLA_FLAGS must'
++                f' include "{required_flag}".'
++            )
++          if _FLASH_ATTENTION_IMPLEMENTATION.value != 'xla':
++            raise ValueError(
++                'For devices with GPU compute capability 7.x (see'
++                ' https://developer.nvidia.com/cuda-gpus) the'
++                ' --flash_attention_implementation must be set to "xla".'
++            )
++    else:
++      raise ValueError(f'Unsupported JAX backend: {_JAX_BACKEND.value}')
+ 
+   notice = textwrap.wrap(
+       'Running AlphaFold 3. Please note that standard AlphaFold 3 model'
+@@ -1081,10 +1157,11 @@ def main(_):
+     data_pipeline_config = None
+ 
+   if _RUN_INFERENCE.value:
+-    devices = jax.local_devices(backend='gpu')
++    devices = jax.local_devices(backend=_JAX_BACKEND.value)
++    device = devices[_GPU_DEVICE.value]
+     print(
+-        f'Found local devices: {devices}, using device {_GPU_DEVICE.value}:'
+-        f' {devices[_GPU_DEVICE.value]}'
++        f'Found local {str(_JAX_BACKEND.value).upper()} devices: {devices},'
++        f' using device {_GPU_DEVICE.value}: {device}'
+     )
+ 
+     print('Building model from scratch...')
+@@ -1102,7 +1179,7 @@ def main(_):
+             steering_num_gd_steps=_STEERING_NUM_GD_STEPS.value,
+             steering_weight_scale=_STEERING_WEIGHT_SCALE.value,
+         ),
+-        device=devices[_GPU_DEVICE.value],
++        device=device,
+         model_dir=pathlib.Path(MODEL_DIR.value),
+     )
+     # Check we can load the model parameters before launching anything.
+diff --git a/run_intellifold.py b/run_intellifold.py
+index d14f9ca..6beecf4 100644
+--- a/run_intellifold.py
++++ b/run_intellifold.py
+@@ -34,7 +34,36 @@ from intellifold.data.inference.utils import download, get_cache_path
+ from intellifold.data.inference.data_tools import check_inputs, compute_msa, process_inputs, check_outputs, compute_similar_sequence
+        
+ logger = logging.getLogger(__name__)
+- 
++
++DEFAULT_BUCKETS = (
++    256, 512, 768, 1024, 1280, 1536, 2048, 2560, 3072,
++    3584, 4096, 4608, 5120,
++)
++
++
++def parse_buckets(value: str) -> tuple[int, ...]:
++    """Parse a strictly increasing comma-separated token-bucket list."""
++    try:
++        buckets = tuple(int(part.strip()) for part in value.split(",") if part.strip())
++    except ValueError as exc:
++        raise argparse.ArgumentTypeError("--buckets must contain integers") from exc
++    if not buckets or any(bucket <= 0 for bucket in buckets):
++        raise argparse.ArgumentTypeError("--buckets must contain positive integers")
++    if any(left >= right for left, right in zip(buckets, buckets[1:])):
++        raise argparse.ArgumentTypeError("--buckets must be strictly increasing")
++    return buckets
++
++
++def empty_device_cache(accelerator):
++    """Clear CUDA's allocator only when CUDA is actually in use.
++
++    The historical runner called ``torch.cuda.empty_cache`` six times per input
++    even on Apple MPS.  ``legacy`` is retained for paired benchmarking and rapid
++    rollback; ``auto`` is the production-safe default.
++    """
++    mode = os.environ.get("NANOHUNTER_INTELLIFOLD_MPS_CLEANUP", "auto")
++    if mode == "legacy" or accelerator.device.type == "cuda":
++        torch.cuda.empty_cache()
+ 
+ def init_logging():
+     LOG_FORMAT = "[%(asctime)s] [%(levelname)-4s] [%(filename)s:%(lineno)s:%(funcName)s] %(message)s"
+@@ -298,7 +327,7 @@ def main(args):
+     loader = accelerator.prepare(pred_loader)
+     for batch_idx, input_features in tqdm(enumerate(loader), total=len(loader), disable= not accelerator.is_local_main_process, desc=f"Predicting"):      
+             
+-        torch.cuda.empty_cache()
++        empty_device_cache(accelerator)
+         
+         try:
+             record = input_features.pop("record")[0]
+@@ -314,7 +343,7 @@ def main(args):
+                 input_features['template_aatype'] = F.one_hot(input_features['template_aatype'].long(),num_classes=31).float()
+                 del orig_template_aatype
+                 gc.collect()
+-                torch.cuda.empty_cache()
++                empty_device_cache(accelerator)
+             else:   
+                 input_features.update(construct_empty_template_features(input_features, device=accelerator.device))
+             
+@@ -330,7 +359,7 @@ def main(args):
+                 f.write(target_msg)
+             del input_features
+             gc.collect()
+-            torch.cuda.empty_cache()
++            empty_device_cache(accelerator)
+             continue
+           
+         seed_completion = 0    
+@@ -341,7 +370,7 @@ def main(args):
+             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             # DO THE FORWARD PASS
+             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-            torch.cuda.empty_cache()
++            empty_device_cache(accelerator)
+             
+             ### set seed
+             if hasattr(model, 'generator'):
+@@ -361,7 +390,7 @@ def main(args):
+                     seed=seed,
+                     )
+                 seed_completion += 1
+-                torch.cuda.empty_cache()
++                empty_device_cache(accelerator)
+             except Exception as e:
+                 error_msg = f"Error in prediction: {e}{traceback.format_exc()}\n"
+                 target_msg = f"N_chains: {input_features['N_chains'].item()}, N_tokens: {input_features['N_tokens'].item()}, N_Atoms: {input_features['N_atoms'].item()}, N_alignments: {input_features['N_alignments'].item()}"
+@@ -375,7 +404,7 @@ def main(args):
+                 del original_ref_features
+                 del input_features
+                 gc.collect()
+-                torch.cuda.empty_cache()
++                empty_device_cache(accelerator)
+                 break
+             
+         if seed_completion == len(seeds):
+@@ -468,6 +497,16 @@ if __name__ == "__main__":
+         default=200, 
+         help="The number of diffusion sampling steps to use. Default is 200."
+     )
++    parser.add_argument(
++        "--buckets",
++        type=parse_buckets,
++        default=DEFAULT_BUCKETS,
++        help=(
++            "Strictly increasing comma-separated token lengths used for input "
++            "padding. The smallest bucket that fits an input is selected. "
++            "Default: 256,512,...,5120."
++        ),
++    )
+     parser.add_argument(
+         "--output_format",
+         type=str,
+@@ -536,4 +575,3 @@ if __name__ == "__main__":
+     
+     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-
+diff --git a/intellifold/convert_flash.py b/intellifold/convert_flash.py
+new file mode 100644
+index 0000000..aa043bc
+--- /dev/null
++++ b/intellifold/convert_flash.py
+@@ -0,0 +1,167 @@
++#!/usr/bin/env python3
++"""Convert the PyTorch IntelliFold-v2-flash checkpoint for the AF3 JAX engine.
++
++The released full-v2 converter cannot be reused unchanged: v2-flash has 12
++pairformer blocks, 6 diffusion-transformer blocks, 2 diffusion atom blocks and
++an advanced conditioning path.  This module adapts the audited AF3/IntelliFold
++schema for those differences and then uses the common binary writer.
++"""
++
++from __future__ import annotations
++
++import argparse
++import os
++import numpy as np
++
++from intellifold import convert
++
++
++_PAIRFORMER_PREFIX = (
++    'diffuser/evoformer/__layer_stack_no_per_layer_1/trunk_pairformer/'
++)
++_ATOM_PREFIXES = (
++    'diffuser/~/diffusion_head/diffusion_atom_transformer_encoder/',
++    'diffuser/~/diffusion_head/diffusion_atom_transformer_decoder/',
++)
++_TRANSFORMER_PREFIX = 'diffuser/~/diffusion_head/transformer/'
++_COND_SCOPE = 'diffuser/~/diffusion_head/'
++_FLASH_HEADS = dict(pair=4, template=4, msa=8, single=16, token=16, atom=4)
++
++
++def _zeros_like_shape(arr: np.ndarray, shape: tuple[int, ...]) -> np.ndarray:
++  return np.zeros(shape, dtype=arr.dtype)
++
++
++def build_flash_schema(recs, amap):
++  """Return schema records/correspondence for the v2-flash JAX graph."""
++  old_amap = dict(amap)
++  new_amap = {}
++  out = []
++
++  conditioning = {
++      (_COND_SCOPE + 'pair_cond_initial_norm', 'scale'):
++          ((128,), 'diffusion_module.diffusion_conditioning.layer_norm_z.weight', 'id'),
++      (_COND_SCOPE + 'pair_cond_initial_projection', 'weights'):
++          ((256, 128), 'diffusion_module.diffusion_conditioning.linear_z.weight', 'T'),
++      (_COND_SCOPE + 'single_cond_initial_norm', 'scale'):
++          ((384,), 'diffusion_module.diffusion_conditioning.layer_norm_s.weight', 'id'),
++      (_COND_SCOPE + 'single_cond_initial_projection', 'weights'):
++          ((768, 384), 'diffusion_module.diffusion_conditioning.linear_s.weight', 'T'),
++  }
++
++  for scope, name, arr in recs:
++    key = (scope, name)
++    if key in conditioning:
++      shape, pt_key, tag = conditioning[key]
++      out.append((scope, name, _zeros_like_shape(arr, shape)))
++      new_amap[(scope, name, ())] = (pt_key, tag)
++      continue
++
++    nsd = scope.count('__layer_stack')
++    shape = tuple(arr.shape)
++    if scope.startswith(_PAIRFORMER_PREFIX):
++      shape = (12,) + shape[1:]
++    elif scope in convert.ATOM_PL and scope.startswith(_ATOM_PREFIXES):
++      # Packed pair-bias projection: [pair_channels, blocks, heads].
++      shape = (shape[0], 2, shape[2])
++    elif scope.startswith(_ATOM_PREFIXES) and nsd == 1:
++      shape = (2,) + shape[1:]
++    elif scope.startswith(_TRANSFORMER_PREFIX):
++      if nsd == 2:
++        shape = (2, 3) + shape[2:]
++      elif scope == convert.DIFFTX_PL:
++        # One outer super-block axis; the inner block axis is an output dim.
++        shape = (2, shape[1], 3, shape[3])
++    out.append((scope, name, _zeros_like_shape(arr, shape)))
++
++    if nsd == 0:
++      hit = old_amap.get((scope, name, ()))
++      if hit is not None:
++        new_amap[(scope, name, ())] = hit
++    elif scope.startswith(_PAIRFORMER_PREFIX):
++      for i in range(12):
++        hit = old_amap.get((scope, name, (i,)))
++        if hit is not None:
++          new_amap[(scope, name, (i,))] = hit
++    elif scope.startswith(_ATOM_PREFIXES) and nsd == 1:
++      for i in range(2):
++        hit = old_amap.get((scope, name, (i,)))
++        if hit is not None:
++          new_amap[(scope, name, (i,))] = hit
++    elif scope.startswith(_TRANSFORMER_PREFIX) and nsd == 2:
++      for block in range(6):
++        old_idx = (block // 4, block % 4)
++        hit = old_amap.get((scope, name, old_idx))
++        if hit is not None:
++          new_amap[(scope, name, (block // 3, block % 3))] = hit
++    else:
++      for idx in np.ndindex(*shape[:nsd]):
++        hit = old_amap.get((scope, name, tuple(idx)))
++        if hit is not None:
++          new_amap[(scope, name, tuple(idx))] = hit
++
++  extras = (
++      ('pair_relpos_initial_projection', 'weights', (139, 128),
++       'diffusion_module.diffusion_conditioning.relative_positions_encoding.linear_relpos.weight', 'T'),
++      ('pair_relpos_initial_norm', 'scale', (128,),
++       'diffusion_module.diffusion_conditioning.layer_norm_z_relpos.weight', 'id'),
++      ('single_target_initial_projection', 'weights', (447, 384),
++       'diffusion_module.diffusion_conditioning.linear_s_inputs.weight', 'T'),
++      ('single_target_initial_norm', 'scale', (384,),
++       'diffusion_module.diffusion_conditioning.layer_norm_s_inputs.weight', 'id'),
++  )
++  for module, name, shape, pt_key, tag in extras:
++    scope = _COND_SCOPE + module
++    out.append((scope, name, np.zeros(shape, dtype=np.float32)))
++    new_amap[(scope, name, ())] = (pt_key, tag)
++
++  return out, new_amap
++
++
++def _coverage(pt, amap):
++  mapped = {hit[0] for hit in amap.values() if hit and hit[0] in pt}
++  mapped.update(k for k in pt if k.endswith('fourier_embedding.weight'))
++  mapped.update(k for k in pt if k.endswith('fourier_embedding.bias'))
++  # Pair-bias projections are packed specially by convert.build_pair_logits().
++  mapped.update(k for k in pt if k.endswith('attention_pair_bias.linear_z.weight'))
++  missing = sorted(set(pt) - mapped)
++  mapped_params = sum(int(np.prod(pt[k].shape)) for k in mapped)
++  total_params = sum(int(np.prod(v.shape)) for v in pt.values())
++  print(
++      f'[coverage] mapped {len(mapped)}/{len(pt)} tensors; '
++      f'{mapped_params:,}/{total_params:,} parameters '
++      f'({100 * mapped_params / total_params:.5f}%)',
++      flush=True,
++  )
++  if missing:
++    print(f'[coverage] {len(missing)} checkpoint tensors are not consumed by the JAX graph:')
++    for key in missing[:40]:
++      print(f'  {key} {tuple(pt[key].shape)}')
++  return missing, mapped_params, total_params
++
++
++def main(argv=None):
++  parser = argparse.ArgumentParser(description=__doc__)
++  parser.add_argument('--schema', required=True)
++  parser.add_argument('--flash-pt', required=True)
++  parser.add_argument('--out-dir', required=True)
++  args = parser.parse_args(argv)
++
++  os.makedirs(args.out_dir, exist_ok=True)
++  recs, amap = convert.load_schema(args.schema)
++  recs, amap = build_flash_schema(recs, amap)
++  print(f'[schema] {len(recs)} records, {len(amap)} correspondences', flush=True)
++  pt = convert.load_pt(args.flash_pt)
++  print(f'[checkpoint] {len(pt)} tensors', flush=True)
++  _coverage(pt, amap)
++
++  weights = os.path.join(args.out_dir, 'intellifold_v2_flash.bin.zst')
++  fourier = os.path.join(args.out_dir, 'intellifold_v2_flash_fourier.npz')
++  convert.convert(pt, _FLASH_HEADS, weights, recs, amap, compare=False)
++  convert.extract_fourier(pt, fourier)
++  print(f'[done] JAX v2-flash weights: {weights}', flush=True)
++  print(f'[done] Fourier embedding: {fourier}', flush=True)
++
++
++if __name__ == '__main__':
++  main()

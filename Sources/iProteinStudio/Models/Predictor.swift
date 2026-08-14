@@ -47,12 +47,12 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     var approximateSize: String {
         switch self {
         case .mpnn:           return "~500 MB"
-        case .boltz:          return "~4 GB"
+        case .boltz:          return "~8 GB"
         case .antifold:       return "~2 GB"
-        case .intellifold:    return "~3 GB"
+        case .intellifold:    return "~5 GB"
         case .openfold3:      return "~4 GB"
         case .alphafold3:     return "~3 GB + your own weights"
-        case .intellifoldJAX: return "shares the AlphaFold 3 environment"
+        case .intellifoldJAX: return "~2 GB + AlphaFold 3 environment"
         case .lasermpnn:      return "~2 GB"
         case .rfd3:           return "~5 GB"
         }
@@ -65,7 +65,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .boltz:          return "The default folding engine, and the only one that predicts binding strength. Also generates alignments for the others."
         case .antifold:       return "Nanobody CDR design."
         case .intellifold:    return "A second, independent folding engine."
-        case .intellifoldJAX: return "The faster IntelliFold build. Needs AlphaFold 3's environment, so it brings that with it."
+        case .intellifoldJAX: return "IntelliFold v2-flash or full v2 on the JAX/Metal engine. Needs the AlphaFold 3 environment, so it brings that with it."
         case .openfold3:      return "Another independent folding engine, with Apple GPU kernels."
         case .alphafold3:     return "DeepMind's folding engine. The weights are yours to obtain — they cannot be downloaded for you."
         case .lasermpnn:      return "Ligand-aware sequence design that also places side chains."
@@ -76,7 +76,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Components that must come with this one for it to work at all.
     var requires: [InstallComponent] {
         switch self {
-        case .intellifoldJAX: return [.alphafold3]
+        case .intellifoldJAX: return [.alphafold3, .intellifold]
         // RFdiffusion3 designs need sequences put on them and folds to check
         // them; Boltz is the engine its campaign scripts drive.
         case .rfd3:           return [.boltz]
@@ -89,7 +89,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .lasermpnn:      return "Ligand-aware inverse folding. Runs on CPU — there is no Apple GPU build."
         case .openfold3:      return "Downloads a ~2 GB checkpoint."
         case .alphafold3:     return "Compiles from source (slow). Weights must be obtained from Google separately."
-        case .intellifoldJAX: return "Needs the AlphaFold 3 environment. Converts an existing IntelliFold checkpoint."
+        case .intellifoldJAX: return "Needs the AlphaFold 3 environment. Downloads full-v2 JAX weights and reproducibly converts v2-flash."
         case .rfd3:           return "Downloads a ~1.3 GB checkpoint."
         default:              return nil
         }
@@ -218,7 +218,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openfold3:
             return "Open reimplementation with Apple MLX kernels. Orthogonal check."
         case .intellifoldJAX:
-            return "The same IntelliFold weights on a JAX/Metal engine instead of PyTorch. About 1.24x faster, needs about twice the memory, and gives very slightly different numbers."
+            return "IntelliFold on a JAX/Metal engine instead of PyTorch. Choose v2-flash or full v2 below."
         }
     }
 
@@ -230,7 +230,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .intellifold:
             return "Slowest of the four at its default ten recycles."
         case .intellifoldJAX:
-            return "Needs ~27 GiB at four concurrent processes, against ~14 for the PyTorch backend. Its outputs are close to, but not identical to, that backend's."
+            return "The speed badge is measured for v2-flash. Full v2 is available but not yet benchmarked."
         default:
             return ""
         }
@@ -249,12 +249,12 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
                     "host thread limits deliberately NOT applied — they made Boltz slower",
                     usesSteeringPotentials ? "steering potentials on" : "steering potentials off"]
         case .intellifold:
-            return ["v2-flash model, fp32 (Accelerate rejects fp16/bf16 on this path)",
+            return ["selected v2-flash or full-v2 model; fp32 on MPS",
                     "10 recycles (its default)",
                     "OMP_NUM_THREADS=1 and VECLIB_MAXIMUM_THREADS=1 — ~1.3x, IntelliFold only",
                     "token buckets: auto, i.e. the exact campaign token count",
                     "CUDA-only cleanup paths patched out for MPS (bit-identical outputs)",
-                    "PyTorch backend — the JAX backend is ~1.24x faster but has no route through the runner yet"]
+                    "PyTorch backend — the independently implemented JAX backend is available in prediction and RFdiffusion3 checks"]
         case .alphafold3:
             return ["jax_backend=mps with the portable XLA attention implementation",
                     "10 recycles, 1 diffusion sample (its defaults)",
@@ -263,11 +263,12 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
                     "async dispatch off — measured neutral here, negative elsewhere",
                     "native batching only in Batched scheduling (~1.4x)"]
         case .intellifoldJAX:
-            return ["IntelliFold v2-flash weights on AlphaFold 3's JAX/MPS engine",
-                    "portable XLA attention, async dispatch off (measured negative here)",
+            return ["selected v2-flash or full-v2 weights on AlphaFold 3's JAX/MPS engine",
+                    "v2-flash uses NanoHunter's validated graph patch and local conversion",
+                    "portable XLA attention; v2-flash schedule comes from the measured benchmark",
                     "token buckets chosen from the actual token count",
                     "persistent JAX compilation cache",
-                    "~1.24x the PyTorch backend, at roughly twice the memory"]
+                    "full-v2 JAX speed and memory are not yet benchmarked in Studio"]
         case .openfold3:
             return ["MLX attention/triangle/activation kernels enabled",
                     "3 recycles, 1 diffusion sample, 1 model seed (its defaults)",

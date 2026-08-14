@@ -66,13 +66,13 @@ private struct InnerSetup: View {
             Button {
                 installer.install()
             } label: {
-                Label("Set Up NanoHunter", systemImage: "arrow.down.circle.fill")
+                Label("Set Up iProteinStudio", systemImage: "arrow.down.circle.fill")
                     .frame(maxWidth: 260)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
 
-            Text("Downloads are several GB and can take a while on first run.")
+            Text("The default standalone install downloads many gigabytes and can take a while on first run.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
