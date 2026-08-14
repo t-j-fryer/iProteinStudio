@@ -34,6 +34,10 @@ struct ExamplesBar: View {
                     .buttonStyle(.plain)
                     .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.35)))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Try the \(example.name) example")
+                    .accessibilityHint(example.goodFor)
+                    .accessibilityIdentifier("example-\(example.id)")
                 }
             }
         }

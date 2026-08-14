@@ -815,6 +815,8 @@ struct RFD3View: View {
                     Label("Start RFdiffusion3 Run", systemImage: "play.fill").frame(minWidth: 220)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
+                .accessibilityLabel("Start RFdiffusion3 run")
+                .accessibilityIdentifier("start-rfdiffusion3-run")
                 .disabled(!r.isRunnable || !issues.isEmpty || anotherWorkflowIsRunning)
             }
         }

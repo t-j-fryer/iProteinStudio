@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-08-13_
+_Last updated: 2026-08-14_
 
 | | |
 |---|---|
@@ -36,20 +36,23 @@ validated production pipeline and survives quitting the app.
 
 **Known gaps, in priority order:**
 
-1. No campaign has yet been run end to end by clicking through the built app.
-   Individual engines and the prediction batch route have run from the isolated
-   managed install; existing performance claims still come from the recorded
-   NanoHunter/RFD3 measurements rather than this acceptance run.
-2. The RFdiffusion3 **protein path is untested end to end**. It now generates the
-   target MSA, re-folds and ranks, but none of those stages has ever run —
-   see [0005](lab_book/0005-designer-routing-and-install-detection.md).
-3. AlphaFold 3's environment installs, but its gated `af3.bin` parameter file
+1. Completed Iterative runs remain on disk but do not reappear as project run
+   history after the app restarts. Persistent recovery/results UI is the most
+   important remaining robustness and usability gap.
+2. The RFdiffusion3 protein fixture and MLX backbone path now have a real local
+   GPU acceptance run, but SolubleMPNN, target-MSA generation, verification and
+   ranking remain untested end to end from a GUI click — see
+   [0015](lab_book/0015-gui-gpu-and-usability-audit.md).
+3. Accessibility labels now cover examples, primary Start actions, navigation
+   and the active-run banner, but the remaining forms have not had a complete
+   VoiceOver, keyboard-focus, large-text or contrast pass.
+4. AlphaFold 3's environment installs, but its gated `af3.bin` parameter file
    cannot be distributed or downloaded by Studio; the user must supply it.
-4. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
+5. RFdiffusion3 campaign **results have no UI**: rankings, apo–holo preorganisation
    and self-consistency are written to disk but must be opened by hand.
-5. OpenFold-3 complex pLDDT has an unresolved scale problem — see
+6. OpenFold-3 complex pLDDT has an unresolved scale problem — see
    [0002](lab_book/0002-inherited-speed-lessons.md) §7.
-6. No app icon, no Developer ID signing/notarisation, no self-update.
+7. No app icon, no Developer ID signing/notarisation, no self-update.
 
 **Deliberately out of scope:** NISE (experimental, stays in NanoHunter); RFdiffusion3
 against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
@@ -80,6 +83,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0015 | 2026-08-14 | [Exercise real GUI GPU jobs and audit the app as a product](lab_book/0015-gui-gpu-and-usability-audit.md) | Real MPS/MLX launch evidence, active navigation, two acceptance bugs, and the prioritized usability/accessibility roadmap |
 | 0014 | 2026-08-13 | [Promote the standalone runtime and keep workflow navigation available](lab_book/0014-runtime-promotion-and-persistent-navigation.md) | Why navigation stays visible during campaigns, how concurrent starts are blocked, and which validated runtime the GUI uses |
 | 0013 | 2026-08-13 | [A standalone install with both IntelliFold v2 models and bundled nanobody MSAs](lab_book/0013-standalone-intellifold-and-scaffold-msas.md) | Managed caches, pinned sources/checkpoints, v2-flash versus full-v2 routing, scaffold alignments, and real isolated-root acceptance runs |
 | 0012 | 2026-08-13 | [Worked examples with a shipped alignment, and the first real from-scratch install](lab_book/0012-worked-examples-and-fresh-install.md) | Why the aCbx alignment ships with the app, and what a from-scratch install actually proves |

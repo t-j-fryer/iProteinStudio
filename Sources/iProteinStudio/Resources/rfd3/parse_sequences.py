@@ -54,7 +54,11 @@ def looks_like_protein(sequence: str) -> bool:
 
 
 def slug(text: str, fallback: str) -> str:
-    out = re.sub(r"[^A-Za-z0-9_.-]+", "_", (text or "").strip()).strip("_")
+    # A Unicode-only leading character is removed by the ASCII-safe rewrite.
+    # Strip every allowed separator afterwards so names such as
+    # `α-Cobratoxin` become `Cobratoxin`, not `-Cobratoxin` (which command-line
+    # parsers can mistake for an option when passed as a separate argument).
+    out = re.sub(r"[^A-Za-z0-9_.-]+", "_", (text or "").strip()).strip("_.-")
     return out[:60] or fallback
 
 

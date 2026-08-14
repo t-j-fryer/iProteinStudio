@@ -4646,7 +4646,7 @@ run_predict_alphafold3() {
   # Convert the per-cycle Boltz YAML into AF3 JSON, carrying precomputed A3M MSAs
   # (or empty MSAs) so --norun_data_pipeline needs no genetic databases.
   safe_name="$("${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_ADAPTER}" to-json \
-    --in-yaml "${cycle_yaml}" --out-json "${af3_json}" --name "${query_name}")" \
+    --in-yaml "${cycle_yaml}" --out-json "${af3_json}" --name="${query_name}")" \
     || die "AlphaFold3 input conversion failed for ${cycle_yaml}"
 
   # cpu/mps backends require the portable XLA attention implementation.
@@ -5473,7 +5473,7 @@ run_cycle_wave_predictor_batch() {
         "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_ADAPTER}" to-json \
           --in-yaml "${af3_yaml}" \
           --out-json "${af3_input_dir}/${af3_stem}.json" \
-          --name "${af3_stem}" \
+          --name="${af3_stem}" \
           >> "${batch_root}/af3_adapter.log" 2>&1 || { rc=$?; break; }
       done
       if [[ "${rc:-0}" -eq 0 ]]; then

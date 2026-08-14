@@ -93,7 +93,7 @@ def main() -> None:
 
     convert = subprocess.run(
         [str(python), str(adapter), "to-json",
-         "--in-yaml", str(args.yaml), "--out-json", str(fold_json), "--name", name],
+         "--in-yaml", str(args.yaml), "--out-json", str(fold_json), f"--name={name}"],
         capture_output=True, text=True)
     if convert.returncode:
         die(f"input conversion failed: {convert.stderr.strip()[:400]}")

@@ -341,6 +341,8 @@ struct PredictView: View {
                           systemImage: "play.fill").frame(minWidth: 200)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
+                .accessibilityLabel("Start prediction run for \(r.jobs.count) sequence\(r.jobs.count == 1 ? "" : "s")")
+                .accessibilityIdentifier("start-prediction-run")
                 .disabled(!r.isRunnable || !issues.isEmpty || anotherWorkflowIsRunning)
             }
         }

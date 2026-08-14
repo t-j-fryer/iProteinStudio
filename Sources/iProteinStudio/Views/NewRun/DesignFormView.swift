@@ -188,6 +188,8 @@ struct DesignFormView: View {
                 Label("Start Design Run", systemImage: "play.fill").frame(minWidth: 200)
             }
             .buttonStyle(.borderedProminent).controlSize(.large)
+            .accessibilityLabel("Start iterative design run")
+            .accessibilityIdentifier("start-iterative-run")
             .disabled(!r.isRunnable || r.ligandAtomsStale || anotherWorkflowIsRunning)
         }
         .padding(.top, 6)
