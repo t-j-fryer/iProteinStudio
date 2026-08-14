@@ -24,4 +24,8 @@ struct DesignPoint: Identifiable, Hashable {
 
     var label: String { String(format: "run %02d · cycle %02d", run, cycle) }
     var iptmText: String { String(format: "%.3f", iptm) }
+    var plddtText: String {
+        let conventional = plddt <= 1.000_001 ? plddt * 100 : plddt
+        return String(format: "%.1f", conventional)
+    }
 }

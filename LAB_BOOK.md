@@ -16,15 +16,16 @@ _Last updated: 2026-08-14_
 |---|---|
 | **Stage** | Alpha. Debug and release builds pass; a standalone managed install has completed acceptance folds; not signed or notarised. |
 | **Platform** | macOS 14+, Apple Silicon only. Developed on M4 Max / 64 GB / macOS 26.x. |
-| **Repo** | Private — `github.com/t-j-fryer/iProteinStudio` (renamed from NanoHunterStudio) |
+| **Repo** | Public — `github.com/t-j-fryer/iProteinStudio` (renamed from NanoHunterStudio) |
 | **Runtime** | `~/.iproteinstudio` — **not** Application Support: a space in the path breaks every Python console-script shebang |
 
 **Working:** setup wizard with per-engine choice, worked examples (α-cobratoxin
 with its alignment included, and fluorescein), project management, a
 prediction-only tab that reuses every alignment on the machine, nanobody/mini-binder/peptide design form,
 live metrics dashboard, hits gallery, offline 3D structure viewer, target prep,
-predictions library, persistent per-project run history and a global Activity
-panel with exact checkpoint Resume for newly recorded iterative campaigns.
+predictions library, a unified in-app structure/metric browser for completed
+Predict, iterative and RFdiffusion3 runs, persistent per-project run history and
+a global Activity panel with exact checkpoint Resume for newly recorded iterative campaigns.
 
 **Also working:** Ligand Intelligence — chemistry QA, recognition-core vs linker
 separation, conformer ensembles weighed against experimental PDB structures, and a
@@ -47,9 +48,8 @@ from checkpoints and presents its ranked-result summary.
    VoiceOver, keyboard-focus, large-text or contrast pass.
 3. AlphaFold 3's environment installs, but its gated `af3.bin` parameter file
    cannot be distributed or downloaded by Studio; the user must supply it.
-4. RFdiffusion3 exposes completion and a basic ranked summary, but does not yet
-   provide a full structure/ranking browser for apo–holo preorganisation and
-   self-consistency.
+4. RFdiffusion3's ranked structures are browsable, but it does not yet provide a
+   paired apo–holo comparison with preorganisation RMSD and self-consistency.
 5. OpenFold-3 complex pLDDT has an unresolved scale problem — see
    [0002](lab_book/0002-inherited-speed-lessons.md) §7.
 6. No app icon, no Developer ID signing/notarisation, no self-update.
@@ -83,6 +83,8 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0018 | 2026-08-14 | [Browse prediction and design results in the app](lab_book/0018-browse-run-results-in-app.md) | One offline browser for Predict, iterative and RFdiffusion3 structures; honest cross-engine metric naming; safe shared-batch result matching |
+| 0017 | 2026-08-14 | [Constrain Boltz-only prediction options](lab_book/0017-constrain-boltz-only-prediction-options.md) | Why steering and affinity controls follow Boltz selection, ligand eligibility, saved-state normalisation and launch-time sanitisation |
 | 0016 | 2026-08-14 | [Complete RFD3 and nanobody campaigns, then make runs recoverable](lab_book/0016-complete-campaigns-and-run-recovery.md) | Full staged protein and nanobody acceptance, protein ranking semantics, exact run manifests, activity/history UI and sleep inhibition |
 | 0015 | 2026-08-14 | [Exercise real GUI GPU jobs and audit the app as a product](lab_book/0015-gui-gpu-and-usability-audit.md) | Real MPS/MLX launch evidence, active navigation, two acceptance bugs, and the prioritized usability/accessibility roadmap |
 | 0014 | 2026-08-13 | [Promote the standalone runtime and keep workflow navigation available](lab_book/0014-runtime-promotion-and-persistent-navigation.md) | Why navigation stays visible during campaigns, how concurrent starts are blocked, and which validated runtime the GUI uses |

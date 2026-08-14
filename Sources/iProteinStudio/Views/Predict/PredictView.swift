@@ -69,6 +69,7 @@ struct PredictView: View {
             startBar.padding(.horizontal, 28).padding(.vertical, 14)
                 .background(.bar)
         }
+        .onAppear { normalizeEngineOptions() }
     }
 
     private var header: some View {
@@ -217,7 +218,9 @@ struct PredictView: View {
     // MARK: Engines
 
     private var engineSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let boltzSelected = request.wrappedValue.includesBoltz
+        let containsLigand = request.wrappedValue.containsLigand
+        return VStack(alignment: .leading, spacing: 8) {
             ForEach(Predictor.predictionChoices) { predictor in
                 engineRow(predictor)
             }
@@ -237,11 +240,21 @@ struct PredictView: View {
                     .font(.caption2).foregroundStyle(.secondary)
             }
             Divider().padding(.vertical, 2)
+            Text("Boltz-2 options").font(.callout.weight(.medium))
             Toggle("Boltz steering potentials", isOn: request.useBoltzPotentials)
                 .toggleStyle(.checkbox).font(.callout)
+                .disabled(!boltzSelected)
+                .accessibilityHint(boltzSelected
+                    ? "Applies only to folds run with Boltz-2"
+                    : "Select Boltz-2 to enable steering potentials")
             Toggle("Predict binding strength for small molecules", isOn: request.runAffinityHead)
                 .toggleStyle(.checkbox).font(.callout)
-            Text("The affinity head is Boltz-only and small-molecule-only.")
+                .disabled(!boltzSelected || !containsLigand)
+                .accessibilityHint(!boltzSelected
+                    ? "Select Boltz-2 to enable binding-strength prediction"
+                    : "A parsed fold must contain a small molecule")
+            Text(boltzOptionsExplanation(boltzSelected: boltzSelected,
+                                         containsLigand: containsLigand))
                 .font(.caption2).foregroundStyle(.secondary)
         }
     }
@@ -253,7 +266,10 @@ struct PredictView: View {
             set: { on in
                 var list = request.wrappedValue.predictors
                 if on { list.append(predictor) } else { list.removeAll { $0 == predictor } }
-                request.wrappedValue.predictors = list
+                var updated = request.wrappedValue
+                updated.predictors = list
+                updated.normalizeEngineOptions()
+                request.wrappedValue = updated
             })) {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
@@ -276,6 +292,23 @@ struct PredictView: View {
         }
         .toggleStyle(.checkbox)
         .disabled(!installed)
+    }
+
+    private func boltzOptionsExplanation(boltzSelected: Bool, containsLigand: Bool) -> String {
+        if !boltzSelected {
+            return "Select Boltz-2 to use either option. They do not apply to IntelliFold, AlphaFold 3, or OpenFold-3."
+        }
+        if !containsLigand {
+            return "Steering applies to Boltz-2. Binding strength also needs at least one parsed fold containing a small molecule."
+        }
+        return "These settings apply only to the Boltz-2 portion of this batch; other selected engines keep their own defaults."
+    }
+
+    private func normalizeEngineOptions() {
+        var updated = request.wrappedValue
+        let original = updated
+        updated.normalizeEngineOptions()
+        if updated != original { request.wrappedValue = updated }
     }
 
     // MARK: Throughput
@@ -378,7 +411,10 @@ struct PredictView: View {
             isParsing = false
             parseError = error
             warnings = notes
-            request.wrappedValue.jobs = jobs
+            var updated = request.wrappedValue
+            updated.jobs = jobs
+            updated.normalizeEngineOptions()
+            request.wrappedValue = updated
         }
     }
 }
@@ -386,6 +422,7 @@ struct PredictView: View {
 /// Live progress for a running batch.
 struct PredictProgressView: View {
     @ObservedObject var controller: PredictionController
+    @State private var showResults = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -422,12 +459,27 @@ struct PredictProgressView: View {
             }
 
             if let root = controller.outputRoot {
-                Button { NSWorkspace.shared.activateFileViewerSelecting([root]) } label: {
-                    Label("Show results", systemImage: "folder")
-                }.controlSize(.small)
+                HStack {
+                    if !controller.isRunning {
+                        Button { showResults = true } label: {
+                            Label("View Results", systemImage: "cube.transparent")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("view-prediction-results")
+                    }
+                    Button { NSWorkspace.shared.activateFileViewerSelecting([root]) } label: {
+                        Label("Reveal Folder", systemImage: "folder")
+                    }
+                    .controlSize(.small)
+                }
             }
             Spacer(minLength: 0)
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .sheet(isPresented: $showResults) {
+            if let root = controller.outputRoot {
+                RunResultsView(root: root, workflow: .prediction)
+            }
+        }
     }
 }

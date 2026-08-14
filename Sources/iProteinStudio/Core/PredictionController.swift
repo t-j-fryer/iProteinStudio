@@ -186,12 +186,15 @@ final class PredictionController: ObservableObject {
 
     static func config(request: PredictionRequest, outputDir: URL) -> PredictionConfig {
         var config = PredictionConfig()
+        let boltzSelected = request.includesBoltz
         config.root = AppPaths.support.path
         config.output = outputDir.path
         config.predictors = request.predictors.map(\.runnerValue)
         config.intellifold_model = request.intellifoldModel.rawValue
-        config.use_potentials = request.useBoltzPotentials
-        config.affinity = request.runAffinityHead
+        // Defense in depth: old project files may contain switches selected
+        // before the UI made their Boltz-only scope explicit.
+        config.use_potentials = boltzSelected && request.useBoltzPotentials
+        config.affinity = boltzSelected && request.containsLigand && request.runAffinityHead
         config.max_parallel = request.maxParallel
         config.batch_size = request.batchSize
         config.msa = PredictionConfig.MSA(

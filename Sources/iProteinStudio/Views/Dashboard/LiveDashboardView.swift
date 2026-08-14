@@ -17,6 +17,7 @@ struct LiveDashboardView: View {
     @ObservedObject var run: RunController
     @ObservedObject var metrics: MetricsWatcher
     @State private var tab: DashTab = .overview
+    @State private var showResults = false
 
     private var ligandSmiles: String? {
         let r = project.request
@@ -51,6 +52,11 @@ struct LiveDashboardView: View {
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onReceive(run.$phase) { _ in if case .finished = run.phase { metrics.refresh() } }
+        .sheet(isPresented: $showResults) {
+            if let root = run.campaignRoot {
+                RunResultsView(root: root, workflow: .iterative)
+            }
+        }
     }
 
     private var overviewTab: some View {
@@ -87,6 +93,13 @@ struct LiveDashboardView: View {
             }
             Spacer()
             HStack(spacing: 10) {
+                if !run.isRunning, run.campaignRoot != nil {
+                    Button { showResults = true } label: {
+                        Label("Browse Results", systemImage: "cube.transparent")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("view-design-results")
+                }
                 Button {
                     if let root = run.campaignRoot { NSWorkspace.shared.activateFileViewerSelecting([root]) }
                 } label: { Label("Reveal Output", systemImage: "folder") }

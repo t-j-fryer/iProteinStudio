@@ -1,0 +1,428 @@
+import Foundation
+
+/// A structure and its most useful engine-emitted confidence summaries.
+/// Values stay numeric here so every workflow uses the same formatting in the UI.
+struct StudioResultItem: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let structureURL: URL
+    let sequence: String?
+    let metrics: [StudioResultMetric]
+    let confidenceURL: URL?
+
+    var primaryMetric: StudioResultMetric? {
+        metrics.first { $0.kind == .iptm }
+            ?? metrics.first { $0.kind == .ipsaeMinimum }
+            ?? metrics.first { $0.kind == .plddt }
+            ?? metrics.first
+    }
+}
+
+struct StudioResultMetric: Identifiable, Hashable {
+    enum Kind: String, CaseIterable, Hashable {
+        case plddt
+        case iptm
+        case ptm
+        case interfacePAEMinimum
+        case ipsaeMinimum
+        case interfacePDE
+        case minimumIPTM
+        case meanIPTM
+        case bindingProbability
+        case rankingScore
+
+        var label: String {
+            switch self {
+            case .plddt: return "pLDDT"
+            case .iptm: return "iPTM"
+            case .ptm: return "pTM"
+            case .interfacePAEMinimum: return "min interface PAE"
+            case .ipsaeMinimum: return "ipSAE(min)"
+            case .interfacePDE: return "interface PDE"
+            case .minimumIPTM: return "minimum iPTM"
+            case .meanIPTM: return "mean iPTM"
+            case .bindingProbability: return "P(bind)"
+            case .rankingScore: return "ranking score"
+            }
+        }
+
+        var explanation: String {
+            switch self {
+            case .plddt: return "Local structural confidence; shown on the conventional 0–100 scale."
+            case .iptm: return "Confidence in the relative placement of chains; higher is better."
+            case .ptm: return "Confidence in the overall fold; higher is better."
+            case .interfacePAEMinimum:
+                return "The lowest predicted aligned error across a pair of different chains, in Å. Lower is better."
+            case .ipsaeMinimum:
+                return "The smaller directional ipSAE score for the interface, when an upstream scorer emitted it. Higher is better."
+            case .interfacePDE:
+                return "Boltz interface predicted distance error, in Å. This is not relabelled as PAE. Lower is better."
+            case .minimumIPTM: return "The weakest iPTM across the verification engines; higher is better."
+            case .meanIPTM: return "Mean iPTM across the verification engines; higher is better."
+            case .bindingProbability: return "Boltz probability that the small molecule binds; higher is better."
+            case .rankingScore: return "The workflow's own score used to order these results."
+            }
+        }
+    }
+
+    let kind: Kind
+    let value: Double
+    var id: String { kind.rawValue }
+
+    var displayValue: String {
+        switch kind {
+        case .plddt:
+            let conventional = value <= 1.000_001 ? value * 100 : value
+            return String(format: "%.1f", conventional)
+        case .interfacePAEMinimum, .interfacePDE:
+            return String(format: "%.2f Å", value)
+        default:
+            return String(format: "%.3f", value)
+        }
+    }
+}
+
+/// Reads the durable output formats already written by PredictionController,
+/// NanoHunter campaigns and RFdiffusion3 campaigns. It never invents a metric:
+/// absent engine output stays absent in the UI.
+enum RunResultsLoader {
+    private static let fm = FileManager.default
+
+    static func load(root: URL, workflow: StudioWorkflow) -> [StudioResultItem] {
+        switch workflow {
+        case .prediction: return predictionResults(root: root)
+        case .iterative: return iterativeResults(root: root)
+        case .rfdiffusion3: return rfd3Results(root: root)
+        }
+    }
+
+    // MARK: Prediction batches
+
+    private static func predictionResults(root: URL) -> [StudioResultItem] {
+        let rows = CSVTable.rows(at: root.appendingPathComponent("predictions.csv"))
+        let sequences = predictionSequences(root: root)
+        let outputCounts = Dictionary(grouping: rows, by: { $0["output"] ?? "" }).mapValues(\.count)
+        return rows.compactMap { row in
+            guard row["exit_code"] == "0", let outputText = row["output"],
+                  let output = resolvedURL(outputText, relativeTo: root),
+                  let structure = preferredStructure(in: output, job: row["job"] ?? "",
+                                                     allowGeneric: outputCounts[outputText] == 1)
+            else { return nil }
+
+            let job = row["job"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let predictor = friendlyPredictor(row["predictor"] ?? "Prediction")
+            let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
+            let metrics = collectMetrics(row: row, documents: documents)
+            let title = (job?.isEmpty == false ? job! : structure.deletingPathExtension().lastPathComponent)
+            return StudioResultItem(
+                id: "\(predictor)|\(title)|\(structure.path)", title: title,
+                subtitle: predictor, structureURL: structure,
+                sequence: job.flatMap { sequences[$0] }, metrics: metrics,
+                confidenceURL: documents.first
+            )
+        }
+    }
+
+    private static func predictionSequences(root: URL) -> [String: String] {
+        guard let object = jsonObject(at: root.appendingPathComponent("prediction_config.json")),
+              let jobs = object["jobs"] as? [[String: Any]] else { return [:] }
+        return Dictionary(uniqueKeysWithValues: jobs.compactMap { job in
+            guard let name = job["name"] as? String,
+                  let chains = job["chains"] as? [[String: Any]] else { return nil }
+            let proteins = chains.compactMap { chain -> String? in
+                guard (chain["kind"] as? String) == "protein" else { return nil }
+                return chain["sequence"] as? String
+            }
+            guard !proteins.isEmpty else { return nil }
+            return (name, proteins.joined(separator: ":"))
+        })
+    }
+
+    // MARK: Iterative designs
+
+    private static func iterativeResults(root: URL) -> [StudioResultItem] {
+        var rows = CSVTable.rows(at: root.appendingPathComponent("comparison_scores_long.csv"))
+        if rows.isEmpty {
+            rows = CSVTable.rows(at: root.appendingPathComponent("summary_all_runs.csv"))
+        }
+        return rows.compactMap { row in
+            guard let path = row["structure_path"],
+                  let structure = resolvedURL(path, relativeTo: root),
+                  fm.fileExists(atPath: structure.path) else { return nil }
+            let stage = row["stage"]?.capitalized ?? "Design"
+            let predictor = friendlyPredictor(row["predictor"] ?? "")
+            let run = Int(row["run"] ?? "") ?? 0
+            let cycle = Int(row["cycle"] ?? "") ?? 0
+            let confidence = row["confidence_json"].flatMap { resolvedURL($0, relativeTo: root) }
+            let documents = confidence.map { [$0] } ?? confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
+            return StudioResultItem(
+                id: "\(stage)|\(predictor)|\(run)|\(cycle)|\(structure.path)",
+                title: String(format: "Run %02d · cycle %02d", run, cycle),
+                subtitle: predictor.isEmpty ? stage : "\(stage) · \(predictor)",
+                structureURL: structure, sequence: nonempty(row["binder_sequence"]),
+                metrics: collectMetrics(row: row, documents: documents),
+                confidenceURL: documents.first
+            )
+        }
+    }
+
+    // MARK: RFdiffusion3 ranked designs
+
+    private static func rfd3Results(root: URL) -> [StudioResultItem] {
+        let manifest = root.appendingPathComponent("analysis/top100_manifest.json")
+        guard let data = try? Data(contentsOf: manifest),
+              let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return [] }
+
+        var results: [StudioResultItem] = []
+        for (rankIndex, raw) in rows.enumerated() {
+            let row = stringRow(raw)
+            let name = nonempty(row["name"]) ?? nonempty(row["design"]) ?? "Design \(rankIndex + 1)"
+            let sequence = nonempty(row["sequence"])
+            var structures: [(String, String)] = []
+            if let map = raw["structures"] as? [String: String] {
+                structures = map.sorted { $0.key < $1.key }
+            } else if let encoded = raw["structures"] as? String,
+                      let data = encoded.data(using: .utf8),
+                      let map = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+                structures = map.sorted { $0.key < $1.key }
+            } else if let path = nonempty(row["pdb"]) ?? nonempty(row["structure"]) {
+                structures = [("Prediction", path)]
+            }
+
+            for (predictorKey, path) in structures {
+                guard let structure = resolvedURL(path, relativeTo: root),
+                      fm.fileExists(atPath: structure.path) else { continue }
+                var metricRow = row
+                if let value = row["iptm_\(predictorKey)"] { metricRow["iptm"] = value }
+                let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
+                results.append(StudioResultItem(
+                    id: "\(rankIndex)|\(predictorKey)|\(structure.path)",
+                    title: "#\(rankIndex + 1) · \(name)",
+                    subtitle: friendlyPredictor(predictorKey), structureURL: structure,
+                    sequence: sequence, metrics: collectMetrics(row: metricRow, documents: documents),
+                    confidenceURL: documents.first
+                ))
+            }
+        }
+        return results
+    }
+
+    // MARK: Metric extraction
+
+    private static func collectMetrics(row: [String: String], documents: [URL]) -> [StudioResultMetric] {
+        var values: [StudioResultMetric.Kind: Double] = [:]
+        func add(_ kind: StudioResultMetric.Kind, _ value: Double?) {
+            if let value, value.isFinite, values[kind] == nil { values[kind] = value }
+        }
+        func rowNumber(_ keys: [String]) -> Double? {
+            for key in keys {
+                if let text = row[key], let value = Double(text), value.isFinite { return value }
+            }
+            return nil
+        }
+
+        add(.plddt, rowNumber(["complex_plddt", "plddt", "ligand_plddt"]))
+        add(.iptm, rowNumber(["iptm", "ipTM"]))
+        add(.ptm, rowNumber(["ptm", "pTM"]))
+        add(.interfacePAEMinimum, rowNumber(["ipae_min", "interface_pae_min", "min_interface_pae"]))
+        add(.ipsaeMinimum, rowNumber(["ipsae_min", "ipSAE_min", "ipsae(min)"]))
+        add(.interfacePDE, rowNumber(["complex_ipde", "interface_pde"]))
+        add(.minimumIPTM, rowNumber(["min_iptm"]))
+        add(.meanIPTM, rowNumber(["mean_iptm"]))
+        add(.bindingProbability, rowNumber(["pbind", "affinity_probability_binary"]))
+        add(.rankingScore, rowNumber(["score", "ranking_score"]))
+
+        for document in documents {
+            guard let object = jsonObject(at: document) else { continue }
+            add(.plddt, number(in: object, keys: ["complex_plddt", "protein_plddt", "mean_plddt", "plddt"]))
+            add(.iptm, number(in: object, keys: ["iptm", "ipTM"]))
+            add(.ptm, number(in: object, keys: ["ptm", "pTM"]))
+            add(.interfacePAEMinimum, number(in: object, keys: ["ipae_min", "interface_pae_min", "min_interface_pae"]))
+            add(.interfacePAEMinimum, offDiagonalMinimum(object["chain_pair_pae_min"]))
+            add(.ipsaeMinimum, number(in: object, keys: ["ipsae_min", "ipSAE_min", "ipsae(min)"]))
+            add(.interfacePDE, number(in: object, keys: ["complex_ipde", "interface_pde"]))
+            add(.bindingProbability, number(in: object, keys: ["affinity_probability_binary", "pbind"]))
+            add(.rankingScore, number(in: object, keys: ["ranking_score", "score"]))
+        }
+
+        let order = StudioResultMetric.Kind.allCases
+        return order.compactMap { kind in values[kind].map { StudioResultMetric(kind: kind, value: $0) } }
+    }
+
+    private static func number(in object: [String: Any], keys: [String]) -> Double? {
+        for key in keys {
+            if let value = object[key] as? NSNumber { return value.doubleValue }
+            if let value = object[key] as? Double { return value }
+            if let values = object[key] as? [NSNumber], !values.isEmpty {
+                return values.map(\.doubleValue).reduce(0, +) / Double(values.count)
+            }
+        }
+        // AF3-style detailed confidence output stores per-atom pLDDT values.
+        if keys.contains("plddt"), let values = object["atom_plddts"] as? [NSNumber], !values.isEmpty {
+            return values.map(\.doubleValue).reduce(0, +) / Double(values.count)
+        }
+        return nil
+    }
+
+    private static func offDiagonalMinimum(_ value: Any?) -> Double? {
+        guard let rows = value as? [[Any]], rows.count > 1 else { return nil }
+        var result: Double?
+        for (i, row) in rows.enumerated() {
+            for (j, item) in row.enumerated() where i != j {
+                guard let number = item as? NSNumber else { continue }
+                result = min(result ?? number.doubleValue, number.doubleValue)
+            }
+        }
+        return result
+    }
+
+    // MARK: Files and formats
+
+    private static func preferredStructure(in root: URL, job: String, allowGeneric: Bool) -> URL? {
+        let preferred = root.appendingPathComponent("pred_min/model_0.cif")
+        if allowGeneric, fm.fileExists(atPath: preferred.path) { return preferred }
+        let files = recursiveFiles(in: root).filter { ["cif", "pdb"].contains($0.pathExtension.lowercased()) }
+        let jobKey = lookupKey(job)
+        let matching = jobKey.isEmpty ? [] : files.filter { lookupKey($0.path).contains(jobKey) }
+        let eligible = matching.isEmpty && allowGeneric ? files : matching
+        return eligible.sorted { structureRank($0, root: root) < structureRank($1, root: root) }.first
+    }
+
+    private static func structureRank(_ url: URL, root: URL) -> String {
+        let relative = url.path.replacingOccurrences(of: root.path, with: "")
+        let seedPenalty = relative.contains("/seed-") ? "9" : "0"
+        let topModel = url.lastPathComponent.contains("_model.") ? "0" : "1"
+        return seedPenalty + topModel + String(format: "%05d", relative.count) + relative
+    }
+
+    private static func confidenceDocuments(near structure: URL, within root: URL) -> [URL] {
+        let nearby = structure.deletingLastPathComponent().appendingPathComponent("confidence.json")
+        var candidates: [URL] = fm.fileExists(atPath: nearby.path) ? [nearby] : []
+        candidates += recursiveFiles(in: root).filter { url in
+            let name = url.lastPathComponent.lowercased()
+            guard name.hasSuffix(".json") else { return false }
+            return name == "confidence.json" || name.contains("summary_confidences")
+                || name.hasPrefix("confidence_") || name.hasSuffix("_confidences.json")
+        }
+        let unique = Dictionary(grouping: candidates, by: \.path).compactMap { $0.value.first }
+        return unique.sorted { confidenceRank($0) < confidenceRank($1) }.prefix(4).map { $0 }
+    }
+
+    private static func confidenceRank(_ url: URL) -> String {
+        let path = url.path.lowercased()
+        let exact = url.lastPathComponent == "confidence.json" ? "0" : "1"
+        let summary = path.contains("summary_confidences") ? "0" : "1"
+        let seed = path.contains("/seed-") ? "9" : "0"
+        return exact + summary + seed + String(format: "%05d", path.count) + path
+    }
+
+    private static func recursiveFiles(in root: URL) -> [URL] {
+        guard let iterator = fm.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey],
+                                           options: [.skipsHiddenFiles]) else { return [] }
+        return iterator.compactMap { item -> URL? in
+            guard let url = item as? URL,
+                  (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else { return nil }
+            return url
+        }
+    }
+
+    private static func resolvedURL(_ path: String, relativeTo root: URL) -> URL? {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return trimmed.hasPrefix("/") ? URL(fileURLWithPath: trimmed) : root.appendingPathComponent(trimmed)
+    }
+
+    private static func jsonObject(at url: URL) -> [String: Any]? {
+        guard fm.fileExists(atPath: url.path), let data = try? Data(contentsOf: url),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return object
+    }
+
+    private static func stringRow(_ object: [String: Any]) -> [String: String] {
+        object.reduce(into: [:]) { result, pair in
+            if let text = pair.value as? String { result[pair.key] = text }
+            else if let number = pair.value as? NSNumber { result[pair.key] = number.stringValue }
+        }
+    }
+
+    private static func nonempty(_ text: String?) -> String? {
+        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        return text
+    }
+
+    private static func friendlyPredictor(_ key: String) -> String {
+        switch key.lowercased() {
+        case "boltz", "boltz2", "boltz-2": return "Boltz-2"
+        case "af3", "alphafold3", "alphafold-3": return "AlphaFold 3"
+        case "openfold3", "openfold-3": return "OpenFold-3"
+        case "intellifold": return "IntelliFold PyTorch"
+        case "intellifold-jax", "intellifold_jax": return "IntelliFold JAX/MPS"
+        default: return key.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    private static func lookupKey(_ text: String) -> String {
+        text.lowercased().unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map(String.init).joined()
+    }
+}
+
+/// Minimal RFC 4180 reader. RFdiffusion3 stores JSON maps in quoted CSV cells,
+/// so splitting on commas would silently attach structures to the wrong design.
+private enum CSVTable {
+    static func rows(at url: URL) -> [[String: String]] {
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        let records = parse(text)
+        guard let header = records.first else { return [] }
+        return records.dropFirst().filter { !$0.allSatisfy(\.isEmpty) }.map { values in
+            Dictionary(uniqueKeysWithValues: header.enumerated().map { index, name in
+                (name.trimmingCharacters(in: .whitespacesAndNewlines), index < values.count ? values[index] : "")
+            })
+        }
+    }
+
+    private static func parse(_ text: String) -> [[String]] {
+        // Swift treats CRLF as a single extended grapheme cluster, so normalize
+        // it before the character state machine looks for line boundaries.
+        let text = text.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        var records: [[String]] = []
+        var record: [String] = []
+        var field = ""
+        var quoted = false
+        var index = text.startIndex
+        while index < text.endIndex {
+            let character = text[index]
+            if quoted {
+                if character == "\"" {
+                    let next = text.index(after: index)
+                    if next < text.endIndex, text[next] == "\"" {
+                        field.append("\"")
+                        index = next
+                    } else {
+                        quoted = false
+                    }
+                } else {
+                    field.append(character)
+                }
+            } else {
+                switch character {
+                case "\"": quoted = true
+                case ",": record.append(field); field = ""
+                case "\n":
+                    record.append(field); records.append(record)
+                    record = []; field = ""
+                case "\r": break
+                default: field.append(character)
+                }
+            }
+            index = text.index(after: index)
+        }
+        if !field.isEmpty || !record.isEmpty { record.append(field); records.append(record) }
+        return records
+    }
+}
