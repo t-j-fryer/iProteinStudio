@@ -210,7 +210,8 @@ enum AppPaths {
         Bundle.module.url(forResource: "pipeline", withExtension: nil)
     }
 
-    /// Offline 3Dmol.js viewer assets.
+    /// Offline molecular-viewer assets (py2Dmol plus the specialised legacy
+    /// 3Dmol hydrophobic-surface mode and RDKit ligand depictions).
     static var webRoot: URL? {
         Bundle.module.url(forResource: "web", withExtension: nil)
     }

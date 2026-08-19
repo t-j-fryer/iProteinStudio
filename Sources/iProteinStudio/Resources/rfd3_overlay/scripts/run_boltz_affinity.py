@@ -135,10 +135,11 @@ def main() -> None:
     parser.add_argument("--calibrate-n", type=int, default=12)
     parser.add_argument("--use-potentials", action="store_true", default=True)
     parser.add_argument("--no-use-potentials", dest="use_potentials", action="store_false")
-    parser.add_argument("--nanohunter-root", type=Path, default=default_root())
+    parser.add_argument("--nanohunter-root", type=Path)
     args = parser.parse_args()
 
-    studio_runtime.configure(args.nanohunter_root)
+    pipeline_root = args.nanohunter_root or default_root()
+    studio_runtime.configure(pipeline_root)
     nise_lib = studio_runtime
 
     inputs = args.inputs.resolve()

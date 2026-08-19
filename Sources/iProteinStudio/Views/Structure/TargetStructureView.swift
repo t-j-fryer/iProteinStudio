@@ -1,10 +1,28 @@
 import SwiftUI
 import WebKit
 
-/// Interactive target viewer: hover shows residue numbers, an optional
-/// hydrophobicity surface highlights hydrophobic patches, and clicking residues
-/// toggles them as epitope hotspots (reported back via `selected`).
-struct TargetStructureView: NSViewRepresentable {
+/// py2Dmol is the normal target viewer and supports direct residue selection.
+/// The specialised hydrophobic surface remains available as an explicit 3D
+/// mode because py2Dmol does not calculate solvent-accessible surfaces.
+struct TargetStructureView: View {
+    let structurePath: String?
+    @Binding var selected: [Int]
+    var showSurface: Bool
+    var ligand: Bool = false
+
+    var body: some View {
+        if showSurface && !ligand {
+            LegacyTargetStructureView(structurePath: structurePath, selected: $selected,
+                                      showSurface: true, ligand: false)
+        } else {
+            Py2DmolViewer(structurePath: structurePath, selection: ligand ? nil : $selected,
+                          showsControls: true)
+        }
+    }
+}
+
+/// The previous 3Dmol target viewer, retained only for hydrophobic surfaces.
+private struct LegacyTargetStructureView: NSViewRepresentable {
     let structurePath: String?
     @Binding var selected: [Int]
     var showSurface: Bool

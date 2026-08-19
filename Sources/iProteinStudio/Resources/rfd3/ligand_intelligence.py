@@ -63,6 +63,16 @@ def load_molecule(req: dict):
     return mol
 
 
+def canonical_atom_names(mol) -> list[str]:
+    """RFD3 component names in original SMILES atom order."""
+    from rdkit import Chem
+
+    mol_h = Chem.AddHs(mol)
+    ranks = list(Chem.CanonicalRankAtoms(mol_h))
+    return [f"{atom.GetSymbol().upper()}{ranks[atom.GetIdx()] + 1}"
+            for atom in mol.GetAtoms()]
+
+
 def chemistry_qa(mol) -> list[dict]:
     """Everything a non-expert would want to be told before spending GPU hours."""
     from rdkit import Chem
@@ -136,36 +146,36 @@ def chemistry_qa(mol) -> list[dict]:
 
 # --------------------------------------------------- recognition core / linker --
 
-def split_core_and_presentation(mol, attachment: int | None) -> tuple[set[int], set[int], str]:
-    """Separate the part that binding is about from the part that hangs off it.
+def split_core_and_presentation(mol, core_atom: int | None,
+                                linker_atom: int | None) -> tuple[set[int], set[int], str]:
+    """Split an explicitly directed core→linker bond.
 
-    Without an attachment point every heavy atom counts as recognition core.
-    With one, the presentation region is the largest fragment that falls off when
-    an acyclic bond at the attachment atom is cut. That rule is deterministic and
-    easy to check by eye, which matters because the UI shows the split back to the
-    user and lets them re-pick if it looks wrong.
+    One atom is not enough to identify a linker: every non-terminal atom has two
+    or more possible sides, and choosing the largest branch can mislabel the
+    recognition core.  The UI therefore records both ends of one acyclic bond.
+    The side reached from ``linker_atom`` after cutting that bond is presentation;
+    the side containing ``core_atom`` remains recognition core.
     """
     heavy = {a.GetIdx() for a in mol.GetAtoms()}
-    if attachment is None or attachment not in heavy:
+    if core_atom is None and linker_atom is None:
         return heavy, set(), "whole molecule (no linker specified)"
+    if core_atom is None or linker_atom is None:
+        raise ValueError("Choose both ends of the core-to-linker bond, or mark the molecule as free.")
+    if core_atom not in heavy or linker_atom not in heavy:
+        raise ValueError("The selected core-to-linker bond contains an atom that is not in this molecule.")
+    bond = mol.GetBondBetweenAtoms(core_atom, linker_atom)
+    if bond is None:
+        raise ValueError("The selected core and linker atoms are not directly bonded.")
+    if bond.IsInRing():
+        raise ValueError("A ring bond cannot separate a linker. Choose an acyclic bond leaving the binding core.")
 
-    best: set[int] = set()
-    atom = mol.GetAtomWithIdx(attachment)
-    for bond in atom.GetBonds():
-        if bond.IsInRing():
-            continue
-        other = bond.GetOtherAtomIdx(attachment)
-        fragment = reachable_without(mol, start=other, blocked=attachment)
-        # The fragment must not swallow the attachment atom's own side.
-        if attachment in fragment:
-            continue
-        if len(fragment) > len(best):
-            best = fragment
-
-    if not best:
-        return heavy, set(), "whole molecule (no acyclic branch at that atom)"
-    core = heavy - best
-    return core, best, "largest acyclic branch at the chosen atom"
+    presentation = reachable_without(mol, start=linker_atom, blocked=core_atom)
+    if core_atom in presentation or not presentation:
+        raise ValueError("That bond does not separate a linker side from the binding core.")
+    core = heavy - presentation
+    if not core or core_atom not in core:
+        raise ValueError("That bond leaves no binding core. Reverse the bond direction.")
+    return core, presentation, "explicit core-to-linker bond"
 
 
 def reachable_without(mol, start: int, blocked: int) -> set[int]:
@@ -325,31 +335,61 @@ def cluster_adaptively(matrix, max_states: int, start: float = 0.75):
 # ------------------------------------------------------- experimental evidence --
 
 def rcsb_chemical_search(smiles: str, timeout: float) -> list[str]:
-    """CCD codes whose molecular graph matches this SMILES."""
+    """All CCD codes whose molecular graph matches this SMILES.
+
+    RCSB paginates chemical searches.  A stereochemically rich graph may have
+    many CCD variants, so examining only the first page can miss the exact
+    molecule.  Retrieve every page and let :func:`confirm_identical_ccds`
+    perform the full identity check.
+    """
     import requests
-    body = {
-        "query": {"type": "terminal", "service": "chemical", "parameters": {
-            "value": smiles, "type": "descriptor", "descriptor_type": "SMILES",
-            "match_type": "graph-strict"}},
-        "return_type": "mol_definition",
-        "request_options": {"paginate": {"start": 0, "rows": 25}},
-    }
-    response = requests.post(RCSB_SEARCH, json=body, timeout=timeout)
-    if response.status_code != 200:
-        return []
-    payload = response.json()
-    return [row["identifier"] for row in payload.get("result_set", [])]
+
+    page_size = 100
+    start = 0
+    identifiers: list[str] = []
+    seen: set[str] = set()
+    while True:
+        body = {
+            "query": {"type": "terminal", "service": "chemical", "parameters": {
+                "value": smiles, "type": "descriptor", "descriptor_type": "SMILES",
+                "match_type": "graph-strict"}},
+            "return_type": "mol_definition",
+            "request_options": {"paginate": {"start": start, "rows": page_size}},
+        }
+        response = requests.post(RCSB_SEARCH, json=body, timeout=timeout)
+        if response.status_code == 204:
+            break
+        if response.status_code != 200:
+            raise RuntimeError(f"RCSB chemical search returned HTTP {response.status_code}")
+        payload = response.json()
+        rows = payload.get("result_set", [])
+        count_before_page = len(identifiers)
+        for row in rows:
+            identifier = row.get("identifier")
+            if identifier and identifier not in seen:
+                seen.add(identifier)
+                identifiers.append(identifier)
+
+        start += len(rows)
+        raw_total = payload.get("total_count")
+        try:
+            total = int(raw_total) if raw_total is not None else None
+        except (TypeError, ValueError):
+            total = None
+        if not rows or len(identifiers) == count_before_page or (
+                total is not None and start >= total) or (
+                total is None and len(rows) < page_size):
+            break
+    return identifiers
 
 
 def confirm_identical_ccds(candidates: list[str], query_mol, timeout: float) -> list[str]:
     """Keep only the components that really are this molecule.
 
-    The search API returns a score of 1.0 for every component whose graph match
-    succeeded, which is *not* the same as being the same compound: a query for
-    ATP comes back with 5FA, AQP, HEJ, ZF9 and ZSF all at 1.0. Taking the first
-    hit picked a different molecule entirely, and its coordinates then matched
-    nothing -- the experimental evidence quietly evaporated instead of failing.
-    So identity is confirmed here, against the InChIKey, not assumed from a score.
+    Graph-strict search can return stereoisomers and differently protonated
+    variants. Full InChIKey equality preserves connectivity, stereochemistry
+    and protonation. Every candidate is checked: result order and page size are
+    not chemical identity guarantees.
     """
     import requests
     from rdkit import Chem
@@ -359,24 +399,30 @@ def confirm_identical_ccds(candidates: list[str], query_mol, timeout: float) -> 
     except Exception:
         want = None
     if not want:
-        return candidates[:1]
+        raise RuntimeError("Exact chemical identity could not be computed for this ligand")
 
     confirmed = []
-    for code in candidates[:25]:
+    unverified: list[str] = []
+    for code in candidates:
         try:
             response = requests.get(
                 f"https://data.rcsb.org/rest/v1/core/chemcomp/{code}", timeout=timeout)
             if response.status_code != 200:
+                unverified.append(code)
                 continue
             descriptors = response.json().get("rcsb_chem_comp_descriptor", {})
             key = descriptors.get("InChIKey") or descriptors.get("in_ch_i_key")
-            if key and key.split("-")[0] == want.split("-")[0]:
-                # First InChIKey block is the connectivity layer: same skeleton,
-                # ignoring protonation and stereo, which is the right granularity
-                # for "is this the molecule I drew".
+            if not key:
+                unverified.append(code)
+                continue
+            if key and key.upper() == want.upper():
                 confirmed.append(code)
         except Exception:
+            unverified.append(code)
             continue
+    if unverified:
+        raise RuntimeError(
+            f"Exact identity could not be verified for {len(unverified)} RCSB candidate(s)")
     return confirmed
 
 
@@ -391,7 +437,7 @@ def rcsb_entries_for_ccd(ccd: str, limit: int, timeout: float) -> list[str]:
     }
     response = requests.post(RCSB_SEARCH, json=body, timeout=timeout)
     if response.status_code != 200:
-        return []
+        raise RuntimeError(f"RCSB entry search returned HTTP {response.status_code}")
     return [row["identifier"] for row in response.json().get("result_set", [])]
 
 
@@ -440,22 +486,45 @@ def experimental_conformers(smiles: str, cfg: dict) -> dict:
         result["note"] = "No exact match for this molecule in the PDB."
         return result
 
-    for ccd in codes[:3]:
+    seen_entries: set[str] = set()
+    failed_entry_searches = 0
+    for ccd in codes:
+        remaining = max_entries - len(seen_entries)
+        if remaining <= 0:
+            break
         try:
-            entries = rcsb_entries_for_ccd(ccd, max_entries, timeout)
+            entries = rcsb_entries_for_ccd(ccd, remaining, timeout)
         except Exception:
+            failed_entry_searches += 1
             continue
-        result["n_entries"] += len(entries)
-        for entry in entries[:max_entries]:
+        for entry in entries:
+            if entry in seen_entries:
+                continue
+            seen_entries.add(entry)
             mol = fetch_ligand_instance(entry, ccd, timeout)
             if mol is not None:
                 result["instances"].append({"entry": entry, "ccd": ccd, "mol": mol})
-        if result["instances"]:
-            break
+            if len(seen_entries) >= max_entries:
+                break
+    result["n_entries"] = len(seen_entries)
 
-    if not result["instances"] and result["n_entries"]:
-        result["note"] = ("This molecule appears in the PDB, but its coordinates could not be "
+    if failed_entry_searches:
+        result["searched"] = False
+        result["note"] = (
+            f"Entry search failed for {failed_entry_searches} exact PDB component"
+            f"{'s' if failed_entry_searches != 1 else ''}; experimental evidence is incomplete."
+        )
+    elif not result["instances"] and result["n_entries"]:
+        result["note"] = ("This exact molecule appears in the PDB, but its coordinates could not be "
                           "retrieved. Working from computation alone.")
+    elif not result["instances"] and codes:
+        result["note"] = ("An exact Chemical Component Dictionary match exists, but no PDB entries "
+                          "containing it were returned. Working from computation alone.")
+    elif len(result["instances"]) < result["n_entries"]:
+        result["note"] = (
+            f"Retrieved coordinates for {len(result['instances'])} of {result['n_entries']} "
+            "sampled PDB entries; experimental evidence is incomplete."
+        )
     return result
 
 
@@ -584,6 +653,8 @@ def main() -> None:
 
     attachment = req.get("attachment_atom")
     attachment = int(attachment) if attachment is not None else None
+    linker_atom = req.get("attachment_linker_atom")
+    linker_atom = int(linker_atom) if linker_atom is not None else None
 
     # The picker and this script both index atoms by SMILES input order, which
     # RDKit preserves. Cross-checking the element makes a numbering mismatch
@@ -596,7 +667,19 @@ def main() -> None:
         if actual != str(expected_symbol).upper():
             fail(f"The atom you picked reads as {expected_symbol} in the picture but "
                  f"{actual} here, so the numbering does not line up. Re-enter the SMILES.")
-    core, presentation, split_rule = split_core_and_presentation(mol, attachment)
+    expected_linker_symbol = req.get("attachment_linker_symbol")
+    if linker_atom is not None and expected_linker_symbol:
+        if linker_atom >= mol.GetNumAtoms():
+            fail(f"Atom {linker_atom} does not exist in this molecule.")
+        actual = mol.GetAtomWithIdx(linker_atom).GetSymbol().upper()
+        if actual != str(expected_linker_symbol).upper():
+            fail(f"The linker atom reads as {expected_linker_symbol} in the picture but "
+                 f"{actual} here, so the numbering does not line up. Re-enter the SMILES.")
+    try:
+        core, presentation, split_rule = split_core_and_presentation(
+            mol, attachment, linker_atom)
+    except ValueError as exc:
+        fail(str(exc))
 
     total_rot = rotatable_bonds(mol)
     core_rot = rotatable_bonds(mol, restrict_to=core)
@@ -629,6 +712,11 @@ def main() -> None:
          "note": "PDB search was switched off."}
     support = match_experimental_to_clusters(ensemble, conf_ids, clusters, core, pdb["instances"],
                                             match_cutoff=max(1.5, cluster_threshold))
+    if pdb["instances"] and support.get("_matched", 0) == 0 and not pdb["note"]:
+        pdb["note"] = (
+            f"Found {len(pdb['instances'])} exact experimental ligand structure(s), "
+            "but none matched a generated conformational state within the RMSD cutoff."
+        )
 
     total_members = sum(len(c) for c in clusters) or 1
     states: list[dict] = []
@@ -682,6 +770,7 @@ def main() -> None:
 
     print(json.dumps({
         "smiles": smiles,
+        "atom_names": canonical_atom_names(mol),
         "force_field": field,
         "qa": notes,
         "core": {

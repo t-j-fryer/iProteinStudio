@@ -56,7 +56,7 @@ struct DesignFormView: View {
                         set: { nv in
                             var r = request.wrappedValue
                             r.targetKind = nv
-                            r.reconcileDesigner()
+                            r.reconcileTargetKind()
                             request.wrappedValue = r
                         }
                     )) {
@@ -75,7 +75,23 @@ struct DesignFormView: View {
                             Spacer()
                             TextField("Epitope hotspots (optional, e.g. 32 55)", text: request.epitopeResidues)
                                 .textFieldStyle(.roundedBorder).frame(width: 240)
-                                .help("Target residue numbers to steer binding toward. The target chain (B) is added automatically.")
+                                .help("Target residue numbers to steer binding toward. The target chain (B) is added automatically; hotspot steering uses Boltz with potentials.")
+                                .onChange(of: request.wrappedValue.epitopeResidues) { _, _ in
+                                    var r = request.wrappedValue
+                                    r.reconcilePredictors()
+                                    request.wrappedValue = r
+                                }
+                        }
+                        if request.wrappedValue.hasInvalidEpitopeResidues {
+                            Label("Use residue numbers such as 32 55, or chain-qualified residues such as B32 B55.",
+                                  systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption).foregroundStyle(.orange)
+                        } else if request.wrappedValue.hasEpitopeSteering {
+                            Label(type == .nanobody
+                                  ? "Boltz will steer the binder pocket and the centre of CDR3 toward these target residues."
+                                  : "Boltz will steer the binder pocket toward these target residues.",
+                                  systemImage: "scope")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                         Button { showTargetPrep = true } label: {
                             Label("Prepare target — predict & pick hotspots", systemImage: "scope")
@@ -147,7 +163,7 @@ struct DesignFormView: View {
                         PredictorPicker(request: request, installer: installer)
                     }
                 } else {
-                    Card(title: "4 · Recommended models", systemImage: "checkmark.seal") {
+                    Card(title: "4 · Current models", systemImage: "checkmark.seal") {
                         Label(quickModelSummary, systemImage: "cpu")
                             .font(.callout)
                         Text("Switch to Advanced to change the designer, checking models, temperatures, or scheduling.")
@@ -176,7 +192,10 @@ struct DesignFormView: View {
                 targetSequence: request.wrappedValue.targetSequence,
                 targetSmiles: request.wrappedValue.targetSmiles,
                 onUse: { residues in
-                    request.wrappedValue.epitopeResidues = residues.map { "B\($0)" }.joined(separator: " ")
+                    var r = request.wrappedValue
+                    r.epitopeResidues = residues.map { "B\($0)" }.joined(separator: " ")
+                    r.reconcilePredictors()
+                    request.wrappedValue = r
                 },
                 onClose: { showTargetPrep = false }
             )
@@ -185,7 +204,9 @@ struct DesignFormView: View {
 
     private var quickModelSummary: String {
         let r = request.wrappedValue
-        let checks = r.postPredictors.isEmpty ? "no extra checker" : r.postPredictors.map(\.label).joined(separator: ", ")
+        let checks = r.effectivePostPredictors.isEmpty
+            ? "no extra checker"
+            : r.effectivePostPredictors.map(\.label).joined(separator: ", ")
         return "\(r.designer.label) designs; \(r.designPredictor.label) guides each cycle; \(checks)."
     }
 
@@ -198,14 +219,18 @@ struct DesignFormView: View {
 
     private var startBar: some View {
         let anotherWorkflowIsRunning = app.rfd3.isRunning || app.prediction.isRunning
+        let missingComponents = request.wrappedValue.requiredComponents.filter {
+            installer.components[$0] != nil && !installer.isUsable($0)
+        }
         return HStack(spacing: 12) {
             let r = request.wrappedValue
             if anotherWorkflowIsRunning {
                 Label("Finish or stop the active \(app.rfd3.isRunning ? "RFdiffusion3" : "prediction") run before starting iterative design.",
                       systemImage: "hourglass")
                     .font(.callout).foregroundStyle(.secondary)
-            } else if !r.isRunnable || r.ligandAtomsStale {
-                Label(missingReason(r), systemImage: "info.circle").font(.callout).foregroundStyle(.secondary)
+            } else if !r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty {
+                Label(missingReason(r, missingComponents: missingComponents), systemImage: "info.circle")
+                    .font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
             Button {
@@ -218,18 +243,27 @@ struct DesignFormView: View {
             .buttonStyle(.borderedProminent).controlSize(.large)
             .accessibilityLabel("Start iterative design run")
             .accessibilityIdentifier("start-iterative-run")
-            .disabled(!r.isRunnable || r.ligandAtomsStale || anotherWorkflowIsRunning)
+            .disabled(!r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty || anotherWorkflowIsRunning)
         }
         .padding(.top, 6)
     }
 
-    private func missingReason(_ r: DesignRequest) -> String {
+    private func missingReason(_ r: DesignRequest, missingComponents: [InstallComponent] = []) -> String {
         if r.targetKind == .protein && r.targetSequence.isEmpty { return "Add a target sequence to continue." }
         if r.targetKind == .ligand && r.targetSmiles.trimmingCharacters(in: .whitespaces).isEmpty { return "Add a ligand SMILES to continue." }
+        if r.targetKind == .ligand && r.ligandIsConjugated &&
+            (r.ligandAttachmentAtom == nil || r.ligandAttachmentLinkerAtom == nil) {
+            return "Choose both ends of the core-to-linker bond, or mark the molecule as free."
+        }
         if r.designType == .nanobody && r.scaffoldSequence.isEmpty { return "Pick a nanobody scaffold." }
         if r.designType == .nanobody && r.cdrs.isEmpty { return "Select at least one CDR to design." }
+        if r.hasInvalidEpitopeResidues { return "Fix the hotspot residue list before starting." }
+        if r.hasIncompatibleTargeting { return "The selected targeting restraint requires Boltz as the design engine." }
         if r.ligandAtomsStale {
             return "Reload the ligand atoms — the saved names were generated for different settings."
+        }
+        if !missingComponents.isEmpty {
+            return "Install \(missingComponents.map(\.label).joined(separator: ", ")) in Setup before starting."
         }
         return ""
     }
@@ -294,15 +328,15 @@ struct BinderSizePicker: View {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
             GridRow {
                 Text("Shortest")
-                Stepper(value: $request.binderMinLen, in: 1...300) {
-                    Text("\(request.binderMinLen) aa").monospacedDigit()
-                }
+                EditableIntStepper(value: $request.binderMinLen,
+                                   in: 1...min(300, request.binderMaxLen),
+                                   suffix: "aa", accessibilityLabel: "Shortest binder length")
             }
             GridRow {
                 Text("Longest")
-                Stepper(value: $request.binderMaxLen, in: request.binderMinLen...400) {
-                    Text("\(request.binderMaxLen) aa").monospacedDigit()
-                }
+                EditableIntStepper(value: $request.binderMaxLen,
+                                   in: request.binderMinLen...400,
+                                   suffix: "aa", accessibilityLabel: "Longest binder length")
             }
         }
         Text("Each design gets a random length in this range.").font(.caption).foregroundStyle(.secondary)
@@ -456,13 +490,19 @@ struct PredictorPicker: View {
         // a predictor cannot independently check its own work.
         // The iterative pipeline cannot drive the JAX backend, so it is not
         // offered here even though it is a valid checker elsewhere.
-        Predictor.iterativeChoices.filter { $0.runnerValue != request.designPredictor.runnerValue }
+        Predictor.iterativeCheckChoices.filter { $0.runnerValue != request.designPredictor.runnerValue }
+    }
+
+    private var designChoices: [Predictor] {
+        if request.hasEpitopeSteering { return [.boltzPotentials] }
+        if request.targetKind == .ligand && !request.ligandContactAtoms.isEmpty {
+            return request.ligandContactForce ? [.boltzPotentials] : [.boltz, .boltzPotentials]
+        }
+        return Predictor.designChoices
     }
 
     private var usesIntelliFold: Bool {
-        ([request.designPredictor] + request.postPredictors).contains {
-            $0 == .intellifold || $0 == .intellifoldJAX
-        }
+        request.usesIntelliFold
     }
 
     var body: some View {
@@ -473,15 +513,19 @@ struct PredictorPicker: View {
                 Text("Folds each design as it is optimised. Every extra second here is paid on every design of every cycle.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Picker("Design engine", selection: $request.designPredictor) {
-                    ForEach(Predictor.designChoices) { p in
+                Picker("Design engine", selection: Binding(
+                    get: { request.designPredictor },
+                    set: { request.selectDesignPredictor($0) }
+                )) {
+                    ForEach(designChoices) { p in
                         Text(p.label).tag(p)
                     }
                 }
                 .pickerStyle(.menu).labelsHidden()
-                .onChange(of: request.designPredictor) { _, new in
-                    // A predictor cannot meaningfully check its own designs.
-                    request.postPredictors.removeAll { $0.runnerValue == new.runnerValue }
+                if request.hasEpitopeSteering {
+                    Text("Hotspot restraints require Boltz with potentials, so other design engines are unavailable until the hotspot list is cleared.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 predictorNote(request.designPredictor, isDesign: true)
             }
@@ -497,10 +541,11 @@ struct PredictorPicker: View {
 
                 ForEach(checkChoices) { p in
                     Toggle(isOn: Binding(
-                        get: { request.postPredictors.contains(p) },
+                        get: { request.effectivePostPredictors.contains(p) },
                         set: { on in
-                            if on { request.postPredictors.append(p) }
-                            else { request.postPredictors.removeAll { $0 == p } }
+                            if on { request.postPredictors.append(p.checkingVariant) }
+                            else { request.postPredictors.removeAll { $0.checkingVariant == p } }
+                            request.reconcilePredictors()
                         }
                     )) {
                         HStack(spacing: 6) {
@@ -513,17 +558,27 @@ struct PredictorPicker: View {
                         }
                     }
                     .toggleStyle(.checkbox)
-                    .disabled(!installer.isUsable(p.component))
+                    // A missing saved checker can still be turned off. Only
+                    // turning on a checker that cannot run is blocked.
+                    .disabled(!installer.isUsable(p.component)
+                              && !request.effectivePostPredictors.contains(p))
                     .help(p.caveat.isEmpty ? p.blurb : p.caveat)
                 }
 
-                if request.postPredictors.isEmpty {
+                if request.effectivePostPredictors.isEmpty {
                     Label("Without an independent check you only have the design engine's own opinion of its designs.",
                           systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Toggle("Only check designs that pass the hit threshold", isOn: $request.postOnlyHits)
+                    Picker("Check checkpoints", selection: $request.postCheckScope) {
+                        Text("Final only (cycle \(String(format: "%02d", request.numCycles)))")
+                            .tag(PostCheckScope.finalCycle)
+                        Text("All cycles (00–\(String(format: "%02d", request.numCycles)))")
+                            .tag(PostCheckScope.allCycles)
+                    }
+                    .pickerStyle(.segmented)
+                    Toggle("Only check checkpoints that pass the hit threshold", isOn: $request.postOnlyHits)
                         .toggleStyle(.checkbox).font(.callout)
                 }
 
@@ -588,8 +643,8 @@ struct PredictorPicker: View {
         }
     }
 
-    /// Deliberately labelled "at least": the estimate counts predictions only,
-    /// not MSA generation or inverse folding.
+    /// Prediction-only planning number: assumes every eligible checkpoint is checked,
+    /// while explicitly excluding MSA generation and inverse folding.
     private var estimate: some View {
         let fullV2Selected = request.intellifoldModel == .v2 && usesIntelliFold
         if fullV2Selected {
@@ -601,9 +656,9 @@ struct PredictorPicker: View {
             .font(.callout)
             .foregroundStyle(.secondary))
         }
-        let seconds = request.estimatedSecondsLowerBound
+        let seconds = request.estimatedPredictionSeconds
         return AnyView(Label {
-            Text("Rough estimate: at least \(formatted(seconds)) of compute on this Mac.")
+            Text("Prediction-only planning estimate: \(formatted(seconds)) if every eligible checkpoint is checked. Hit gating can shorten it; MSA setup can add time.")
         } icon: {
             Image(systemName: "clock")
         }
@@ -624,11 +679,13 @@ struct RunSettings: View {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
             GridRow {
                 Text("Number of designs")
-                Stepper(value: $request.numDesigns, in: 1...96) { Text("\(request.numDesigns)").monospacedDigit() }
+                EditableIntStepper(value: $request.numDesigns, in: 1...96,
+                                   accessibilityLabel: "Number of designs")
             }
             GridRow {
                 Text("Optimization cycles")
-                Stepper(value: $request.numCycles, in: 1...20) { Text("\(request.numCycles)").monospacedDigit() }
+                EditableIntStepper(value: $request.numCycles, in: 1...20,
+                                   accessibilityLabel: "Optimization cycles")
             }
             GridRow {
                 Text("Hit threshold (iPTM)")
@@ -684,8 +741,12 @@ struct AdvancedSettings: View {
                     .accessibilityLabel("Memory and parallelism mode")
                 Text(request.parallelMode.blurb).font(.caption).foregroundStyle(.secondary)
                 if request.parallelMode == .manual {
-                    Stepper(value: $request.manualParallel, in: 1...max(1, cpuCount)) {
-                        Text("Run \(request.manualParallel) prediction\(request.manualParallel == 1 ? "" : "s") at once").monospacedDigit()
+                    HStack(spacing: 6) {
+                        Text("Run")
+                        EditableIntStepper(value: $request.manualParallel,
+                                           in: 1...max(1, cpuCount),
+                                           accessibilityLabel: "Concurrent predictions")
+                        Text("prediction\(request.manualParallel == 1 ? "" : "s") at once")
                     }
                 } else if request.parallelMode == .performance {
                     Label("Best when you're not actively using the Mac for other work.",
@@ -737,7 +798,7 @@ struct AdvancedSettings: View {
             Divider()
             DisclosureGroup("What settings will actually be used") {
                 VStack(alignment: .leading, spacing: 10) {
-                    ForEach(([request.designPredictor] + request.postPredictors)
+                    ForEach(([request.designPredictor] + request.effectivePostPredictors)
                         .reduce(into: [Predictor]()) { acc, p in if !acc.contains(p) { acc.append(p) } }) { p in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(p.label).font(.caption.weight(.medium))
@@ -758,9 +819,9 @@ struct AdvancedSettings: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Design engine: \(request.designPredictor.label) · Checked with: "
-                     + (request.postPredictors.isEmpty
+                     + (request.effectivePostPredictors.isEmpty
                         ? "nothing"
-                        : request.postPredictors.map(\.label).joined(separator: ", ")))
+                        : request.effectivePostPredictors.map(\.label).joined(separator: ", ")))
                     .font(.caption).foregroundStyle(.secondary)
                 Text("Token bucketing, the JAX compile cache and per-predictor thread limits are always on — measured free wins with nothing useful to decide about them.")
                     .font(.caption2).foregroundStyle(.tertiary)

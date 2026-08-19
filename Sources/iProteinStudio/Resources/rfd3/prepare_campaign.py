@@ -231,6 +231,50 @@ def _env() -> dict:
     return dict(os.environ)
 
 
+def validate_request(req: dict) -> None:
+    kind = req.get("target_kind")
+    if kind not in {"small_molecule", "protein"}:
+        fail("target_kind must be small_molecule or protein.")
+    lengths = req.get("lengths") or []
+    if not lengths or any(not isinstance(value, int) or value < 1 for value in lengths):
+        fail("At least one positive integer binder length is required.")
+    for key in ("num_backbones", "batch_size", "queues_per_bin",
+                "timesteps", "sequences_per_backbone", "top_n"):
+        if not isinstance(req.get(key), int) or req[key] < 1:
+            fail(f"{key} must be a positive integer.")
+    if req["top_n"] > req["num_backbones"] * req["sequences_per_backbone"]:
+        fail("top_n exceeds the number of sequences this campaign will create.")
+    allowed_predictors = {"boltz", "intellifold", "intellifold-jax",
+                          "alphafold3", "openfold-3-mlx"}
+    unknown = [p for p in req.get("extra_predictors", []) if p not in allowed_predictors]
+    if unknown:
+        fail("Unsupported verification predictor(s): " + ", ".join(unknown))
+    if any(p in {"intellifold", "intellifold-jax"}
+           for p in req.get("extra_predictors", [])):
+        if req.get("intellifold_model") not in {"v2-flash", "v2"}:
+            fail("IntelliFold requires model v2-flash or v2.")
+    if kind == "protein":
+        if req.get("sequence_model") not in {"solublempnn", "proteinmpnn"}:
+            fail("Protein campaigns require SolubleMPNN or ProteinMPNN.")
+        if not Path(req.get("target_structure", "")).is_file():
+            fail("The protein target structure does not exist.")
+        if not str(req.get("target_sequence", "")).strip():
+            fail("The protein target sequence is required for MSA generation and verification.")
+        if not req.get("extra_predictors"):
+            fail("Protein campaigns require at least one verification predictor.")
+    else:
+        if req.get("sequence_model") not in {"lasermpnn", "ligandmpnn"}:
+            fail("Small-molecule campaigns require LASErMPNN or LigandMPNN.")
+        component = str(req.get("component_id", "")).strip().upper()
+        if not (1 <= len(component) <= 3 and component.isalnum()) or component == "LIG":
+            fail("Use a 1–3 character ligand component code other than LIG.")
+        if not str(req.get("smiles", "")).strip():
+            fail("A ligand SMILES is required for sequence design and verification.")
+        if req.get("ligand_source") == "structure_file" and not Path(
+                req.get("ligand_structure", "")).is_file():
+            fail("The ligand structure file does not exist.")
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         fail("No request file given.")
@@ -238,6 +282,7 @@ def main() -> None:
         req = json.loads(Path(sys.argv[1]).read_text())
     except (OSError, json.JSONDecodeError) as exc:
         fail(f"Could not read the request: {exc}")
+    validate_request(req)
 
     rfd3_root = Path(req["rfd3_root"]).resolve()
     if not (rfd3_root / "scripts" / "design_from_yaml.py").exists():

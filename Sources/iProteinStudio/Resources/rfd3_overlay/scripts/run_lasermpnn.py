@@ -156,7 +156,7 @@ def main() -> None:
     parser.add_argument("--smiles", required=True)
     parser.add_argument("--n-seqs", type=int, default=4)
     parser.add_argument("--max-parallel", type=int, default=6)
-    parser.add_argument("--nanohunter-root", type=Path, default=default_root())
+    parser.add_argument("--nanohunter-root", type=Path)
     parser.add_argument("--seq-temp", type=float, default=0.5)
     parser.add_argument("--fs-temp", type=float, default=0.7)
     parser.add_argument("--fs-distance", type=float, default=10.0)
@@ -165,6 +165,7 @@ def main() -> None:
     parser.add_argument("--no-constrain-ss", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
+    args.nanohunter_root = args.nanohunter_root or default_root()
 
     backbones = sorted(args.backbones.resolve().glob("*.pdb"))
     if not backbones:

@@ -126,7 +126,7 @@ private struct RunResultDetail: View {
             StructureViewer(structurePath: item.structureURL.path)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.black.opacity(0.025))
-                .accessibilityLabel("Interactive 3D structure for \(item.title)")
+                .accessibilityLabel("Interactive py2Dmol structure for \(item.title)")
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {

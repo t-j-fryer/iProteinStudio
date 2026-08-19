@@ -31,12 +31,17 @@ final class BoltzLigandAtoms: ObservableObject {
 
     private var runner: ProcessRunner?
     private var buffer: [String] = []
+    private var resolutionID = UUID()
 
     var hasAtoms: Bool { !atoms.isEmpty }
     var canPickOnStructure: Bool { !namesByInputIndex.isEmpty }
 
     func reset() {
+        resolutionID = UUID()
+        runner?.cancel()
+        runner = nil
         atoms = []; namesByInputIndex = []; error = nil; generatedFor = ""; standardized = false
+        isResolving = false
     }
 
     /// Must run in the Boltz environment: the standardisation step has to be the
@@ -54,8 +59,10 @@ final class BoltzLigandAtoms: ObservableObject {
         AppPaths.stageRFD3Scripts()
 
         let key = "\(trimmed)|\(affinityHead ? 1 : 0)"
+        reset()
+        let runID = UUID()
+        resolutionID = runID
         isResolving = true
-        error = nil
         buffer = []
 
         let runner = ProcessRunner()
@@ -65,12 +72,16 @@ final class BoltzLigandAtoms: ObservableObject {
             arguments: [AppPaths.boltzLigandAtomsScript.path, trimmed, affinityHead ? "1" : "0"],
             environment: CommandBuilder.environment(),
             workingDir: AppPaths.support,
-            onLine: { [weak self] line in self?.buffer.append(line) },
-            onExit: { [weak self] code in self?.finish(code, key: key) }
+            onLine: { [weak self] line in
+                guard self?.resolutionID == runID else { return }
+                self?.buffer.append(line)
+            },
+            onExit: { [weak self] code in self?.finish(code, key: key, runID: runID) }
         )
     }
 
-    private func finish(_ code: Int32, key: String) {
+    private func finish(_ code: Int32, key: String, runID: UUID) {
+        guard resolutionID == runID else { return }
         isResolving = false
         for line in buffer.reversed() {
             guard let data = line.data(using: .utf8),

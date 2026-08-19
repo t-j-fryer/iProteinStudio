@@ -111,6 +111,9 @@ def main() -> None:
     parser.add_argument("--partner-msa", default="auto")
     args = parser.parse_args()
 
+    if args.mode == "shared" and args.partner.strip() and args.partner_smiles.strip():
+        fail("Choose either a protein partner or a ligand SMILES, not both.")
+
     if not args.file.exists():
         fail(f"No such file: {args.file}")
 

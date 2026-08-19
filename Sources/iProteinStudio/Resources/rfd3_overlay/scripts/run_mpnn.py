@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one SolubleMPNN/LigandMPNN sequence per RFD3 backbone in one model load."""
+"""Run one or more MPNN sequences per RFD3 backbone in one model load."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def chain_length(pdb: Path, chain: str = "A") -> int:
     return len(residues)
 
 
-def parse_fasta(path: Path) -> tuple[str, dict[str, float]]:
+def parse_fasta(path: Path) -> list[tuple[str, dict[str, float]]]:
     records: list[tuple[str, str]] = []
     header = ""
     seq: list[str] = []
@@ -36,14 +36,16 @@ def parse_fasta(path: Path) -> tuple[str, dict[str, float]]:
         records.append((header, "".join(seq)))
     if len(records) < 2:
         raise ValueError(f"Expected native and designed FASTA records in {path}")
-    header, full_sequence = records[1]
-    binder = full_sequence.split(":", 1)[0]
-    metrics: dict[str, float] = {}
-    for key in ("overall_confidence", "ligand_confidence", "seq_rec"):
-        match = re.search(rf"(?:^|, )({key})=([-+0-9.eE]+)", header)
-        if match:
-            metrics[key] = float(match.group(2))
-    return binder, metrics
+    designs = []
+    for header, full_sequence in records[1:]:
+        binder = full_sequence.split(":", 1)[0]
+        metrics: dict[str, float] = {}
+        for key in ("overall_confidence", "ligand_confidence", "seq_rec"):
+            match = re.search(rf"(?:^|, )({key})=([-+0-9.eE]+)", header)
+            if match:
+                metrics[key] = float(match.group(2))
+        designs.append((binder, metrics))
+    return designs
 
 
 def write_csv(rows: list[dict], path: Path) -> None:
@@ -79,14 +81,18 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--backbones", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--model-type", choices=["soluble_mpnn", "ligand_mpnn"], required=True)
-    parser.add_argument("--nanohunter-root", type=Path, default=default_root())
+    parser.add_argument("--model-type", choices=["soluble_mpnn", "protein_mpnn", "ligand_mpnn"], required=True)
+    parser.add_argument("--nanohunter-root", type=Path)
     parser.add_argument("--temperature", type=float, default=0.1)
+    parser.add_argument("--n-seqs", type=int, default=1)
     parser.add_argument("--seed", type=int, default=20260806)
     parser.add_argument("--omit-aa", default="C")
     parser.add_argument("--chain", default="A")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
+    args.nanohunter_root = args.nanohunter_root or default_root()
+    if args.n_seqs < 1:
+        raise SystemExit("--n-seqs must be at least 1")
 
     backbones = sorted(args.backbones.resolve().glob("*.pdb"))
     if not backbones:
@@ -113,7 +119,7 @@ def main() -> None:
         "--model_type", args.model_type,
         "--chains_to_design", args.chain,
         "--batch_size", "1",
-        "--number_of_batches", "1",
+        "--number_of_batches", str(args.n_seqs),
         "--temperature", str(args.temperature),
         "--seed", str(args.seed),
         "--omit_AA", args.omit_aa,
@@ -136,28 +142,35 @@ def main() -> None:
     for backbone, fasta in zip(backbones, expected, strict=True):
         if not fasta.exists():
             raise SystemExit(f"Missing MPNN output: {fasta}")
-        sequence, metrics = parse_fasta(fasta)
-        expected_length = chain_length(backbone, args.chain)
-        if len(sequence) != expected_length:
+        designs = parse_fasta(fasta)
+        if len(designs) != args.n_seqs:
             raise SystemExit(
-                f"Sequence length mismatch for {backbone.name}: {len(sequence)} != {expected_length}"
+                f"Expected {args.n_seqs} designed records in {fasta}, found {len(designs)}"
             )
-        rows.append(
-            {
-                "design": backbone.stem,
-                "sequence": sequence,
-                "sequence_length": len(sequence),
-                "model_type": args.model_type,
-                "temperature": args.temperature,
-                "seed": args.seed,
-                "backbone_pdb": str(backbone),
-                "fasta": str(fasta),
-                **metrics,
-            }
-        )
+        expected_length = chain_length(backbone, args.chain)
+        for seq_index, (sequence, metrics) in enumerate(designs, 1):
+            if len(sequence) != expected_length:
+                raise SystemExit(
+                    f"Sequence length mismatch for {backbone.name}: {len(sequence)} != {expected_length}"
+                )
+            rows.append(
+                {
+                    "design": backbone.stem,
+                    "seq_index": seq_index,
+                    "sequence": sequence,
+                    "sequence_length": len(sequence),
+                    "model_type": args.model_type,
+                    "temperature": args.temperature,
+                    "seed": args.seed,
+                    "backbone_pdb": str(backbone),
+                    "fasta": str(fasta),
+                    **metrics,
+                }
+            )
     write_csv(rows, output / "sequences.csv")
     manifest = {
         "num_backbones": len(backbones),
+        "sequences_per_backbone": args.n_seqs,
         "model_type": args.model_type,
         "temperature": args.temperature,
         "seed": args.seed,

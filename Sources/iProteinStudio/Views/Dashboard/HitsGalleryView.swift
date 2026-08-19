@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Hits split into two sections:
-///  • Design hits — cleared the iPTM threshold in the first (Boltz) round.
-///  • Validation hits — cleared it again under the secondary (IntelliFold) prediction.
+///  • Design hits — cleared the iPTM threshold under the selected design engine.
+///  • Validation hits — cleared it under any selected independent checker.
 struct HitsGalleryView: View {
     let designHits: [DesignPoint]
     let validationHits: [DesignPoint]
@@ -15,16 +15,16 @@ struct HitsGalleryView: View {
             VStack(alignment: .leading, spacing: 22) {
                 section(
                     title: "Design hits",
-                    subtitle: "Passed iPTM ≥ \(String(format: "%.2f", threshold)) in the first design round.",
+                    subtitle: "Passed iPTM ≥ \(String(format: "%.2f", threshold)) under the selected design engine.",
                     hits: designHits,
-                    emptyDetail: "Designs that clear the threshold in the Boltz round will appear here."
+                    emptyDetail: "Designs that clear the threshold under the design engine will appear here."
                 )
                 Divider()
                 section(
-                    title: "Validation hits",
-                    subtitle: "Confirmed by the secondary IntelliFold prediction — the ones most likely to be real.",
+                    title: "Passing independent checks",
+                    subtitle: "Passed under a selected checking engine; each tile names the engine that produced it.",
                     hits: validationHits,
-                    emptyDetail: "Validation runs after the design round finishes. Confirmed hits will appear here."
+                    emptyDetail: "Independent checks run after design finishes. Passing results will appear here."
                 )
             }
             .padding(4)

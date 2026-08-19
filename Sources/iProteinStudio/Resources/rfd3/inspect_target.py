@@ -14,7 +14,7 @@ Output (stdout, one JSON object):
 
     {
       "kind": "ligand" | "protein",
-      "sites": [{"name","element","suggestion","suggestionReason"}, ...],
+      "sites": [{"index","name","element","suggestions"}, ...],
       "formal_charge": int,          # ligand only
       "chains": ["A","B"],           # protein only
       "warnings": [str, ...]
@@ -38,23 +38,23 @@ def fail(message: str) -> None:
 
 # --------------------------------------------------------------------- ligand
 
-# Groups worth keeping solvent-exposed by default: conjugation handles and
-# solubilising tails. Burying a linker is the classic way to design a binder
-# that cannot then be attached to anything.
-EXPOSURE_SMARTS = [
-    # Whole linker arms first, so the atoms between the anchor and the tip are
-    # caught too. Matching only the amide would bury the middle of a linker.
-    ("C(=O)N[CX4][CX4][OX2H]", "hydroxyalkyl-amide linker — keep the whole arm reachable"),
-    ("C(=O)N[CX4][CX4][NX3]", "aminoalkyl-amide linker — keep the whole arm reachable"),
-    ("[NX3][CX4][CX4][OX2H]", "aminoalcohol arm — a conjugation handle"),
-    ("C(=O)N", "amide — a common conjugation handle"),
-    ("[OX2H]", "hydroxyl — often a linker attachment point"),
-    ("[NX3;H2]", "primary amine — often a linker attachment point"),
-    ("C(=O)[OX2H1,OX1-]", "carboxylate — usually solvent-facing"),
-    ("OCCO", "ethylene-glycol-like tail — solubilising"),
-    ("[SX2H]", "thiol — a conjugation handle"),
-    ("[N+](=O)[O-]", "nitro — strongly polar"),
-]
+def canonical_atom_names(mol, Chem) -> dict[int, str]:
+    """Return the exact atom names used by the generated RFD3 component."""
+    mol_h = Chem.AddHs(mol)
+    ranks = list(Chem.CanonicalRankAtoms(mol_h))
+    return {
+        atom.GetIdx(): f"{atom.GetSymbol().upper()}{ranks[atom.GetIdx()] + 1}"
+        for atom in mol.GetAtoms()
+    }
+
+
+def hbond_features(mol) -> tuple[set[int], set[int]]:
+    """Perceive donors/acceptors for the supplied graph and protonation state."""
+    from rdkit.Chem import Lipinski
+
+    donors = {idx for match in Lipinski._HDonors(mol) for idx in match}
+    acceptors = {idx for match in Lipinski._HAcceptors(mol) for idx in match}
+    return donors, acceptors
 
 
 def inspect_ligand(smiles: str | None, structure: str | None, resname: str | None) -> dict:
@@ -73,46 +73,58 @@ def inspect_ligand(smiles: str | None, structure: str | None, resname: str | Non
     else:
         fail("No SMILES and no structure file were supplied.")
 
-    # Names are carried on the atoms by _mol_from_smiles (canonical ranks taken
-    # on the hydrogen-added molecule, exactly as prepare_ligand_target.py does).
-    # Structure-derived molecules fall back to their PDB atom names.
-    names = {}
-    for atom in mol.GetAtoms():
-        if atom.HasProp("name"):
-            names[atom.GetIdx()] = atom.GetProp("name")
-        elif atom.GetPDBResidueInfo():
-            names[atom.GetIdx()] = atom.GetPDBResidueInfo().GetName().strip()
-        else:
-            names[atom.GetIdx()] = f"{atom.GetSymbol().upper()}{atom.GetIdx() + 1}"
+    if smiles:
+        names = canonical_atom_names(mol, Chem)
+    else:
+        names = {}
+        for atom in mol.GetAtoms():
+            if atom.GetPDBResidueInfo():
+                names[atom.GetIdx()] = atom.GetPDBResidueInfo().GetName().strip()
+            else:
+                names[atom.GetIdx()] = f"{atom.GetSymbol().upper()}{atom.GetIdx() + 1}"
 
-    # Suggestions: expose recognised handles, bury the hydrophobic core, and
-    # mark polar atoms as hydrogen-bond partners.
-    suggestions: dict[int, tuple[str, str]] = {}
-    for smarts, reason in EXPOSURE_SMARTS:
-        patt = Chem.MolFromSmarts(smarts)
-        if patt is None:
-            continue
-        for match in mol.GetSubstructMatches(patt):
-            for idx in match:
-                suggestions.setdefault(idx, ("exposed", reason))
+    try:
+        donors, acceptors = hbond_features(mol)
+    except Exception:
+        donors, acceptors = set(), set()
+        warnings.append(
+            "Hydrogen-bond roles could not be perceived from this structure. "
+            "Use a chemically complete SMILES to obtain donor/acceptor suggestions."
+        )
 
     sites = []
     for atom in mol.GetAtoms():
         idx = atom.GetIdx()
         symbol = atom.GetSymbol().upper()
-        if idx in suggestions:
-            suggestion, reason = suggestions[idx]
-        elif symbol in ("N", "O") and atom.GetTotalNumHs() > 0:
-            suggestion, reason = "hbondAcceptor", "polar donor — a good hydrogen-bonding partner"
-        elif symbol in ("N", "O"):
-            suggestion, reason = "hbondDonor", "polar acceptor — a good hydrogen-bonding partner"
-        else:
-            suggestion, reason = "buried", "non-polar — packing protein around it drives affinity"
+        suggestions = []
+        # Do not call every atom without an H-bond feature "non-polar". A
+        # quaternary ammonium or metal can be neither donor nor acceptor yet is
+        # emphatically not a safe burial default. Limit automatic pocket packing
+        # to neutral carbon/halogen atoms; the user can deliberately add other
+        # burial restraints after reviewing the molecule.
+        safely_hydrophobic = atom.GetFormalCharge() == 0 and atom.GetSymbol() in {
+            "C", "F", "Cl", "Br", "I"
+        }
+        if safely_hydrophobic and idx not in donors and idx not in acceptors:
+            suggestions.append({
+                "condition": "buried",
+                "reason": "non-polar binding-core atom — pocket packing is a useful conservative default",
+            })
+        if idx in donors:
+            suggestions.append({
+                "condition": "hbondDonor",
+                "reason": "this ligand atom donates a hydrogen bond in the supplied protonation state",
+            })
+        if idx in acceptors:
+            suggestions.append({
+                "condition": "hbondAcceptor",
+                "reason": "this ligand atom accepts a hydrogen bond in the supplied protonation state",
+            })
         sites.append({
+            "index": idx,
             "name": names[idx],
             "element": symbol,
-            "suggestion": suggestion,
-            "suggestionReason": reason,
+            "suggestions": suggestions,
         })
 
     if len(sites) < 4:
@@ -199,6 +211,13 @@ def inspect_protein(path: str, chain: str | None) -> dict:
     except ImportError:
         fail("NumPy is not available in this environment.")
 
+    aa3 = {
+        "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C",
+        "GLN": "Q", "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I",
+        "LEU": "L", "LYS": "K", "MET": "M", "PHE": "F", "PRO": "P",
+        "SER": "S", "THR": "T", "TRP": "W", "TYR": "Y", "VAL": "V",
+        "MSE": "M", "SEC": "U", "PYL": "O",
+    }
     coords: list[tuple[float, float, float]] = []
     labels: list[tuple[str, str, int]] = []   # (chain, resname, resnum)
     chains: set[str] = set()
@@ -265,12 +284,15 @@ def inspect_protein(path: str, chain: str | None) -> dict:
         })
 
     resnums = sorted(r for _, r in per_residue)
+    sequence = "".join(aa3.get(per_residue[(target_chain, number)]["resname"], "X")
+                       for number in resnums)
     return {
         "kind": "protein",
         "sites": sites,
         "chains": sorted(chains),
         "chain": target_chain,
         "contig": f"{target_chain}{resnums[0]}-{resnums[-1]}",
+        "sequence": sequence,
         "warnings": [
             "Exposure is estimated from a heavy-atom neighbour count, not a full "
             "solvent-accessibility calculation. Treat the suggestions as a starting point."

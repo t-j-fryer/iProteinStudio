@@ -16,6 +16,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--stage", default="all")
+    parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     config = args.config.resolve()
     cfg = json.loads(config.read_text())
@@ -35,9 +36,15 @@ def main() -> None:
         "caffeinate", "-dimsu", sys.executable, str(ROOT / "scripts" / "run_rfd3_nise_campaign.py"),
         "--config", str(config), "--stage", args.stage,
     ]
+    if args.resume:
+        cmd.append("--resume")
     if os.fork() == 0:
         os.setsid()
         if os.fork() == 0:
+            # The PID written below must also be the process-group ID. Studio
+            # cancels the whole group so terminating caffeinate cannot orphan
+            # the GPU worker it supervises.
+            os.setsid()
             os.chdir(ROOT)
             mpl_cache = campaign / ".matplotlib"
             mpl_cache.mkdir(exist_ok=True)

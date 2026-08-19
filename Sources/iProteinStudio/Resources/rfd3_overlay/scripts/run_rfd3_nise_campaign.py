@@ -120,12 +120,12 @@ def stage_mpnn(cfg: dict, campaign: Path, logs: Path) -> None:
             "--output", str(campaign / "mpnn"),
             "--model-type", "ligand_mpnn" if model == "ligandmpnn" else "soluble_mpnn",
             "--temperature", str(cfg.get("sequence_temperature", 0.1)),
+            "--n-seqs", str(cfg["sequences_per_backbone"]),
         ]
         if cfg.get("nanohunter_root"):
             cmd += ["--nanohunter-root", cfg["nanohunter_root"]]
     run(cmd, logs / "mpnn.log")
-    # run_mpnn.py emits one sequence per backbone; run_lasermpnn.py emits N.
-    per_backbone = cfg["sequences_per_backbone"] if model == "lasermpnn" else 1
+    per_backbone = cfg["sequences_per_backbone"]
     expected = cfg["num_backbones"] * per_backbone
     observed = count_csv(campaign / "mpnn" / "sequences.csv")
     if observed != expected:
@@ -141,6 +141,7 @@ def prepare_and_predict(cfg: dict, campaign: Path, logs: Path, mode: str) -> Non
     ]
     if mode == "holo":
         prep += ["--smiles", read_smiles(Path(cfg["smiles_file"]))]
+        prep += ["--affinity"] if cfg.get("run_affinity", True) else ["--no-affinity"]
     run(prep, logs / f"prepare_{mode}_yaml.log")
 
     predict = [
@@ -158,7 +159,7 @@ def prepare_and_predict(cfg: dict, campaign: Path, logs: Path, mode: str) -> Non
         predict += ["--parallel", str(holo["parallel"])]
     run(predict, logs / f"predict_{mode}.log")
 
-    per_backbone = cfg["sequences_per_backbone"] if cfg.get("sequence_model", "lasermpnn") == "lasermpnn" else 1
+    per_backbone = cfg["sequences_per_backbone"]
     expected = cfg["num_backbones"] * per_backbone if mode == "holo" else cfg["top_n"]
     observed = count_csv(campaign / "predictions" / mode / "prediction_metrics.csv")
     if observed != expected:
@@ -199,6 +200,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--stage", choices=("all", *STAGES), default="all")
+    parser.add_argument("--resume", action="store_true",
+                        help="skip stages already recorded complete on disk")
     args = parser.parse_args()
     cfg = json.loads(args.config.resolve().read_text())
     for key in ("design_yaml", "smiles_file", "campaign_dir", "ligand_sdf", "atom_map", "ccd_mirror", "bundle_validator"):
@@ -232,15 +235,25 @@ def main() -> None:
         stages = [s for s in stages if s not in ("predict-apo", "rmsd")]
     start = time.time()
     completed = []
+    progress_file = campaign / "campaign_progress.json"
+    if args.resume and progress_file.exists():
+        try:
+            completed = [name for name in json.loads(progress_file.read_text()).get("completed_stages", [])
+                         if name in STAGES]
+        except (OSError, json.JSONDecodeError):
+            completed = []
+        stages = [name for name in stages if name not in completed]
+        if completed:
+            print("resuming after completed stages: " + ", ".join(completed), flush=True)
     for stage in stages:
         print(f"=== stage: {stage} ===", flush=True)
-        (campaign / "campaign_progress.json").write_text(json.dumps({
+        progress_file.write_text(json.dumps({
             "completed_stages": completed, "current_stage": stage,
             "updated_epoch": time.time(), "wall_sec": time.time() - start,
         }, indent=2) + "\n")
         dispatch[stage](cfg, campaign, logs)
         completed.append(stage)
-        (campaign / "campaign_progress.json").write_text(json.dumps({
+        progress_file.write_text(json.dumps({
             "completed_stages": completed, "current_stage": None,
             "updated_epoch": time.time(), "wall_sec": time.time() - start,
         }, indent=2) + "\n")

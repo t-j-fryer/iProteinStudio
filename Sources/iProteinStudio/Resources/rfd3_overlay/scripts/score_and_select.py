@@ -32,6 +32,12 @@ def to_float(value, default=float("nan")):
         return default
 
 
+def prediction_name(row: dict) -> str:
+    design = row.get("design") or row.get("name") or row.get("backbone") or ""
+    index = str(row.get("seq_index", "")).strip()
+    return f"{Path(design).stem}_{index}" if index else Path(design).stem
+
+
 def default_root() -> Path:
     """Where venvs/ and src/ live.
 
@@ -140,9 +146,9 @@ def score_proteins(rows: list[dict], args: argparse.Namespace) -> None:
         if not args.sequences.exists():
             raise SystemExit(f"No sequence table at {args.sequences}")
         for row in csv.DictReader(args.sequences.open()):
-            key = row.get("design") or row.get("name") or row.get("backbone") or ""
+            key = prediction_name(row)
             if key:
-                sequence_rows[Path(key).stem] = row
+                sequence_rows[key] = row
 
     grouped: dict[str, list[dict]] = {}
     for row in rows:

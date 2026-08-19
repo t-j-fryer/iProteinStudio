@@ -8,6 +8,9 @@ struct TargetPrepView: View {
     let targetSequence: String
     let targetSmiles: String
     var onUse: ([Int]) -> Void
+    /// Chain label shown on picked residues. Iterative templates use target B;
+    /// an RFdiffusion3 monomer predicted here is adopted as chain A.
+    var residueChain: String
     /// Called with the predicted structure once it exists. The RFdiffusion3 tab
     /// uses this to adopt the prediction as its design target, so a user with
     /// only a sequence never has to find the file themselves.
@@ -24,12 +27,14 @@ struct TargetPrepView: View {
 
     init(targetKind: TargetKind, targetSequence: String, targetSmiles: String,
          onUse: @escaping ([Int]) -> Void,
+         residueChain: String = "B",
          onStructure: ((String) -> Void)? = nil,
          onClose: @escaping () -> Void) {
         self.targetKind = targetKind
         self.targetSequence = targetSequence
         self.targetSmiles = targetSmiles
         self.onUse = onUse
+        self.residueChain = residueChain
         self.onStructure = onStructure
         self.onClose = onClose
         // Ligand-only prediction is verified with Boltz; protein defaults to IntelliFold.
@@ -150,7 +155,7 @@ struct TargetPrepView: View {
                     .font(.callout).foregroundStyle(.orange).multilineTextAlignment(.center).frame(maxWidth: 480)
             } else if cachedCIF == nil {
                 Text(isLigand ? "Boltz is verified for ligand-only prediction; IntelliFold may also work."
-                              : "First run fetches an MSA and can take a few minutes. v2-flash is the fastest option.")
+                              : "Studio checks the shared MSA cache first and generates a real alignment only when it is missing. v2-flash is the fastest option.")
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             Spacer()
@@ -186,7 +191,8 @@ struct TargetPrepView: View {
             Toggle(isOn: $showSurface) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Hydrophobicity surface")
-                    Text("Orange = hydrophobic (good epitopes)").font(.caption2).foregroundStyle(.secondary)
+                    Text("Switches to the 3D surface view; orange = hydrophobic")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
             }.toggleStyle(.switch)
             Divider()
@@ -197,7 +203,11 @@ struct TargetPrepView: View {
             }
             Text("Click residues in the structure to add or remove them, or tap a chip below to remove it.")
                 .font(.caption).foregroundStyle(.secondary)
-            ScrollView { RemovableChips(residues: selected) { resi in selected.removeAll { $0 == resi } } }
+            ScrollView {
+                RemovableChips(residues: selected, chain: residueChain) { resi in
+                    selected.removeAll { $0 == resi }
+                }
+            }
                 .frame(maxHeight: .infinity)
             Divider()
             Button { predictor.cancel(); selected = []; showSurface = false } label: {
@@ -240,6 +250,7 @@ struct TargetPrepView: View {
 /// Wrapping row of hotspot chips; tap a chip to remove that residue.
 struct RemovableChips: View {
     let residues: [Int]
+    let chain: String
     var onRemove: (Int) -> Void
     var body: some View {
         let cols = [GridItem(.adaptive(minimum: 58), spacing: 6)]
@@ -247,14 +258,14 @@ struct RemovableChips: View {
             ForEach(residues, id: \.self) { resi in
                 Button { onRemove(resi) } label: {
                     HStack(spacing: 3) {
-                        Text("B\(resi)").font(.caption.monospacedDigit())
+                        Text("\(chain)\(resi)").font(.caption.monospacedDigit())
                         Image(systemName: "xmark.circle.fill").font(.system(size: 9))
                     }
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Capsule().fill(.orange.opacity(0.2)))
                     .foregroundStyle(.orange)
                 }
-                .buttonStyle(.plain).help("Remove B\(resi)")
+                .buttonStyle(.plain).help("Remove \(chain)\(resi)")
             }
         }
     }

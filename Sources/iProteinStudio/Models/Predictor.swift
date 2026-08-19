@@ -142,6 +142,13 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
 
     var usesSteeringPotentials: Bool { self == .boltzPotentials }
 
+    /// Post-prediction never uses design-time steering restraints. Keep the
+    /// backend identity, but collapse the design-only Boltz variant so it
+    /// cannot appear as a second, misleading checker.
+    var checkingVariant: Predictor {
+        self == .boltzPotentials ? .boltz : self
+    }
+
     var component: InstallComponent {
         switch self {
         case .boltz, .boltzPotentials: return .boltz
@@ -199,7 +206,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         }
     }
 
-    /// Only Boltz has a binding-affinity head.    /// Only Boltz has a binding-affinity head. AlphaFold 3 explicitly has none,
+    /// Only Boltz has a binding-affinity head. AlphaFold 3 explicitly has none,
     /// so ranking schemes that use P(bind) fall back to ligand pLDDT under AF3.
     var hasAffinityHead: Bool {
         self == .boltz || self == .boltzPotentials
@@ -285,9 +292,10 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// spend hours getting a worse result. It remains available as a checker.
     static var designChoices: [Predictor] { [.boltz, .boltzPotentials, .intellifold, .alphafold3] }
 
-    /// Engines that can independently re-fold finished designs. All of them.
+    /// Engines that can independently re-fold finished designs. Steering
+    /// potentials are deliberately absent: checks remove design restraints.
     static var checkChoices: [Predictor] {
-        [.boltz, .boltzPotentials, .intellifold, .intellifoldJAX, .alphafold3, .openfold3]
+        [.boltz, .intellifold, .intellifoldJAX, .alphafold3, .openfold3]
     }
 
     /// Everything the prediction tab offers, in the order it shows them.
@@ -297,12 +305,11 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         [.boltz, .intellifold, .intellifoldJAX, .alphafold3, .openfold3]
     }
 
-    /// Engines the iterative pipeline can drive. The JAX backend is absent
-    /// because `nanohunter_run.sh` hard-assigns IntelliFold's environment and
-    /// runner; it is reachable from the RFdiffusion3 checker, which calls its
-    /// adapter directly.
-    static var iterativeChoices: [Predictor] {
-        [.boltz, .boltzPotentials, .intellifold, .alphafold3, .openfold3]
+    /// Engines the iterative pipeline can use for independent checks. The JAX
+    /// backend is absent because `nanohunter_run.sh` does not yet expose it;
+    /// RFdiffusion3 and one-shot prediction call its adapter directly.
+    static var iterativeCheckChoices: [Predictor] {
+        [.boltz, .intellifold, .alphafold3, .openfold3]
     }
 }
 

@@ -29,6 +29,9 @@ struct LiveDashboardView: View {
     private var designPoints: [DesignPoint] { metrics.designPoints }
     private var designHits: [DesignPoint] { designPoints.filter { $0.isHit(threshold: threshold) } }
     private var validationHits: [DesignPoint] { metrics.validationPoints.filter { $0.isHit(threshold: threshold) } }
+    private var confirmedDesignCount: Int {
+        Set(validationHits.map { "\($0.run)-\($0.cycle)" }).count
+    }
     private var bestIPTM: Double { designPoints.map(\.iptm).max() ?? 0 }
 
     var body: some View {
@@ -127,7 +130,7 @@ struct LiveDashboardView: View {
         HStack(spacing: 12) {
             StatTile(title: "Designs", value: "\(designPoints.count)", systemImage: "square.stack.3d.up", tint: .blue)
             StatTile(title: "Design hits", value: "\(designHits.count)", systemImage: "trophy", tint: .green)
-            StatTile(title: "Validation hits", value: "\(validationHits.count)", systemImage: "checkmark.seal", tint: .teal)
+            StatTile(title: "Pass ≥1 check", value: "\(confirmedDesignCount)", systemImage: "checkmark.seal", tint: .teal)
             StatTile(title: "Best iPTM", value: bestIPTM > 0 ? String(format: "%.3f", bestIPTM) : "—", systemImage: "star", tint: .yellow)
         }
     }

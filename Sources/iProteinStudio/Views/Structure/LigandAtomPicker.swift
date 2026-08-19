@@ -1,8 +1,8 @@
 import SwiftUI
 import WebKit
 
-/// A clickable 2D depiction: the user points at the atom where the linker leaves
-/// the molecule, instead of typing an index.
+/// A clickable 2D depiction: the user points at both ends of the directed
+/// core-to-linker bond instead of typing ambiguous indices.
 ///
 /// This matters more than it looks. Getting the attachment point wrong makes the
 /// linker count as recognition core, so its flexibility dominates the conformer
@@ -12,11 +12,17 @@ import WebKit
 /// used, does.
 struct LigandAtomPicker: NSViewRepresentable {
     let smiles: String
-    /// Selected atom index, or nil for a free (unconjugated) molecule.
+    /// Core-side endpoint of the selected acyclic core-to-linker bond.
     @Binding var attachmentAtom: Int?
+    /// Linker-side endpoint directly bonded to `attachmentAtom`.
+    @Binding var attachmentLinkerAtom: Int?
     /// Atoms the analysis treated as recognition core / presentation region.
     var coreAtoms: [Int] = []
     var presentationAtoms: [Int] = []
+    /// RFD3 atom names in original SMILES order. When unavailable, the drawing
+    /// shows zero-based indices rather than inventing a mapping.
+    var atomLabels: [String] = []
+    var allowsAttachmentPicking = true
     /// Reports the atom symbols in index order, so a mismatch between the
     /// depiction's atom numbering and the analysis's can be caught rather than
     /// silently producing a nonsense split.
@@ -42,7 +48,9 @@ struct LigandAtomPicker: NSViewRepresentable {
         context.coordinator.parent = self
         context.coordinator.draw(smiles)
         context.coordinator.apply(attachment: attachmentAtom,
-                                  core: coreAtoms, presentation: presentationAtoms)
+                                  linker: attachmentLinkerAtom,
+                                  core: coreAtoms, presentation: presentationAtoms,
+                                  labels: atomLabels, picking: allowsAttachmentPicking)
     }
 
     static func dismantleNSView(_ web: WKWebView, coordinator: Coordinator) {
@@ -66,8 +74,6 @@ struct LigandAtomPicker: NSViewRepresentable {
                 w.evaluateJavaScript("initRDKitWithWasm(\"\(data.base64EncodedString())\")",
                                      completionHandler: nil)
             }
-            ready = true
-            draw(pending, force: true)
         }
 
         func draw(_ smiles: String, force: Bool = false) {
@@ -79,17 +85,23 @@ struct LigandAtomPicker: NSViewRepresentable {
             web.evaluateJavaScript("drawSmilesB64(\"\(b64)\")", completionHandler: nil)
         }
 
-        func apply(attachment: Int?, core: [Int], presentation: [Int]) {
+        func apply(attachment: Int?, linker: Int?, core: [Int], presentation: [Int],
+                   labels: [String], picking: Bool) {
             guard ready, let web else { return }
             // Cheap change detection: these fire on every SwiftUI update, and
             // re-running the JS would fight the user's own clicks.
-            let signature = "\(attachment ?? -1)|\(core.count)|\(presentation.count)"
+            let signature = "\(attachment ?? -1)|\(linker ?? -1)|\(core)|\(presentation)|\(labels)|\(picking)"
             guard signature != lastState else { return }
             lastState = signature
 
-            web.evaluateJavaScript("setAttachment(\(attachment ?? -1))", completionHandler: nil)
+            web.evaluateJavaScript("setAttachment(\(attachment ?? -1), \(linker ?? -1))",
+                                   completionHandler: nil)
+            web.evaluateJavaScript("setPickingEnabled(\(picking ? "true" : "false"))",
+                                   completionHandler: nil)
             let coreJSON = (try? String(data: JSONEncoder().encode(core), encoding: .utf8)) ?? "[]"
             let presJSON = (try? String(data: JSONEncoder().encode(presentation), encoding: .utf8)) ?? "[]"
+            let labelsJSON = (try? String(data: JSONEncoder().encode(labels), encoding: .utf8)) ?? "[]"
+            web.evaluateJavaScript("setAtomLabels('\(labelsJSON)')", completionHandler: nil)
             if core.isEmpty && presentation.isEmpty {
                 web.evaluateJavaScript("setRegions(null, null)", completionHandler: nil)
             } else {
@@ -103,9 +115,29 @@ struct LigandAtomPicker: NSViewRepresentable {
             guard let payload = message.body as? [String: Any],
                   let type = payload["type"] as? String else { return }
             switch type {
+            case "ready":
+                // Loading the HTML document and initialising RDKit's WASM are
+                // separate asynchronous steps. Applying state at didFinish can
+                // otherwise lose labels, linker endpoints and read-only mode on
+                // the first render. The page explicitly acknowledges WASM
+                // readiness before we send any molecule state.
+                ready = true
+                lastDrawn = nil
+                lastState = ""
+                draw(pending, force: true)
+                apply(attachment: parent.attachmentAtom,
+                      linker: parent.attachmentLinkerAtom,
+                      core: parent.coreAtoms,
+                      presentation: parent.presentationAtoms,
+                      labels: parent.atomLabels,
+                      picking: parent.allowsAttachmentPicking)
             case "pick":
-                let index = payload["index"] as? Int ?? -1
-                DispatchQueue.main.async { self.parent.attachmentAtom = index < 0 ? nil : index }
+                let core = payload["core"] as? Int ?? -1
+                let linker = payload["linker"] as? Int ?? -1
+                DispatchQueue.main.async {
+                    self.parent.attachmentAtom = core < 0 ? nil : core
+                    self.parent.attachmentLinkerAtom = linker < 0 ? nil : linker
+                }
             case "atoms":
                 if let symbols = payload["symbols"] as? [String] {
                     DispatchQueue.main.async { self.parent.onAtomsResolved?(symbols) }

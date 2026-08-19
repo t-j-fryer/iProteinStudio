@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-08-14_
+_Last updated: 2026-08-18_
 
 | | |
 |---|---|
@@ -22,20 +22,22 @@ _Last updated: 2026-08-14_
 **Working:** setup wizard with per-engine choice, worked examples (α-cobratoxin
 with its alignment included, and fluorescein), project management, a
 prediction-only tab that reuses every alignment on the machine, nanobody/mini-binder/peptide design form,
-live metrics dashboard, hits gallery, offline 3D structure viewer, target prep,
+live metrics dashboard, hits gallery, offline py2Dmol structure viewer with visual controls, target prep,
 predictions library, a unified in-app structure/metric browser for completed
 Predict, iterative and RFdiffusion3 runs, persistent per-project run history and
 a global Activity panel with exact checkpoint Resume for newly recorded iterative campaigns.
 
 **Also working:** Ligand Intelligence — chemistry QA, recognition-core vs linker
 separation, conformer ensembles weighed against experimental PDB structures, and a
-design budget split across the shapes a molecule actually adopts; choice of design predictor (Boltz-2 ± potentials, IntelliFold v2-flash or full v2,
+design budget split across the shapes a molecule actually adopts, with directed
+core-to-linker bonds, annotated RFD atom names, reviewed condition suggestions and
+stereochemistry-safe PDB evidence; choice of design predictor (Boltz-2 ± potentials, IntelliFold v2-flash or full v2,
 AlphaFold 3, OpenFold-3) with orthogonal checking; measured-optimum scheduling
 delegated to NanoHunter's runner; a pinned standalone installation that does not
 need a sibling checkout, with explicit reuse of an existing NanoHunter/RFD3
 install as an option; an RFdiffusion3 tab that drives the
 validated production pipeline, survives quitting the app, resumes protein stages
-from checkpoints and presents its ranked-result summary.
+and small-molecule stages from checkpoints and presents its ranked-result summary.
 
 **Known gaps, in priority order:**
 
@@ -83,6 +85,15 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0027 | 2026-08-18 | [Generalize exact-ligand PDB matching beyond one regression molecule](lab_book/0027-generalize-ligand-pdb-matching.md) | Complete paginated CCD search, fail-loud external identity checks, and live validation on caffeine, aspirin, ibuprofen, glucose and acetate |
+| 0026 | 2026-08-18 | [Make ligand conditioning explicit, mapped, and stereochemistry-safe](lab_book/0026-fix-ligand-conditioning-and-biotin.md) | Directed core/linker selection, exact RFD atom labels, reviewed chemistry suggestions, correct H-bond semantics, and full-identity biotin PDB evidence |
+| 0025 | 2026-08-18 | [Audit ligand conditioning and reproduce the biotin PDB failure](lab_book/0025-audit-ligand-conditioning-and-biotin.md) | What Suggest for me actually does, why biotin returned zero matched structures, the incompatible atom-number systems, and the donor/acceptor direction bug |
+| 0024 | 2026-08-18 | [Editable numbers, Richardson cartoons, and the installed-method matrix](lab_book/0024-editable-numbers-richardson-and-method-matrix.md) | Typed numeric controls, the structure-viewer default, actual Apple-GPU versus CPU device use, and the OpenFold shared-MSA basename adapter |
+| 0023 | 2026-08-18 | [Fit viewer controls and audit the minimum-window GUI](lab_book/0023-fit-viewer-controls-and-audit-minimum-layout.md) | Why py2Dmol ignored its host width, the responsive canvas/rail contract, workflow-specific hotspot chain labels, and the minimum-window GUI pass |
+| 0022 | 2026-08-18 | [Share exact target MSAs and adopt py2Dmol everywhere](lab_book/0022-share-msas-and-adopt-py2dmol.md) | Why target prep differed from Predict, the exact-sequence MSA contract shared by every workflow, and py2Dmol's role versus the retained surface renderer |
+| 0021 | 2026-08-17 | [Keep long workflow forms inside the window](lab_book/0021-contain-workflow-forms-to-window.md) | Why RFdiffusion3 expanded beyond the window, and the viewport constraint that keeps navigation fixed while the form scrolls |
+| 0020 | 2026-08-17 | [Make checking scope explicit and audit RFD3/Predict](lab_book/0020-audit-rfd3-predict-contracts.md) | Final versus all-cycle orthogonal checking, exact RFD3 sequence/output accounting, resumable plain prediction and fail-loud input validation |
+| 0019 | 2026-08-17 | [Unify the iterative GUI and CLI contract](lab_book/0019-unify-iterative-gui-cli-contract.md) | Workflow-specific hotspot restraints, model/option scope, real hit thresholds, final-cycle checking, reproducible seeds and multi-engine result identity |
 | 0018 | 2026-08-14 | [Browse prediction and design results in the app](lab_book/0018-browse-run-results-in-app.md) | One offline browser for Predict, iterative and RFdiffusion3 structures; honest cross-engine metric naming; safe shared-batch result matching |
 | 0017 | 2026-08-14 | [Constrain Boltz-only prediction options](lab_book/0017-constrain-boltz-only-prediction-options.md) | Why steering and affinity controls follow Boltz selection, ligand eligibility, saved-state normalisation and launch-time sanitisation |
 | 0016 | 2026-08-14 | [Complete RFD3 and nanobody campaigns, then make runs recoverable](lab_book/0016-complete-campaigns-and-run-recovery.md) | Full staged protein and nanobody acceptance, protein ranking semantics, exact run manifests, activity/history UI and sleep inhibition |

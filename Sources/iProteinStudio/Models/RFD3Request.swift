@@ -140,19 +140,19 @@ enum AtomCondition: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .buried:        return "Bury"
         case .exposed:       return "Expose"
-        case .hbondDonor:    return "H-bond donor"
-        case .hbondAcceptor: return "H-bond acceptor"
+        case .hbondDonor:    return "Ligand donor"
+        case .hbondAcceptor: return "Ligand acceptor"
         case .hotspot:       return "Hotspot"
         }
     }
 
     var help: String {
         switch self {
-        case .buried:        return "Pack protein around this atom."
-        case .exposed:       return "Keep this atom solvent-accessible — use it for linkers and conjugation handles."
-        case .hbondDonor:    return "The designed protein should donate a hydrogen bond to this atom."
-        case .hbondAcceptor: return "The designed protein should accept a hydrogen bond from this atom."
-        case .hotspot:       return "Steer the binder to make contact here."
+        case .buried:        return "RASA condition: ask RFdiffusion3 to pack protein around this atom and reduce its solvent accessibility."
+        case .exposed:       return "RASA condition: keep this atom solvent-accessible — appropriate for explicit linkers and conjugation handles."
+        case .hbondDonor:    return "This selected ligand atom donates a hydrogen bond; RFdiffusion3 should place a complementary protein acceptor."
+        case .hbondAcceptor: return "This selected ligand atom accepts a hydrogen bond; RFdiffusion3 should place a complementary protein donor."
+        case .hotspot:       return "Ask the designed protein to contact this atom, typically within 4.5 Å; unlike Bury, this does not require enclosing it."
         }
     }
 
@@ -223,14 +223,17 @@ enum OriginStrategy: String, CaseIterable, Codable, Identifiable, Hashable {
 /// prepared target. Names come from the target itself rather than being typed by
 /// the user, so a typo cannot silently produce an unconditioned design.
 struct TargetSite: Codable, Hashable, Identifiable {
+    /// Zero-based atom index in the submitted SMILES; nil for protein residues.
+    var atomIndex: Int?
     /// e.g. "O17" for a ligand atom, "B67" for a protein residue.
     var name: String
     /// e.g. "O" / "C" for ligand atoms, the three-letter code for residues.
     var element: String
-    /// Suggested conditioning, if the inspector had an opinion.
-    var suggestion: AtomCondition?
-    /// Why it was suggested, shown as a tooltip.
-    var suggestionReason: String?
+    /// A ligand atom may be both buried and a donor/acceptor. A single optional
+    /// suggestion silently discarded that chemistry.
+    var suggestions: Set<AtomCondition>
+    /// Why each suggestion was made, shown before the user applies it.
+    var suggestionReasons: [AtomCondition: String]
 
     var id: String { name }
 }
@@ -259,10 +262,30 @@ struct RFD3Verification: Codable, Hashable {
     /// metric needs P(bind) and only Boltz produces it. For a protein target
     /// that reason evaporates — the affinity head is trained on small molecules
     /// — so the list is exactly what the user chose.
+    func effectiveExtraPredictors(for kind: RFD3TargetKind) -> [Predictor] {
+        var seen = Set<String>()
+        return extraPredictors.compactMap { raw in
+            let predictor = raw.checkingVariant
+            if kind == .smallMolecule && predictor.runnerValue == Predictor.boltz.runnerValue {
+                return nil
+            }
+            return seen.insert(predictor.runnerValue).inserted ? predictor : nil
+        }
+    }
+
     func allPredictors(for kind: RFD3TargetKind) -> [Predictor] {
-        guard kind == .smallMolecule else { return extraPredictors }
+        let extras = effectiveExtraPredictors(for: kind)
+        guard kind == .smallMolecule else { return extras }
         let boltz: Predictor = useBoltzPotentials ? .boltzPotentials : .boltz
-        return [boltz] + extraPredictors.filter { $0.runnerValue != boltz.runnerValue }
+        return [boltz] + extras
+    }
+
+    func usesBoltz(for kind: RFD3TargetKind) -> Bool {
+        allPredictors(for: kind).contains { $0.runnerValue == Predictor.boltz.runnerValue }
+    }
+
+    func usesIntelliFold(for kind: RFD3TargetKind) -> Bool {
+        allPredictors(for: kind).contains { $0 == .intellifold || $0 == .intellifoldJAX }
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -302,6 +325,9 @@ struct RFD3Request: Codable, Hashable {
     /// RFdiffusion3 needs a structure. A user with only a sequence can have one
     /// predicted in the tab, which then becomes the target structure.
     var targetSequence: String = ""
+    /// Sequence extracted from the selected structure/chain by the target
+    /// inspector. Kept separately so a pasted sequence mismatch blocks the run.
+    var structureTargetSequence: String = ""
     var targetStructurePath: String = ""
     var targetChain: String = "B"
     /// Residue range kept from the target, e.g. "B1-71".
@@ -310,8 +336,15 @@ struct RFD3Request: Codable, Hashable {
     /// Ligand geometries to design across, with their share of the budget.
     /// Empty means the single generated conformer is used, as before.
     var conformerPlan: [ConformerChoice] = []
-    /// Atom the linker leaves from, when the ligand is conjugated to something.
+    /// User-declared intent. This is separate from the endpoints so the Start
+    /// button stays blocked between turning conjugation on and completing the
+    /// two-click directed bond.
+    var ligandIsConjugated: Bool = false
+    /// Core-side atom of the explicit acyclic bond leading into a linker.
     var attachmentAtom: Int?
+    /// Linker-side atom directly bonded to `attachmentAtom`. Both endpoints are
+    /// required because one atom alone cannot identify which branch is linker.
+    var attachmentLinkerAtom: Int?
     var searchPDB: Bool = true
 
     // --- Conditioning ---
@@ -364,7 +397,7 @@ struct RFD3Request: Codable, Hashable {
     /// different lengths cannot share a native tensor batch — so a length range
     /// is covered by evenly spaced bins, each internally batched by shape.
     var binLengths: [Int] {
-        if !explicitLengths.isEmpty { return explicitLengths.sorted() }
+        if !explicitLengths.isEmpty { return Array(Set(explicitLengths)).sorted() }
         let bins = max(1, numBins)
         guard bins > 1 else { return [minLength] }
         let step = Double(maxLength - minLength) / Double(bins - 1)
@@ -373,12 +406,42 @@ struct RFD3Request: Codable, Hashable {
 
     var designsPerBin: Int { max(1, numDesigns / max(1, binLengths.count)) }
 
+    var totalDesignedSequences: Int {
+        max(1, numDesigns) * max(1, sequencesPerBackbone)
+    }
+
+    mutating func reconcileSelectionBudget() {
+        verification.topN = min(max(1, verification.topN), totalDesignedSequences)
+    }
+
+    var requiredComponents: [InstallComponent] {
+        var result: [InstallComponent] = [.rfd3, sequenceModel.component]
+        for predictor in verification.allPredictors(for: targetKind)
+            where !result.contains(predictor.component) {
+            result.append(predictor.component)
+        }
+        // Protein verification obtains the target MSA through Boltz once even
+        // when another predictor performs every final fold.
+        if targetKind == .protein && !result.contains(.boltz) { result.append(.boltz) }
+        return result
+    }
+
     /// Clamp the inverse folder to one that suits the current target.
     mutating func reconcileSequenceModel() {
         if !targetKind.sequenceModels.contains(sequenceModel) {
             sequenceModel = targetKind.sequenceModels.first ?? .solublempnn
             sequenceTemperature = sequenceModel.defaultTemperature
             firstShellTemperature = sequenceModel.defaultFirstShellTemperature
+        }
+    }
+
+    mutating func reconcileVerification() {
+        verification.extraPredictors = verification.effectiveExtraPredictors(for: targetKind)
+        if targetKind == .protein {
+            verification.runAffinityHead = false
+            if !verification.usesBoltz(for: .protein) {
+                verification.useBoltzPotentials = false
+            }
         }
     }
 
@@ -413,13 +476,65 @@ struct RFD3Request: Codable, Hashable {
     /// Blocking problems, phrased for someone who has not read the RFD3 docs.
     var validationIssues: [String] {
         var issues: [String] = []
-        if targetKind == .smallMolecule, ligandSource == .smiles {
-            let code = componentCode.trimmingCharacters(in: .whitespaces).uppercased()
+        if minLength < 1 || maxLength < minLength { issues.append("Choose a valid binder-length range.") }
+        if numDesigns < 1 { issues.append("Generate at least one backbone.") }
+        if numBins < 1 { issues.append("Use at least one length bin.") }
+        if timesteps < 1 || recycles < 0 || batchSize < 1 || queuesPerBin < 1 {
+            issues.append("Sampling counts must be positive (recycles may be zero).")
+        }
+        if sequencesPerBackbone < 1 { issues.append("Design at least one sequence per backbone.") }
+        if verification.topN < 1 || verification.topN > totalDesignedSequences {
+            issues.append("Keep at most \(totalDesignedSequences) designs—the campaign only creates that many sequences.")
+        }
+        if !explicitLengths.isEmpty && explicitLengths.contains(where: { $0 < 1 }) {
+            issues.append("Explicit binder lengths must all be positive.")
+        }
+
+        if targetKind == .smallMolecule {
+            if ligandIsConjugated && (attachmentAtom == nil || attachmentLinkerAtom == nil) {
+                issues.append("Choose both ends of the core-to-linker bond, or mark the molecule as free.")
+            } else if !ligandIsConjugated &&
+                        (attachmentAtom != nil || attachmentLinkerAtom != nil) {
+                issues.append("Clear the saved linker bond or mark the molecule as attached.")
+            }
+            let rawCode = ligandSource == .smiles ? componentCode : ligandResidueName
+            let code = rawCode.trimmingCharacters(in: .whitespaces).uppercased()
             if code.count < 1 || code.count > 3 || !code.allSatisfy({ $0.isLetter || $0.isNumber }) {
-                issues.append("The component code must be 1–3 letters or digits, e.g. LG1.")
+                issues.append(ligandSource == .smiles
+                              ? "The component code must be 1–3 letters or digits, e.g. LG1."
+                              : "The ligand residue name must be 1–3 letters or digits, e.g. FHE.")
             }
             if code == "LIG" {
                 issues.append("\"LIG\" collides with a three-atom placeholder component and would silently truncate your molecule. Pick another code.")
+            }
+            if smiles.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                issues.append("Add the ligand SMILES; sequence design and holo verification need its chemistry even when you supply a 3D pose.")
+            }
+            if ligandSource == .structureFile,
+               !FileManager.default.fileExists(atPath: ligandStructurePath) {
+                issues.append("Choose an existing ligand PDB file.")
+            }
+        } else {
+            if !FileManager.default.fileExists(atPath: targetStructurePath) {
+                issues.append("Choose or predict an existing protein structure file.")
+            }
+            let cleanTarget = TemplateWriter.clean(targetSequence)
+            if cleanTarget.isEmpty {
+                issues.append("Add the target sequence so its alignment and verification input can be reproduced.")
+            }
+            if targetContig.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                issues.append("Read the target structure so Studio can verify the selected chain and residue range.")
+            }
+            let cleanStructure = TemplateWriter.clean(structureTargetSequence)
+            if !cleanStructure.isEmpty && cleanTarget != cleanStructure {
+                issues.append("The pasted target sequence does not match the selected structure chain. Use the sequence read from the structure or choose the matching chain.")
+            }
+            let chain = targetChain.trimmingCharacters(in: .whitespacesAndNewlines)
+            if chain.isEmpty || chain.contains(where: { $0.isWhitespace }) {
+                issues.append("Choose one valid target chain identifier.")
+            }
+            if verification.allPredictors(for: .protein).isEmpty {
+                issues.append("Select at least one verification predictor for the protein campaign.")
             }
         }
         if originStrategy == .hotspots && !hasAnyHotspot {
@@ -433,13 +548,13 @@ struct RFD3Request: Codable, Hashable {
 
     private enum CodingKeys: String, CodingKey {
         case targetKind, ligandSource, smiles, componentCode, ligandStructurePath, ligandResidueName
-        case targetStructurePath, targetChain, targetContig
+        case targetStructurePath, targetChain, targetContig, structureTargetSequence
         case conditions, originStrategy, originXYZ
         case minLength, maxLength, numBins, numDesigns, explicitLengths, preferStructured
         case timesteps, recycles, batchSize, queuesPerBin, precision, seedBase
         case sequencesPerBackbone, verification
         case targetSequence, sequenceModel, sequenceTemperature, firstShellTemperature
-        case conformerPlan, attachmentAtom, searchPDB
+        case conformerPlan, ligandIsConjugated, attachmentAtom, attachmentLinkerAtom, searchPDB
     }
 
     /// Resilient decoding: every field defaults if absent.
@@ -472,12 +587,19 @@ struct RFD3Request: Codable, Hashable {
         seedBase            = try c.decodeIfPresent(Int.self, forKey: .seedBase) ?? d.seedBase
         sequencesPerBackbone = try c.decodeIfPresent(Int.self, forKey: .sequencesPerBackbone) ?? d.sequencesPerBackbone
         targetSequence      = try c.decodeIfPresent(String.self, forKey: .targetSequence) ?? d.targetSequence
+        structureTargetSequence = try c.decodeIfPresent(String.self, forKey: .structureTargetSequence) ?? d.structureTargetSequence
         sequenceModel       = try c.decodeIfPresent(RFD3SequenceModel.self, forKey: .sequenceModel) ?? d.sequenceModel
         sequenceTemperature = try c.decodeIfPresent(Double.self, forKey: .sequenceTemperature) ?? d.sequenceTemperature
         firstShellTemperature = try c.decodeIfPresent(Double.self, forKey: .firstShellTemperature) ?? d.firstShellTemperature
         conformerPlan       = try c.decodeIfPresent([ConformerChoice].self, forKey: .conformerPlan) ?? d.conformerPlan
         attachmentAtom      = try c.decodeIfPresent(Int.self, forKey: .attachmentAtom) ?? d.attachmentAtom
+        attachmentLinkerAtom = try c.decodeIfPresent(Int.self, forKey: .attachmentLinkerAtom) ?? d.attachmentLinkerAtom
+        ligandIsConjugated  = try c.decodeIfPresent(Bool.self, forKey: .ligandIsConjugated)
+            ?? (attachmentAtom != nil || attachmentLinkerAtom != nil)
         searchPDB           = try c.decodeIfPresent(Bool.self, forKey: .searchPDB) ?? d.searchPDB
         verification        = try c.decodeIfPresent(RFD3Verification.self, forKey: .verification) ?? d.verification
+        reconcileSequenceModel()
+        reconcileVerification()
+        reconcileSelectionBudget()
     }
 }

@@ -32,13 +32,21 @@ enum TemplateWriter {
 
         var yaml = ""
         // Epitope-directed contacts only make sense for a protein target.
-        let epitopes = request.targetKind == .protein ? residueTokens(request.epitopeResidues) : []
+        let epitopeResult = request.targetKind == .protein
+            ? residueTokenResult(request.epitopeResidues)
+            : (tokens: [], invalid: [])
+        guard epitopeResult.invalid.isEmpty else {
+            throw NHError.message("Invalid hotspot residue(s): \(epitopeResult.invalid.joined(separator: ", ")). Use numbers such as 32 55, or chain-qualified residues such as B32 B55.")
+        }
+        let epitopes = epitopeResult.tokens
         if !epitopes.isEmpty {
             yaml += "nanohunter:\n"
             yaml += "  target_epitope_residues:\n"
             for r in epitopes { yaml += "    - \(r)\n" }
             yaml += "  boltz_contact_distance: 6\n"
-            yaml += "  boltz_contact_mode: pocket+cdr3\n"
+            // The runner resolves auto by workflow: nanobody adds a CDR3-centre
+            // contact; generic protein binders use the shared pocket restraint.
+            yaml += "  boltz_contact_mode: auto\n"
             yaml += "  boltz_contact_force: true\n"
         }
         yaml += "sequences:\n"
@@ -66,7 +74,7 @@ enum TemplateWriter {
                 yaml += String(format: "      max_distance: %.1f\n", request.ligandContactDistance)
                 yaml += "      force: \(request.ligandContactForce)\n"
             }
-            if request.ligandAffinityHead {
+            if request.ligandAffinityHead && request.usesBoltzAnywhere {
                 yaml += "properties:\n"
                 yaml += "  - affinity:\n"
                 yaml += "      binder: B\n"
@@ -87,16 +95,26 @@ enum TemplateWriter {
     /// ("b32" -> "B32"), and colon form ("B:32" -> "B32").
     /// The target is always chain B in the generated template.
     static func residueTokens(_ raw: String, targetChain: String = "B") -> [String] {
-        raw.split(whereSeparator: { ", ;".contains($0) })
-            .compactMap { tok in
-                let t = tok.uppercased().replacingOccurrences(of: ":", with: "")
-                if t.range(of: "^[0-9]+$", options: .regularExpression) != nil {
-                    return targetChain + t
-                }
-                if t.range(of: "^[A-Z][0-9]+$", options: .regularExpression) != nil {
-                    return t
-                }
-                return nil
+        residueTokenResult(raw, targetChain: targetChain).tokens
+    }
+
+    /// Normalize valid hotspot tokens while retaining invalid input for a loud,
+    /// actionable validation error instead of silently dropping typos.
+    static func residueTokenResult(_ raw: String, targetChain: String = "B")
+        -> (tokens: [String], invalid: [String]) {
+        var tokens: [String] = []
+        var invalid: [String] = []
+        for tok in raw.split(whereSeparator: { ", ;".contains($0) }) {
+            let t = tok.uppercased().replacingOccurrences(of: ":", with: "")
+            if t.range(of: "^[0-9]+$", options: .regularExpression) != nil {
+                tokens.append(targetChain + t)
+            } else if t.range(of: "^[A-Z][0-9]+$", options: .regularExpression) != nil,
+                      t.hasPrefix(targetChain.uppercased()) {
+                tokens.append(t)
+            } else {
+                invalid.append(String(tok))
             }
+        }
+        return (tokens, invalid)
     }
 }

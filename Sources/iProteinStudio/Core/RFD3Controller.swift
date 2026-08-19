@@ -30,6 +30,7 @@ final class RFD3Controller: ObservableObject {
     private var pollTimer: Timer?
     private var configURL: URL?
     private var lastWasProtein = false
+    private var launchStartedAt: Date?
 
     var isRunning: Bool { if case .running = phase { return true }; return false }
     var isProteinCampaign: Bool { lastWasProtein }
@@ -76,6 +77,11 @@ final class RFD3Controller: ObservableObject {
 
     func start(project: Project, request: RFD3Request) {
         guard !isRunning, !isPreparing else { return }
+        guard request.isRunnable, request.validationIssues.isEmpty else {
+            phase = .failed(request.validationIssues.first
+                            ?? "Complete the RFdiffusion3 settings before starting.")
+            return
+        }
         guard let rfd3Root = Self.rfd3Root else {
             phase = .failed(Self.unavailableReason ?? "RFdiffusion3 is not available.")
             return
@@ -149,6 +155,7 @@ final class RFD3Controller: ObservableObject {
         lastWasProtein = request.targetKind == .protein
         currentStage = "validate"
         currentMessage = "Starting the campaign…"
+        launchStartedAt = Date()
 
         let isSmallMolecule = request.targetKind == .smallMolecule
         let launcher = isSmallMolecule
@@ -193,7 +200,7 @@ final class RFD3Controller: ObservableObject {
             ? rfd3Root.appendingPathComponent(".venv/bin/python")
             : URL(fileURLWithPath: "/usr/bin/caffeinate")
         let arguments = isSmallMolecule
-            ? [launcher, "--config", config.path]
+            ? [launcher, "--config", config.path, "--resume"]
             : ["-dimsu", rfd3Root.appendingPathComponent(".venv/bin/python").path,
                launcher, "--config", config.path, "--resume"]
         let runner = ProcessRunner()
@@ -212,8 +219,11 @@ final class RFD3Controller: ObservableObject {
         if let campaign = campaignRoot {
             let pidFile = campaign.appendingPathComponent("campaign.pid")
             if let text = try? String(contentsOf: pidFile, encoding: .utf8),
-               let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                kill(pid, SIGTERM)
+               let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 1 {
+                // Detached ligand campaigns own a new process group. Signal
+                // the group so stopping caffeinate cannot leave its GPU worker
+                // alive; the foreground protein path is cancelled separately.
+                kill(lastWasProtein ? pid : -pid, SIGTERM)
             }
         }
         runner?.cancel()
@@ -227,6 +237,7 @@ final class RFD3Controller: ObservableObject {
         progress = 0
         currentMessage = "Retrying from saved campaign settings…"
         log.append("Retrying the saved campaign; completed checkpoint outputs are reused.")
+        launchStartedAt = Date()
         launchSavedCampaign(config: config, protein: lastWasProtein, rfd3Root: rfd3Root)
     }
 
@@ -291,12 +302,14 @@ final class RFD3Controller: ObservableObject {
         if alive {
             phase = .running
             currentMessage = describe(stage: currentStage)
-        } else if completedStages.contains("rmsd") {
+        } else if completedStages.contains(expectedLigandFinalStage(config: config)) {
             phase = .finished
             progress = 1.0
             currentMessage = "Campaign finished."
             pollTimer?.invalidate(); pollTimer = nil
-        } else if case .running = phase {
+            return
+        } else if case .running = phase,
+                  launchStartedAt.map({ Date().timeIntervalSince($0) >= 30 }) ?? true {
             phase = .failed("The campaign stopped during \(currentStage.isEmpty ? "startup" : currentStage). Check campaign.stdout.log in the campaign folder.")
             pollTimer?.invalidate(); pollTimer = nil
         }
@@ -398,6 +411,13 @@ final class RFD3Controller: ObservableObject {
         return payload["target_kind"] as? String == "protein"
     }
 
+    private func expectedLigandFinalStage(config: URL) -> String {
+        guard let data = try? Data(contentsOf: config),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return "rmsd" }
+        return (payload["run_apo"] as? Bool) == false ? "score" : "rmsd"
+    }
+
     // MARK: Output parsing
 
     private func handle(_ line: String) {
@@ -470,7 +490,7 @@ final class RFD3Controller: ObservableObject {
         // For a protein target this is the whole list, not "extras": nothing is
         // pinned, because the affinity head that pins Boltz is ligand-only.
         payload.extra_predictors = request.targetKind == .smallMolecule
-            ? request.verification.extraPredictors.map(\.runnerValue)
+            ? request.verification.effectiveExtraPredictors(for: .smallMolecule).map(\.runnerValue)
             : request.verification.allPredictors(for: .protein).map(\.runnerValue)
         payload.intellifold_model = request.verification.intellifoldModel.rawValue
         payload.is_non_loopy = request.preferStructured
@@ -479,12 +499,13 @@ final class RFD3Controller: ObservableObject {
 
         switch request.targetKind {
         case .smallMolecule:
-            payload.component_id = request.componentCode.uppercased()
+            payload.component_id = (request.ligandSource == .smiles
+                ? request.componentCode : request.ligandResidueName).uppercased()
             payload.ligand_source = request.ligandSource == .smiles ? "smiles" : "structure_file"
             payload.smiles = request.smiles
             payload.ligand_structure = request.ligandStructurePath
             payload.ligand_residue = request.ligandResidueName
-            payload.conformers = request.conformerPlan.map {
+            payload.conformers = (request.ligandSource == .smiles ? request.conformerPlan : []).map {
                 ["path": AnyJSON($0.path), "weight": AnyJSON($0.weight), "label": AnyJSON($0.label)]
             }
         case .protein:

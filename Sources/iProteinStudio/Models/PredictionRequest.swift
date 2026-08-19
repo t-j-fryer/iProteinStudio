@@ -105,17 +105,67 @@ struct PredictionRequest: Codable, Hashable {
     var batchSize: Int = 0
 
     var jobs: [FoldJob] = []
+    /// Fingerprint of the inputs and policies used to build `jobs`. Without it,
+    /// editing the form after pressing Read could silently fold the old batch.
+    var parsedInputSignature: String = ""
 
-    var isRunnable: Bool { !jobs.isEmpty && !predictors.isEmpty }
-    var includesBoltz: Bool { predictors.contains(.boltz) }
+    var effectivePredictors: [Predictor] {
+        var seen = Set<String>()
+        return predictors.compactMap { raw in
+            let predictor = raw.checkingVariant
+            return seen.insert(predictor.runnerValue).inserted ? predictor : nil
+        }
+    }
+    var jobsAreCurrent: Bool { !jobs.isEmpty && parsedInputSignature == inputSignature }
+    var isRunnable: Bool { jobsAreCurrent && !effectivePredictors.isEmpty }
+    var includesBoltz: Bool {
+        effectivePredictors.contains { $0.runnerValue == Predictor.boltz.runnerValue }
+    }
     var containsLigand: Bool {
         jobs.contains { job in job.chains.contains { $0.kind == "ligand" } }
+    }
+
+    var usesIntelliFold: Bool {
+        effectivePredictors.contains { $0 == .intellifold || $0 == .intellifoldJAX }
+    }
+
+    var requiredComponents: [InstallComponent] {
+        var result: [InstallComponent] = []
+        for predictor in effectivePredictors where !result.contains(predictor.component) {
+            result.append(predictor.component)
+        }
+        let needsMSAGenerator = jobs.contains { job in
+            job.chains.contains { $0.kind == "protein" && $0.msa.lowercased() == "auto" }
+        }
+        if needsMSAGenerator && !result.contains(.boltz) { result.append(.boltz) }
+        return result
+    }
+
+    /// Stable input fingerprint. File size and modification time detect edits
+    /// without rereading a potentially large CSV on every SwiftUI render.
+    var inputSignature: String {
+        var bytes = Data()
+        let fields = [pairing.rawValue, partnerSequence, partnerSmiles,
+                      binderMSA.rawValue, partnerMSA.rawValue, sequenceFile,
+                      sequenceFile.isEmpty ? pastedSequences : ""]
+        bytes.append(fields.joined(separator: "\u{1f}").data(using: .utf8) ?? Data())
+        if !sequenceFile.isEmpty,
+           let attributes = try? FileManager.default.attributesOfItem(atPath: sequenceFile) {
+            let size = attributes[.size] as? NSNumber
+            let modified = attributes[.modificationDate] as? Date
+            let stamp = "\(size?.uint64Value ?? 0)|\(modified?.timeIntervalSince1970 ?? 0)"
+            bytes.append(stamp.data(using: .utf8) ?? Data())
+        }
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        for byte in bytes { hash = (hash ^ UInt64(byte)) &* 1_099_511_628_211 }
+        return String(hash, radix: 16)
     }
 
     /// Boltz-only switches must never survive a change to an incompatible
     /// engine selection. This also repairs stale saved projects created before
     /// the UI constrained these controls.
     mutating func normalizeEngineOptions() {
+        predictors = effectivePredictors
         if !includesBoltz {
             useBoltzPotentials = false
             runAffinityHead = false
@@ -126,13 +176,24 @@ struct PredictionRequest: Codable, Hashable {
 
     /// Rough lower bound: predictions only, ignoring alignment generation.
     func estimatedSeconds(in mode: SpeedMode) -> Double {
-        predictors.reduce(0.0) { total, predictor in
+        effectivePredictors.reduce(0.0) { total, predictor in
             total + Double(jobs.count) * predictor.measuredSeconds(in: mode)
         }
     }
 
     var validationIssues: [String] {
         var issues: [String] = []
+        if !jobs.isEmpty && !jobsAreCurrent {
+            issues.append("The sequences or folding setup changed. Read sequences again before starting.")
+        }
+        if pairing == .shared,
+           !partnerSequence.trimmingCharacters(in: .whitespaces).isEmpty,
+           !partnerSmiles.trimmingCharacters(in: .whitespaces).isEmpty {
+            issues.append("Choose either a protein partner or a ligand SMILES, not both.")
+        }
+        if maxParallel < 0 || batchSize < 0 {
+            issues.append("Throughput overrides cannot be negative.")
+        }
         if pairing == .shared, partnerSequence.trimmingCharacters(in: .whitespaces).isEmpty,
            partnerSmiles.trimmingCharacters(in: .whitespaces).isEmpty {
             issues.append("Choose a partner sequence or SMILES to fold everything against.")
@@ -152,7 +213,7 @@ struct PredictionRequest: Codable, Hashable {
     private enum CodingKeys: String, CodingKey {
         case pastedSequences, sequenceFile, pairing, partnerSequence, partnerSmiles
         case binderMSA, partnerMSA, predictors, intellifoldModel, useBoltzPotentials, runAffinityHead
-        case offlineOnly, maxParallel, batchSize, jobs
+        case offlineOnly, maxParallel, batchSize, jobs, parsedInputSignature
     }
 
     init() {}
@@ -175,5 +236,7 @@ struct PredictionRequest: Codable, Hashable {
         maxParallel       = try c.decodeIfPresent(Int.self, forKey: .maxParallel) ?? d.maxParallel
         batchSize         = try c.decodeIfPresent(Int.self, forKey: .batchSize) ?? d.batchSize
         jobs              = try c.decodeIfPresent([FoldJob].self, forKey: .jobs) ?? d.jobs
+        parsedInputSignature = try c.decodeIfPresent(String.self, forKey: .parsedInputSignature) ?? d.parsedInputSignature
+        normalizeEngineOptions()
     }
 }

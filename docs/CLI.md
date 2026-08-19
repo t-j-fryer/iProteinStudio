@@ -109,9 +109,10 @@ example:
   --workflow protein --predictor boltz --sequence-designer solublempnn \
   --template-yaml my_target.yaml --run-name my_campaign \
   --num-runs 20 --num-opt-cycles 5 \
+  --iptm-threshold 0.7 \
   --model v2-flash \
   --random-binder --binder-min-len 60 --binder-max-len 120 \
-  --post-predictor intellifold --post-mode iptm --post-iptm-threshold 0.7 \
+  --post-predictor intellifold --post-mode final-iptm --post-iptm-threshold 0.7 \
   --target-msa-mode auto --target-msa-generator auto --require-target-msa \
   --max-parallel auto --throughput-profile auto --resume
 ```
@@ -124,7 +125,17 @@ Flags worth knowing:
 | `--throughput-profile auto` | uses a measured per-machine schedule, and *rejects* one from a different Mac |
 | `--resume` | idempotent; reuses completed cycles after an interruption |
 | `--design-scheduler cycle-wave` | native batching — where AlphaFold 3 and IntelliFold win most |
-| `--model v2-flash` | choose `v2-flash` or the larger full `v2` IntelliFold model |
+| `--iptm-threshold 0.7` | defines campaign hits; Studio uses the same value to gate optional checking |
+| `--post-mode final-iptm` | independently checks only final-cycle designs that passed the gate; `final` checks every final design |
+| `--post-mode iptm --post-include-cycle00` | checks every passing checkpoint from cycle 00 onward; use `all` instead of `iptm` to disable the threshold gate |
+| `--model v2-flash` | choose `v2-flash` or the larger full `v2` IntelliFold model; omit when IntelliFold is not used |
+
+For target proteins, Studio's prediction, target-preparation, RFdiffusion3, and
+iterative-design workflows all reuse an A3M only when its first record exactly
+matches the requested sequence and it contains at least two records. They search
+the managed `msa_cache`, bundled examples, projects, and prior outputs before
+requesting a new alignment. A newly generated iterative-design alignment is
+published back to the managed cache for the other workflows.
 
 Leave `--intellifold-buckets` and `--alphafold3-buckets` alone. Their `auto`
 default resolves to the exact campaign token count, which is the single largest
@@ -142,6 +153,12 @@ first:
 then write them into the template as a `pocket` constraint and run with
 `--boltz-use-potentials` — without potentials a forced constraint barely steers.
 
+Protein hotspot residues use the same high-level `nanohunter.target_epitope_residues`
+field for every binder type. `boltz_contact_mode: auto` resolves to a pocket plus
+CDR3-centre contact for nanobodies, and to the generic binder-pocket restraint
+for mini-binders and peptides. Hotspot restraints require Boltz as the design
+predictor; other engines fail clearly instead of ignoring them.
+
 ---
 
 ## RFdiffusion3
@@ -151,7 +168,7 @@ cd "$ROOT/rfd3"
 
 # Understand the ligand first: chemistry checks, which shapes it adopts,
 # how the design budget should be split
-"$ROOT/venvs/NanoHunter_boltz/bin/python" "$ROOT/rfd3_scripts/ligand_intelligence.py" request.json
+"$ROOT/rfd3/.venv/bin/python" "$ROOT/rfd3_scripts/ligand_intelligence.py" request.json
 
 # Prepare a campaign from a Studio request (fast, no GPU; runs the atom preflight)
 .venv/bin/python "$ROOT/rfd3_scripts/prepare_campaign.py" studio_request.json
@@ -179,6 +196,40 @@ Design across several ligand conformers, splitting the budget:
 .venv/bin/python scripts/design_from_yaml.py spec.yaml \
   --conformers A.pdb:0.5:A,B.pdb:0.3:B,C.pdb:0.2:C --lengths 65,100,150
 ```
+
+For a conjugated ligand, `request.json` records a *directed bond*, not one
+ambiguous attachment atom:
+
+```json
+{
+  "smiles": "...",
+  "attachment_atom": 9,
+  "attachment_linker_atom": 8,
+  "search_pdb": true,
+  "output_dir": ".../conformers"
+}
+```
+
+Both numbers are zero-based indices in the submitted SMILES atom order. The
+first endpoint remains in the recognition core; the directly bonded second
+endpoint identifies the linker side to exclude from shape clustering. Studio's
+annotated drawing shows these indices before inspection and the exact RFD3 atom
+names after inspection, so the two numbering systems are never conflated.
+
+Ligand conditioning follows Foundry's target-atom semantics:
+
+- **Bury / expose** controls relative solvent accessibility (RASA). Bury asks
+  for pocket packing; expose keeps a linker or handle solvent-accessible.
+- **Hotspot** asks for a designed heavy atom near the selected target atom
+  (typically within 4.5 Å); it does not require enclosing that atom.
+- **Ligand donor / acceptor** describes the selected ligand atom. RFdiffusion3
+  places the complementary protein acceptor / donor respectively.
+
+Studio derives donor and acceptor proposals with RDKit for the exact tautomer
+and protonation supplied, proposes burial only for neutral carbon/halogen core
+atoms, never guesses hotspots, and shows a preview before replacing the current
+conditions. Experimental PDB evidence is accepted only when the full InChIKey
+matches, including stereochemistry and protonation.
 
 New GUI campaigns live under
 `projects/<slug>/rfd3_runs/rfd3-<timestamp>/`. Protein-target campaigns write

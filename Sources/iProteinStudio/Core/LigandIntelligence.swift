@@ -80,10 +80,12 @@ struct LigandAnalysis: Codable, Hashable {
         var nEntries: Int
         var nInstancesUsed: Int
         var nInstancesMatched: Int
+        var nInstancesUnmatched: Int
         var note: String
         private enum CodingKeys: String, CodingKey {
             case searched, ccdCodes = "ccd_codes", nEntries = "n_entries"
             case nInstancesUsed = "n_instances_used", nInstancesMatched = "n_instances_matched"
+            case nInstancesUnmatched = "n_instances_unmatched"
             case note
         }
     }
@@ -93,6 +95,7 @@ struct LigandAnalysis: Codable, Hashable {
     }
 
     var smiles: String
+    var atomNames: [String]
     var forceField: String
     var qa: [LigandNote]
     var core: Core
@@ -102,7 +105,8 @@ struct LigandAnalysis: Codable, Hashable {
     var states: [LigandState]
 
     private enum CodingKeys: String, CodingKey {
-        case smiles, forceField = "force_field", qa, core, ensemble, pdb, flexibility, states
+        case smiles, atomNames = "atom_names", forceField = "force_field"
+        case qa, core, ensemble, pdb, flexibility, states
     }
 
     var recommendedStates: [LigandState] { states.filter(\.recommended) }
@@ -132,11 +136,16 @@ final class LigandIntelligence: ObservableObject {
 
     private var runner: ProcessRunner?
     private var buffer: [String] = []
+    private var analysisID = UUID()
 
     var hasResult: Bool { analysis != nil }
 
     func reset() {
+        analysisID = UUID()
+        runner?.cancel()
+        runner = nil
         analysis = nil; error = nil; selected = []
+        isRunning = false
     }
 
     /// Design budget split across the states the user actually selected.
@@ -154,7 +163,8 @@ final class LigandIntelligence: ObservableObject {
         return Array(zip(chosen, shares))
     }
 
-    func analyse(smiles: String, attachmentAtom: Int?, attachmentSymbol: String? = nil,
+    func analyse(smiles: String, attachmentAtom: Int?, attachmentLinkerAtom: Int? = nil,
+                 attachmentSymbol: String? = nil, attachmentLinkerSymbol: String? = nil,
                  searchPDB: Bool, outputDir: URL) {
         guard !isRunning else { return }
         guard let rfd3Root = RFD3Controller.rfd3Root else {
@@ -163,16 +173,25 @@ final class LigandIntelligence: ObservableObject {
         }
         AppPaths.stageRFD3Scripts()
         reset()
+        let runID = UUID()
+        analysisID = runID
         isRunning = true
         buffer = []
 
-        let request: [String: Any] = [
+        var request: [String: Any] = [
             "smiles": smiles,
-            "attachment_atom": attachmentAtom as Any,
-            "attachment_symbol": (attachmentSymbol ?? "") as Any,
             "search_pdb": searchPDB,
             "output_dir": outputDir.path,
-        ].compactMapValues { $0 is NSNull ? nil : $0 }
+        ]
+        // JSONSerialization does not have a stable contract for Optional.none
+        // boxed as Any. Omit absent endpoints explicitly; the Python boundary
+        // treats omission as a free molecule.
+        if let attachmentAtom { request["attachment_atom"] = attachmentAtom }
+        if let attachmentLinkerAtom { request["attachment_linker_atom"] = attachmentLinkerAtom }
+        if let attachmentSymbol { request["attachment_symbol"] = attachmentSymbol }
+        if let attachmentLinkerSymbol {
+            request["attachment_linker_symbol"] = attachmentLinkerSymbol
+        }
 
         let requestURL = outputDir.appendingPathComponent("ligand_request.json")
         do {
@@ -192,17 +211,23 @@ final class LigandIntelligence: ObservableObject {
             arguments: [AppPaths.rfd3LigandScript.path, requestURL.path],
             environment: CommandBuilder.environment(),
             workingDir: rfd3Root,
-            onLine: { [weak self] line in self?.buffer.append(line) },
-            onExit: { [weak self] code in self?.finish(code) }
+            onLine: { [weak self] line in
+                guard self?.analysisID == runID else { return }
+                self?.buffer.append(line)
+            },
+            onExit: { [weak self] code in self?.finish(code, runID: runID) }
         )
     }
 
     func cancel() {
+        analysisID = UUID()
         runner?.cancel()
+        runner = nil
         isRunning = false
     }
 
-    private func finish(_ code: Int32) {
+    private func finish(_ code: Int32, runID: UUID) {
+        guard analysisID == runID else { return }
         isRunning = false
         // The script prints exactly one JSON object; take the last line that parses,
         // because RDKit and the network stack both write to stdout uninvited.

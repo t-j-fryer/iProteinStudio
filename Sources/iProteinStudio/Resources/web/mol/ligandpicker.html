@@ -23,10 +23,14 @@
   <script>
     "use strict";
     var ready = false, pendingSmiles = "", currentMol = null;
-    var attachment = null;          // atom index the linker leaves from
+    var attachment = null;          // core-side endpoint of the linker bond
+    var attachmentLinker = null;    // linker-side endpoint
+    var pickingEnabled = true;
+    var atomLabels = [];
     var coreAtoms = null;           // set by the host after analysis
     var presentationAtoms = null;
     var atomPoints = [];            // [{i, u, v, sym}] in SVG pixel space
+    var atomBonds = [];             // [[zero-based atom index, atom index], ...]
     var drawEl = document.getElementById('draw');
     var msgEl = document.getElementById('msg');
     var hintEl = document.getElementById('hint');
@@ -39,19 +43,36 @@
       try { bin = Uint8Array.from(window.atob(b64), function (c) { return c.charCodeAt(0); }); }
       catch (e) { setMsg('Could not load the molecule renderer.'); return; }
       initRDKitModule({ wasmBinary: bin }).then(function (RDKit) {
-        window.RDKit = RDKit; ready = true; render();
+        window.RDKit = RDKit; ready = true; render(); post({ type: 'ready' });
       }).catch(function () { setMsg('Could not load the molecule renderer.'); });
     };
 
     window.drawSmilesB64 = function (b64) {
       var next = b64 ? decodeURIComponent(escape(window.atob(b64))).trim() : "";
-      if (next !== pendingSmiles) { attachment = null; coreAtoms = null; presentationAtoms = null; }
+      if (next !== pendingSmiles) {
+        attachment = null; attachmentLinker = null;
+        coreAtoms = null; presentationAtoms = null; atomLabels = [];
+      }
       pendingSmiles = next;
       if (ready) render();
     };
 
-    window.setAttachment = function (index) {
-      attachment = (index === null || index < 0) ? null : index;
+    window.setAttachment = function (coreIndex, linkerIndex) {
+      attachment = (coreIndex === null || coreIndex < 0) ? null : coreIndex;
+      attachmentLinker = (linkerIndex === null || linkerIndex < 0) ? null : linkerIndex;
+      decorate();
+    };
+
+    window.setPickingEnabled = function (enabled) {
+      pickingEnabled = !!enabled;
+      var svg = drawEl.querySelector('svg');
+      if (svg) svg.style.cursor = pickingEnabled ? 'pointer' : 'default';
+      updateHint();
+    };
+
+    window.setAtomLabels = function (labelsJSON) {
+      try { atomLabels = labelsJSON ? JSON.parse(labelsJSON) : []; }
+      catch (e) { atomLabels = []; }
       decorate();
     };
 
@@ -92,6 +113,23 @@
         var sym = line.substring(31, 34).trim();
         if (!isFinite(x) || !isFinite(y)) break;
         out.push({ i: i, x: x, y: y, sym: sym });
+      }
+      return out;
+    }
+
+    function molfileBonds(molblock) {
+      var lines = molblock.split('\n');
+      if (lines.length < 4) return [];
+      var nAtoms = parseInt(lines[3].substring(0, 3), 10);
+      var nBonds = parseInt(lines[3].substring(3, 6), 10);
+      if (!isFinite(nAtoms) || !isFinite(nBonds)) return [];
+      var out = [];
+      for (var i = 0; i < nBonds; i++) {
+        var line = lines[4 + nAtoms + i];
+        if (!line) break;
+        var a = parseInt(line.substring(0, 3), 10) - 1;
+        var b = parseInt(line.substring(3, 6), 10) - 1;
+        if (a >= 0 && b >= 0) out.push([a, b]);
       }
       return out;
     }
@@ -214,6 +252,7 @@
 
       var coords = molfileCoords(molblock);
       if (!coords.length) { hintEl.textContent = ''; return; }
+      atomBonds = molfileBonds(molblock);
 
       var transform = fitTransform(coords, bondEndpointAnchors(svgEl)) ||
                       boundingBoxTransform(coords, w, h);
@@ -231,7 +270,7 @@
       decorate();
       post({ type: 'atoms', count: atomPoints.length,
              symbols: atomPoints.map(function (p) { return p.sym; }) });
-      hintEl.textContent = 'Click the atom where the linker leaves the molecule';
+      updateHint();
     }
 
     function medianNeighbourDistance(points) {
@@ -255,20 +294,56 @@
       // The fitted transform is accurate to a few pixels, which is far smaller
       // than the gap between atoms, so nearest-atom selection is right even when
       // the fit is slightly off -- whereas a small circle could be missed.
-      svgEl.style.cursor = 'pointer';
+      svgEl.style.cursor = pickingEnabled ? 'pointer' : 'default';
       svgEl.addEventListener('click', function (event) {
+        if (!pickingEnabled) return;
         var p = nearestAtom(svgEl, event, radius * 2.2);
         if (p === null) return;
-        attachment = (attachment === p.i) ? null : p.i;
+        if (attachment === null) {
+          attachment = p.i; attachmentLinker = null;
+        } else if (attachmentLinker === null) {
+          if (p.i === attachment) {
+            attachment = null;
+          } else if (atomsAreBonded(attachment, p.i)) {
+            attachmentLinker = p.i;
+          } else {
+            attachment = p.i;
+          }
+        } else if (p.i === attachment || p.i === attachmentLinker) {
+          attachment = null; attachmentLinker = null;
+        } else {
+          attachment = p.i; attachmentLinker = null;
+        }
         decorate();
-        post({ type: 'pick', index: attachment === null ? -1 : attachment,
-               symbol: attachment === null ? '' : p.sym });
+        updateHint();
+        post({ type: 'pick', core: attachment === null ? -1 : attachment,
+               linker: attachmentLinker === null ? -1 : attachmentLinker });
       });
       svgEl.addEventListener('mousemove', function (event) {
         var p = nearestAtom(svgEl, event, radius * 2.2);
         highlightHover(p === null ? null : p.i, radius);
       });
       svgEl.addEventListener('mouseleave', function () { highlightHover(null, radius); });
+    }
+
+    function atomsAreBonded(a, b) {
+      for (var i = 0; i < atomBonds.length; i++) {
+        if ((atomBonds[i][0] === a && atomBonds[i][1] === b) ||
+            (atomBonds[i][0] === b && atomBonds[i][1] === a)) return true;
+      }
+      return false;
+    }
+
+    function updateHint() {
+      if (!pickingEnabled) {
+        hintEl.textContent = atomLabels.length ? 'RFD3 atom names' : 'Zero-based SMILES atom indices';
+      } else if (attachment === null) {
+        hintEl.textContent = 'First click: atom on the binding-core side of the linker bond';
+      } else if (attachmentLinker === null) {
+        hintEl.textContent = 'Second click: its directly bonded neighbour on the linker side';
+      } else {
+        hintEl.textContent = 'Blue = core side · orange = linker side · click either endpoint to clear';
+      }
     }
 
     function nearestAtom(svgEl, event, maxDistance) {
@@ -318,8 +393,35 @@
           ring.setAttribute('stroke-width', '2.2');
           g.appendChild(ring);
         }
+        if (attachmentLinker === p.i) {
+          var linkerRing = document.createElementNS(ns, 'circle');
+          linkerRing.setAttribute('cx', p.u); linkerRing.setAttribute('cy', p.v);
+          linkerRing.setAttribute('r', r + 2);
+          linkerRing.setAttribute('fill', 'rgba(245, 158, 11, 0.18)');
+          linkerRing.setAttribute('stroke', '#d97706');
+          linkerRing.setAttribute('stroke-width', '2.2');
+          g.appendChild(linkerRing);
+        }
       });
       svgEl.insertBefore(g, svgEl.firstChild);
+
+      var oldLabels = svgEl.querySelector('#nh-labels');
+      if (oldLabels) oldLabels.parentNode.removeChild(oldLabels);
+      var labels = document.createElementNS(ns, 'g');
+      labels.setAttribute('id', 'nh-labels');
+      labels.setAttribute('pointer-events', 'none');
+      atomPoints.forEach(function (p) {
+        var value = atomLabels.length === atomPoints.length ? atomLabels[p.i] : String(p.i);
+        var text = document.createElementNS(ns, 'text');
+        text.setAttribute('x', p.u + r * 0.52); text.setAttribute('y', p.v - r * 0.48);
+        text.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, sans-serif');
+        text.setAttribute('font-size', '9.5'); text.setAttribute('font-weight', '600');
+        text.setAttribute('paint-order', 'stroke'); text.setAttribute('stroke', 'white');
+        text.setAttribute('stroke-width', '3'); text.setAttribute('stroke-linejoin', 'round');
+        text.setAttribute('fill', '#334155'); text.textContent = value;
+        labels.appendChild(text);
+      });
+      svgEl.appendChild(labels);
     }
 
     function highlightHover(index, radius) {

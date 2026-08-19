@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write Boltz YAML inputs for the holo (ligand + affinity) or apo (protein-only) fold.
+"""Write Boltz YAML inputs for a holo ligand fold or apo protein-only fold.
 
 Holo mode reuses ``nise_lib.write_boltz_yaml`` unchanged (protein A + ligand
 B, empty MSA, ``properties: affinity: {binder: B}``) -- the exact YAML shape
@@ -63,14 +63,17 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mode", choices=["holo", "apo"], required=True)
     parser.add_argument("--smiles", required=False, help="required for --mode holo")
-    parser.add_argument("--nanohunter-root", type=Path, default=default_root())
+    parser.add_argument("--affinity", action="store_true", default=True)
+    parser.add_argument("--no-affinity", dest="affinity", action="store_false")
+    parser.add_argument("--nanohunter-root", type=Path)
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
     if args.mode == "holo" and not args.smiles:
         raise SystemExit("--smiles is required for --mode holo")
 
-    studio_runtime.configure(args.nanohunter_root)
+    pipeline_root = args.nanohunter_root or default_root()
+    studio_runtime.configure(pipeline_root)
     nise_lib = studio_runtime
 
     output = args.output.resolve()
@@ -85,7 +88,8 @@ def main() -> None:
         yaml_path = output / f"{name}.yaml"
         if args.overwrite or not yaml_path.exists():
             if args.mode == "holo":
-                nise_lib.write_boltz_yaml(yaml_path, row["sequence"], args.smiles, affinity=True)
+                nise_lib.write_boltz_yaml(yaml_path, row["sequence"], args.smiles,
+                                          affinity=args.affinity)
             else:
                 write_apo_yaml(yaml_path, row["sequence"])
         manifest[name] = {

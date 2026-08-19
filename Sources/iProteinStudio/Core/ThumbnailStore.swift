@@ -2,9 +2,9 @@ import SwiftUI
 import WebKit
 import AppKit
 
-/// Renders structure thumbnails once to cached PNGs using a single hidden,
-/// far-offscreen WKWebView (WebGL needs a backed window). Serves the grid
-/// static images — no live WebGL per tile, so no zoom glitches and light memory.
+/// Renders structure thumbnails once to cached PNGs with the same bundled
+/// py2Dmol renderer used by the interactive inspectors. Serves the grid static
+/// images, so a result gallery does not create one live canvas per tile.
 @MainActor
 final class ThumbnailStore: ObservableObject {
     /// Bumps whenever a new thumbnail becomes available, so views re-query.
@@ -49,8 +49,8 @@ final class ThumbnailStore: ObservableObject {
 
     private func ensureWeb() {
         guard web == nil else { return }
-        guard let viewer = AppPaths.webRoot?.appendingPathComponent("mol/thumb.html"),
-              let dir = AppPaths.webRoot?.appendingPathComponent("mol") else { return }
+        guard let viewer = AppPaths.webRoot?.appendingPathComponent("py2dmol/viewer.html"),
+              let dir = AppPaths.webRoot?.appendingPathComponent("py2dmol") else { return }
         let w = WKWebView(frame: NSRect(x: 0, y: 0, width: 480, height: 340))
         let win = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 480, height: 340),
                            styleMask: [.borderless], backing: .buffered, defer: false)
@@ -73,10 +73,12 @@ final class ThumbnailStore: ObservableObject {
         rendering = true
         let b64 = data.base64EncodedString()
         let fmt = path.lowercased().hasSuffix(".pdb") ? "pdb" : "cif"
-        web.evaluateJavaScript("renderThumbB64(\"\(b64)\",\"\(fmt)\")") { [weak self] _, _ in
-            // Give WebGL a beat to draw, then read the canvas.
+        let name = (path as NSString).lastPathComponent
+        let quotedName = (try? String(data: JSONEncoder().encode(name), encoding: .utf8)) ?? "\"structure\""
+        web.evaluateJavaScript("studioLoadStructureB64(\"\(b64)\",\"\(fmt)\",\(quotedName),false,false)") { [weak self] _, _ in
+            // Give the canvas a beat to draw, then read its PNG.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                web.evaluateJavaScript("viewer.pngURI()") { res, _ in
+                web.evaluateJavaScript("studioPNG()") { res, _ in
                     self?.finishRender(path: path, uri: res as? String)
                 }
             }
@@ -97,7 +99,9 @@ final class ThumbnailStore: ObservableObject {
     }
 
     private func cacheURL(_ path: String) -> URL {
-        cacheDir.appendingPathComponent(fnv1a(path) + ".png")
+        // Version the renderer in the key so old 3Dmol thumbnails do not mask
+        // the transition to py2Dmol.
+        cacheDir.appendingPathComponent(fnv1a("py2dmol-v1|" + path) + ".png")
     }
 
     private func fnv1a(_ s: String) -> String {

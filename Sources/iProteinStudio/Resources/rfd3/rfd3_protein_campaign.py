@@ -257,6 +257,7 @@ def stage_score(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> None:
          "--protein",
          "--predictors", ",".join(dict.fromkeys(cfg.get("extra_predictors", []))),
          "--sequences", str(campaign / "mpnn" / "sequences.csv"),
+         "--require-top-n",
          "--nanohunter-root", cfg["nanohunter_root"]],
         campaign / "logs" / "score.log", rfd3_root, env)
 
@@ -322,18 +323,25 @@ def main() -> None:
                 die(f"Expected {cfg['num_backbones']} backbones, found {produced}.")
             info(f"{produced} backbones")
         elif name == "mpnn":
-            stage("mpnn", "Designing sequences with SolubleMPNN")
+            model = cfg.get("sequence_model", "solublempnn")
+            if model not in {"solublempnn", "proteinmpnn"}:
+                die(f"Unsupported protein sequence model: {model}")
+            model_type = "protein_mpnn" if model == "proteinmpnn" else "soluble_mpnn"
+            stage("mpnn", f"Designing sequences with {model_type}")
             run([sys.executable, str(rfd3_root / "scripts" / "run_mpnn.py"),
                  "--backbones", str(campaign / "rfd3" / "backbones"),
                  "--output", str(campaign / "mpnn"),
-                 "--model-type", "soluble_mpnn",
+                 "--model-type", model_type,
                  "--nanohunter-root", cfg["nanohunter_root"],
+                 "--temperature", str(cfg.get("sequence_temperature", 0.1)),
+                 "--n-seqs", str(cfg.get("sequences_per_backbone", 1)),
                  "--seed", str(cfg["seed_base"] + 31000)],
                 logs / "mpnn.log", rfd3_root, env)
             sequences = campaign / "mpnn" / "sequences.csv"
             rows = sum(1 for _ in csv.DictReader(sequences.open())) if sequences.exists() else 0
-            if rows < cfg["num_backbones"]:
-                die(f"Expected at least {cfg['num_backbones']} sequences, found {rows}.")
+            expected = cfg["num_backbones"] * cfg.get("sequences_per_backbone", 1)
+            if rows != expected:
+                die(f"Expected {expected} sequences, found {rows}.")
             info(f"{rows} sequences -> {sequences}")
         elif name == "msa":
             stage("msa", "Generating the target's MSA (once, then reused)")

@@ -165,9 +165,10 @@ def main() -> None:
     parser.add_argument("--predictors", default="boltz,intellifold")
     parser.add_argument("--max-parallel", type=int, default=4)
     parser.add_argument("--intellifold-model", choices=("v2-flash", "v2"), default="v2-flash")
-    parser.add_argument("--nanohunter-root", type=Path, default=default_root())
+    parser.add_argument("--nanohunter-root", type=Path)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
+    args.nanohunter_root = args.nanohunter_root or default_root()
     predictors = [value.strip() for value in args.predictors.split(",") if value.strip()]
     unknown = [v for v in predictors if v not in SUPPORTED]
     if not predictors or unknown:

@@ -26,9 +26,9 @@ final class PredictionController: ObservableObject {
     /// Turn pasted text or a chosen file into jobs, without running anything.
     func buildJobs(request: PredictionRequest, workDir: URL,
                    completion: @escaping ([FoldJob], [String], String?) -> Void) {
-        let python = AppPaths.support.appendingPathComponent("venvs/NanoHunter_boltz/bin/python")
+        let python = URL(fileURLWithPath: "/usr/bin/python3")
         guard AppPaths.fm.fileExists(atPath: python.path) else {
-            completion([], [], "Boltz isn't installed yet, so sequences can't be read.")
+            completion([], [], "The macOS Python runtime is unavailable. Re-run Setup so the command-line tools can be repaired.")
             return
         }
         AppPaths.stageRFD3Scripts()
@@ -39,9 +39,19 @@ final class PredictionController: ObservableObject {
         if !request.sequenceFile.isEmpty {
             source = URL(fileURLWithPath: request.sequenceFile)
         } else {
-            try? AppPaths.fm.createDirectory(at: workDir, withIntermediateDirectories: true)
+            do {
+                try AppPaths.fm.createDirectory(at: workDir, withIntermediateDirectories: true)
+            } catch {
+                completion([], [], "Could not create the prediction input folder: \(error.localizedDescription)")
+                return
+            }
             source = workDir.appendingPathComponent("pasted.fasta")
-            try? Self.asFASTA(request.pastedSequences).write(to: source, atomically: true, encoding: .utf8)
+            do {
+                try Self.asFASTA(request.pastedSequences).write(to: source, atomically: true, encoding: .utf8)
+            } catch {
+                completion([], [], "Could not save the pasted sequences: \(error.localizedDescription)")
+                return
+            }
         }
 
         var args = [AppPaths.parseSequencesScript.path, source.path,
@@ -111,10 +121,18 @@ final class PredictionController: ObservableObject {
     // MARK: Running
 
     func start(request: PredictionRequest, outputDir: URL) {
-        guard !isRunning, request.isRunnable else { return }
-        let python = AppPaths.support.appendingPathComponent("venvs/NanoHunter_boltz/bin/python")
+        guard !isRunning else { return }
+        guard request.isRunnable else {
+            phase = .failed(request.validationIssues.first
+                            ?? "Read the current sequences and select at least one engine.")
+            return
+        }
+        guard request.validationIssues.isEmpty else {
+            phase = .failed(request.validationIssues[0]); return
+        }
+        let python = URL(fileURLWithPath: "/usr/bin/python3")
         guard AppPaths.fm.fileExists(atPath: python.path) else {
-            phase = .failed("Boltz isn't installed yet."); return
+            phase = .failed("The macOS Python runtime is unavailable. Re-run Setup."); return
         }
         AppPaths.stageRFD3Scripts()
         try? AppPaths.fm.createDirectory(at: outputDir, withIntermediateDirectories: true)
@@ -151,7 +169,7 @@ final class PredictionController: ObservableObject {
     }
 
     private func launch(_ configURL: URL) {
-        let python = AppPaths.support.appendingPathComponent("venvs/NanoHunter_boltz/bin/python")
+        let python = URL(fileURLWithPath: "/usr/bin/python3")
         let runner = ProcessRunner()
         self.runner = runner
         // caffeinate: a large batch is a long job, and a sleeping Mac loses it.
@@ -189,15 +207,31 @@ final class PredictionController: ObservableObject {
         let boltzSelected = request.includesBoltz
         config.root = AppPaths.support.path
         config.output = outputDir.path
-        config.predictors = request.predictors.map(\.runnerValue)
-        config.intellifold_model = request.intellifoldModel.rawValue
+        config.predictors = request.effectivePredictors.map(\.runnerValue)
+        config.intellifold_model = request.usesIntelliFold ? request.intellifoldModel.rawValue : nil
         // Defense in depth: old project files may contain switches selected
         // before the UI made their Boltz-only scope explicit.
         config.use_potentials = boltzSelected && request.useBoltzPotentials
         config.affinity = boltzSelected && request.containsLigand && request.runAffinityHead
         config.max_parallel = request.maxParallel
         config.batch_size = request.batchSize
-        config.msa = PredictionConfig.MSA(
+        config.msa = sharedMSAConfig(allowServer: !request.offlineOnly)
+        config.jobs = request.jobs.map { job in
+            PredictionConfig.Job(name: job.name, chains: job.chains.map {
+                PredictionConfig.Chain(id: $0.id, kind: $0.kind,
+                                       sequence: $0.sequence.isEmpty ? nil : $0.sequence,
+                                       smiles: $0.smiles.isEmpty ? nil : $0.smiles,
+                                       msa: $0.kind == "ligand" ? nil : $0.msa)
+            })
+        }
+        return config
+    }
+
+    /// The one alignment search policy used by Predict and Target Prep.
+    /// Keeping this here prevents a convenience fold in another tab from
+    /// silently becoming a single-sequence prediction.
+    static func sharedMSAConfig(allowServer: Bool) -> PredictionConfig.MSA {
+        PredictionConfig.MSA(
             cache_dir: AppPaths.msaCache.path,
             // Everywhere an alignment might already exist: this app's own cache,
             // its projects, and any NanoHunter checkout on the machine. Indexing
@@ -208,16 +242,7 @@ final class PredictionController: ObservableObject {
                 AppPaths.projects.path,
                 AppPaths.fm.homeDirectoryForCurrentUser.appendingPathComponent("NanoHunter/output").path,
             ],
-            allow_server: !request.offlineOnly)
-        config.jobs = request.jobs.map { job in
-            PredictionConfig.Job(name: job.name, chains: job.chains.map {
-                PredictionConfig.Chain(id: $0.id, kind: $0.kind,
-                                       sequence: $0.sequence.isEmpty ? nil : $0.sequence,
-                                       smiles: $0.smiles.isEmpty ? nil : $0.smiles,
-                                       msa: $0.kind == "ligand" ? nil : $0.msa)
-            })
-        }
-        return config
+            allow_server: allowServer)
     }
 
     private func handle(_ line: String) {
@@ -270,7 +295,7 @@ struct PredictionConfig: Codable {
     var root: String = ""
     var output: String = ""
     var predictors: [String] = ["boltz"]
-    var intellifold_model: String = "v2-flash"
+    var intellifold_model: String?
     var use_potentials: Bool = false
     var affinity: Bool = false
     var seed: Int = 42

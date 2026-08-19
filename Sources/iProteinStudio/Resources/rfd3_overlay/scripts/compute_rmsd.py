@@ -177,10 +177,11 @@ def default_root() -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--campaign", type=Path, required=True)
-    parser.add_argument("--nanohunter-root", type=Path, default=default_root())
+    parser.add_argument("--nanohunter-root", type=Path)
     args = parser.parse_args()
 
-    studio_runtime.configure(args.nanohunter_root)
+    pipeline_root = args.nanohunter_root or default_root()
+    studio_runtime.configure(pipeline_root)
     nise_lib = studio_runtime
 
     campaign = args.campaign.resolve()

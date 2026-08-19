@@ -77,6 +77,50 @@ def target_msa(yaml_path: Path) -> str:
     return ""
 
 
+def normalize_openfold_msa_paths(query_json: Path, work_dir: Path) -> None:
+    """Give raw alignments a basename OpenFold-3 actually parses.
+
+    OpenFold-3 accepts arbitrary A3M/STO *paths* in its query schema, but its
+    inference parser then filters raw files by a fixed set of source basenames
+    (``colabfold_main``, ``uniref90_hits``, and so on). Studio's shared cache is
+    deliberately content-addressed and prior runs use many human-readable
+    names, so passing those paths through makes the upstream parser silently
+    discard a valid alignment and eventually crash on an empty dictionary.
+
+    Keep the cached source immutable. Each chain receives a private adapter-local
+    copy named ``colabfold_main``; the sequence and depth validation has already
+    happened in Studio's batch/design pipeline before this adapter is called.
+    """
+    try:
+        payload = json.loads(query_json.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        die(f"could not normalize OpenFold MSA paths: {exc}")
+
+    for query_index, query in enumerate((payload.get("queries") or {}).values()):
+        for chain_index, chain in enumerate(query.get("chains") or []):
+            paths = chain.get("main_msa_file_paths") or []
+            if not paths:
+                continue
+            if len(paths) != 1:
+                die("OpenFold adapter expected one main MSA per chain, "
+                    f"but received {len(paths)}")
+            source = Path(paths[0]).expanduser()
+            if not source.exists():
+                die(f"OpenFold MSA does not exist: {source}")
+            if source.is_dir() or source.suffix.lower() == ".npz":
+                continue
+            suffix = source.suffix.lower()
+            if suffix not in {".a3m", ".sto"}:
+                die(f"OpenFold does not support MSA file type {source.suffix}: {source}")
+            chain_dir = work_dir / f"query_{query_index}" / f"chain_{chain_index}"
+            chain_dir.mkdir(parents=True, exist_ok=True)
+            normalized = chain_dir / f"colabfold_main{suffix}"
+            shutil.copyfile(source, normalized)
+            chain["main_msa_file_paths"] = [str(normalized)]
+
+    query_json.write_text(json.dumps(payload, indent=2) + "\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--yaml", type=Path, required=True)
@@ -117,6 +161,7 @@ def main() -> None:
         capture_output=True, text=True)
     if build.returncode:
         die(f"query JSON build failed: {build.stderr.strip()[:400]}")
+    normalize_openfold_msa_paths(query_json, args.output / "_openfold_msas")
     # The builder prints "true" when a chain still has no MSA and the server is
     # needed. Passing that straight through preserves the runner's behaviour.
     use_server = build.stdout.strip() or "false"

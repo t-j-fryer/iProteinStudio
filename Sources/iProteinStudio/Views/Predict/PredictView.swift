@@ -86,7 +86,15 @@ struct PredictView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Paste sequences — one per line, or FASTA — or choose a file.")
                 .font(.caption).foregroundStyle(.secondary)
-            SequenceEditor(text: request.pastedSequences, placeholder: "Paste sequences or FASTA…")
+            SequenceEditor(text: Binding(
+                get: { request.wrappedValue.pastedSequences },
+                set: { value in
+                    request.wrappedValue.pastedSequences = value
+                    if !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        request.wrappedValue.sequenceFile = ""
+                    }
+                }
+            ), placeholder: "Paste sequences or FASTA…")
 
             HStack {
                 Button("Choose a FASTA or CSV…") {
@@ -96,6 +104,7 @@ struct PredictView: View {
                     panel.allowsMultipleSelection = false
                     if panel.runModal() == .OK, let url = panel.url {
                         request.wrappedValue.sequenceFile = url.path
+                        request.wrappedValue.pastedSequences = ""
                     }
                 }
                 if !request.wrappedValue.sequenceFile.isEmpty {
@@ -227,7 +236,7 @@ struct PredictView: View {
             Text("IntelliFold appears twice on purpose: the selected architecture on two different engines. PyTorch is the stock build; JAX/MPS is a separately implemented check.")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
-            if request.wrappedValue.predictors.contains(where: {
+            if request.wrappedValue.effectivePredictors.contains(where: {
                 $0 == .intellifold || $0 == .intellifoldJAX
             }) {
                 Picker("IntelliFold model", selection: request.intellifoldModel) {
@@ -262,10 +271,11 @@ struct PredictView: View {
     @ViewBuilder private func engineRow(_ predictor: Predictor) -> some View {
         let installed = installer.isUsable(predictor.component)
         Toggle(isOn: Binding(
-            get: { request.wrappedValue.predictors.contains(predictor) },
+            get: { request.wrappedValue.effectivePredictors.contains(predictor) },
             set: { on in
                 var list = request.wrappedValue.predictors
-                if on { list.append(predictor) } else { list.removeAll { $0 == predictor } }
+                if on { list.append(predictor.checkingVariant) }
+                else { list.removeAll { $0.runnerValue == predictor.runnerValue } }
                 var updated = request.wrappedValue
                 updated.predictors = list
                 updated.normalizeEngineOptions()
@@ -291,7 +301,7 @@ struct PredictView: View {
             }
         }
         .toggleStyle(.checkbox)
-        .disabled(!installed)
+        .disabled(!installed && !request.wrappedValue.effectivePredictors.contains(predictor))
     }
 
     private func boltzOptionsExplanation(boltzSelected: Bool, containsLigand: Bool) -> String {
@@ -321,18 +331,22 @@ struct PredictView: View {
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
                 GridRow {
                     Text("Concurrent processes").font(.callout)
-                    Stepper(value: request.maxParallel, in: 0...8) {
-                        Text(request.wrappedValue.maxParallel == 0
-                             ? "measured optimum" : "\(request.wrappedValue.maxParallel)")
-                            .monospacedDigit()
+                    HStack(spacing: 7) {
+                        EditableIntStepper(value: request.maxParallel, in: 0...8,
+                                           accessibilityLabel: "Concurrent processes")
+                        if request.wrappedValue.maxParallel == 0 {
+                            Text("measured optimum").font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
                 GridRow {
                     Text("Folds per model load").font(.callout)
-                    Stepper(value: request.batchSize, in: 0...32) {
-                        Text(request.wrappedValue.batchSize == 0
-                             ? "measured optimum" : "\(request.wrappedValue.batchSize)")
-                            .monospacedDigit()
+                    HStack(spacing: 7) {
+                        EditableIntStepper(value: request.batchSize, in: 0...32,
+                                           accessibilityLabel: "Folds per model load")
+                        if request.wrappedValue.batchSize == 0 {
+                            Text("measured optimum").font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -343,7 +357,7 @@ struct PredictView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             let fullV2Selected = request.wrappedValue.intellifoldModel == .v2
-                && request.wrappedValue.predictors.contains {
+                && request.wrappedValue.effectivePredictors.contains {
                     $0 == .intellifold || $0 == .intellifoldJAX
                 }
             if !request.wrappedValue.jobs.isEmpty, fullV2Selected {
@@ -371,11 +385,19 @@ struct PredictView: View {
         let r = request.wrappedValue
         let issues = r.validationIssues
         let anotherWorkflowIsRunning = app.run.isRunning || app.rfd3.isRunning
+        let missingComponents = r.requiredComponents.filter {
+            installer.components[$0] != nil && !installer.isUsable($0)
+        }
         return VStack(alignment: .leading, spacing: 8) {
             ForEach(issues, id: \.self) { issue in
                 Label(issue, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            if !missingComponents.isEmpty {
+                Label("Install \(missingComponents.map(\.label).joined(separator: ", ")) in Setup before starting.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout).foregroundStyle(.orange)
             }
             HStack {
                 if anotherWorkflowIsRunning {
@@ -396,7 +418,8 @@ struct PredictView: View {
                 .buttonStyle(.borderedProminent).controlSize(.large)
                 .accessibilityLabel("Start prediction run for \(r.jobs.count) sequence\(r.jobs.count == 1 ? "" : "s")")
                 .accessibilityIdentifier("start-prediction-run")
-                .disabled(!r.isRunnable || !issues.isEmpty || anotherWorkflowIsRunning)
+                .disabled(!r.isRunnable || !issues.isEmpty || !missingComponents.isEmpty
+                          || anotherWorkflowIsRunning)
             }
         }
         .padding(.top, 6)
@@ -413,6 +436,7 @@ struct PredictView: View {
             warnings = notes
             var updated = request.wrappedValue
             updated.jobs = jobs
+            updated.parsedInputSignature = jobs.isEmpty ? "" : updated.inputSignature
             updated.normalizeEngineOptions()
             request.wrappedValue = updated
         }

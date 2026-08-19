@@ -6,7 +6,7 @@ import Combine
 ///
 /// Design (per cycle):      <run>/metrics_per_cycle.csv
 ///   cycle,iptm,complex_plddt,confidence_json,structure_path,binder_sequence
-/// Validation (per cycle):  <run>/post_intellifold/cycle_YY/post_metrics_row.csv
+/// Validation (per checker/cycle): <run>/post_<predictor>/cycle_YY/post_metrics_row.csv
 ///   run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json
 @MainActor
 final class MetricsWatcher: ObservableObject {
@@ -57,8 +57,8 @@ final class MetricsWatcher: ObservableObject {
                     let c = line.components(separatedBy: ",")
                     guard c.count >= 6, let iptm = Double(c[1]) else { continue }
                     let cycle = Int(c[0]) ?? 0
-                    if insert(.design, runNum, cycle) {
-                        designPoints.append(DesignPoint(stage: .design, run: runNum, cycle: cycle,
+                    if insert(.design, "", runNum, cycle) {
+                        designPoints.append(DesignPoint(stage: .design, predictor: "", run: runNum, cycle: cycle,
                             iptm: iptm, plddt: Double(c[2]) ?? .nan, sequence: c[5], structurePath: c[4]))
                         addedDesign = true
                     }
@@ -68,6 +68,7 @@ final class MetricsWatcher: ObservableObject {
             // --- validation (post-prediction) ---
             let postDirs = (try? fm.contentsOfDirectory(at: runDir, includingPropertiesForKeys: nil)) ?? []
             for postRoot in postDirs where postRoot.lastPathComponent.hasPrefix("post_") {
+                let predictor = String(postRoot.lastPathComponent.dropFirst("post_".count))
                 let cycleDirs = (try? fm.contentsOfDirectory(at: postRoot, includingPropertiesForKeys: nil)) ?? []
                 for cycleDir in cycleDirs where cycleDir.lastPathComponent.hasPrefix("cycle_") {
                     let row = cycleDir.appendingPathComponent("post_metrics_row.csv")
@@ -77,8 +78,8 @@ final class MetricsWatcher: ObservableObject {
                         // run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json
                         guard c.count >= 6, let iptm = Double(c[2]) else { continue }
                         let cycle = Int(c[1]) ?? 0
-                        if insert(.validation, runNum, cycle) {
-                            validationPoints.append(DesignPoint(stage: .validation, run: runNum, cycle: cycle,
+                        if insert(.validation, predictor, runNum, cycle) {
+                            validationPoints.append(DesignPoint(stage: .validation, predictor: predictor, run: runNum, cycle: cycle,
                                 iptm: iptm, plddt: Double(c[3]) ?? .nan, sequence: c[4], structurePath: c[5]))
                             addedVal = true
                         }
@@ -87,11 +88,13 @@ final class MetricsWatcher: ObservableObject {
             }
         }
         if addedDesign { designPoints.sort { ($0.run, $0.cycle) < ($1.run, $1.cycle) } }
-        if addedVal { validationPoints.sort { ($0.run, $0.cycle) < ($1.run, $1.cycle) } }
+        if addedVal {
+            validationPoints.sort { ($0.run, $0.cycle, $0.predictor) < ($1.run, $1.cycle, $1.predictor) }
+        }
     }
 
-    private func insert(_ stage: DesignStage, _ run: Int, _ cycle: Int) -> Bool {
-        let key = "\(stage.rawValue)-\(run)-\(cycle)"
+    private func insert(_ stage: DesignStage, _ predictor: String, _ run: Int, _ cycle: Int) -> Bool {
+        let key = "\(stage.rawValue)-\(predictor)-\(run)-\(cycle)"
         return seen.insert(key).inserted
     }
 
@@ -104,4 +107,10 @@ final class MetricsWatcher: ObservableObject {
 
 private func < (lhs: (Int, Int), rhs: (Int, Int)) -> Bool {
     lhs.0 != rhs.0 ? lhs.0 < rhs.0 : lhs.1 < rhs.1
+}
+
+private func < (lhs: (Int, Int, String), rhs: (Int, Int, String)) -> Bool {
+    if lhs.0 != rhs.0 { return lhs.0 < rhs.0 }
+    if lhs.1 != rhs.1 { return lhs.1 < rhs.1 }
+    return lhs.2 < rhs.2
 }

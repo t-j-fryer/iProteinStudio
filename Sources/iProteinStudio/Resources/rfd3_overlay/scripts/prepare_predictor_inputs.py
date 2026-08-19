@@ -20,6 +20,12 @@ def a3m_query(path: Path) -> tuple[str, int]:
     return query, len(records)
 
 
+def prediction_name(row: dict) -> str:
+    design = row["design"]
+    index = str(row.get("seq_index", "")).strip()
+    return f"{design}_{index}" if index else design
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sequences", type=Path, required=True)
@@ -64,7 +70,7 @@ def main() -> None:
             for entry in data["sequences"][1:]:
                 if "protein" in entry:
                     entry["protein"]["msa"] = str(target_msa)
-        (output / f"{row['design']}.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+        (output / f"{prediction_name(row)}.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
 
     manifest = {
         "template": str(args.template.resolve()),

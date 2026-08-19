@@ -11,8 +11,8 @@ struct LigandIntelligenceView: View {
     @ObservedObject var intelligence: LigandIntelligence
     @Binding var request: RFD3Request
     let outputDir: URL
+    var atomLabels: [String] = []
 
-    @State private var isConjugated = false
     @State private var atomSymbols: [String] = []
 
     var body: some View {
@@ -35,7 +35,6 @@ struct LigandIntelligenceView: View {
             }
         }
         .onChange(of: intelligence.selected) { _, _ in syncPlan() }
-        .onAppear { isConjugated = request.attachmentAtom != nil }
     }
 
     // MARK: Controls
@@ -48,6 +47,10 @@ struct LigandIntelligenceView: View {
 
             Toggle("Look for experimental structures of this molecule in the PDB", isOn: $request.searchPDB)
                 .toggleStyle(.checkbox).font(.callout)
+                .onChange(of: request.searchPDB) { _, _ in
+                    intelligence.reset()
+                    request.conformerPlan = []
+                }
             Text("A shape seen in a dozen unrelated crystal structures is far better evidence than any force field. Needs an internet connection.")
                 .font(.caption2).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -58,7 +61,9 @@ struct LigandIntelligenceView: View {
                 Button {
                     intelligence.analyse(smiles: request.smiles,
                                          attachmentAtom: request.attachmentAtom,
+                                         attachmentLinkerAtom: request.attachmentLinkerAtom,
                                          attachmentSymbol: pickedSymbol,
+                                         attachmentLinkerSymbol: pickedLinkerSymbol,
                                          searchPDB: request.searchPDB,
                                          outputDir: outputDir)
                 } label: {
@@ -66,7 +71,9 @@ struct LigandIntelligenceView: View {
                           systemImage: "sparkles.rectangle.stack")
                 }
                 .disabled(intelligence.isRunning ||
-                          request.smiles.trimmingCharacters(in: .whitespaces).isEmpty)
+                          request.smiles.trimmingCharacters(in: .whitespaces).isEmpty ||
+                          (request.ligandIsConjugated && (request.attachmentAtom == nil ||
+                                            request.attachmentLinkerAtom == nil)))
                 if intelligence.isRunning {
                     Button("Cancel") { intelligence.cancel() }.controlSize(.small)
                 }
@@ -83,39 +90,47 @@ struct LigandIntelligenceView: View {
         VStack(alignment: .leading, spacing: 8) {
             Toggle("This molecule is attached to something (a protein, a surface, a bead)",
                    isOn: Binding(
-                    get: { isConjugated },
+                    get: { request.ligandIsConjugated },
                     set: { on in
-                        isConjugated = on
-                        if !on { request.attachmentAtom = nil }
+                        request.ligandIsConjugated = on
+                        intelligence.reset()
+                        request.conformerPlan = []
+                        if !on {
+                            request.attachmentAtom = nil
+                            request.attachmentLinkerAtom = nil
+                        }
                     }))
                 .toggleStyle(.checkbox).font(.callout)
 
-            if isConjugated {
-                Text(request.attachmentAtom == nil
-                     ? "Click the atom where the linker leaves the molecule."
-                     : "Linker leaves from atom \(request.attachmentAtom!)\(symbolSuffix). Click it again to clear.")
+            if request.ligandIsConjugated {
+                Text(attachmentInstruction)
                     .font(.caption)
-                    .foregroundStyle(request.attachmentAtom == nil ? .orange : .secondary)
+                    .foregroundStyle(request.attachmentLinkerAtom == nil ? .orange : .secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
 
-                LigandAtomPicker(
-                    smiles: request.smiles,
-                    attachmentAtom: $request.attachmentAtom,
-                    coreAtoms: intelligence.analysis?.core.coreAtoms ?? [],
-                    presentationAtoms: intelligence.analysis?.core.presentationAtoms ?? [],
-                    onAtomsResolved: { symbols in atomSymbols = symbols }
-                )
-                .frame(height: 260)
-                .background(RoundedRectangle(cornerRadius: 8).fill(.white))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+            LigandAtomPicker(
+                smiles: request.smiles,
+                attachmentAtom: $request.attachmentAtom,
+                attachmentLinkerAtom: $request.attachmentLinkerAtom,
+                coreAtoms: intelligence.analysis?.core.coreAtoms ?? [],
+                presentationAtoms: intelligence.analysis?.core.presentationAtoms ?? [],
+                atomLabels: displayedAtomLabels,
+                allowsAttachmentPicking: request.ligandIsConjugated,
+                onAtomsResolved: { symbols in atomSymbols = symbols }
+            )
+            .frame(height: 280)
+            .background(RoundedRectangle(cornerRadius: 8).fill(.white))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+            .onChange(of: request.attachmentAtom) { _, _ in attachmentChanged() }
+            .onChange(of: request.attachmentLinkerAtom) { _, _ in attachmentChanged() }
 
-                if intelligence.analysis?.core.presentationAtoms.isEmpty == false {
-                    HStack(spacing: 14) {
-                        legendDot(.green.opacity(0.5), "binding core")
-                        legendDot(.orange.opacity(0.6), "linker — ignored when judging shape")
-                    }
-                    .font(.caption2).foregroundStyle(.secondary)
+            if intelligence.analysis?.core.presentationAtoms.isEmpty == false {
+                HStack(spacing: 14) {
+                    legendDot(.green.opacity(0.5), "binding core")
+                    legendDot(.orange.opacity(0.6), "linker — excluded from shape analysis")
                 }
+                .font(.caption2).foregroundStyle(.secondary)
             }
         }
     }
@@ -136,10 +151,44 @@ struct LigandIntelligenceView: View {
         return atomSymbols[index]
     }
 
+    private var pickedLinkerSymbol: String? {
+        guard let index = request.attachmentLinkerAtom,
+              atomSymbols.indices.contains(index) else { return nil }
+        return atomSymbols[index]
+    }
+
+    private var displayedAtomLabels: [String] {
+        atomLabels.isEmpty ? (intelligence.analysis?.atomNames ?? []) : atomLabels
+    }
+
     private var symbolSuffix: String {
         guard let index = request.attachmentAtom,
               atomSymbols.indices.contains(index) else { return "" }
         return " (\(atomSymbols[index]))"
+    }
+
+    private var linkerSymbolSuffix: String {
+        guard let index = request.attachmentLinkerAtom,
+              atomSymbols.indices.contains(index) else { return "" }
+        return " (\(atomSymbols[index]))"
+    }
+
+    private var attachmentInstruction: String {
+        guard let core = request.attachmentAtom else {
+            return "First click the atom on the binding-core side of the bond leading into the linker."
+        }
+        guard let linker = request.attachmentLinkerAtom else {
+            return "Core atom \(core)\(symbolSuffix) selected. Now click its directly bonded neighbour on the linker side."
+        }
+        return "Core \(core)\(symbolSuffix) → linker \(linker)\(linkerSymbolSuffix). Click either endpoint to clear and choose again."
+    }
+
+    private func attachmentChanged() {
+        intelligence.reset()
+        request.conformerPlan = []
+        // Core/linker direction changes the safe atom conditioning. Retaining
+        // an earlier proposal could bury the newly selected linker side.
+        request.conditions = [:]
     }
 
     // MARK: Results

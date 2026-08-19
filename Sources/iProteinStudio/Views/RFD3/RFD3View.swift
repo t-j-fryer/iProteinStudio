@@ -22,6 +22,7 @@ struct RFD3View: View {
     @State private var showAdvanced = false
     @State private var setupExperience: SetupExperience = .quick
     @State private var showTargetPrep = false
+    @State private var proposedConditions: [String: Set<AtomCondition>]?
 
     private var request: Binding<RFD3Request> {
         Binding(
@@ -39,6 +40,12 @@ struct RFD3View: View {
             } else {
                 form
             }
+        }
+        .onChange(of: request.wrappedValue.attachmentAtom) { _, _ in
+            proposedConditions = nil
+        }
+        .onChange(of: request.wrappedValue.attachmentLinkerAtom) { _, _ in
+            proposedConditions = nil
         }
     }
 
@@ -95,7 +102,8 @@ struct RFD3View: View {
                             intelligence: intelligence,
                             request: request,
                             outputDir: AppPaths.projectDir(project)
-                                .appendingPathComponent("rfd3/assets/conformers", isDirectory: true))
+                                .appendingPathComponent("rfd3/assets/conformers", isDirectory: true),
+                            atomLabels: inspector.atomLabels)
                     }
                 }
 
@@ -140,6 +148,8 @@ struct RFD3View: View {
             startBar.padding(.horizontal, 28).padding(.vertical, 14)
                 .background(.bar)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
         .sheet(isPresented: $showTargetPrep) {
             TargetPrepView(
                 targetKind: .protein,
@@ -156,9 +166,15 @@ struct RFD3View: View {
                     request.wrappedValue.conditions = conditions
                     if !residues.isEmpty { request.wrappedValue.originStrategy = .hotspots }
                 },
+                residueChain: "A",
                 onStructure: { cif in
                     // Adopt the prediction as the design target so the user never
                     // has to go looking for the file.
+                    invalidateInspectedTarget(clearProteinMetadata: true)
+                    // Target Prep predicts a monomer as chain A. Keeping the
+                    // example-file default of B would make Read target reject
+                    // the structure that Studio just created.
+                    request.wrappedValue.targetChain = "A"
                     request.wrappedValue.targetStructurePath = cif
                 },
                 onClose: { showTargetPrep = false }
@@ -199,9 +215,13 @@ struct RFD3View: View {
             }
 
             LabeledContent("Sequences per backbone") {
-                Stepper(value: request.sequencesPerBackbone, in: 1...16) {
-                    Text("\(request.wrappedValue.sequencesPerBackbone)").monospacedDigit()
-                }
+                EditableIntStepper(value: Binding(
+                    get: { request.wrappedValue.sequencesPerBackbone },
+                    set: { value in
+                        request.wrappedValue.sequencesPerBackbone = value
+                        request.wrappedValue.reconcileSelectionBudget()
+                    }
+                ), in: 1...16, accessibilityLabel: "Sequences per backbone")
             }
 
             Divider().padding(.vertical, 2)
@@ -247,10 +267,18 @@ struct RFD3View: View {
                     var r = request.wrappedValue
                     r.targetKind = nv
                     r.conditions = [:]
+                    r.targetContig = ""
+                    r.structureTargetSequence = ""
+                    r.attachmentAtom = nil
+                    r.attachmentLinkerAtom = nil
+                    r.ligandIsConjugated = false
+                    r.conformerPlan = []
                     r.originStrategy = nv == .smallMolecule ? .com : .hotspots
                     r.reconcileSequenceModel()
+                    r.reconcileVerification()
                     request.wrappedValue = r
                     inspector.reset()
+                    intelligence.reset()
                 }
             )) {
                 ForEach(RFD3TargetKind.allCases) { Text($0.label).tag($0) }
@@ -264,7 +292,16 @@ struct RFD3View: View {
 
     @ViewBuilder private var ligandInput: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Picker("", selection: request.ligandSource) {
+            Picker("", selection: Binding(
+                get: { request.wrappedValue.ligandSource },
+                set: { value in
+                    invalidateInspectedTarget(clearProteinMetadata: false)
+                    request.wrappedValue.ligandSource = value
+                    request.wrappedValue.attachmentAtom = nil
+                    request.wrappedValue.attachmentLinkerAtom = nil
+                    request.wrappedValue.ligandIsConjugated = false
+                }
+            )) {
                 ForEach(LigandSource.allCases) { Text($0.label).tag($0) }
             }.pickerStyle(.segmented).labelsHidden().frame(width: 340)
                 .accessibilityLabel("Ligand input type")
@@ -273,7 +310,17 @@ struct RFD3View: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if request.wrappedValue.ligandSource == .smiles {
-                TextField("SMILES, e.g. O=C(NCCO)c1ccc…", text: request.smiles)
+                TextField("SMILES, e.g. O=C(NCCO)c1ccc…", text: Binding(
+                    get: { request.wrappedValue.smiles },
+                    set: { value in
+                        if value != request.wrappedValue.smiles {
+                            invalidateInspectedTarget(clearProteinMetadata: false)
+                            request.wrappedValue.smiles = value
+                            request.wrappedValue.attachmentAtom = nil
+                            request.wrappedValue.attachmentLinkerAtom = nil
+                        }
+                    }
+                ))
                     .textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
                 HStack {
                     Text("Component code").font(.callout)
@@ -283,7 +330,15 @@ struct RFD3View: View {
                     Text("A 1–3 character name for this molecule. Avoid \"LIG\".")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                SmilesView(smiles: request.wrappedValue.smiles)
+                LigandAtomPicker(
+                    smiles: request.wrappedValue.smiles,
+                    attachmentAtom: request.attachmentAtom,
+                    attachmentLinkerAtom: request.attachmentLinkerAtom,
+                    coreAtoms: intelligence.analysis?.core.coreAtoms ?? [],
+                    presentationAtoms: intelligence.analysis?.core.presentationAtoms ?? [],
+                    atomLabels: inspector.atomLabels,
+                    allowsAttachmentPicking: false
+                )
                     .frame(height: 180)
                     .background(RoundedRectangle(cornerRadius: 8).fill(.background))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
@@ -294,13 +349,29 @@ struct RFD3View: View {
             } else {
                 filePicker(path: request.ligandStructurePath,
                            prompt: "Choose a PDB containing your ligand",
-                           types: [.init(filenameExtension: "pdb") ?? .data])
+                           types: [.init(filenameExtension: "pdb") ?? .data],
+                           onChoose: { invalidateInspectedTarget(clearProteinMetadata: false) })
                 HStack {
                     Text("Ligand residue name").font(.callout)
-                    TextField("e.g. FHE", text: request.ligandResidueName)
+                    TextField("e.g. FHE", text: Binding(
+                        get: { request.wrappedValue.ligandResidueName },
+                        set: { value in
+                            if value != request.wrappedValue.ligandResidueName {
+                                invalidateInspectedTarget(clearProteinMetadata: false)
+                                request.wrappedValue.ligandResidueName = value
+                            }
+                        }
+                    ))
                         .textFieldStyle(.roundedBorder).frame(width: 100)
                         .font(.system(.body, design: .monospaced))
                 }
+                TextField("Ligand SMILES (required for sequence design and verification)",
+                          text: request.smiles)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Text("The PDB supplies the exact 3D pose; the SMILES supplies bond order and chemistry to the sequence designer and folding pipeline.")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             inspectButton
@@ -327,10 +398,19 @@ struct RFD3View: View {
             Divider().padding(.vertical, 2)
             filePicker(path: request.targetStructurePath,
                        prompt: "…or choose a structure file (PDB)",
-                       types: [.init(filenameExtension: "pdb") ?? .data])
+                       types: [.init(filenameExtension: "pdb") ?? .data],
+                       onChoose: { invalidateInspectedTarget(clearProteinMetadata: true) })
             HStack {
                 Text("Chain").font(.callout)
-                TextField("B", text: request.targetChain)
+                TextField("B", text: Binding(
+                    get: { request.wrappedValue.targetChain },
+                    set: { value in
+                        if value != request.wrappedValue.targetChain {
+                            invalidateInspectedTarget(clearProteinMetadata: true)
+                            request.wrappedValue.targetChain = value
+                        }
+                    }
+                ))
                     .textFieldStyle(.roundedBorder).frame(width: 60)
                     .font(.system(.body, design: .monospaced))
                 if !inspector.chains.isEmpty {
@@ -370,13 +450,21 @@ struct RFD3View: View {
             }
         }
         .onChange(of: inspector.suggestedContig) { _, contig in
-            if !contig.isEmpty && request.wrappedValue.targetContig.isEmpty {
+            if !contig.isEmpty {
                 request.wrappedValue.targetContig = contig
+            }
+        }
+        .onChange(of: inspector.suggestedSequence) { _, sequence in
+            guard !sequence.isEmpty else { return }
+            request.wrappedValue.structureTargetSequence = sequence
+            if TemplateWriter.clean(request.wrappedValue.targetSequence).isEmpty {
+                request.wrappedValue.targetSequence = sequence
             }
         }
     }
 
-    private func filePicker(path: Binding<String>, prompt: String, types: [UTType]) -> some View {
+    private func filePicker(path: Binding<String>, prompt: String, types: [UTType],
+                            onChoose: (() -> Void)? = nil) -> some View {
         HStack {
             Text(path.wrappedValue.isEmpty ? prompt : (path.wrappedValue as NSString).lastPathComponent)
                 .font(.callout)
@@ -388,11 +476,26 @@ struct RFD3View: View {
                 panel.allowedContentTypes = types
                 panel.allowsMultipleSelection = false
                 panel.canChooseDirectories = false
-                if panel.runModal() == .OK, let url = panel.url { path.wrappedValue = url.path }
+                if panel.runModal() == .OK, let url = panel.url {
+                    onChoose?()
+                    path.wrappedValue = url.path
+                }
             }
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.3)))
+    }
+
+    private func invalidateInspectedTarget(clearProteinMetadata: Bool) {
+        request.wrappedValue.conditions = [:]
+        proposedConditions = nil
+        intelligence.reset()
+        request.wrappedValue.conformerPlan = []
+        if clearProteinMetadata {
+            request.wrappedValue.targetContig = ""
+            request.wrappedValue.structureTargetSequence = ""
+        }
+        inspector.reset()
     }
 
     // MARK: Conditioning
@@ -413,14 +516,19 @@ struct RFD3View: View {
                     }
                     Spacer()
                     Button {
-                        request.wrappedValue.conditions = inspector.suggestedConditions()
+                        proposedConditions = inspector.suggestedConditions(
+                            presentationAtomIndices: suggestionPresentationAtoms)
                     } label: {
-                        Label("Suggest for me", systemImage: "sparkles")
+                        Label("Preview suggestions", systemImage: "sparkles")
                     }
-                    Button("Clear") { request.wrappedValue.conditions = [:] }
+                    .disabled(needsLinkerAnalysisForSuggestions)
+                    Button("Clear") {
+                        request.wrappedValue.conditions = [:]
+                        proposedConditions = nil
+                    }
                 }
                 Text(request.wrappedValue.targetKind == .smallMolecule
-                     ? "Buried atoms get protein packed around them; exposed atoms stay reachable — keep linkers and conjugation handles exposed or you'll design a binder you can't attach anything to."
+                     ? "Bury controls solvent accessibility and asks for pocket packing. Hotspot asks for a nearby protein contact (typically within 4.5 Å) without requiring enclosure. Ligand donor/acceptor describes the selected ligand atom, not the protein partner."
                      : "Hotspots steer the binder to one face of your target. Picking none lets it bind anywhere.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -429,6 +537,17 @@ struct RFD3View: View {
                     Label(warning, systemImage: "info.circle")
                         .font(.caption2).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if needsLinkerAnalysisForSuggestions {
+                    Label("Analyse the directed core-to-linker bond in section 2 before previewing suggestions, so linker atoms can be exposed instead of buried.",
+                          systemImage: "arrow.up.circle")
+                        .font(.caption).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let proposedConditions {
+                    suggestionPreview(proposedConditions)
                 }
 
                 siteTable
@@ -451,6 +570,12 @@ struct RFD3View: View {
                         Text(site.name)
                             .font(.system(.callout, design: .monospaced))
                             .frame(width: 66, alignment: .leading)
+                        if let index = site.atomIndex {
+                            Text("#\(index)")
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 34, alignment: .leading)
+                        }
                         Text(site.element)
                             .font(.caption).foregroundStyle(.secondary)
                             .frame(width: 40, alignment: .leading)
@@ -460,9 +585,13 @@ struct RFD3View: View {
                                 .help(condition.help)
                         }
                         Spacer()
-                        if let reason = site.suggestionReason {
+                        if !site.suggestionReasons.isEmpty {
                             Image(systemName: "sparkles")
-                                .font(.caption2).foregroundStyle(.tertiary).help(reason)
+                                .font(.caption2).foregroundStyle(.tertiary)
+                                .help(site.suggestionReasons
+                                    .sorted { $0.key.rawValue < $1.key.rawValue }
+                                    .map { "\($0.key.label): \($0.value)" }
+                                    .joined(separator: "\n"))
                         }
                     }
                     .padding(.vertical, 3).padding(.horizontal, 8)
@@ -474,6 +603,45 @@ struct RFD3View: View {
         .frame(maxHeight: 260)
         .background(RoundedRectangle(cornerRadius: 8).fill(.background))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+    }
+
+    private var suggestionPresentationAtoms: Set<Int> {
+        Set(intelligence.analysis?.core.presentationAtoms ?? [])
+    }
+
+    private var needsLinkerAnalysisForSuggestions: Bool {
+        request.wrappedValue.targetKind == .smallMolecule &&
+            request.wrappedValue.attachmentAtom != nil &&
+            request.wrappedValue.attachmentLinkerAtom != nil &&
+            intelligence.analysis == nil
+    }
+
+    private func suggestionPreview(_ proposal: [String: Set<AtomCondition>]) -> some View {
+        let counts = Dictionary(uniqueKeysWithValues: AtomCondition.allCases.map { condition in
+            (condition, proposal.values.filter { $0.contains(condition) }.count)
+        })
+        return VStack(alignment: .leading, spacing: 8) {
+            Label("Review before applying", systemImage: "eye")
+                .font(.callout.weight(.semibold))
+            Text(AtomCondition.allCases.compactMap { condition in
+                let count = counts[condition] ?? 0
+                return count > 0 ? "\(condition.label): \(count)" : nil
+            }.joined(separator: " · "))
+                .font(.caption).foregroundStyle(.secondary)
+            Text("Non-polar core atoms are proposed as buried; RDKit assigns donor/acceptor roles for the exact tautomer and protonation supplied. An explicitly selected linker side is exposed. Hotspots are never guessed because they specify the contact location you want.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Apply suggestions") {
+                    request.wrappedValue.conditions = proposal
+                    proposedConditions = nil
+                }.buttonStyle(.borderedProminent)
+                Button("Cancel") { proposedConditions = nil }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.opacity(0.08)))
     }
 
     /// Bury and expose are mutually exclusive: an atom cannot be both, and the
@@ -534,21 +702,25 @@ struct RFD3View: View {
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
                 GridRow {
                     Text("Shortest")
-                    Stepper(value: request.minLength, in: 20...400) {
-                        Text("\(request.wrappedValue.minLength) aa").monospacedDigit()
-                    }
+                    EditableIntStepper(value: request.minLength,
+                                       in: 20...min(400, request.wrappedValue.maxLength),
+                                       suffix: "aa", accessibilityLabel: "Shortest binder length")
                 }
                 GridRow {
                     Text("Longest")
-                    Stepper(value: request.maxLength, in: request.wrappedValue.minLength...500) {
-                        Text("\(request.wrappedValue.maxLength) aa").monospacedDigit()
-                    }
+                    EditableIntStepper(value: request.maxLength,
+                                       in: request.wrappedValue.minLength...500,
+                                       suffix: "aa", accessibilityLabel: "Longest binder length")
                 }
                 GridRow {
                     Text("How many designs")
-                    Stepper(value: request.numDesigns, in: 1...5000, step: 10) {
-                        Text("\(request.wrappedValue.numDesigns)").monospacedDigit()
-                    }
+                    EditableIntStepper(value: Binding(
+                        get: { request.wrappedValue.numDesigns },
+                        set: { value in
+                            request.wrappedValue.numDesigns = value
+                            request.wrappedValue.reconcileSelectionBudget()
+                        }
+                    ), in: 1...5000, step: 10, accessibilityLabel: "Number of designs")
                 }
             }
             Toggle("Prefer structured folds over loopy ones", isOn: request.preferStructured)
@@ -628,6 +800,7 @@ struct RFD3View: View {
             Toggle("Use Boltz steering potentials, if Boltz is selected",
                    isOn: request.verification.useBoltzPotentials)
                 .toggleStyle(.checkbox).font(.callout)
+                .disabled(!request.wrappedValue.verification.usesBoltz(for: .protein))
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -647,11 +820,15 @@ struct RFD3View: View {
         let installed = installer.isUsable(p.component)
         let wired = isWiredForRFD3(p)
         Toggle(isOn: Binding(
-            get: { request.wrappedValue.verification.extraPredictors.contains(p) },
+            get: { request.wrappedValue.verification
+                .effectiveExtraPredictors(for: request.wrappedValue.targetKind)
+                .contains(p.checkingVariant) },
             set: { on in
-                var v = request.wrappedValue.verification
-                if on { v.extraPredictors.append(p) } else { v.extraPredictors.removeAll { $0 == p } }
-                request.wrappedValue.verification = v
+                var r = request.wrappedValue
+                if on { r.verification.extraPredictors.append(p.checkingVariant) }
+                else { r.verification.extraPredictors.removeAll { $0.checkingVariant == p.checkingVariant } }
+                r.reconcileVerification()
+                request.wrappedValue = r
             }
         )) {
             VStack(alignment: .leading, spacing: 1) {
@@ -678,7 +855,9 @@ struct RFD3View: View {
             }
         }
         .toggleStyle(.checkbox)
-        .disabled(!installed || !wired)
+        .disabled((!installed && !request.wrappedValue.verification
+            .effectiveExtraPredictors(for: request.wrappedValue.targetKind)
+            .contains(p.checkingVariant)) || !wired)
         .help(p.caveat.isEmpty ? p.blurb : p.caveat)
     }
 
@@ -709,7 +888,7 @@ struct RFD3View: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 ForEach(extraCheckChoices) { checkerRow($0) }
-                if request.wrappedValue.verification.extraPredictors.contains(where: {
+                if request.wrappedValue.verification.effectiveExtraPredictors(for: kind).contains(where: {
                     $0 == .intellifold || $0 == .intellifoldJAX
                 }) {
                     Picker("IntelliFold model", selection: request.verification.intellifoldModel) {
@@ -723,9 +902,10 @@ struct RFD3View: View {
 
             Divider().padding(.vertical, 2)
             LabeledContent("Keep the best") {
-                Stepper(value: request.verification.topN, in: 10...500, step: 10) {
-                    Text("\(request.wrappedValue.verification.topN)").monospacedDigit()
-                }
+                let limit = min(500, request.wrappedValue.totalDesignedSequences)
+                EditableIntStepper(value: request.verification.topN, in: 1...limit,
+                                   step: limit >= 10 ? 10 : 1,
+                                   accessibilityLabel: "Number of designs to keep")
             }
             if isLigand {
                 Toggle("Also fold the best designs without the ligand",
@@ -737,10 +917,13 @@ struct RFD3View: View {
             }
 
             let engines = max(1, request.wrappedValue.verification.allPredictors(for: kind).count)
-            Label("\(folds * engines) folds in total. This stage will dominate the run — expect days, not hours, at this scale.",
+            let apoFolds = isLigand && request.wrappedValue.verification.runApoCheck
+                ? request.wrappedValue.verification.topN : 0
+            let totalFolds = folds * engines + apoFolds
+            Label("\(totalFolds) folds in total\(apoFolds > 0 ? " (including \(apoFolds) apo checks)" : ""). This stage will dominate the run — expect days, not hours, at this scale.",
                   systemImage: "clock")
                 .font(.caption)
-                .foregroundStyle(folds * engines > 1000 ? .orange : .secondary)
+                .foregroundStyle(totalFolds > 1000 ? .orange : .secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -752,27 +935,23 @@ struct RFD3View: View {
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
                 GridRow {
                     Text("Batch size")
-                    Stepper(value: request.batchSize, in: 1...32) {
-                        Text("\(request.wrappedValue.batchSize)").monospacedDigit()
-                    }
+                    EditableIntStepper(value: request.batchSize, in: 1...32,
+                                       accessibilityLabel: "RFdiffusion3 batch size")
                 }
                 GridRow {
                     Text("Concurrent queues")
-                    Stepper(value: request.queuesPerBin, in: 1...4) {
-                        Text("\(request.wrappedValue.queuesPerBin)").monospacedDigit()
-                    }
+                    EditableIntStepper(value: request.queuesPerBin, in: 1...4,
+                                       accessibilityLabel: "Concurrent RFdiffusion3 queues")
                 }
                 GridRow {
                     Text("Diffusion steps")
-                    Stepper(value: request.timesteps, in: 20...500, step: 10) {
-                        Text("\(request.wrappedValue.timesteps)").monospacedDigit()
-                    }
+                    EditableIntStepper(value: request.timesteps, in: 20...500, step: 10,
+                                       accessibilityLabel: "Diffusion steps")
                 }
                 GridRow {
                     Text("Length bins")
-                    Stepper(value: request.numBins, in: 1...30) {
-                        Text("\(request.wrappedValue.numBins)").monospacedDigit()
-                    }
+                    EditableIntStepper(value: request.numBins, in: 1...30,
+                                       accessibilityLabel: "Length bins")
                 }
             }
             if request.wrappedValue.queuesPerBin != 2 {
@@ -811,11 +990,19 @@ struct RFD3View: View {
         let r = request.wrappedValue
         let issues = r.validationIssues
         let anotherWorkflowIsRunning = app.run.isRunning || app.prediction.isRunning
+        let missingComponents = r.requiredComponents.filter {
+            installer.components[$0] != nil && !installer.isUsable($0)
+        }
         return VStack(alignment: .leading, spacing: 8) {
             ForEach(issues, id: \.self) { issue in
                 Label(issue, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            if !missingComponents.isEmpty {
+                Label("Install \(missingComponents.map(\.label).joined(separator: ", ")) in Setup before starting.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout).foregroundStyle(.orange)
             }
             HStack {
                 if anotherWorkflowIsRunning {
@@ -835,7 +1022,8 @@ struct RFD3View: View {
                 .buttonStyle(.borderedProminent).controlSize(.large)
                 .accessibilityLabel("Start RFdiffusion3 run")
                 .accessibilityIdentifier("start-rfdiffusion3-run")
-                .disabled(!r.isRunnable || !issues.isEmpty || anotherWorkflowIsRunning)
+                .disabled(!r.isRunnable || !issues.isEmpty || !missingComponents.isEmpty
+                          || anotherWorkflowIsRunning)
             }
         }
         .padding(.top, 6)

@@ -36,11 +36,9 @@ final class TargetPredictor: ObservableObject {
 
     private var runner: ProcessRunner?
     private var done = false
-    /// If a line contains this marker, treat the run as complete even if the
-    /// process hasn't exited (IntelliFold hangs on teardown after finishing).
+    /// The shared runner emits this after every requested structure exists.
     private var successMarker: String?
     private var resultDir: URL?
-    private var resultStem: String?
 
     var cifPath: String? { if case .done(let p) = phase { return p } else { return nil } }
     var isRunning: Bool { phase == .running }
@@ -58,7 +56,9 @@ final class TargetPredictor: ObservableObject {
         let dir = PredictionStore.dir(for: cacheKey(targetKind: targetKind, sequence: sequence,
                                                     smiles: smiles, engine: engine, model: model))
         guard FileManager.default.fileExists(atPath: dir.path) else { return nil }
-        return PredictionStore.findModelCIF(in: dir)?.path
+        return PredictionStore.findModelCIF(
+            in: PredictionStore.currentResultDir(for: dir.lastPathComponent)
+        )?.path
     }
 
     func predict(targetKind: TargetKind, sequence: String, smiles: String,
@@ -74,31 +74,67 @@ final class TargetPredictor: ObservableObject {
             return
         }
 
-        let doc: String
+        let proteinSequence: String?
+        let ligandSMILES: String?
         switch targetKind {
         case .protein:
             let seq = TemplateWriter.clean(sequence)
             guard seq.count >= 10 else { phase = .failed("Enter a target sequence first."); return }
-            doc = "sequences:\n  - protein:\n      id: A\n      sequence: \(seq)\n      msa: empty\nversion: 1\n"
+            proteinSequence = seq
+            ligandSMILES = nil
         case .ligand:
             let s = smiles.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !s.isEmpty else { phase = .failed("Enter a ligand SMILES first."); return }
-            let q = s.replacingOccurrences(of: "'", with: "''")
-            doc = "sequences:\n  - ligand:\n      id: A\n      smiles: '\(q)'\nversion: 1\n"
+            proteinSequence = nil
+            ligandSMILES = s
         }
 
-        let workDir = PredictionStore.dir(for: cacheKey(targetKind: targetKind, sequence: sequence,
-                                                        smiles: smiles, engine: engine, model: model))
+        let id = cacheKey(targetKind: targetKind, sequence: sequence, smiles: smiles,
+                          engine: engine, model: model)
+        let workDir = PredictionStore.dir(for: id)
+        let outDir = PredictionStore.currentResultDir(for: id)
+        if force { try? FileManager.default.removeItem(at: outDir) }
         try? FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
-        let yaml = workDir.appendingPathComponent("target.yaml")
-        let outDir = workDir.appendingPathComponent(engine.rawValue)
-        do { try doc.write(to: yaml, atomically: true, encoding: .utf8) }
-        catch { phase = .failed("Could not write target YAML: \(error.localizedDescription)"); return }
+        try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+        AppPaths.stageRFD3Scripts()
 
-        switch engine {
-        case .boltz:       launchBoltz(yaml: yaml, outDir: outDir)
-        case .intellifold: launchIntelliFold(yaml: yaml, outDir: outDir, model: model)
+        var config = PredictionConfig()
+        config.root = AppPaths.support.path
+        config.output = outDir.path
+        config.predictors = [engine == .boltz ? Predictor.boltz.runnerValue
+                                              : Predictor.intellifold.runnerValue]
+        config.intellifold_model = engine == .intellifold ? model.rawValue : nil
+        config.max_parallel = 1
+        config.batch_size = 1
+        config.msa = PredictionController.sharedMSAConfig(allowServer: true)
+        config.jobs = [PredictionConfig.Job(name: "target", chains: [
+            PredictionConfig.Chain(id: "A", kind: targetKind == .protein ? "protein" : "ligand",
+                                   sequence: proteinSequence, smiles: ligandSMILES,
+                                   msa: targetKind == .protein ? MSAPolicy.auto.rawValue : nil)
+        ])]
+
+        let configURL = workDir.appendingPathComponent("target_prediction_config.json")
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(config).write(to: configURL)
+        } catch {
+            phase = .failed("Could not write target prediction settings: \(error.localizedDescription)")
+            return
         }
+
+        let python = URL(fileURLWithPath: "/usr/bin/python3")
+        guard FileManager.default.fileExists(atPath: python.path) else {
+            phase = .failed("The macOS Python runtime is unavailable. Re-run Setup.")
+            return
+        }
+        start()
+        successMarker = "PBDONE|ok"
+        appendLog("Using the shared MSA cache; a missing alignment will be generated once and saved.")
+        run(executable: URL(fileURLWithPath: "/usr/bin/caffeinate"),
+            args: ["-dimsu", python.path, AppPaths.predictBatchScript.path,
+                   "--config", configURL.path],
+            env: CommandBuilder.environment(), outDir: outDir)
     }
 
     func cancel() {
@@ -107,54 +143,12 @@ final class TargetPredictor: ObservableObject {
         runner?.cancel()
     }
 
-    // MARK: engines
-
-    private func launchBoltz(yaml: URL, outDir: URL) {
-        let boltz = AppPaths.support.appendingPathComponent("venvs/NanoHunter_boltz/bin/boltz")
-        guard FileManager.default.isExecutableFile(atPath: boltz.path) else {
-            phase = .failed("Boltz isn't installed yet. Finish setup first."); return
-        }
-        start()
-        let args = ["predict", yaml.path, "--out_dir", outDir.path,
-                    "--use_msa_server", "--msa_server_url", "https://api.colabfold.com",
-                    "--accelerator", "gpu", "--devices", "1", "--override"]
-        appendLog("$ boltz " + args.joined(separator: " "))
-        run(executable: boltz, args: args, env: CommandBuilder.environment(), outDir: outDir, stem: nil)
-    }
-
-    private func launchIntelliFold(yaml: URL, outDir: URL, model: IntelliFoldModel) {
-        let py = AppPaths.support.appendingPathComponent("venvs/NanoHunter_intellifold/bin/python")
-        let runner = AppPaths.support.appendingPathComponent("src/IntelliFold/run_intellifold.py")
-        guard FileManager.default.isExecutableFile(atPath: py.path) else {
-            phase = .failed("IntelliFold isn't installed yet. Finish setup first."); return
-        }
-        guard FileManager.default.fileExists(atPath: runner.path) else {
-            phase = .failed("IntelliFold runner not found. Re-run setup."); return
-        }
-        start()
-        var env = CommandBuilder.environment()
-        env["KMP_USE_SHM"] = "0"
-        // Flags mirror the pipeline's IntelliFold call:
-        //  --precision no      : disable bf16 (unsupported on MPS/CPU)
-        //  --num_diffusion_samples 1 : one structure (much faster than the default 5)
-        //  --override          : always regenerate
-        let args = [runner.path, yaml.path, "--out_dir", outDir.path,
-                    "--precision", "no", "--num_workers", "0", "--seed", "42",
-                    "--num_diffusion_samples", "1", "--override", "--model", model.rawValue,
-                    "--cache", AppPaths.intelliFoldCache.path]
-        appendLog("$ intellifold run_intellifold.py \(yaml.lastPathComponent) --model \(model.rawValue)")
-        // IntelliFold hangs on teardown after finishing; complete on this log line.
-        successMarker = "Inference completed successfully"
-        // Predictions land under <outDir>/<stem>/predictions/<stem>/
-        run(executable: py, args: args, env: env, outDir: outDir, stem: yaml.deletingPathExtension().lastPathComponent)
-    }
-
     // MARK: shared
 
     private func start() { log = []; phase = .running; done = false; successMarker = nil }
 
-    private func run(executable: URL, args: [String], env: [String: String], outDir: URL, stem: String?) {
-        resultDir = outDir; resultStem = stem
+    private func run(executable: URL, args: [String], env: [String: String], outDir: URL) {
+        resultDir = outDir
         let runner = ProcessRunner()
         self.runner = runner
         runner.launch(executable: executable, arguments: args, environment: env,
@@ -176,14 +170,7 @@ final class TargetPredictor: ObservableObject {
     @discardableResult
     private func succeed() -> Bool {
         guard !done, let outDir = resultDir else { return false }
-        let searchDir: URL = {
-            if let stem = resultStem {
-                let leaf = outDir.appendingPathComponent("\(stem)/predictions/\(stem)")
-                return FileManager.default.fileExists(atPath: leaf.path) ? leaf : outDir
-            }
-            return outDir
-        }()
-        guard let cif = PredictionStore.findModelCIF(in: searchDir) else { return false }
+        guard let cif = PredictionStore.findModelCIF(in: outDir) else { return false }
         done = true
         phase = .done(cif.path)
         appendLog("✓ predicted structure ready")

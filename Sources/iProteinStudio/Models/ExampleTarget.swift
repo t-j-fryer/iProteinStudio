@@ -22,8 +22,9 @@ struct ExampleTarget: Identifiable, Hashable {
     var smiles: String = ""
     /// Surface residues the validated work targeted, as chain-B tokens.
     var hotspots: [String] = []
-    /// Atom the linker leaves from, for a conjugated ligand.
-    var attachmentAtom: Int?
+    /// Directed acyclic bond from recognition core into the linker.
+    var attachmentCoreAtom: Int?
+    var attachmentLinkerAtom: Int?
 
     static let acbx = ExampleTarget(
         id: "acbx",
@@ -41,8 +42,10 @@ struct ExampleTarget: Identifiable, Hashable {
         kind: .smallMolecule,
         goodFor: "Designing a binding pocket around a small molecule, and seeing why a linker must be kept exposed rather than buried.",
         smiles: "O=C(NCCO)c1ccc(-c2c3ccc(=O)cc-3oc3cc([O-])ccc23)c(C(=O)[O-])c1",
-        // The amide nitrogen where the hydroxyethyl arm leaves the core.
-        attachmentAtom: 2)
+        // The amide bond from the fluorescein core carbonyl into the
+        // hydroxyethyl presentation arm.
+        attachmentCoreAtom: 1,
+        attachmentLinkerAtom: 2)
 
     static let all: [ExampleTarget] = [.acbx, .fluorescein]
 
@@ -62,15 +65,26 @@ extension DesignRequest {
         case .protein:
             targetKind = .protein
             targetSequence = example.sequence
+            targetSmiles = ""
             targetName = example.name
             epitopeResidues = example.hotspots.joined(separator: " ")
+            ligandContactAtoms = []
+            ligandAtomsGeneratedFor = ""
+            ligandAttachmentAtom = nil
+            ligandAttachmentLinkerAtom = nil
+            ligandIsConjugated = false
         case .smallMolecule:
             targetKind = .ligand
             targetSmiles = example.smiles
+            targetSequence = ""
+            epitopeResidues = ""
             targetName = example.name
-            ligandAttachmentAtom = example.attachmentAtom
+            ligandAttachmentAtom = example.attachmentCoreAtom
+            ligandAttachmentLinkerAtom = example.attachmentLinkerAtom
+            ligandIsConjugated = example.attachmentCoreAtom != nil && example.attachmentLinkerAtom != nil
         }
         reconcileDesigner()
+        reconcilePredictors()
     }
 }
 
@@ -80,6 +94,7 @@ extension RFD3Request {
         case .protein:
             targetKind = .protein
             targetSequence = example.sequence
+            structureTargetSequence = example.sequence
             targetStructurePath = example.structurePath ?? ""
             targetChain = "B"
             // The bundled example PDB contains the complete mature toxin as
@@ -93,16 +108,26 @@ extension RFD3Request {
             conditions = Dictionary(uniqueKeysWithValues:
                 example.hotspots.map { ($0, Set([AtomCondition.hotspot])) })
             originStrategy = .hotspots
+            verification.extraPredictors = [.boltz]
+            verification.useBoltzPotentials = false
+            attachmentAtom = nil
+            attachmentLinkerAtom = nil
+            ligandIsConjugated = false
         case .smallMolecule:
             targetKind = .smallMolecule
             ligandSource = .smiles
             smiles = example.smiles
             componentCode = "FLU"
-            attachmentAtom = example.attachmentAtom
+            attachmentAtom = example.attachmentCoreAtom
+            attachmentLinkerAtom = example.attachmentLinkerAtom
+            ligandIsConjugated = example.attachmentCoreAtom != nil && example.attachmentLinkerAtom != nil
+            conditions = [:]
             originStrategy = .com
+            verification.extraPredictors = []
         }
         conformerPlan = []
         reconcileSequenceModel()
+        reconcileVerification()
     }
 }
 
@@ -115,5 +140,6 @@ extension PredictionRequest {
         // The alignment ships with the app, so this costs nothing.
         binderMSA = .auto
         jobs = []
+        parsedInputSignature = ""
     }
 }

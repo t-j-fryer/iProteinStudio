@@ -74,6 +74,7 @@ NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-${REPO_ROOT}/numba_cache}"
 export BOLTZ_CACHE NUMBA_CACHE_DIR
 mkdir -p "${NUMBA_CACHE_DIR}"
 OPENFOLD_A3M_QUERY_REWRITER="${REPO_ROOT}/scripts/rewrite_a3m_query.py"
+POST_TASK_SELECTOR="${REPO_ROOT}/scripts/select_post_tasks.py"
 
 LIGANDMPNN_REPO="${REPO_ROOT}/src/LigandMPNN"
 LIGANDMPNN_RUN="python run.py"
@@ -91,6 +92,7 @@ LASERMPNN_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_lasermpnn"
 LASERMPNN_REPO="${REPO_ROOT}/src/LASErMPNN"
 LASERMPNN_WEIGHTS="${LASERMPNN_REPO}/model_weights/laser_weights_0p1A_nothing_heldout.pt"
 LASERMPNN_PREPARE="${REPO_ROOT}/scripts/lasermpnn_prepare_input.py"
+LASERMPNN_SEEDED_RUNNER="${REPO_ROOT}/scripts/run_lasermpnn_seeded.py"
 LASERMPNN_DEVICE="${LASERMPNN_DEVICE:-cpu}"
 LASERMPNN_NUM_SEQ="${LASERMPNN_NUM_SEQ:-1}"
 LASERMPNN_SEQ_TEMP="${LASERMPNN_SEQ_TEMP:-0.1}"
@@ -143,6 +145,7 @@ PREDICTOR="${NANOHUNTER_PREDICTOR_DEFAULT:-boltz}"
 POST_PREDICTOR="${NANOHUNTER_POST_PREDICTOR_DEFAULT:-${DEFAULT_POST_PREDICTOR}}"
 POST_MODE="all"
 POST_IPTM_THRESHOLD="0.70"
+POST_IPTM_THRESHOLD_SET=0
 POST_INCLUDE_CYCLE00=0
 
 N_RUNS=3
@@ -230,6 +233,8 @@ TARGET_MSA_MODE="${NANOHUNTER_TARGET_MSA_MODE_DEFAULT:-auto}"
 TARGET_MSA_GENERATOR="${NANOHUNTER_TARGET_MSA_GENERATOR_DEFAULT:-auto}"
 TARGET_MSA_PATH_OVERRIDE="${NANOHUNTER_TARGET_MSA_PATH_DEFAULT:-}"
 TARGET_MSA_REQUIRED="${NANOHUNTER_TARGET_MSA_REQUIRED_DEFAULT:-0}"
+TARGET_MSA_SHARED_CACHE_DIR="${NANOHUNTER_TARGET_MSA_CACHE_DIR_DEFAULT:-${REPO_ROOT}/msa_cache}"
+TARGET_MSA_SEARCH_ROOTS="${NANOHUNTER_TARGET_MSA_SEARCH_ROOTS:-${TARGET_MSA_SHARED_CACHE_DIR}:${REPO_ROOT}/examples_data:${REPO_ROOT}/projects:${REPO_ROOT}/output}"
 NANOBODY_SCAFFOLD_MSA_MODE="${NANOHUNTER_SCAFFOLD_MSA_MODE_DEFAULT:-${DEFAULT_NANOBODY_SCAFFOLD_MSA_MODE}}"
 NANOBODY_SCAFFOLD_MSA_SOURCE="${NANOHUNTER_SCAFFOLD_MSA_SOURCE_DEFAULT:-}"
 NANOBODY_SCAFFOLD_MSA_CACHE_DIR="${NANOHUNTER_SCAFFOLD_MSA_CACHE_DIR_DEFAULT:-${REPO_ROOT}/examples/nanobody_scaffolds/msas}"
@@ -261,6 +266,7 @@ BOLTZ_USE_POTENTIALS_MODE="auto"
 BOLTZ_USE_POTENTIALS_DEFAULT=0
 
 IPTM_THRESHOLD="0.80"
+IPTM_THRESHOLD_SET=0
 
 PEAK_RSS_MB=0
 PEAK_FOOTPRINT_MB=0
@@ -323,7 +329,7 @@ Core:
                                    (lasermpnn: small-molecule minibinders only; --workflow protein + ligand; CPU-only)
                                    default: ${SEQUENCE_DESIGNER}
   --post-predictor LIST            none | TOOL[,TOOL] (default: ${POST_PREDICTOR})
-  --post-mode MODE                 none | all | iptm (default: ${POST_MODE})
+  --post-mode MODE                 none | all | iptm | final | final-iptm (default: ${POST_MODE})
   --post-iptm-threshold T          default: ${POST_IPTM_THRESHOLD}
   --post-include-cycle00           include cycle_00 in post stage
   --run-name NAME                  default: ${RUN_NAME}
@@ -410,6 +416,7 @@ Design controls:
   --antifold-limit-variation       reduce exact-position AntiFold sample variation
   --antifold-seed N                base AntiFold seed; run/cycle offsets are added
   --mpnn-seed N                    base ProteinMPNN-family seed; run/cycle offsets are added
+  --lasermpnn-seed N               base LASErMPNN seed; run/cycle offsets are added
   --target-epitope-residues STR    target residues for Boltz constraints, e.g. "B6,B8,B9"
   --boltz-contact-distance X       max CDR3/epitope contact distance in Angstrom (default: ${BOLTZ_CONTACT_DISTANCE})
   --boltz-epitope-distance X       alias of --boltz-contact-distance
@@ -672,7 +679,9 @@ safe_predictor_name() {
     boltz) echo "boltz" ;;
     intellifold) echo "intellifold" ;;
     openfold-3-mlx) echo "openfold3" ;;
+    alphafold3) echo "alphafold3" ;;
     none) echo "none" ;;
+    *) return 1 ;;
   esac
 }
 
@@ -694,7 +703,7 @@ while [[ $# -gt 0 ]]; do
     --sequence-designer|--seq-designer) SEQUENCE_DESIGNER="$2"; shift 2 ;;
     --post-predictor) POST_PREDICTOR="$2"; shift 2 ;;
     --post-mode) POST_MODE="$2"; shift 2 ;;
-    --post-iptm-threshold) POST_IPTM_THRESHOLD="$2"; shift 2 ;;
+    --post-iptm-threshold) POST_IPTM_THRESHOLD="$2"; POST_IPTM_THRESHOLD_SET=1; shift 2 ;;
     --post-include-cycle00) POST_INCLUDE_CYCLE00=1; shift 1 ;;
 
     --run-name) RUN_NAME="$2"; shift 2 ;;
@@ -760,6 +769,7 @@ while [[ $# -gt 0 ]]; do
     --antifold-limit-variation) ANTIFOLD_LIMIT_VARIATION=1; shift 1 ;;
     --antifold-seed) ANTIFOLD_SEED="$2"; shift 2 ;;
     --mpnn-seed|--ligandmpnn-seed) LIGANDMPNN_SEED="$2"; shift 2 ;;
+    --lasermpnn-seed) LASERMPNN_SEED="$2"; shift 2 ;;
     --antifold-num-seq-per-target) ANTIFOLD_NUM_SEQ_PER_TARGET="$2"; shift 2 ;;
     --antifold-batch-size) ANTIFOLD_BATCH_SIZE="$2"; shift 2 ;;
     --antifold-num-threads) ANTIFOLD_NUM_THREADS="$2"; shift 2 ;;
@@ -770,7 +780,7 @@ while [[ $# -gt 0 ]]; do
     --boltz-use-potentials) BOLTZ_USE_POTENTIALS_MODE="on"; shift 1 ;;
     --boltz-no-potentials) BOLTZ_USE_POTENTIALS_MODE="off"; shift 1 ;;
 
-    --iptm-threshold) IPTM_THRESHOLD="$2"; shift 2 ;;
+    --iptm-threshold) IPTM_THRESHOLD="$2"; IPTM_THRESHOLD_SET=1; shift 2 ;;
 
     --no-parallel) NO_PARALLEL=1; shift 1 ;;
     --max-parallel) MAX_PARALLEL_USER="$2"; shift 2 ;;
@@ -976,17 +986,50 @@ if [[ -n "${POST_PREDICTOR_RAW}" && "$(printf '%s' "${POST_PREDICTOR_RAW}" | tr 
     [[ -z "$p" ]] && continue
     p="$(norm_predictor "$p")" || die "Unsupported --post-predictor entry: ${p}"
     [[ "$p" == "none" ]] && continue
-    POST_PREDICTORS+=("$p")
+    _post_seen=0
+    for _existing_post in "${POST_PREDICTORS[@]:-}"; do
+      if [[ "${_existing_post}" == "${p}" ]]; then _post_seen=1; break; fi
+    done
+    [[ "${_post_seen}" -eq 1 ]] || POST_PREDICTORS+=("$p")
   done
 fi
 
 case "${POST_MODE}" in
-  none|all|iptm) : ;;
-  *) die "--post-mode must be none, all, or iptm" ;;
+  none|all|iptm|final|final-iptm) : ;;
+  *) die "--post-mode must be none, all, iptm, final, or final-iptm" ;;
 esac
 
 if [[ "${POST_MODE}" == "none" ]]; then
   POST_PREDICTORS=()
+fi
+
+# Studio builds before Lab Book 0019 emitted its one visible hit threshold as
+# --post-iptm-threshold even when checking was disabled. In that exact case the
+# value otherwise has no effect, so recover it as the campaign threshold. Do
+# not merge the thresholds for real post-prediction CLI workflows, where users
+# may deliberately set different values.
+if [[ "${POST_MODE}" == "none" && "${POST_IPTM_THRESHOLD_SET}" -eq 1 \
+      && "${IPTM_THRESHOLD_SET}" -eq 0 ]]; then
+  IPTM_THRESHOLD="${POST_IPTM_THRESHOLD}"
+  echo "WARNING: treating legacy no-checker --post-iptm-threshold as --iptm-threshold (${IPTM_THRESHOLD})." >&2
+fi
+
+for _post in "${POST_PREDICTORS[@]:-}"; do
+  if [[ -n "${_post}" && "${_post}" == "${PREDICTOR}" ]]; then
+    die "--post-predictor must be independent of --predictor; ${_post} cannot check its own designs."
+  fi
+done
+
+INTELLIFOLD_IN_USE=0
+if [[ "${PREDICTOR}" == "intellifold" ]]; then INTELLIFOLD_IN_USE=1; fi
+for _post in "${POST_PREDICTORS[@]:-}"; do
+  if [[ "${_post}" == "intellifold" ]]; then INTELLIFOLD_IN_USE=1; fi
+done
+if [[ "${INTELLIFOLD_IN_USE}" -eq 1 ]]; then
+  case "${INTELLIFOLD_MODEL}" in
+    v2-flash|v2) : ;;
+    *) die "--model must be v2-flash or v2 when IntelliFold is used." ;;
+  esac
 fi
 
 if [[ "${WORKFLOW}" == "protein" ]]; then
@@ -998,9 +1041,6 @@ if [[ "${WORKFLOW}" == "protein" ]]; then
   if [[ "${NANOBODY_SCAFFOLD_MSA_MODE}" != "off" ]]; then
     die "--nanobody-scaffold-msa is only valid with --workflow nanobody."
   fi
-  if [[ -n "${TARGET_EPITOPE_RESIDUES}" ]]; then
-    die "--target-epitope-residues is a nanobody CDR-contact control; use template YAML constraints for --workflow protein."
-  fi
 else
   if [[ "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 ]]; then
     die "--workflow nanobody requires a fixed scaffold; remove --random-binder or pass --scaffold-from-template."
@@ -1010,7 +1050,7 @@ else
   fi
 fi
 if [[ -n "${TARGET_EPITOPE_RESIDUES}" && "${PREDICTOR}" != "boltz" ]]; then
-  echo "WARNING: Boltz epitope/contact controls are ignored because the design predictor is ${PREDICTOR}." >&2
+  die "Target hotspot restraints require --predictor boltz; ${PREDICTOR} cannot honour them."
 fi
 
 if [[ "${MOTIF_SCAFFOLDING}" -eq 1 && "${PREDICTOR}" != "boltz" ]]; then
@@ -1071,6 +1111,9 @@ fi
 
 if [[ ! "${LIGANDMPNN_SEED}" =~ ^[0-9]+$ ]]; then
   die "--mpnn-seed must be a non-negative integer."
+fi
+if [[ ! "${LASERMPNN_SEED}" =~ ^[0-9]+$ ]]; then
+  die "--lasermpnn-seed must be a non-negative integer."
 fi
 if [[ -n "${BINDER_RANDOM_SEED}" && ! "${BINDER_RANDOM_SEED}" =~ ^[0-9]+$ ]]; then
   die "--binder-random-seed must be a non-negative integer."
@@ -1171,6 +1214,17 @@ case "${BOLTZ_CONTACT_MODE}" in
   *) die "--boltz-contact-mode must be auto, none, pocket, cdr3, or pocket+cdr3" ;;
 esac
 if [[ "${BOLTZ_CONTACT_MODE}" == "cdr3+pocket" ]]; then
+  BOLTZ_CONTACT_MODE="pocket+cdr3"
+fi
+if [[ "${WORKFLOW}" == "protein" ]]; then
+  case "${BOLTZ_CONTACT_MODE}" in
+    auto) BOLTZ_CONTACT_MODE="pocket" ;;
+    cdr3|pocket+cdr3)
+      echo "WARNING: CDR3 contact mode has no meaning for --workflow protein; using the equivalent binder-pocket restraint." >&2
+      BOLTZ_CONTACT_MODE="pocket"
+      ;;
+  esac
+elif [[ "${BOLTZ_CONTACT_MODE}" == "auto" ]]; then
   BOLTZ_CONTACT_MODE="pocket+cdr3"
 fi
 if [[ -n "${TARGET_EPITOPE_RESIDUES}" ]]; then
@@ -1304,6 +1358,9 @@ require_predictor_venv "${PREDICTOR}"
 for _pp in "${POST_PREDICTORS[@]:-}"; do
   [[ -n "${_pp}" ]] && require_predictor_venv "${_pp}"
 done
+if [[ "$(post_predictors_count)" -gt 0 ]]; then
+  [[ -f "${POST_TASK_SELECTOR}" ]] || die "Post-prediction task selector not found: ${POST_TASK_SELECTOR}"
+fi
 if sequence_designer_uses_ligandmpnn; then
   [[ -x "${LIGAND_VENV}/bin/python" ]] || die "LigandMPNN venv not found: ${LIGAND_VENV}"
   [[ -f "${LIGANDMPNN_REPO}/run.py" ]] || die "LigandMPNN run.py not found: ${LIGANDMPNN_REPO}/run.py"
@@ -1318,6 +1375,7 @@ if [[ "${SEQUENCE_DESIGNER}" == "lasermpnn" ]]; then
   [[ -f "${LASERMPNN_REPO}/run_batch_inference.py" ]] || die "LASErMPNN not found: ${LASERMPNN_REPO}/run_batch_inference.py"
   [[ -f "${LASERMPNN_WEIGHTS}" ]] || die "LASErMPNN weights not found: ${LASERMPNN_WEIGHTS}"
   [[ -f "${LASERMPNN_PREPARE}" ]] || die "LASErMPNN input-prep helper not found: ${LASERMPNN_PREPARE}"
+  [[ -f "${LASERMPNN_SEEDED_RUNNER}" ]] || die "LASErMPNN seeded launcher not found: ${LASERMPNN_SEEDED_RUNNER}"
 fi
 
 if [[ "${MOTIF_SCAFFOLDING}" -eq 1 ]]; then
@@ -1500,7 +1558,20 @@ case "${SEQUENCE_DESIGNER}" in
 esac
 
 if [[ "${CHECK_CONFIG_ONLY}" -eq 1 ]]; then
-  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} template=${TEMPLATE_YAML} scheduler=${DESIGN_SCHEDULER}"
+  _check_post_names="none"
+  if [[ "$(post_predictors_count)" -gt 0 ]]; then
+    _check_post_names=""
+    for _check_post in "${POST_PREDICTORS[@]}"; do
+      _check_safe="$(safe_predictor_name "${_check_post}")" \
+        || die "No output-name mapping for post predictor ${_check_post}."
+      [[ -z "${_check_post_names}" ]] \
+        && _check_post_names="${_check_safe}" \
+        || _check_post_names="${_check_post_names},${_check_safe}"
+    done
+  fi
+  _check_intellifold_model="unused"
+  [[ "${INTELLIFOLD_IN_USE}" -eq 0 ]] || _check_intellifold_model="${INTELLIFOLD_MODEL}"
+  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} post=${_check_post_names} post_mode=${POST_MODE} hit_threshold=${IPTM_THRESHOLD} intellifold_model=${_check_intellifold_model} contact_mode=${BOLTZ_CONTACT_MODE} template=${TEMPLATE_YAML} scheduler=${DESIGN_SCHEDULER}"
   exit 0
 fi
 
@@ -2460,11 +2531,14 @@ def remove_top_level_block(lines, block_name):
     return kept
 
 
-# Boltz restraints are a design-time steering mechanism. IntelliFold and
-# OpenFold do not consume the Boltz schema, and post-prediction should score the
-# resulting sequence without the restraints that generated it.
+# Boltz restraints are a design-time steering mechanism. Other predictors do
+# not consume Boltz's constraints or affinity-property schema, and
+# post-prediction should score the resulting sequence without the restraints
+# that generated it.
 if predictor != "boltz" or phase != "design":
     out_lines = remove_top_level_block(out_lines, "constraints")
+if predictor != "boltz":
+    out_lines = remove_top_level_block(out_lines, "properties")
 
 dynamic_constraints = build_dynamic_constraints()
 if dynamic_constraints:
@@ -2881,6 +2955,33 @@ if require_depth and len(records) < 2:
     )
 print(len(records))
 PY
+}
+
+find_reusable_target_msa() {
+  local target_seq="$1"
+  local search_roots="$2"
+  python3 "${REPO_ROOT}/scripts/find_target_msa.py" \
+    --sequence "${target_seq}" --roots "${search_roots}"
+}
+
+publish_target_msa_to_shared_cache() {
+  local msa_path="$1"
+  local target_seq="$2"
+  [[ -s "${msa_path}" ]] || return 0
+  mkdir -p "${TARGET_MSA_SHARED_CACHE_DIR}"
+  local digest destination
+  digest="$(python3 - "${target_seq}" <<'PY'
+import hashlib
+import re
+import sys
+sequence = re.sub(r"[^A-Za-z]", "", sys.argv[1]).upper()
+print(hashlib.sha256(sequence.encode()).hexdigest()[:32])
+PY
+)"
+  destination="${TARGET_MSA_SHARED_CACHE_DIR}/${digest}.a3m"
+  if [[ "$(cd "$(dirname "${msa_path}")" && pwd)/$(basename "${msa_path}")" != "$(cd "${TARGET_MSA_SHARED_CACHE_DIR}" && pwd)/$(basename "${destination}")" ]]; then
+    cp -f "${msa_path}" "${destination}"
+  fi
 }
 
 csv_msa_to_a3m() {
@@ -4991,7 +5092,7 @@ run_lasermpnn_redesign() {
   (
     cd "${LASERMPNN_REPO}/.." || exit 1
     KMP_USE_SHM=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-    "${LASERMPNN_VENV}/bin/python" -m LASErMPNN.run_batch_inference \
+    "${LASERMPNN_VENV}/bin/python" "${LASERMPNN_SEEDED_RUNNER}" "${seed}" \
       "${laser_out}/model_prepared.pdb" \
       "${laser_out}/designs" \
       "${LASERMPNN_NUM_SEQ}" \
@@ -6494,18 +6595,23 @@ elif [[ "${TARGET_MSA_MODE}" == "off" ]]; then
   echo "==> Target MSA generation disabled (--target-msa-mode off)."
 elif [[ -n "${TARGET_SEQ}" ]]; then
   [[ -n "${TARGET_CHAIN_ID}" ]] || TARGET_CHAIN_ID="B"
-  echo "==> Calibration: generating ${TARGET_MSA_GENERATOR} target MSA through its native MSA-server path for chain ${TARGET_CHAIN_ID}..."
-  case "${TARGET_MSA_GENERATOR}" in
-    boltz)
-      TARGET_MSA_PATH="$(generate_boltz_auto_msa_cache "${TARGET_SEQ}" "${TARGET_CHAIN_ID}" "target" "${MSA_CACHE_DIR}" || true)"
-      ;;
-    intellifold)
-      TARGET_MSA_PATH="$(generate_intellifold_auto_msa_cache "${TARGET_SEQ}" "${TARGET_CHAIN_ID}" "target" "${MSA_CACHE_DIR}" || true)"
-      ;;
-    openfold)
-      TARGET_MSA_PATH="$(generate_openfold_target_msa_cache "${TEMPLATE_YAML}" "${MSA_CACHE_DIR}" "${TARGET_SEQ}" "${TARGET_CHAIN_ID}" "target" || true)"
-      ;;
-  esac
+  TARGET_MSA_PATH="$(find_reusable_target_msa "${TARGET_SEQ}" "${TARGET_MSA_SEARCH_ROOTS}" || true)"
+  if [[ -n "${TARGET_MSA_PATH}" ]]; then
+    echo "==> Reusing exact target MSA from shared cache: ${TARGET_MSA_PATH}"
+  else
+    echo "==> Calibration: no exact cached target MSA; generating ${TARGET_MSA_GENERATOR} alignment through its native MSA-server path for chain ${TARGET_CHAIN_ID}..."
+    case "${TARGET_MSA_GENERATOR}" in
+      boltz)
+        TARGET_MSA_PATH="$(generate_boltz_auto_msa_cache "${TARGET_SEQ}" "${TARGET_CHAIN_ID}" "target" "${MSA_CACHE_DIR}" || true)"
+        ;;
+      intellifold)
+        TARGET_MSA_PATH="$(generate_intellifold_auto_msa_cache "${TARGET_SEQ}" "${TARGET_CHAIN_ID}" "target" "${MSA_CACHE_DIR}" || true)"
+        ;;
+      openfold)
+        TARGET_MSA_PATH="$(generate_openfold_target_msa_cache "${TEMPLATE_YAML}" "${MSA_CACHE_DIR}" "${TARGET_SEQ}" "${TARGET_CHAIN_ID}" "target" || true)"
+        ;;
+    esac
+  fi
   if [[ -n "${TARGET_MSA_PATH}" && -f "${TARGET_MSA_PATH}" ]]; then
     echo "==> Cached target MSA: ${TARGET_MSA_PATH}"
   elif [[ "${TARGET_MSA_REQUIRED}" -eq 1 ]]; then
@@ -6528,6 +6634,9 @@ if [[ -n "${TARGET_MSA_PATH}" && -n "${TARGET_SEQ}" ]]; then
     validate_target_msa_file "${TARGET_MSA_PATH}" "${TARGET_SEQ}" "${TARGET_MSA_REQUIRED}"
   )" || die "Target MSA validation failed: ${TARGET_MSA_PATH}"
   echo "==> Validated target MSA: ${TARGET_MSA_PATH} (records=${TARGET_MSA_RECORDS})"
+  if [[ "${TARGET_MSA_PATH##*.}" == "a3m" && "${TARGET_MSA_RECORDS}" != "unknown" && "${TARGET_MSA_RECORDS}" -ge 2 ]]; then
+    publish_target_msa_to_shared_cache "${TARGET_MSA_PATH}" "${TARGET_SEQ}"
+  fi
 fi
 
 prepare_nanobody_scaffold_msa_cache
@@ -6995,35 +7104,12 @@ if [[ "$(post_predictors_count)" -gt 0 ]]; then
     pred_safe="$(safe_predictor_name "$post_pred")"
     task_tsv="${EXPT_ROOT}/post_${pred_safe}_tasks.tsv"
 
-    python3 - "${EXPT_ROOT}/summary_all_runs.csv" "${POST_MODE}" "${POST_IPTM_THRESHOLD}" "${POST_INCLUDE_CYCLE00}" "${task_tsv}" <<'PY'
-import csv, sys
-summary, mode, thr, include0, out_tsv = sys.argv[1:6]
-thr=float(thr)
-include0=(include0 == "1")
-rows=[]
-with open(summary) as f:
-    r=csv.DictReader(f)
-    for row in r:
-        cyc=str(row.get("cycle",""))
-        try:
-            cnum=int(cyc)
-        except Exception:
-            continue
-        if cnum == 0 and not include0:
-            continue
-        if mode == "iptm":
-            try:
-                if float(row.get("iptm","nan")) < thr:
-                    continue
-            except Exception:
-                continue
-        rows.append((int(row["run"]), cnum, row.get("binder_sequence","")))
-rows.sort()
-with open(out_tsv,"w") as f:
-    for r,c,seq in rows:
-        f.write(f"{r}\t{c}\t{seq}\n")
-print(len(rows))
-PY
+    python3 "${POST_TASK_SELECTOR}" \
+      --summary "${EXPT_ROOT}/summary_all_runs.csv" \
+      --mode "${POST_MODE}" \
+      --threshold "${POST_IPTM_THRESHOLD}" \
+      --include-cycle00 "${POST_INCLUDE_CYCLE00}" \
+      --output "${task_tsv}"
 
     if [[ -s "$task_tsv" ]]; then
       POST_STATUS_FILES=()

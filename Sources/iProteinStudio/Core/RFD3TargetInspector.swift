@@ -13,6 +13,8 @@ final class RFD3TargetInspector: ObservableObject {
     @Published var chains: [String] = []
     /// Full-chain contig suggested for a protein target, e.g. "B1-71".
     @Published var suggestedContig: String = ""
+    /// Amino-acid sequence extracted from that same structure chain.
+    @Published var suggestedSequence: String = ""
     @Published var formalCharge: Int?
     @Published var warnings: [String] = []
     @Published var error: String?
@@ -20,12 +22,17 @@ final class RFD3TargetInspector: ObservableObject {
 
     private var runner: ProcessRunner?
     private var buffer: [String] = []
+    private var inspectionID = UUID()
 
     var hasResult: Bool { !sites.isEmpty }
 
     func reset() {
-        sites = []; chains = []; suggestedContig = ""; formalCharge = nil
+        inspectionID = UUID()
+        runner?.cancel()
+        runner = nil
+        sites = []; chains = []; suggestedContig = ""; suggestedSequence = ""; formalCharge = nil
         warnings = []; error = nil
+        isInspecting = false
     }
 
     func inspectLigand(smiles: String) {
@@ -50,6 +57,8 @@ final class RFD3TargetInspector: ObservableObject {
         }
         AppPaths.stageRFD3Scripts()
         reset()
+        let runID = UUID()
+        inspectionID = runID
         isInspecting = true
         buffer = []
 
@@ -60,12 +69,16 @@ final class RFD3TargetInspector: ObservableObject {
             arguments: [AppPaths.rfd3InspectScript.path] + args,
             environment: CommandBuilder.environment(),
             workingDir: rfd3Root,
-            onLine: { [weak self] line in self?.buffer.append(line) },
-            onExit: { [weak self] code in self?.finish(code) }
+            onLine: { [weak self] line in
+                guard self?.inspectionID == runID else { return }
+                self?.buffer.append(line)
+            },
+            onExit: { [weak self] code in self?.finish(code, runID: runID) }
         )
     }
 
-    private func finish(_ code: Int32) {
+    private func finish(_ code: Int32, runID: UUID) {
+        guard inspectionID == runID else { return }
         isInspecting = false
         // The script prints exactly one JSON object; anything else on stdout is
         // library noise, so take the last line that parses.
@@ -87,15 +100,36 @@ final class RFD3TargetInspector: ObservableObject {
         }
 
         sites = (payload["sites"] as? [[String: Any]] ?? []).map { entry in
-            TargetSite(
+            let detailed = entry["suggestions"] as? [[String: Any]] ?? []
+            var suggestions = Set(detailed.compactMap { item in
+                (item["condition"] as? String).flatMap(AtomCondition.init(rawValue:))
+            })
+            var reasons: [AtomCondition: String] = [:]
+            for item in detailed {
+                guard let raw = item["condition"] as? String,
+                      let condition = AtomCondition(rawValue: raw),
+                      let reason = item["reason"] as? String else { continue }
+                reasons[condition] = reason
+            }
+            // Protein inspection still emits one optional hotspot suggestion.
+            if let raw = entry["suggestion"] as? String,
+               let condition = AtomCondition(rawValue: raw) {
+                suggestions.insert(condition)
+                if let reason = entry["suggestionReason"] as? String {
+                    reasons[condition] = reason
+                }
+            }
+            return TargetSite(
+                atomIndex: entry["index"] as? Int,
                 name: entry["name"] as? String ?? "?",
                 element: entry["element"] as? String ?? "",
-                suggestion: (entry["suggestion"] as? String).flatMap(AtomCondition.init(rawValue:)),
-                suggestionReason: entry["suggestionReason"] as? String
+                suggestions: suggestions,
+                suggestionReasons: reasons
             )
         }
         chains = payload["chains"] as? [String] ?? []
         suggestedContig = payload["contig"] as? String ?? ""
+        suggestedSequence = payload["sequence"] as? String ?? ""
         formalCharge = payload["formal_charge"] as? Int
         warnings = payload["warnings"] as? [String] ?? []
         if sites.isEmpty { error = "No conditionable sites were found in that target." }
@@ -104,11 +138,30 @@ final class RFD3TargetInspector: ObservableObject {
     /// Apply every suggestion the inspector made. This is what the "Suggest for
     /// me" button does — it fills in a complete, sane starting point that the
     /// user then edits, rather than leaving them with an empty table.
-    func suggestedConditions() -> [String: Set<AtomCondition>] {
+    func suggestedConditions(presentationAtomIndices: Set<Int> = [])
+        -> [String: Set<AtomCondition>] {
         var result: [String: Set<AtomCondition>] = [:]
         for site in sites {
-            if let suggestion = site.suggestion { result[site.name] = [suggestion] }
+            if let index = site.atomIndex, presentationAtomIndices.contains(index) {
+                // An explicitly chosen linker side must remain reachable and
+                // must not acquire donor/contact pulls that invite a pocket.
+                result[site.name] = [.exposed]
+            } else if !site.suggestions.isEmpty {
+                result[site.name] = site.suggestions
+            }
         }
         return result
+    }
+
+    /// Labels in original SMILES atom order, suitable for drawing directly on
+    /// the molecule. Missing indices make the mapping incomplete and are never
+    /// guessed.
+    var atomLabels: [String] {
+        let indexed = sites.compactMap { site -> (Int, String)? in
+            guard let index = site.atomIndex else { return nil }
+            return (index, site.name)
+        }.sorted { $0.0 < $1.0 }
+        guard indexed.enumerated().allSatisfy({ $0.offset == $0.element.0 }) else { return [] }
+        return indexed.map { $0.1 }
     }
 }

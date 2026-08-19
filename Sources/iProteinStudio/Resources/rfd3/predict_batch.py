@@ -34,6 +34,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -70,6 +71,66 @@ def die(message: str) -> None:
     sys.exit(1)
 
 
+def validate_config(cfg: dict, jobs: list) -> list[str]:
+    supported = set(SCHEDULE)
+    predictors = cfg.get("predictors") or ["boltz"]
+    unknown = [p for p in predictors if p not in supported or p == "boltz_potentials"]
+    if unknown:
+        die("Unsupported predictor(s): " + ", ".join(unknown))
+    if len(set(predictors)) != len(predictors):
+        die("Each predictor may be selected only once.")
+    if any(p in {"intellifold", "intellifold-jax"} for p in predictors):
+        if cfg.get("intellifold_model") not in {"v2-flash", "v2"}:
+            die("IntelliFold requires intellifold_model v2-flash or v2.")
+    for key in ("max_parallel", "batch_size"):
+        if int(cfg.get(key, 0)) < 0:
+            die(f"{key} cannot be negative.")
+    names = [str(job.get("name", "")).strip() for job in jobs]
+    if any(not name for name in names) or len(set(names)) != len(names):
+        die("Every fold needs a unique, non-empty name.")
+    if any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", name)
+           for name in names):
+        die("Fold names must be 1–80 safe filename characters and start with a letter or number.")
+    for job in jobs:
+        chains = job.get("chains") or []
+        if not chains:
+            die(f"{job['name']} has no chains.")
+        chain_ids = [str(chain.get("id", "")).strip() for chain in chains]
+        if any(not chain_id for chain_id in chain_ids) or len(set(chain_ids)) != len(chain_ids):
+            die(f"{job['name']} needs unique, non-empty chain IDs.")
+        for chain in chains:
+            kind = chain.get("kind")
+            if kind == "protein" and len(canonical(chain.get("sequence", ""))) < 5:
+                die(f"{job['name']} has an empty or too-short protein chain.")
+            if kind == "ligand" and not str(chain.get("smiles", "")).strip():
+                die(f"{job['name']} has an empty ligand SMILES.")
+            if kind not in {"protein", "ligand"}:
+                die(f"{job['name']} has unsupported chain kind {kind!r}.")
+    return predictors
+
+
+def structure_files(root: Path) -> list[Path]:
+    return [path for path in root.rglob("*") if path.is_file()
+            and path.suffix.lower() in {".cif", ".pdb"}]
+
+
+def has_structure_for_job(root: Path, name: str) -> bool:
+    for path in structure_files(root):
+        if name in path.parts or path.stem == name:
+            return True
+        if path.stem.startswith((f"{name}_", f"{name}-")):
+            return True
+    return False
+
+
+def completed_chunk(marker: Path, names: list[str], output: Path) -> bool:
+    try:
+        payload = json.loads(marker.read_text())
+    except (OSError, json.JSONDecodeError):
+        return False
+    return payload.get("jobs") == names and all(has_structure_for_job(output, name) for name in names)
+
+
 # ------------------------------------------------------------------ MSA cache --
 
 def canonical(sequence: str) -> str:
@@ -96,6 +157,14 @@ def a3m_query(path: Path) -> str:
         return ""
     body = "".join(records[0].splitlines()[1:])
     return "".join(c for c in body if not c.islower() and c not in "-.").upper()
+
+
+def valid_a3m(path: Path, sequence: str) -> bool:
+    try:
+        depth = path.read_text(errors="replace").count(">")
+    except OSError:
+        return False
+    return depth >= 2 and a3m_query(path) == canonical(sequence)
 
 
 def build_index(cache_dir: Path, roots: list[Path], limit: int = 40000) -> dict:
@@ -132,13 +201,13 @@ def build_index(cache_dir: Path, roots: list[Path], limit: int = 40000) -> dict:
                 continue
             scanned += 1
             query = a3m_query(path)
-            if len(query) < 12:
+            depth = path.read_text(errors="replace").count(">")
+            if len(query) < 12 or depth < 2:
                 seen_files[key] = stamp
                 continue
             digest = sequence_key(query)
             # Prefer the deepest alignment when the same sequence appears twice.
             existing = index.get(digest)
-            depth = path.read_text(errors="replace").count(">")
             if not existing or depth > existing.get("depth", 0):
                 index[digest] = {"path": str(path), "depth": depth, "length": len(query)}
             seen_files[key] = stamp
@@ -152,8 +221,10 @@ def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict) -> Path 
     """Generate one MSA through Boltz's server path and keep it."""
     digest = sequence_key(sequence)
     target = cache_dir / f"{digest}.a3m"
-    if target.exists() and target.stat().st_size > 0:
+    if target.exists() and valid_a3m(target, sequence):
         return target
+    if target.exists():
+        target.unlink()
 
     work = cache_dir / f"_gen_{digest}"
     work.mkdir(parents=True, exist_ok=True)
@@ -192,6 +263,8 @@ def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict) -> Path 
         if i == 0 and bare == canonical(sequence):
             continue
         lines += [f">seq{i}", seq]
+    if len(lines) < 4:
+        return None
     target.write_text("\n".join(lines) + "\n")
     shutil.rmtree(work, ignore_errors=True)
     return target
@@ -219,7 +292,7 @@ def resolve_msas(jobs: list, cfg: dict, root: Path, env: dict) -> dict:
     resolved, hits, misses = {}, 0, 0
     for digest, sequence in wanted.items():
         entry = index.get(digest)
-        if entry and Path(entry["path"]).exists():
+        if entry and valid_a3m(Path(entry["path"]), sequence):
             resolved[digest] = entry["path"]
             hits += 1
     info(f"{hits} of {len(wanted)} needed alignments came from the cache")
@@ -358,6 +431,7 @@ def main() -> None:
     jobs = cfg.get("jobs") or []
     if not jobs:
         die("No sequences to fold.")
+    predictors = validate_config(cfg, jobs)
 
     env = dict(os.environ)
     env["ALPHAFOLD3_COMPILATION_CACHE_DIR"] = str(root / "jax_compile_cache")
@@ -377,7 +451,6 @@ def main() -> None:
         prepared.append({"name": job["name"], "yaml": path,
                          "tokens": token_estimate(job), "bucket": bucket_for(token_estimate(job))})
 
-    predictors = cfg.get("predictors") or ["boltz"]
     started = time.time()
     results = []
     total_units = len(prepared) * len(predictors)
@@ -413,6 +486,18 @@ def main() -> None:
                     out_dir = output / predictor / f"bucket_{bucket}" / f"chunk_{index}"
                     out_dir.mkdir(parents=True, exist_ok=True)
                     log_path = output / "logs" / f"{tag}.log"
+                    marker = out_dir / "chunk_complete.json"
+                    names = [member["name"] for member in chunk]
+                    if completed_chunk(marker, names, out_dir):
+                        for member in chunk:
+                            results.append({"job": member["name"], "predictor": predictor,
+                                            "bucket": bucket, "exit_code": 0,
+                                            "output": str(out_dir)})
+                        done_units += len(chunk)
+                        info(f"{tag}: reused {len(chunk)} completed fold(s)")
+                        stage("fold", 35 + int(60 * done_units / max(1, total_units)),
+                              f"{done_units} of {total_units} folds done")
+                        continue
                     if key in DIRECTORY_CAPABLE:
                         proc, handle = run_directory_batch(key, [c["yaml"] for c in chunk],
                                                            out_dir, root, env, cfg, log_path)
@@ -420,16 +505,26 @@ def main() -> None:
                         proc, handle = run_single(predictor, chunk[0]["yaml"], out_dir,
                                                   root, env, log_path,
                                                   cfg.get("intellifold_model", "v2-flash"))
-                    running.append((proc, handle, chunk, tag, out_dir))
+                    running.append((proc, handle, chunk, tag, out_dir, marker))
 
                 time.sleep(1.0)
                 still = []
-                for proc, handle, chunk, tag, out_dir in running:
+                for proc, handle, chunk, tag, out_dir, marker in running:
                     if proc.poll() is None:
-                        still.append((proc, handle, chunk, tag, out_dir))
+                        still.append((proc, handle, chunk, tag, out_dir, marker))
                         continue
                     handle.close()
                     code = proc.returncode
+                    missing = [member["name"] for member in chunk
+                               if not has_structure_for_job(out_dir, member["name"])]
+                    if code == 0 and missing:
+                        code = 1
+                        info(f"{tag} returned success but produced no structure for: {', '.join(missing)}")
+                    if code == 0:
+                        marker.write_text(json.dumps({
+                            "predictor": predictor,
+                            "jobs": [member["name"] for member in chunk],
+                        }, indent=2) + "\n")
                     for member in chunk:
                         results.append({"job": member["name"], "predictor": predictor,
                                         "bucket": bucket, "exit_code": code,

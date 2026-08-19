@@ -45,6 +45,15 @@ final class PredictionStore: ObservableObject {
 
     static func dir(for id: String) -> URL { cacheRoot.appendingPathComponent(id, isDirectory: true) }
 
+    /// Versioned output owned by the shared prediction pipeline. Older Target
+    /// Prep builds wrote direct, single-sequence folds beside this directory;
+    /// they must not be mistaken for the MSA-backed result.
+    static let currentResultDirectoryName = "shared-prediction-v1"
+
+    static func currentResultDir(for id: String) -> URL {
+        dir(for: id).appendingPathComponent(currentResultDirectoryName, isDirectory: true)
+    }
+
     /// First structure file under a prediction dir (prefers model_0 / sample-0).
     static func findModelCIF(in dir: URL) -> URL? {
         guard let en = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil) else { return nil }
@@ -56,7 +65,8 @@ final class PredictionStore: ObservableObject {
     }
 
     func cifPath(for record: PredictionRecord) -> String? {
-        Self.findModelCIF(in: Self.dir(for: record.id))?.path
+        Self.findModelCIF(in: Self.currentResultDir(for: record.id))?.path
+            ?? Self.findModelCIF(in: Self.dir(for: record.id))?.path
     }
 
     // MARK: mutations

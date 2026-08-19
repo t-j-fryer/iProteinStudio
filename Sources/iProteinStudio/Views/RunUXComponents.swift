@@ -1,6 +1,82 @@
 import SwiftUI
 import AppKit
 
+/// A numeric field and stepper that share the same constrained integer value.
+///
+/// SwiftUI's labelled `Stepper` renders its value as read-only text on macOS.
+/// This control keeps the familiar arrow buttons while also letting someone
+/// type a value and commit it with Return or by leaving the field.
+struct EditableIntStepper: View {
+    @Binding private var value: Int
+    let range: ClosedRange<Int>
+    let step: Int
+    let suffix: String
+    let accessibilityLabel: String
+
+    @State private var draft: String
+    @FocusState private var isFocused: Bool
+
+    init(value: Binding<Int>,
+         in range: ClosedRange<Int>,
+         step: Int = 1,
+         suffix: String = "",
+         accessibilityLabel: String) {
+        _value = value
+        self.range = range
+        self.step = max(1, step)
+        self.suffix = suffix
+        self.accessibilityLabel = accessibilityLabel
+        _draft = State(initialValue: String(value.wrappedValue))
+    }
+
+    var body: some View {
+        HStack(spacing: 5) {
+            TextField(accessibilityLabel, text: $draft)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .frame(width: 64)
+                .focused($isFocused)
+                .onSubmit(commitDraft)
+                .accessibilityLabel(accessibilityLabel)
+
+            if !suffix.isEmpty {
+                Text(suffix).foregroundStyle(.secondary)
+            }
+
+            Stepper("", value: constrainedValue, in: range, step: step)
+                .labelsHidden()
+                .fixedSize()
+                .accessibilityLabel("Adjust \(accessibilityLabel)")
+        }
+        .onChange(of: value) { _, newValue in
+            if !isFocused { draft = String(newValue) }
+        }
+        .onChange(of: isFocused) { _, focused in
+            if !focused { commitDraft() }
+        }
+    }
+
+    private var constrainedValue: Binding<Int> {
+        Binding(
+            get: { value },
+            set: { newValue in
+                value = min(range.upperBound, max(range.lowerBound, newValue))
+                draft = String(value)
+            }
+        )
+    }
+
+    private func commitDraft() {
+        guard let parsed = Int(draft.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            draft = String(value)
+            return
+        }
+        value = min(range.upperBound, max(range.lowerBound, parsed))
+        draft = String(value)
+    }
+}
+
 enum SetupExperience: String, CaseIterable, Identifiable {
     case quick = "Quick setup"
     case advanced = "Advanced"
@@ -19,7 +95,7 @@ struct SetupExperiencePicker: View {
             .frame(width: 260)
             .accessibilityIdentifier("setup-experience-picker")
             Text(selection == .quick
-                 ? "Recommended settings stay selected; only decisions needed to start are shown."
+                 ? "Keeps the project's current settings and shows only the decisions needed to start."
                  : "Inspect model, alignment, sampling, and throughput controls.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

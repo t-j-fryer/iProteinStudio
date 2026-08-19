@@ -18,7 +18,7 @@ struct LigandTargetingView: View {
     @ObservedObject var intelligence: LigandIntelligence
     let outputDir: URL
 
-    @State private var isConjugated = false
+    @State private var atomSymbols: [String] = []
 
     private var smiles: String { request.targetSmiles.trimmingCharacters(in: .whitespaces) }
     private var namesReady: Bool { atoms.generatedFor == request.ligandAtomKey && atoms.hasAtoms }
@@ -27,25 +27,39 @@ struct LigandTargetingView: View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle("Predict binding strength, P(bind)", isOn: $request.ligandAffinityHead)
                 .toggleStyle(.checkbox)
+                .disabled(!request.usesBoltzAnywhere)
             Text("Turns on Boltz's affinity head. It also renumbers every ligand atom, so the choices below are rebuilt when you change it.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if !request.usesBoltzAnywhere {
+                Label("Add Boltz as the design engine or a checking engine to predict binding strength.",
+                      systemImage: "info.circle")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
 
             Divider()
             understandingSection
             Divider()
             atomSection
+                .disabled(!request.usesBoltzDesignEngine)
+            if !request.usesBoltzDesignEngine {
+                Label("Specific-atom pocket steering is a Boltz design feature. Select Boltz as the design engine to use it.",
+                      systemImage: "info.circle")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
         }
         .onChange(of: request.ligandAffinityHead) { _, _ in invalidate() }
         .onChange(of: request.targetSmiles) { _, _ in invalidate() }
-        .onAppear { isConjugated = request.ligandAttachmentAtom != nil }
     }
 
     private func invalidate() {
         // Never carry names across a renumbering.
         request.ligandContactAtoms = []
         request.ligandAtomsGeneratedFor = ""
+        request.ligandAttachmentAtom = nil
+        request.ligandAttachmentLinkerAtom = nil
         atoms.reset()
+        intelligence.reset()
     }
 
     // MARK: Understanding the molecule
@@ -58,28 +72,42 @@ struct LigandTargetingView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Toggle("This molecule is attached to something (a protein, a surface, a bead)",
-                   isOn: Binding(get: { isConjugated },
-                                 set: { on in isConjugated = on; if !on { request.ligandAttachmentAtom = nil } }))
+                   isOn: Binding(get: { request.ligandIsConjugated },
+                                 set: { on in
+                                     request.ligandIsConjugated = on
+                                     intelligence.reset()
+                                     if !on {
+                                         request.ligandAttachmentAtom = nil
+                                         request.ligandAttachmentLinkerAtom = nil
+                                     }
+                                 }))
                 .toggleStyle(.checkbox).font(.callout)
 
-            if isConjugated {
+            if request.ligandIsConjugated {
                 Text(request.ligandAttachmentAtom == nil
-                     ? "Click the atom where the linker leaves the molecule."
-                     : "Linker leaves from atom \(request.ligandAttachmentAtom!). Click it again to clear.")
+                     ? "First select the atom on the binding-core side of the linker bond."
+                     : request.ligandAttachmentLinkerAtom == nil
+                     ? "Now select its directly bonded neighbour on the linker side."
+                     : "The directed core-to-linker bond is selected; click either endpoint to clear it.")
                     .font(.caption)
-                    .foregroundStyle(request.ligandAttachmentAtom == nil ? .orange : .secondary)
+                    .foregroundStyle(request.ligandAttachmentLinkerAtom == nil ? .orange : .secondary)
             }
 
             HStack {
                 Button {
                     intelligence.analyse(smiles: smiles,
                                          attachmentAtom: request.ligandAttachmentAtom,
+                                         attachmentLinkerAtom: request.ligandAttachmentLinkerAtom,
+                                         attachmentSymbol: selectedSymbol(request.ligandAttachmentAtom),
+                                         attachmentLinkerSymbol: selectedSymbol(request.ligandAttachmentLinkerAtom),
                                          searchPDB: true, outputDir: outputDir)
                 } label: {
                     Label(intelligence.hasResult ? "Check again" : "Check this molecule",
                           systemImage: "sparkles.rectangle.stack")
                 }
-                .disabled(intelligence.isRunning || smiles.isEmpty)
+                .disabled(intelligence.isRunning || smiles.isEmpty ||
+                          (request.ligandIsConjugated && (request.ligandAttachmentAtom == nil ||
+                                            request.ligandAttachmentLinkerAtom == nil)))
                 if intelligence.isRunning { ProgressView().controlSize(.small) }
             }
 
@@ -146,12 +174,20 @@ struct LigandTargetingView: View {
                         attachmentAtom: Binding(
                             get: { request.ligandAttachmentAtom },
                             set: { request.ligandAttachmentAtom = $0 }),
+                        attachmentLinkerAtom: Binding(
+                            get: { request.ligandAttachmentLinkerAtom },
+                            set: { request.ligandAttachmentLinkerAtom = $0 }),
                         coreAtoms: intelligence.analysis?.core.coreAtoms ?? [],
-                        presentationAtoms: intelligence.analysis?.core.presentationAtoms ?? []
+                        presentationAtoms: intelligence.analysis?.core.presentationAtoms ?? [],
+                        atomLabels: atoms.namesByInputIndex,
+                        allowsAttachmentPicking: request.ligandIsConjugated,
+                        onAtomsResolved: { atomSymbols = $0 }
                     )
                     .frame(height: 240)
                     .background(RoundedRectangle(cornerRadius: 8).fill(.white))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+                    .onChange(of: request.ligandAttachmentAtom) { _, _ in intelligence.reset() }
+                    .onChange(of: request.ligandAttachmentLinkerAtom) { _, _ in intelligence.reset() }
                 }
 
                 Text("Contact atoms").font(.callout.weight(.medium))
@@ -205,5 +241,10 @@ struct LigandTargetingView: View {
             request.ligandContactAtoms.append(name)
         }
         request.ligandAtomsGeneratedFor = request.ligandContactAtoms.isEmpty ? "" : request.ligandAtomKey
+    }
+
+    private func selectedSymbol(_ index: Int?) -> String? {
+        guard let index, atomSymbols.indices.contains(index) else { return nil }
+        return atomSymbols[index]
     }
 }

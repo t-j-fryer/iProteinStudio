@@ -136,6 +136,27 @@ struct ProjectDetailView: View {
     }
 
     var body: some View {
+        // NavigationSplitView may ask its detail for an unconstrained ideal
+        // height. RFdiffusion3's long form then reports its full content height,
+        // which can grow the detail far beyond the window and move this picker
+        // off-screen. GeometryReader supplies the real viewport; the workflow
+        // content below must scroll inside the space left by the fixed header.
+        GeometryReader { viewport in
+            detailContents
+                .frame(width: viewport.size.width, height: viewport.size.height,
+                       alignment: .top)
+                .clipped()
+        }
+        .onAppear {
+            app.history.refresh(projects: app.projects)
+            // A detached RFdiffusion3 campaign can outlive the app; reattach so a
+            // multi-day run does not look like it vanished on restart.
+            rfd3.reattachIfRunning(project: project)
+            if rfd3.isRunning { mode = .rfdiffusion }
+        }
+    }
+
+    private var detailContents: some View {
         VStack(spacing: 0) {
             // Navigation must remain available while a long campaign runs. The
             // individual Start buttons prevent concurrent GPU work; hiding this
@@ -176,25 +197,23 @@ struct ProjectDetailView: View {
             }
             Divider().padding(.top, 10)
 
-            switch mode {
-            case .iterative:
-                if run.isRunning || run.campaignRoot != nil {
-                    LiveDashboardView(project: project, run: run, metrics: metrics)
-                } else {
-                    DesignFormView(project: project, installer: installer)
+            Group {
+                switch mode {
+                case .iterative:
+                    if run.isRunning || run.campaignRoot != nil {
+                        LiveDashboardView(project: project, run: run, metrics: metrics)
+                    } else {
+                        DesignFormView(project: project, installer: installer)
+                    }
+                case .rfdiffusion:
+                    RFD3View(project: project, controller: rfd3, installer: installer)
+                case .predict:
+                    PredictView(project: project, controller: prediction, installer: installer)
                 }
-            case .rfdiffusion:
-                RFD3View(project: project, controller: rfd3, installer: installer)
-            case .predict:
-                PredictView(project: project, controller: prediction, installer: installer)
             }
-        }
-        .onAppear {
-            app.history.refresh(projects: app.projects)
-            // A detached RFdiffusion3 campaign can outlive the app; reattach so a
-            // multi-day run does not look like it vanished on restart.
-            rfd3.reattachIfRunning(project: project)
-            if rfd3.isRunning { mode = .rfdiffusion }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .layoutPriority(1)
+            .clipped()
         }
     }
 }

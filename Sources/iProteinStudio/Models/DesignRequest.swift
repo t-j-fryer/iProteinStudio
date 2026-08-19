@@ -102,6 +102,14 @@ enum TargetKind: String, CaseIterable, Codable, Identifiable, Hashable {
     var label: String { self == .protein ? "Protein" : "Ligand (SMILES)" }
 }
 
+/// Which iterative checkpoints receive an independent re-fold.
+enum PostCheckScope: String, CaseIterable, Codable, Identifiable, Hashable {
+    case finalCycle
+    case allCycles
+
+    var id: String { rawValue }
+}
+
 /// Which CDR loops to redesign. Applies to every designer.
 struct CDRSelection: Codable, Equatable, Hashable {
     var cdr1 = false
@@ -162,8 +170,13 @@ struct DesignRequest: Codable, Equatable, Hashable {
     var ligandContactForce: Bool = true
     /// Turn on Boltz's affinity head to get P(bind) for the ligand.
     var ligandAffinityHead: Bool = true
-    /// Atom the linker leaves from, for the core/linker split.
+    /// Core-side atom of the explicitly directed core-to-linker bond.
     var ligandAttachmentAtom: Int?
+    /// Linker-side atom directly bonded to `ligandAttachmentAtom`.
+    var ligandAttachmentLinkerAtom: Int?
+    /// Persisted intent, so a run cannot start while the two-click bond choice
+    /// is only half complete.
+    var ligandIsConjugated: Bool = false
     /// SMILES and affinity setting the current atom names were generated for.
     /// A mismatch means they must be regenerated before use.
     var ligandAtomsGeneratedFor: String = ""
@@ -171,6 +184,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
     var designer: SequenceDesigner = .antifold
     var numDesigns: Int = 12
     var numCycles: Int = 5
+    /// Defines a campaign hit and, when enabled, the gate for final-cycle
+    /// orthogonal checking. Both CLI thresholds must receive the same value.
     var hitThreshold: Double = 0.70
     var parallelMode: ParallelMode = .auto
     var manualParallel: Int = 2
@@ -178,7 +193,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Structure predictor that drives the design loop. Boltz-2 is 3.4x cheaper
     /// per proposal than the slowest alternative and needs only one process.
     var designPredictor: Predictor = .boltz
-    /// Orthogonal predictors that re-fold hits after the design loop. This is the
+    /// Orthogonal predictors that re-fold final designs after the loop. This is the
     /// number that should drive selection: the design predictor's own iPTM is
     /// self-scored, because the loop optimises against it.
     var postPredictors: [Predictor] = [.intellifold]
@@ -189,6 +204,9 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Only hits at or above `hitThreshold` are post-predicted, which is what
     /// keeps an orthogonal check affordable.
     var postOnlyHits: Bool = true
+    /// Whether independent predictors see only the completed design or every
+    /// iterative checkpoint. Threshold gating is intentionally orthogonal.
+    var postCheckScope: PostCheckScope = .finalCycle
     var speedMode: SpeedMode = .standard
 
     /// Sampling temperature for the first redesign cycle, and for later ones.
@@ -234,6 +252,48 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     var hasProteinTarget: Bool { targetKind == .protein }
 
+    var usesBoltzDesignEngine: Bool { designPredictor.runnerValue == Predictor.boltz.runnerValue }
+
+    /// Canonical post-check list: checks never use steering potentials, never
+    /// repeat the design engine, and never run one backend twice.
+    var effectivePostPredictors: [Predictor] {
+        var seen = Set<String>()
+        return postPredictors.compactMap { raw in
+            let predictor = raw.checkingVariant
+            guard predictor.runnerValue != designPredictor.runnerValue,
+                  seen.insert(predictor.runnerValue).inserted else { return nil }
+            return predictor
+        }
+    }
+
+    var usesIntelliFold: Bool {
+        ([designPredictor] + effectivePostPredictors).contains { $0 == .intellifold }
+    }
+
+    var usesBoltzAnywhere: Bool {
+        usesBoltzDesignEngine || effectivePostPredictors.contains { $0.runnerValue == Predictor.boltz.runnerValue }
+    }
+
+    var epitopeTokenResult: (tokens: [String], invalid: [String]) {
+        TemplateWriter.residueTokenResult(epitopeResidues)
+    }
+
+    var hasEpitopeSteering: Bool {
+        targetKind == .protein && !epitopeResidues.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var hasInvalidEpitopeResidues: Bool {
+        targetKind == .protein && !epitopeTokenResult.invalid.isEmpty
+    }
+
+    /// Generic protein hotspot restraints and atom-specific ligand pockets are
+    /// design-time Boltz features. Other engines may still see the target, but
+    /// cannot honour these requested restraints.
+    var hasIncompatibleTargeting: Bool {
+        (hasEpitopeSteering || (targetKind == .ligand && !ligandContactAtoms.isEmpty))
+            && !usesBoltzDesignEngine
+    }
+
     /// Key the ligand atom names were generated under. Changing either half
     /// renumbers the atoms, so the names must be regenerated.
     var ligandAtomKey: String {
@@ -249,7 +309,12 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Every backend this run needs installed before it can start.
     var requiredComponents: [InstallComponent] {
         var set: [InstallComponent] = [designPredictor.component]
-        for p in postPredictors where !set.contains(p.component) { set.append(p.component) }
+        for p in effectivePostPredictors where !set.contains(p.component) { set.append(p.component) }
+        // AF3 consumes a precomputed A3M. When it drives a protein campaign,
+        // the runner's auto generator uses Boltz's alignment path.
+        if hasProteinTarget && designPredictor == .alphafold3 && !set.contains(.boltz) {
+            set.append(.boltz)
+        }
         if !set.contains(designer.component) { set.append(designer.component) }
         return set
     }
@@ -257,14 +322,20 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Rough wall-clock estimate in seconds. The per-prediction figures are
     /// already the best measured schedule, so they are not divided by a process
     /// count again — doing that was double-counting the concurrency and made the
-    /// estimate several times too optimistic. Still ignores MSA generation and
-    /// inverse folding, so the UI presents it as "at least".
-    var estimatedSecondsLowerBound: Double {
-        let designPredictions = Double(max(1, numDesigns) * max(1, numCycles))
+    /// estimate several times too optimistic. It includes every possible final
+    /// post-check, but excludes MSA generation and inverse folding; the UI names
+    /// both qualifications instead of presenting it as a strict bound.
+    var estimatedPredictionSeconds: Double {
+        // The runner predicts cycle_00 before the requested optimisation
+        // cycles, so five optimisation cycles means six folds per design.
+        let cyclesIncludingSeed = max(0, numCycles) + 1
+        let designPredictions = Double(max(1, numDesigns) * cyclesIncludingSeed)
         var total = designPredictions * designPredictor.measuredSeconds(in: speedMode)
-        // Post-prediction touches only the final cycle, and only hits when gated.
-        let postCandidates = Double(max(1, numDesigns)) * (postOnlyHits ? 0.35 : 1.0)
-        for p in postPredictors {
+        // Use every eligible checkpoint so threshold gating can only make the
+        // real run shorter.
+        let checkedCycles = postCheckScope == .allCycles ? cyclesIncludingSeed : 1
+        let postCandidates = Double(max(1, numDesigns) * checkedCycles)
+        for p in effectivePostPredictors {
             total += postCandidates * p.measuredSeconds(in: speedMode)
         }
         return total
@@ -272,7 +343,11 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     var isRunnable: Bool {
         let targetOK = targetKind == .protein ? !targetSequence.isEmpty : !targetSmiles.isEmpty
-        guard targetOK else { return false }
+        guard targetOK, !hasInvalidEpitopeResidues, !hasIncompatibleTargeting else { return false }
+        if targetKind == .ligand && ligandIsConjugated &&
+            (ligandAttachmentAtom == nil || ligandAttachmentLinkerAtom == nil) {
+            return false
+        }
         switch designType {
         case .nanobody:
             return !scaffoldSequence.isEmpty && !cdrs.isEmpty
@@ -286,12 +361,56 @@ struct DesignRequest: Codable, Equatable, Hashable {
         if !allowedDesigners.contains(designer) { designer = preferredDesigner }
     }
 
+    /// Remove duplicate/self-checking engines and make design-time targeting
+    /// executable instead of allowing a request the selected engine will ignore.
+    mutating func reconcilePredictors() {
+        if hasEpitopeSteering && !usesBoltzDesignEngine {
+            let previousDesign = designPredictor.checkingVariant
+            designPredictor = .boltzPotentials
+            if previousDesign.runnerValue != Predictor.boltz.runnerValue {
+                postPredictors.append(previousDesign)
+            }
+        } else if targetKind == .ligand && !ligandContactAtoms.isEmpty && !usesBoltzDesignEngine {
+            let previousDesign = designPredictor.checkingVariant
+            designPredictor = ligandContactForce ? .boltzPotentials : .boltz
+            if previousDesign.runnerValue != Predictor.boltz.runnerValue {
+                postPredictors.append(previousDesign)
+            }
+        }
+        postPredictors = effectivePostPredictors
+    }
+
+    /// Change the design engine without accidentally losing independent
+    /// validation. The former driver becomes a checker when it is a different
+    /// backend; a Boltz/potentials variant change remains the same backend.
+    mutating func selectDesignPredictor(_ newPredictor: Predictor) {
+        let previous = designPredictor.checkingVariant
+        designPredictor = newPredictor
+        if previous.runnerValue != newPredictor.runnerValue {
+            postPredictors.append(previous)
+        }
+        reconcilePredictors()
+    }
+
+    /// Reconcile only active controls when target kind changes. Alternate input
+    /// is retained so an accidental picker change does not erase user work;
+    mutating func reconcileTargetKind() {
+        if targetKind == .protein {
+            ligandIsConjugated = false
+            ligandAttachmentAtom = nil
+            ligandAttachmentLinkerAtom = nil
+        }
+        reconcileDesigner()
+        reconcilePredictors()
+    }
+
     /// Apply sensible defaults when switching design type.
     mutating func applyTypeDefaults() {
         let r = designType.defaultLengthRange
         binderMinLen = r.lowerBound
         binderMaxLen = r.upperBound
         reconcileDesigner()
+        reconcilePredictors()
     }
 
     init() {}
@@ -300,10 +419,12 @@ struct DesignRequest: Codable, Equatable, Hashable {
         case designType, scaffoldID, scaffoldSequence, cdrs, binderMinLen, binderMaxLen, helixKill
         case targetKind, targetName, targetSequence, targetSmiles, epitopeResidues
         case designer, numDesigns, numCycles, hitThreshold, parallelMode, manualParallel
-        case designPredictor, postPredictors, intellifoldModel, postOnlyHits, speedMode, resumeIfPossible
+        case designPredictor, postPredictors, intellifoldModel, postOnlyHits, postCheckScope
+        case speedMode, resumeIfPossible
         case mpnnTempCycle1, mpnnTempLater, lasermpnnSeqTemp, lasermpnnFirstShellTemp
         case ligandContactAtoms, ligandContactDistance, ligandContactForce
-        case ligandAffinityHead, ligandAttachmentAtom, ligandAtomsGeneratedFor
+        case ligandAffinityHead, ligandIsConjugated, ligandAttachmentAtom
+        case ligandAttachmentLinkerAtom, ligandAtomsGeneratedFor
     }
 
     /// Resilient decoding: every field defaults if absent, so adding new fields
@@ -333,6 +454,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         postPredictors  = try c.decodeIfPresent([Predictor].self, forKey: .postPredictors) ?? d.postPredictors
         intellifoldModel = try c.decodeIfPresent(IntelliFoldModel.self, forKey: .intellifoldModel) ?? d.intellifoldModel
         postOnlyHits    = try c.decodeIfPresent(Bool.self, forKey: .postOnlyHits) ?? d.postOnlyHits
+        postCheckScope  = try c.decodeIfPresent(PostCheckScope.self, forKey: .postCheckScope) ?? d.postCheckScope
         speedMode       = try c.decodeIfPresent(SpeedMode.self, forKey: .speedMode) ?? d.speedMode
         resumeIfPossible = try c.decodeIfPresent(Bool.self, forKey: .resumeIfPossible) ?? d.resumeIfPossible
         mpnnTempCycle1  = try c.decodeIfPresent(Double.self, forKey: .mpnnTempCycle1) ?? d.mpnnTempCycle1
@@ -344,6 +466,11 @@ struct DesignRequest: Codable, Equatable, Hashable {
         ligandContactForce   = try c.decodeIfPresent(Bool.self, forKey: .ligandContactForce) ?? d.ligandContactForce
         ligandAffinityHead   = try c.decodeIfPresent(Bool.self, forKey: .ligandAffinityHead) ?? d.ligandAffinityHead
         ligandAttachmentAtom = try c.decodeIfPresent(Int.self, forKey: .ligandAttachmentAtom) ?? d.ligandAttachmentAtom
+        ligandAttachmentLinkerAtom = try c.decodeIfPresent(Int.self, forKey: .ligandAttachmentLinkerAtom) ?? d.ligandAttachmentLinkerAtom
+        ligandIsConjugated = try c.decodeIfPresent(Bool.self, forKey: .ligandIsConjugated)
+            ?? (ligandAttachmentAtom != nil || ligandAttachmentLinkerAtom != nil)
         ligandAtomsGeneratedFor = try c.decodeIfPresent(String.self, forKey: .ligandAtomsGeneratedFor) ?? d.ligandAtomsGeneratedFor
+        reconcileDesigner()
+        reconcilePredictors()
     }
 }

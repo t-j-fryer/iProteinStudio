@@ -34,9 +34,15 @@ enum CommandBuilder {
             "--out-root", outRoot.path,
             "--num-runs", String(max(1, request.numDesigns)),
             "--num-opt-cycles", String(max(1, request.numCycles)),
-            "--post-iptm-threshold", String(format: "%.2f", request.hitThreshold),
-            "--model", (request.intellifoldModel ?? .v2flash).rawValue,
+            "--iptm-threshold", String(format: "%.2f", request.hitThreshold),
         ]
+
+        // IntelliFold architecture is meaningful only when IntelliFold is
+        // actually used. Omitting it elsewhere keeps the recorded command an
+        // honest description of the models that will run.
+        if request.usesIntelliFold {
+            args += ["--model", (request.intellifoldModel ?? .v2flash).rawValue]
+        }
 
         // Steering potentials are a separate method, not a cosmetic Boltz option:
         // they roughly double wall time (10.9 -> 24.1 s on the SUMO benchmark).
@@ -46,34 +52,52 @@ enum CommandBuilder {
         // are on. Writing `force: true` into the YAML and then running without
         // them would look like targeting while doing almost nothing, so the two
         // are tied together here.
-        let needsPotentialsForPocket = request.targetKind == .ligand
-            && !request.ligandContactAtoms.isEmpty
-            && request.ligandContactForce
-        if request.designPredictor.usesSteeringPotentials || needsPotentialsForPocket {
-            args += ["--boltz-use-potentials"]
-        } else if request.designPredictor == .boltz {
-            args += ["--boltz-no-potentials"]
+        if request.usesBoltzDesignEngine {
+            let needsPotentialsForPocket = request.targetKind == .ligand
+                && !request.ligandContactAtoms.isEmpty
+                && request.ligandContactForce
+            let needsPotentialsForEpitope = request.hasEpitopeSteering
+            if request.designPredictor.usesSteeringPotentials
+                || needsPotentialsForPocket || needsPotentialsForEpitope {
+                args += ["--boltz-use-potentials"]
+            } else {
+                args += ["--boltz-no-potentials"]
+            }
         }
 
         // Orthogonal post-prediction. The design predictor's own iPTM is
         // self-scored, so this is the number that should drive selection.
-        if request.postPredictors.isEmpty {
+        let postPredictors = request.effectivePostPredictors
+        if postPredictors.isEmpty {
             args += ["--post-predictor", "none", "--post-mode", "none"]
         } else {
-            let names = request.postPredictors.map(\.runnerValue)
-            // De-duplicate: Boltz and Boltz+potentials share a runner value, and
-            // passing it twice would run the same fold twice for no information.
-            var seen = Set<String>()
-            let unique = names.filter { seen.insert($0).inserted }
-            args += ["--post-predictor", unique.joined(separator: ","),
-                     "--post-mode", request.postOnlyHits ? "iptm" : "all"]
+            let postMode: String
+            switch (request.postCheckScope, request.postOnlyHits) {
+            case (.finalCycle, true):  postMode = "final-iptm"
+            case (.finalCycle, false): postMode = "final"
+            case (.allCycles, true):   postMode = "iptm"
+            case (.allCycles, false):  postMode = "all"
+            }
+            args += ["--post-predictor", postPredictors.map(\.runnerValue).joined(separator: ","),
+                     "--post-mode", postMode]
+            if request.postCheckScope == .allCycles {
+                args.append("--post-include-cycle00")
+            }
+            if request.postOnlyHits {
+                args += ["--post-iptm-threshold", String(format: "%.2f", request.hitThreshold)]
+            }
         }
 
-        // Random base MPNN seed so re-running a project samples NEW sequences
-        // (the runner adds per-run/per-cycle offsets on top). Only matters for
-        // the MPNN designers (AbMPNN/ProteinMPNN/SolubleMPNN/LigandMPNN); AntiFold
-        // ignores it. Passed always so it's recorded in the command.
-        if let mpnnSeed { args += ["--mpnn-seed", String(mpnnSeed)] }
+        // Fresh base seed so a new launch explores new sequences while its
+        // durable manifest remains exactly reproducible. Route it to the flag
+        // each designer actually consumes; the runner adds run/cycle offsets.
+        if let mpnnSeed {
+            switch request.designer {
+            case .antifold: args += ["--antifold-seed", String(mpnnSeed)]
+            case .lasermpnn: args += ["--lasermpnn-seed", String(mpnnSeed)]
+            default: args += ["--mpnn-seed", String(mpnnSeed)]
+            }
+        }
 
         // Redesign temperature: hotter on the first cycle to explore, cooler
         // afterwards to refine. The runner aliases the AntiFold and MPNN
@@ -101,6 +125,9 @@ enum CommandBuilder {
             args += ["--random-binder",
                      "--binder-min-len", String(max(1, request.binderMinLen)),
                      "--binder-max-len", String(max(request.binderMinLen, request.binderMaxLen))]
+            // Cycle-0 length/composition must be reproducible from the durable
+            // manifest, not drawn from process-global randomness.
+            if let mpnnSeed { args += ["--binder-random-seed", String(mpnnSeed)] }
             // Helix suppression (de-novo only): bias the seed away from helices.
             if request.helixKill > 0.01 {
                 args += ["--helix-kill",
@@ -183,6 +210,10 @@ enum CommandBuilder {
         var env = ProcessInfo.processInfo.environment
         env["NANOHUNTER_ROOT"] = AppPaths.support.path
         env["NANOHUNTER_VENV_PREFIX"] = "NanoHunter"
+        // Target alignments are shared by plain prediction, target preparation,
+        // RFdiffusion3 verification, and iterative design. The runner still
+        // validates the query sequence and requires depth >= 2 before reuse.
+        env["NANOHUNTER_TARGET_MSA_CACHE_DIR_DEFAULT"] = AppPaths.msaCache.path
         // Persistent scaffold-MSA cache, outside examples/ (which is re-staged).
         env["NANOHUNTER_SCAFFOLD_MSA_CACHE_DIR_DEFAULT"] = AppPaths.scaffoldMSACache.path
         // Persist XLA executables across cycles. Without this AlphaFold 3 pays a
