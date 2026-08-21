@@ -3,13 +3,11 @@
 #
 # Installs the design backends into the app's managed directory. Core backends
 # are always installed; the heavier predictors are opt-in because they cost
-# gigabytes and, in AlphaFold 3's case, need weights the user must obtain
-# themselves under Google's terms.
+# gigabytes.
 #
 #   Core     Boltz-2 · LigandMPNN family (+AbMPNN) · AntiFold · IntelliFold
 #   Optional --with-openfold3        OpenFold-3-MLX      (~2.1 GB checkpoint)
-#            --with-alphafold3       AlphaFold 3 3.0.4   (weights NOT downloaded)
-#            --with-intellifold-jax  IntelliFold JAX/MPS (v2-flash + full v2; needs AF3 env)
+#            --with-protenix         Protenix v2 + Mini   (native MPS, GPU-only)
 #            --with-rfd3             RFdiffusion3 on MLX (~1.3 GB checkpoint)
 #
 # Reuse instead of reinstall:
@@ -48,16 +46,15 @@ ANTIFOLD_REV="789d46786624c01eb44f177ef4c0deeeb6e77469"
 INTELLIFOLD_REV="4e420db7482b4f50dbb86800ff710ee4ec7c7b7b"
 LASERMPNN_REV="5df210fced6764d83f01425d1fc4319a22b70c2a"
 OPENFOLD_REV="eeac37eb82dc2b80cf043eb26105a16d2493d052"
-ALPHAFOLD3_REV="85c4d20505fd5cef05eac22b534d4e793971ae69" # v3.0.4
 RFD3_REV="47a42e8f40207e66b994d4863f9b1911f1bc36eb"
+PROTENIX_REV="4c355be4553512f72453ecbfb65e69f4c35d1413" # upstream 2.0.0
 
 # Every engine is opt-in. Only the sequence designers are unconditional.
 WITH_BOLTZ=0
 WITH_ANTIFOLD=0
 WITH_INTELLIFOLD=0
+WITH_PROTENIX=0
 WITH_OPENFOLD3=0
-WITH_ALPHAFOLD3=0
-WITH_INTELLIFOLD_JAX=0
 WITH_RFD3=0
 WITH_LASERMPNN=0
 MATERIALISE=0
@@ -71,14 +68,16 @@ while [[ $# -gt 0 ]]; do
     --with-boltz)           WITH_BOLTZ=1; shift ;;
     --with-antifold)        WITH_ANTIFOLD=1; shift ;;
     --with-intellifold)     WITH_INTELLIFOLD=1; shift ;;
+    --with-protenix)        WITH_PROTENIX=1; shift ;;
     --with-openfold3)       WITH_OPENFOLD3=1; shift ;;
-    --with-alphafold3)      WITH_ALPHAFOLD3=1; shift ;;
-    --with-intellifold-jax) WITH_INTELLIFOLD_JAX=1; WITH_ALPHAFOLD3=1; shift ;;
+    --with-alphafold3|--with-intellifold-jax)
+      echo "NHFAIL|AlphaFold 3 and IntelliFold JAX were retired after Metal quality-control failures."
+      exit 2 ;;
     --with-rfd3)            WITH_RFD3=1; WITH_BOLTZ=1; shift ;;
     --link-existing)        LINK_EXISTING="$2"; shift 2 ;;
     --materialise|--materialize) MATERIALISE=1; shift ;;
     --all)                  WITH_BOLTZ=1; WITH_ANTIFOLD=1; WITH_INTELLIFOLD=1
-                            WITH_OPENFOLD3=1; WITH_ALPHAFOLD3=1; WITH_INTELLIFOLD_JAX=1
+                            WITH_OPENFOLD3=1; WITH_PROTENIX=1
                             WITH_LASERMPNN=1; WITH_RFD3=1; shift ;;
     --with-lasermpnn)       WITH_LASERMPNN=1; shift ;;
     --link-rfd3)            LINK_RFD3="$2"; shift 2 ;;
@@ -93,19 +92,17 @@ BOLTZ_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_boltz"
 LIGAND_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_ligandmpnn"
 ANTIFOLD_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_antifold"
 INTELLIFOLD_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_intellifold"
+PROTENIX_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_protenix"
 OPENFOLD_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_openfold3_mlx"
-ALPHAFOLD3_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_alphafold3"
 LIGANDMPNN_REPO="${SRC_DIR}/LigandMPNN"
 ANTIFOLD_REPO="${SRC_DIR}/AntiFold"
 INTELLIFOLD_REPO="${SRC_DIR}/IntelliFold"
+PROTENIX_REPO="${SRC_DIR}/Protenix"
 OPENFOLD_REPO="${SRC_DIR}/openfold-3-mlx"
-ALPHAFOLD3_REPO="${SRC_DIR}/alphafold3"
 BOLTZ_MODEL_DIR="${NANOHUNTER_ROOT}/models/boltz2"
 NUMBA_CACHE_DIR="${NANOHUNTER_ROOT}/numba_cache"
-ALPHAFOLD3_MODEL_DIR="${NANOHUNTER_ROOT}/models/alphafold3"
 INTELLIFOLD_MODEL_DIR="${NANOHUNTER_ROOT}/models/intellifold"
-INTELLIFOLD_JAX_FLASH_MODEL_DIR="${NANOHUNTER_ROOT}/models/intellifold_jax_flash"
-INTELLIFOLD_JAX_V2_MODEL_DIR="${NANOHUNTER_ROOT}/models/intellifold_jax_v2"
+PROTENIX_MODEL_DIR="${NANOHUNTER_ROOT}/models/protenix"
 OPENFOLD_MODEL_DIR="${NANOHUNTER_ROOT}/models/openfold3"
 OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_MODEL_DIR}/of3_ft3_v1.pt"
 RFD3_ROOT="${NANOHUNTER_ROOT}/rfd3"
@@ -114,7 +111,10 @@ RFD3_WEIGHTS_PATH="${RFD3_ROOT}/weights/rfd3_core.safetensors"
 # Staged out of the app bundle next to this script; absent when the script is
 # run standalone, in which case the overlay step is simply skipped.
 STUDIO_RFD3_OVERLAY="${NANOHUNTER_ROOT}/rfd3_overlay"
-INTELLIFOLD_STUDIO_PATCH="${NANOHUNTER_ROOT}/patches/intellifold_nanohunter.patch"
+INTELLIFOLD_STUDIO_PATCH="${NANOHUNTER_ROOT}/patches/intellifold_pytorch_mps.patch"
+PROTENIX_STUDIO_PATCH="${NANOHUNTER_ROOT}/patches/protenix_mps.patch"
+PROTENIX_LOCK="${NANOHUNTER_ROOT}/requirements-protenix-mps-lock.txt"
+VERIFIED_DOWNLOADER="${NANOHUNTER_ROOT}/scripts/download_verified.py"
 
 step()  { echo "NHSTEP|$1|$2|$3"; }
 state() { echo "NHSTATE|$1|$2|$3"; }
@@ -168,6 +168,15 @@ detect() {
   else
     state intellifold missing "environment, v2-flash/full-v2 weights, or CCD absent"
   fi
+  if [[ -x "${PROTENIX_VENV}/bin/protenix" \
+     && -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix-v2.pt" \
+     && -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix_mini_default_v0.5.0.pt" \
+     && -f "${PROTENIX_MODEL_DIR}/common/components.cif" \
+     && -f "${PROTENIX_MODEL_DIR}/common/components.cif.rdkit_mol.pkl" ]]; then
+    state protenix ok "Protenix v2 and Mini with managed checkpoints and chemical data"
+  else
+    state protenix missing "environment, v2/Mini checkpoint, or chemical data absent"
+  fi
   if [[ -x "${OPENFOLD_VENV}/bin/python" && -f "${OPENFOLD_CHECKPOINT_PATH}" ]]; then
     state openfold3 ok "OpenFold-3-MLX with checkpoint"
   else
@@ -184,21 +193,6 @@ detect() {
   else
     state lasermpnn missing ""
   fi
-  if [[ -x "${ALPHAFOLD3_VENV}/bin/python" ]]; then
-    if [[ -f "${ALPHAFOLD3_MODEL_DIR}/af3.bin" ]]; then
-      state alphafold3 ok "AlphaFold 3 with weights"
-    else
-      state alphafold3 missing "environment installed, af3.bin weights absent"
-    fi
-  else
-    state alphafold3 missing ""
-  fi
-  [[ -f "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash.bin.zst" \
-     && -f "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash_fourier.npz" \
-     && -f "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2.bin.zst" \
-     && -f "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2_fourier.npz" ]] \
-    && state intellifold_jax ok "JAX/MPS v2-flash and full v2" \
-    || state intellifold_jax missing "v2-flash conversion or full-v2 weights absent"
   if [[ -x "${RFD3_ROOT}/.venv/bin/python" ]]; then
     # Installation and `install_rfd3.sh --check` verify both multi-GB hashes.
     # Do not re-read them on every app launch merely to populate the Engines
@@ -290,13 +284,12 @@ if [[ -n "${LINK_EXISTING}" ]]; then
     "venvs/${VENV_PREFIX}_ligandmpnn" \
     "venvs/${VENV_PREFIX}_antifold" \
     "venvs/${VENV_PREFIX}_intellifold" \
+    "venvs/${VENV_PREFIX}_protenix" \
     "venvs/${VENV_PREFIX}_openfold3_mlx" \
-    "venvs/${VENV_PREFIX}_alphafold3" \
     "venvs/${VENV_PREFIX}_lasermpnn" \
-    "src/LigandMPNN" "src/AntiFold" "src/IntelliFold" \
-    "src/openfold-3-mlx" "src/alphafold3" "src/LASErMPNN" \
-    "models/alphafold3" "models/boltz2" "models/intellifold" \
-    "models/intellifold_jax_flash" "models/intellifold_jax_v2" "models/openfold3"
+    "src/LigandMPNN" "src/AntiFold" "src/IntelliFold" "src/Protenix" \
+    "src/openfold-3-mlx" "src/LASErMPNN" \
+    "models/boltz2" "models/intellifold" "models/protenix" "models/openfold3"
   do
     link_component "${rel}" || echo "  absent    ${rel} (not in ${LINK_EXISTING})"
   done
@@ -488,7 +481,7 @@ if [[ "${MATERIALISE}" -eq 1 ]]; then
   # Remember where the components came from, so editable installs pointing back
   # at that checkout can be re-pointed once the copies are in place.
   MATERIALISE_SOURCE=""
-  for probe in "venvs/${VENV_PREFIX}_openfold3_mlx" "venvs/${VENV_PREFIX}_alphafold3" "src/alphafold3"; do
+  for probe in "venvs/${VENV_PREFIX}_openfold3_mlx" "src/openfold-3-mlx"; do
     if [[ -L "${NANOHUNTER_ROOT}/${probe}" ]]; then
       MATERIALISE_SOURCE="$(readlink "${NANOHUNTER_ROOT}/${probe}")"
       MATERIALISE_SOURCE="${MATERIALISE_SOURCE%/${probe}}"
@@ -498,12 +491,12 @@ if [[ "${MATERIALISE}" -eq 1 ]]; then
   for rel in \
     "venvs/${VENV_PREFIX}_boltz" "venvs/${VENV_PREFIX}_ligandmpnn" \
     "venvs/${VENV_PREFIX}_antifold" "venvs/${VENV_PREFIX}_intellifold" \
-    "venvs/${VENV_PREFIX}_openfold3_mlx" "venvs/${VENV_PREFIX}_alphafold3" \
+    "venvs/${VENV_PREFIX}_protenix" \
+    "venvs/${VENV_PREFIX}_openfold3_mlx" \
     "venvs/${VENV_PREFIX}_lasermpnn" \
-    "src/LigandMPNN" "src/AntiFold" "src/IntelliFold" \
-    "src/openfold-3-mlx" "src/alphafold3" "src/LASErMPNN" \
-    "models/alphafold3" "models/boltz2" "models/intellifold" \
-    "models/intellifold_jax_flash" "models/intellifold_jax_v2" "models/openfold3" \
+    "src/LigandMPNN" "src/AntiFold" "src/IntelliFold" "src/Protenix" \
+    "src/openfold-3-mlx" "src/LASErMPNN" \
+    "models/boltz2" "models/intellifold" "models/protenix" "models/openfold3" \
     "rfd3" "venvs" "src" "models"
   do
     materialise_component "${rel}" || failed=1
@@ -741,19 +734,19 @@ else
 fi
 
 # ---- IntelliFold (PyTorch) ----
-if [[ "${WITH_INTELLIFOLD}" -eq 1 || "${WITH_INTELLIFOLD_JAX}" -eq 1 ]]; then
+if [[ "${WITH_INTELLIFOLD}" -eq 1 ]]; then
 step intellifold 60 "Installing IntelliFold prediction engine"
 ensure_pinned_repo "IntelliFold" "https://github.com/IntelliGen-AI/IntelliFold.git" \
   "${INTELLIFOLD_REV}" "${INTELLIFOLD_REPO}"
 [[ -f "${INTELLIFOLD_STUDIO_PATCH}" ]] \
-  || fail "Bundled IntelliFold JAX/v2-flash patch is missing: ${INTELLIFOLD_STUDIO_PATCH}"
+  || fail "Bundled IntelliFold PyTorch/MPS patch is missing: ${INTELLIFOLD_STUDIO_PATCH}"
 if git -C "${INTELLIFOLD_REPO}" apply --check "${INTELLIFOLD_STUDIO_PATCH}" >/dev/null 2>&1; then
   git -C "${INTELLIFOLD_REPO}" apply "${INTELLIFOLD_STUDIO_PATCH}" \
-    || fail "Could not apply the validated IntelliFold JAX/v2-flash patch."
+    || fail "Could not apply the validated IntelliFold PyTorch/MPS patch."
 elif git -C "${INTELLIFOLD_REPO}" apply --reverse --check "${INTELLIFOLD_STUDIO_PATCH}" >/dev/null 2>&1; then
-  echo "  IntelliFold JAX/v2-flash patch already applied"
+  echo "  IntelliFold PyTorch/MPS patch already applied"
 else
-  fail "IntelliFold source does not match the validated JAX/v2-flash patch base."
+  fail "IntelliFold source does not match the validated PyTorch/MPS patch base."
 fi
 [[ -d "${INTELLIFOLD_VENV}" ]] || "${INTELLIFOLD_PYTHON_BIN}" -m venv "${INTELLIFOLD_VENV}" || fail "IntelliFold venv creation failed."
 source "${INTELLIFOLD_VENV}/bin/activate"
@@ -831,12 +824,90 @@ PY
   || fail "IntelliFold install finished without v2-flash/full-v2 weights or CCD data."
 state intellifold ok "IntelliFold v2-flash and full v2 (PyTorch/MPS)"
 else
-  state intellifold skipped "not requested"
+state intellifold skipped "not requested"
+fi
+
+# ---- Protenix v2 + Mini (native Apple MPS, no CPU fallback) ----
+if [[ "${WITH_PROTENIX}" -eq 1 ]]; then
+  step protenix 64 "Installing Protenix v2 and Mini for the Apple GPU"
+  ensure_pinned_repo "Protenix" "https://github.com/bytedance/Protenix.git" \
+    "${PROTENIX_REV}" "${PROTENIX_REPO}"
+  [[ -f "${PROTENIX_STUDIO_PATCH}" ]] \
+    || fail "Bundled Protenix MPS patch is missing: ${PROTENIX_STUDIO_PATCH}"
+  if git -C "${PROTENIX_REPO}" apply --check "${PROTENIX_STUDIO_PATCH}" >/dev/null 2>&1; then
+    git -C "${PROTENIX_REPO}" apply "${PROTENIX_STUDIO_PATCH}" \
+      || fail "Could not apply the validated Protenix MPS patch."
+  elif git -C "${PROTENIX_REPO}" apply --reverse --check "${PROTENIX_STUDIO_PATCH}" >/dev/null 2>&1; then
+    echo "  Protenix MPS patch already applied"
+  else
+    fail "Protenix source does not match the validated MPS patch base."
+  fi
+
+  [[ -f "${PROTENIX_LOCK}" ]] || fail "Bundled Protenix dependency lock is missing."
+  [[ -f "${VERIFIED_DOWNLOADER}" ]] || fail "Bundled verified downloader is missing."
+  [[ -d "${PROTENIX_VENV}" ]] || "${PYTHON_BIN}" -m venv "${PROTENIX_VENV}" \
+    || fail "Protenix venv creation failed."
+  "${PROTENIX_VENV}/bin/pip" install --upgrade pip >/dev/null \
+    || fail "pip upgrade failed (Protenix)."
+  "${PROTENIX_VENV}/bin/pip" install -r "${PROTENIX_LOCK}" >/dev/null \
+    || fail "Protenix locked dependency install failed."
+  "${PROTENIX_VENV}/bin/pip" install --no-deps -e "${PROTENIX_REPO}" >/dev/null \
+    || fail "Protenix source install failed."
+
+  # Checkpoints and chemical data live in the managed runtime, never in Git.
+  # Every transfer resumes its .part file after a timed read and only becomes
+  # visible under the final name after its pinned SHA-256 matches.
+  mkdir -p "${PROTENIX_MODEL_DIR}/checkpoint" "${PROTENIX_MODEL_DIR}/common"
+  PROTENIX_HF_REV="653edab28103133512575365130916e3fd23ecc3"
+  download_protenix() {
+    local relative="$1" url="$2" checksum="$3" label="$4" start="$5" end="$6"
+    "${PROTENIX_VENV}/bin/python" "${VERIFIED_DOWNLOADER}" \
+      --url "${url}" --sha256 "${checksum}" \
+      --output "${PROTENIX_MODEL_DIR}/${relative}" --label "${label}" \
+      --progress-key protenix --progress-start "${start}" --progress-end "${end}" \
+      || fail "Could not download or verify ${label}. The partial file was retained for resume."
+  }
+  download_protenix "checkpoint/protenix-v2.pt" \
+    "https://huggingface.co/TMF001/protenix-v2-weights/resolve/${PROTENIX_HF_REV}/protenix-v2.pt?download=true" \
+    "8f931f9774a396b67033d0e58628e1834f4a1448165e04254b40a780b0c0d599" \
+    "Protenix v2 checkpoint" 64 70
+  download_protenix "checkpoint/protenix_mini_default_v0.5.0.pt" \
+    "https://protenix.tos-cn-beijing.volces.com/checkpoint/protenix_mini_default_v0.5.0.pt" \
+    "3803340c5d9958c038e799ddd2b53b532db21855f261592ad455a5f003791f81" \
+    "Protenix Mini checkpoint" 70 73
+  download_protenix "common/components.cif" \
+    "https://protenix.tos-cn-beijing.volces.com/common/components.cif" \
+    "bb31ae5cf6c8bc669924313077cb4231ee5ffefd3a20118cd14f3ec89f8bb6a5" \
+    "Protenix chemical components" 73 77
+  download_protenix "common/components.cif.rdkit_mol.pkl" \
+    "https://protenix.tos-cn-beijing.volces.com/common/components.cif.rdkit_mol.pkl" \
+    "d1cfb71f5993a3ebea7c47877022d7f597bbfbaf86e28a4770e957da6c50cd35" \
+    "Protenix RDKit component cache" 77 79
+  download_protenix "common/obsolete_release_date.csv" \
+    "https://protenix.tos-cn-beijing.volces.com/common/obsolete_release_date.csv" \
+    "a4f3f63ac5d7eebd78b07995cc669b9eccd6f5d8813c9492c9df02868893cf33" \
+    "Protenix obsolete-entry table" 79 80
+  download_protenix "common/clusters-by-entity-40.txt" \
+    "https://protenix.tos-cn-beijing.volces.com/common/clusters-by-entity-40.txt" \
+    "1ab4af905e75b382eda8dec59917dc3608bee0729e36b9e71baf860bbe86850c" \
+    "Protenix sequence clusters" 80 81
+
+  PROTENIX_ROOT_DIR="${PROTENIX_MODEL_DIR}" "${PROTENIX_VENV}/bin/python" - <<'PY' \
+    || fail "Protenix cannot use the Apple GPU on this Mac. CPU fallback is intentionally disabled."
+import torch
+if not torch.backends.mps.is_available():
+    raise SystemExit("Metal Performance Shaders is unavailable")
+import protenix
+print(f"  Protenix ready on {torch.device('mps')}")
+PY
+  state protenix ok "Protenix v2 and Mini (native MPS, GPU-only)"
+else
+  state protenix skipped "not requested"
 fi
 
 # ---- LASErMPNN (ligand-aware inverse folding) ----
 if [[ "${WITH_LASERMPNN}" -eq 1 ]]; then
-  step lasermpnn 66 "Installing LASErMPNN (ligand-aware sequence design)"
+  step lasermpnn 82 "Installing LASErMPNN (ligand-aware sequence design)"
   LASERMPNN_REPO="${SRC_DIR}/LASErMPNN"
   LASERMPNN_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_lasermpnn"
   ensure_pinned_repo "LASErMPNN" "https://github.com/polizzilab/LASErMPNN.git" \
@@ -876,7 +947,7 @@ fi
 
 # ---- OpenFold-3-MLX (optional predictor) ----
 if [[ "${WITH_OPENFOLD3}" -eq 1 ]]; then
-  step openfold3 72 "Installing OpenFold-3 (MLX kernels) — downloading ~2 GB checkpoint"
+  step openfold3 87 "Installing OpenFold-3 (MLX kernels) — downloading ~2 GB checkpoint"
   ensure_pinned_repo "openfold-3-mlx" "https://github.com/latent-spacecraft/openfold-3-mlx.git" \
     "${OPENFOLD_REV}" "${OPENFOLD_REPO}"
   [[ -d "${OPENFOLD_VENV}" ]] || "${PYTHON_BIN}" -m venv "${OPENFOLD_VENV}" || fail "OpenFold venv creation failed."
@@ -922,97 +993,6 @@ PY
   state openfold3 ok "OpenFold-3-MLX"
 else
   state openfold3 skipped "not requested"
-fi
-
-# ---- AlphaFold 3 (optional predictor; weights are the user's responsibility) ----
-if [[ "${WITH_ALPHAFOLD3}" -eq 1 ]]; then
-  step alphafold3 84 "Installing AlphaFold 3 (compiles C++ dependencies — this is slow)"
-  ensure_uv
-  ensure_pinned_repo "AlphaFold 3" "https://github.com/google-deepmind/alphafold3.git" \
-    "${ALPHAFOLD3_REV}" "${ALPHAFOLD3_REPO}"
-  [[ -d "${ALPHAFOLD3_VENV}" ]] || "${UV_BIN}" venv "${ALPHAFOLD3_VENV}" --python 3.12 \
-    || fail "AlphaFold 3 venv creation failed."
-  # Cap compile parallelism so a design run in progress keeps its CPU and RAM.
-  if ! "${ALPHAFOLD3_VENV}/bin/python" -c "import alphafold3" >/dev/null 2>&1; then
-    CMAKE_BUILD_PARALLEL_LEVEL=2 MAKEFLAGS=-j2 \
-      "${UV_BIN}" pip install --python "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_REPO}" >/dev/null \
-      || fail "AlphaFold 3 install failed."
-  fi
-  # The JAX IntelliFold runner reuses AF3's inference engine, so its wrapper
-  # lives in this environment while PyTorch IntelliFold stays separate.
-  "${UV_BIN}" pip install --python "${ALPHAFOLD3_VENV}/bin/python" \
-    --editable "${INTELLIFOLD_REPO}" --no-deps >/dev/null 2>&1 || true
-  if [[ -x "${ALPHAFOLD3_VENV}/bin/build_data" ]]; then
-    "${ALPHAFOLD3_VENV}/bin/build_data" >/dev/null || fail "AlphaFold 3 chemical component build failed."
-  fi
-  mkdir -p "${ALPHAFOLD3_MODEL_DIR}"
-  if [[ -f "${ALPHAFOLD3_MODEL_DIR}/af3.bin" ]]; then
-    state alphafold3 ok "AlphaFold 3 with weights"
-  else
-    # Not a failure: the environment is usable, the weights are gated by Google's
-    # terms and cannot be fetched automatically. The app surfaces this state.
-    state alphafold3 missing "environment ready — place af3.bin at ${ALPHAFOLD3_MODEL_DIR}/af3.bin"
-  fi
-else
-  state alphafold3 skipped "not requested"
-fi
-
-# ---- IntelliFold JAX/MPS backend (optional speed path) ----
-if [[ "${WITH_INTELLIFOLD_JAX}" -eq 1 ]]; then
-  step intellifold_jax 92 "Installing IntelliFold v2-flash and full v2 for JAX/MPS"
-  # Full v2 is the upstream JAX release. Keep it separate from NanoHunter's
-  # validated v2-flash conversion: they are different architectures and the UI
-  # must never select one while silently loading the other.
-  mkdir -p "${INTELLIFOLD_JAX_V2_MODEL_DIR}" "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}"
-  # Migrate the short-lived Studio layout that put upstream full-v2 files in a
-  # directory named "flash". Exact filenames make this unambiguous.
-  if [[ -f "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2.bin.zst" ]]; then
-    mv "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2.bin.zst" \
-       "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2.bin.zst"
-  fi
-  if [[ -f "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_fourier.npz" ]]; then
-    mv "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_fourier.npz" \
-       "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2_fourier.npz"
-  fi
-  PYTHONPATH="${INTELLIFOLD_REPO}" "${ALPHAFOLD3_VENV}/bin/python" - \
-    "${INTELLIFOLD_JAX_V2_MODEL_DIR}" <<'PY' \
-    || fail "IntelliFold JAX weight download failed."
-import contextlib
-import os
-import sys
-from intellifold.weights import ensure_weights
-with open(os.devnull, "w") as sink, contextlib.redirect_stderr(sink):
-    ensure_weights(sys.argv[1], log=lambda _message: None)
-PY
-  [[ -s "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2.bin.zst" \
-     && -s "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2_fourier.npz" ]] \
-    || fail "IntelliFold JAX download produced incomplete weights."
-  check_sha256 "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2.bin.zst" \
-    "16ae6c2002989a3eb3fae60714f2802fc336f6b1fdfb1a90a74a91745cdcdef2" \
-    || fail "IntelliFold JAX v2 weight checksum mismatch."
-  check_sha256 "${INTELLIFOLD_JAX_V2_MODEL_DIR}/intellifold_v2_fourier.npz" \
-    "4453bf29ac0a0f921a67a15155d0dd61e3f7214ec124d6deb91ce935d6a93201" \
-    || fail "IntelliFold JAX Fourier weight checksum mismatch."
-  if ! check_sha256 "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash.bin.zst" \
-         "3ad0c524213d73a65fba2af8ec55a68c5691f82b71e903b93cf5ceaa200e6e1a" \
-     || ! check_sha256 "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash_fourier.npz" \
-         "78e46890f7ef7f8a27ab37aa7535c11661ce7c28d962088095683e9113a4241f"; then
-    PYTHONPATH="${INTELLIFOLD_REPO}" "${INTELLIFOLD_VENV}/bin/python" \
-      -m intellifold.convert_flash \
-      --schema "${INTELLIFOLD_REPO}/intellifold/af3_schema.pkl" \
-      --flash-pt "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
-      --out-dir "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}" \
-      || fail "IntelliFold JAX v2-flash conversion failed."
-  fi
-  check_sha256 "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash.bin.zst" \
-    "3ad0c524213d73a65fba2af8ec55a68c5691f82b71e903b93cf5ceaa200e6e1a" \
-    || fail "IntelliFold JAX v2-flash weight checksum mismatch."
-  check_sha256 "${INTELLIFOLD_JAX_FLASH_MODEL_DIR}/intellifold_v2_flash_fourier.npz" \
-    "78e46890f7ef7f8a27ab37aa7535c11661ce7c28d962088095683e9113a4241f" \
-    || fail "IntelliFold JAX v2-flash Fourier checksum mismatch."
-  state intellifold_jax ok "JAX/MPS v2-flash and full v2"
-else
-  state intellifold_jax skipped "not requested"
 fi
 
 # ---- RFdiffusion3 (optional backbone generator) ----

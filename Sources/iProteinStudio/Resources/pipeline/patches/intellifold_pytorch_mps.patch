@@ -1,0 +1,190 @@
+diff --git a/intellifold/data/module/inference.py b/intellifold/data/module/inference.py
+index eb6be4f..df06f81 100644
+--- a/intellifold/data/module/inference.py
++++ b/intellifold/data/module/inference.py
+@@ -27,6 +27,7 @@ import itertools
+ import bisect
+ import os
+ import shutil
++from functools import partial
+ 
+ import numpy as np
+ import torch
+@@ -312,6 +313,7 @@ def construct_template_featurizer():
+ 
+ def transform(
+     boltz_input_features,
++    buckets: Sequence[int] | None = _BUCKETS,
+     ):
+     """
+     Transform the input features to the format required by the model.
+@@ -328,7 +330,7 @@ def transform(
+     ### calculate the bucket size for padding
+     total_tokens = len(boltz_input_features['token_index'][0])
+     padded_token_length = calculate_bucket_size(
+-        total_tokens, _BUCKETS
++        total_tokens, buckets
+     )
+     
+     boltz_input_features['token_index'] = F.pad(boltz_input_features['token_index']+1, (0, padded_token_length - boltz_input_features['token_index'].shape[1]), 'constant', 0)
+@@ -589,7 +591,10 @@ def transform(
+     
+     return input_features
+         
+-def collate(data: list[dict[str, Tensor]]) -> dict[str, Tensor]:
++def collate(
++    data: list[dict[str, Tensor]],
++    buckets: Sequence[int] | None = _BUCKETS,
++) -> dict[str, Tensor]:
+     """Collate the data.
+ 
+     Parameters
+@@ -637,7 +642,7 @@ def collate(data: list[dict[str, Tensor]]) -> dict[str, Tensor]:
+ 
+         # Stack the values
+         collated[key] = values
+-    collated = transform(collated)
++    collated = transform(collated, buckets=buckets)
+     return collated
+ 
+ 
+@@ -876,13 +881,17 @@ def get_inference_dataloader(
+         constraints_dir=constraints_dir,
+     )
+     
++    cleanup_mode = os.environ.get("NANOHUNTER_INTELLIFOLD_MPS_CLEANUP", "auto")
++    # Pinned host memory accelerates CUDA transfers but is unsupported on MPS.
++    # Preserve the old behavior only for a paired legacy benchmark.
++    pin_memory = cleanup_mode == "legacy" or torch.cuda.is_available()
+     dataloader = DataLoader(
+         dataset,
+         batch_size=1,
+         num_workers=args.num_workers,
+-        pin_memory=True,
++        pin_memory=pin_memory,
+         shuffle=False,
+-        collate_fn=collate,
++        collate_fn=partial(collate, buckets=args.buckets),
+         )
+     
+-    return dataloader
+\ No newline at end of file
++    return dataloader
+diff --git a/run_intellifold.py b/run_intellifold.py
+index d14f9ca..6beecf4 100644
+--- a/run_intellifold.py
++++ b/run_intellifold.py
+@@ -34,7 +34,36 @@ from intellifold.data.inference.utils import download, get_cache_path
+ from intellifold.data.inference.data_tools import check_inputs, compute_msa, process_inputs, check_outputs, compute_similar_sequence
+        
+ logger = logging.getLogger(__name__)
+- 
++
++DEFAULT_BUCKETS = (
++    256, 512, 768, 1024, 1280, 1536, 2048, 2560, 3072,
++    3584, 4096, 4608, 5120,
++)
++
++
++def parse_buckets(value: str) -> tuple[int, ...]:
++    """Parse a strictly increasing comma-separated token-bucket list."""
++    try:
++        buckets = tuple(int(part.strip()) for part in value.split(",") if part.strip())
++    except ValueError as exc:
++        raise argparse.ArgumentTypeError("--buckets must contain integers") from exc
++    if not buckets or any(bucket <= 0 for bucket in buckets):
++        raise argparse.ArgumentTypeError("--buckets must contain positive integers")
++    if any(left >= right for left, right in zip(buckets, buckets[1:])):
++        raise argparse.ArgumentTypeError("--buckets must be strictly increasing")
++    return buckets
++
++
++def empty_device_cache(accelerator):
++    """Clear CUDA's allocator only when CUDA is actually in use.
++
++    The historical runner called ``torch.cuda.empty_cache`` six times per input
++    even on Apple MPS.  ``legacy`` is retained for paired benchmarking and rapid
++    rollback; ``auto`` is the production-safe default.
++    """
++    mode = os.environ.get("NANOHUNTER_INTELLIFOLD_MPS_CLEANUP", "auto")
++    if mode == "legacy" or accelerator.device.type == "cuda":
++        torch.cuda.empty_cache()
+ 
+ def init_logging():
+     LOG_FORMAT = "[%(asctime)s] [%(levelname)-4s] [%(filename)s:%(lineno)s:%(funcName)s] %(message)s"
+@@ -298,7 +327,7 @@ def main(args):
+     loader = accelerator.prepare(pred_loader)
+     for batch_idx, input_features in tqdm(enumerate(loader), total=len(loader), disable= not accelerator.is_local_main_process, desc=f"Predicting"):      
+             
+-        torch.cuda.empty_cache()
++        empty_device_cache(accelerator)
+         
+         try:
+             record = input_features.pop("record")[0]
+@@ -314,7 +343,7 @@ def main(args):
+                 input_features['template_aatype'] = F.one_hot(input_features['template_aatype'].long(),num_classes=31).float()
+                 del orig_template_aatype
+                 gc.collect()
+-                torch.cuda.empty_cache()
++                empty_device_cache(accelerator)
+             else:   
+                 input_features.update(construct_empty_template_features(input_features, device=accelerator.device))
+             
+@@ -330,7 +359,7 @@ def main(args):
+                 f.write(target_msg)
+             del input_features
+             gc.collect()
+-            torch.cuda.empty_cache()
++            empty_device_cache(accelerator)
+             continue
+           
+         seed_completion = 0    
+@@ -341,7 +370,7 @@ def main(args):
+             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             # DO THE FORWARD PASS
+             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-            torch.cuda.empty_cache()
++            empty_device_cache(accelerator)
+             
+             ### set seed
+             if hasattr(model, 'generator'):
+@@ -361,7 +390,7 @@ def main(args):
+                     seed=seed,
+                     )
+                 seed_completion += 1
+-                torch.cuda.empty_cache()
++                empty_device_cache(accelerator)
+             except Exception as e:
+                 error_msg = f"Error in prediction: {e}{traceback.format_exc()}\n"
+                 target_msg = f"N_chains: {input_features['N_chains'].item()}, N_tokens: {input_features['N_tokens'].item()}, N_Atoms: {input_features['N_atoms'].item()}, N_alignments: {input_features['N_alignments'].item()}"
+@@ -375,7 +404,7 @@ def main(args):
+                 del original_ref_features
+                 del input_features
+                 gc.collect()
+-                torch.cuda.empty_cache()
++                empty_device_cache(accelerator)
+                 break
+             
+         if seed_completion == len(seeds):
+@@ -468,6 +497,16 @@ if __name__ == "__main__":
+         default=200, 
+         help="The number of diffusion sampling steps to use. Default is 200."
+     )
++    parser.add_argument(
++        "--buckets",
++        type=parse_buckets,
++        default=DEFAULT_BUCKETS,
++        help=(
++            "Strictly increasing comma-separated token lengths used for input "
++            "padding. The smallest bucket that fits an input is selected. "
++            "Default: 256,512,...,5120."
++        ),
++    )
+     parser.add_argument(
+         "--output_format",
+         type=str,
+@@ -536,4 +575,3 @@ if __name__ == "__main__":
+     
+     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-

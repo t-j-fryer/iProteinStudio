@@ -12,8 +12,12 @@ struct PredictionRecord: Identifiable, Codable, Hashable {
     var createdAt: Date
 
     var engineLabel: String {
-        let e = engine == "intellifold" ? "IntelliFold" : "Boltz"
-        return engine == "intellifold" ? "\(e) (\(model))" : e
+        switch engine {
+        case "intellifold": return "IntelliFold (\(model))"
+        case "protenix_v2": return "Protenix v2"
+        case "protenix_mini": return "Protenix Mini"
+        default: return "Boltz"
+        }
     }
 }
 

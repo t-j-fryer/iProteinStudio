@@ -11,7 +11,7 @@ the same contract the runner's function had.
 
 Usage:
     openfold_query_json.py TEMPLATE_YAML BINDER_SEQ QUERY_NAME OUT_JSON \
-                           [TARGET_MSA_PATH] [BINDER_MSA_PATH]
+                           [TARGET_MSA_PATH] [BINDER_MSA_PATH] [BASE_SEED]
 """
 
 import sys
@@ -30,6 +30,7 @@ import json, sys
 from pathlib import Path
 
 template, binder_seq, query_name, out_json, target_msa_path, binder_msa_path = sys.argv[1:7]
+base_seed = int(sys.argv[7]) if len(sys.argv) > 7 and sys.argv[7] else 42
 
 def strip_quotes(v: str) -> str:
     v = v.strip()
@@ -143,7 +144,7 @@ for e in entries:
         out_chains.append(row)
 
 payload = {
-    "seeds": [42],
+    "seeds": [base_seed],
     "queries": {
         query_name: {
             "chains": out_chains,

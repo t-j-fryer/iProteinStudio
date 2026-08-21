@@ -155,10 +155,12 @@ final class RunHistoryStore: ObservableObject {
             guard AppPaths.fm.fileExists(atPath: config.path) else { return nil }
             let summaryURL = candidate.appendingPathComponent("run_summary.json")
             let summary = json(at: summaryURL)
-            let failures = summary?["num_failures"] as? Int ?? 0
+            let failures = summary?["failures"] as? Int
+                ?? summary?["num_failures"] as? Int ?? 0
             let completed = summary != nil
             let state: StudioRunState = completed ? (failures == 0 ? .completed : .failed) : .interrupted
-            let results = summary?["num_results"] as? Int
+            let results = summary?["results"] as? Int
+                ?? summary?["num_results"] as? Int
                 ?? csvRowCount(candidate.appendingPathComponent("predictions.csv"))
             return StudioRunRecord(projectID: project.id, projectName: project.name,
                                    workflow: .prediction, name: candidate.lastPathComponent,

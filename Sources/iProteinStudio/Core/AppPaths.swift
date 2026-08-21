@@ -70,15 +70,6 @@ enum AppPaths {
         return dir
     }
 
-    /// Persistent JAX/XLA compilation cache. AlphaFold 3 and the IntelliFold JAX
-    /// backend pay a compile cost per new token shape; without a cache that is
-    /// paid again on every cycle of every campaign.
-    static var jaxCompileCache: URL {
-        let dir = support.appendingPathComponent("jax_compile_cache", isDirectory: true)
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
-    }
-
     /// Boltz's model and chemical-component cache. Keeping it under the managed
     /// root prevents a clean install from borrowing an existing ~/.boltz.
     static var boltzCache: URL {
@@ -279,11 +270,14 @@ enum AppPaths {
     @discardableResult
     static func stageRFD3Overlay(force: Bool = false) -> Bool {
         guard let src = bundledRFD3Overlay else { return false }
+        let stampFile = src.appendingPathComponent("OVERLAY_VERSION")
+        let bundled = (try? String(contentsOf: stampFile, encoding: .utf8)) ?? ""
         // Also drop a copy beside the pipeline so setup_pipeline.sh can apply it
         // during a fresh install, before the app has an RFdiffusion3 to overlay.
         let staged = support.appendingPathComponent("rfd3_overlay", isDirectory: true)
-        if !fm.fileExists(atPath: staged.appendingPathComponent("OVERLAY_VERSION").path)
-            || force {
+        let stagedStamp = staged.appendingPathComponent("OVERLAY_VERSION")
+        let stagedVersion = (try? String(contentsOf: stagedStamp, encoding: .utf8)) ?? ""
+        if force || stagedVersion != bundled {
             try? fm.removeItem(at: staged)
             try? fm.copyItem(at: src, to: staged)
         }
@@ -292,11 +286,24 @@ enum AppPaths {
         // Nothing to overlay onto until RFdiffusion3 is installed or linked.
         guard fm.fileExists(atPath: root.path) else { return false }
 
-        let stampFile = src.appendingPathComponent("OVERLAY_VERSION")
         let installedStamp = root.appendingPathComponent(".studio_overlay_version")
-        let bundled = (try? String(contentsOf: stampFile, encoding: .utf8)) ?? ""
         let installed = (try? String(contentsOf: installedStamp, encoding: .utf8)) ?? ""
-        guard force || bundled != installed else { return false }
+
+        // Directory overlays merge so upstream/generated files survive. These
+        // two retired adapters are the exception: leaving them behind on an
+        // upgraded installation would preserve a direct launch route that a
+        // clean installation no longer has.
+        var removedRetiredAdapter = false
+        for relativePath in ["scripts/af3_predict_one.py",
+                             "scripts/intellifold_jax_predict_one.py"] {
+            let obsolete = root.appendingPathComponent(relativePath)
+            if fm.fileExists(atPath: obsolete.path) {
+                try? fm.removeItem(at: obsolete)
+                removedRetiredAdapter = !fm.fileExists(atPath: obsolete.path)
+                    || removedRetiredAdapter
+            }
+        }
+        guard force || bundled != installed else { return removedRetiredAdapter }
 
         guard let items = try? fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
         else { return false }

@@ -4,8 +4,25 @@ import Combine
 /// Structure predictor used for Target Prep.
 enum TargetEngine: String, CaseIterable, Identifiable, Hashable {
     case intellifold, boltz
+    case protenixV2 = "protenix_v2"
+    case protenixMini = "protenix_mini"
     var id: String { rawValue }
-    var label: String { self == .intellifold ? "IntelliFold" : "Boltz" }
+    var label: String {
+        switch self {
+        case .intellifold: return "IntelliFold"
+        case .boltz: return "Boltz"
+        case .protenixV2: return "Protenix v2"
+        case .protenixMini: return "Protenix Mini"
+        }
+    }
+
+    var component: InstallComponent {
+        switch self {
+        case .intellifold: return .intellifold
+        case .boltz: return .boltz
+        case .protenixV2, .protenixMini: return .protenix
+        }
+    }
 }
 
 /// IntelliFold model variants (run_intellifold.py --model choices).
@@ -101,8 +118,12 @@ final class TargetPredictor: ObservableObject {
         var config = PredictionConfig()
         config.root = AppPaths.support.path
         config.output = outDir.path
-        config.predictors = [engine == .boltz ? Predictor.boltz.runnerValue
-                                              : Predictor.intellifold.runnerValue]
+        switch engine {
+        case .boltz: config.predictors = [Predictor.boltz.runnerValue]
+        case .intellifold: config.predictors = [Predictor.intellifold.runnerValue]
+        case .protenixV2: config.predictors = [Predictor.protenixV2.runnerValue]
+        case .protenixMini: config.predictors = [Predictor.protenixMini.runnerValue]
+        }
         config.intellifold_model = engine == .intellifold ? model.rawValue : nil
         config.max_parallel = 1
         config.batch_size = 1

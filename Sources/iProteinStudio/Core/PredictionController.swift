@@ -213,6 +213,8 @@ final class PredictionController: ObservableObject {
         // before the UI made their Boltz-only scope explicit.
         config.use_potentials = boltzSelected && request.useBoltzPotentials
         config.affinity = boltzSelected && request.containsLigand && request.runAffinityHead
+        config.num_seeds = request.numberOfSeeds
+        config.diffusion_samples = request.diffusionSamples
         config.max_parallel = request.maxParallel
         config.batch_size = request.batchSize
         config.msa = sharedMSAConfig(allowServer: !request.offlineOnly)
@@ -299,6 +301,9 @@ struct PredictionConfig: Codable {
     var use_potentials: Bool = false
     var affinity: Bool = false
     var seed: Int = 42
+    var num_seeds: Int = 1
+    /// 0 means preserve the established per-engine defaults.
+    var diffusion_samples: Int = 0
     var max_parallel: Int = 0
     var batch_size: Int = 0
     var msa = MSA()

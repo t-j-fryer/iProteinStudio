@@ -127,7 +127,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--nanohunter-root", type=Path, required=True)
     parser.add_argument("--cpu", action="store_true")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--num-seeds", type=int, default=1)
+    parser.add_argument("--diffusion-samples", type=int, default=1)
     args = parser.parse_args()
+    if args.num_seeds < 1 or args.diffusion_samples < 1:
+        die("num-seeds and diffusion-samples must both be positive")
 
     root = args.nanohunter_root.resolve()
     venv = root / "venvs" / "NanoHunter_openfold3_mlx"
@@ -157,7 +162,8 @@ def main() -> None:
         # fall back to the MSA server for chain A, which is both slow and wrong
         # for a de-novo binder -- and fails outright when the server is down.
         [sys.executable, str(query_builder), str(args.yaml), binder_sequence(args.yaml),
-         name, str(query_json), target_msa(args.yaml), chain_msa(args.yaml, "A")],
+         name, str(query_json), target_msa(args.yaml), chain_msa(args.yaml, "A"),
+         str(args.seed)],
         capture_output=True, text=True)
     if build.returncode:
         die(f"query JSON build failed: {build.stderr.strip()[:400]}")
@@ -189,8 +195,8 @@ def main() -> None:
              "--inference_ckpt_path", str(checkpoint),
              "--runner_yaml", str(runner_yaml),
              "--use_msa_server", use_server,
-             "--num_diffusion_samples", "1",
-             "--num_model_seeds", "1"],
+             "--num_diffusion_samples", str(args.diffusion_samples),
+             "--num_model_seeds", str(args.num_seeds)],
             env=env, stdout=handle, stderr=subprocess.STDOUT)
     if predict.returncode:
         tail = "\n".join(log.read_text(errors="replace").splitlines()[-20:])

@@ -2,7 +2,7 @@
 upstream_repo:   https://github.com/t-j-fryer/iProteinHunter.git
 upstream_commit: 434b8fff6d7d220db57ccafb4b0bd3883dbfe18e (working tree dirty — vendored copy may not match any commit)
 upstream_head:   434b8ff 2026-08-06 Merge branch 'agent/fix-nise-resume-crash-and-seed-doc'
-vendored_on:     2026-08-18T15:17:28Z
-studio_changes:  lab_book/0022-share-msas-and-adopt-py2dmol.md
-runner_lines:    7165
-runner_sha256:   f17fd4bfb3c888a5c52b127b9af854e7a778cdd33b97f4c227e13b2322dfd78d
+vendored_on:     2026-08-21T16:24:07Z
+studio_changes:  lab_book/0030-promote-authoritative-repo-and-harden-protenix.md
+runner_lines:    7129
+runner_sha256:   3bed1c7dd1862ddad48b1aed7d2a342e8dd623849811d0e3439d3d70688001d3

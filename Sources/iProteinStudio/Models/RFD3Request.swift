@@ -266,10 +266,11 @@ struct RFD3Verification: Codable, Hashable {
         var seen = Set<String>()
         return extraPredictors.compactMap { raw in
             let predictor = raw.checkingVariant
+            guard predictor.isAvailable else { return nil }
             if kind == .smallMolecule && predictor.runnerValue == Predictor.boltz.runnerValue {
                 return nil
             }
-            return seen.insert(predictor.runnerValue).inserted ? predictor : nil
+            return seen.insert(predictor.independenceIdentity).inserted ? predictor : nil
         }
     }
 
@@ -285,7 +286,7 @@ struct RFD3Verification: Codable, Hashable {
     }
 
     func usesIntelliFold(for kind: RFD3TargetKind) -> Bool {
-        allPredictors(for: kind).contains { $0 == .intellifold || $0 == .intellifoldJAX }
+        allPredictors(for: kind).contains { $0 == .intellifold }
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -420,9 +421,11 @@ struct RFD3Request: Codable, Hashable {
             where !result.contains(predictor.component) {
             result.append(predictor.component)
         }
-        // Protein verification obtains the target MSA through Boltz once even
-        // when another predictor performs every final fold.
-        if targetKind == .protein && !result.contains(.boltz) { result.append(.boltz) }
+        // Protenix has its own upstream MSA-server client. Boltz is only needed
+        // as the generator when neither it nor Protenix is already selected.
+        if targetKind == .protein && !result.contains(.boltz) && !result.contains(.protenix) {
+            result.append(.boltz)
+        }
         return result
     }
 

@@ -3,9 +3,15 @@ import Foundation
 /// A backend component the setup wizard can install, keyed to the `NHSTATE|<key>`
 /// markers emitted by `setup_pipeline.sh`.
 enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
-    case boltz, mpnn, antifold, lasermpnn, intellifold, openfold3, alphafold3
+    case boltz, mpnn, antifold, lasermpnn, intellifold, protenix, openfold3, alphafold3
     case intellifoldJAX = "intellifold_jax"
     case rfd3
+
+    /// AlphaFold 3 and IntelliFold JAX remain decodable so old projects and
+    /// run manifests still open, but they are not installable components.
+    static var allCases: [InstallComponent] {
+        [.boltz, .mpnn, .antifold, .lasermpnn, .intellifold, .protenix, .openfold3, .rfd3]
+    }
 
     var id: String { rawValue }
 
@@ -16,9 +22,10 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .antifold:       return "AntiFold"
         case .lasermpnn:      return "LASErMPNN"
         case .intellifold:    return "IntelliFold"
+        case .protenix:       return "Protenix"
         case .openfold3:      return "OpenFold-3"
-        case .alphafold3:     return "AlphaFold 3"
-        case .intellifoldJAX: return "IntelliFold (JAX)"
+        case .alphafold3:     return "AlphaFold 3 (retired)"
+        case .intellifoldJAX: return "IntelliFold JAX (retired)"
         case .rfd3:           return "RFdiffusion3"
         }
     }
@@ -35,9 +42,9 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .boltz:          return "--with-boltz"
         case .antifold:       return "--with-antifold"
         case .intellifold:    return "--with-intellifold"
+        case .protenix:       return "--with-protenix"
         case .openfold3:      return "--with-openfold3"
-        case .alphafold3:     return "--with-alphafold3"
-        case .intellifoldJAX: return "--with-intellifold-jax"
+        case .alphafold3, .intellifoldJAX: return nil
         case .lasermpnn:      return "--with-lasermpnn"
         case .rfd3:           return "--with-rfd3"
         }
@@ -50,9 +57,9 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .boltz:          return "~8 GB"
         case .antifold:       return "~2 GB"
         case .intellifold:    return "~5 GB"
+        case .protenix:       return "~5 GB"
         case .openfold3:      return "~4 GB"
-        case .alphafold3:     return "~3 GB + your own weights"
-        case .intellifoldJAX: return "~2 GB + AlphaFold 3 environment"
+        case .alphafold3, .intellifoldJAX: return "retired"
         case .lasermpnn:      return "~2 GB"
         case .rfd3:           return "~5 GB"
         }
@@ -65,9 +72,10 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .boltz:          return "The default folding engine, and the only one that predicts binding strength. Also generates alignments for the others."
         case .antifold:       return "Nanobody CDR design."
         case .intellifold:    return "A second, independent folding engine."
-        case .intellifoldJAX: return "IntelliFold v2-flash or full v2 on the JAX/Metal engine. Needs the AlphaFold 3 environment, so it brings that with it."
+        case .protenix:       return "Protenix v2 for accuracy and Protenix Mini for fast previews, both on the Apple GPU."
+        case .intellifoldJAX: return "Retired after a same-input quality-control failure on Metal."
         case .openfold3:      return "Another independent folding engine, with Apple GPU kernels."
-        case .alphafold3:     return "DeepMind's folding engine. The weights are yours to obtain — they cannot be downloaded for you."
+        case .alphafold3:     return "Retired after a same-input quality-control failure on Metal."
         case .lasermpnn:      return "Ligand-aware sequence design that also places side chains."
         case .rfd3:           return "The RFdiffusion3 tab — generating binder backbones from scratch."
         }
@@ -76,7 +84,6 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Components that must come with this one for it to work at all.
     var requires: [InstallComponent] {
         switch self {
-        case .intellifoldJAX: return [.alphafold3, .intellifold]
         // RFdiffusion3 designs need sequences put on them and folds to check
         // them; Boltz is the engine its campaign scripts drive.
         case .rfd3:           return [.boltz]
@@ -88,8 +95,8 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .lasermpnn:      return "Ligand-aware inverse folding. Runs on CPU — there is no Apple GPU build."
         case .openfold3:      return "Downloads a ~2 GB checkpoint."
-        case .alphafold3:     return "Compiles from source (slow). Weights must be obtained from Google separately."
-        case .intellifoldJAX: return "Needs the AlphaFold 3 environment. Downloads full-v2 JAX weights and reproducibly converts v2-flash."
+        case .protenix:       return "Installs both v2 and Mini checkpoints. GPU-only: Apple Metal is required; CPU fallback is refused."
+        case .alphafold3, .intellifoldJAX: return "No longer installable or runnable in Studio."
         case .rfd3:           return "Downloads a ~1.3 GB checkpoint."
         default:              return nil
         }
@@ -107,12 +114,21 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     case boltz
     case boltzPotentials
     case intellifold
+    case protenixV2 = "protenix_v2"
+    case protenixMini = "protenix_mini"
     case alphafold3
     case openfold3
-    /// IntelliFold's JAX/MPS backend. A separate engine rather than a setting,
-    /// because it is a different implementation with different outputs, not a
-    /// faster route to the same numbers.
+    /// Historical identity for IntelliFold's retired JAX backend.
     case intellifoldJAX
+
+    /// Retired cases remain decodable solely for historical projects/results.
+    static var allCases: [Predictor] {
+        [.boltz, .boltzPotentials, .protenixV2, .protenixMini, .intellifold, .openfold3]
+    }
+
+    var isAvailable: Bool {
+        self != .alphafold3 && self != .intellifoldJAX
+    }
 
     var id: String { rawValue }
 
@@ -121,9 +137,11 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .boltz:           return "Boltz-2"
         case .boltzPotentials: return "Boltz-2 + potentials"
         case .intellifold:     return "IntelliFold (PyTorch)"
-        case .alphafold3:      return "AlphaFold 3"
+        case .protenixV2:      return "Protenix v2"
+        case .protenixMini:    return "Protenix Mini"
+        case .alphafold3:      return "AlphaFold 3 (retired)"
         case .openfold3:       return "OpenFold-3"
-        case .intellifoldJAX:  return "IntelliFold (JAX/MPS)"
+        case .intellifoldJAX:  return "IntelliFold JAX/Metal (retired)"
         }
     }
 
@@ -134,6 +152,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .boltz, .boltzPotentials: return "boltz"
         case .intellifold:             return "intellifold"
+        case .protenixV2:              return "protenix-v2"
+        case .protenixMini:            return "protenix-mini"
         case .alphafold3:              return "alphafold3"
         case .openfold3:               return "openfold-3-mlx"
         case .intellifoldJAX:          return "intellifold-jax"
@@ -149,10 +169,21 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         self == .boltzPotentials ? .boltz : self
     }
 
+    /// Identity used when the UI promises an independent second opinion.
+    /// Mini and v2 are different Protenix checkpoints, but one model family;
+    /// comparing them is useful in Predict, not orthogonal validation.
+    var independenceIdentity: String {
+        switch checkingVariant {
+        case .protenixV2, .protenixMini: return "protenix-family"
+        default: return checkingVariant.runnerValue
+        }
+    }
+
     var component: InstallComponent {
         switch self {
         case .boltz, .boltzPotentials: return .boltz
         case .intellifold:             return .intellifold
+        case .protenixV2, .protenixMini: return .protenix
         case .alphafold3:              return .alphafold3
         case .openfold3:               return .openfold3
         case .intellifoldJAX:          return .intellifoldJAX
@@ -171,10 +202,14 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .boltz:           return 10.9      // p1
         case .boltzPotentials: return 21.4      // p2
-        case .alphafold3:      return mode == .batched ? 22.1 : 27.7   // p2 x b4 / p2
+        case .alphafold3:      return 0        // compatibility identity; never scheduled
         case .openfold3:       return 27.5      // p2
         case .intellifold:     return mode == .batched ? 11.4 : 41.5   // p4 x dir16 / p4
-        case .intellifoldJAX:  return mode == .batched ? 9.2 : 14.9     // p4 x dir16 / p1 x dir4
+        // 71-aa cobratoxin, cached 1,087-sequence A3M, five samples on the
+        // same M4 Max. See Lab Book 0030; these are whole inference phases.
+        case .protenixMini:    return 5.61
+        case .protenixV2:      return 17.23
+        case .intellifoldJAX:  return 0        // compatibility identity; never scheduled
         }
     }
 
@@ -195,19 +230,22 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .intellifold:
             // Native directory batching is what makes IntelliFold competitive:
             // ~11 s/prediction batched against ~41 s unbatched. Without the
-            // batched scheduler it is the slowest of the four.
+            // batched scheduler it is the slowest supported engine.
             return mode == .batched ? .fastest : .slowest
         case .boltzPotentials:
             return .moderate
-        case .alphafold3, .openfold3:
-            return .slow
-        case .intellifoldJAX:
+        case .protenixMini:
             return .fastest
+        case .protenixV2:
+            return .moderate
+        case .openfold3:
+            return .slow
+        case .alphafold3, .intellifoldJAX:
+            return .slowest
         }
     }
 
-    /// Only Boltz has a binding-affinity head. AlphaFold 3 explicitly has none,
-    /// so ranking schemes that use P(bind) fall back to ligand pLDDT under AF3.
+    /// Only Boltz has a binding-affinity head.
     var hasAffinityHead: Bool {
         self == .boltz || self == .boltzPotentials
     }
@@ -220,12 +258,16 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
             return "Boltz-2 with steering potentials — physically cleaner poses, about twice the time."
         case .intellifold:
             return "The stock PyTorch build. An independent model and the natural second opinion to Boltz — fast when batched, slow when not."
+        case .protenixV2:
+            return "Accuracy-first Protenix model. On cobratoxin it matched the reference better than Mini and the other tested open predictors."
+        case .protenixMini:
+            return "Fast preview model using the same alignment and output contract as v2."
         case .alphafold3:
-            return "DeepMind's model, run on the Apple GPU. Strong orthogonal check; no binding-affinity head."
+            return "Retired: its experimental Metal backend failed a same-input quality control."
         case .openfold3:
             return "Open reimplementation with Apple MLX kernels. Orthogonal check."
         case .intellifoldJAX:
-            return "IntelliFold on a JAX/Metal engine instead of PyTorch. Choose v2-flash or full v2 below."
+            return "Retired: its JAX/Metal backend failed a same-input quality control."
         }
     }
 
@@ -233,11 +275,13 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     var caveat: String {
         switch self {
         case .alphafold3:
-            return "Needs af3.bin, which you must obtain from Google under their terms — it cannot be downloaded for you."
+            return "No longer installable or runnable in Studio."
         case .intellifold:
-            return "Slowest of the four at its default ten recycles."
+            return "Slow when used one fold at a time; Studio batches it when possible."
         case .intellifoldJAX:
-            return "The speed badge is measured for v2-flash. Full v2 is available but not yet benchmarked."
+            return "No longer installable or runnable in Studio; use IntelliFold PyTorch."
+        case .protenixMini:
+            return "A preview model: use Protenix v2 or another independent engine before trusting a final design."
         default:
             return ""
         }
@@ -261,26 +305,26 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
                     "OMP_NUM_THREADS=1 and VECLIB_MAXIMUM_THREADS=1 — ~1.3x, IntelliFold only",
                     "token buckets: auto, i.e. the exact campaign token count",
                     "CUDA-only cleanup paths patched out for MPS (bit-identical outputs)",
-                    "PyTorch backend — the independently implemented JAX backend is available in prediction and RFdiffusion3 checks"]
+                    "PyTorch backend — retained after its same-input quality control passed"]
         case .alphafold3:
-            return ["jax_backend=mps with the portable XLA attention implementation",
-                    "10 recycles, 1 diffusion sample (its defaults)",
-                    "token buckets: auto, i.e. the exact campaign token count (~1.6x)",
-                    "persistent JAX compilation cache, so a shape compiles once per campaign",
-                    "async dispatch off — measured neutral here, negative elsewhere",
-                    "native batching only in Batched scheduling (~1.4x)"]
+            return ["Retired after a same-input Metal quality-control failure"]
         case .intellifoldJAX:
-            return ["selected v2-flash or full-v2 weights on AlphaFold 3's JAX/MPS engine",
-                    "v2-flash uses NanoHunter's validated graph patch and local conversion",
-                    "portable XLA attention; v2-flash schedule comes from the measured benchmark",
-                    "token buckets chosen from the actual token count",
-                    "persistent JAX compilation cache",
-                    "full-v2 JAX speed and memory are not yet benchmarked in Studio"]
+            return ["Retired after a same-input Metal quality-control failure"]
         case .openfold3:
             return ["MLX attention/triangle/activation kernels enabled",
                     "3 recycles, 1 diffusion sample, 1 model seed (its defaults)",
                     "two processes — measured optimum",
-                    "highest memory footprint of the four; concurrency is limited by that"]
+                    "high memory footprint; concurrency is limited by that"]
+        case .protenixV2:
+            return ["native Apple MPS, fp32; CPU fallback is refused",
+                    "10 recycles and 200 diffusion steps (upstream v2 defaults)",
+                    "5 diffusion samples, seed 42 (upstream defaults used in validation)",
+                    "uses Studio's exact cached A3M; no genetic databases"]
+        case .protenixMini:
+            return ["native Apple MPS, fp32; CPU fallback is refused",
+                    "4 recycles and 5 diffusion steps (upstream Mini defaults)",
+                    "5 diffusion samples, seed 42 (upstream defaults used in validation)",
+                    "uses Studio's exact cached A3M; no genetic databases"]
         }
     }
 
@@ -290,26 +334,26 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// it was the weakest driver in the design-campaign comparison and its
     /// per-design cost is high, so offering it here would mostly be a way to
     /// spend hours getting a worse result. It remains available as a checker.
-    static var designChoices: [Predictor] { [.boltz, .boltzPotentials, .intellifold, .alphafold3] }
+    static var designChoices: [Predictor] {
+        [.boltz, .boltzPotentials, .protenixV2, .protenixMini, .intellifold]
+    }
 
     /// Engines that can independently re-fold finished designs. Steering
     /// potentials are deliberately absent: checks remove design restraints.
     static var checkChoices: [Predictor] {
-        [.boltz, .intellifold, .intellifoldJAX, .alphafold3, .openfold3]
+        [.boltz, .protenixV2, .protenixMini, .intellifold, .openfold3]
     }
 
     /// Everything the prediction tab offers, in the order it shows them.
     /// Written out rather than derived, so an engine cannot quietly disappear
     /// from the list because of a filter somewhere else.
     static var predictionChoices: [Predictor] {
-        [.boltz, .intellifold, .intellifoldJAX, .alphafold3, .openfold3]
+        [.boltz, .protenixV2, .protenixMini, .intellifold, .openfold3]
     }
 
-    /// Engines the iterative pipeline can use for independent checks. The JAX
-    /// backend is absent because `nanohunter_run.sh` does not yet expose it;
-    /// RFdiffusion3 and one-shot prediction call its adapter directly.
+    /// Engines the iterative pipeline can use for independent checks.
     static var iterativeCheckChoices: [Predictor] {
-        [.boltz, .intellifold, .alphafold3, .openfold3]
+        [.boltz, .protenixV2, .protenixMini, .intellifold, .openfold3]
     }
 }
 
@@ -353,8 +397,8 @@ enum SpeedMode: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Independent complete designs, `--max-parallel auto`, device profile honoured.
     case standard
     /// Cycle-wave: every design advances one cycle at a time and predictor inputs
-    /// are grouped into persistent native batches. This is where AlphaFold 3 and
-    /// IntelliFold win most, because it amortises model load and shape compilation.
+    /// are grouped into persistent native batches. This is where IntelliFold
+    /// wins most, because it amortises model load and shape compilation.
     case batched
 
     var id: String { rawValue }
@@ -371,7 +415,7 @@ enum SpeedMode: String, CaseIterable, Codable, Identifiable, Hashable {
         case .standard:
             return "Each design runs start-to-finish independently. The validated default, and the safe choice for mixed workloads."
         case .batched:
-            return "Advances all designs one cycle at a time and feeds them to the model in one batch, so it loads and compiles once. Biggest gains on AlphaFold 3 and IntelliFold."
+            return "Advances all designs one cycle at a time and feeds them to the model in one batch, so it loads once. Biggest gains on IntelliFold."
         }
     }
 

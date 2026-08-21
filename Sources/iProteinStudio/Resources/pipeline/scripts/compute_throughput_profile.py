@@ -99,8 +99,6 @@ def software_identity() -> dict[str, Any]:
     packages = {
         "boltz": (venv / "NanoHunter_boltz/bin/python", "boltz"),
         "intellifold": (venv / "NanoHunter_intellifold/bin/python", "intellifold"),
-        "alphafold3": (venv / "NanoHunter_alphafold3/bin/python", "alphafold3"),
-        "jax_mps": (venv / "NanoHunter_alphafold3/bin/python", "jax-mps"),
         "openfold3_mlx": (venv / "NanoHunter_openfold3_mlx/bin/python", "openfold3-mlx"),
     }
     identity = {
@@ -110,11 +108,9 @@ def software_identity() -> dict[str, Any]:
         },
         "runner_sha256": file_digest(REPO / "nanohunter_run.sh"),
         "benchmark_runner_sha256": file_digest(REPO / "scripts/benchmark_sumo_predictors.py"),
-        "af3_model": None,
         "openfold_model": None,
     }
     for label, path in (
-        ("af3_model", REPO / "models/alphafold3/af3.bin"),
         ("openfold_model", REPO / "models/openfold3/of3_ft3_v1.pt"),
     ):
         if path.is_file():

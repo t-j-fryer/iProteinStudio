@@ -13,7 +13,6 @@ enum AppPaths {
     static let support = URL(fileURLWithPath: "/tmp/iproteinstudio-contract")
     static let msaCache = support.appendingPathComponent("msa_cache")
     static let scaffoldMSACache = support.appendingPathComponent("scaffold_msa_cache")
-    static let jaxCompileCache = support.appendingPathComponent("jax_compile_cache")
     static let boltzCache = support.appendingPathComponent("boltz_cache")
     static let numbaCache = support.appendingPathComponent("numba_cache")
     static let intelliFoldCache = support.appendingPathComponent("intellifold_cache")
@@ -94,12 +93,12 @@ struct IterativeCommandContractHarness {
         expect(value(after: "--post-iptm-threshold", in: args) == "0.70", "post gate missing")
         expect(value(after: "--model", in: args) == "v2", "selected IntelliFold model missing")
 
-        request.postPredictors = [.alphafold3]
+        request.postPredictors = [.openfold3]
         request.postOnlyHits = false
         args = arguments(request)
         expect(value(after: "--post-mode", in: args) == "final", "ungated checks included intermediate cycles")
         expect(!args.contains("--post-iptm-threshold"), "ungated check emitted an irrelevant threshold")
-        expect(!args.contains("--model"), "AF3-only request emitted an IntelliFold model")
+        expect(!args.contains("--model"), "OpenFold-only request emitted an IntelliFold model")
 
         request.postCheckScope = .allCycles
         args = arguments(request)
@@ -115,9 +114,9 @@ struct IterativeCommandContractHarness {
         var request = proteinRequest()
         request.epitopeResidues = ""
         request.designPredictor = .intellifold
-        request.postPredictors = [.intellifold, .boltzPotentials, .boltz, .alphafold3, .alphafold3]
-        expect(request.effectivePostPredictors == [.boltz, .alphafold3], "checker list was not canonical and independent")
-        expect(value(after: "--post-predictor", in: arguments(request)) == "boltz,alphafold3", "canonical checker command was wrong")
+        request.postPredictors = [.intellifold, .boltzPotentials, .boltz, .openfold3, .openfold3]
+        expect(request.effectivePostPredictors == [.boltz, .openfold3], "checker list was not canonical and independent")
+        expect(value(after: "--post-predictor", in: arguments(request)) == "boltz,openfold-3-mlx", "canonical checker command was wrong")
 
         request.postPredictors = [.boltz]
         request.epitopeResidues = "34"
@@ -172,8 +171,12 @@ struct IterativeCommandContractHarness {
         request.epitopeResidues = ""
         request.designPredictor = .alphafold3
         request.postPredictors = []
-        expect(request.requiredComponents.contains(.alphafold3), "AF3 dependency missing")
-        expect(request.requiredComponents.contains(.boltz), "AF3 protein MSA-generator dependency missing")
+        expect(!request.isRunnable, "a saved AlphaFold 3 campaign remained runnable after retirement")
+        expect(!Predictor.designChoices.contains(.alphafold3), "retired AlphaFold 3 remained in design choices")
+
+        request.designPredictor = .intellifold
+        expect(request.isRunnable, "retained IntelliFold PyTorch campaign was rejected")
+        expect(request.requiredComponents.contains(.intellifold), "IntelliFold PyTorch dependency missing")
 
         request = proteinRequest()
         request.targetKind = .ligand
@@ -190,7 +193,7 @@ struct IterativeCommandContractHarness {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("multi-check-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        for predictor in ["intellifold", "alphafold3"] {
+        for predictor in ["intellifold", "openfold-3-mlx"] {
             let directory = root.appendingPathComponent("run_001/post_\(predictor)/cycle_05",
                                                         isDirectory: true)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -202,7 +205,7 @@ struct IterativeCommandContractHarness {
             let watcher = MetricsWatcher()
             watcher.start(root: root, interval: 3600)
             expect(watcher.validationPoints.count == 2, "one of two checker results was discarded")
-            expect(Set(watcher.validationPoints.map(\.predictor)) == Set(["intellifold", "alphafold3"]),
+            expect(Set(watcher.validationPoints.map(\.predictor)) == Set(["intellifold", "openfold-3-mlx"]),
                    "checker identity was not retained")
             watcher.stop()
         }

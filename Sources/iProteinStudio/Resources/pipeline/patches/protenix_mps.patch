@@ -1,0 +1,203 @@
+diff --git a/configs/configs_model_type.py b/configs/configs_model_type.py
+index 63853dc..511ff97 100644
+--- a/configs/configs_model_type.py
++++ b/configs/configs_model_type.py
+@@ -217,7 +217,7 @@ model_configs = {
+                 },
+             },
+         },
+-        "load_strict": False,  # For inference, it should be True.
++        "load_strict": True,
+     },
+     "protenix_tiny_default_v0.5.0": {
+         "sample_diffusion": {
+diff --git a/protenix/model/modules/confidence.py b/protenix/model/modules/confidence.py
+index 6f995ab..b83b54a 100644
+--- a/protenix/model/modules/confidence.py
++++ b/protenix/model/modules/confidence.py
+@@ -21,6 +21,7 @@ from protenix.model.modules.pairformer import PairformerStack
+ from protenix.model.modules.primitives import LinearNoBias
+ from protenix.model.triangular.layers import LayerNorm
+ from protenix.model.utils import broadcast_token_to_atom, one_hot
++from protenix.utils.torch_utils import empty_device_cache
+ 
+ 
+ class ConfidenceHead(nn.Module):
+@@ -201,7 +202,7 @@ class ConfidenceHead(nn.Module):
+         z_trunk = z_init + z_trunk
+         if not self.training:
+             del z_init
+-            torch.cuda.empty_cache()
++            empty_device_cache(z_trunk.device)
+ 
+         plddt_preds, pae_preds, pde_preds, resolved_preds = (
+             [],
+@@ -230,7 +231,7 @@ class ConfidenceHead(nn.Module):
+                 # cpu offload pae_preds/pde_preds
+                 pae_pred = pae_pred.cpu()
+                 pde_pred = pde_pred.cpu()
+-                torch.cuda.empty_cache()
++                empty_device_cache(z_trunk.device)
+             plddt_preds.append(plddt_pred)
+             pae_preds.append(pae_pred)
+             pde_preds.append(pde_pred)
+@@ -344,5 +345,5 @@ class ConfidenceHead(nn.Module):
+                 self.resolved_weight[atom_to_tokatom_idx],
+             )
+         if not self.training and z_pair.shape[-2] > 2000:
+-            torch.cuda.empty_cache()
++            empty_device_cache(z_pair.device)
+         return plddt_pred, pae_pred, pde_pred, resolved_pred
+diff --git a/protenix/model/sample_confidence.py b/protenix/model/sample_confidence.py
+index a1c00ae..f1125d9 100644
+--- a/protenix/model/sample_confidence.py
++++ b/protenix/model/sample_confidence.py
+@@ -704,7 +704,9 @@ def calculate_chain_pair_pae(
+     device = token_pair_pae.device
+ 
+     if contact_probs is None:
+-        contact_probs = torch.ones(token_pair_pae.shape[1:], dtype=float).to(device)
++        contact_probs = torch.ones(
++            token_pair_pae.shape[1:], dtype=token_pair_pae.dtype, device=device
++        )
+   
+     mask = token_has_frame[:, None] & token_has_frame[None, :]  # [N_token, N_token]
+     assert mask.shape == token_pair_pae.shape[1:]
+diff --git a/protenix/model/triangular/layers.py b/protenix/model/triangular/layers.py
+index d4ff17a..3c8032d 100644
+--- a/protenix/model/triangular/layers.py
++++ b/protenix/model/triangular/layers.py
+@@ -30,7 +30,12 @@ from protenix.model.utils import (
+     permute_final_dims,
+ )
+ 
+-fastln_is_installed = os.getenv("LAYERNORM_TYPE", "fast_layernorm") == "fast_layernorm"
++layernorm_type = os.getenv("LAYERNORM_TYPE")
++fastln_is_installed = (
++    layernorm_type == "fast_layernorm"
++    if layernorm_type is not None
++    else torch.cuda.is_available()
++)
+ if fastln_is_installed:
+     from protenix.model.layer_norm.layer_norm import FusedLayerNorm
+ 
+diff --git a/protenix/utils/torch_utils.py b/protenix/utils/torch_utils.py
+index 64a5243..121d1a6 100644
+--- a/protenix/utils/torch_utils.py
++++ b/protenix/utils/torch_utils.py
+@@ -196,6 +196,21 @@ def round_values(data, recursive=True):
+     return data
+ 
+ 
++def empty_device_cache(device: torch.device | str | None = None) -> None:
++    """Release the active accelerator allocator without assuming CUDA.
++
++    Protenix calls CUDA's cache API during inference even when CUDA is absent.
++    That is harmless on most CPU builds but does not release Apple MPS memory.
++    """
++    device_type = torch.device(device).type if device is not None else None
++    if device_type == "cuda" or (device_type is None and torch.cuda.is_available()):
++        torch.cuda.empty_cache()
++    elif device_type == "mps" or (
++        device_type is None and torch.backends.mps.is_available()
++    ):
++        torch.mps.empty_cache()
++
++
+ def autocasting_disable_decorator(disable_casting):
+     def func_wrapper(func):
+         def new_func(*args, **kwargs):
+diff --git a/runner/inference.py b/runner/inference.py
+index 8edd329..12626c8 100644
+--- a/runner/inference.py
++++ b/runner/inference.py
+@@ -37,7 +37,7 @@ from protenix.data.inference.infer_dataloader import get_inference_dataloader
+ from protenix.model.protenix import Protenix
+ from protenix.utils.distributed import DIST_WRAPPER
+ from protenix.utils.seed import seed_everything
+-from protenix.utils.torch_utils import to_device
++from protenix.utils.torch_utils import empty_device_cache, to_device
+ from protenix.web_service.dependency_url import URL
+ 
+ from runner.dumper import DataDumper
+@@ -93,6 +93,12 @@ class InferenceRunner(object):
+             f"global rank: {DIST_WRAPPER.rank}, local rank: {DIST_WRAPPER.local_rank}"
+         )
+         self.use_cuda = torch.cuda.device_count() > 0
++        self.use_mps = (not self.use_cuda) and torch.backends.mps.is_available()
++        if not self.use_cuda and os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK") == "1":
++            raise RuntimeError(
++                "PYTORCH_ENABLE_MPS_FALLBACK=1 permits silent CPU execution; "
++                "unset it before running Protenix on Apple MPS."
++            )
+         if self.use_cuda:
+             self.device = torch.device(f"cuda:{DIST_WRAPPER.local_rank}")
+             os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+@@ -102,9 +108,20 @@ class InferenceRunner(object):
+                 f"LOCAL_RANK: {DIST_WRAPPER.local_rank} - CUDA_VISIBLE_DEVICES: [{devices}]"
+             )
+             torch.cuda.set_device(self.device)
++        elif self.use_mps:
++            self.device = torch.device("mps")
++            logging.info("Using Apple Metal Performance Shaders (MPS).")
+         else:
+-            self.device = torch.device("cpu")
++            raise RuntimeError(
++                "No supported GPU is available. Protenix requires CUDA or Apple MPS; "
++                "CPU fallback is disabled."
++            )
+ 
++        if self.use_mps and DIST_WRAPPER.world_size > 1:
++            raise RuntimeError(
++                "Multi-process Protenix inference is not supported on Apple MPS; "
++                "run one GPU process."
++            )
+         if DIST_WRAPPER.world_size > 1:
+             dist.init_process_group(backend="nccl")
+ 
+@@ -121,7 +138,9 @@ class InferenceRunner(object):
+                 "is first called."
+             )
+ 
+-        use_fastlayernorm = os.getenv("LAYERNORM_TYPE", "fast_layernorm")
++        use_fastlayernorm = os.getenv(
++            "LAYERNORM_TYPE", "fast_layernorm" if self.use_cuda else "torch"
++        )
+         if use_fastlayernorm == "fast_layernorm":
+             logging.info(
+                 "Kernels will be compiled when fast_layernorm is first called."
+@@ -619,7 +638,7 @@ def infer_predict(runner: InferenceRunner, configs: Any) -> None:
+                     f"Model forward time: {t2_end - t2_start:.2f}s. "
+                     f"Results saved to {configs.dump_dir}"
+                 )
+-                torch.cuda.empty_cache()
++                empty_device_cache(runner.device)
+             except Exception as e:
+                 error_message = (
+                     f"[Rank {DIST_WRAPPER.rank}] {sample_name} failed: {e}\n"
+@@ -632,7 +651,7 @@ def infer_predict(runner: InferenceRunner, configs: Any) -> None:
+                     encoding="utf-8",
+                 ) as f:
+                     f.write(error_message)
+-                torch.cuda.empty_cache()
++                empty_device_cache(runner.device)
+         t1_end = time.time()
+         logger.info(
+             f"[Rank {DIST_WRAPPER.rank}] Seed {seed} completed in {t1_end - t1_start:.2f}s."
+@@ -691,6 +710,16 @@ def update_gpu_compatible_configs(configs: Any) -> Any:
+             "Enforcing FP32 and torch kernels for compatibility with detected "
+             "GPU (Compute Capability 7.x)."
+         )
++    elif torch.backends.mps.is_available():
++        configs.dtype = "fp32"
++        configs.triangle_attention = "torch"
++        configs.triangle_multiplicative = "torch"
++        configs.enable_diffusion_shared_vars_cache = False
++        configs.enable_tf32 = False
++        configs.enable_efficient_fusion = False
++        logger.info(
++            "Enforcing FP32 and native PyTorch kernels for Apple MPS compatibility."
++        )
+     return configs
+ 
+ 

@@ -10,9 +10,9 @@ import Foundation
 /// would create a second source of truth that could drift.
 ///
 /// What that means concretely: the flags we *don't* pass matter as much as the
-/// ones we do. `--intellifold-buckets` and `--alphafold3-buckets` are left at
-/// their `auto` default, which resolves to the exact campaign token count — the
-/// single biggest measured win available (2.28x for IntelliFold, 1.58x for AF3).
+/// ones we do. `--intellifold-buckets` is left at its `auto` default, which
+/// resolves to the exact campaign token count — the single biggest measured
+/// IntelliFold win available (2.28x).
 /// Overriding them here would silently undo it.
 enum CommandBuilder {
     /// Returns the argument vector (excluding the runner path itself).
@@ -216,9 +216,6 @@ enum CommandBuilder {
         env["NANOHUNTER_TARGET_MSA_CACHE_DIR_DEFAULT"] = AppPaths.msaCache.path
         // Persistent scaffold-MSA cache, outside examples/ (which is re-staged).
         env["NANOHUNTER_SCAFFOLD_MSA_CACHE_DIR_DEFAULT"] = AppPaths.scaffoldMSACache.path
-        // Persist XLA executables across cycles. Without this AlphaFold 3 pays a
-        // fresh compile cost every time the campaign advances a design.
-        env["ALPHAFOLD3_COMPILATION_CACHE_DIR"] = AppPaths.jaxCompileCache.path
         env["BOLTZ_CACHE"] = AppPaths.boltzCache.path
         env["NUMBA_CACHE_DIR"] = AppPaths.numbaCache.path
         env["INTELLIFOLD_CACHE"] = AppPaths.intelliFoldCache.path

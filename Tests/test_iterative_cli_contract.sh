@@ -19,24 +19,28 @@ make_executable() {
   chmod +x "${path}"
 }
 
+set +e
+setup_error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" \
+  bash "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/setup_pipeline.sh" \
+  --with-alphafold3 2>&1)"
+setup_status=$?
+set -e
+[[ "${setup_status}" -ne 0 ]] || fail "retired AlphaFold 3 setup flag unexpectedly passed"
+expect_text "${setup_error}" 'retired after Metal quality-control failures' \
+  "retired setup flag had no actionable explanation"
+
 mkdir -p \
   "${FIXTURE_ROOT}/src/LigandMPNN/model_params" \
   "${FIXTURE_ROOT}/src/IntelliFold" \
-  "${FIXTURE_ROOT}/src/alphafold3" \
-  "${FIXTURE_ROOT}/scripts" \
-  "${FIXTURE_ROOT}/models/alphafold3"
+  "${FIXTURE_ROOT}/scripts"
 make_executable "${FIXTURE_ROOT}/venvs/Test_boltz/bin/python"
 make_executable "${FIXTURE_ROOT}/venvs/Test_ligandmpnn/bin/python"
 make_executable "${FIXTURE_ROOT}/venvs/Test_intellifold/bin/python"
-make_executable "${FIXTURE_ROOT}/venvs/Test_alphafold3/bin/python"
 touch \
   "${FIXTURE_ROOT}/src/LigandMPNN/run.py" \
   "${FIXTURE_ROOT}/src/LigandMPNN/model_params/solublempnn_v_48_020.pt" \
   "${FIXTURE_ROOT}/src/LigandMPNN/model_params/abmpnn.pt" \
-  "${FIXTURE_ROOT}/src/IntelliFold/run_intellifold.py" \
-  "${FIXTURE_ROOT}/src/alphafold3/run_alphafold.py" \
-  "${FIXTURE_ROOT}/scripts/alphafold3_adapter.py" \
-  "${FIXTURE_ROOT}/models/alphafold3/af3.bin"
+  "${FIXTURE_ROOT}/src/IntelliFold/run_intellifold.py"
 cp "${SELECTOR}" "${FIXTURE_ROOT}/scripts/select_post_tasks.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/find_target_msa.py" \
   "${FIXTURE_ROOT}/scripts/find_target_msa.py"
@@ -144,13 +148,25 @@ set -e
 [[ "${status}" -ne 0 ]] || fail "non-Boltz hotspot request unexpectedly passed"
 expect_text "${error}" 'Target hotspot restraints require --predictor boltz' "non-Boltz hotspot failure was not actionable"
 
-output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+set +e
+error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   bash "${RUNNER}" "${common[@]}" --predictor boltz \
   --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
-  --post-predictor alphafold3 --post-mode final)"
-expect_text "${output}" 'post=alphafold3' "AlphaFold 3 post-check output name was empty"
-expect_text "${output}" 'post_mode=final' "final-only checking mode was not accepted"
-expect_text "${output}" 'intellifold_model=unused' "AF3-only run reported IntelliFold as active"
+  --post-predictor alphafold3 --post-mode final 2>&1)"
+status=$?
+set -e
+[[ "${status}" -ne 0 ]] || fail "retired AlphaFold 3 post-check unexpectedly passed"
+expect_text "${error}" 'Retired predictor' "AlphaFold 3 retirement failure was not actionable"
+
+set +e
+error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor intellifold-jax \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --post-predictor none --post-mode none 2>&1)"
+status=$?
+set -e
+[[ "${status}" -ne 0 ]] || fail "retired IntelliFold JAX design predictor unexpectedly passed"
+expect_text "${error}" 'Retired predictor' "IntelliFold JAX retirement failure was not actionable"
 
 output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   bash "${RUNNER}" "${common[@]}" --predictor boltz \

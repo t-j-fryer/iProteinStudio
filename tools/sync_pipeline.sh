@@ -36,13 +36,11 @@ FILES=(
   motif_scaffolding_helper.py
   scripts/nanobody_cdrs.py
   scripts/sample_antifold_positions.py
-  scripts/alphafold3_adapter.py          # AF3 predictor backend
   scripts/compute_throughput_profile.py  # device calibration -> schedule profile
   scripts/merge_openfold_queries.py      # OpenFold-3 native batching
   scripts/rewrite_a3m_query.py           # MSA query-match safeguard
   scripts/lasermpnn_prepare_input.py     # not exposed in the UI; runner references it
   scripts/patch_intellifold_mps.py       # skips CUDA-only cleanup on MPS (setup_pipeline.sh)
-  scripts/repair_intellifold_jax_cifs.py # fixes NUL-padded model id in converted JAX CIFs
   scripts/calibrate_device_throughput.py # opt-in per-machine schedule calibration
   scripts/openfold_query_json.py         # OpenFold-3 query JSON (extracted from the runner)
   scripts/openfold_runner_yaml.py        # OpenFold-3 runner YAML (extracted from the runner)

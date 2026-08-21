@@ -244,13 +244,16 @@ def validate_request(req: dict) -> None:
             fail(f"{key} must be a positive integer.")
     if req["top_n"] > req["num_backbones"] * req["sequences_per_backbone"]:
         fail("top_n exceeds the number of sequences this campaign will create.")
-    allowed_predictors = {"boltz", "intellifold", "intellifold-jax",
-                          "alphafold3", "openfold-3-mlx"}
+    retired = {"alphafold3", "intellifold-jax"}
+    selected = req.get("extra_predictors", [])
+    blocked = [p for p in selected if p in retired]
+    if blocked:
+        fail("Retired verification predictor(s): " + ", ".join(blocked))
+    allowed_predictors = {"boltz", "intellifold", "openfold-3-mlx"}
     unknown = [p for p in req.get("extra_predictors", []) if p not in allowed_predictors]
     if unknown:
         fail("Unsupported verification predictor(s): " + ", ".join(unknown))
-    if any(p in {"intellifold", "intellifold-jax"}
-           for p in req.get("extra_predictors", [])):
+    if "intellifold" in req.get("extra_predictors", []):
         if req.get("intellifold_model") not in {"v2-flash", "v2"}:
             fail("IntelliFold requires model v2-flash or v2.")
     if kind == "protein":

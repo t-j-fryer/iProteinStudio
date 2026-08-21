@@ -97,8 +97,7 @@ results are worth as much as positive ones** — an entry saying "we tried X, it
 - **Local vs. distributed installs.** On this machine, reuse the already-installed
   NanoHunter and RFD3 rather than duplicating multi-GB environments. For anyone else,
   the install path must work from a clean checkout. Both must be true at once.
-- **Weights are never committed.** AlphaFold 3 parameters in particular are governed by
-  Google's terms and must not be redistributed. `models/` and weight files stay ignored.
+- **Weights are never committed or redistributed.** `models/` and weight files stay ignored.
 - **Build check.** `swift build` must pass before you commit. `./build_app.sh` produces
   the runnable app bundle.
 

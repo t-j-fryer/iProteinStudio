@@ -12,7 +12,8 @@ import time
 from pathlib import Path
 
 
-SUPPORTED = {"boltz", "intellifold", "intellifold-jax", "alphafold3", "openfold-3-mlx"}
+SUPPORTED = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"}
+RETIRED = {"alphafold3", "intellifold-jax"}
 
 
 def command_for(predictor: str, yaml_path: Path, output: Path, root: Path,
@@ -51,40 +52,20 @@ def command_for(predictor: str, yaml_path: Path, output: Path, root: Path,
             "--cache", str(root / "models" / "intellifold"),
         ]
 
-    elif predictor == "intellifold-jax":
-        # The JAX backend lives in the AlphaFold 3 environment because it reuses
-        # AF3's inference engine.
-        venv = root / "venvs" / "NanoHunter_alphafold3"
+    elif predictor in ("protenix-v2", "protenix-mini"):
+        venv = root / "venvs" / "NanoHunter_protenix"
         env.update({
             "PATH": f"{venv / 'bin'}:{env.get('PATH', '')}",
             "VIRTUAL_ENV": str(venv),
-            "JAX_MPS_ASYNC_DISPATCH": "0",
+            "PROTENIX_ROOT_DIR": str(root / "models" / "protenix"),
         })
+        env.pop("PYTORCH_ENABLE_MPS_FALLBACK", None)
         command = [
             str(venv / "bin" / "python"),
-            str(adapters / "intellifold_jax_predict_one.py"),
+            str(root / "scripts" / "protenix_predict.py"),
             "--yaml", str(yaml_path), "--output", str(output),
             "--nanohunter-root", str(root),
-            "--model", intellifold_model,
-        ]
-
-    elif predictor == "alphafold3":
-        # AF3 cannot read a Boltz YAML, so NanoHunter's adapter converts it and
-        # normalises the output back to the model_0.cif + confidence contract
-        # every other backend here satisfies. Driven with --norun_data_pipeline
-        # and precomputed MSAs, so none of AF3's genetic databases are needed.
-        venv = root / "venvs" / "NanoHunter_alphafold3"
-        env.update({
-            "PATH": f"{venv / 'bin'}:{env.get('PATH', '')}",
-            "VIRTUAL_ENV": str(venv),
-            # Async dispatch measured neutral for AF3 and clearly negative for the
-            # JAX IntelliFold path, so it stays off.
-            "JAX_MPS_ASYNC_DISPATCH": env.get("ALPHAFOLD3_ASYNC_DISPATCH", "0"),
-        })
-        command = [
-            str(venv / "bin" / "python"), str(adapters / "af3_predict_one.py"),
-            "--yaml", str(yaml_path), "--output", str(output),
-            "--nanohunter-root", str(root),
+            "--model", "v2" if predictor == "protenix-v2" else "mini",
         ]
 
     elif predictor in ("openfold-3-mlx", "openfold3", "openfold"):
@@ -170,9 +151,14 @@ def main() -> None:
     args = parser.parse_args()
     args.nanohunter_root = args.nanohunter_root or default_root()
     predictors = [value.strip() for value in args.predictors.split(",") if value.strip()]
+    retired = [value for value in predictors if value in RETIRED]
+    if retired:
+        raise SystemExit(f"retired predictors cannot run: {', '.join(retired)}")
     unknown = [v for v in predictors if v not in SUPPORTED]
     if not predictors or unknown:
         raise SystemExit(f"--predictors must be drawn from {sorted(SUPPORTED)}; got {unknown}")
+    if any(value.startswith("protenix-") for value in predictors):
+        args.max_parallel = 1
     yamls = sorted(args.inputs.resolve().glob("*.yaml"))
     if not yamls:
         raise SystemExit(f"No YAML inputs in {args.inputs}")

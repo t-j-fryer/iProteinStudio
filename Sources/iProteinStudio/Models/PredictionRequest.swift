@@ -100,6 +100,12 @@ struct PredictionRequest: Codable, Hashable {
     /// offline, and as a guard when a batch is expected to be fully cached.
     var offlineOnly: Bool = false
 
+    /// Independent model initialisations. Boltz accepts one model seed per
+    /// invocation, so this setting applies to IntelliFold and OpenFold-3.
+    var numberOfSeeds: Int = 1
+    /// 0 preserves each engine's existing Studio default (one sample).
+    var diffusionSamples: Int = 0
+
     /// 0 means "use the measured optimum for each predictor".
     var maxParallel: Int = 0
     var batchSize: Int = 0
@@ -113,6 +119,7 @@ struct PredictionRequest: Codable, Hashable {
         var seen = Set<String>()
         return predictors.compactMap { raw in
             let predictor = raw.checkingVariant
+            guard predictor.isAvailable else { return nil }
             return seen.insert(predictor.runnerValue).inserted ? predictor : nil
         }
     }
@@ -126,7 +133,7 @@ struct PredictionRequest: Codable, Hashable {
     }
 
     var usesIntelliFold: Bool {
-        effectivePredictors.contains { $0 == .intellifold || $0 == .intellifoldJAX }
+        effectivePredictors.contains { $0 == .intellifold }
     }
 
     var requiredComponents: [InstallComponent] {
@@ -137,7 +144,12 @@ struct PredictionRequest: Codable, Hashable {
         let needsMSAGenerator = jobs.contains { job in
             job.chains.contains { $0.kind == "protein" && $0.msa.lowercased() == "auto" }
         }
-        if needsMSAGenerator && !result.contains(.boltz) { result.append(.boltz) }
+        // Protenix has its own upstream MSA-server client. Do not make Boltz a
+        // hidden dependency when either Protenix model can generate/cache the
+        // same exact A3M itself.
+        if needsMSAGenerator && !result.contains(.boltz) && !result.contains(.protenix) {
+            result.append(.boltz)
+        }
         return result
     }
 
@@ -194,6 +206,12 @@ struct PredictionRequest: Codable, Hashable {
         if maxParallel < 0 || batchSize < 0 {
             issues.append("Throughput overrides cannot be negative.")
         }
+        if !(1...20).contains(numberOfSeeds) {
+            issues.append("Seeds per fold must be between 1 and 20.")
+        }
+        if !(0...20).contains(diffusionSamples) {
+            issues.append("Diffusion samples must be between 0 and 20; 0 keeps each engine's existing default.")
+        }
         if pairing == .shared, partnerSequence.trimmingCharacters(in: .whitespaces).isEmpty,
            partnerSmiles.trimmingCharacters(in: .whitespaces).isEmpty {
             issues.append("Choose a partner sequence or SMILES to fold everything against.")
@@ -213,7 +231,7 @@ struct PredictionRequest: Codable, Hashable {
     private enum CodingKeys: String, CodingKey {
         case pastedSequences, sequenceFile, pairing, partnerSequence, partnerSmiles
         case binderMSA, partnerMSA, predictors, intellifoldModel, useBoltzPotentials, runAffinityHead
-        case offlineOnly, maxParallel, batchSize, jobs, parsedInputSignature
+        case offlineOnly, numberOfSeeds, diffusionSamples, maxParallel, batchSize, jobs, parsedInputSignature
     }
 
     init() {}
@@ -233,6 +251,8 @@ struct PredictionRequest: Codable, Hashable {
         useBoltzPotentials = try c.decodeIfPresent(Bool.self, forKey: .useBoltzPotentials) ?? d.useBoltzPotentials
         runAffinityHead   = try c.decodeIfPresent(Bool.self, forKey: .runAffinityHead) ?? d.runAffinityHead
         offlineOnly       = try c.decodeIfPresent(Bool.self, forKey: .offlineOnly) ?? d.offlineOnly
+        numberOfSeeds     = try c.decodeIfPresent(Int.self, forKey: .numberOfSeeds) ?? d.numberOfSeeds
+        diffusionSamples  = try c.decodeIfPresent(Int.self, forKey: .diffusionSamples) ?? d.diffusionSamples
         maxParallel       = try c.decodeIfPresent(Int.self, forKey: .maxParallel) ?? d.maxParallel
         batchSize         = try c.decodeIfPresent(Int.self, forKey: .batchSize) ?? d.batchSize
         jobs              = try c.decodeIfPresent([FoldJob].self, forKey: .jobs) ?? d.jobs

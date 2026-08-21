@@ -56,7 +56,7 @@ struct PredictView: View {
                 }
                 Card(title: "4 · Engines", systemImage: "cpu") { engineSection }
                 if setupExperience == .advanced {
-                    Card(title: "5 · Throughput", systemImage: "gauge.with.dots.needle.67percent") { throughputSection }
+                    Card(title: "5 · Sampling & throughput", systemImage: "gauge.with.dots.needle.67percent") { throughputSection }
                 } else {
                     Label("Alignments are reused automatically; measured throughput settings remain selected.",
                           systemImage: "checkmark.seal")
@@ -233,11 +233,11 @@ struct PredictView: View {
             ForEach(Predictor.predictionChoices) { predictor in
                 engineRow(predictor)
             }
-            Text("IntelliFold appears twice on purpose: the selected architecture on two different engines. PyTorch is the stock build; JAX/MPS is a separately implemented check.")
+            Text("IntelliFold uses its validated PyTorch/Metal implementation. AlphaFold 3 and IntelliFold JAX are not offered because their Metal paths failed same-input quality control.")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
             if request.wrappedValue.effectivePredictors.contains(where: {
-                $0 == .intellifold || $0 == .intellifoldJAX
+                $0 == .intellifold
             }) {
                 Picker("IntelliFold model", selection: request.intellifoldModel) {
                     ForEach(IntelliFoldModel.allCases) { model in
@@ -245,7 +245,7 @@ struct PredictView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                Text("The choice applies to both PyTorch and JAX/MPS when both are selected.")
+                Text("The choice applies to both PyTorch and JAX when both are selected.")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             Divider().padding(.vertical, 2)
@@ -285,7 +285,7 @@ struct PredictView: View {
                 HStack(spacing: 6) {
                     Text(predictor.label)
                     if request.wrappedValue.intellifoldModel == .v2
-                        && (predictor == .intellifold || predictor == .intellifoldJAX) {
+                        && predictor == .intellifold {
                         Text("not benchmarked").font(.caption).foregroundStyle(.secondary)
                     } else {
                         Text(predictor.speed(in: .batched).label)
@@ -306,7 +306,7 @@ struct PredictView: View {
 
     private func boltzOptionsExplanation(boltzSelected: Bool, containsLigand: Bool) -> String {
         if !boltzSelected {
-            return "Select Boltz-2 to use either option. They do not apply to IntelliFold, AlphaFold 3, or OpenFold-3."
+            return "Select Boltz-2 to use either option. They do not apply to IntelliFold or OpenFold-3."
         }
         if !containsLigand {
             return "Steering applies to Boltz-2. Binding strength also needs at least one parsed fold containing a small molecule."
@@ -325,6 +325,31 @@ struct PredictView: View {
 
     private var throughputSection: some View {
         VStack(alignment: .leading, spacing: 8) {
+            Text("Sampling").font(.callout.weight(.semibold))
+            Text("More seeds and diffusion samples explore more stochastic outputs. They multiply work and disk use; one of each is normally enough for a first pass.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                GridRow {
+                    Text("Seeds per fold").font(.callout)
+                    EditableIntStepper(value: request.numberOfSeeds, in: 1...20,
+                                       accessibilityLabel: "Seeds per fold")
+                }
+                GridRow {
+                    Text("Diffusion samples").font(.callout)
+                    HStack(spacing: 7) {
+                        EditableIntStepper(value: request.diffusionSamples, in: 0...20,
+                                           accessibilityLabel: "Diffusion samples")
+                        if request.wrappedValue.diffusionSamples == 0 {
+                            Text("existing engine defaults").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            Text("Existing defaults are preserved at 0: every available engine uses one diffusion sample. Boltz supports diffusion samples but only one model seed per fold; additional seeds still apply to IntelliFold and OpenFold-3.")
+                .font(.caption2).foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+            Divider().padding(.vertical, 2)
             Text("Folds are grouped by size so a compiled shape is reused, and each engine runs at the process count and batch size measured fastest for it. Leave these alone unless you have a reason.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -358,7 +383,7 @@ struct PredictView: View {
             }
             let fullV2Selected = request.wrappedValue.intellifoldModel == .v2
                 && request.wrappedValue.effectivePredictors.contains {
-                    $0 == .intellifold || $0 == .intellifoldJAX
+                    $0 == .intellifold
                 }
             if !request.wrappedValue.jobs.isEmpty, fullV2Selected {
                 Label("No time estimate: full IntelliFold v2 has not been benchmarked on this Mac yet.",
