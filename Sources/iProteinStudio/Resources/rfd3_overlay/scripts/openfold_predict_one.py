@@ -3,11 +3,9 @@
 
 OpenFold-3 takes a query JSON and a runner YAML rather than a Boltz template, and
 writes its results under a seed directory rather than as `model_0.cif`. Both
-conversions already existed inside `nanohunter_run.sh` as shell functions; they
-have been extracted verbatim to `NanoHunter/scripts/openfold_query_json.py` and
-`openfold_runner_yaml.py`, and both were checked to produce byte-identical output
-to the originals. This script calls those, so there is one definition of each
-conversion rather than a copy that can drift.
+the shared conversions live in `scripts/openfold_query_json.py` and
+`scripts/openfold_runner_yaml.py`. This script calls those same helpers, so the
+standalone and iterative paths cannot drift.
 
 The runner YAML enables the MLX attention, triangle and activation kernels, which
 is what makes OpenFold-3 viable on Apple silicon.

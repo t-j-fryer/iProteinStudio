@@ -112,6 +112,58 @@ def main() -> None:
         expect(normalized_path.read_bytes() == cached.read_bytes(),
                "OpenFold MSA normalization changed the alignment contents")
 
+        # `msa: empty` is an explicit scientific choice, not a cache miss.
+        # OpenFold must not turn it back into a live MMseqs2 request.  A mixed
+        # complex may still use a real alignment for another chain.
+        openfold_builder = ROOT / "Sources/iProteinStudio/Resources/pipeline/scripts/openfold_query_json.py"
+        single_yaml = root / "single-sequence.yaml"
+        single_yaml.write_text(
+            "sequences:\n"
+            "  - protein:\n"
+            "      id: A\n"
+            "      sequence: ACDEFG\n"
+            "      msa: empty\n"
+        )
+        single_json = root / "single-sequence.json"
+        built = subprocess.run([
+            sys.executable, str(openfold_builder), str(single_yaml), "ACDEFG",
+            "single", str(single_json), "", "", "42",
+        ], check=True, capture_output=True, text=True)
+        single_payload = json.loads(single_json.read_text())["queries"]["single"]
+        expect(built.stdout.strip() == "false" and not single_payload["use_msas"],
+               "OpenFold single-sequence policy still requested the MSA server")
+        expect("main_msa_file_paths" not in single_payload["chains"][0],
+               "OpenFold single-sequence policy invented an alignment")
+
+        mixed_yaml = root / "mixed-msa.yaml"
+        mixed_yaml.write_text(
+            "sequences:\n"
+            "  - protein:\n"
+            "      id: A\n"
+            "      sequence: ACDEFG\n"
+            "      msa: empty\n"
+            "  - protein:\n"
+            "      id: B\n"
+            "      sequence: HIKLMN\n"
+            f"      msa: {cached}\n"
+        )
+        mixed_json = root / "mixed-msa.json"
+        built = subprocess.run([
+            sys.executable, str(openfold_builder), str(mixed_yaml), "ACDEFG",
+            "mixed", str(mixed_json), "", "", "42",
+        ], check=True, capture_output=True, text=True)
+        mixed_payload = json.loads(mixed_json.read_text())["queries"]["mixed"]
+        expect(built.stdout.strip() == "false" and mixed_payload["use_msas"],
+               "OpenFold mixed-chain policy did not retain the real alignment")
+        expect("main_msa_file_paths" not in mixed_payload["chains"][0]
+               and mixed_payload["chains"][1]["main_msa_file_paths"] == [str(cached)],
+               "OpenFold mixed-chain MSA policy crossed chain boundaries")
+
+        runner_source = (ROOT / "Sources/iProteinStudio/Resources/pipeline/nanohunter_run.sh").read_text()
+        expect('scripts/openfold_query_json.py' in runner_source
+               and '\"use_msas\": True' not in runner_source,
+               "iterative runner drifted from the shared OpenFold MSA policy")
+
         try:
             predict.validate_config({"predictors": ["boltz"]}, [
                 {"name": "../escape", "chains": [

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Build the OpenFold-3 query JSON for a NanoHunter/Boltz template YAML.
+"""Build the OpenFold-3 query JSON for an iProteinStudio template YAML.
 
-Extracted **verbatim** from the `build_openfold_query_json` heredoc in
-`nanohunter_run.sh` so that the runner and any other caller share one definition
-instead of two that can drift. The body below is unmodified; only the argument
-handling around it is new.
+This is the single implementation used by both standalone prediction and the
+iterative runner.  In particular, it preserves the distinction between an
+explicit `msa: empty` request and an omitted MSA policy.
 
 Prints "true" if any chain still needs the MSA server, "false" otherwise —
 the same contract the runner's function had.
@@ -21,8 +20,7 @@ if len(sys.argv) < 5:
         "usage: openfold_query_json.py TEMPLATE_YAML BINDER_SEQ QUERY_NAME OUT_JSON "
         "[TARGET_MSA_PATH] [BINDER_MSA_PATH]"
     )
-# Pad the optional trailing arguments so the extracted body's unpacking works
-# exactly as it does inside the runner.
+# Pad optional trailing arguments for the legacy runner call contract.
 while len(sys.argv) < 7:
     sys.argv.append("")
 
@@ -96,6 +94,7 @@ def chain_id_of(item):
 entries = parse_yaml_sequences(template)
 out_chains = []
 need_server = False
+has_real_msa = False
 
 for e in entries:
     kind = str(e.get("kind", "")).lower()
@@ -106,10 +105,18 @@ for e in entries:
     if kind in {"protein", "rna", "dna"}:
         seq = str(e.get("sequence", "")).strip()
         msa = str(e.get("msa", "")).strip()
+        # Studio writes an explicit `msa: empty` when the scientist chose
+        # single-sequence inference.  That is materially different from an
+        # omitted MSA setting, which asks OpenFold to search the server.  Keep
+        # that distinction while retaining the positional paths for legacy
+        # NanoHunter callers whose older templates did not embed paths.
+        msa_was_explicit = "msa" in e
         if cid == "A" and kind == "protein":
             seq = binder_seq
-            msa = binder_msa_path or ""
-        elif kind in {"protein", "rna"} and (not usable(msa)) and target_msa_path:
+            if binder_msa_path:
+                msa = binder_msa_path
+        elif (kind in {"protein", "rna"} and (not usable(msa))
+              and target_msa_path and not msa_was_explicit):
             msa = target_msa_path
         if not seq:
             continue
@@ -121,7 +128,8 @@ for e in entries:
         if kind in {"protein", "rna"}:
             if usable(msa):
                 row["main_msa_file_paths"] = [msa]
-            else:
+                has_real_msa = True
+            elif not msa_was_explicit:
                 need_server = True
         out_chains.append(row)
         continue
@@ -148,8 +156,13 @@ payload = {
     "queries": {
         query_name: {
             "chains": out_chains,
-            "use_msas": True,
-            "use_main_msas": True,
+            # OpenFold supports MSA-free inference directly.  Enable its MSA
+            # feature pipeline only when at least one real alignment is present
+            # or a genuinely unspecified chain still needs the server.  Mixed
+            # folds are supported: chains with no MSA path are intentionally
+            # skipped by OpenFold's inference MSA parser.
+            "use_msas": has_real_msa or need_server,
+            "use_main_msas": has_real_msa or need_server,
             "use_paired_msas": False,
         }
     },

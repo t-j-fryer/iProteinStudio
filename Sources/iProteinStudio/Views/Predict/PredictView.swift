@@ -205,6 +205,7 @@ struct PredictView: View {
             Divider().padding(.vertical, 2)
             Toggle("Only use alignments already on this Mac", isOn: request.offlineOnly)
                 .toggleStyle(.checkbox).font(.callout)
+                .accessibilityLabel("Only use cached alignments")
             Text("Every alignment this app or a design run has ever made is reused automatically either way. This just refuses to make new ones, and stops rather than folding without.")
                 .font(.caption2).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -245,7 +246,7 @@ struct PredictView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                Text("The choice applies to both PyTorch and JAX when both are selected.")
+                Text("The choice applies to IntelliFold PyTorch predictions in this batch.")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             Divider().padding(.vertical, 2)
@@ -253,12 +254,14 @@ struct PredictView: View {
             Toggle("Boltz steering potentials", isOn: request.useBoltzPotentials)
                 .toggleStyle(.checkbox).font(.callout)
                 .disabled(!boltzSelected)
+                .accessibilityLabel("Boltz steering potentials")
                 .accessibilityHint(boltzSelected
                     ? "Applies only to folds run with Boltz-2"
                     : "Select Boltz-2 to enable steering potentials")
             Toggle("Predict binding strength for small molecules", isOn: request.runAffinityHead)
                 .toggleStyle(.checkbox).font(.callout)
                 .disabled(!boltzSelected || !containsLigand)
+                .accessibilityLabel("Predict small-molecule binding strength")
                 .accessibilityHint(!boltzSelected
                     ? "Select Boltz-2 to enable binding-strength prediction"
                     : "A parsed fold must contain a small molecule")
@@ -301,6 +304,7 @@ struct PredictView: View {
             }
         }
         .toggleStyle(.checkbox)
+        .accessibilityLabel(predictor.label)
         .disabled(!installed && !request.wrappedValue.effectivePredictors.contains(predictor))
     }
 
