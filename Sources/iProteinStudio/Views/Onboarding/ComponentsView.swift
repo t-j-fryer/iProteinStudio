@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Add engines after the first install, and point the app at AlphaFold 3 weights.
+/// Add engines after the first install.
 ///
 /// Nobody needs all of these, and together they run to tens of gigabytes, so the
 /// first install is a choice rather than a download-everything. That choice has
@@ -9,7 +9,7 @@ import SwiftUI
 struct ComponentsView: View {
     @ObservedObject var installer: PipelineInstaller
     @State private var selection: Set<InstallComponent> = []
-    @State private var weightsMessage: String?
+    @State private var pendingRemoval: InstallComponent?
 
     private var optional: [InstallComponent] {
         InstallComponent.allCases.filter { !$0.isCore }
@@ -20,9 +20,19 @@ struct ComponentsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 header
                 if installer.isInstalling { progress } else { list }
-                alphaFoldWeights
             }
             .padding(28).frame(maxWidth: 720, alignment: .leading).frame(maxWidth: .infinity)
+        }
+        .alert(item: $pendingRemoval) { component in
+            Alert(
+                title: Text("Uninstall \(component.label)?"),
+                message: Text(installer.uninstallDescription(component)),
+                primaryButton: .destructive(Text("Delete engine")) {
+                    selection.remove(component)
+                    installer.uninstall(component)
+                },
+                secondaryButton: .cancel()
+            )
         }
     }
 
@@ -36,7 +46,7 @@ struct ComponentsView: View {
                 }
                 .controlSize(.small)
             }
-            Text("Install only what you need. You can come back and add more at any time — nothing already installed is touched.")
+            Text("Install only what you need. You can add or remove engines at any time; removing one never deletes projects, results, or saved alignments.")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             LabeledContent("Managed runtime") {
                 Text(AppPaths.support.path)
@@ -60,6 +70,12 @@ struct ComponentsView: View {
 
     private var list: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if installer.isRemoving {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(installer.currentMessage).font(.callout).foregroundStyle(.secondary)
+                }
+            }
             ForEach(optional) { component in
                 row(component)
             }
@@ -84,7 +100,7 @@ struct ComponentsView: View {
                           systemImage: "arrow.down.circle")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(selection.isEmpty)
+                .disabled(selection.isEmpty || installer.isRemoving)
             }
             if let failure = installer.failure {
                 Label(failure, systemImage: "exclamationmark.triangle.fill")
@@ -96,6 +112,7 @@ struct ComponentsView: View {
 
     @ViewBuilder private func row(_ component: InstallComponent) -> some View {
         let installed = installer.isUsable(component)
+        let present = installer.hasManagedFiles(component)
         let detail = installer.detail(component)
         HStack(alignment: .top, spacing: 10) {
             if installed {
@@ -112,6 +129,7 @@ struct ComponentsView: View {
                     Text(component.label).font(.callout.weight(.medium))
                     Text(component.approximateSize).font(.caption2).foregroundStyle(.secondary)
                     if installed { Text("installed").font(.caption2).foregroundStyle(.green) }
+                    else if present { Text("incomplete").font(.caption2).foregroundStyle(.orange) }
                 }
                 Text(component.whatItGivesYou).font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -125,52 +143,22 @@ struct ComponentsView: View {
                 }
             }
             Spacer()
+            if present {
+                Button { pendingRemoval = component } label: {
+                    Label("Remove…", systemImage: "trash")
+                }
+                .help("Uninstall \(component.label)…")
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .foregroundStyle(.secondary)
+                .disabled(installer.isRemoving)
+            }
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 8)
             .fill(installed ? Color.green.opacity(0.07) : Color.quaternaryLabelBackground))
     }
 
-    // MARK: AlphaFold 3 weights
-
-    @ViewBuilder private var alphaFoldWeights: some View {
-        let state = installer.components[.alphafold3]
-        let environmentReady = state != nil && state?.availability != .skipped
-        if environmentReady && !installer.isUsable(.alphafold3) {
-            VStack(alignment: .leading, spacing: 8) {
-                Label("AlphaFold 3 needs its weights", systemImage: "key")
-                    .font(.headline).foregroundStyle(.orange)
-                Text("The parameter file is governed by Google's terms and cannot be downloaded for you. Request it from Google, then point Studio at the af3.bin file you receive — it will be copied into place.")
-                    .font(.callout).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack {
-                    Button {
-                        let panel = NSOpenPanel()
-                        panel.allowsMultipleSelection = false
-                        panel.canChooseDirectories = false
-                        panel.message = "Choose af3.bin"
-                        if panel.runModal() == .OK, let url = panel.url {
-                            weightsMessage = installer.installAlphaFoldWeights(from: url)
-                        }
-                    } label: {
-                        Label("Choose af3.bin…", systemImage: "folder")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    Link("Google's request form",
-                         destination: URL(string: "https://github.com/google-deepmind/alphafold3")!)
-                        .font(.callout)
-                }
-                if let weightsMessage {
-                    Text(weightsMessage).font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 10).fill(.orange.opacity(0.08)))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(.orange.opacity(0.3)))
-        }
-    }
 }
 
 extension Color {

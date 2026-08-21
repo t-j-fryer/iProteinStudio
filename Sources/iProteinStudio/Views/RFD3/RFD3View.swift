@@ -835,7 +835,7 @@ struct RFD3View: View {
                 HStack(spacing: 6) {
                     Text(p.label)
                     if request.wrappedValue.verification.intellifoldModel == .v2
-                        && (p == .intellifold || p == .intellifoldJAX) {
+                        && p == .intellifold {
                         Text("not benchmarked").font(.caption).foregroundStyle(.secondary)
                     } else {
                         Text(p.speed(in: .batched).label)
@@ -889,7 +889,7 @@ struct RFD3View: View {
 
                 ForEach(extraCheckChoices) { checkerRow($0) }
                 if request.wrappedValue.verification.effectiveExtraPredictors(for: kind).contains(where: {
-                    $0 == .intellifold || $0 == .intellifoldJAX
+                    $0 == .intellifold
                 }) {
                     Picker("IntelliFold model", selection: request.verification.intellifoldModel) {
                         ForEach(IntelliFoldModel.allCases) { model in

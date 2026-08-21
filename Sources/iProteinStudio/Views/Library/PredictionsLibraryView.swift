@@ -1,27 +1,44 @@
 import SwiftUI
+import AppKit
 
-/// Browsable database of cached target/ligand structure predictions:
-/// thumbnails, hover to see the sequence/SMILES, multi-select delete, clear all.
+/// One home for ordinary Predict runs and reusable target-prep structures.
 struct PredictionsLibraryView: View {
+    @EnvironmentObject var app: AppState
     @EnvironmentObject var predictions: PredictionStore
     var onClose: () -> Void
 
     @State private var selection = Set<String>()
     @State private var confirmClear = false
+    @State private var selectedRun: StudioRunRecord?
+
+    private var predictionRuns: [StudioRunRecord] {
+        app.history.runs.filter { $0.workflow == .prediction }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            if predictions.records.isEmpty {
+            if predictions.records.isEmpty && predictionRuns.isEmpty {
                 EmptyHint(text: "No saved predictions",
-                          detail: "Structures you predict in a project's Target section are saved here so they can be reused instead of recomputed.",
+                          detail: "Completed Predict runs and reusable structures from Target Prep will appear here automatically.",
                           systemImage: "cylinder.split.1x2")
                     .frame(maxHeight: .infinity)
             } else {
                 List(selection: $selection) {
-                    ForEach(predictions.records) { rec in
-                        PredictionRow(record: rec).tag(rec.id)
+                    if !predictionRuns.isEmpty {
+                        Section("Prediction runs") {
+                            ForEach(predictionRuns) { run in
+                                PredictionRunRow(record: run) { selectedRun = run }
+                            }
+                        }
+                    }
+                    if !predictions.records.isEmpty {
+                        Section("Reusable Target Prep structures") {
+                            ForEach(predictions.records) { rec in
+                                PredictionRow(record: rec).tag(rec.id)
+                            }
+                        }
                     }
                 }
                 .listStyle(.inset)
@@ -30,6 +47,11 @@ struct PredictionsLibraryView: View {
             footer
         }
         .frame(width: 720, height: 560)
+        .onAppear { app.history.refresh(projects: app.projects) }
+        .sheet(item: $selectedRun) { run in
+            RunResultsView(root: run.root, workflow: .prediction,
+                           title: "\(run.name) results")
+        }
         .confirmationDialog("Delete all \(predictions.records.count) predictions?",
                             isPresented: $confirmClear, titleVisibility: .visible) {
             Button("Delete All", role: .destructive) { predictions.clearAll(); selection = [] }
@@ -43,7 +65,7 @@ struct PredictionsLibraryView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Predictions Library").font(.headline)
-                Text("\(predictions.records.count) prediction\(predictions.records.count == 1 ? "" : "s") · \(sizeText)")
+                Text("\(predictionRuns.count) run\(predictionRuns.count == 1 ? "" : "s") · \(predictions.records.count) reusable structure\(predictions.records.count == 1 ? "" : "s") · \(sizeText)")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -54,6 +76,8 @@ struct PredictionsLibraryView: View {
 
     private var footer: some View {
         HStack {
+            Text("Target Prep cache")
+                .font(.caption).foregroundStyle(.secondary)
             Button(role: .destructive) { predictions.remove(selection); selection = [] } label: {
                 Label("Delete Selected", systemImage: "trash")
             }
@@ -71,6 +95,35 @@ struct PredictionsLibraryView: View {
 
     private var sizeText: String {
         ByteCountFormatter.string(fromByteCount: predictions.totalBytes(), countStyle: .file)
+    }
+}
+
+private struct PredictionRunRow: View {
+    let record: StudioRunRecord
+    let open: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: record.state.systemImage)
+                .foregroundStyle(record.state == .completed ? .blue : .orange)
+                .frame(width: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(record.projectName).font(.body.weight(.medium))
+                Text("\(record.date.formatted(date: .abbreviated, time: .shortened)) · \(record.detail)")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if record.state == .completed {
+                Button("View", action: open).controlSize(.small)
+            }
+            Button {
+                NSWorkspace.shared.activateFileViewerSelecting([record.root])
+            } label: {
+                Image(systemName: "folder")
+            }
+            .buttonStyle(.plain).help("Reveal prediction run")
+        }
+        .padding(.vertical, 4)
     }
 }
 

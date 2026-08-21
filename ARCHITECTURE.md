@@ -64,9 +64,9 @@ from outside, so a reimplementation looks correct and fails in production.
 | RFD3 → LASErMPNN → Boltz-2 affinity/apo campaign | `RFD3/scripts/run_rfd3_nise_campaign.py` |
 | Predictor/designer choice, conditioning vocabulary, progress, install | Studio |
 
-Two flags Studio must **never** pass, because their defaults are the optimisation:
-`--intellifold-buckets` and `--alphafold3-buckets`. Their `auto` value resolves to
-the exact campaign token count, worth 2.28× and 1.58× respectively.
+Studio must **never** pass `--intellifold-buckets`, because its `auto` default is
+the validated optimisation: it resolves to the exact campaign token count. See
+the measured source entry rather than inferring performance from this description.
 
 ## RFdiffusion3 flow
 
@@ -105,7 +105,7 @@ Missing alignments or requested predictors fail rather than being dropped.
 
 The path is deliberately space-free: Python console-script shebangs fail under
 `Application Support`. The app **vendors** the pipeline, examples, IntelliFold
-patch and RFD3 overlay into its bundle, then stages them into the managed root,
+and Protenix MPS patches and RFD3 overlay into its bundle, then stages them into the managed root,
 so a standalone install is independent of sibling source repos and old home
 directory model caches.
 
@@ -133,10 +133,14 @@ A **hit** is any design with design-stage iPTM ≥ the user's threshold
 
 Iterative design: Boltz-2 (design) + IntelliFold (independent check), AntiFold
 designer, `--max-parallel auto` with `--throughput-profile auto`, `--resume` on.
-The default setup installs Boltz-2, AntiFold and IntelliFold plus the
-unconditional MPNN family. AlphaFold 3, OpenFold-3, IntelliFold JAX, LASErMPNN
-and RFdiffusion3 are opt-in. IntelliFold defaults to v2-flash; full v2 is an
-explicit per-run choice shared by selected PyTorch/JAX IntelliFold backends.
+The default setup installs Boltz-2, AntiFold, IntelliFold PyTorch/Metal and
+Protenix v2/Mini plus the unconditional MPNN family. OpenFold-3, LASErMPNN and
+RFdiffusion3 are opt-in. Protenix is one replaceable component (shared source,
+environment and chemical data) with two selectable model identities. It owns
+its MSA-server route and never brings Boltz as an install dependency.
+IntelliFold defaults to v2-flash; full v2 is an explicit per-run choice.
+AlphaFold 3 and IntelliFold JAX/Metal are retired and rejected at every launch
+boundary; legacy saved projects and results remain decodable.
 
 RFdiffusion3: native batch 4 across 2 concurrent shape queues, bf16, structured
 folds (`is_non_loopy`) on, 4 sequences per backbone, top 100 re-folded apo.

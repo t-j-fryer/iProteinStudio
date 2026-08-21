@@ -39,7 +39,7 @@ explicit disk-saving option.
 
 | | |
 |---|---|
-| Structure prediction | Boltz-2 (± steering potentials), IntelliFold (PyTorch **and** JAX/MPS), AlphaFold 3, OpenFold-3 |
+| Structure prediction | Boltz-2 (± steering potentials), Protenix v2/Mini on native MPS, IntelliFold PyTorch/Metal, OpenFold-3/MLX |
 | Sequence design | AntiFold, AbMPNN, ProteinMPNN, SolubleMPNN, LigandMPNN, LASErMPNN |
 | Backbone generation | RFdiffusion3 on MLX |
 
@@ -48,8 +48,15 @@ Boltz-2 is the default design engine: on the reference benchmark it is roughly
 The others are offered with their real measured cost shown, so the trade is
 visible rather than guessed at.
 
-AlphaFold 3 weights (`af3.bin`) are governed by Google's terms and are **not**
-downloaded — obtain them from Google and place them where the setup screen says.
+Protenix v2 is the accuracy-first option and Mini is a faster preview. They
+share one install and the same cached A3Ms, run only on the Apple GPU, and never
+fall back to CPU. Protenix can acquire a missing MSA through its own public
+server client; it does not require Boltz or local genetic databases.
+
+AlphaFold 3 and IntelliFold's JAX/Metal path are deliberately not offered. Both
+failed same-input Apple-GPU quality control while IntelliFold PyTorch produced a
+credible structure from the same alignment. Historical results remain readable;
+the evidence and retirement boundary are recorded in [Lab Book 0029](lab_book/0029-retire-untrusted-jax-metal-predictors.md).
 
 ## Requirements
 
@@ -77,7 +84,7 @@ To work on it in Xcode, `open Package.swift`.
 Studio is a front end: the scientific implementations originate in NanoHunter
 and upstream engine repositories, and Studio ports their validated behaviour
 rather than reimplementing it. The app bundle contains the pipeline, the
-IntelliFold v2-flash JAX patch, RFdiffusion3's complete script overlay, worked
+IntelliFold PyTorch/Metal and Protenix MPS patches, RFdiffusion3's complete script overlay, worked
 examples, seven nanobody scaffolds, and their sequence-validated deep MSAs.
 Setup clones pinned upstream revisions and installs everything beneath the
 space-free managed root `~/.iproteinstudio/`; no sibling checkout is required.

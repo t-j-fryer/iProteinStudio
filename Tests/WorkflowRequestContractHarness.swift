@@ -71,6 +71,15 @@ struct WorkflowRequestContractHarness {
         expect(request.effectivePredictors == [.boltz, .intellifold],
                "prediction engines were not canonicalized")
         expect(request.isRunnable, "current parsed prediction request was not runnable")
+        expect(request.numberOfSeeds == 1 && request.diffusionSamples == 0,
+               "new prediction sampling controls changed the established defaults")
+
+        request.numberOfSeeds = 3
+        request.diffusionSamples = 2
+        let roundTrip = try! JSONDecoder().decode(PredictionRequest.self,
+                                                  from: JSONEncoder().encode(request))
+        expect(roundTrip.numberOfSeeds == 3 && roundTrip.diffusionSamples == 2,
+               "prediction sampling controls did not survive project serialization")
 
         request.pairing = .shared
         request.partnerSequence = "CCCCC"
@@ -78,10 +87,22 @@ struct WorkflowRequestContractHarness {
         expect(request.validationIssues.contains { $0.contains("Read sequences again") },
                "stale prediction jobs had no actionable error")
 
-        request.predictors = [.alphafold3]
+        request.predictors = [.alphafold3, .intellifoldJAX]
+        request.normalizeEngineOptions()
+        expect(request.effectivePredictors.isEmpty && !request.isRunnable,
+               "retired Metal engines survived prediction-request normalization")
+        expect(!Predictor.predictionChoices.contains(.alphafold3)
+               && !Predictor.predictionChoices.contains(.intellifoldJAX),
+               "retired Metal engines remained visible in prediction choices")
+
+        request.predictors = [.openfold3]
         request.normalizeEngineOptions()
         expect(request.requiredComponents.contains(.boltz),
                "non-Boltz prediction with automatic MSA omitted the hidden Boltz dependency")
+
+        request.numberOfSeeds = 0
+        expect(request.validationIssues.contains { $0.contains("Seeds per fold") },
+               "an invalid prediction seed count was accepted")
     }
 
     static func testLigandAttachmentContract() throws {

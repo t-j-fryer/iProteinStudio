@@ -38,10 +38,9 @@ DEFAULT_STRATEGIES = (
     "boltz",
     "boltz_potentials",
     "intellifold",
-    "alphafold3",
     "openfold",
 )
-DEFAULT_RECYCLES = {"boltz": 3, "intellifold": 10, "alphafold3": 10, "openfold": 3}
+DEFAULT_RECYCLES = {"boltz": 3, "intellifold": 10, "openfold": 3}
 
 
 def deterministic_binder(length: int) -> str:

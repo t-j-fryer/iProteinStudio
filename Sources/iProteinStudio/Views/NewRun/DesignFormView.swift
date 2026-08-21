@@ -257,6 +257,9 @@ struct DesignFormView: View {
         }
         if r.designType == .nanobody && r.scaffoldSequence.isEmpty { return "Pick a nanobody scaffold." }
         if r.designType == .nanobody && r.cdrs.isEmpty { return "Select at least one CDR to design." }
+        if !r.designPredictor.isAvailable {
+            return "(r.designPredictor.label) is retired after failing Apple-GPU quality control. Choose a supported design engine."
+        }
         if r.hasInvalidEpitopeResidues { return "Fix the hotspot residue list before starting." }
         if r.hasIncompatibleTargeting { return "The selected targeting restraint requires Boltz as the design engine." }
         if r.ligandAtomsStale {
@@ -488,9 +491,9 @@ struct PredictorPicker: View {
     private var checkChoices: [Predictor] {
         // Everything that can re-fold, minus whichever engine did the designing —
         // a predictor cannot independently check its own work.
-        // The iterative pipeline cannot drive the JAX backend, so it is not
-        // offered here even though it is a valid checker elsewhere.
-        Predictor.iterativeCheckChoices.filter { $0.runnerValue != request.designPredictor.runnerValue }
+        Predictor.iterativeCheckChoices.filter {
+            $0.independenceIdentity != request.designPredictor.independenceIdentity
+        }
     }
 
     private var designChoices: [Predictor] {
@@ -513,6 +516,12 @@ struct PredictorPicker: View {
                 Text("Folds each design as it is optimised. Every extra second here is paid on every design of every cycle.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if !request.designPredictor.isAvailable {
+                    Label("This saved engine is retired. Choose a supported engine to make the campaign runnable.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
                 Picker("Design engine", selection: Binding(
                     get: { request.designPredictor },
                     set: { request.selectDesignPredictor($0) }
@@ -627,7 +636,7 @@ struct PredictorPicker: View {
     /// would be false precision.
     @ViewBuilder private func speedTag(_ p: Predictor) -> some View {
         if request.intellifoldModel == .v2
-            && (p == .intellifold || p == .intellifoldJAX) {
+            && p == .intellifold {
             Text("not benchmarked").font(.caption).foregroundStyle(.secondary)
         } else {
             let band = p.speed(in: request.speedMode)

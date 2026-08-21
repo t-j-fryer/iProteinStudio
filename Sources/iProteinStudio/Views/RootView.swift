@@ -69,7 +69,7 @@ struct WorkspaceView: View {
                 Button { showComponents = true } label: {
                     Label("Engines", systemImage: "square.grid.2x2")
                 }
-                .help("Add folding and design engines, or point Studio at AlphaFold 3 weights")
+                .help("Add folding and design engines")
                 .keyboardShortcut(",", modifiers: .command)
             }
         }
@@ -83,11 +83,6 @@ struct WorkspaceView: View {
                 }.padding(12)
             }
             .frame(width: 720, height: 620)
-        }
-        .onAppear {
-            // AlphaFold 3 installed but unfed is the one state that looks like a
-            // broken install and is actually a missing file the user must fetch.
-            if installer.needsAlphaFoldWeights { showComponents = true }
         }
     }
 }

@@ -14,11 +14,9 @@ aligned again. New ones are generated once and land in the same shared cache.
 pure cost and mild harm; its partner usually needs a deep MSA. Policy is per
 chain, not per job.
 
-**Scheduling.** Predictors differ enormously in how they want to be run: Boltz
-saturates the GPU with one process, IntelliFold wants four, AlphaFold 3 wants two
-with a native batch of four. Jobs are grouped by token bucket so a compiled shape
-is reused, and each predictor gets the concurrency and batch size that was
-measured fastest for it.
+**Scheduling.** Predictors differ enormously in how they want to be run. Jobs
+are grouped by token bucket so a compiled shape is reused, and each accelerator
+path gets the concurrency and batch size measured fastest for it.
 
 Progress markers on stdout:
     PBSTAGE|<name>|<0-100>|<message>
@@ -49,12 +47,15 @@ SCHEDULE = {
     "boltz":            {"processes": 1, "batch": 8},
     "boltz_potentials": {"processes": 2, "batch": 4},
     "intellifold":      {"processes": 4, "batch": 16},
-    "intellifold-jax":  {"processes": 1, "batch": 4},   # 9.34 s at 6.7 GiB vs 26.8 GiB at p4
-    "alphafold3":       {"processes": 2, "batch": 4},
+    # One loaded MPS process handles a directory of inputs. These are the only
+    # schedules validated for the patched native-MPS implementation.
+    "protenix-v2":      {"processes": 1, "batch": 8},
+    "protenix-mini":    {"processes": 1, "batch": 8},
     "openfold-3-mlx":   {"processes": 2, "batch": 1},   # per-job adapter, no directory mode
 }
 # Backends that accept a directory of inputs and load the model once.
-DIRECTORY_CAPABLE = {"boltz", "boltz_potentials", "intellifold"}
+DIRECTORY_CAPABLE = {"boltz", "boltz_potentials", "intellifold",
+                     "protenix-v2", "protenix-mini"}
 BUCKETS = (128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096)
 
 
@@ -74,17 +75,24 @@ def die(message: str) -> None:
 def validate_config(cfg: dict, jobs: list) -> list[str]:
     supported = set(SCHEDULE)
     predictors = cfg.get("predictors") or ["boltz"]
+    retired = [p for p in predictors if p in {"alphafold3", "intellifold-jax"}]
+    if retired:
+        die("Retired predictor(s) cannot run: " + ", ".join(retired))
     unknown = [p for p in predictors if p not in supported or p == "boltz_potentials"]
     if unknown:
         die("Unsupported predictor(s): " + ", ".join(unknown))
     if len(set(predictors)) != len(predictors):
         die("Each predictor may be selected only once.")
-    if any(p in {"intellifold", "intellifold-jax"} for p in predictors):
+    if "intellifold" in predictors:
         if cfg.get("intellifold_model") not in {"v2-flash", "v2"}:
             die("IntelliFold requires intellifold_model v2-flash or v2.")
-    for key in ("max_parallel", "batch_size"):
+    for key in ("max_parallel", "batch_size", "diffusion_samples"):
         if int(cfg.get(key, 0)) < 0:
             die(f"{key} cannot be negative.")
+    if not 1 <= int(cfg.get("num_seeds", 1)) <= 20:
+        die("num_seeds must be between 1 and 20.")
+    if int(cfg.get("diffusion_samples", 0)) > 20:
+        die("diffusion_samples must be 0–20; 0 preserves each engine's existing default.")
     names = [str(job.get("name", "")).strip() for job in jobs]
     if any(not name for name in names) or len(set(names)) != len(names):
         die("Every fold needs a unique, non-empty name.")
@@ -217,8 +225,15 @@ def build_index(cache_dir: Path, roots: list[Path], limit: int = 40000) -> dict:
     return index
 
 
-def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict) -> Path | None:
-    """Generate one MSA through Boltz's server path and keep it."""
+def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict,
+                 provider: str) -> Path | None:
+    """Generate and retain one verified MSA using an installed server client.
+
+    Protenix has its own upstream MSA command, so it must never bring Boltz as
+    a hidden dependency. If installed, use it. Do not silently switch providers
+    after a Protenix service failure: that would make identical saved settings
+    produce different scientific inputs on different machines.
+    """
     digest = sequence_key(sequence)
     target = cache_dir / f"{digest}.a3m"
     if target.exists() and valid_a3m(target, sequence):
@@ -228,6 +243,27 @@ def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict) -> Path 
 
     work = cache_dir / f"_gen_{digest}"
     work.mkdir(parents=True, exist_ok=True)
+    protenix = root / "venvs" / "NanoHunter_protenix" / "bin" / "protenix"
+    if provider == "protenix":
+        if not protenix.exists():
+            return None
+        adapter = root / "scripts" / "protenix_msa.py"
+        if not adapter.is_file():
+            return None
+        info("Generating the missing alignment with Protenix's MSA server client")
+        log = work / "msa.log"
+        with log.open("w") as handle:
+            result = subprocess.run(
+                [str(protenix.parent / "python"), str(adapter),
+                 "--sequence", canonical(sequence), "--output", str(target),
+                 "--nanohunter-root", str(root),
+                 "--work-dir", str(work / "protenix_msa")],
+                env=env, stdout=handle, stderr=subprocess.STDOUT)
+        if result.returncode == 0 and valid_a3m(target, sequence):
+            shutil.rmtree(work, ignore_errors=True)
+            return target
+        return None
+
     yaml_path = work / "query.yaml"
     yaml_path.write_text(
         "sequences:\n  - protein:\n      id: A\n"
@@ -237,6 +273,7 @@ def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict) -> Path 
     boltz = root / "venvs" / "NanoHunter_boltz" / "bin" / "boltz"
     if not boltz.exists():
         return None
+    info("Generating the missing alignment with Boltz's ColabFold client")
     log = work / "msa.log"
     with log.open("w") as handle:
         result = subprocess.run(
@@ -265,7 +302,12 @@ def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict) -> Path 
         lines += [f">seq{i}", seq]
     if len(lines) < 4:
         return None
-    target.write_text("\n".join(lines) + "\n")
+    partial = target.with_suffix(target.suffix + ".part")
+    partial.write_text("\n".join(lines) + "\n")
+    if not valid_a3m(partial, sequence):
+        partial.unlink(missing_ok=True)
+        return None
+    partial.replace(target)
     shutil.rmtree(work, ignore_errors=True)
     return target
 
@@ -301,10 +343,14 @@ def resolve_msas(jobs: list, cfg: dict, root: Path, env: dict) -> dict:
     if todo and not cfg["msa"].get("allow_server", True):
         die(f"{len(todo)} sequence(s) have no cached alignment and the MSA server is switched off. "
             f"Either allow it, or set those chains to single-sequence.")
+    provider = "protenix" if any(
+        value in {"protenix-v2", "protenix-mini"}
+        for value in (cfg.get("predictors") or [])
+    ) else "boltz"
     for n, (digest, sequence) in enumerate(todo, 1):
         stage("msa", 10 + int(20 * n / max(1, len(todo))),
               f"Generating alignment {n} of {len(todo)}")
-        path = generate_msa(sequence, cache_dir, root, env)
+        path = generate_msa(sequence, cache_dir, root, env, provider)
         if path is None:
             die("The MSA server could not be reached. A fold without a real alignment is much "
                 "worse, so this stops rather than quietly continuing.")
@@ -313,6 +359,26 @@ def resolve_msas(jobs: list, cfg: dict, root: Path, env: dict) -> dict:
     if misses:
         info(f"{misses} new alignment(s) generated and cached for next time")
     return resolved
+
+
+def materialize_msas(resolved: dict, input_dir: Path) -> dict:
+    """Copy every selected alignment into the durable run inputs.
+
+    The cache index may find an alignment anywhere on the machine, including an
+    older checkout. Pointing the saved YAML at that external file makes a run
+    impossible to reproduce after the source is moved or deleted. Each run owns
+    an exact byte-for-byte copy instead.
+    """
+    msa_dir = input_dir / "msas"
+    msa_dir.mkdir(parents=True, exist_ok=True)
+    local = {}
+    for digest, source_text in resolved.items():
+        source = Path(source_text)
+        target = msa_dir / f"{digest}.a3m"
+        if not target.exists() or target.read_bytes() != source.read_bytes():
+            shutil.copyfile(source, target)
+        local[digest] = str(target.resolve())
+    return local
 
 
 # --------------------------------------------------------------------- inputs --
@@ -374,33 +440,50 @@ def run_directory_batch(predictor: str, yamls: list, out_dir: Path, root: Path,
         venv = root / "venvs" / "NanoHunter_boltz"
         command = [str(venv / "bin" / "boltz"), "predict", str(batch_dir),
                    "--out_dir", str(out_dir), "--accelerator", "gpu", "--devices", "1",
-                   "--num_workers", "0", "--output_format", "mmcif", "--override"]
+                   "--num_workers", "0", "--output_format", "mmcif", "--override",
+                   "--seed", str(cfg.get("seed", 42))]
+        if int(cfg.get("diffusion_samples", 0)) > 0:
+            command += ["--diffusion_samples", str(cfg["diffusion_samples"])]
         if predictor == "boltz_potentials":
             command.append("--use_potentials")
         if cfg.get("recycles"):
             command += ["--recycling_steps", str(cfg["recycles"])]
-    else:
+    elif predictor == "intellifold":
         venv = root / "venvs" / "NanoHunter_intellifold"
         env = {**env,
                # IntelliFold only: host BLAS/OpenMP contends with MPS submission.
                "OMP_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1", "KMP_USE_SHM": "0"}
+        seed = int(cfg.get("seed", 42))
+        num_seeds = int(cfg.get("num_seeds", 1))
+        seeds = ",".join(str(seed + offset) for offset in range(num_seeds))
+        samples = int(cfg.get("diffusion_samples", 0)) or 1
         command = [str(venv / "bin" / "python"),
                    str(root / "src" / "IntelliFold" / "run_intellifold.py"), str(batch_dir),
                    "--out_dir", str(out_dir), "--precision", "no", "--num_workers", "0",
-                   "--seed", str(cfg.get("seed", 42)), "--num_diffusion_samples", "1",
+                   "--seed", seeds, "--num_diffusion_samples", str(samples),
                    "--override", "--model", cfg.get("intellifold_model", "v2-flash"),
                    "--cache", str(root / "models" / "intellifold")]
+    else:
+        venv = root / "venvs" / "NanoHunter_protenix"
+        model = "v2" if predictor == "protenix-v2" else "mini"
+        seed = int(cfg.get("seed", 42))
+        seeds = ",".join(str(seed + offset)
+                         for offset in range(int(cfg.get("num_seeds", 1))))
+        samples = int(cfg.get("diffusion_samples", 0)) or 5
+        command = [str(venv / "bin" / "python"),
+                   str(root / "scripts" / "protenix_predict.py"),
+                   "--inputs", str(batch_dir), "--output", str(out_dir),
+                   "--nanohunter-root", str(root), "--model", model,
+                   "--seeds", seeds, "--samples", str(samples)]
 
     handle = log_path.open("w")
     return subprocess.Popen(command, env=env, stdout=handle, stderr=subprocess.STDOUT), handle
 
 
 def run_single(predictor: str, yaml_path: Path, out_dir: Path, root: Path,
-               env: dict, log_path: Path, intellifold_model: str) -> int:
+               env: dict, log_path: Path, cfg: dict) -> int:
     rfd3 = root / "rfd3"
     adapters = {
-        "alphafold3": ("NanoHunter_alphafold3", "af3_predict_one.py"),
-        "intellifold-jax": ("NanoHunter_alphafold3", "intellifold_jax_predict_one.py"),
         "openfold-3-mlx": ("NanoHunter_openfold3_mlx", "openfold_predict_one.py"),
     }
     venv_name, script = adapters[predictor]
@@ -408,8 +491,11 @@ def run_single(predictor: str, yaml_path: Path, out_dir: Path, root: Path,
                str(rfd3 / "scripts" / script),
                "--yaml", str(yaml_path), "--output", str(out_dir),
                "--nanohunter-root", str(root)]
-    if predictor == "intellifold-jax":
-        command += ["--model", intellifold_model]
+    command += ["--seed", str(cfg.get("seed", 42)),
+                "--num-seeds", str(cfg.get("num_seeds", 1))]
+    samples = int(cfg.get("diffusion_samples", 0))
+    if samples > 0:
+        command += ["--diffusion-samples", str(samples)]
     handle = log_path.open("w")
     return subprocess.Popen(command, cwd=str(rfd3), env=env,
                             stdout=handle, stderr=subprocess.STDOUT), handle
@@ -433,8 +519,11 @@ def main() -> None:
         die("No sequences to fold.")
     predictors = validate_config(cfg, jobs)
 
+    if "boltz" in predictors and int(cfg.get("num_seeds", 1)) > 1:
+        info("Boltz uses one model seed per fold; the requested seed count applies to the other "
+             "engines. Use diffusion samples for additional Boltz structures.")
+
     env = dict(os.environ)
-    env["ALPHAFOLD3_COMPILATION_CACHE_DIR"] = str(root / "jax_compile_cache")
     env["BOLTZ_CACHE"] = str(root / "models" / "boltz2")
     env["NUMBA_CACHE_DIR"] = str(root / "numba_cache")
     Path(env["NUMBA_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
@@ -444,12 +533,19 @@ def main() -> None:
     stage("plan", 32, "Preparing inputs")
     yaml_dir = output / "inputs"
     yaml_dir.mkdir(exist_ok=True)
+    resolved = materialize_msas(resolved, yaml_dir)
     prepared = []
     for job in jobs:
         path = yaml_dir / f"{job['name']}.yaml"
         path.write_text(job_yaml(job, resolved, cfg.get("affinity", False)))
         prepared.append({"name": job["name"], "yaml": path,
                          "tokens": token_estimate(job), "bucket": bucket_for(token_estimate(job))})
+
+    if "protenix-v2" in predictors:
+        oversized = [item["name"] for item in prepared if item["tokens"] > 2560]
+        if oversized:
+            die("Protenix v2 supports at most 2,560 tokens; too large: "
+                + ", ".join(oversized[:5]))
 
     started = time.time()
     results = []
@@ -503,8 +599,7 @@ def main() -> None:
                                                            out_dir, root, env, cfg, log_path)
                     else:
                         proc, handle = run_single(predictor, chunk[0]["yaml"], out_dir,
-                                                  root, env, log_path,
-                                                  cfg.get("intellifold_model", "v2-flash"))
+                                                  root, env, log_path, cfg)
                     running.append((proc, handle, chunk, tag, out_dir, marker))
 
                 time.sleep(1.0)
@@ -545,6 +640,9 @@ def main() -> None:
     failures = sum(1 for r in results if r["exit_code"])
     summary = {"jobs": len(prepared), "predictors": predictors, "results": len(results),
                "failures": failures, "wall_sec": round(time.time() - started, 1),
+               "seed": int(cfg.get("seed", 42)),
+               "num_seeds": int(cfg.get("num_seeds", 1)),
+               "diffusion_samples": int(cfg.get("diffusion_samples", 0)),
                "msa_cache": cfg["msa"]["cache_dir"]}
     (output / "run_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     info(json.dumps(summary))

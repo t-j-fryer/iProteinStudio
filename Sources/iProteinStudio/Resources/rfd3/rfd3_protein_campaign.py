@@ -91,13 +91,30 @@ def clean_sequence(text: str) -> str:
     return "".join(c for c in (text or "").upper() if c.isalpha())
 
 
+def verification_predictors(cfg: dict) -> list[str]:
+    """Validate and canonicalize checkers before any resumable stage runs."""
+    supported = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"}
+    requested = cfg.get("extra_predictors", [])
+    retired = [p for p in requested if p in {"alphafold3", "intellifold-jax"}]
+    if retired:
+        raise SystemExit("Retired predictors cannot run: " + ", ".join(retired))
+    unknown = [p for p in requested if p not in supported]
+    if unknown:
+        raise SystemExit("Unsupported predictors: " + ", ".join(unknown))
+    wanted = list(dict.fromkeys(requested))
+    if sum(value.startswith("protenix-") for value in wanted) > 1:
+        raise SystemExit("Choose either Protenix v2 or Mini, not both; they are one model family.")
+    if not wanted:
+        raise SystemExit("Protein campaigns require at least one verification predictor.")
+    return wanted
+
+
 def stage_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Path:
     """Generate the target MSA once, and cache it for the whole campaign.
 
-    Mirrors NanoHunter's own auto-MSA path: predict the bare target through
-    Boltz with the MSA server enabled, then keep the A3M it produced. Doing this
-    once and passing it by path is what makes a multi-thousand-fold campaign
-    affordable.
+    Uses Protenix's upstream MSA command when a Protenix checker was selected;
+    otherwise uses Boltz. Doing this once and passing the exact A3M by path is
+    what makes a multi-thousand-fold campaign affordable and reproducible.
     """
     cache = campaign / "assets" / "target_msa"
     a3m = cache / "target_full_msa.a3m"
@@ -133,7 +150,23 @@ def stage_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Path:
         "version: 1\n"
     )
 
-    boltz = Path(cfg["nanohunter_root"]) / "venvs" / "NanoHunter_boltz" / "bin" / "boltz"
+    wanted = verification_predictors(cfg)
+    protenix = root / "venvs" / "NanoHunter_protenix" / "bin" / "python"
+    protenix_adapter = root / "scripts" / "protenix_msa.py"
+    if any(value.startswith("protenix-") for value in wanted):
+        if not protenix.exists() or not protenix_adapter.exists():
+            die("Protenix was selected but its MSA adapter is not installed.")
+        work = cache / "protenix_msa"
+        run([str(protenix), str(protenix_adapter), "--sequence", sequence,
+             "--output", str(a3m), "--nanohunter-root", str(root),
+             "--work-dir", str(work)],
+            campaign / "logs" / "msa.log", rfd3_root, env)
+        if not validate_a3m(a3m, sequence):
+            die("Protenix produced no valid target MSA; refusing a single-sequence fallback.")
+        info(f"target MSA -> {a3m}")
+        return a3m
+
+    boltz = root / "venvs" / "NanoHunter_boltz" / "bin" / "boltz"
     if not boltz.exists():
         die(f"Boltz not found at {boltz}; the target MSA cannot be generated.")
     out_dir = cache / "boltz"
@@ -226,13 +259,7 @@ def stage_predict(cfg: dict, campaign: Path, rfd3_root: Path, env: dict, a3m: Pa
          "--output", str(yaml_dir)],
         campaign / "logs" / "prepare_predictor_inputs.log", rfd3_root, env)
 
-    supported = {"boltz", "intellifold", "intellifold-jax", "alphafold3", "openfold-3-mlx"}
-    wanted = [p for p in cfg.get("extra_predictors", []) if p in supported]
-    dropped = [p for p in cfg.get("extra_predictors", []) if p not in supported]
-    if dropped:
-        raise SystemExit(f"Unsupported predictors: {', '.join(dropped)}")
-    if not wanted:
-        raise SystemExit("Protein campaigns require at least one verification predictor.")
+    wanted = verification_predictors(cfg)
     run([sys.executable, str(rfd3_root / "scripts" / "run_predictors.py"),
          "--inputs", str(yaml_dir),
          "--output", str(campaign / "predictions" / "holo"),
@@ -255,7 +282,7 @@ def stage_score(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> None:
          "--output", str(campaign / "analysis"),
          "--top-n", str(cfg.get("top_n", 100)),
          "--protein",
-         "--predictors", ",".join(dict.fromkeys(cfg.get("extra_predictors", []))),
+         "--predictors", ",".join(verification_predictors(cfg)),
          "--sequences", str(campaign / "mpnn" / "sequences.csv"),
          "--require-top-n",
          "--nanohunter-root", cfg["nanohunter_root"]],
@@ -274,6 +301,11 @@ def main() -> None:
         cfg = json.loads(args.config.resolve().read_text())
     except (OSError, json.JSONDecodeError) as exc:
         die(f"Could not read {args.config}: {exc}")
+
+    # Validate launch identities even when Resume starts after prediction. A
+    # stale retired checker must never survive merely because its fold stage was
+    # marked complete in an older campaign.
+    verification_predictors(cfg)
 
     rfd3_root = Path(cfg["rfd3_root"]).resolve() if cfg.get("rfd3_root") else None
     if rfd3_root is None or not (rfd3_root / "scripts" / "design_from_yaml.py").exists():

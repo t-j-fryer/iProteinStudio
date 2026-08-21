@@ -61,12 +61,15 @@ BOLTZ_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_boltz"
 LIGAND_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_ligandmpnn"
 ANTIFOLD_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_antifold"
 INTELLIFOLD_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_intellifold"
+PROTENIX_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_protenix"
 OPENFOLD_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_openfold3_mlx"
 
 BOLTZ_CLI="boltz"
 INTELLIFOLD_CLI="intellifold"
 OPENFOLD_CLI="run_openfold"
 INTELLIFOLD_CACHE_DIR="${INTELLIFOLD_CACHE:-${REPO_ROOT}/models/intellifold}"
+PROTENIX_MODEL_DIR="${PROTENIX_ROOT_DIR:-${REPO_ROOT}/models/protenix}"
+PROTENIX_ADAPTER="${REPO_ROOT}/scripts/protenix_predict.py"
 OPENFOLD_CACHE_DIR="${OPENFOLD_CACHE:-${REPO_ROOT}/models/openfold3}"
 OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_CACHE_DIR}/of3_ft3_v1.pt"
 BOLTZ_CACHE="${BOLTZ_CACHE:-${REPO_ROOT}/models/boltz2}"
@@ -110,27 +113,6 @@ INTELLIFOLD_RUNNER="${INTELLIFOLD_REPO}/run_intellifold.py"
 # one thread faster with byte-identical structures; users can override either.
 INTELLIFOLD_OMP_NUM_THREADS="${NANOHUNTER_INTELLIFOLD_OMP_NUM_THREADS:-1}"
 INTELLIFOLD_VECLIB_MAXIMUM_THREADS="${NANOHUNTER_INTELLIFOLD_VECLIB_MAXIMUM_THREADS:-1}"
-# AlphaFold 3 (v3.0.4+): runs on Apple Silicon via the jax-mps Metal backend, or
-# on CPU. Driven with --norun_data_pipeline and precomputed/empty MSAs so none of
-# the ~1 TB genetic databases are needed. Weights (af3.bin) are ToU-restricted:
-# they must be obtained from Google and are never committed (models/ is ignored).
-ALPHAFOLD3_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_alphafold3"
-ALPHAFOLD3_REPO="${REPO_ROOT}/src/alphafold3"
-ALPHAFOLD3_RUNNER="${ALPHAFOLD3_REPO}/run_alphafold.py"
-ALPHAFOLD3_MODEL_DIR="${ALPHAFOLD3_MODEL_DIR:-${REPO_ROOT}/models/alphafold3}"
-ALPHAFOLD3_ADAPTER="${REPO_ROOT}/scripts/alphafold3_adapter.py"
-ALPHAFOLD3_BACKEND="${ALPHAFOLD3_BACKEND:-mps}"          # mps | cpu | gpu
-ALPHAFOLD3_NUM_RECYCLES="${ALPHAFOLD3_NUM_RECYCLES:-10}"
-ALPHAFOLD3_NUM_DIFFUSION_SAMPLES="${ALPHAFOLD3_NUM_DIFFUSION_SAMPLES:-1}"
-# Persist XLA executables between per-cycle invocations.  AF3 otherwise pays a
-# substantial avoidable compile cost every time NanoHunter advances a design.
-ALPHAFOLD3_COMPILATION_CACHE_DIR="${ALPHAFOLD3_COMPILATION_CACHE_DIR:-${REPO_ROOT}/output/.alphafold3_jax_cache}"
-# ``auto`` resolves to the maximum requested protein length for a design
-# campaign, avoiding unnecessary padding while preserving one compiled shape.
-ALPHAFOLD3_BUCKETS="${ALPHAFOLD3_BUCKETS:-auto}"
-ALPHAFOLD3_ASYNC_DISPATCH="${ALPHAFOLD3_ASYNC_DISPATCH:-0}"
-ALPHAFOLD3_EXTRA_FLAGS=()
-
 # IntelliFold's PyTorch/MPS runner historically padded to hard-coded
 # 256-residue intervals. ``auto`` requests the exact campaign maximum; use
 # ``default`` to retain the upstream 256,512,... list.
@@ -324,7 +306,7 @@ Core:
   --workflow MODE                  protein | nanobody (default: ${WORKFLOW})
                                    protein: generic binders, motifs, partial redesign, ligands
                                    nanobody: fixed VHH scaffold with exact CDR-only redesign
-  --predictor TOOL                 boltz | intellifold | openfold-3-mlx | alphafold3
+  --predictor TOOL                 boltz | protenix-v2 | protenix-mini | intellifold | openfold-3-mlx
   --sequence-designer TOOL         auto | proteinmpnn | solublempnn | ligandmpnn | lasermpnn | abmpnn | antifold
                                    (lasermpnn: small-molecule minibinders only; --workflow protein + ligand; CPU-only)
                                    default: ${SEQUENCE_DESIGNER}
@@ -347,7 +329,7 @@ Binder:
   --binder-min-len N               default: ${BINDER_MIN_LEN}
   --binder-max-len N               default: ${BINDER_MAX_LEN}
   --binder-percent-x P             default: ${BINDER_PERCENT_X}
-                                   (OpenFold-3 and AlphaFold3 use A/N/G/H/F/S/Y spikes at this rate;
+                                   (OpenFold-3 uses A/N/G/H/F/S/Y spikes at this rate;
                                    Boltz and IntelliFold use X)
   --binder-random-seed N           deterministic cycle_00 base seed; run_index is added
   --scaffold-from-template         seed cycle_00 from template chain A instead of random length
@@ -395,7 +377,7 @@ Design controls:
   --nanobody-hard-filters-only     keep hard developability filters but ignore charge/hydrophobic soft filters
   --target-msa-mode MODE           auto | off (default: ${TARGET_MSA_MODE})
                                    auto generates one target MSA during calibration and reuses it
-  --target-msa-generator TOOL      auto | boltz | intellifold | openfold (default: ${TARGET_MSA_GENERATOR})
+  --target-msa-generator TOOL      auto | boltz | protenix | intellifold | openfold (default: ${TARGET_MSA_GENERATOR})
                                    auto follows the selected structural predictor's native MSA path
   --target-msa-path PATH            explicit reusable target A3M or NPZ; overrides template MSA
   --require-target-msa              fail if native target MSA generation does not produce a real MSA
@@ -454,7 +436,6 @@ Hardware:
 
 Extra flags passthrough:
   --intellifold-buckets MODE       auto | default | comma-separated token sizes
-  --alphafold3-buckets MODE        auto | comma-separated token sizes
   --boltz-extra "ARGS"
   --intellifold-extra "ARGS"
   --openfold-extra "ARGS"
@@ -471,8 +452,12 @@ norm_predictor() {
   case "${raw}" in
     boltz) echo "boltz" ;;
     intellifold) echo "intellifold" ;;
+    protenix-v2|protenixv2|protenix_v2) echo "protenix-v2" ;;
+    protenix-mini|protenixmini|protenix_mini) echo "protenix-mini" ;;
     openfold-3-mlx|openfold3|openfold|of3) echo "openfold-3-mlx" ;;
-    alphafold3|alphafold-3|af3) echo "alphafold3" ;;
+    alphafold3|alphafold-3|af3|intellifold-jax|intellifold_jax)
+      echo "Retired predictor: $1 (Metal quality-control failure)." >&2
+      return 2 ;;
     none|"") echo "none" ;;
     *) return 1 ;;
   esac
@@ -678,8 +663,9 @@ safe_predictor_name() {
   case "$p" in
     boltz) echo "boltz" ;;
     intellifold) echo "intellifold" ;;
+    protenix-v2) echo "protenix_v2" ;;
+    protenix-mini) echo "protenix_mini" ;;
     openfold-3-mlx) echo "openfold3" ;;
-    alphafold3) echo "alphafold3" ;;
     none) echo "none" ;;
     *) return 1 ;;
   esac
@@ -805,7 +791,7 @@ while [[ $# -gt 0 ]]; do
     --cpu-only) CPU_ONLY=1; shift 1 ;;
 
     --intellifold-buckets) INTELLIFOLD_BUCKETS="$2"; shift 2 ;;
-    --alphafold3-buckets) ALPHAFOLD3_BUCKETS="$2"; shift 2 ;;
+    --alphafold3-buckets) die "--alphafold3-buckets was retired with AlphaFold 3." ;;
     --boltz-extra) BOLTZ_EXTRA_CLI_STRING="$2"; shift 2 ;;
     --intellifold-extra) INTELLIFOLD_EXTRA_CLI_STRING="$2"; shift 2 ;;
     --openfold-extra) OPENFOLD_EXTRA_CLI_STRING="$2"; shift 2 ;;
@@ -944,15 +930,13 @@ case "${TARGET_MSA_GENERATOR}" in
     case "${PREDICTOR}" in
       boltz) TARGET_MSA_GENERATOR="boltz" ;;
       intellifold) TARGET_MSA_GENERATOR="intellifold" ;;
+      protenix-v2|protenix-mini) TARGET_MSA_GENERATOR="protenix" ;;
       openfold-3-mlx) TARGET_MSA_GENERATOR="openfold" ;;
-      # AF3 has no MSA server of its own here; it consumes a precomputed A3M, so
-      # reuse Boltz's MSA-server path to generate it (or run single-sequence).
-      alphafold3) TARGET_MSA_GENERATOR="boltz" ;;
       *) die "Cannot infer target MSA generator for predictor ${PREDICTOR}" ;;
     esac
     ;;
-  boltz|intellifold|openfold|alphafold3) : ;;
-  *) die "--target-msa-generator must be auto, boltz, intellifold, or openfold" ;;
+  boltz|protenix|intellifold|openfold) : ;;
+  *) die "--target-msa-generator must be auto, boltz, protenix, intellifold, or openfold" ;;
 esac
 case "${TARGET_MSA_REQUIRED}" in
   0|1) : ;;
@@ -1019,6 +1003,26 @@ for _post in "${POST_PREDICTORS[@]:-}"; do
     die "--post-predictor must be independent of --predictor; ${_post} cannot check its own designs."
   fi
 done
+
+# Mini and v2 are checkpoints from the same Protenix family, not independent
+# evidence. They may each drive a campaign, but one must not be presented as an
+# orthogonal check of the other.
+if [[ "${PREDICTOR}" == protenix-* ]]; then
+  for _post in "${POST_PREDICTORS[@]:-}"; do
+    [[ "${_post}" != protenix-* ]] \
+      || die "Protenix Mini and v2 are not independent models; choose a different post-predictor."
+  done
+fi
+
+PROTENIX_SELECTED=0
+case "${PREDICTOR}" in protenix-v2|protenix-mini) PROTENIX_SELECTED=1 ;; esac
+for _protenix_check in "${POST_PREDICTORS[@]:-}"; do
+  case "${_protenix_check}" in protenix-v2|protenix-mini) PROTENIX_SELECTED=1 ;; esac
+done
+if [[ "${PROTENIX_SELECTED}" -eq 1 && "${MAX_PARALLEL_USER}" != "1" ]]; then
+  echo "==> Protenix selected: capping the campaign at one native MPS process."
+  MAX_PARALLEL_USER=1
+fi
 
 INTELLIFOLD_IN_USE=0
 if [[ "${PREDICTOR}" == "intellifold" ]]; then INTELLIFOLD_IN_USE=1; fi
@@ -1095,7 +1099,7 @@ if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" ]]; then
     *) die "--design-scheduler cycle-wave supports protein and nanobody workflows." ;;
   esac
   case "${PREDICTOR}" in
-    boltz|intellifold|openfold-3-mlx|alphafold3) ;;
+    boltz|intellifold|protenix-v2|protenix-mini|openfold-3-mlx) ;;
     *) die "--design-scheduler cycle-wave does not support predictor ${PREDICTOR}." ;;
   esac
   if [[ "${WORKFLOW}" == "nanobody" && "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 ]]; then
@@ -1341,14 +1345,15 @@ require_predictor_venv() {
     intellifold)
       [[ -x "${INTELLIFOLD_VENV}/bin/python" ]] || die "IntelliFold venv not found: ${INTELLIFOLD_VENV}"
       [[ -f "${INTELLIFOLD_RUNNER}" ]] || die "IntelliFold YAML runner not found: ${INTELLIFOLD_RUNNER}" ;;
+    protenix-v2|protenix-mini)
+      [[ "${CPU_ONLY}" -eq 0 ]] || die "Protenix is GPU-only in iProteinStudio; --cpu-only is not available."
+      [[ -x "${PROTENIX_VENV}/bin/python" ]] || die "Protenix venv not found: ${PROTENIX_VENV}"
+      [[ -f "${PROTENIX_ADAPTER}" ]] || die "Protenix adapter not found: ${PROTENIX_ADAPTER}"
+      [[ -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix-v2.pt" ]] || die "Protenix v2 checkpoint is missing. Re-run setup."
+      [[ -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix_mini_default_v0.5.0.pt" ]] || die "Protenix Mini checkpoint is missing. Re-run setup." ;;
     openfold-3-mlx)
       [[ -x "${OPENFOLD_VENV}/bin/python" ]] || die "OpenFold venv not found: ${OPENFOLD_VENV}"
       [[ -f "${OPENFOLD_A3M_QUERY_REWRITER}" ]] || die "OpenFold A3M query helper not found: ${OPENFOLD_A3M_QUERY_REWRITER}" ;;
-    alphafold3)
-      [[ -x "${ALPHAFOLD3_VENV}/bin/python" ]] || die "AlphaFold3 venv not found: ${ALPHAFOLD3_VENV} (run install_nanohunter.sh)"
-      [[ -f "${ALPHAFOLD3_RUNNER}" ]] || die "AlphaFold3 runner not found: ${ALPHAFOLD3_RUNNER}"
-      [[ -f "${ALPHAFOLD3_ADAPTER}" ]] || die "AlphaFold3 adapter not found: ${ALPHAFOLD3_ADAPTER}"
-      [[ -f "${ALPHAFOLD3_MODEL_DIR}/af3.bin" ]] || die "AlphaFold3 weights not found: ${ALPHAFOLD3_MODEL_DIR}/af3.bin (ToU-restricted; obtain from Google and place there, or set ALPHAFOLD3_MODEL_DIR)" ;;
     none|"") : ;;
     *) die "Unknown predictor for venv check: $1" ;;
   esac
@@ -1786,7 +1791,7 @@ x_positions = set(idx[:n_x])
 of3_spike_pool = list("ANGHFSY")
 for i in range(L):
     if i in x_positions:
-        if predictor in {"openfold-3-mlx", "alphafold3"}:
+        if predictor == "openfold-3-mlx":
             seq[i] = spike_rng.choice(of3_spike_pool)
         else:
             seq[i] = "X"
@@ -2850,7 +2855,7 @@ pick_target_msa_for_predictor() {
       fi
       return 0
       ;;
-    boltz|intellifold)
+    boltz|intellifold|protenix-v2|protenix-mini)
       if [[ "${msa_path##*.}" == "npz" ]]; then
         local a3m_path
         a3m_path="$(resolve_a3m_from_msa_path "${msa_path}")"
@@ -3095,6 +3100,46 @@ PY
   return 1
 }
 
+generate_protenix_auto_msa_cache() {
+  local seq="$1"
+  local chain_id="$2" # retained for the common generator signature
+  local cache_label="$3"
+  local cache_dir="$4"
+
+  local safe_label cached_a3m work_dir log_path
+  safe_label="$(printf '%s' "${cache_label}" | tr -c 'A-Za-z0-9_' '_')"
+  cache_dir="${cache_dir}/${safe_label}_protenix"
+  cached_a3m="${cache_dir}/${safe_label}_full_msa.a3m"
+  work_dir="${cache_dir}/work"
+  log_path="${cache_dir}/${safe_label}.log"
+  mkdir -p "${cache_dir}"
+
+  if [[ -s "${cached_a3m}" ]]; then
+    echo "${cached_a3m}"
+    return 0
+  fi
+  [[ -x "${PROTENIX_VENV}/bin/python" ]] \
+    || { echo "ERROR: Protenix environment is not installed." >&2; return 1; }
+  [[ -f "${REPO_ROOT}/scripts/protenix_msa.py" ]] \
+    || { echo "ERROR: Protenix MSA adapter is missing." >&2; return 1; }
+
+  set +e
+  PROTENIX_ROOT_DIR="${PROTENIX_MODEL_DIR}" \
+    "${PROTENIX_VENV}/bin/python" "${REPO_ROOT}/scripts/protenix_msa.py" \
+      --sequence "${seq}" --output "${cached_a3m}" \
+      --nanohunter-root "${REPO_ROOT}" --work-dir "${work_dir}" \
+      >"${log_path}" 2>&1
+  local rc=$?
+  set -e
+  if [[ "${rc}" -eq 0 && -s "${cached_a3m}" ]]; then
+    echo "${cached_a3m}"
+    return 0
+  fi
+  tail -n 120 "${log_path}" >&2 || true
+  echo "ERROR: Protenix MSA generation failed for ${safe_label}; no reusable MSA was produced." >&2
+  return 1
+}
+
 generate_intellifold_auto_msa_cache() {
   local seq="$1"
   local chain_id="$2"
@@ -3334,7 +3379,7 @@ make_masked_nanobody_scaffold_msa() {
     return 0
   fi
   case "${predictor}" in
-    boltz|intellifold|openfold-3-mlx|alphafold3) : ;;
+    boltz|intellifold|protenix-v2|protenix-mini|openfold-3-mlx) : ;;
     *) echo ""; return 0 ;;
   esac
   [[ -n "${NANOBODY_SCAFFOLD_MSA_BASE_A3M}" ]] || { echo ""; return 0; }
@@ -4505,6 +4550,36 @@ run_predict_intellifold() {
   echo "${struct}|${conf}|${iptm}|${plddt}"
 }
 
+run_predict_protenix() {
+  local predictor="$1"
+  local input_yaml="$2"
+  local out_dir="$3"
+  local pred_min="$4"
+  local model="v2"
+  [[ "${predictor}" == "protenix-mini" ]] && model="mini"
+
+  mkdir -p "${out_dir}" "${pred_min}"
+  PROTENIX_ROOT_DIR="${PROTENIX_MODEL_DIR}" \
+    "${PROTENIX_VENV}/bin/python" "${PROTENIX_ADAPTER}" \
+      --yaml "${input_yaml}" --output "${out_dir}" \
+      --nanohunter-root "${REPO_ROOT}" --model "${model}" \
+      >"${out_dir}/predict.log" 2>&1 \
+    || { tail -n 80 "${out_dir}/predict.log" >&2 || true; die "${predictor} prediction failed for ${input_yaml}"; }
+
+  local struct conf iptm plddt
+  struct="$(find "${out_dir}" -type f -path '*/pred_min/model_0.cif' | sort | head -n 1 || true)"
+  conf="$(find "${out_dir}" -type f -path '*/pred_min/confidence.json' | sort | head -n 1 || true)"
+  [[ -n "${struct}" ]] || die "${predictor} produced no normalized model_0.cif in ${out_dir}"
+  cp -f "${struct}" "${pred_min}/model_0.cif"
+  [[ -n "${conf}" ]] && cp -f "${conf}" "${pred_min}/confidence.json"
+  iptm="nan"; plddt="nan"
+  if [[ -f "${pred_min}/confidence.json" ]]; then
+    IFS=',' read -r iptm plddt <<< "$(extract_metrics_from_conf_json "${pred_min}/confidence.json")"
+    echo "${iptm}" > "${pred_min}/iptm.txt" || true
+  fi
+  echo "${pred_min}/model_0.cif|${pred_min}/confidence.json|${iptm}|${plddt}"
+}
+
 run_predict_openfold() {
   local input_yaml="$1"
   local binder_seq="$2"
@@ -4734,70 +4809,6 @@ run_predictor_calibration_once() {
   esac
 }
 
-run_predict_alphafold3() {
-  local cycle_yaml="$1"
-  local query_name="$2"
-  local work_dir="$3"
-  local pred_min="$4"
-
-  mkdir -p "${work_dir}" "${pred_min}"
-  local af3_json="${work_dir}/af3_input.json"
-  local af3_out="${work_dir}/out"
-  local safe_name
-  # Convert the per-cycle Boltz YAML into AF3 JSON, carrying precomputed A3M MSAs
-  # (or empty MSAs) so --norun_data_pipeline needs no genetic databases.
-  safe_name="$("${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_ADAPTER}" to-json \
-    --in-yaml "${cycle_yaml}" --out-json "${af3_json}" --name="${query_name}")" \
-    || die "AlphaFold3 input conversion failed for ${cycle_yaml}"
-
-  # cpu/mps backends require the portable XLA attention implementation.
-  local flash_impl="triton"
-  case "${ALPHAFOLD3_BACKEND}" in
-    cpu|mps) flash_impl="xla" ;;
-  esac
-
-  mkdir -p "${af3_out}"
-  mkdir -p "${ALPHAFOLD3_COMPILATION_CACHE_DIR}"
-  ( cd "${ALPHAFOLD3_REPO}" && \
-    JAX_MPS_ASYNC_DISPATCH="${ALPHAFOLD3_ASYNC_DISPATCH}" \
-    "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_RUNNER}" \
-      --json_path="${af3_json}" \
-      --output_dir="${af3_out}" \
-      --model_dir="${ALPHAFOLD3_MODEL_DIR}" \
-      --norun_data_pipeline \
-      --jax_backend="${ALPHAFOLD3_BACKEND}" \
-      --flash_attention_implementation="${flash_impl}" \
-      --num_recycles="${ALPHAFOLD3_NUM_RECYCLES}" \
-      --num_diffusion_samples="${ALPHAFOLD3_NUM_DIFFUSION_SAMPLES}" \
-      --buckets="${ALPHAFOLD3_BUCKETS}" \
-      --jax_compilation_cache_dir="${ALPHAFOLD3_COMPILATION_CACHE_DIR}" \
-      ${ALPHAFOLD3_EXTRA_FLAGS[@]+"${ALPHAFOLD3_EXTRA_FLAGS[@]}"} \
-  ) > "${work_dir}/alphafold3.log" 2>&1 \
-    || { tail -n 25 "${work_dir}/alphafold3.log" >&2; die "AlphaFold3 prediction failed (see ${work_dir}/alphafold3.log)"; }
-
-  # Normalise AF3 outputs into the predictor contract: model_0.cif + confidence.json
-  "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_ADAPTER}" from-output \
-    --af3-out "${af3_out}" --pred-min "${pred_min}" \
-    > "${work_dir}/af3_metrics.json" 2>>"${work_dir}/alphafold3.log" \
-    || die "AlphaFold3 output normalisation failed (see ${work_dir}/alphafold3.log)"
-
-  [[ -f "${pred_min}/model_0.cif" ]] || die "AlphaFold3 produced no model_0.cif in ${pred_min}"
-
-  # Emit the same result line every other predictor returns, otherwise the caller
-  # reads an empty string and records nan for iPTM/pLDDT even though the adapter
-  # wrote valid confidences.
-  local iptm plddt conf_out
-  conf_out="${pred_min}/confidence.json"
-  [[ -f "${conf_out}" ]] || conf_out=""
-  iptm="nan"; plddt="nan"
-  if [[ -n "${conf_out}" ]]; then
-    IFS=',' read -r iptm plddt <<< "$(extract_metrics_from_conf_json "${conf_out}")"
-    echo "$iptm" > "${pred_min}/iptm.txt" || true
-  fi
-
-  echo "${pred_min}/model_0.cif|${conf_out}|${iptm}|${plddt}"
-}
-
 run_predictor_once() {
   local predictor="$1"
   local cycle_yaml="$2"
@@ -4821,11 +4832,11 @@ run_predictor_once() {
     intellifold)
       run_predict_intellifold "${cycle_yaml}" "${cycle_dir}/intellifold" "${pred_min}"
       ;;
+    protenix-v2|protenix-mini)
+      run_predict_protenix "${predictor}" "${cycle_yaml}" "${cycle_dir}/${predictor}" "${pred_min}"
+      ;;
     openfold-3-mlx)
       run_predict_openfold "${cycle_yaml}" "${binder_seq}" "${query_name}" "${cycle_dir}/openfold3" "${pred_min}" "${target_msa_path}"
-      ;;
-    alphafold3)
-      run_predict_alphafold3 "${cycle_yaml}" "${query_name}" "${cycle_dir}/alphafold3" "${pred_min}"
       ;;
     *)
       die "Unsupported predictor: ${predictor}"
@@ -5559,43 +5570,6 @@ run_cycle_wave_predictor_batch() {
       rc=$?
       deactivate || true
       ;;
-    alphafold3)
-      local af3_input_dir="${batch_root}/af3_inputs"
-      local af3_cache_dir="${ALPHAFOLD3_COMPILATION_CACHE_DIR}"
-      local flash_impl="triton" af3_yaml af3_stem
-      case "${ALPHAFOLD3_BACKEND}" in
-        cpu|mps) flash_impl="xla" ;;
-      esac
-      mkdir -p "${af3_input_dir}" "${af3_cache_dir}"
-      for run_index in "${pending_runs[@]}"; do
-        run_tag="$(printf "run_%03d" "${run_index}")"
-        af3_stem="${run_tag}_${cycle_tag}"
-        af3_yaml="${EXPT_ROOT}/${run_tag}/${cycle_tag}/${af3_stem}.yaml"
-        "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_ADAPTER}" to-json \
-          --in-yaml "${af3_yaml}" \
-          --out-json "${af3_input_dir}/${af3_stem}.json" \
-          --name="${af3_stem}" \
-          >> "${batch_root}/af3_adapter.log" 2>&1 || { rc=$?; break; }
-      done
-      if [[ "${rc:-0}" -eq 0 ]]; then
-        ( cd "${ALPHAFOLD3_REPO}" && \
-          JAX_MPS_ASYNC_DISPATCH="${ALPHAFOLD3_ASYNC_DISPATCH}" \
-          "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_RUNNER}" \
-            --input_dir="${af3_input_dir}" \
-            --output_dir="${output_dir}" \
-            --model_dir="${ALPHAFOLD3_MODEL_DIR}" \
-            --norun_data_pipeline \
-            --jax_backend="${ALPHAFOLD3_BACKEND}" \
-            --flash_attention_implementation="${flash_impl}" \
-            --num_recycles="${ALPHAFOLD3_NUM_RECYCLES}" \
-            --num_diffusion_samples="${ALPHAFOLD3_NUM_DIFFUSION_SAMPLES}" \
-            --buckets="${ALPHAFOLD3_BUCKETS}" \
-            --jax_compilation_cache_dir="${af3_cache_dir}" \
-            ${ALPHAFOLD3_EXTRA_FLAGS[@]+"${ALPHAFOLD3_EXTRA_FLAGS[@]}"} \
-        ) > "${log_path}" 2>&1
-        rc=$?
-      fi
-      ;;
     openfold-3-mlx)
       local of_query_dir="${batch_root}/openfold_queries"
       local of_batch_query="${batch_root}/openfold_batch_query.json"
@@ -5673,15 +5647,6 @@ run_cycle_wave_predictor_batch() {
         leaf="${output_dir}/inputs/predictions/${stem}"
         conf="$(find "${leaf}" -maxdepth 1 -type f -name '*_summary_confidences.json' | sort | head -n 1 || true)"
         struct="$(find "${leaf}" -maxdepth 1 -type f \( -name '*.cif' -o -name '*.pdb' \) | sort | head -n 1 || true)"
-        ;;
-      alphafold3)
-        leaf="${output_dir}/${stem}"
-        "${ALPHAFOLD3_VENV}/bin/python" "${ALPHAFOLD3_ADAPTER}" from-output \
-          --af3-out "${leaf}" --pred-min "${pred_min}" \
-          > "${predictor_dir}/af3_metrics.json" 2>>"${predictor_dir}/predict.log" \
-          || die "Cycle-wave AF3 output normalization failed for ${stem}."
-        conf="${pred_min}/confidence.json"
-        struct="${pred_min}/model_0.cif"
         ;;
       openfold-3-mlx)
         leaf="${output_dir}/${stem}/seed_42"
@@ -6535,13 +6500,6 @@ print(",".join(str(value) for value in values))
 PY
 }
 
-case "${ALPHAFOLD3_BUCKETS}" in
-  auto) ALPHAFOLD3_BUCKETS="${MAX_REQUESTED_POLYMER_TOKENS}" ;;
-  default) ALPHAFOLD3_BUCKETS="256,512,768,1024,1280,1536,2048" ;;
-  *) ALPHAFOLD3_BUCKETS="$(validate_bucket_spec "${ALPHAFOLD3_BUCKETS}")" \
-       || die "Invalid --alphafold3-buckets specification." ;;
-esac
-
 if [[ "${INTELLIFOLD_EXTRA_CLI_STRING}" == *"--buckets"* ]]; then
   echo "==> IntelliFold buckets supplied through --intellifold-extra; automatic bucket selection disabled."
 elif [[ "${INTELLIFOLD_BUCKETS}" != "default" ]]; then
@@ -6553,7 +6511,7 @@ elif [[ "${INTELLIFOLD_BUCKETS}" != "default" ]]; then
   fi
   INTELLIFOLD_EXTRA_FLAGS+=("--buckets" "${INTELLIFOLD_BUCKETS}")
 fi
-echo "==> Predictor token buckets: IntelliFold=${INTELLIFOLD_BUCKETS}; AlphaFold3=${ALPHAFOLD3_BUCKETS}; campaign_max_polymer_tokens=${MAX_REQUESTED_POLYMER_TOKENS}"
+echo "==> Predictor token buckets: IntelliFold=${INTELLIFOLD_BUCKETS}; campaign_max_polymer_tokens=${MAX_REQUESTED_POLYMER_TOKENS}"
 
 OPENFOLD_TARGET_MSA_PATH=""
 PEAK_RSS_MB=0
@@ -6601,9 +6559,12 @@ elif [[ -n "${TARGET_SEQ}" ]]; then
   else
     echo "==> Calibration: no exact cached target MSA; generating ${TARGET_MSA_GENERATOR} alignment through its native MSA-server path for chain ${TARGET_CHAIN_ID}..."
     case "${TARGET_MSA_GENERATOR}" in
-      boltz)
-        TARGET_MSA_PATH="$(generate_boltz_auto_msa_cache "${TARGET_SEQ}" "${TARGET_CHAIN_ID}" "target" "${MSA_CACHE_DIR}" || true)"
-        ;;
+    boltz)
+      TARGET_MSA_PATH="$(generate_boltz_auto_msa_cache "${TARGET_SEQ}" "${TARGET_CHAIN_ID}" "target" "${MSA_CACHE_DIR}" || true)"
+      ;;
+    protenix)
+      TARGET_MSA_PATH="$(generate_protenix_auto_msa_cache "${TARGET_SEQ}" "${TARGET_CHAIN_ID}" "target" "${MSA_CACHE_DIR}" || true)"
+      ;;
       intellifold)
         TARGET_MSA_PATH="$(generate_intellifold_auto_msa_cache "${TARGET_SEQ}" "${TARGET_CHAIN_ID}" "target" "${MSA_CACHE_DIR}" || true)"
         ;;
@@ -6782,7 +6743,7 @@ PY
   AUTO_MAX_BY_MPS="${N_RUNS}"
   if [[ "${MPS_AWARE}" -eq 1 && "${CPU_ONLY}" -eq 0 ]]; then
     case "${PREDICTOR}" in
-      boltz|intellifold|openfold-3-mlx|alphafold3)
+      boltz|intellifold|openfold-3-mlx)
         AUTO_MAX_BY_MPS="$(python3 - "${MPS_MAX_PARALLEL}" "${N_RUNS}" <<'PY'
 import sys
 cap_raw=sys.argv[1]
@@ -6794,6 +6755,9 @@ else:
 print(max(1,min(cap,runs)))
 PY
 )"
+        ;;
+      protenix-v2|protenix-mini)
+        AUTO_MAX_BY_MPS=1
         ;;
     esac
   fi

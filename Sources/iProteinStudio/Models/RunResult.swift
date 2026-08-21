@@ -103,24 +103,31 @@ enum RunResultsLoader {
         let rows = CSVTable.rows(at: root.appendingPathComponent("predictions.csv"))
         let sequences = predictionSequences(root: root)
         let outputCounts = Dictionary(grouping: rows, by: { $0["output"] ?? "" }).mapValues(\.count)
-        return rows.compactMap { row in
+        return rows.flatMap { row -> [StudioResultItem] in
             guard row["exit_code"] == "0", let outputText = row["output"],
-                  let output = resolvedURL(outputText, relativeTo: root),
-                  let structure = preferredStructure(in: output, job: row["job"] ?? "",
-                                                     allowGeneric: outputCounts[outputText] == 1)
-            else { return nil }
+                  let output = resolvedURL(outputText, relativeTo: root)
+            else { return [] }
+
+            let structures = predictionStructures(in: output, job: row["job"] ?? "",
+                                                   allowGeneric: outputCounts[outputText] == 1)
+            guard !structures.isEmpty else { return [] }
 
             let job = row["job"]?.trimmingCharacters(in: .whitespacesAndNewlines)
             let predictor = friendlyPredictor(row["predictor"] ?? "Prediction")
-            let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
-            let metrics = collectMetrics(row: row, documents: documents)
-            let title = (job?.isEmpty == false ? job! : structure.deletingPathExtension().lastPathComponent)
-            return StudioResultItem(
-                id: "\(predictor)|\(title)|\(structure.path)", title: title,
-                subtitle: predictor, structureURL: structure,
-                sequence: job.flatMap { sequences[$0] }, metrics: metrics,
-                confidenceURL: documents.first
-            )
+            let baseTitle = (job?.isEmpty == false ? job! : "Prediction")
+            return structures.map { structure in
+                let documents = confidenceDocuments(near: structure,
+                                                    within: structure.deletingLastPathComponent())
+                let metrics = collectMetrics(row: row, documents: documents)
+                let suffix = structures.count > 1 ? sampleLabel(for: structure) : nil
+                let title = suffix.map { "\(baseTitle) · \($0)" } ?? baseTitle
+                return StudioResultItem(
+                    id: "\(predictor)|\(title)|\(structure.path)", title: title,
+                    subtitle: predictor, structureURL: structure,
+                    sequence: job.flatMap { sequences[$0] }, metrics: metrics,
+                    confidenceURL: documents.first
+                )
+            }
         }
     }
 
@@ -280,14 +287,43 @@ enum RunResultsLoader {
 
     // MARK: Files and formats
 
-    private static func preferredStructure(in root: URL, job: String, allowGeneric: Bool) -> URL? {
+    private static func predictionStructures(in root: URL, job: String,
+                                             allowGeneric: Bool) -> [URL] {
         let preferred = root.appendingPathComponent("pred_min/model_0.cif")
-        if allowGeneric, fm.fileExists(atPath: preferred.path) { return preferred }
         let files = recursiveFiles(in: root).filter { ["cif", "pdb"].contains($0.pathExtension.lowercased()) }
         let jobKey = lookupKey(job)
         let matching = jobKey.isEmpty ? [] : files.filter { lookupKey($0.path).contains(jobKey) }
         let eligible = matching.isEmpty && allowGeneric ? files : matching
-        return eligible.sorted { structureRank($0, root: root) < structureRank($1, root: root) }.first
+        let samples = eligible.filter { sampleLabel(for: $0) != nil }
+        if !samples.isEmpty {
+            return samples.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+        }
+        if allowGeneric, fm.fileExists(atPath: preferred.path) { return [preferred] }
+        return eligible.sorted { structureRank($0, root: root) < structureRank($1, root: root) }
+            .prefix(1).map { $0 }
+    }
+
+    /// Native engines use a few spelling variants. Aggregate `*_model.cif`
+    /// and Studio's `pred_min/model_0.cif` are copies, while these names denote
+    /// genuinely distinct stochastic outputs that must remain browseable.
+    private static func sampleLabel(for url: URL) -> String? {
+        let text = url.deletingPathExtension().lastPathComponent
+        let patterns: [(String, String)] = [
+            (#"seed[-_]([0-9]+)[-_]sample[-_]([0-9]+)"#, "seed $1 · sample $2"),
+            (#"model[-_]([0-9]+)$"#, "sample $1"),
+        ]
+        for (pattern, template) in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text))
+            else { continue }
+            var label = template
+            for index in stride(from: match.numberOfRanges - 1, through: 1, by: -1) {
+                guard let range = Range(match.range(at: index), in: text) else { continue }
+                label = label.replacingOccurrences(of: "$\(index)", with: String(text[range]))
+            }
+            return label
+        }
+        return nil
     }
 
     private static func structureRank(_ url: URL, root: URL) -> String {
@@ -356,10 +392,10 @@ enum RunResultsLoader {
     private static func friendlyPredictor(_ key: String) -> String {
         switch key.lowercased() {
         case "boltz", "boltz2", "boltz-2": return "Boltz-2"
-        case "af3", "alphafold3", "alphafold-3": return "AlphaFold 3"
+        case "af3", "alphafold3", "alphafold-3": return "AlphaFold 3 (retired)"
         case "openfold3", "openfold-3": return "OpenFold-3"
         case "intellifold": return "IntelliFold PyTorch"
-        case "intellifold-jax", "intellifold_jax": return "IntelliFold JAX/MPS"
+        case "intellifold-jax", "intellifold_jax": return "IntelliFold JAX/Metal (retired)"
         default: return key.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }

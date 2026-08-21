@@ -167,8 +167,15 @@ def prepare_and_predict(cfg: dict, campaign: Path, logs: Path, mode: str) -> Non
 
     # Optional independent second opinions, run over the same inputs. Agreement
     # between unrelated models is far stronger evidence than one high score.
-    supported = {"intellifold", "intellifold-jax", "alphafold3", "openfold-3-mlx"}
-    extra = [p for p in cfg.get("extra_predictors", []) if p in supported]
+    supported = {"intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"}
+    requested = cfg.get("extra_predictors", [])
+    retired = [p for p in requested if p in {"alphafold3", "intellifold-jax"}]
+    if retired:
+        raise SystemExit("Retired predictor(s) cannot run: " + ", ".join(retired))
+    unknown = [p for p in requested if p not in supported]
+    if unknown:
+        raise SystemExit("Unsupported predictor(s): " + ", ".join(unknown))
+    extra = list(dict.fromkeys(requested))
     if extra and mode == "holo":
         run([
             sys.executable, str(ROOT / "scripts" / "run_predictors.py"),

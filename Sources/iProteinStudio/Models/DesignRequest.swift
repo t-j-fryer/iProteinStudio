@@ -260,8 +260,9 @@ struct DesignRequest: Codable, Equatable, Hashable {
         var seen = Set<String>()
         return postPredictors.compactMap { raw in
             let predictor = raw.checkingVariant
-            guard predictor.runnerValue != designPredictor.runnerValue,
-                  seen.insert(predictor.runnerValue).inserted else { return nil }
+            guard predictor.isAvailable,
+                  predictor.independenceIdentity != designPredictor.independenceIdentity,
+                  seen.insert(predictor.independenceIdentity).inserted else { return nil }
             return predictor
         }
     }
@@ -310,11 +311,6 @@ struct DesignRequest: Codable, Equatable, Hashable {
     var requiredComponents: [InstallComponent] {
         var set: [InstallComponent] = [designPredictor.component]
         for p in effectivePostPredictors where !set.contains(p.component) { set.append(p.component) }
-        // AF3 consumes a precomputed A3M. When it drives a protein campaign,
-        // the runner's auto generator uses Boltz's alignment path.
-        if hasProteinTarget && designPredictor == .alphafold3 && !set.contains(.boltz) {
-            set.append(.boltz)
-        }
         if !set.contains(designer.component) { set.append(designer.component) }
         return set
     }
@@ -343,7 +339,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     var isRunnable: Bool {
         let targetOK = targetKind == .protein ? !targetSequence.isEmpty : !targetSmiles.isEmpty
-        guard targetOK, !hasInvalidEpitopeResidues, !hasIncompatibleTargeting else { return false }
+        guard targetOK, designPredictor.isAvailable,
+              !hasInvalidEpitopeResidues, !hasIncompatibleTargeting else { return false }
         if targetKind == .ligand && ligandIsConjugated &&
             (ligandAttachmentAtom == nil || ligandAttachmentLinkerAtom == nil) {
             return false
@@ -386,7 +383,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     mutating func selectDesignPredictor(_ newPredictor: Predictor) {
         let previous = designPredictor.checkingVariant
         designPredictor = newPredictor
-        if previous.runnerValue != newPredictor.runnerValue {
+        if previous.independenceIdentity != newPredictor.independenceIdentity {
             postPredictors.append(previous)
         }
         reconcilePredictors()

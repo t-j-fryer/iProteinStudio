@@ -35,8 +35,8 @@ bash "$ROOT/setup_pipeline.sh" --link-existing ~/NanoHunter --link-rfd3 ~/RFD3
 bash "$ROOT/setup_pipeline.sh" --materialise
 ```
 
-AlphaFold 3 weights are never downloaded — obtain `af3.bin` from Google and put
-it at `$ROOT/models/alphafold3/af3.bin`.
+AlphaFold 3 and `intellifold-jax` are retired. Setup and run entry points reject
+their old flags explicitly; IntelliFold's supported backend is PyTorch/Metal.
 
 **The install path must not contain a space.** A Python console script carries an
 absolute shebang and the kernel splits it on whitespace, so a venv under
@@ -64,9 +64,8 @@ has no homologues, so an alignment costs a server round trip and adds nothing.
 {
   "root": "…/.iproteinstudio",
   "output": "…/my_batch",
-  "predictors": ["boltz"],           // boltz | intellifold | intellifold-jax
-                                     // alphafold3 | openfold-3-mlx
-  "intellifold_model": "v2-flash",  // v2-flash | v2; applies to PyTorch + JAX
+  "predictors": ["boltz"],           // boltz | protenix-v2 | protenix-mini | intellifold | openfold-3-mlx
+  "intellifold_model": "v2-flash",  // v2-flash | v2; IntelliFold PyTorch/Metal
   "use_potentials": false,
   "affinity": false,                 // Boltz only, small molecules only
   "max_parallel": 0,                 // 0 = the measured optimum per engine
@@ -88,7 +87,10 @@ has no homologues, so an alignment costs a server round trip and adds nothing.
 Results land as `predictions.csv`, `run_summary.json` and per-engine folders.
 
 Every alignment on the machine is indexed by the sequence it describes, so a
-target aligned once during a design campaign is never aligned again.
+target aligned once during a design campaign is never aligned again. A Protenix
+prediction uses upstream `protenix msa` on a cache miss; other selections use
+Boltz's ColabFold client. Neither route needs local genetic databases, and a
+failed requested search stops rather than degrading to single-sequence mode.
 
 New GUI batches are stored under
 `projects/<slug>/prediction_runs/prediction-<timestamp>/`; the older single
@@ -124,7 +126,7 @@ Flags worth knowing:
 | `--require-target-msa` | an unreachable MSA server otherwise degrades the run to single-sequence silently |
 | `--throughput-profile auto` | uses a measured per-machine schedule, and *rejects* one from a different Mac |
 | `--resume` | idempotent; reuses completed cycles after an interruption |
-| `--design-scheduler cycle-wave` | native batching — where AlphaFold 3 and IntelliFold win most |
+| `--design-scheduler cycle-wave` | native batching for IntelliFold campaigns |
 | `--iptm-threshold 0.7` | defines campaign hits; Studio uses the same value to gate optional checking |
 | `--post-mode final-iptm` | independently checks only final-cycle designs that passed the gate; `final` checks every final design |
 | `--post-mode iptm --post-include-cycle00` | checks every passing checkpoint from cycle 00 onward; use `all` instead of `iptm` to disable the threshold gate |
@@ -137,9 +139,9 @@ the managed `msa_cache`, bundled examples, projects, and prior outputs before
 requesting a new alignment. A newly generated iterative-design alignment is
 published back to the managed cache for the other workflows.
 
-Leave `--intellifold-buckets` and `--alphafold3-buckets` alone. Their `auto`
-default resolves to the exact campaign token count, which is the single largest
-measured speed-up available; setting them explicitly undoes it.
+Leave `--intellifold-buckets` alone. Its `auto` default resolves to the exact
+campaign token count, which is the single largest measured IntelliFold speed-up
+available; setting it explicitly undoes it.
 
 To target specific atoms of a small molecule, get the names Boltz will use —
 **they change when the affinity head is on**, because it standardises the SMILES

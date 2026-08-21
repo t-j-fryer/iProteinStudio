@@ -31,7 +31,7 @@ struct DesignPoint: Identifiable, Hashable {
         switch predictor {
         case "boltz": return "Boltz-2"
         case "intellifold": return "IntelliFold"
-        case "alphafold3": return "AlphaFold 3"
+        case "alphafold3": return "AlphaFold 3 (retired)"
         case "openfold3", "openfold-3-mlx": return "OpenFold-3"
         default: return predictor
         }

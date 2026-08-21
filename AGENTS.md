@@ -32,7 +32,7 @@ not reinvent it, and do not silently diverge from its defaults**.
   saying where it came from and on what hardware.
 - **A syntax check is not a test.** `py_compile` has passed on code with an
   undefined name and a call to a script that did not exist. Run it.
-- **Never commit weights**, and never redistribute AlphaFold 3 parameters.
+- **Never commit or redistribute model weights.**
 - **No absolute paths from your own machine** in shipped code. Derive roots from
   `NANOHUNTER_ROOT` or from the script's own location.
 - `swift build` must pass before you commit.

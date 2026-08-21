@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-08-18_
+_Last updated: 2026-08-21_
 
 | | |
 |---|---|
@@ -31,13 +31,16 @@ a global Activity panel with exact checkpoint Resume for newly recorded iterativ
 separation, conformer ensembles weighed against experimental PDB structures, and a
 design budget split across the shapes a molecule actually adopts, with directed
 core-to-linker bonds, annotated RFD atom names, reviewed condition suggestions and
-stereochemistry-safe PDB evidence; choice of design predictor (Boltz-2 ± potentials, IntelliFold v2-flash or full v2,
-AlphaFold 3, OpenFold-3) with orthogonal checking; measured-optimum scheduling
+stereochemistry-safe PDB evidence; choice of design predictor (Boltz-2 ± potentials,
+Protenix v2/Mini, or IntelliFold PyTorch v2-flash/full v2)
+with IntelliFold or OpenFold-3 orthogonal checking; measured-optimum scheduling
 delegated to NanoHunter's runner; a pinned standalone installation that does not
 need a sibling checkout, with explicit reuse of an existing NanoHunter/RFD3
 install as an option; an RFdiffusion3 tab that drives the
 validated production pipeline, survives quitting the app, resumes protein stages
 and small-molecule stages from checkpoints and presents its ranked-result summary.
+Protenix uses native MPS with no CPU fallback, owns its upstream public MSA-server
+route, and is a removable managed component rather than a hidden Boltz dependency.
 
 **Known gaps, in priority order:**
 
@@ -48,13 +51,11 @@ and small-molecule stages from checkpoints and presents its ranked-result summar
 2. Accessibility labels now cover examples, primary Start actions, navigation
    and the active-run banner, but the remaining forms have not had a complete
    VoiceOver, keyboard-focus, large-text or contrast pass.
-3. AlphaFold 3's environment installs, but its gated `af3.bin` parameter file
-   cannot be distributed or downloaded by Studio; the user must supply it.
-4. RFdiffusion3's ranked structures are browsable, but it does not yet provide a
+3. RFdiffusion3's ranked structures are browsable, but it does not yet provide a
    paired apo–holo comparison with preorganisation RMSD and self-consistency.
-5. OpenFold-3 complex pLDDT has an unresolved scale problem — see
+4. OpenFold-3 complex pLDDT has an unresolved scale problem — see
    [0002](lab_book/0002-inherited-speed-lessons.md) §7.
-6. No app icon, no Developer ID signing/notarisation, no self-update.
+5. No app icon, no Developer ID signing/notarisation, no self-update.
 
 **Deliberately out of scope:** NISE (experimental, stays in NanoHunter); RFdiffusion3
 against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
@@ -69,7 +70,7 @@ repositories, which remain the development references for scientific behaviour.
 They are not runtime dependencies of a standalone install:
 
 - **NanoHunter / iProteinHunter** — `/Users/thomasfryer/NanoHunter` — iterative design
-  runner, Boltz-2 / IntelliFold / AlphaFold 3 / OpenFold-3, MPNN + AntiFold designers,
+  runner, Boltz-2 / IntelliFold PyTorch / OpenFold-3, MPNN + AntiFold designers,
   MSA handling, device throughput calibration.
 - **RFD3** — `/Users/thomasfryer/RFD3` — RFdiffusion3 backbone generation on MLX, ligand
   conditioning, length-binned batching, and the production
@@ -85,6 +86,9 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0030 | 2026-08-21 | [Promote the authoritative repo and harden the Protenix install](lab_book/0030-promote-authoritative-repo-and-harden-protenix.md) | Which path is source versus runtime, why the download stalled, verified resume/progress, Protenix v2/Mini integration, native MSA routing and safe engine removal |
+| 0029 | 2026-08-20 | [Retire untrusted JAX/Metal predictors and retain IntelliFold PyTorch](lab_book/0029-retire-untrusted-jax-metal-predictors.md) | Why AlphaFold 3 and IntelliFold JAX/Metal are no longer installable or runnable, the fail-loud compatibility boundary, and why IntelliFold PyTorch remains supported |
+| 0028 | 2026-08-20 | [Audit AlphaFold 3 Apple-GPU correctness and make prediction sampling explicit](lab_book/0028-audit-af3-apple-gpu-and-prediction-sampling.md) | Same-input evidence that MSA/recycles were correct, why neither current JAX/MPS nor the MLX port is yet a trustworthy AF3 route, GPU-only product policy, durable run MSAs, sampling controls and prediction-library repair |
 | 0027 | 2026-08-18 | [Generalize exact-ligand PDB matching beyond one regression molecule](lab_book/0027-generalize-ligand-pdb-matching.md) | Complete paginated CCD search, fail-loud external identity checks, and live validation on caffeine, aspirin, ibuprofen, glucose and acetate |
 | 0026 | 2026-08-18 | [Make ligand conditioning explicit, mapped, and stereochemistry-safe](lab_book/0026-fix-ligand-conditioning-and-biotin.md) | Directed core/linker selection, exact RFD atom labels, reviewed chemistry suggestions, correct H-bond semantics, and full-identity biotin PDB evidence |
 | 0025 | 2026-08-18 | [Audit ligand conditioning and reproduce the biotin PDB failure](lab_book/0025-audit-ligand-conditioning-and-biotin.md) | What Suggest for me actually does, why biotin returned zero matched structures, the incompatible atom-number systems, and the donor/acceptor direction bug |
