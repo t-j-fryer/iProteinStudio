@@ -1089,7 +1089,7 @@ struct RFD3ProgressView: View {
             }
 
             if controller.isRunning {
-                Label("This campaign keeps running if you quit Studio — it is detached and holds the Mac awake. Reopen this project to check on it.",
+                Label("This campaign keeps running if you quit Studio — it is detached and holds the Mac awake. Reopen this workspace to check on it.",
                       systemImage: "moon.zzz")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

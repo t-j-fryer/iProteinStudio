@@ -10,6 +10,9 @@ struct PredictionsLibraryView: View {
     @State private var selection = Set<String>()
     @State private var confirmClear = false
     @State private var selectedRun: StudioRunRecord?
+    @State private var renamingPrediction: PredictionRecord?
+    @State private var renameText = ""
+    @State private var deletingPrediction: PredictionRecord?
 
     private var predictionRuns: [StudioRunRecord] {
         app.history.runs.filter { $0.workflow == .prediction }
@@ -36,7 +39,15 @@ struct PredictionsLibraryView: View {
                     if !predictions.records.isEmpty {
                         Section("Reusable Target Prep structures") {
                             ForEach(predictions.records) { rec in
-                                PredictionRow(record: rec).tag(rec.id)
+                                PredictionRow(
+                                    record: rec,
+                                    rename: { beginRename(rec) },
+                                    reveal: {
+                                        NSWorkspace.shared.activateFileViewerSelecting([PredictionStore.dir(for: rec.id)])
+                                    },
+                                    delete: { deletingPrediction = rec }
+                                )
+                                .tag(rec.id)
                             }
                         }
                     }
@@ -52,6 +63,39 @@ struct PredictionsLibraryView: View {
             RunResultsView(root: run.root, workflow: .prediction,
                            title: "\(run.name) results")
         }
+        .sheet(item: $renamingPrediction) { record in
+            NameEditorSheet(
+                title: "Rename Prediction",
+                prompt: "Use a memorable display name. The cached structure and its reproducibility key are unchanged.",
+                placeholder: "Prediction name",
+                name: $renameText,
+                actionLabel: "Rename"
+            ) {
+                predictions.rename(record.id, to: renameText)
+                renamingPrediction = nil
+            } cancel: {
+                renamingPrediction = nil
+            }
+        }
+        .confirmationDialog(
+            deletingPrediction.map { "Delete \($0.name)?" } ?? "Delete prediction?",
+            isPresented: Binding(
+                get: { deletingPrediction != nil },
+                set: { if !$0 { deletingPrediction = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let record = deletingPrediction {
+                Button("Delete Cached Prediction", role: .destructive) {
+                    predictions.remove(Set([record.id]))
+                    selection.remove(record.id)
+                    deletingPrediction = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { deletingPrediction = nil }
+        } message: {
+            Text("The cached structure will be removed from this Mac. Completed prediction runs are not affected.")
+        }
         .confirmationDialog("Delete all \(predictions.records.count) predictions?",
                             isPresented: $confirmClear, titleVisibility: .visible) {
             Button("Delete All", role: .destructive) { predictions.clearAll(); selection = [] }
@@ -64,7 +108,7 @@ struct PredictionsLibraryView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Predictions Library").font(.headline)
+                Text("Predictions").font(.headline)
                 Text("\(predictionRuns.count) run\(predictionRuns.count == 1 ? "" : "s") · \(predictions.records.count) reusable structure\(predictions.records.count == 1 ? "" : "s") · \(sizeText)")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -95,6 +139,11 @@ struct PredictionsLibraryView: View {
 
     private var sizeText: String {
         ByteCountFormatter.string(fromByteCount: predictions.totalBytes(), countStyle: .file)
+    }
+
+    private func beginRename(_ record: PredictionRecord) {
+        renameText = record.name
+        renamingPrediction = record
     }
 }
 
@@ -133,6 +182,9 @@ struct PredictionRow: View {
     @EnvironmentObject var smilesThumbnails: SmilesThumbnailStore
     @EnvironmentObject var predictions: PredictionStore
     let record: PredictionRecord
+    let rename: () -> Void
+    let reveal: () -> Void
+    let delete: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -146,9 +198,29 @@ struct PredictionRow: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            Menu {
+                Button("Rename…", action: rename)
+                Button("Reveal in Finder", action: reveal)
+                Divider()
+                Button("Delete…", role: .destructive, action: delete)
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .foregroundStyle(.secondary)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Prediction actions")
+            .accessibilityLabel("Actions for \(record.name)")
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
+        .onTapGesture(count: 2, perform: rename)
+        .contextMenu {
+            Button("Rename…", action: rename)
+            Button("Reveal in Finder", action: reveal)
+            Button("Delete…", role: .destructive, action: delete)
+        }
         .help(hoverText)   // hover reveals the sequence / SMILES
     }
 

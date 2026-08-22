@@ -95,7 +95,7 @@ struct SetupExperiencePicker: View {
             .frame(width: 260)
             .accessibilityIdentifier("setup-experience-picker")
             Text(selection == .quick
-                 ? "Keeps the project's current settings and shows only the decisions needed to start."
+                 ? "Keeps the workspace's current settings and shows only the decisions needed to start."
                  : "Inspect model, alignment, sampling, and throughput controls.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

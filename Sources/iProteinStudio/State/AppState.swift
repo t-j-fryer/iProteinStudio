@@ -45,8 +45,16 @@ final class AppState: ObservableObject {
         }
     }
 
-    func addProject(name: String) {
-        var p = Project(name: name.isEmpty ? "Untitled Design" : name)
+    func addProject(name: String, preferredMode: WorkspaceMode = .iterative) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = trimmed.isEmpty
+            ? WorkspaceNaming.uniqueName(base: preferredMode.defaultWorkspaceName,
+                                         existing: projects.map(\.name))
+            : trimmed
+        var p = Project(name: displayName, preferredMode: preferredMode)
+        let diskSlugs = (try? AppPaths.fm.contentsOfDirectory(atPath: AppPaths.projects.path)) ?? []
+        p.slug = WorkspaceNaming.uniqueSlug(for: displayName,
+                                            existing: projects.map(\.slug) + diskSlugs)
         // Seed with the recommended default scaffold if available.
         if let s = scaffolds.first(where: { $0.id == p.request.scaffoldID }) ?? scaffolds.first {
             p.request.scaffoldID = s.id

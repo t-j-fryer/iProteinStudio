@@ -87,30 +87,6 @@ struct WorkspaceView: View {
     }
 }
 
-/// The two ways to approach a target. They share the project, so a target
-/// entered once can be attacked either way.
-enum ProjectMode: String, CaseIterable, Identifiable, Hashable {
-    case iterative
-    case rfdiffusion
-    case predict
-
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .iterative:   return "Iterative design"
-        case .rfdiffusion: return "RFdiffusion3"
-        case .predict:     return "Predict"
-        }
-    }
-    var systemImage: String {
-        switch self {
-        case .iterative:   return "arrow.triangle.2.circlepath"
-        case .rfdiffusion: return "sparkles"
-        case .predict:     return "cube.transparent"
-        }
-    }
-}
-
 /// Shows the design form until a run is launched, then the live dashboard.
 struct ProjectDetailView: View {
     @EnvironmentObject var app: AppState
@@ -120,10 +96,18 @@ struct ProjectDetailView: View {
     @ObservedObject var rfd3: RFD3Controller
     @ObservedObject var prediction: PredictionController
     @ObservedObject var installer: PipelineInstaller
-    @State private var mode: ProjectMode = .iterative
     @State private var showRunHistory = false
+    @State private var showingRename = false
+    @State private var renameText = ""
 
-    private var activeMode: ProjectMode? {
+    private var mode: Binding<WorkspaceMode> {
+        Binding(
+            get: { app.selectedProject?.preferredMode ?? project.preferredMode },
+            set: { newMode in app.updateSelected { $0.preferredMode = newMode } }
+        )
+    }
+
+    private var activeMode: WorkspaceMode? {
         if run.isRunning { return .iterative }
         if rfd3.isRunning { return .rfdiffusion }
         if prediction.isRunning { return .predict }
@@ -147,7 +131,23 @@ struct ProjectDetailView: View {
             // A detached RFdiffusion3 campaign can outlive the app; reattach so a
             // multi-day run does not look like it vanished on restart.
             rfd3.reattachIfRunning(project: project)
-            if rfd3.isRunning { mode = .rfdiffusion }
+            if run.isRunning { mode.wrappedValue = .iterative }
+            if rfd3.isRunning { mode.wrappedValue = .rfdiffusion }
+            if prediction.isRunning { mode.wrappedValue = .predict }
+        }
+        .sheet(isPresented: $showingRename) {
+            NameEditorSheet(
+                title: "Rename Workspace",
+                prompt: "Use a name that will still make sense when this workspace contains predictions and design runs.",
+                placeholder: "Workspace name",
+                name: $renameText,
+                actionLabel: "Rename"
+            ) {
+                app.renameProject(project, to: renameText)
+                showingRename = false
+            } cancel: {
+                showingRename = false
+            }
         }
     }
 
@@ -156,9 +156,29 @@ struct ProjectDetailView: View {
             // Navigation must remain available while a long campaign runs. The
             // individual Start buttons prevent concurrent GPU work; hiding this
             // picker trapped users inside RFdiffusion3 for multi-day campaigns.
-            HStack(spacing: 10) {
-                Picker("", selection: $mode) {
-                    ForEach(ProjectMode.allCases) { m in
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(project.name)
+                        .font(.title3.bold())
+                        .lineLimit(1)
+                    Text("Workspace")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Button {
+                    renameText = project.name
+                    showingRename = true
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .buttonStyle(.plain)
+                .help("Rename workspace")
+                .accessibilityLabel("Rename \(project.name)")
+
+                Spacer(minLength: 12)
+
+                Picker("", selection: mode) {
+                    ForEach(WorkspaceMode.allCases) { m in
                         Label(m.label, systemImage: m.systemImage).tag(m)
                     }
                 }
@@ -171,7 +191,7 @@ struct ProjectDetailView: View {
                 Button { showRunHistory.toggle() } label: {
                     Label("Runs", systemImage: "clock.arrow.circlepath")
                 }
-                .help("Open this project's completed and resumable runs")
+                .help("Open this workspace's completed and resumable runs")
                 .accessibilityLabel("Open run history for \(project.name)")
                 .accessibilityIdentifier("project-run-history-button")
                 .popover(isPresented: $showRunHistory, arrowEdge: .bottom) {
@@ -180,6 +200,7 @@ struct ProjectDetailView: View {
                                        projectFilter: project.id)
                 }
             }
+            .padding(.horizontal, 16)
             .padding(.top, 12)
 
             if let activeMode {
@@ -193,7 +214,7 @@ struct ProjectDetailView: View {
             Divider().padding(.top, 10)
 
             Group {
-                switch mode {
+                switch mode.wrappedValue {
                 case .iterative:
                     if run.isRunning || run.campaignRoot != nil {
                         LiveDashboardView(project: project, run: run, metrics: metrics)
@@ -220,13 +241,18 @@ struct EmptyWorkspace: View {
             Image(systemName: "atom")
                 .font(.system(size: 52))
                 .foregroundStyle(.tint)
-            Text("Design a nanobody").font(.title2.bold())
-            Text("Create a project to specify your target and start a design run.")
+            Text("Start some work").font(.title2.bold())
+            Text("Create a workspace for predictions, iterative design, or RFdiffusion3.")
                 .foregroundStyle(.secondary)
-            Button { app.addProject(name: "Untitled Design") } label: {
-                Label("New Design Project", systemImage: "plus")
+            HStack(spacing: 10) {
+                Button { app.addProject(name: "", preferredMode: .predict) } label: {
+                    Label("New Prediction", systemImage: "cube.transparent")
+                }
+                .buttonStyle(.borderedProminent)
+                Button { app.addProject(name: "", preferredMode: .iterative) } label: {
+                    Label("New Workspace", systemImage: "plus")
+                }
             }
-            .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
         .padding(40)

@@ -100,7 +100,7 @@ final class PipelineInstaller: ObservableObject {
         } else {
             message = "Deletes Studio's \(component.label) environment, managed source (if any), model weights and engine caches."
         }
-        message += " Prediction and design results, projects, and saved MSAs are kept."
+        message += " Prediction and design results, workspaces, and saved MSAs are kept."
         let dependents = InstallComponent.allCases.filter {
             $0.requires.contains(component) && hasManagedFiles($0)
         }
@@ -142,7 +142,7 @@ final class PipelineInstaller: ObservableObject {
                 self.isRemoving = false
                 if removalFailures.isEmpty {
                     self.components[component] = ComponentState(availability: .missing, detail: "removed")
-                    self.currentMessage = "\(component.label) removed. Projects and alignments were kept."
+                    self.currentMessage = "\(component.label) removed. Workspaces and alignments were kept."
                 } else {
                     self.failure = "Could not completely remove \(component.label): " + removalFailures.joined(separator: "; ")
                     self.currentMessage = "Removal incomplete."

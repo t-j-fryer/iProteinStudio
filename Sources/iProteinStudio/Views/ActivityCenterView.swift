@@ -73,7 +73,7 @@ struct ActivityCenterView: View {
                            title: "\(record.name) results")
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(projectFilter == nil ? "Global activity centre" : "Project run history")
+        .accessibilityLabel(projectFilter == nil ? "Global activity centre" : "Workspace run history")
     }
 
     private var hasLiveActivity: Bool { run.isRunning || rfd3.isRunning || prediction.isRunning }

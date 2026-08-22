@@ -16,8 +16,10 @@ struct iProteinStudioApp: App {
         .windowStyle(.titleBar)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("New Design Project") { app.addProject(name: "Untitled Design") }
+                Button("New Workspace") { app.addProject(name: "", preferredMode: .iterative) }
                     .keyboardShortcut("n")
+                Button("New Prediction") { app.addProject(name: "", preferredMode: .predict) }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
             }
         }
     }

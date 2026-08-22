@@ -46,7 +46,7 @@ struct ComponentsView: View {
                 }
                 .controlSize(.small)
             }
-            Text("Install only what you need. You can add or remove engines at any time; removing one never deletes projects, results, or saved alignments.")
+            Text("Install only what you need. You can add or remove engines at any time; removing one never deletes workspaces, results, or saved alignments.")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             LabeledContent("Managed runtime") {
                 Text(AppPaths.support.path)
