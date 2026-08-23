@@ -44,6 +44,8 @@ touch \
 cp "${SELECTOR}" "${FIXTURE_ROOT}/scripts/select_post_tasks.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/find_target_msa.py" \
   "${FIXTURE_ROOT}/scripts/find_target_msa.py"
+cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/intellifold_predict.py" \
+  "${FIXTURE_ROOT}/scripts/intellifold_predict.py"
 mkdir -p "${FIXTURE_ROOT}/msa_cache"
 
 cat > "${FIXTURE_ROOT}/protein_hotspot.yaml" <<'YAML'

@@ -452,13 +452,14 @@ def run_directory_batch(predictor: str, yamls: list, out_dir: Path, root: Path,
         venv = root / "venvs" / "NanoHunter_intellifold"
         env = {**env,
                # IntelliFold only: host BLAS/OpenMP contends with MPS submission.
-               "OMP_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1", "KMP_USE_SHM": "0"}
+               "OMP_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1", "KMP_USE_SHM": "0",
+               "PYTORCH_ENABLE_MPS_FALLBACK": "0"}
         seed = int(cfg.get("seed", 42))
         num_seeds = int(cfg.get("num_seeds", 1))
         seeds = ",".join(str(seed + offset) for offset in range(num_seeds))
         samples = int(cfg.get("diffusion_samples", 0)) or 1
         command = [str(venv / "bin" / "python"),
-                   str(root / "src" / "IntelliFold" / "run_intellifold.py"), str(batch_dir),
+                   str(root / "scripts" / "intellifold_predict.py"), str(batch_dir),
                    "--out_dir", str(out_dir), "--precision", "no", "--num_workers", "0",
                    "--seed", seeds, "--num_diffusion_samples", str(samples),
                    "--override", "--model", cfg.get("intellifold_model", "v2-flash"),

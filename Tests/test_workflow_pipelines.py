@@ -46,6 +46,9 @@ def main() -> None:
     prepare = load("prepare_contract", RFD3 / "prepare_campaign.py")
     protein_campaign = load("protein_campaign_contract", RFD3 / "rfd3_protein_campaign.py")
     openfold = load("openfold_contract", OVERLAY / "openfold_predict_one.py")
+    pipeline_scripts = ROOT / "Sources/iProteinStudio/Resources/pipeline/scripts"
+    protenix = load("protenix_contract", pipeline_scripts / "protenix_predict.py")
+    intellifold = load("intellifold_mps_contract", pipeline_scripts / "intellifold_predict.py")
 
     with tempfile.TemporaryDirectory(prefix="iproteinstudio-workflow-contract-") as raw:
         root = Path(raw)
@@ -164,6 +167,59 @@ def main() -> None:
                and '\"use_msas\": True' not in runner_source,
                "iterative runner drifted from the shared OpenFold MSA policy")
 
+        # Protenix has one process-wide MSA switch. A fully explicit-empty job
+        # must force it off; a mixed job must retain the target alignment while
+        # representing the empty binder with a query-only A3M. Neither case may
+        # give upstream permission to search online.
+        no_msa_job, no_msa_chains, no_msa_real = protenix.convert_yaml(single_yaml)
+        expect(not no_msa_real and len(no_msa_chains) == 1
+               and "unpairedMsaPath" not in no_msa_job["sequences"][0]["proteinChain"],
+               "Protenix did not retain the explicit single-sequence policy")
+        no_msa_command = protenix.protenix_command(
+            Path("protenix"), root / "single.json", root / "px", "protenix-v2",
+            "42", 2, False,
+        )
+        expect(no_msa_command[no_msa_command.index("--use_msa") + 1] == "False",
+               "Protenix explicit-empty job still permits an MSA-server request")
+
+        mixed_job, mixed_empty, mixed_real = protenix.convert_yaml(mixed_yaml)
+        converted = [(mixed_job, mixed_empty, mixed_real)]
+        protenix.materialize_single_sequence_msas(converted, root / "px-msas")
+        mixed_proteins = [entry["proteinChain"] for entry in mixed_job["sequences"]]
+        binder_msa = Path(mixed_proteins[0]["unpairedMsaPath"])
+        expect(mixed_real and binder_msa.read_text() == ">query\nACDEFG\n"
+               and mixed_proteins[1]["unpairedMsaPath"] == str(cached.resolve()),
+               "Protenix mixed-chain policy lost the real MSA or searched the empty chain")
+
+        # The strict IntelliFold wrapper is testable without importing PyTorch.
+        # Validate its exact seed/sample accounting against a synthetic output.
+        if_inputs = root / "if-inputs"
+        if_inputs.mkdir()
+        (if_inputs / "one.yaml").write_text("sequences: []\n")
+        if_job = root / "if-results" / "if-inputs" / "predictions" / "one"
+        if_job.mkdir(parents=True)
+        for sample in range(2):
+            stem = f"one_seed-42_sample-{sample}"
+            (if_job / f"{stem}.cif").write_text("data_test\n")
+            (if_job / f"{stem}_summary_confidences.json").write_text("{}\n")
+        intellifold.verify_outputs([
+            str(if_inputs), "--out_dir", str(root / "if-results"),
+            "--seed", "42", "--num_diffusion_samples", "2",
+        ])
+        (if_job / "one_seed-42_sample-1.cif").unlink()
+        try:
+            intellifold.verify_outputs([
+                str(if_inputs), "--out_dir", str(root / "if-results"),
+                "--seed", "42", "--num_diffusion_samples", "2",
+            ])
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError("IntelliFold missing output was silently accepted")
+        expect(intellifold.STRICT_ACCELERATE_VERSION == "1.1.1"
+               and intellifold.STRICT_TORCH_VERSION == "2.6.0",
+               "IntelliFold strict launcher drifted from the installed version pins")
+
         try:
             predict.validate_config({"predictors": ["boltz"]}, [
                 {"name": "../escape", "chains": [
@@ -188,11 +244,13 @@ def main() -> None:
         # Sampling settings must lower to each native CLI without changing the
         # established default when the override is zero.
         command_log = []
+        environment_log = []
         real_popen = predict.subprocess.Popen
 
         class FakePopen:
             def __init__(self, command, **kwargs):
                 command_log.append(command)
+                environment_log.append(kwargs.get("env", {}))
 
         predict.subprocess.Popen = FakePopen
         try:
@@ -214,6 +272,9 @@ def main() -> None:
         intellifold_cmd, boltz_cmd, protenix_cmd, openfold_cmd = command_log
         expect(intellifold_cmd[intellifold_cmd.index("--seed") + 1] == "42,43,44",
                "IntelliFold did not receive the requested independent seeds")
+        expect(intellifold_cmd[1].endswith("scripts/intellifold_predict.py")
+               and environment_log[0].get("PYTORCH_ENABLE_MPS_FALLBACK") == "0",
+               "plain prediction bypassed the strict IntelliFold MPS launcher")
         expect(intellifold_cmd[intellifold_cmd.index("--num_diffusion_samples") + 1] == "2",
                "IntelliFold did not receive the diffusion-sample override")
         expect(boltz_cmd[boltz_cmd.index("--seed") + 1] == "42"
@@ -226,6 +287,15 @@ def main() -> None:
         expect(openfold_cmd[openfold_cmd.index("--num-seeds") + 1] == "3"
                and openfold_cmd[openfold_cmd.index("--diffusion-samples") + 1] == "2",
                "OpenFold sampling controls did not reach its adapter")
+
+        overlay_if_command, overlay_if_env = load(
+            "run_predictors_contract", OVERLAY / "run_predictors.py"
+        ).command_for("intellifold", one_yaml, root / "overlay-if", root, "v2-flash")
+        expect(overlay_if_command[1].endswith("scripts/intellifold_predict.py")
+               and overlay_if_env.get("PYTORCH_ENABLE_MPS_FALLBACK") == "0"
+               and 'INTELLIFOLD_RUNNER="${REPO_ROOT}/scripts/intellifold_predict.py"'
+               in runner_source,
+               "a design workflow bypassed the strict IntelliFold MPS launcher")
 
         expect(protein_campaign.verification_predictors(
             {"extra_predictors": ["protenix-v2"]}) == ["protenix-v2"],

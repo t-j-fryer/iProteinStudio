@@ -2,9 +2,10 @@
 """Run Protenix v2 or Mini from Studio's Boltz-YAML prediction contract.
 
 The adapter is deliberately small: it translates entities and passes exact A3M
-paths through to upstream Protenix. It does not search alignments, change model
-defaults, or provide a CPU escape hatch. Both the prediction tab and design
-pipelines call this file, keeping their scientific behaviour identical.
+paths through to upstream Protenix. Explicit ``msa: empty`` remains a
+single-sequence request and can never become an online search. It does not
+provide a CPU escape hatch. Both the prediction tab and design pipelines call
+this file, keeping their scientific behaviour identical.
 """
 
 from __future__ import annotations
@@ -38,13 +39,15 @@ def scalar_id(value, fallback: str) -> str:
     return str(value or fallback)
 
 
-def convert_yaml(path: Path) -> dict:
+def convert_yaml(path: Path) -> tuple[dict, list[dict], bool]:
     try:
         document = yaml.safe_load(path.read_text()) or {}
     except (OSError, yaml.YAMLError) as exc:
         die(f"cannot read {path}: {exc}")
 
     entities = []
+    explicit_empty = []
+    has_real_msa = False
     for index, wrapped in enumerate(document.get("sequences") or []):
         if not isinstance(wrapped, dict) or len(wrapped) != 1:
             die(f"{path} contains an unsupported sequence entry")
@@ -60,14 +63,18 @@ def convert_yaml(path: Path) -> dict:
             if not protein["sequence"]:
                 die(f"protein {chain_id} in {path} has no sequence")
             msa = raw.get("msa")
-            # `empty` is an explicit scientific choice. Omitting the field is
-            # Protenix's documented single-sequence input; a real file is
-            # passed byte-for-byte as the unpaired alignment.
+            # `empty` is an explicit scientific choice. Keep a reference to the
+            # converted chain so mixed jobs can receive a query-only A3M later;
+            # otherwise Protenix interprets the missing path as permission to
+            # contact its MSA server.
             if msa and str(msa).lower() not in {"empty", "none", "null"}:
                 msa_path = Path(str(msa)).expanduser().resolve()
                 if not msa_path.is_file():
                     die(f"MSA for chain {chain_id} does not exist: {msa_path}")
                 protein["unpairedMsaPath"] = str(msa_path)
+                has_real_msa = True
+            else:
+                explicit_empty.append(protein)
             entities.append({"proteinChain": protein})
         elif kind == "ligand":
             value = raw.get("smiles")
@@ -98,10 +105,45 @@ def convert_yaml(path: Path) -> dict:
 
     if not entities:
         die(f"{path} contains no sequences")
-    return {"name": path.stem, "sequences": entities, "covalent_bonds": []}
+    return ({"name": path.stem, "sequences": entities, "covalent_bonds": []},
+            explicit_empty, has_real_msa)
 
 
-def best_prediction(job_dir: Path) -> tuple[Path, Path]:
+def materialize_single_sequence_msas(converted: list[tuple[dict, list[dict], bool]],
+                                     msa_dir: Path) -> None:
+    """Represent explicit-empty chains without giving Protenix search permission.
+
+    Protenix exposes MSA use as one process-wide switch. A job containing both a
+    real target alignment and an explicit-empty binder therefore needs a real
+    query-only A3M for the binder: this keeps MSA features for the target while
+    making ``need_msa_search`` false for every chain.
+    """
+    msa_dir.mkdir(parents=True, exist_ok=True)
+    for job, empty_chains, has_real_msa in converted:
+        if not has_real_msa:
+            continue
+        for index, protein in enumerate(empty_chains):
+            path = msa_dir / f"{job['name']}_{index}.a3m"
+            path.write_text(f">query\n{protein['sequence']}\n")
+            protein["unpairedMsaPath"] = str(path.resolve())
+
+
+def protenix_command(executable: Path, input_json: Path, output: Path,
+                     model_name: str, seeds: str, samples: int,
+                     use_msa: bool) -> list[str]:
+    return [
+        str(executable), "pred", "-i", str(input_json), "-o", str(output),
+        "-s", seeds, "-e", str(samples), "-n", model_name,
+        "--use_default_params", "True", "--use_msa", str(use_msa),
+        "--use_template", "False", "--use_rna_msa", "False",
+        "--trimul_kernel", "torch", "--triatt_kernel", "torch",
+        "--enable_cache", "False", "--enable_fusion", "False",
+        "--enable_tf32", "False", "--need_atom_confidence", "False",
+        "-d", "fp32",
+    ]
+
+
+def complete_predictions(job_dir: Path) -> list[tuple[float, Path, Path]]:
     candidates = []
     for confidence in job_dir.rglob("*_summary_confidence_sample_*.json"):
         try:
@@ -113,16 +155,26 @@ def best_prediction(job_dir: Path) -> tuple[Path, Path]:
         if structures:
             candidates.append((float(data.get("ranking_score", float("-inf"))),
                                structures[0], confidence))
-    if not candidates:
-        die(f"no complete Protenix prediction under {job_dir}")
+    return candidates
+
+
+def best_prediction(job_dir: Path, expected: int) -> tuple[Path, Path]:
+    candidates = complete_predictions(job_dir)
+    structures = list(job_dir.rglob("*_sample_*.cif"))
+    confidences = list(job_dir.rglob("*_summary_confidence_sample_*.json"))
+    if (len(candidates) != expected or len(structures) != expected
+            or len(confidences) != expected):
+        die(f"expected exactly {expected} complete prediction(s) under {job_dir}; "
+            f"found {len(structures)} structure(s), {len(confidences)} summary file(s), "
+            f"and {len(candidates)} matched pair(s)")
     _score, structure, confidence = max(candidates, key=lambda item: item[0])
     return structure, confidence
 
 
-def normalize(output: Path, names: list[str]) -> None:
+def normalize(output: Path, names: list[str], expected: int) -> None:
     for name in names:
         source_root = output / name
-        structure, confidence = best_prediction(source_root)
+        structure, confidence = best_prediction(source_root, expected)
         pred_min = source_root / "pred_min"
         pred_min.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(structure, pred_min / "model_0.cif")
@@ -155,13 +207,15 @@ def main() -> None:
     yaml_paths = [source] if source.is_file() else sorted(source.glob("*.yaml"))
     if not yaml_paths:
         die(f"no YAML inputs found at {source}")
-    jobs = [convert_yaml(path.resolve()) for path in yaml_paths]
+    converted = [convert_yaml(path.resolve()) for path in yaml_paths]
+    jobs = [item[0] for item in converted]
     names = [job["name"] for job in jobs]
     if len(set(names)) != len(names):
         die("input YAML filenames must be unique")
 
     output = args.output.expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
+    materialize_single_sequence_msas(converted, output / "single_sequence_msas")
     input_json = output / "protenix_input.json"
     input_json.write_text(json.dumps(jobs, indent=2) + "\n")
 
@@ -170,23 +224,37 @@ def main() -> None:
     if not checkpoint.is_file():
         die(f"requested checkpoint is missing: {checkpoint}")
 
+    try:
+        seeds = [int(value) for value in args.seeds.split(",") if value.strip()]
+    except ValueError:
+        die("--seeds must be a comma-separated list of integers")
+    if not seeds:
+        die("--seeds must contain at least one integer")
+
     env = dict(os.environ)
     env.update({
         "PROTENIX_ROOT_DIR": str(model_root),
         "MPLCONFIGDIR": str(root / "matplotlib_cache"),
     })
     env.pop("PYTORCH_ENABLE_MPS_FALLBACK", None)
-    command = [
-        str(executable), "pred", "-i", str(input_json), "-o", str(output),
-        "-s", args.seeds, "-e", str(args.samples), "-n", model_name,
-        "--use_default_params", "True", "--trimul_kernel", "torch",
-        "--triatt_kernel", "torch", "--enable_cache", "False",
-        "--enable_fusion", "False", "--enable_tf32", "False", "-d", "fp32",
-    ]
-    completed = subprocess.run(command, cwd=root, env=env)
-    if completed.returncode:
-        raise SystemExit(completed.returncode)
-    normalize(output, names)
+    # Protenix's use_msa switch is process-wide. Keep fully single-sequence jobs
+    # separate from jobs that contain a real MSA so neither policy can override
+    # the other inside a directory batch.
+    groups = [(False, [item[0] for item in converted if not item[2]]),
+              (True, [item[0] for item in converted if item[2]])]
+    populated = [(use_msa, group) for use_msa, group in groups if group]
+    for use_msa, group in populated:
+        group_input = input_json
+        if len(populated) > 1:
+            suffix = "with_msa" if use_msa else "single_sequence"
+            group_input = output / f"protenix_input_{suffix}.json"
+            group_input.write_text(json.dumps(group, indent=2) + "\n")
+        command = protenix_command(executable, group_input, output, model_name,
+                                   args.seeds, args.samples, use_msa)
+        completed = subprocess.run(command, cwd=root, env=env)
+        if completed.returncode:
+            raise SystemExit(completed.returncode)
+    normalize(output, names, len(seeds) * args.samples)
 
 
 if __name__ == "__main__":

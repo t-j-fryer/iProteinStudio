@@ -107,7 +107,8 @@ ANTIFOLD_REPO="${REPO_ROOT}/src/AntiFold"
 ANTIFOLD_RUN="python antifold/main.py"
 ANTIFOLD_EXACT_SAMPLER="${REPO_ROOT}/scripts/sample_antifold_positions.py"
 INTELLIFOLD_REPO="${REPO_ROOT}/src/IntelliFold"
-INTELLIFOLD_RUNNER="${INTELLIFOLD_REPO}/run_intellifold.py"
+INTELLIFOLD_UPSTREAM_RUNNER="${INTELLIFOLD_REPO}/run_intellifold.py"
+INTELLIFOLD_RUNNER="${REPO_ROOT}/scripts/intellifold_predict.py"
 # IntelliFold's CPU-side BLAS/OpenMP work contends with MPS command submission
 # when every process uses all performance cores. Paired M4 Max benchmarks found
 # one thread faster with byte-identical structures; users can override either.
@@ -1344,7 +1345,9 @@ require_predictor_venv() {
       [[ -x "${BOLTZ_VENV}/bin/python" ]] || die "Boltz venv not found: ${BOLTZ_VENV}" ;;
     intellifold)
       [[ -x "${INTELLIFOLD_VENV}/bin/python" ]] || die "IntelliFold venv not found: ${INTELLIFOLD_VENV}"
-      [[ -f "${INTELLIFOLD_RUNNER}" ]] || die "IntelliFold YAML runner not found: ${INTELLIFOLD_RUNNER}" ;;
+      [[ "${CPU_ONLY}" -eq 0 ]] || die "IntelliFold is GPU-only in iProteinStudio; --cpu-only is not available."
+      [[ -f "${INTELLIFOLD_UPSTREAM_RUNNER}" ]] || die "IntelliFold upstream runner not found: ${INTELLIFOLD_UPSTREAM_RUNNER}"
+      [[ -f "${INTELLIFOLD_RUNNER}" ]] || die "IntelliFold MPS launcher not found: ${INTELLIFOLD_RUNNER}" ;;
     protenix-v2|protenix-mini)
       [[ "${CPU_ONLY}" -eq 0 ]] || die "Protenix is GPU-only in iProteinStudio; --cpu-only is not available."
       [[ -x "${PROTENIX_VENV}/bin/python" ]] || die "Protenix venv not found: ${PROTENIX_VENV}"

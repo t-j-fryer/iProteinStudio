@@ -43,10 +43,11 @@ def command_for(predictor: str, yaml_path: Path, output: Path, root: Path,
                 # is IntelliFold-specific: the same setting makes Boltz slower.
                 "OMP_NUM_THREADS": env.get("NANOHUNTER_INTELLIFOLD_OMP_NUM_THREADS", "1"),
                 "VECLIB_MAXIMUM_THREADS": env.get("NANOHUNTER_INTELLIFOLD_VECLIB_MAXIMUM_THREADS", "1"),
+                "PYTORCH_ENABLE_MPS_FALLBACK": "0",
             }
         )
         command = [
-            str(venv / "bin" / "python"), str(root / "src" / "IntelliFold" / "run_intellifold.py"),
+            str(venv / "bin" / "python"), str(root / "scripts" / "intellifold_predict.py"),
             str(yaml_path), "--out_dir", str(output), "--precision", "no", "--num_workers", "0",
             "--seed", "42", "--num_diffusion_samples", "1", "--override", "--model", intellifold_model,
             "--cache", str(root / "models" / "intellifold"),

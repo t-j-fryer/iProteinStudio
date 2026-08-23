@@ -40,7 +40,10 @@ install as an option; an RFdiffusion3 tab that drives the
 validated production pipeline, survives quitting the app, resumes protein stages
 and small-molecule stages from checkpoints and presents its ranked-result summary.
 Protenix uses native MPS with no CPU fallback, owns its upstream public MSA-server
-route, and is a removable managed component rather than a hidden Boltz dependency.
+route, preserves explicit single-sequence requests without contacting that route,
+and is a removable managed component rather than a hidden Boltz dependency.
+IntelliFold runs through a pinned native-MPS launcher that rejects Accelerate CPU
+fallback and incomplete seed/sample output sets.
 
 **Known gaps, in priority order:**
 
@@ -86,6 +89,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0035 | 2026-08-22 | [Make MSA and accelerator policy fail-loud](lab_book/0035-fail-loud-msa-and-mps-policy.md) | Why Protenix treated explicit-empty MSAs as search permission, how mixed-chain policy is preserved, and how every IntelliFold route now rejects CPU fallback and incomplete outputs |
 | 0034 | 2026-08-22 | [Organize the app around workspaces and a first-class library](lab_book/0034-workspaces-and-library.md) | Why the old Design Projects framing was obsolete, how prediction-first work starts without a fake design campaign, safe migration, unique output paths, and discoverable renaming |
 | 0033 | 2026-08-21 | [Audit the rebuilt app and preserve explicit MSA policy](lab_book/0033-end-to-end-application-audit.md) | Current GUI/runtime acceptance, the explicit single-sequence OpenFold bug, one shared query builder, and bounded GPU coverage of every supported predictor/model variant |
 | 0030 | 2026-08-21 | [Promote the authoritative repo and harden the Protenix install](lab_book/0030-promote-authoritative-repo-and-harden-protenix.md) | Which path is source versus runtime, why the download stalled, verified resume/progress, Protenix v2/Mini integration, native MSA routing and safe engine removal |
