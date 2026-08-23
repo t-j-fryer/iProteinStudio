@@ -15,6 +15,7 @@ struct DesignPoint: Identifiable, Hashable {
     let run: Int
     let cycle: Int
     let iptm: Double
+    let ipsaeMinimum: Double?
     let plddt: Double
     let sequence: String
     let structurePath: String
@@ -37,6 +38,10 @@ struct DesignPoint: Identifiable, Hashable {
         }
     }
     var iptmText: String { String(format: "%.3f", iptm) }
+    var ipsaeText: String? {
+        guard let ipsaeMinimum, ipsaeMinimum.isFinite else { return nil }
+        return String(format: "%.3f", ipsaeMinimum)
+    }
     var plddtText: String {
         let conventional = plddt <= 1.000_001 ? plddt * 100 : plddt
         return String(format: "%.1f", conventional)

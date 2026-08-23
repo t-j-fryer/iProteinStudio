@@ -22,11 +22,16 @@ struct DesignTile: View {
             HStack {
                 Text(point.label).font(.caption2).bold().lineLimit(1)
                 Spacer()
-                Text(point.iptmText)
-                    .font(.caption2).monospacedDigit()
-                    .padding(.horizontal, 5).padding(.vertical, 1)
-                    .background(Capsule().fill(isHit ? Color.green.opacity(0.22) : Color.secondary.opacity(0.15)))
-                    .foregroundStyle(isHit ? .green : .secondary)
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text("iPTM \(point.iptmText)")
+                    if let ipsae = point.ipsaeText {
+                        Text("ipSAE(min) \(ipsae)").foregroundStyle(.teal)
+                    }
+                }
+                .font(.caption2).monospacedDigit()
+                .padding(.horizontal, 5).padding(.vertical, 1)
+                .background(Capsule().fill(isHit ? Color.green.opacity(0.22) : Color.secondary.opacity(0.15)))
+                .foregroundStyle(isHit ? .green : .secondary)
             }
             .padding(.horizontal, 8).padding(.vertical, 6)
         }
@@ -50,6 +55,9 @@ struct StructureInspector: View {
                     Text("\(point.stage.label) · \(point.label)").font(.headline)
                     HStack(spacing: 12) {
                         Text("iPTM \(point.iptmText)").foregroundStyle(.green)
+                        if let ipsae = point.ipsaeText {
+                            Text("ipSAE(min) \(ipsae)").foregroundStyle(.teal)
+                        }
                         if point.plddt.isFinite {
                             Text("pLDDT \(point.plddtText)").foregroundStyle(.blue)
                         }

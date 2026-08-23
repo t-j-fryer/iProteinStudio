@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,6 +48,8 @@ def main() -> None:
     protein_campaign = load("protein_campaign_contract", RFD3 / "rfd3_protein_campaign.py")
     openfold = load("openfold_contract", OVERLAY / "openfold_predict_one.py")
     pipeline_scripts = ROOT / "Sources/iProteinStudio/Resources/pipeline/scripts"
+    sys.path.insert(0, str(pipeline_scripts))
+    ipsae = load("ipsae_contract", pipeline_scripts / "ipsae_score.py")
     protenix = load("protenix_contract", pipeline_scripts / "protenix_predict.py")
     intellifold = load("intellifold_mps_contract", pipeline_scripts / "intellifold_predict.py")
 
@@ -181,6 +184,8 @@ def main() -> None:
         )
         expect(no_msa_command[no_msa_command.index("--use_msa") + 1] == "False",
                "Protenix explicit-empty job still permits an MSA-server request")
+        expect(no_msa_command[no_msa_command.index("--need_atom_confidence") + 1] == "True",
+               "Protenix did not request the token PAE needed for ipSAE")
 
         mixed_job, mixed_empty, mixed_real = protenix.convert_yaml(mixed_yaml)
         converted = [(mixed_job, mixed_empty, mixed_real)]
@@ -190,6 +195,50 @@ def main() -> None:
         expect(mixed_real and binder_msa.read_text() == ">query\nACDEFG\n"
                and mixed_proteins[1]["unpairedMsaPath"] == str(cached.resolve()),
                "Protenix mixed-chain policy lost the real MSA or searched the empty chain")
+
+        # Dunbrack v4 d0res semantics are directional. Studio persists both
+        # directions and exposes their conservative minimum.
+        pae = ipsae.np.array([
+            [0, 0, 1, 20],
+            [0, 0, 2, 2],
+            [4, 20, 0, 0],
+            [4, 4, 0, 0],
+        ], dtype=float)
+        values = ipsae.calculate_ipsae(pae, ["A", "A", "B", "B"], ["A", "B"])
+        expect(abs(values["ipsae_directional"]["A>B"] - 0.5) < 1e-12,
+               "ipSAE A>B departed from the Dunbrack d0res equation")
+        expect(abs(values["ipsae_directional"]["B>A"] - (1 / 17)) < 1e-12
+               and abs(values["ipsae_min"] - (1 / 17)) < 1e-12,
+               "ipSAE(min) was not the smaller directional score")
+
+        boltz_score_root = root / "boltz-score"
+        boltz_score_root.mkdir()
+        boltz_pae = ipsae.np.full((12, 12), 20.0)
+        ipsae.np.fill_diagonal(boltz_pae, 0.0)
+        boltz_pae[:6, 6:] = 1.0
+        boltz_pae[6:, :6] = 4.0
+        ipsae.np.savez(boltz_score_root / "pae_mixed-msa_model_0.npz", pae=boltz_pae)
+        boltz_confidence = boltz_score_root / "confidence_mixed-msa_model_0.json"
+        boltz_confidence.write_text('{"iptm": 0.7}\n')
+        expect(ipsae.annotate_boltz(mixed_yaml, boltz_score_root) == 1,
+               "Boltz multimer PAE was not annotated")
+        expect("ipsae_min" in json.loads(boltz_confidence.read_text()),
+               "Boltz confidence JSON did not retain ipSAE(min)")
+
+        protenix_score_root = root / "protenix-score"
+        protenix_predictions = protenix_score_root / mixed_job["name"] / "seed_42" / "predictions"
+        protenix_predictions.mkdir(parents=True)
+        protenix_full = protenix_predictions / f"{mixed_job['name']}_full_data_sample_0.json"
+        protenix_summary = protenix_predictions / f"{mixed_job['name']}_summary_confidence_sample_0.json"
+        protenix_full.write_text(json.dumps({
+            "token_pair_pae": boltz_pae.tolist(),
+            "token_asym_id": [0] * 6 + [1] * 6,
+        }))
+        protenix_summary.write_text('{"iptm": 0.7}\n')
+        expect(ipsae.annotate_protenix(protenix_score_root, [mixed_job]) == 1,
+               "Protenix full confidence was not scored")
+        expect("ipsae_min" in json.loads(protenix_summary.read_text()),
+               "Protenix summary did not receive ipSAE(min)")
 
         # The strict IntelliFold wrapper is testable without importing PyTorch.
         # Validate its exact seed/sample accounting against a synthetic output.
@@ -202,6 +251,9 @@ def main() -> None:
             stem = f"one_seed-42_sample-{sample}"
             (if_job / f"{stem}.cif").write_text("data_test\n")
             (if_job / f"{stem}_summary_confidences.json").write_text("{}\n")
+            (if_job / f"{stem}_confidences.json").write_text(json.dumps({
+                "pae": [[0.0]], "token_chain_ids": ["A"],
+            }))
         intellifold.verify_outputs([
             str(if_inputs), "--out_dir", str(root / "if-results"),
             "--seed", "42", "--num_diffusion_samples", "2",
@@ -287,6 +339,24 @@ def main() -> None:
         expect(openfold_cmd[openfold_cmd.index("--num-seeds") + 1] == "3"
                and openfold_cmd[openfold_cmd.index("--diffusion-samples") + 1] == "2",
                "OpenFold sampling controls did not reach its adapter")
+
+        # Protein design ranking remains the established mean iPTM while the
+        # conservative interface metric survives per engine and in aggregate.
+        scoring_dir = root / "protein-scores"
+        score.score_proteins([
+            {"design": "d1", "predictor": "boltz", "exit_code": "0",
+             "structure": "/tmp/boltz.cif", "iptm": "0.8", "ipsae_min": "0.6"},
+            {"design": "d1", "predictor": "intellifold", "exit_code": "0",
+             "structure": "/tmp/if.cif", "iptm": "0.6", "ipsae_min": "0.4"},
+        ], SimpleNamespace(
+            predictors="boltz,intellifold", sequences=None, require_top_n=False,
+            top_n=100, output=scoring_dir,
+        ))
+        scored = json.loads((scoring_dir / "top100_manifest.json").read_text())[0]
+        expect(abs(scored["score"] - 0.7) < 1e-12
+               and abs(scored["mean_ipsae_min"] - 0.5) < 1e-12
+               and abs(scored["min_ipsae_min"] - 0.4) < 1e-12,
+               "protein design outputs lost cross-engine ipSAE(min)")
 
         overlay_if_command, overlay_if_env = load(
             "run_predictors_contract", OVERLAY / "run_predictors.py"

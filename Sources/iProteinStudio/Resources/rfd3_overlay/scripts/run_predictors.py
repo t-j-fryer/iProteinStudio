@@ -102,6 +102,7 @@ def parse_metrics(output: Path) -> dict:
         for key in (
             "iptm", "ptm", "plddt", "complex_plddt", "confidence_score", "ranking_score",
             "ligand_iptm", "protein_iptm", "has_clash", "complex_iplddt", "complex_ipde",
+            "ipsae_min",
         ):
             value = data.get(key)
             if isinstance(value, (int, float)):
@@ -109,6 +110,25 @@ def parse_metrics(output: Path) -> dict:
     metrics["confidence_json"] = str(confidence_path) if confidence_path else ""
     metrics["structure"] = str(cifs[0]) if cifs else ""
     return metrics
+
+
+def ensure_ipsae(predictor: str, yaml_path: Path, output: Path, root: Path,
+                  log_path: Path) -> None:
+    """Boltz needs a post-run adapter; other engines annotate in their launchers."""
+    if predictor != "boltz":
+        return
+    command = [
+        str(root / "venvs" / "NanoHunter_boltz" / "bin" / "python"),
+        str(root / "scripts" / "ipsae_score.py"), "boltz",
+        "--yaml", str(yaml_path), "--output", str(output),
+    ]
+    with log_path.open("a") as handle:
+        completed = subprocess.run(command, stdout=handle, stderr=subprocess.STDOUT)
+    if completed.returncode:
+        raise SystemExit(
+            f"{predictor} produced a structure but ipSAE scoring failed for {yaml_path}; "
+            f"see {log_path}"
+        )
 
 
 def write_csv(rows: list[dict], path: Path) -> None:
@@ -178,6 +198,9 @@ def main() -> None:
         for yaml_path in yamls:
             job_out = output / predictor / yaml_path.stem
             job_out.mkdir(parents=True, exist_ok=True)
+            if args.resume and any(job_out.rglob("*.cif")):
+                ensure_ipsae(predictor, yaml_path, job_out, root,
+                             job_out / "predict.log")
             cached = parse_metrics(job_out)
             if args.resume and cached["structure"] and cached["confidence_json"]:
                 prior = previous.get((predictor, yaml_path.stem), {})
@@ -209,6 +232,8 @@ def main() -> None:
                 continue
             handle.close()
             wall = time.time() - started
+            if proc.returncode == 0:
+                ensure_ipsae(predictor, yaml_path, job_out, root, log_path)
             rows.append(
                 {
                     "design": yaml_path.stem, "predictor": predictor, "exit_code": proc.returncode,

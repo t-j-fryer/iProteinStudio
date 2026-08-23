@@ -141,7 +141,7 @@ private struct RunResultDetail: View {
                     }
 
                     if shouldExplainMissingIPSAE {
-                        Text("ipSAE(min) was not emitted by this run. Studio does not substitute minimum PAE or Boltz interface PDE for it.")
+                        Text("ipSAE(min) could not be calculated because this run has no supported PAE output. Studio does not substitute minimum PAE or interface PDE for it.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }

@@ -139,6 +139,14 @@ the managed `msa_cache`, bundled examples, projects, and prior outputs before
 requesting a new alignment. A newly generated iterative-design alignment is
 published back to the managed cache for the other workflows.
 
+For protein multimers, Boltz, IntelliFold and Protenix confidence JSONs include
+`ipsae_min`, `ipsae_directional` and `ipsae_pairs`. `ipsae_min` is the smaller
+directional score for a two-chain interface; with more chains it is the weakest
+pairwise minimum. OpenFold-3 does not receive an ipSAE value because it emits
+PDE rather than PAE. RFdiffusion3 protein outputs retain per-engine, mean and
+minimum ipSAE(min) diagnostics but continue to rank by their established mean
+iPTM unless that policy is separately validated and changed.
+
 Leave `--intellifold-buckets` alone. Its `auto` default resolves to the exact
 campaign token count, which is the single largest measured IntelliFold speed-up
 available; setting it explicitly undoes it.

@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-08-22_
+_Last updated: 2026-08-23_
 
 | | |
 |---|---|
@@ -26,6 +26,9 @@ live metrics dashboard, hits gallery, offline py2Dmol structure viewer with visu
 predictions library, a unified in-app structure/metric browser for completed
 Predict, iterative and RFdiffusion3 runs, persistent per-workspace run history and
 a global Activity panel with exact checkpoint Resume for newly recorded iterative campaigns.
+Protein multimers now report conservative PAE-derived ipSAE(min) from Boltz,
+IntelliFold or Protenix in saved outputs and the GUI; OpenFold is excluded because
+its current output is PDE rather than PAE.
 
 **Also working:** Ligand Intelligence — chemistry QA, recognition-core vs linker
 separation, conformer ensembles weighed against experimental PDB structures, and a
@@ -89,6 +92,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0036 | 2026-08-23 | [Add conservative ipSAE(min) scoring from real PAE outputs](lab_book/0036-add-conservative-ipsae-scoring.md) | The exact directional-minimum definition, PAE-capable engine routes, Protenix full-confidence requirement, fail-loud exclusions and unchanged design rank policy |
 | 0035 | 2026-08-22 | [Make MSA and accelerator policy fail-loud](lab_book/0035-fail-loud-msa-and-mps-policy.md) | Why Protenix treated explicit-empty MSAs as search permission, how mixed-chain policy is preserved, and how every IntelliFold route now rejects CPU fallback and incomplete outputs |
 | 0034 | 2026-08-22 | [Organize the app around workspaces and a first-class library](lab_book/0034-workspaces-and-library.md) | Why the old Design Projects framing was obsolete, how prediction-first work starts without a fake design campaign, safe migration, unique output paths, and discoverable renaming |
 | 0033 | 2026-08-21 | [Audit the rebuilt app and preserve explicit MSA policy](lab_book/0033-end-to-end-application-audit.md) | Current GUI/runtime acceptance, the explicit single-sequence OpenFold bug, one shared query builder, and bounded GPU coverage of every supported predictor/model variant |

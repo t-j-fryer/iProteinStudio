@@ -16,6 +16,8 @@ from pathlib import Path
 import runpy
 import sys
 
+from ipsae_score import IPSAEError, annotate_intellifold
+
 
 STRICT_ACCELERATE_VERSION = "1.1.1"
 STRICT_TORCH_VERSION = "2.6.0"
@@ -60,10 +62,21 @@ def verify_outputs(arguments: list[str]) -> None:
         job_dir = prediction_root / job
         structures = set(job_dir.glob(f"{job}_seed-*_sample-*.{extension}"))
         summaries = set(job_dir.glob(f"{job}_seed-*_sample-*_summary_confidences.json"))
+        detailed = {
+            path for path in job_dir.glob(f"{job}_seed-*_sample-*_confidences.json")
+            if "summary_confidences" not in path.name
+        }
         expected = len(seeds) * samples
-        if len(structures) != expected or len(summaries) != expected:
+        if (len(structures) != expected or len(summaries) != expected
+                or len(detailed) != expected):
             die(f"{job} expected exactly {expected} structure/confidence pair(s); "
-                f"found {len(structures)} structure(s) and {len(summaries)} summary file(s)")
+                f"found {len(structures)} structure(s), {len(summaries)} summary file(s), "
+                f"and {len(detailed)} detailed-confidence file(s)")
+
+    try:
+        annotate_intellifold(output)
+    except (IPSAEError, OSError, ValueError) as exc:
+        die(f"ipSAE scoring failed: {exc}")
 
 
 def main() -> None:

@@ -26,6 +26,12 @@ struct PredictionResultsContractHarness {
                                    withIntermediateDirectories: true)
             try "data_test\n".write(to: path, atomically: true, encoding: .utf8)
         }
+        for structure in [sample0, sample1] {
+            let confidence = structure.deletingLastPathComponent()
+                .appendingPathComponent("confidence.json")
+            try "{\"iptm\":0.7,\"ipsae_min\":0.55}\n"
+                .write(to: confidence, atomically: true, encoding: .utf8)
+        }
         try "job,predictor,bucket,exit_code,output\nCobratoxin,intellifold-jax,128,0,\(output.path)\n"
             .write(to: root.appendingPathComponent("predictions.csv"), atomically: true,
                    encoding: .utf8)
@@ -57,6 +63,13 @@ struct PredictionResultsContractHarness {
             throw NSError(domain: "PredictionResultsContract", code: 4,
                           userInfo: [NSLocalizedDescriptionKey:
                             "Historical JAX results were not clearly labelled retired"])
+        }
+        guard results.allSatisfy({ item in
+            item.metrics.contains { $0.kind == .ipsaeMinimum && abs($0.value - 0.55) < 1e-12 }
+        }) else {
+            throw NSError(domain: "PredictionResultsContract", code: 5,
+                          userInfo: [NSLocalizedDescriptionKey:
+                            "ipSAE(min) was not shown from saved confidence JSON"])
         }
         print("PASS prediction result discovery contract")
     }

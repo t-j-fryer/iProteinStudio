@@ -78,6 +78,7 @@ export BOLTZ_CACHE NUMBA_CACHE_DIR
 mkdir -p "${NUMBA_CACHE_DIR}"
 OPENFOLD_A3M_QUERY_REWRITER="${REPO_ROOT}/scripts/rewrite_a3m_query.py"
 POST_TASK_SELECTOR="${REPO_ROOT}/scripts/select_post_tasks.py"
+IPSAE_SCORER="${REPO_ROOT}/scripts/ipsae_score.py"
 
 LIGANDMPNN_REPO="${REPO_ROOT}/src/LigandMPNN"
 LIGANDMPNN_RUN="python run.py"
@@ -4050,6 +4051,17 @@ print(f"{to_float(iptm)},{to_float(plddt)}")
 PY
 }
 
+annotate_boltz_ipsae() {
+  local input_yaml="$1"
+  local output_dir="$2"
+  local log_path="${3:-${output_dir}/predict.log}"
+  [[ -f "${IPSAE_SCORER}" ]] || die "ipSAE scorer is missing: ${IPSAE_SCORER}"
+  "${BOLTZ_VENV}/bin/python" "${IPSAE_SCORER}" boltz \
+    --yaml "${input_yaml}" --output "${output_dir}" \
+    >> "${log_path}" 2>&1 \
+    || { tail -n 80 "${log_path}" >&2 || true; die "Boltz ipSAE scoring failed for ${input_yaml}"; }
+}
+
 find_boltz_results_root() {
   local boltz_out="$1"
   find "${boltz_out}" -maxdepth 2 -type d -name "boltz_results_*" | head -n 1 || true
@@ -4122,6 +4134,7 @@ run_predict_boltz() {
     tail -n 80 "${predict_log}" >&2 || true
     die "Boltz prediction failed (rc=${rc}) for ${input_yaml}"
   fi
+  annotate_boltz_ipsae "${input_yaml}" "${out_dir}" "${predict_log}"
 
   local root leaf conf struct
   root="$(find_boltz_results_root "${out_dir}")"
@@ -5503,6 +5516,9 @@ run_cycle_wave_predictor_batch() {
     cp -f "${log_path}" "${predictor_dir}/predict.log"
     case "${PREDICTOR}" in
       boltz)
+        annotate_boltz_ipsae \
+          "${EXPT_ROOT}/${run_tag}/${cycle_tag}/${stem}.yaml" \
+          "${output_dir}" "${log_path}"
         leaf="${output_dir}/boltz_results_inputs/predictions/${stem}"
         conf="$(find "${leaf}" -maxdepth 1 -type f -name 'confidence_*_model_0.json' | sort | head -n 1 || true)"
         struct="$(find "${leaf}" -maxdepth 1 -type f \( -name '*.cif' -o -name '*.pdb' \) | sort | head -n 1 || true)"

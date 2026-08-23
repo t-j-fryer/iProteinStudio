@@ -59,7 +59,8 @@ final class MetricsWatcher: ObservableObject {
                     let cycle = Int(c[0]) ?? 0
                     if insert(.design, "", runNum, cycle) {
                         designPoints.append(DesignPoint(stage: .design, predictor: "", run: runNum, cycle: cycle,
-                            iptm: iptm, plddt: Double(c[2]) ?? .nan, sequence: c[5], structurePath: c[4]))
+                            iptm: iptm, ipsaeMinimum: ipsaeMinimum(at: c[3]),
+                            plddt: Double(c[2]) ?? .nan, sequence: c[5], structurePath: c[4]))
                         addedDesign = true
                     }
                 }
@@ -80,7 +81,8 @@ final class MetricsWatcher: ObservableObject {
                         let cycle = Int(c[1]) ?? 0
                         if insert(.validation, predictor, runNum, cycle) {
                             validationPoints.append(DesignPoint(stage: .validation, predictor: predictor, run: runNum, cycle: cycle,
-                                iptm: iptm, plddt: Double(c[3]) ?? .nan, sequence: c[4], structurePath: c[5]))
+                                iptm: iptm, ipsaeMinimum: c.count > 6 ? ipsaeMinimum(at: c[6]) : nil,
+                                plddt: Double(c[3]) ?? .nan, sequence: c[4], structurePath: c[5]))
                             addedVal = true
                         }
                     }
@@ -102,6 +104,16 @@ final class MetricsWatcher: ObservableObject {
         var lines = text.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
         if !lines.isEmpty { lines.removeFirst() } // header
         return lines
+    }
+
+    private func ipsaeMinimum(at path: String) -> Double? {
+        guard !path.isEmpty,
+              let data = FileManager.default.contents(atPath: path),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        if let number = object["ipsae_min"] as? NSNumber { return number.doubleValue }
+        if let text = object["ipsae_min"] as? String { return Double(text) }
+        return nil
     }
 }
 

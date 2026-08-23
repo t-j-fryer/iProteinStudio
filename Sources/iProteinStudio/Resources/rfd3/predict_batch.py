@@ -502,6 +502,26 @@ def run_single(predictor: str, yaml_path: Path, out_dir: Path, root: Path,
                             stdout=handle, stderr=subprocess.STDOUT), handle
 
 
+def annotate_boltz_ipsae(root: Path, yaml_paths: list[Path], output: Path,
+                         log_path: Path) -> int:
+    """Persist ipSAE(min) while the exact input-to-token mapping is available."""
+    python = root / "venvs" / "NanoHunter_boltz" / "bin" / "python"
+    scorer = root / "scripts" / "ipsae_score.py"
+    if not python.is_file() or not scorer.is_file():
+        info("Boltz ipSAE scorer is missing from the managed runtime")
+        return 1
+    with log_path.open("a") as log:
+        for yaml_path in yaml_paths:
+            completed = subprocess.run(
+                [str(python), str(scorer), "boltz", "--yaml", str(yaml_path),
+                 "--output", str(output)],
+                stdout=log, stderr=subprocess.STDOUT,
+            )
+            if completed.returncode:
+                return completed.returncode
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -586,6 +606,9 @@ def main() -> None:
                     marker = out_dir / "chunk_complete.json"
                     names = [member["name"] for member in chunk]
                     if completed_chunk(marker, names, out_dir):
+                        if predictor == "boltz" and annotate_boltz_ipsae(
+                                root, [member["yaml"] for member in chunk], out_dir, log_path):
+                            die(f"{tag}: saved Boltz multimer output could not be scored for ipSAE")
                         for member in chunk:
                             results.append({"job": member["name"], "predictor": predictor,
                                             "bucket": bucket, "exit_code": 0,
@@ -616,6 +639,11 @@ def main() -> None:
                     if code == 0 and missing:
                         code = 1
                         info(f"{tag} returned success but produced no structure for: {', '.join(missing)}")
+                    if code == 0 and predictor == "boltz":
+                        code = annotate_boltz_ipsae(
+                            root, [member["yaml"] for member in chunk], out_dir, log_path)
+                        if code:
+                            info(f"{tag} produced structures but ipSAE annotation failed")
                     if code == 0:
                         marker.write_text(json.dumps({
                             "predictor": predictor,

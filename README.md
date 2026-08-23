@@ -14,7 +14,8 @@ Built for people who want to design binders without touching a terminal.
 nanobody scaffold or a de-novo binder size, choose your design engine, and watch
 iPTM climb per cycle. Designs that pass your hit threshold are re-folded with an
 independent model, because a design engine scoring its own designs is marking its
-own homework.
+own homework. Protein interfaces also report conservative `ipSAE(min)` whenever
+the selected predictor emits PAE (Boltz, IntelliFold, or Protenix).
 
 **RFdiffusion3** — generate binder backbones from scratch against a protein or a
 small molecule. Choose which ligand atoms end up buried, exposed, or hydrogen
@@ -28,7 +29,9 @@ formed before the ligand arrives.
 them, or bring a FASTA or CSV; fold as monomers, all against one partner, or each
 with its own. Alignments are per chain, so a de-novo binder can be folded from its
 single sequence while its target gets a deep MSA — and every alignment this
-machine has ever made is reused rather than re-fetched.
+machine has ever made is reused rather than re-fetched. Multimers retain the
+directional and pairwise ipSAE values behind the displayed `ipSAE(min)` summary;
+OpenFold is left blank because its current detailed output is PDE rather than PAE.
 
 **One-click setup** — installs pinned engine revisions and verified model weights
 under iProteinStudio's own managed root. A new user does not need NanoHunter or

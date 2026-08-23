@@ -11,7 +11,10 @@ unweighted combination -- exactly NISE's own ranking metric.
 Protein-target campaigns use the same file for a deliberately different
 contract: every requested predictor must have produced a structure and an iPTM,
 then designs are ranked by mean iPTM while the least-agreeing predictor is kept
-as ``min_iptm``.  Ligand-only columns are neither required nor invented.
+as ``min_iptm``. PAE-capable predictors must also emit conservative
+``ipSAE(min)``; its per-engine, mean and minimum values are retained as
+diagnostics without silently changing the established iPTM rank order.
+Ligand-only columns are neither required nor invented.
 """
 
 from __future__ import annotations
@@ -23,6 +26,9 @@ import os
 from pathlib import Path
 
 import studio_runtime
+
+
+IPSAE_PREDICTORS = {"boltz", "intellifold", "protenix-v2", "protenix-mini"}
 
 
 def to_float(value, default=float("nan")):
@@ -164,14 +170,22 @@ def score_proteins(rows: list[dict], args: argparse.Namespace) -> None:
         iptms = {predictor: to_float(row.get("iptm"), default=None)
                  for predictor, row in by_predictor.items()}
         missing_scores = [predictor for predictor, value in iptms.items() if value is None]
-        if missing or failures or missing_scores:
+        ipsae_predictors = [predictor for predictor in predictors
+                            if predictor in IPSAE_PREDICTORS]
+        ipsaes = {predictor: to_float(by_predictor[predictor].get("ipsae_min"), default=None)
+                  for predictor in ipsae_predictors if predictor in by_predictor}
+        missing_ipsae = [predictor for predictor in ipsae_predictors
+                         if ipsaes.get(predictor) is None]
+        if missing or failures or missing_scores or missing_ipsae:
             dropped.append({"design": design, "missing": missing,
-                            "failed": failures, "missing_iptm": missing_scores})
+                            "failed": failures, "missing_iptm": missing_scores,
+                            "missing_ipsae_min": missing_ipsae})
             continue
 
         values = list(iptms.values())
         source = sequence_rows.get(design, {})
-        scored.append({
+        ipsae_values = list(ipsaes.values())
+        score_row = {
             "design": design,
             "name": design,
             "sequence": source.get("sequence", ""),
@@ -182,12 +196,19 @@ def score_proteins(rows: list[dict], args: argparse.Namespace) -> None:
             "predictors": ",".join(predictors),
             "structures": json.dumps({p: by_predictor[p]["structure"] for p in predictors}),
             **{f"iptm_{p}": iptms[p] for p in predictors},
-        })
+            **{f"ipsae_min_{p}": ipsaes[p] for p in ipsae_predictors},
+        }
+        if ipsae_values:
+            score_row["mean_ipsae_min"] = sum(ipsae_values) / len(ipsae_values)
+            score_row["min_ipsae_min"] = min(ipsae_values)
+        scored.append(score_row)
 
     scored.sort(key=lambda row: (row["score"], row["min_iptm"]), reverse=True)
     if not scored:
         detail = json.dumps(dropped[:5], sort_keys=True)
-        raise SystemExit("No protein design succeeded with iPTM from every requested predictor: " + detail)
+        raise SystemExit(
+            "No protein design succeeded with required iPTM/ipSAE(min) metrics: " + detail
+        )
     if args.require_top_n and len(scored) < args.top_n:
         raise SystemExit(f"Need {args.top_n} scored designs, but only {len(scored)} passed")
 

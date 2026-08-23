@@ -55,7 +55,7 @@ struct StudioResultMetric: Identifiable, Hashable {
             case .interfacePAEMinimum:
                 return "The lowest predicted aligned error across a pair of different chains, in Å. Lower is better."
             case .ipsaeMinimum:
-                return "The smaller directional ipSAE score for the interface, when an upstream scorer emitted it. Higher is better."
+                return "The conservative smaller directional ipSAE score calculated from the engine's PAE. Higher is better."
             case .interfacePDE:
                 return "Boltz interface predicted distance error, in Å. This is not relabelled as PAE. Lower is better."
             case .minimumIPTM: return "The weakest iPTM across the verification engines; higher is better."
@@ -203,6 +203,7 @@ enum RunResultsLoader {
                       fm.fileExists(atPath: structure.path) else { continue }
                 var metricRow = row
                 if let value = row["iptm_\(predictorKey)"] { metricRow["iptm"] = value }
+                if let value = row["ipsae_min_\(predictorKey)"] { metricRow["ipsae_min"] = value }
                 let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
                 results.append(StudioResultItem(
                     id: "\(rankIndex)|\(predictorKey)|\(structure.path)",

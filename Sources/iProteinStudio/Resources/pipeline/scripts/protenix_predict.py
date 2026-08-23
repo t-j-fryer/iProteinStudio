@@ -20,6 +20,8 @@ from pathlib import Path
 
 import yaml
 
+from ipsae_score import IPSAEError, annotate_protenix
+
 
 MODEL_NAMES = {
     "v2": "protenix-v2",
@@ -138,7 +140,10 @@ def protenix_command(executable: Path, input_json: Path, output: Path,
         "--use_template", "False", "--use_rna_msa", "False",
         "--trimul_kernel", "torch", "--triatt_kernel", "torch",
         "--enable_cache", "False", "--enable_fusion", "False",
-        "--enable_tf32", "False", "--need_atom_confidence", "False",
+        # Protenix only writes token_pair_pae and token_asym_id when this is
+        # enabled. Those are required for a real ipSAE calculation; summary
+        # chain-pair PAE minima are not a substitute.
+        "--enable_tf32", "False", "--need_atom_confidence", "True",
         "-d", "fp32",
     ]
 
@@ -162,11 +167,13 @@ def best_prediction(job_dir: Path, expected: int) -> tuple[Path, Path]:
     candidates = complete_predictions(job_dir)
     structures = list(job_dir.rglob("*_sample_*.cif"))
     confidences = list(job_dir.rglob("*_summary_confidence_sample_*.json"))
+    full_confidences = list(job_dir.rglob("*_full_data_sample_*.json"))
     if (len(candidates) != expected or len(structures) != expected
-            or len(confidences) != expected):
+            or len(confidences) != expected or len(full_confidences) != expected):
         die(f"expected exactly {expected} complete prediction(s) under {job_dir}; "
             f"found {len(structures)} structure(s), {len(confidences)} summary file(s), "
-            f"and {len(candidates)} matched pair(s)")
+            f"{len(full_confidences)} full-confidence file(s), and "
+            f"{len(candidates)} matched structure/summary pair(s)")
     _score, structure, confidence = max(candidates, key=lambda item: item[0])
     return structure, confidence
 
@@ -254,6 +261,10 @@ def main() -> None:
         completed = subprocess.run(command, cwd=root, env=env)
         if completed.returncode:
             raise SystemExit(completed.returncode)
+    try:
+        annotate_protenix(output, jobs)
+    except (IPSAEError, OSError, ValueError, json.JSONDecodeError) as exc:
+        die(f"ipSAE scoring failed: {exc}")
     normalize(output, names, len(seeds) * args.samples)
 
 
