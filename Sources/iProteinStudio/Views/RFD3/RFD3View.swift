@@ -159,22 +159,22 @@ struct RFD3View: View {
                     // Hotspots picked on the structure become RFdiffusion3
                     // hotspot conditioning directly.
                     var conditions = request.wrappedValue.conditions
-                    let chain = request.wrappedValue.targetChain
                     for residue in residues {
-                        conditions["\(chain)\(residue)", default: []].insert(.hotspot)
+                        conditions[residue, default: []].insert(.hotspot)
                     }
                     request.wrappedValue.conditions = conditions
                     if !residues.isEmpty { request.wrappedValue.originStrategy = .hotspots }
                 },
-                residueChain: "A",
                 onStructure: { cif in
                     // Adopt the prediction as the design target so the user never
                     // has to go looking for the file.
                     invalidateInspectedTarget(clearProteinMetadata: true)
-                    // Target Prep predicts a monomer as chain A. Keeping the
-                    // example-file default of B would make Read target reject
-                    // the structure that Studio just created.
-                    request.wrappedValue.targetChain = "A"
+                    // Target Prep uses the same reserved-binder convention as
+                    // both design workflows: target subunits are B, C, D…
+                    let ids = ProteinSequenceInput.chains(
+                        request.wrappedValue.targetSequence, startingAt: 1
+                    ).map(\.id)
+                    request.wrappedValue.targetChain = ids.joined(separator: ",")
                     request.wrappedValue.targetStructurePath = cif
                 },
                 onClose: { showTargetPrep = false }
@@ -384,25 +384,46 @@ struct RFD3View: View {
                 .font(.callout).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            SequenceEditor(text: request.targetSequence, placeholder: "Target sequence…")
+            ProteinChainInputView(text: request.targetSequence, startingAt: 1,
+                                  placeholder: "Target chain B[:target chain C…]",
+                                  minimumLength: 5)
+                .onChange(of: request.wrappedValue.targetSequence) { _, value in
+                    guard case .success(let chains) = ProteinSequenceInput.parse(
+                        value, startingAt: 1, minimumLength: 5
+                    ) else { return }
+                    let assigned = chains.map(\.id).joined(separator: ",")
+                    if request.wrappedValue.targetStructurePath.isEmpty,
+                       request.wrappedValue.targetChain != assigned {
+                        invalidateInspectedTarget(clearProteinMetadata: true)
+                        request.wrappedValue.targetChain = assigned
+                    }
+                }
             HStack {
-                Text("\(TemplateWriter.clean(request.wrappedValue.targetSequence).count) aa")
+                Text("\(request.wrappedValue.targetChains.reduce(0) { $0 + $1.sequence.count }) aa total")
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button { showTargetPrep = true } label: {
                     Label("Predict structure & pick hotspots", systemImage: "scope")
                 }
-                .disabled(TemplateWriter.clean(request.wrappedValue.targetSequence).count < 10)
+                .disabled(request.wrappedValue.targetChains.isEmpty)
             }
 
             Divider().padding(.vertical, 2)
             filePicker(path: request.targetStructurePath,
-                       prompt: "…or choose a structure file (PDB)",
-                       types: [.init(filenameExtension: "pdb") ?? .data],
-                       onChoose: { invalidateInspectedTarget(clearProteinMetadata: true) })
+                       prompt: "…or choose a structure file (PDB or mmCIF)",
+                       types: [.init(filenameExtension: "pdb") ?? .data,
+                               .init(filenameExtension: "cif") ?? .data,
+                               .init(filenameExtension: "mmcif") ?? .data],
+                       onChoose: {
+                           invalidateInspectedTarget(clearProteinMetadata: true)
+                           // An external structure may use any chain names.
+                           // Empty means “inspect the first chain” and is
+                           // replaced with the chain(s) actually read below.
+                           request.wrappedValue.targetChain = ""
+                       })
             HStack {
-                Text("Chain").font(.callout)
-                TextField("B", text: Binding(
+                Text("Chains").font(.callout)
+                TextField("B,C", text: Binding(
                     get: { request.wrappedValue.targetChain },
                     set: { value in
                         if value != request.wrappedValue.targetChain {
@@ -411,7 +432,7 @@ struct RFD3View: View {
                         }
                     }
                 ))
-                    .textFieldStyle(.roundedBorder).frame(width: 60)
+                    .textFieldStyle(.roundedBorder).frame(width: 90)
                     .font(.system(.body, design: .monospaced))
                 if !inspector.chains.isEmpty {
                     Text("Available: \(inspector.chains.joined(separator: ", "))")
@@ -435,7 +456,12 @@ struct RFD3View: View {
                     if r.ligandSource == .smiles { inspector.inspectLigand(smiles: r.smiles) }
                     else { inspector.inspectLigandFile(path: r.ligandStructurePath, residueName: r.ligandResidueName) }
                 case .protein:
-                    inspector.inspectProtein(path: r.targetStructurePath, chain: r.targetChain)
+                    inspector.inspectProtein(path: r.targetStructurePath,
+                                             chains: r.selectedTargetChainIDs,
+                                             expectedChainCount: max(1,
+                                                ProteinSequenceInput.chains(
+                                                    r.targetSequence, startingAt: 1
+                                                ).count))
                 }
             } label: {
                 Label(inspector.hasResult ? "Re-read target" : "Read target",
@@ -452,6 +478,11 @@ struct RFD3View: View {
         .onChange(of: inspector.suggestedContig) { _, contig in
             if !contig.isEmpty {
                 request.wrappedValue.targetContig = contig
+            }
+        }
+        .onChange(of: inspector.selectedChains) { _, chains in
+            if !chains.isEmpty {
+                request.wrappedValue.targetChain = chains.joined(separator: ",")
             }
         }
         .onChange(of: inspector.suggestedSequence) { _, sequence in
@@ -508,7 +539,7 @@ struct RFD3View: View {
                 HStack {
                     Text(request.wrappedValue.targetKind == .smallMolecule
                          ? "\(inspector.sites.count) heavy atoms"
-                         : "\(inspector.sites.count) residues in chain \(request.wrappedValue.targetChain)")
+                         : "\(inspector.sites.count) residues across chain\(request.wrappedValue.selectedTargetChainIDs.count == 1 ? "" : "s") \(request.wrappedValue.selectedTargetChainIDs.joined(separator: ", "))")
                         .font(.callout).foregroundStyle(.secondary)
                     if let charge = inspector.formalCharge, charge != 0 {
                         Text("· formal charge \(charge > 0 ? "+" : "")\(charge)")

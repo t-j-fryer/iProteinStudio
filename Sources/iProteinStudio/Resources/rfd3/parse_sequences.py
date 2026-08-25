@@ -45,12 +45,32 @@ def fail(message: str) -> None:
 
 
 def clean(sequence: str) -> str:
-    return "".join(c for c in (sequence or "").upper() if c.isalpha())
+    return "".join(c for c in (sequence or "").upper() if not c.isspace())
 
 
 def looks_like_protein(sequence: str) -> bool:
     seq = clean(sequence)
     return len(seq) >= 5 and all(c in AA for c in seq)
+
+
+def chain_id(index: int) -> str:
+    if not 0 <= index < 26:
+        fail("A fold may contain at most 26 chains (A–Z).")
+    return chr(ord("A") + index)
+
+
+def protein_chains(raw: str, start: int, msa: str, label: str) -> list:
+    pieces = (raw or "").split(":")
+    if any(not clean(piece) for piece in pieces):
+        fail(f"{label} contains an empty chain. Add its sequence or remove the extra colon.")
+    chains = []
+    for offset, piece in enumerate(pieces):
+        sequence = clean(piece)
+        if not looks_like_protein(sequence):
+            fail(f"{label} chain {chain_id(start + offset)} is not a valid protein sequence.")
+        chains.append({"id": chain_id(start + offset), "kind": "protein",
+                       "sequence": sequence, "msa": msa})
+    return chains
 
 
 def slug(text: str, fallback: str) -> str:
@@ -148,10 +168,6 @@ def main() -> None:
         if not binder:
             warnings.append(f"Row {i} has no sequence and was skipped.")
             continue
-        if not looks_like_protein(binder):
-            warnings.append(f"{row['name']}: not a protein sequence, skipped.")
-            continue
-
         name = slug(row["name"], f"job{i}")
         if name in seen:
             seen[name] += 1
@@ -159,22 +175,24 @@ def main() -> None:
         else:
             seen[name] = 0
 
-        chains = [{"id": "A", "kind": "protein", "sequence": binder, "msa": args.binder_msa}]
+        chains = protein_chains(binder, 0, args.binder_msa, name)
 
         if args.mode == "shared":
             if args.partner_smiles.strip():
-                chains.append({"id": "B", "kind": "ligand", "smiles": args.partner_smiles.strip()})
+                chains.append({"id": chain_id(len(chains)), "kind": "ligand",
+                               "smiles": args.partner_smiles.strip()})
             elif clean(args.partner):
-                chains.append({"id": "B", "kind": "protein", "sequence": clean(args.partner),
-                               "msa": args.partner_msa})
+                chains += protein_chains(args.partner, len(chains), args.partner_msa,
+                                         f"{name} partner")
             else:
                 fail("Choose a partner sequence or SMILES for 'same partner for all'.")
         elif args.mode == "paired":
             if row["smiles"]:
-                chains.append({"id": "B", "kind": "ligand", "smiles": row["smiles"]})
+                chains.append({"id": chain_id(len(chains)), "kind": "ligand",
+                               "smiles": row["smiles"]})
             elif row["partner"]:
-                chains.append({"id": "B", "kind": "protein", "sequence": row["partner"],
-                               "msa": args.partner_msa})
+                chains += protein_chains(row["partner"], len(chains), args.partner_msa,
+                                         f"{name} partner")
             else:
                 warnings.append(f"{name}: no partner in this row, folded on its own.")
 

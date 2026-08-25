@@ -16,13 +16,16 @@ enum TemplateWriter {
             binderA = String(repeating: "G", count: max(1, request.binderMinLen))
         }
 
-        // Chain B = target: a protein sequence or a small-molecule SMILES.
+        // Protein targets occupy B, C, D…; a small molecule occupies B.
         let targetBlock: String
         switch request.targetKind {
         case .protein:
-            let target = clean(request.targetSequence)
-            guard !target.isEmpty else { throw NHError.message("Target sequence is empty.") }
-            targetBlock = "  - protein:\n      id: B\n      sequence: \(target)\n      msa: empty\n"
+            guard case .success(let targets) = request.targetChainResult else {
+                throw NHError.message(request.targetSequenceError ?? "Target sequence is invalid.")
+            }
+            targetBlock = targets.map { target in
+                "  - protein:\n      id: \(target.id)\n      sequence: \(target.sequence)\n      msa: empty\n"
+            }.joined()
         case .ligand:
             let smiles = request.targetSmiles.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !smiles.isEmpty else { throw NHError.message("Ligand SMILES is empty.") }
@@ -33,7 +36,8 @@ enum TemplateWriter {
         var yaml = ""
         // Epitope-directed contacts only make sense for a protein target.
         let epitopeResult = request.targetKind == .protein
-            ? residueTokenResult(request.epitopeResidues)
+            ? residueTokenResult(request.epitopeResidues,
+                                 allowedTargetChains: request.targetChainIDs)
             : (tokens: [], invalid: [])
         guard epitopeResult.invalid.isEmpty else {
             throw NHError.message("Invalid hotspot residue(s): \(epitopeResult.invalid.joined(separator: ", ")). Use numbers such as 32 55, or chain-qualified residues such as B32 B55.")
@@ -93,23 +97,25 @@ enum TemplateWriter {
     /// Normalize epitope tokens to chain-qualified residues on the target
     /// (chain B). Accepts bare numbers ("32" -> "B32"), chain-qualified
     /// ("b32" -> "B32"), and colon form ("B:32" -> "B32").
-    /// The target is always chain B in the generated template.
+    /// This convenience overload is for the common single-target chain B case.
     static func residueTokens(_ raw: String, targetChain: String = "B") -> [String] {
-        residueTokenResult(raw, targetChain: targetChain).tokens
+        residueTokenResult(raw, allowedTargetChains: [targetChain]).tokens
     }
 
     /// Normalize valid hotspot tokens while retaining invalid input for a loud,
     /// actionable validation error instead of silently dropping typos.
-    static func residueTokenResult(_ raw: String, targetChain: String = "B")
+    static func residueTokenResult(_ raw: String, allowedTargetChains: [String] = ["B"])
         -> (tokens: [String], invalid: [String]) {
+        let targets = Set(allowedTargetChains.map { $0.uppercased() })
+        let defaultTarget = allowedTargetChains.first?.uppercased() ?? "B"
         var tokens: [String] = []
         var invalid: [String] = []
         for tok in raw.split(whereSeparator: { ", ;".contains($0) }) {
             let t = tok.uppercased().replacingOccurrences(of: ":", with: "")
             if t.range(of: "^[0-9]+$", options: .regularExpression) != nil {
-                tokens.append(targetChain + t)
+                tokens.append(defaultTarget + t)
             } else if t.range(of: "^[A-Z][0-9]+$", options: .regularExpression) != nil,
-                      t.hasPrefix(targetChain.uppercased()) {
+                      targets.contains(String(t.prefix(1))) {
                 tokens.append(t)
             } else {
                 invalid.append(String(tok))

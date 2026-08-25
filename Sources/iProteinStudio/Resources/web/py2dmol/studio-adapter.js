@@ -83,15 +83,16 @@
     }
   };
 
-  window.studioSetSelection = function (residueNumbers) {
+  window.studioSetSelection = function (residueTokens) {
     if (!renderer || !renderer.currentObjectName) return;
     const object = renderer.objectsData[renderer.currentObjectName];
     const frame = object && object.frames && object.frames[renderer.currentFrame];
     if (!frame) return;
-    const wanted = new Set((residueNumbers || []).map(Number));
+    const wanted = new Set((residueTokens || []).map(String));
     const positions = new Set();
     (frame.residue_numbers || []).forEach((number, index) => {
-      if (wanted.has(Number(number)) && (!frame.position_types || frame.position_types[index] === "P")) {
+      const chain = frame.chains && frame.chains[index] ? String(frame.chains[index]) : "";
+      if (wanted.has(chain + String(number)) && (!frame.position_types || frame.position_types[index] === "P")) {
         positions.add(index);
       }
     });
@@ -116,9 +117,10 @@
     for (const index of (renderer.residueSelection || [])) {
       if (frame.position_types && frame.position_types[index] !== "P") continue;
       const number = frame.residue_numbers && Number(frame.residue_numbers[index]);
-      if (Number.isFinite(number)) values.add(number);
+      const chain = frame.chains && frame.chains[index] ? String(frame.chains[index]) : "";
+      if (Number.isFinite(number) && chain) values.add(chain + String(number));
     }
-    const sorted = Array.from(values).sort((a, b) => a - b);
+    const sorted = Array.from(values).sort((a, b) => a.localeCompare(b, undefined, {numeric:true}));
     if (window.webkit && window.webkit.messageHandlers.hotspots) {
       window.webkit.messageHandlers.hotspots.postMessage(JSON.stringify(sorted));
     }

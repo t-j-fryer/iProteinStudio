@@ -6,7 +6,7 @@ import WebKit
 /// mode because py2Dmol does not calculate solvent-accessible surfaces.
 struct TargetStructureView: View {
     let structurePath: String?
-    @Binding var selected: [Int]
+    @Binding var selected: [String]
     var showSurface: Bool
     var ligand: Bool = false
 
@@ -24,7 +24,7 @@ struct TargetStructureView: View {
 /// The previous 3Dmol target viewer, retained only for hydrophobic surfaces.
 private struct LegacyTargetStructureView: NSViewRepresentable {
     let structurePath: String?
-    @Binding var selected: [Int]
+    @Binding var selected: [String]
     var showSurface: Bool
     var ligand: Bool = false          // ball-and-stick view, no hotspot picking
 
@@ -49,25 +49,25 @@ private struct LegacyTargetStructureView: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        let selected: Binding<[Int]>
+        let selected: Binding<[String]>
         let ligand: Bool
         weak var web: WKWebView?
         private var ready = false
         private var loadedPath: String?
         private var surface = false
-        private var lastPushed = Set<Int>()
+        private var lastPushed = Set<String>()
         private var pendingPath: String?
         private var pendingSurface = false
-        private var pendingSelection: [Int] = []
+        private var pendingSelection: [String] = []
 
-        init(selected: Binding<[Int]>, ligand: Bool) { self.selected = selected; self.ligand = ligand }
+        init(selected: Binding<[String]>, ligand: Bool) { self.selected = selected; self.ligand = ligand }
 
         func webView(_ w: WKWebView, didFinish n: WKNavigation!) {
             ready = true
             apply(structurePath: pendingPath, showSurface: pendingSurface, selection: pendingSelection, force: true)
         }
 
-        func apply(structurePath: String?, showSurface: Bool, selection: [Int], force: Bool = false) {
+        func apply(structurePath: String?, showSurface: Bool, selection: [String], force: Bool = false) {
             pendingPath = structurePath; pendingSurface = showSurface; pendingSelection = selection
             guard ready, let web else { return }
             if let path = structurePath, path != loadedPath,
@@ -88,7 +88,8 @@ private struct LegacyTargetStructureView: NSViewRepresentable {
             // JS guards against redundant rebuilds and does not post back.
             if Set(selection) != lastPushed {
                 lastPushed = Set(selection)
-                let json = "[" + selection.map(String.init).joined(separator: ",") + "]"
+                guard let data = try? JSONEncoder().encode(selection),
+                      let json = String(data: data, encoding: .utf8) else { return }
                 web.evaluateJavaScript("setSelection(\(json))", completionHandler: nil)
             }
         }
@@ -99,7 +100,7 @@ private struct LegacyTargetStructureView: NSViewRepresentable {
             guard message.name == "hotspots",
                   let s = message.body as? String,
                   let data = s.data(using: .utf8),
-                  let arr = try? JSONDecoder().decode([Int].self, from: data) else { return }
+                  let arr = try? JSONDecoder().decode([String].self, from: data) else { return }
             DispatchQueue.main.async {
                 self.lastPushed = Set(arr)      // JS is already in this state
                 self.selected.wrappedValue = arr

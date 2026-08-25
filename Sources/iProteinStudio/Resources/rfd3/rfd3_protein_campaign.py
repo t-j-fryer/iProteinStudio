@@ -91,6 +91,22 @@ def clean_sequence(text: str) -> str:
     return "".join(c for c in (text or "").upper() if c.isalpha())
 
 
+def target_chain_records(cfg: dict) -> list[tuple[str, str]]:
+    sequences = [clean_sequence(value) for value in str(cfg.get("target_sequence", "")).split(":")]
+    chains = cfg.get("target_chains") or [value.strip() for value in
+              str(cfg.get("target_chain", "B")).split(",") if value.strip()]
+    if not sequences or any(not sequence for sequence in sequences):
+        die("No target sequence was recorded, so target MSAs cannot be generated.")
+    if len(sequences) != len(chains) or len(set(chains)) != len(chains):
+        die("Target sequence/chain mapping is inconsistent; reopen the RFdiffusion3 target.")
+    allowed = set("ACDEFGHIKLMNPQRSTVWYXBZJUO")
+    if any(any(residue not in allowed for residue in sequence) for sequence in sequences):
+        die("A target chain contains a character that is not a supported amino-acid code.")
+    if any(len(chain) != 1 or not chain.isalpha() for chain in chains):
+        die("RFdiffusion3 target chain IDs must be single letters.")
+    return list(zip(chains, sequences))
+
+
 def verification_predictors(cfg: dict) -> list[str]:
     """Validate and canonicalize checkers before any resumable stage runs."""
     supported = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"}
@@ -109,22 +125,19 @@ def verification_predictors(cfg: dict) -> list[str]:
     return wanted
 
 
-def stage_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Path:
-    """Generate the target MSA once, and cache it for the whole campaign.
+def stage_one_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict,
+                  chain: str, sequence: str) -> Path:
+    """Generate one exact target-chain MSA and cache it for the campaign.
 
     Uses Protenix's upstream MSA command when a Protenix checker was selected;
     otherwise uses Boltz. Doing this once and passing the exact A3M by path is
     what makes a multi-thousand-fold campaign affordable and reproducible.
     """
-    cache = campaign / "assets" / "target_msa"
+    cache = campaign / "assets" / "target_msa" / f"chain_{chain}"
     a3m = cache / "target_full_msa.a3m"
-    sequence = clean_sequence(cfg.get("target_sequence", ""))
-    if not sequence:
-        die("No target sequence was recorded, so the target MSA cannot be generated. "
-            "Re-enter the target sequence in the RFdiffusion3 tab.")
 
     if a3m.exists() and validate_a3m(a3m, sequence):
-        info(f"target MSA cached -> {a3m}")
+        info(f"chain {chain} target MSA cached -> {a3m}")
         return a3m
     if a3m.exists():
         die(f"The cached target MSA query does not match the recorded target sequence: {a3m}")
@@ -145,7 +158,7 @@ def stage_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Path:
     yaml_path.write_text(
         "sequences:\n"
         "  - protein:\n"
-        f"      id: {cfg.get('target_chain', 'B')}\n"
+        f"      id: {chain}\n"
         f"      sequence: {sequence}\n"
         "version: 1\n"
     )
@@ -160,7 +173,7 @@ def stage_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Path:
         run([str(protenix), str(protenix_adapter), "--sequence", sequence,
              "--output", str(a3m), "--nanohunter-root", str(root),
              "--work-dir", str(work)],
-            campaign / "logs" / "msa.log", rfd3_root, env)
+            campaign / "logs" / f"msa_{chain}.log", rfd3_root, env)
         if not validate_a3m(a3m, sequence):
             die("Protenix produced no valid target MSA; refusing a single-sequence fallback.")
         info(f"target MSA -> {a3m}")
@@ -172,7 +185,7 @@ def stage_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Path:
     out_dir = cache / "boltz"
     run([str(boltz), "predict", str(yaml_path), "--out_dir", str(out_dir),
          "--use_msa_server", "--override"],
-        campaign / "logs" / "msa.log", rfd3_root, env)
+        campaign / "logs" / f"msa_{chain}.log", rfd3_root, env)
 
     raw = sorted(out_dir.rglob("msa/*.csv"))
     if not raw:
@@ -181,6 +194,18 @@ def stage_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Path:
     csv_to_a3m(raw[0], a3m, sequence)
     info(f"target MSA -> {a3m}")
     return a3m
+
+
+def stage_msas(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> dict[str, Path]:
+    """Resolve a distinct verified alignment for every fixed target chain."""
+    result = {
+        chain: stage_one_msa(cfg, campaign, rfd3_root, env, chain, sequence)
+        for chain, sequence in target_chain_records(cfg)
+    }
+    manifest = campaign / "assets" / "target_msa" / "manifest.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(json.dumps({chain: str(path) for chain, path in result.items()}, indent=2) + "\n")
+    return result
 
 
 def validate_a3m(path: Path, query: str) -> bool:
@@ -230,32 +255,33 @@ def csv_to_a3m(csv_path: Path, a3m_path: Path, query: str) -> None:
     a3m_path.write_text("\n".join(lines) + "\n")
 
 
-def stage_predict(cfg: dict, campaign: Path, rfd3_root: Path, env: dict, a3m: Path) -> None:
+def stage_predict(cfg: dict, campaign: Path, rfd3_root: Path, env: dict,
+                  msas: dict[str, Path]) -> None:
     """Re-fold every designed sequence in complex with the target."""
     sequences = campaign / "mpnn" / "sequences.csv"
     if not sequences.exists():
         die(f"No sequences at {sequences}.")
 
     # NanoHunter-style template: chain A is the binder (overwritten per design),
-    # chain B is the target.
+    # followed by every fixed target subunit in its explicit structure order.
     template = campaign / "config" / "predictor_template.yaml"
     placeholder = "G" * int(cfg.get("max_length", 100))
-    template.write_text(
-        "sequences:\n"
-        "  - protein:\n"
-        "      id: A\n"
-        f"      sequence: {placeholder}\n"
-        "  - protein:\n"
-        f"      id: {cfg.get('target_chain', 'B')}\n"
-        f"      sequence: {clean_sequence(cfg.get('target_sequence', ''))}\n"
-        "version: 1\n"
-    )
+    lines = ["sequences:", "  - protein:", "      id: A",
+             f"      sequence: {placeholder}"]
+    for chain, sequence in target_chain_records(cfg):
+        lines += ["  - protein:", f"      id: {chain}",
+                  f"      sequence: {sequence}"]
+    lines.append("version: 1")
+    template.write_text("\n".join(lines) + "\n")
+
+    msa_manifest = campaign / "assets" / "target_msa" / "manifest.json"
+    msa_manifest.write_text(json.dumps({chain: str(path) for chain, path in msas.items()}, indent=2) + "\n")
 
     yaml_dir = campaign / "predictor_inputs" / "holo"
     run([sys.executable, str(rfd3_root / "scripts" / "prepare_predictor_inputs.py"),
          "--sequences", str(sequences),
          "--template", str(template),
-         "--target-msa", str(a3m),
+         "--target-msa-map", str(msa_manifest),
          "--output", str(yaml_dir)],
         campaign / "logs" / "prepare_predictor_inputs.log", rfd3_root, env)
 
@@ -376,14 +402,20 @@ def main() -> None:
                 die(f"Expected {expected} sequences, found {rows}.")
             info(f"{rows} sequences -> {sequences}")
         elif name == "msa":
-            stage("msa", "Generating the target's MSA (once, then reused)")
-            msa_path = stage_msa(cfg, campaign, rfd3_root, env)
+            stage("msa", "Resolving each target chain's MSA (once, then reused)")
+            stage_msas(cfg, campaign, rfd3_root, env)
         elif name == "predict":
             stage("predict", "Re-folding designs with the target")
-            msa_path = campaign / "assets" / "target_msa" / "target_full_msa.a3m"
-            if not msa_path.exists():
-                msa_path = stage_msa(cfg, campaign, rfd3_root, env)
-            stage_predict(cfg, campaign, rfd3_root, env, msa_path)
+            manifest = campaign / "assets" / "target_msa" / "manifest.json"
+            try:
+                saved = json.loads(manifest.read_text())
+                msas = {chain: Path(path) for chain, path in saved.items()}
+            except (OSError, json.JSONDecodeError):
+                msas = stage_msas(cfg, campaign, rfd3_root, env)
+            expected = {chain for chain, _ in target_chain_records(cfg)}
+            if set(msas) != expected or any(not path.exists() for path in msas.values()):
+                msas = stage_msas(cfg, campaign, rfd3_root, env)
+            stage_predict(cfg, campaign, rfd3_root, env, msas)
         elif name == "score":
             stage("score", "Ranking designs")
             stage_score(cfg, campaign, rfd3_root, env)

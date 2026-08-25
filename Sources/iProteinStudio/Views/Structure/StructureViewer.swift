@@ -16,7 +16,7 @@ struct StructureViewer: View {
 /// WebKit bridge for the vendored py2Dmol canvas renderer.
 struct Py2DmolViewer: NSViewRepresentable {
     let structurePath: String?
-    var selection: Binding<[Int]>?
+    var selection: Binding<[String]>?
     var showsControls: Bool
 
     func makeCoordinator() -> Coordinator {
@@ -49,15 +49,15 @@ struct Py2DmolViewer: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        var selection: Binding<[Int]>?
+        var selection: Binding<[String]>?
         weak var web: WKWebView?
         private var ready = false
         private var loadedPath: String?
         private var pendingPath: String?
         private var pendingControls = true
-        private var lastPushed = Set<Int>()
+        private var lastPushed = Set<String>()
 
-        init(selection: Binding<[Int]>?) {
+        init(selection: Binding<[String]>?) {
             self.selection = selection
         }
 
@@ -88,7 +88,8 @@ struct Py2DmolViewer: NSViewRepresentable {
             let values = Set(selection.wrappedValue)
             guard force || values != lastPushed else { return }
             lastPushed = values
-            let json = "[" + values.sorted().map(String.init).joined(separator: ",") + "]"
+            guard let data = try? JSONEncoder().encode(values.sorted()),
+                  let json = String(data: data, encoding: .utf8) else { return }
             web.evaluateJavaScript("studioSetSelection(\(json))", completionHandler: nil)
         }
 
@@ -101,7 +102,7 @@ struct Py2DmolViewer: NSViewRepresentable {
             guard message.name == "hotspots", let selection,
                   let text = message.body as? String,
                   let data = text.data(using: .utf8),
-                  let values = try? JSONDecoder().decode([Int].self, from: data) else { return }
+                  let values = try? JSONDecoder().decode([String].self, from: data) else { return }
             DispatchQueue.main.async {
                 self.lastPushed = Set(values)
                 selection.wrappedValue = values

@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-08-23_
+_Last updated: 2026-08-25_
 
 | | |
 |---|---|
@@ -29,6 +29,13 @@ a global Activity panel with exact checkpoint Resume for newly recorded iterativ
 Protein multimers now report conservative PAE-derived ipSAE(min) from Boltz,
 IntelliFold or Protenix in saved outputs and the GUI; OpenFold is excluded because
 its current output is PDE rather than PAE.
+Protenix masked-residue handoffs are chain-aware and chemically normalized before
+inverse folding: its generic `CG` pseudo-atom is removed before `UNK` becomes
+alanine, while backbone coordinates are preserved exactly.
+Protein sequence fields share one colon-separated multimer syntax and display the
+resolved chain map. Predict uses A/B/C input order; binder-design workflows reserve
+A and keep targets as B/C/D, with distinct query-validated MSAs per target subunit.
+RFdiffusion3 normalizes selected external PDB/mmCIF chains into that convention.
 
 **Also working:** Ligand Intelligence — chemistry QA, recognition-core vs linker
 separation, conformer ensembles weighed against experimental PDB structures, and a
@@ -92,6 +99,8 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0038 | 2026-08-25 | [Unify multichain input and backend routing](lab_book/0038-unify-multichain-input.md) | Colon syntax, visible chain assignment, reserved binder-chain conventions, per-subunit MSAs, chain-qualified hotspots and RFdiffusion3 PDB/mmCIF normalization |
+| 0037 | 2026-08-25 | [Normalize Protenix unknown-residue handoffs](lab_book/0037-normalize-protenix-unk-handoffs.md) | Why Protenix `UNK` cannot be renamed textually, the chain-scoped alanine repair, and why backbone-only SolubleMPNN campaigns do not require restarting |
 | 0036 | 2026-08-23 | [Add conservative ipSAE(min) scoring from real PAE outputs](lab_book/0036-add-conservative-ipsae-scoring.md) | The exact directional-minimum definition, PAE-capable engine routes, Protenix full-confidence requirement, fail-loud exclusions and unchanged design rank policy |
 | 0035 | 2026-08-22 | [Make MSA and accelerator policy fail-loud](lab_book/0035-fail-loud-msa-and-mps-policy.md) | Why Protenix treated explicit-empty MSAs as search permission, how mixed-chain policy is preserved, and how every IntelliFold route now rejects CPU fallback and incomplete outputs |
 | 0034 | 2026-08-22 | [Organize the app around workspaces and a first-class library](lab_book/0034-workspaces-and-library.md) | Why the old Design Projects framing was obsolete, how prediction-first work starts without a fake design campaign, safe migration, unique output paths, and discoverable renaming |

@@ -34,6 +34,7 @@ on success, or ``PREPFAIL|<reason>`` and exit 1.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -47,6 +48,45 @@ def fail(message: str) -> None:
 def yaml_quote(value: str) -> str:
     escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
+
+
+def normalize_protein_target(req: dict, campaign: Path) -> dict[str, str]:
+    """Reserve A for the designed binder and remap supplied target chains B onward."""
+    from protein_structure import write_selected_pdb
+
+    source_chains = req.get("target_chains") or [value.strip() for value in
+                     str(req.get("target_chain", "B")).split(",") if value.strip()]
+    if len(source_chains) > 25:
+        fail("RFdiffusion3 supports at most 25 target chains because chain A is reserved for the binder.")
+    assigned = [chr(ord("B") + index) for index in range(len(source_chains))]
+    chain_map = dict(zip(source_chains, assigned))
+    try:
+        normalized = write_selected_pdb(
+            req["target_structure"], campaign / "assets" / "target" / "normalized_target.pdb",
+            chain_map,
+        )
+    except (OSError, ValueError) as exc:
+        fail(f"Could not normalize the selected protein target chains: {exc}")
+
+    def remap_token(token: str) -> str:
+        match = re.fullmatch(r"([^\d\s])(-?\d+)", token.strip())
+        if not match or match.group(1) not in chain_map:
+            return token
+        return f"{chain_map[match.group(1)]}{match.group(2)}"
+
+    req["conditions"] = {
+        remap_token(site): values for site, values in req.get("conditions", {}).items()
+    }
+    contig = re.sub(
+        r"(?<![A-Za-z0-9])([^\d\s])(?=\d)",
+        lambda match: chain_map.get(match.group(1), match.group(1)),
+        str(req.get("contig", "")),
+    )
+    req["contig"] = contig
+    req["target_structure"] = str(normalized)
+    req["target_chain"] = ",".join(assigned)
+    req["target_chains"] = assigned
+    return chain_map
 
 
 def ligand_chain_resnum(pdb_path: Path, resname: str | None) -> str | None:
@@ -249,10 +289,14 @@ def validate_request(req: dict) -> None:
     blocked = [p for p in selected if p in retired]
     if blocked:
         fail("Retired verification predictor(s): " + ", ".join(blocked))
-    allowed_predictors = {"boltz", "intellifold", "openfold-3-mlx"}
+    allowed_predictors = {
+        "boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"
+    }
     unknown = [p for p in req.get("extra_predictors", []) if p not in allowed_predictors]
     if unknown:
         fail("Unsupported verification predictor(s): " + ", ".join(unknown))
+    if sum(predictor.startswith("protenix-") for predictor in selected) > 1:
+        fail("Choose either Protenix v2 or Mini, not both; they are one model family.")
     if "intellifold" in req.get("extra_predictors", []):
         if req.get("intellifold_model") not in {"v2-flash", "v2"}:
             fail("IntelliFold requires model v2-flash or v2.")
@@ -263,6 +307,18 @@ def validate_request(req: dict) -> None:
             fail("The protein target structure does not exist.")
         if not str(req.get("target_sequence", "")).strip():
             fail("The protein target sequence is required for MSA generation and verification.")
+        sequences = ["".join(c for c in part.upper() if not c.isspace())
+                     for part in str(req.get("target_sequence", "")).split(":")]
+        chains = req.get("target_chains") or [value.strip() for value in
+                  str(req.get("target_chain", "B")).split(",") if value.strip()]
+        if any(not sequence for sequence in sequences) or len(sequences) != len(chains):
+            fail("Colon-separated target sequences and selected target chains must have the same non-zero count.")
+        allowed = set("ACDEFGHIKLMNPQRSTVWYXBZJUO")
+        if any(any(residue not in allowed for residue in sequence) for sequence in sequences):
+            fail("A target chain contains a character that is not a supported amino-acid code.")
+        if (len(set(chains)) != len(chains)
+                or any(len(chain) != 1 or not chain.isalpha() for chain in chains)):
+            fail("Protein target chain IDs must be unique single letters.")
         if not req.get("extra_predictors"):
             fail("Protein campaigns require at least one verification predictor.")
     else:
@@ -315,6 +371,8 @@ def main() -> None:
         smi.write_text(req["smiles"].strip() + "\n")
     else:
         selection_key = None
+        original_target_structure = req["target_structure"]
+        target_chain_map = normalize_protein_target(req, campaign)
 
     conformers = req.get("conformers") or []
     if conformers:
@@ -374,6 +432,12 @@ def main() -> None:
         config["nanohunter_root"] = req["nanohunter_root"]
         config["target_sequence"] = req.get("target_sequence", "")
         config["target_chain"] = req.get("target_chain", "B")
+        config["target_chains"] = req.get("target_chains") or [
+            value.strip() for value in str(req.get("target_chain", "B")).split(",")
+            if value.strip()
+        ]
+        config["source_target_structure"] = original_target_structure
+        config["target_chain_map"] = target_chain_map
         # The predictor template needs a binder placeholder of the right length.
         config["max_length"] = max(req["lengths"])
         config["predict_max_parallel"] = req.get("predict_max_parallel", 4)

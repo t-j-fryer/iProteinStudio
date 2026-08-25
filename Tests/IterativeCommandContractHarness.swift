@@ -81,6 +81,28 @@ struct IterativeCommandContractHarness {
         expect(!yaml.contains("pocket+cdr3"), "generic template hard-coded a nanobody CDR mode")
     }
 
+    static func testMultimerTargetMapping() throws {
+        var request = proteinRequest()
+        request.targetSequence = "ACDEFGHIK:LMNPQRSTV"
+        request.epitopeResidues = "B3 C7"
+        expect(request.targetChainIDs == ["B", "C"], "multimer targets were not assigned B/C")
+        expect(request.isRunnable, "valid colon-separated multimer target was rejected")
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("multimer-target-\(UUID().uuidString).yaml")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try TemplateWriter.write(request, to: url)
+        let yaml = try String(contentsOf: url, encoding: .utf8)
+        expect(yaml.contains("id: B\n      sequence: ACDEFGHIK")
+               && yaml.contains("id: C\n      sequence: LMNPQRSTV"),
+               "template did not preserve both target subunits")
+        expect(yaml.contains("- B3") && yaml.contains("- C7"),
+               "chain-qualified multimer hotspots were not preserved")
+
+        request.epitopeResidues = "D2"
+        expect(!request.isRunnable, "hotspot on a nonexistent target chain was accepted")
+    }
+
     static func testPostChecksAndModels() {
         var request = proteinRequest()
         request.epitopeResidues = ""
@@ -213,6 +235,7 @@ struct IterativeCommandContractHarness {
 
     static func main() async throws {
         try testBoltzProteinHotspots()
+        try testMultimerTargetMapping()
         testPostChecksAndModels()
         testCanonicalCheckers()
         testDesignerSeeds()

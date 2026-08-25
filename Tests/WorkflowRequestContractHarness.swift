@@ -48,6 +48,18 @@ struct WorkflowRequestContractHarness {
         expect(request.requiredComponents.contains(.boltz), "protein MSA generator dependency is missing")
         expect(request.totalDesignedSequences == 12, "sequence budget ignored sequences per backbone")
 
+        request.targetSequence = "ACDEFGHI:KLMNPQRS"
+        request.structureTargetSequence = request.targetSequence
+        request.targetChain = "B,C"
+        request.targetContig = "B1-8,/0,C1-8"
+        expect(request.targetChains.map(\.id) == ["B", "C"],
+               "RFdiffusion3 did not retain the B/C target mapping")
+        expect(request.validationIssues.isEmpty, "valid RFdiffusion3 multimer target was rejected")
+
+        request.targetChain = "B"
+        expect(request.validationIssues.contains { $0.contains("number of selected") },
+               "RFdiffusion3 accepted two sequences mapped onto one structure chain")
+
         request.structureTargetSequence = "AAAAAAAA"
         expect(request.validationIssues.contains { $0.contains("does not match") },
                "structure/sequence mismatch was not blocked")

@@ -199,7 +199,8 @@ def _mol_from_structure(path: str, resname: str | None, Chem):
 
 # -------------------------------------------------------------------- protein
 
-def inspect_protein(path: str, chain: str | None) -> dict:
+def inspect_protein(path: str, chain: str | None, requested_chains: str | None = None,
+                    chain_count: int = 1) -> dict:
     """List residues of the target chain with a burial estimate.
 
     The exposure figure is a heavy-atom neighbour count, not a real SASA
@@ -210,6 +211,10 @@ def inspect_protein(path: str, chain: str | None) -> dict:
         import numpy as np
     except ImportError:
         fail("NumPy is not available in this environment.")
+    try:
+        from protein_structure import read_protein_atoms
+    except ImportError:
+        fail("Studio's protein-structure reader is missing; reinstall the app resources.")
 
     aa3 = {
         "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C",
@@ -223,32 +228,25 @@ def inspect_protein(path: str, chain: str | None) -> dict:
     chains: set[str] = set()
 
     try:
-        with open(path, "r") as handle:
-            for line in handle:
-                if not line.startswith("ATOM"):
-                    continue
-                element = line[76:78].strip() or line[12:16].strip()[:1]
-                if element == "H":
-                    continue
-                ch = line[21].strip() or "A"
-                chains.add(ch)
-                try:
-                    resnum = int(line[22:26])
-                    xyz = (float(line[30:38]), float(line[38:46]), float(line[46:54]))
-                except ValueError:
-                    continue
-                coords.append(xyz)
-                labels.append((ch, line[17:20].strip(), resnum))
-    except OSError as exc:
+        for atom in read_protein_atoms(path):
+            if atom.element == "H":
+                continue
+            chains.add(atom.chain)
+            coords.append((atom.x, atom.y, atom.z))
+            labels.append((atom.chain, atom.residue, atom.residue_number))
+    except (OSError, ValueError) as exc:
         fail(f"Could not read {path}: {exc}")
 
     if not coords:
         fail("No protein atoms found in that file. RFdiffusion3 needs a structure, not a sequence.")
 
     xyz = np.asarray(coords, dtype=float)
-    target_chain = (chain or "").strip() or sorted(chains)[0]
-    if target_chain not in chains:
-        fail(f"Chain {target_chain!r} is not in that file. Found: {', '.join(sorted(chains))}")
+    wanted = [value.strip() for value in (requested_chains or chain or "").split(",")
+              if value.strip()]
+    target_chains = wanted or sorted(chains)[:max(1, chain_count)]
+    missing = [value for value in target_chains if value not in chains]
+    if missing:
+        fail(f"Chain(s) {', '.join(missing)} are not in that file. Found: {', '.join(sorted(chains))}")
 
     # Neighbour count within 10 A: buried atoms are crowded, surface atoms are not.
     counts = np.zeros(len(xyz), dtype=int)
@@ -259,13 +257,13 @@ def inspect_protein(path: str, chain: str | None) -> dict:
 
     per_residue: dict[tuple[str, int], dict] = {}
     for (ch, resname, resnum), count in zip(labels, counts):
-        if ch != target_chain:
+        if ch not in target_chains:
             continue
         entry = per_residue.setdefault((ch, resnum), {"resname": resname, "counts": []})
         entry["counts"].append(int(count))
 
     if not per_residue:
-        fail(f"Chain {target_chain!r} contains no residues.")
+        fail(f"Selected chain(s) {', '.join(target_chains)} contain no residues.")
 
     means = {key: sum(v["counts"]) / len(v["counts"]) for key, v in per_residue.items()}
     values = sorted(means.values())
@@ -273,7 +271,7 @@ def inspect_protein(path: str, chain: str | None) -> dict:
     cutoff = values[max(0, len(values) // 4 - 1)]
 
     sites = []
-    for (ch, resnum), entry in sorted(per_residue.items(), key=lambda kv: kv[0][1]):
+    for (ch, resnum), entry in sorted(per_residue.items(), key=lambda kv: (kv[0][0], kv[0][1])):
         exposed = means[(ch, resnum)] <= cutoff
         sites.append({
             "name": f"{ch}{resnum}",
@@ -283,16 +281,23 @@ def inspect_protein(path: str, chain: str | None) -> dict:
                                  if exposed else None),
         })
 
-    resnums = sorted(r for _, r in per_residue)
-    sequence = "".join(aa3.get(per_residue[(target_chain, number)]["resname"], "X")
-                       for number in resnums)
+    sequences = []
+    contigs = []
+    for target_chain in target_chains:
+        resnums = sorted(r for ch, r in per_residue if ch == target_chain)
+        if not resnums:
+            fail(f"Chain {target_chain!r} contains no protein residues.")
+        sequences.append("".join(aa3.get(per_residue[(target_chain, number)]["resname"], "X")
+                                 for number in resnums))
+        contigs.append(f"{target_chain}{resnums[0]}-{resnums[-1]}")
     return {
         "kind": "protein",
         "sites": sites,
         "chains": sorted(chains),
-        "chain": target_chain,
-        "contig": f"{target_chain}{resnums[0]}-{resnums[-1]}",
-        "sequence": sequence,
+        "chain": target_chains[0],
+        "selected_chains": target_chains,
+        "contig": ",/0,".join(contigs),
+        "sequence": ":".join(sequences),
         "warnings": [
             "Exposure is estimated from a heavy-atom neighbour count, not a full "
             "solvent-accessibility calculation. Treat the suggestions as a starting point."
@@ -307,6 +312,8 @@ def main() -> None:
     parser.add_argument("--structure")
     parser.add_argument("--resname")
     parser.add_argument("--chain")
+    parser.add_argument("--chains")
+    parser.add_argument("--chain-count", type=int, default=1)
     args = parser.parse_args()
 
     if args.kind == "ligand":
@@ -314,7 +321,7 @@ def main() -> None:
     else:
         if not args.structure:
             fail("A protein target needs a structure file.")
-        result = inspect_protein(args.structure, args.chain)
+        result = inspect_protein(args.structure, args.chain, args.chains, args.chain_count)
 
     print(json.dumps(result))
 

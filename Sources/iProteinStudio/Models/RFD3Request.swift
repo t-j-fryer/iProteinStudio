@@ -330,6 +330,8 @@ struct RFD3Request: Codable, Hashable {
     /// inspector. Kept separately so a pasted sequence mismatch blocks the run.
     var structureTargetSequence: String = ""
     var targetStructurePath: String = ""
+    /// Comma-separated structure chain IDs in colon-sequence order. This stays
+    /// a string so projects from the original single-chain control migrate.
     var targetChain: String = "B"
     /// Residue range kept from the target, e.g. "B1-71".
     var targetContig: String = ""
@@ -409,6 +411,24 @@ struct RFD3Request: Codable, Hashable {
 
     var totalDesignedSequences: Int {
         max(1, numDesigns) * max(1, sequencesPerBackbone)
+    }
+
+    var selectedTargetChainIDs: [String] {
+        targetChain.split(separator: ",", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+            .filter { !$0.isEmpty }
+    }
+
+    var targetSequenceResult: Result<[ProteinChainInput], ProteinSequenceInputError> {
+        ProteinSequenceInput.parse(targetSequence, startingAt: 1, minimumLength: 5)
+    }
+
+    var targetChains: [ProteinChainInput] {
+        guard case .success(let parsed) = targetSequenceResult,
+              parsed.count == selectedTargetChainIDs.count else { return [] }
+        return zip(selectedTargetChainIDs, parsed).map {
+            ProteinChainInput(id: $0.0, sequence: $0.1.sequence)
+        }
     }
 
     mutating func reconcileSelectionBudget() {
@@ -521,20 +541,22 @@ struct RFD3Request: Codable, Hashable {
             if !FileManager.default.fileExists(atPath: targetStructurePath) {
                 issues.append("Choose or predict an existing protein structure file.")
             }
-            let cleanTarget = TemplateWriter.clean(targetSequence)
-            if cleanTarget.isEmpty {
-                issues.append("Add the target sequence so its alignment and verification input can be reproduced.")
-            }
+            if case .failure(let error) = targetSequenceResult { issues.append(error.message) }
             if targetContig.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 issues.append("Read the target structure so Studio can verify the selected chain and residue range.")
             }
-            let cleanStructure = TemplateWriter.clean(structureTargetSequence)
-            if !cleanStructure.isEmpty && cleanTarget != cleanStructure {
+            let canonicalTarget = ProteinSequenceInput.canonical(targetSequence, startingAt: 1)
+            let canonicalStructure = ProteinSequenceInput.canonical(structureTargetSequence, startingAt: 1)
+            if canonicalStructure != nil && canonicalTarget != canonicalStructure {
                 issues.append("The pasted target sequence does not match the selected structure chain. Use the sequence read from the structure or choose the matching chain.")
             }
-            let chain = targetChain.trimmingCharacters(in: .whitespacesAndNewlines)
-            if chain.isEmpty || chain.contains(where: { $0.isWhitespace }) {
-                issues.append("Choose one valid target chain identifier.")
+            let chains = selectedTargetChainIDs
+            if chains.isEmpty || chains.contains(where: { $0.count != 1 || !$0.allSatisfy(\.isLetter) })
+                || Set(chains).count != chains.count {
+                issues.append("Choose unique one-letter target chain identifiers, such as B,C.")
+            } else if case .success(let sequences) = targetSequenceResult,
+                      chains.count != sequences.count {
+                issues.append("The number of selected structure chains must match the number of colon-separated target sequences.")
             }
             if verification.allPredictors(for: .protein).isEmpty {
                 issues.append("Select at least one verification predictor for the protein campaign.")

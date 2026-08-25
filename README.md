@@ -33,6 +33,12 @@ machine has ever made is reused rather than re-fetched. Multimers retain the
 directional and pairwise ipSAE values behind the displayed `ipSAE(min)` summary;
 OpenFold is left blank because its current detailed output is PDE rather than PAE.
 
+Across all protein inputs, a colon separates subunits: `SEQUENCE_A:SEQUENCE_B`.
+Studio immediately shows the detected chain map. Plain prediction assigns A, B,
+C… in input order. Design workflows reserve A for the new binder and assign the
+fixed target B, C, D…. External RFdiffusion3 PDB/mmCIF chains are read using
+their original names and copied into that backend-safe convention automatically.
+
 **One-click setup** — installs pinned engine revisions and verified model weights
 under iProteinStudio's own managed root. A new user does not need NanoHunter or
 any developer-machine model cache. Reusing an existing NanoHunter remains an

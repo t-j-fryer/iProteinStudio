@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import importlib
 import contextlib
 import io
 import json
@@ -17,6 +18,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[1]
 RFD3 = ROOT / "Sources/iProteinStudio/Resources/rfd3"
 OVERLAY = ROOT / "Sources/iProteinStudio/Resources/rfd3_overlay/scripts"
+sys.path.insert(0, str(RFD3))
 sys.path.insert(0, str(OVERLAY))
 
 
@@ -46,12 +48,14 @@ def main() -> None:
     predict = load("predict_contract", RFD3 / "predict_batch.py")
     prepare = load("prepare_contract", RFD3 / "prepare_campaign.py")
     protein_campaign = load("protein_campaign_contract", RFD3 / "rfd3_protein_campaign.py")
+    protein_structure = importlib.import_module("protein_structure")
     openfold = load("openfold_contract", OVERLAY / "openfold_predict_one.py")
     pipeline_scripts = ROOT / "Sources/iProteinStudio/Resources/pipeline/scripts"
     sys.path.insert(0, str(pipeline_scripts))
     ipsae = load("ipsae_contract", pipeline_scripts / "ipsae_score.py")
     protenix = load("protenix_contract", pipeline_scripts / "protenix_predict.py")
     intellifold = load("intellifold_mps_contract", pipeline_scripts / "intellifold_predict.py")
+    unk_cif = load("unk_cif_contract", pipeline_scripts / "normalize_unk_cif.py")
 
     with tempfile.TemporaryDirectory(prefix="iproteinstudio-workflow-contract-") as raw:
         root = Path(raw)
@@ -195,6 +199,118 @@ def main() -> None:
         expect(mixed_real and binder_msa.read_text() == ">query\nACDEFG\n"
                and mixed_proteins[1]["unpairedMsaPath"] == str(cached.resolve()),
                "Protenix mixed-chain policy lost the real MSA or searched the empty chain")
+
+        # Protenix gives an UNK residue alanine atoms plus a generic CG.  The
+        # iterative handoff must remove only that pseudo-atom, normalize the
+        # binder to ALA, keep CB/OXT, and leave another chain's UNK untouched.
+        protenix_unk_cif = """data_protenix_unk
+#
+loop_
+_chem_comp.id
+_chem_comp.type
+ALA 'L-PEPTIDE LINKING'
+UNK 'L-PEPTIDE LINKING'
+#
+loop_
+_entity_poly_seq.entity_id
+_entity_poly_seq.hetero
+_entity_poly_seq.mon_id
+_entity_poly_seq.num
+1 n UNK 1
+2 n UNK 1
+#
+loop_
+_struct_conn.id
+_struct_conn.conn_type_id
+_struct_conn.ptnr1_label_asym_id
+_struct_conn.ptnr2_label_asym_id
+_struct_conn.ptnr1_label_comp_id
+_struct_conn.ptnr2_label_comp_id
+_struct_conn.ptnr1_label_seq_id
+_struct_conn.ptnr2_label_seq_id
+1 covale A A UNK UNK 1 2
+2 covale B B UNK UNK 1 2
+#
+loop_
+_atom_site.group_PDB
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+_atom_site.pdbx_PDB_ins_code
+ATOM N N   UNK A 1 1 1 UNK A N   1 .
+ATOM C CA  UNK A 1 1 1 UNK A CA  1 .
+ATOM C C   UNK A 1 1 1 UNK A C   1 .
+ATOM O O   UNK A 1 1 1 UNK A O   1 .
+ATOM C CB  UNK A 1 1 1 UNK A CB  1 .
+ATOM C CG  UNK A 1 1 1 UNK A CG  1 .
+ATOM O OXT UNK A 1 1 1 UNK A OXT 1 .
+ATOM N N   UNK B 2 1 1 UNK B N   1 .
+ATOM C CA  UNK B 2 1 1 UNK B CA  1 .
+ATOM C C   UNK B 2 1 1 UNK B C   1 .
+ATOM O O   UNK B 2 1 1 UNK B O   1 .
+ATOM C CB  UNK B 2 1 1 UNK B CB  1 .
+ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
+#
+"""
+        normalized, residue_count, removed_count = unk_cif.normalize_text(
+            protenix_unk_cif, "protenix-v2", "A", "ala_gly_ser"
+        )
+        normalized_loops = unk_cif.parse_loops(normalized.splitlines(keepends=True))
+        atom_loop = next(loop for loop in normalized_loops
+                         if loop.category == "_atom_site")
+        chain_i = atom_loop.index("auth_asym_id")
+        comp_i = atom_loop.index("auth_comp_id")
+        atom_i = atom_loop.index("auth_atom_id")
+        chain_a = [row for row in atom_loop.rows if row[chain_i] == "A"]
+        chain_b = [row for row in atom_loop.rows if row[chain_i] == "B"]
+        expect(residue_count == 1 and removed_count == 1,
+               "Protenix UNK repair counted the wrong residues or pseudo-atoms")
+        expect({row[comp_i] for row in chain_a} == {"ALA"}
+               and {row[atom_i] for row in chain_a}
+               == {"N", "CA", "C", "O", "CB", "OXT"},
+               "Protenix chain-A UNK did not become a chemically valid alanine")
+        expect({row[comp_i] for row in chain_b} == {"UNK"}
+               and "CG" in {row[atom_i] for row in chain_b},
+               "Protenix UNK repair crossed the requested binder-chain boundary")
+        entity_loop = next(loop for loop in normalized_loops
+                           if loop.category == "_entity_poly_seq")
+        expect(entity_loop.rows[0][entity_loop.index("mon_id")] == "ALA"
+               and entity_loop.rows[1][entity_loop.index("mon_id")] == "UNK",
+               "Protenix UNK repair left polymer metadata inconsistent")
+        connection_loop = next(loop for loop in normalized_loops
+                               if loop.category == "_struct_conn")
+        expect(connection_loop.rows[0][connection_loop.index("ptnr1_label_comp_id")] == "ALA"
+               and connection_loop.rows[0][connection_loop.index("ptnr2_label_comp_id")] == "ALA"
+               and connection_loop.rows[1][connection_loop.index("ptnr1_label_comp_id")] == "UNK",
+               "Protenix UNK repair left bond metadata inconsistent or crossed chains")
+
+        try:
+            unk_cif.normalize_text(
+                protenix_unk_cif.replace(
+                    "ATOM C CG  UNK A 1 1 1 UNK A CG",
+                    "ATOM C CD  UNK A 1 1 1 UNK A CD",
+                ),
+                "protenix-mini", "A", "ala",
+            )
+        except ValueError as exc:
+            expect("Unexpected Protenix UNK atom" in str(exc),
+                   "unexpected Protenix sidechain atom failed without context")
+        else:
+            raise AssertionError("unexpected Protenix UNK atom was silently retained")
+
+        legacy, _, _ = unk_cif.normalize_text(
+            "1 n UNK 1\n", "boltz", "A", "ala"
+        )
+        expect(legacy == "1 n ALA 1\n",
+               "non-Protenix UNK placeholder behavior changed unexpectedly")
 
         # Dunbrack v4 d0res semantics are directional. Studio persists both
         # directions and exposes their conservative minimum.
@@ -452,6 +568,8 @@ def main() -> None:
         pdb.write_text("\n".join([
             pdb_atom(1, "CA", "ALA", "B", 1, 0, 0, 0, "C"),
             pdb_atom(2, "CA", "GLY", "B", 2, 2, 0, 0, "C"),
+            pdb_atom(3, "CA", "SER", "C", 1, 0, 3, 0, "C"),
+            pdb_atom(4, "CA", "THR", "C", 2, 2, 3, 0, "C"),
             "END",
         ]) + "\n")
         inspected = subprocess.run([
@@ -460,6 +578,92 @@ def main() -> None:
         ], check=True, capture_output=True, text=True)
         payload = json.loads(inspected.stdout.splitlines()[-1])
         expect(payload.get("sequence") == "AG", "protein inspector did not recover chain sequence")
+
+        inspected_multimer = subprocess.run([
+            sys.executable, str(RFD3 / "inspect_target.py"), "--kind", "protein",
+            "--structure", str(pdb), "--chains", "B,C",
+        ], check=True, capture_output=True, text=True)
+        multimer_payload = json.loads(inspected_multimer.stdout.splitlines()[-1])
+        expect(multimer_payload.get("sequence") == "AG:ST"
+               and multimer_payload.get("selected_chains") == ["B", "C"]
+               and multimer_payload.get("contig") == "B1-2,/0,C1-2",
+               "protein inspector lost multimer sequence, chain order, or contig")
+
+        mmcif = root / "target.cif"
+        mmcif.write_text(
+            "data_target\n#\nloop_\n"
+            "_atom_site.group_PDB\n_atom_site.type_symbol\n_atom_site.label_atom_id\n"
+            "_atom_site.label_alt_id\n_atom_site.label_comp_id\n_atom_site.label_asym_id\n"
+            "_atom_site.label_seq_id\n_atom_site.auth_seq_id\n_atom_site.auth_comp_id\n"
+            "_atom_site.auth_asym_id\n_atom_site.auth_atom_id\n_atom_site.B_iso_or_equiv\n"
+            "_atom_site.Cartn_x\n_atom_site.Cartn_y\n_atom_site.Cartn_z\n"
+            "_atom_site.pdbx_PDB_model_num\n_atom_site.id\n_atom_site.occupancy\n"
+            "ATOM C CA . ALA X 1 1 ALA X CA 80.0 0.0 0.0 0.0 1 1 1.0\n"
+            "ATOM C CA . GLY Y 1 1 GLY Y CA 80.0 2.0 0.0 0.0 1 2 1.0\n#\n"
+        )
+        normalized = protein_structure.write_selected_pdb(
+            mmcif, root / "normalized.pdb", {"X": "B", "Y": "C"}
+        )
+        normalized_atoms = protein_structure.read_protein_atoms(normalized)
+        expect([(atom.chain, atom.residue) for atom in normalized_atoms] ==
+               [("B", "ALA"), ("C", "GLY")],
+               "mmCIF target normalization did not reserve A and retain target order")
+
+        source_ab = root / "source-ab.pdb"
+        source_ab.write_text("\n".join([
+            pdb_atom(1, "CA", "ALA", "A", 1, 0, 0, 0, "C"),
+            pdb_atom(2, "CA", "GLY", "B", 1, 2, 0, 0, "C"),
+            "END",
+        ]) + "\n")
+        remap_request = {
+            "target_structure": str(source_ab), "target_chain": "A,B",
+            "target_chains": ["A", "B"], "contig": "A1-1,/0,B1-1",
+            "conditions": {"A1": ["hotspot"], "B1": ["hotspot"]},
+        }
+        chain_map = prepare.normalize_protein_target(remap_request, root / "remap-campaign")
+        expect(chain_map == {"A": "B", "B": "C"}
+               and remap_request["target_chains"] == ["B", "C"]
+               and remap_request["contig"] == "B1-1,/0,C1-1"
+               and set(remap_request["conditions"]) == {"B1", "C1"},
+               "RFdiffusion3 did not remap supplied A/B chains atomically around reserved binder A")
+
+        complex_source = root / "complex.fasta"
+        complex_source.write_text(">complex\nACDEFG:KLMNPQ:RSTVWY\n")
+        parsed_complex = subprocess.run([
+            sys.executable, str(RFD3 / "parse_sequences.py"), str(complex_source),
+            "--mode", "monomer",
+        ], check=True, capture_output=True, text=True)
+        complex_job = json.loads(parsed_complex.stdout)["jobs"][0]
+        expect([chain["id"] for chain in complex_job["chains"]] == ["A", "B", "C"]
+               and [chain["sequence"] for chain in complex_job["chains"]]
+                   == ["ACDEFG", "KLMNPQ", "RSTVWY"],
+               "plain prediction did not expand colon syntax into A/B/C")
+
+        msa_b = root / "target_b.a3m"
+        msa_c = root / "target_c.a3m"
+        msa_b.write_text(">query\nACDEFG\n>homologue\nACDEFG\n")
+        msa_c.write_text(">query\nKLMNPQ\n>homologue\nKLMNPQ\n")
+        template = root / "multimer-template.yaml"
+        template.write_text(
+            "sequences:\n"
+            "  - protein:\n      id: A\n      sequence: GGGGGG\n"
+            "  - protein:\n      id: B\n      sequence: ACDEFG\n"
+            "  - protein:\n      id: C\n      sequence: KLMNPQ\n"
+            "version: 1\n"
+        )
+        sequence_rows = root / "designs.csv"
+        sequence_rows.write_text("design,seq_index,sequence\ndesign_001,1,RSTVWY\n")
+        msa_map = root / "msa-map.json"
+        msa_map.write_text(json.dumps({"B": str(msa_b), "C": str(msa_c)}))
+        predictor_inputs = root / "multimer-predictor-inputs"
+        subprocess.run([
+            sys.executable, str(OVERLAY / "prepare_predictor_inputs.py"),
+            "--sequences", str(sequence_rows), "--template", str(template),
+            "--target-msa-map", str(msa_map), "--output", str(predictor_inputs),
+        ], check=True, capture_output=True, text=True)
+        predictor_yaml = next(predictor_inputs.glob("*.yaml")).read_text()
+        expect(str(msa_b) in predictor_yaml and str(msa_c) in predictor_yaml,
+               "RFdiffusion3 predictor handoff did not retain distinct B/C MSAs")
 
         source = root / "input.fasta"
         source.write_text(">one\nACDEFG\n")

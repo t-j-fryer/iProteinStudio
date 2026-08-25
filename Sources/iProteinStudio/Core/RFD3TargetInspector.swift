@@ -11,6 +11,8 @@ import Combine
 final class RFD3TargetInspector: ObservableObject {
     @Published var sites: [TargetSite] = []
     @Published var chains: [String] = []
+    /// The structure chains actually inspected, in target-subunit order.
+    @Published var selectedChains: [String] = []
     /// Full-chain contig suggested for a protein target, e.g. "B1-71".
     @Published var suggestedContig: String = ""
     /// Amino-acid sequence extracted from that same structure chain.
@@ -30,7 +32,7 @@ final class RFD3TargetInspector: ObservableObject {
         inspectionID = UUID()
         runner?.cancel()
         runner = nil
-        sites = []; chains = []; suggestedContig = ""; suggestedSequence = ""; formalCharge = nil
+        sites = []; chains = []; selectedChains = []; suggestedContig = ""; suggestedSequence = ""; formalCharge = nil
         warnings = []; error = nil
         isInspecting = false
     }
@@ -43,9 +45,10 @@ final class RFD3TargetInspector: ObservableObject {
         run(["--kind", "ligand", "--structure", path, "--resname", residueName])
     }
 
-    func inspectProtein(path: String, chain: String) {
+    func inspectProtein(path: String, chains: [String], expectedChainCount: Int = 1) {
         var args = ["--kind", "protein", "--structure", path]
-        if !chain.isEmpty { args += ["--chain", chain] }
+        if !chains.isEmpty { args += ["--chains", chains.joined(separator: ",")] }
+        args += ["--chain-count", String(max(1, expectedChainCount))]
         run(args)
     }
 
@@ -128,6 +131,7 @@ final class RFD3TargetInspector: ObservableObject {
             )
         }
         chains = payload["chains"] as? [String] ?? []
+        selectedChains = payload["selected_chains"] as? [String] ?? []
         suggestedContig = payload["contig"] as? String ?? ""
         suggestedSequence = payload["sequence"] as? String ?? ""
         formalCharge = payload["formal_charge"] as? Int

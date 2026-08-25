@@ -139,6 +139,14 @@ the managed `msa_cache`, bundled examples, projects, and prior outputs before
 requesting a new alignment. A newly generated iterative-design alignment is
 published back to the managed cache for the other workflows.
 
+The GUI accepts a protein complex as one colon-separated value, for example
+`CHAIN_ONE:CHAIN_TWO`. Predict assigns those subunits A/B in input order.
+Iterative design and RFdiffusion3 reserve A for the designed binder, so fixed
+targets become B/C/D. Every target subunit owns a separate query-matched MSA;
+the runner rejects an ambiguous single `--target-msa-path` for a multimer rather
+than applying one chain's alignment to every chain. In hand-written iterative
+YAML, put the appropriate `msa:` path on each target protein entry.
+
 For protein multimers, Boltz, IntelliFold and Protenix confidence JSONs include
 `ipsae_min`, `ipsae_directional` and `ipsae_pairs`. `ipsae_min` is the smaller
 directional score for a two-chain interface; with more chains it is the weakest

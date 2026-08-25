@@ -66,16 +66,18 @@ struct DesignFormView: View {
                     .accessibilityLabel("Target type")
 
                     if request.wrappedValue.targetKind == .protein {
-                        Text("Paste the amino-acid sequence of the protein you want to bind.")
+                        Text("Paste the protein target. Separate subunits with a colon; Studio reserves chain A for the designed binder and assigns targets B, C, D…")
                             .font(.callout).foregroundStyle(.secondary)
-                        SequenceEditor(text: request.targetSequence, placeholder: "Target sequence (chain B)…")
+                        ProteinChainInputView(text: request.targetSequence, startingAt: 1,
+                                              placeholder: "Target chain B[:target chain C…]",
+                                              minimumLength: 5)
                         HStack {
                             Text("Length: \(TemplateWriter.clean(request.wrappedValue.targetSequence).count) aa")
                                 .font(.caption).foregroundStyle(.secondary)
                             Spacer()
                             TextField("Epitope hotspots (optional, e.g. 32 55)", text: request.epitopeResidues)
                                 .textFieldStyle(.roundedBorder).frame(width: 240)
-                                .help("Target residue numbers to steer binding toward. The target chain (B) is added automatically; hotspot steering uses Boltz with potentials.")
+                                .help("Bare residue numbers use the first target chain (B). For multimers use chain-qualified residues such as C55. Hotspot steering uses Boltz with potentials.")
                                 .onChange(of: request.wrappedValue.epitopeResidues) { _, _ in
                                     var r = request.wrappedValue
                                     r.reconcilePredictors()
@@ -83,7 +85,7 @@ struct DesignFormView: View {
                                 }
                         }
                         if request.wrappedValue.hasInvalidEpitopeResidues {
-                            Label("Use residue numbers such as 32 55, or chain-qualified residues such as B32 B55.",
+                            Label("Use residue numbers such as 32 55, or target-chain residues such as B32 C55.",
                                   systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption).foregroundStyle(.orange)
                         } else if request.wrappedValue.hasEpitopeSteering {
@@ -193,7 +195,7 @@ struct DesignFormView: View {
                 targetSmiles: request.wrappedValue.targetSmiles,
                 onUse: { residues in
                     var r = request.wrappedValue
-                    r.epitopeResidues = residues.map { "B\($0)" }.joined(separator: " ")
+                    r.epitopeResidues = residues.joined(separator: " ")
                     r.reconcilePredictors()
                     request.wrappedValue = r
                 },

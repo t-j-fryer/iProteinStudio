@@ -39,7 +39,9 @@ final class PredictionStore: ObservableObject {
 
     static func key(targetKind: TargetKind, sequence: String, smiles: String,
                     engine: TargetEngine, model: IntelliFoldModel) -> String {
-        let payload = targetKind == .protein ? "P|" + TemplateWriter.clean(sequence)
+        let canonical = ProteinSequenceInput.canonical(sequence, startingAt: 1)
+            ?? sequence.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let payload = targetKind == .protein ? "P2|" + canonical
                                              : "L|" + smiles.trimmingCharacters(in: .whitespacesAndNewlines)
         let s = "\(payload)|\(engine.rawValue)|\(model.rawValue)"
         var h: UInt64 = 1469598103934665603
@@ -144,6 +146,10 @@ final class PredictionStore: ObservableObject {
     }
 
     private func defaultName(targetKind: TargetKind, payload: String) -> String {
-        targetKind == .protein ? "Protein (\(TemplateWriter.clean(payload).count) aa)" : "Ligand"
+        if targetKind != .protein { return "Ligand" }
+        let chains = ProteinSequenceInput.chains(payload, startingAt: 1)
+        let residues = chains.reduce(0) { $0 + $1.sequence.count }
+        return chains.count > 1 ? "Protein complex (\(chains.count) chains, \(residues) aa)"
+                                : "Protein (\(residues) aa)"
     }
 }

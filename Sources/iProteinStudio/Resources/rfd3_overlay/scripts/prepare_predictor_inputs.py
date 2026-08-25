@@ -32,6 +32,8 @@ def main() -> None:
     parser.add_argument("--template", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--target-msa", type=Path)
+    parser.add_argument("--target-msa-map", type=Path,
+                        help="JSON object mapping each target chain ID to its exact A3M")
     args = parser.parse_args()
 
     template = yaml.safe_load(args.template.read_text())
@@ -40,24 +42,38 @@ def main() -> None:
     ligands = [entry["ligand"] for entry in entries if "ligand" in entry]
     if not proteins or proteins[0].get("id") != "A":
         raise SystemExit("Template must contain binder protein chain A first")
-    target_protein = proteins[1] if len(proteins) > 1 else None
-    if bool(target_protein) == bool(ligands):
-        raise SystemExit("Template must contain exactly one protein target or one ligand target")
+    target_proteins = proteins[1:]
+    if bool(target_proteins) == bool(ligands):
+        raise SystemExit("Template must contain one or more protein targets, or one ligand target")
 
-    target_msa = None
-    msa_records = 0
-    if target_protein:
-        if args.target_msa is None:
-            raise SystemExit("Protein target requires --target-msa")
-        target_msa = args.target_msa.resolve()
-        if not target_msa.exists():
-            raise SystemExit(f"Target MSA does not exist: {target_msa}")
-        query, msa_records = a3m_query(target_msa)
-        target_sequence = str(target_protein.get("sequence", "")).upper()
-        if query != target_sequence:
-            raise SystemExit(
-                f"Target MSA query mismatch: query length {len(query)}, target length {len(target_sequence)}"
-            )
+    target_msas = {}
+    msa_records = {}
+    if target_proteins:
+        if args.target_msa_map:
+            try:
+                raw_map = json.loads(args.target_msa_map.read_text())
+            except (OSError, json.JSONDecodeError) as exc:
+                raise SystemExit(f"Could not read target MSA map: {exc}")
+        elif args.target_msa and len(target_proteins) == 1:
+            raw_map = {str(target_proteins[0].get("id", "B")): str(args.target_msa)}
+        else:
+            raise SystemExit("Protein targets require one exact MSA path per target chain")
+        expected = {str(protein.get("id", "")) for protein in target_proteins}
+        if set(raw_map) != expected:
+            raise SystemExit(f"Target MSA map chains {sorted(raw_map)} do not match template chains {sorted(expected)}")
+        for target_protein in target_proteins:
+            chain = str(target_protein.get("id", ""))
+            target_msa = Path(raw_map[chain]).resolve()
+            if not target_msa.exists():
+                raise SystemExit(f"Target MSA does not exist for chain {chain}: {target_msa}")
+            query, records = a3m_query(target_msa)
+            target_sequence = str(target_protein.get("sequence", "")).upper()
+            if query != target_sequence:
+                raise SystemExit(
+                    f"Target MSA query mismatch for chain {chain}: query length {len(query)}, target length {len(target_sequence)}"
+                )
+            target_msas[chain] = target_msa
+            msa_records[chain] = records
 
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -66,19 +82,20 @@ def main() -> None:
         data = json.loads(json.dumps(template))
         data["sequences"][0]["protein"]["sequence"] = row["sequence"]
         data["sequences"][0]["protein"]["msa"] = "empty"
-        if target_protein:
+        if target_proteins:
             for entry in data["sequences"][1:]:
                 if "protein" in entry:
-                    entry["protein"]["msa"] = str(target_msa)
+                    chain = str(entry["protein"].get("id", ""))
+                    entry["protein"]["msa"] = str(target_msas[chain])
         (output / f"{prediction_name(row)}.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
 
     manifest = {
         "template": str(args.template.resolve()),
         "sequences_csv": str(args.sequences.resolve()),
         "num_designs": len(rows),
-        "target_type": "protein" if target_protein else "ligand",
+        "target_type": "protein" if target_proteins else "ligand",
         "binder_msa": "empty",
-        "target_msa": str(target_msa) if target_msa else None,
+        "target_msas": {chain: str(path) for chain, path in target_msas.items()},
         "target_msa_records": msa_records,
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

@@ -252,6 +252,22 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     var hasProteinTarget: Bool { targetKind == .protein }
 
+    var targetChainResult: Result<[ProteinChainInput], ProteinSequenceInputError> {
+        ProteinSequenceInput.parse(targetSequence, startingAt: 1, minimumLength: 5)
+    }
+
+    var targetChains: [ProteinChainInput] {
+        guard case .success(let chains) = targetChainResult else { return [] }
+        return chains
+    }
+
+    var targetChainIDs: [String] { targetChains.map(\.id) }
+
+    var targetSequenceError: String? {
+        guard targetKind == .protein, case .failure(let error) = targetChainResult else { return nil }
+        return error.message
+    }
+
     var usesBoltzDesignEngine: Bool { designPredictor.runnerValue == Predictor.boltz.runnerValue }
 
     /// Canonical post-check list: checks never use steering potentials, never
@@ -276,7 +292,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
     }
 
     var epitopeTokenResult: (tokens: [String], invalid: [String]) {
-        TemplateWriter.residueTokenResult(epitopeResidues)
+        TemplateWriter.residueTokenResult(epitopeResidues,
+                                          allowedTargetChains: targetChainIDs)
     }
 
     var hasEpitopeSteering: Bool {
@@ -338,7 +355,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     }
 
     var isRunnable: Bool {
-        let targetOK = targetKind == .protein ? !targetSequence.isEmpty : !targetSmiles.isEmpty
+        let targetOK = targetKind == .protein ? targetSequenceError == nil : !targetSmiles.isEmpty
         guard targetOK, designPredictor.isAvailable,
               !hasInvalidEpitopeResidues, !hasIncompatibleTargeting else { return false }
         if targetKind == .ligand && ligandIsConjugated &&

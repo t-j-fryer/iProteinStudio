@@ -84,7 +84,7 @@ struct PredictView: View {
 
     private var sequencesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Paste sequences — one per line, or FASTA — or choose a file.")
+            Text("Paste folds — one per line or FASTA record. Separate chains within one fold with a colon.")
                 .font(.caption).foregroundStyle(.secondary)
             SequenceEditor(text: Binding(
                 get: { request.wrappedValue.pastedSequences },
@@ -95,6 +95,10 @@ struct PredictView: View {
                     }
                 }
             ), placeholder: "Paste sequences or FASTA…")
+            if pastedInputIsOneFold {
+                ProteinChainSummaryView(text: request.wrappedValue.pastedSequences,
+                                        startingAt: 0, minimumLength: 1)
+            }
 
             HStack {
                 Button("Choose a FASTA or CSV…") {
@@ -114,7 +118,7 @@ struct PredictView: View {
                 }
                 Spacer()
                 Button { parse() } label: {
-                    Label("Read sequences", systemImage: "arrow.right.doc.on.clipboard")
+                    Label("Read & assign chains", systemImage: "arrow.right.doc.on.clipboard")
                 }
                 .disabled(isParsing || (request.wrappedValue.pastedSequences.isEmpty
                                         && request.wrappedValue.sequenceFile.isEmpty))
@@ -138,16 +142,36 @@ struct PredictView: View {
         }
     }
 
+    private var pastedInputIsOneFold: Bool {
+        let input = request.wrappedValue.pastedSequences
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !input.isEmpty, !input.contains(">") else { return false }
+        return input.split(whereSeparator: \.isNewline).count == 1
+    }
+
     private var jobList: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(request.wrappedValue.jobs.count) fold(s) ready").font(.callout.weight(.medium))
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(request.wrappedValue.jobs.prefix(60)) { job in
-                        HStack {
-                            Text(job.name).font(.system(.caption, design: .monospaced))
-                            Spacer()
-                            Text(job.summary).font(.caption2).foregroundStyle(.secondary)
+                        DisclosureGroup {
+                            VStack(alignment: .leading, spacing: 3) {
+                                ForEach(job.chains) { chain in
+                                    HStack(alignment: .firstTextBaseline) {
+                                        Text("Chain \(chain.id)").font(.caption2.weight(.semibold))
+                                        Text(chain.kind == "protein" ? chain.sequence : chain.smiles)
+                                            .font(.system(.caption2, design: .monospaced))
+                                            .textSelection(.enabled).lineLimit(2)
+                                    }
+                                }
+                            }.padding(.vertical, 3)
+                        } label: {
+                            HStack {
+                                Text(job.name).font(.system(.caption, design: .monospaced))
+                                Spacer()
+                                Text(job.summary).font(.caption2).foregroundStyle(.secondary)
+                            }
                         }
                     }
                     if request.wrappedValue.jobs.count > 60 {
@@ -177,6 +201,11 @@ struct PredictView: View {
             if request.wrappedValue.pairing == .shared {
                 Text("Partner").font(.callout.weight(.medium))
                 SequenceEditor(text: request.partnerSequence, placeholder: "Partner protein sequence…")
+                ProteinChainSummaryView(text: request.wrappedValue.partnerSequence,
+                                        startingAt: 0, minimumLength: 5,
+                                        showsAssignedIDs: false)
+                Text("Separate partner subunits with a colon. Their final chain IDs follow the query chains and are shown after you read the batch.")
+                    .font(.caption2).foregroundStyle(.secondary)
                 HStack {
                     Text("…or a small molecule").font(.caption).foregroundStyle(.secondary)
                     TextField("SMILES", text: request.partnerSmiles)

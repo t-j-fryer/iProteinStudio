@@ -49,17 +49,21 @@
         viewer.setStyle({}, { cartoon: { color: '0x6e86b8', arrows: true, thickness: 0.9 } });
       }
       // Highlight selected residues as bold red sticks (visible through the surface).
-      selected.forEach(resi => viewer.setStyle({resi: resi}, {
-        cartoon: surfaceOn ? { colorfunc: hydroColor, arrows: true, thickness: 0.9 }
-                           : { color: '0x6e86b8', arrows: true, thickness: 0.9 },
-        stick: { color: '0xe03b3b', radius: 0.4 }
-      }));
+      selected.forEach(token => {
+        const match = String(token).match(/^(.+?)(-?\d+)$/);
+        if (!match) return;
+        viewer.setStyle({chain: match[1], resi: Number(match[2])}, {
+          cartoon: surfaceOn ? { colorfunc: hydroColor, arrows: true, thickness: 0.9 }
+                             : { color: '0x6e86b8', arrows: true, thickness: 0.9 },
+          stick: { color: '0xe03b3b', radius: 0.4 }
+        });
+      });
     }
 
     // Replace the whole selection from Swift (e.g. removing one chip). Does not
     // post back, to avoid a feedback loop with click selection.
     function setSelection(arr) {
-      var next = new Set(arr);
+      var next = new Set((arr || []).map(String));
       var same = next.size === selected.size && Array.from(next).every(function(r){ return selected.has(r); });
       if (same) return;
       selected = next;
@@ -77,7 +81,7 @@
           hoverEl.style.opacity = 1;
         },
         function() { hoverEl.style.opacity = 0; });
-      viewer.setClickable({}, true, function(atom) { toggleResidue(atom.resi); });
+      viewer.setClickable({}, true, function(atom) { toggleResidue((atom.chain || '') + atom.resi); });
       viewer.zoomTo(); viewer.zoom(0.9); viewer.render();
       postSelection();
     }
@@ -98,8 +102,8 @@
       viewer.zoomTo(); viewer.zoom(0.85); viewer.render();
     }
 
-    function toggleResidue(resi) {
-      if (selected.has(resi)) selected.delete(resi); else selected.add(resi);
+    function toggleResidue(token) {
+      if (selected.has(token)) selected.delete(token); else selected.add(token);
       rebuild();
       postSelection();
     }
@@ -119,7 +123,7 @@
     function fit() { viewer.resize(); viewer.zoomTo(); viewer.zoom(0.9); viewer.render(); }
 
     function postSelection() {
-      const arr = Array.from(selected).sort((a,b)=>a-b);
+      const arr = Array.from(selected).sort((a,b)=>a.localeCompare(b, undefined, {numeric:true}));
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.hotspots) {
         window.webkit.messageHandlers.hotspots.postMessage(JSON.stringify(arr));
       }

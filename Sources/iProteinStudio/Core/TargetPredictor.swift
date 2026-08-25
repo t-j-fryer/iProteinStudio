@@ -38,8 +38,9 @@ enum IntelliFoldModel: String, CaseIterable, Codable, Identifiable, Hashable {
     }
 }
 
-/// Predicts a monomer structure for a target sequence (Boltz or IntelliFold),
-/// so the user can inspect it and pick epitope hotspots before designing.
+/// Predicts a target structure (one chain or a multimer) so the user can inspect
+/// it and pick epitope hotspots before designing. Chain A is reserved for the
+/// future binder; target chains are always B, C, D… across every backend.
 @MainActor
 final class TargetPredictor: ObservableObject {
     enum Phase: Equatable {
@@ -91,18 +92,21 @@ final class TargetPredictor: ObservableObject {
             return
         }
 
-        let proteinSequence: String?
+        let proteinChains: [ProteinChainInput]
         let ligandSMILES: String?
         switch targetKind {
         case .protein:
-            let seq = TemplateWriter.clean(sequence)
-            guard seq.count >= 10 else { phase = .failed("Enter a target sequence first."); return }
-            proteinSequence = seq
+            guard case .success(let chains) = ProteinSequenceInput.parse(
+                sequence, startingAt: 1, minimumLength: 5
+            ) else {
+                phase = .failed("Enter valid target chains separated by a colon."); return
+            }
+            proteinChains = chains
             ligandSMILES = nil
         case .ligand:
             let s = smiles.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !s.isEmpty else { phase = .failed("Enter a ligand SMILES first."); return }
-            proteinSequence = nil
+            proteinChains = []
             ligandSMILES = s
         }
 
@@ -128,11 +132,17 @@ final class TargetPredictor: ObservableObject {
         config.max_parallel = 1
         config.batch_size = 1
         config.msa = PredictionController.sharedMSAConfig(allowServer: true)
-        config.jobs = [PredictionConfig.Job(name: "target", chains: [
-            PredictionConfig.Chain(id: "A", kind: targetKind == .protein ? "protein" : "ligand",
-                                   sequence: proteinSequence, smiles: ligandSMILES,
-                                   msa: targetKind == .protein ? MSAPolicy.auto.rawValue : nil)
-        ])]
+        let chains: [PredictionConfig.Chain]
+        if targetKind == .protein {
+            chains = proteinChains.map {
+                PredictionConfig.Chain(id: $0.id, kind: "protein", sequence: $0.sequence,
+                                       smiles: nil, msa: MSAPolicy.auto.rawValue)
+            }
+        } else {
+            chains = [PredictionConfig.Chain(id: "B", kind: "ligand", sequence: nil,
+                                             smiles: ligandSMILES, msa: nil)]
+        }
+        config.jobs = [PredictionConfig.Job(name: "target", chains: chains)]
 
         let configURL = workDir.appendingPathComponent("target_prediction_config.json")
         do {

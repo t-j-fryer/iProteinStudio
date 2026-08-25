@@ -7,10 +7,7 @@ struct TargetPrepView: View {
     let targetKind: TargetKind
     let targetSequence: String
     let targetSmiles: String
-    var onUse: ([Int]) -> Void
-    /// Chain label shown on picked residues. Iterative templates use target B;
-    /// an RFdiffusion3 monomer predicted here is adopted as chain A.
-    var residueChain: String
+    var onUse: ([String]) -> Void
     /// Called with the predicted structure once it exists. The RFdiffusion3 tab
     /// uses this to adopt the prediction as its design target, so a user with
     /// only a sequence never has to find the file themselves.
@@ -19,22 +16,20 @@ struct TargetPrepView: View {
 
     @EnvironmentObject var predictions: PredictionStore
     @StateObject private var predictor = TargetPredictor()
-    @State private var selected: [Int] = []
+    @State private var selected: [String] = []
     @State private var showSurface = false
     @State private var engine: TargetEngine
     @State private var model: IntelliFoldModel = .v2flash
     @State private var name: String = ""
 
     init(targetKind: TargetKind, targetSequence: String, targetSmiles: String,
-         onUse: @escaping ([Int]) -> Void,
-         residueChain: String = "B",
+         onUse: @escaping ([String]) -> Void,
          onStructure: ((String) -> Void)? = nil,
          onClose: @escaping () -> Void) {
         self.targetKind = targetKind
         self.targetSequence = targetSequence
         self.targetSmiles = targetSmiles
         self.onUse = onUse
-        self.residueChain = residueChain
         self.onStructure = onStructure
         self.onClose = onClose
         // Ligand-only prediction is verified with Boltz; protein defaults to IntelliFold.
@@ -69,7 +64,8 @@ struct TargetPrepView: View {
     private func recordPrediction() {
         let id = predictor.cacheKey(targetKind: targetKind, sequence: targetSequence,
                                     smiles: targetSmiles, engine: engine, model: model)
-        let payload = targetKind == .protein ? TemplateWriter.clean(targetSequence)
+        let payload = targetKind == .protein
+            ? (ProteinSequenceInput.canonical(targetSequence, startingAt: 1) ?? targetSequence)
                                              : targetSmiles.trimmingCharacters(in: .whitespaces)
         predictions.upsert(id: id, name: name, targetKind: targetKind, payload: payload,
                            engine: engine, model: model)
@@ -204,8 +200,8 @@ struct TargetPrepView: View {
             Text("Click residues in the structure to add or remove them, or tap a chip below to remove it.")
                 .font(.caption).foregroundStyle(.secondary)
             ScrollView {
-                RemovableChips(residues: selected, chain: residueChain) { resi in
-                    selected.removeAll { $0 == resi }
+                RemovableChips(residues: selected) { residue in
+                    selected.removeAll { $0 == residue }
                 }
             }
                 .frame(maxHeight: .infinity)
@@ -249,23 +245,22 @@ struct TargetPrepView: View {
 
 /// Wrapping row of hotspot chips; tap a chip to remove that residue.
 struct RemovableChips: View {
-    let residues: [Int]
-    let chain: String
-    var onRemove: (Int) -> Void
+    let residues: [String]
+    var onRemove: (String) -> Void
     var body: some View {
         let cols = [GridItem(.adaptive(minimum: 58), spacing: 6)]
         LazyVGrid(columns: cols, alignment: .leading, spacing: 6) {
-            ForEach(residues, id: \.self) { resi in
-                Button { onRemove(resi) } label: {
+            ForEach(residues, id: \.self) { residue in
+                Button { onRemove(residue) } label: {
                     HStack(spacing: 3) {
-                        Text("\(chain)\(resi)").font(.caption.monospacedDigit())
+                        Text(residue).font(.caption.monospacedDigit())
                         Image(systemName: "xmark.circle.fill").font(.system(size: 9))
                     }
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Capsule().fill(.orange.opacity(0.2)))
                     .foregroundStyle(.orange)
                 }
-                .buttonStyle(.plain).help("Remove \(chain)\(resi)")
+                .buttonStyle(.plain).help("Remove \(residue)")
             }
         }
     }

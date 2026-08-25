@@ -2270,7 +2270,8 @@ make_yaml_with_binder_sequence() {
     "$NANOBODY_SEED_CDR_RANGES" \
     "$catalog_tsv" \
     "$binder_msa_path" \
-    "$phase" <<'PY'
+    "$phase" \
+    "${TARGET_MSA_MANIFEST:-}" <<'PY'
 import csv
 import re
 import sys
@@ -2290,7 +2291,8 @@ from pathlib import Path
     catalog_tsv,
     binder_msa_path,
     phase,
-) = sys.argv[1:14]
+    target_msa_manifest,
+) = sys.argv[1:15]
 msa_path = msa_path or None
 binder_msa_path = binder_msa_path or None
 contact_distance = float(contact_distance_raw)
@@ -2305,6 +2307,19 @@ cur = None
 original_binder_seq = ""
 out_lines = []
 skip_nanohunter_block = False
+
+target_msa_by_chain = {}
+if target_msa_manifest:
+    manifest = Path(target_msa_manifest)
+    if not manifest.is_file():
+        raise SystemExit(f"Target MSA manifest is missing: {manifest}")
+    for line in manifest.read_text().splitlines():
+        if not line.strip():
+            continue
+        fields = line.split("\t", 1)
+        if len(fields) != 2 or not fields[0] or not fields[1]:
+            raise SystemExit(f"Invalid target MSA manifest row: {line!r}")
+        target_msa_by_chain[fields[0]] = fields[1]
 
 
 def parse_range_value(value):
@@ -2435,6 +2450,8 @@ def build_dynamic_constraints():
 def desired_msa_for_chain(chain_id):
     if chain_id == "A":
         return binder_msa_path
+    if chain_id in target_msa_by_chain:
+        return target_msa_by_chain[chain_id]
     if msa_path is not None:
         return msa_path
     # Boltz cannot mix custom and auto-generated MSAs. If chain A has a custom
@@ -2644,11 +2661,60 @@ else:
 PY
 }
 
-extract_target_msa_from_yaml() {
+extract_target_chains_from_yaml() {
   local template_yaml="$1"
   python3 - "$template_yaml" <<'PY'
 import sys
+
 path = sys.argv[1]
+records = []
+current = None
+in_protein = False
+for raw in open(path):
+    value = raw.strip()
+    if value.startswith("- protein:"):
+        if current:
+            records.append(current)
+        current = {"id": "", "sequence": "", "msa": ""}
+        in_protein = True
+        continue
+    if in_protein and value.startswith("- "):
+        if current:
+            records.append(current)
+        current = None
+        in_protein = False
+        continue
+    if not in_protein or current is None:
+        continue
+    for key in ("id", "sequence", "msa"):
+        prefix = f"{key}:"
+        if value.startswith(prefix):
+            current[key] = value.split(":", 1)[1].strip().strip("'\"")
+            break
+if current:
+    records.append(current)
+
+seen = set()
+for record in records:
+    chain = record["id"]
+    sequence = "".join(record["sequence"].split()).upper()
+    if not chain or chain == "A":
+        continue
+    if len(chain) != 1 or not chain.isalpha() or chain in seen:
+        raise SystemExit(f"Target protein chain IDs must be unique letters; got {chain!r}.")
+    if not sequence or any(residue not in "ACDEFGHIKLMNPQRSTVWYXBZJUO" for residue in sequence):
+        raise SystemExit(f"Target chain {chain} has an empty or invalid sequence.")
+    seen.add(chain)
+    print(f"{chain}\t{sequence}\t{record['msa'] or 'auto'}")
+PY
+}
+
+extract_target_msa_from_yaml() {
+  local template_yaml="$1"
+  local target_chain="${2:-}"
+  python3 - "$template_yaml" "$target_chain" <<'PY'
+import sys
+path, wanted = sys.argv[1:3]
 cur=None
 in_protein=False
 for raw in open(path):
@@ -2665,7 +2731,7 @@ for raw in open(path):
     if s.startswith("id:"):
         cur=s.split(":",1)[1].strip().strip("'\"")
         continue
-    if s.startswith("msa:") and cur and cur != "A":
+    if s.startswith("msa:") and cur and cur != "A" and (not wanted or cur == wanted):
         val=s.split(":",1)[1].strip().strip("'\"")
         low=val.lower()
         if val and low not in {"empty", "none", "null"}:
@@ -3878,24 +3944,20 @@ PY
 }
 
 patch_cif_unk() {
+  # Protenix UNKs contain an alanine atom set plus a generic CG pseudo-atom.
+  # Its handoff therefore needs a row-aware, binder-chain-scoped repair; the
+  # other predictors retain their established placeholder substitution.
   local in_cif="$1"
   local out_cif="$2"
   local mode="$3"
-  python3 - "$in_cif" "$out_cif" "$mode" <<'PY'
-import sys, random, re
-src, dst, mode = sys.argv[1:4]
-text = open(src).read()
-pat = re.compile(r'(?<!\S)UNK(?!\S)')
-if mode == "ala":
-    out = pat.sub("ALA", text)
-elif mode == "ala_gly":
-    out = pat.sub(lambda _: "GLY" if random.random() < 0.5 else "ALA", text)
-elif mode == "ala_gly_ser":
-    out = pat.sub(lambda _: random.choice(("ALA", "GLY", "SER")), text)
-else:
-    raise SystemExit(f"Unknown mode: {mode}")
-open(dst,"w").write(out)
-PY
+  local predictor="$4"
+  local binder_chain="$5"
+  python3 "${REPO_ROOT}/scripts/normalize_unk_cif.py" \
+    --input "${in_cif}" \
+    --output "${out_cif}" \
+    --mode "${mode}" \
+    --predictor "${predictor}" \
+    --binder-chain "${binder_chain}"
 }
 
 convert_cif_to_pdb() {
@@ -4640,7 +4702,8 @@ run_predictor_calibration_once() {
     printf 'workflow\t%s\n' "${WORKFLOW}"
     printf 'predictor\t%s\n' "${predictor}"
     printf 'binder_length\t%s\n' "${#cal_seq}"
-    printf 'target_length\t%s\n' "${#TARGET_SEQ}"
+    printf 'target_length\t%s\n' "${TARGET_TOTAL_SEQUENCE_LENGTH}"
+    printf 'target_chains\t%s\n' "${TARGET_CHAIN_COUNT}"
   } > "${cal_dir}/calibration_context.tsv"
   cal_target_msa="$(pick_target_msa_for_predictor "${target_msa_path}" "${predictor}")"
   cal_binder_msa="$(make_masked_nanobody_scaffold_msa "${cal_seq}" "${cal_dir}/nanobody_scaffold_masked.a3m" "${predictor}")"
@@ -4790,7 +4853,7 @@ run_ligandmpnn_redesign() {
   if [[ "${struct_path##*.}" == "cif" && "${cycle_idx}" -eq 0 ]]; then
     local patched
     patched="${cycle_dir}/pred_min/model_0_UNKPATCH.cif"
-    patch_cif_unk "${struct_path}" "${patched}" "${UNK_PATCH_MODE}"
+    patch_cif_unk "${struct_path}" "${patched}" "${UNK_PATCH_MODE}" "${PREDICTOR}" "${ANTIFOLD_NANOBODY_CHAIN}"
     input_struct="${patched}"
   fi
 
@@ -4931,14 +4994,14 @@ run_lasermpnn_redesign() {
   local seed
   seed="$((LASERMPNN_SEED + run_index * 1000 + cycle_idx))"
 
-  # X-seeded designs: Boltz emits UNK for masked (X) positions. Patch UNK ->
-  # real residues (cycle 0 only, matching the MPNN path) so LASErMPNN receives a
+  # X-seeded designs: predictors emit UNK for masked positions. Normalize the
+  # placeholders (cycle 0 only, matching the MPNN path) so LASErMPNN receives a
   # valid all-atom backbone. LASErMPNN designs on backbone coords + ligand, so
   # the patched identities are irrelevant to the redesigned positions.
   local input_struct="${struct_path}"
   if [[ "${struct_path##*.}" == "cif" && "${cycle_idx}" -eq 0 ]]; then
     local patched="${cycle_dir}/pred_min/model_0_UNKPATCH.cif"
-    patch_cif_unk "${struct_path}" "${patched}" "${UNK_PATCH_MODE}"
+    patch_cif_unk "${struct_path}" "${patched}" "${UNK_PATCH_MODE}" "${PREDICTOR}" "${ANTIFOLD_NANOBODY_CHAIN}"
     input_struct="${patched}"
   fi
 
@@ -5019,7 +5082,7 @@ run_antifold_redesign() {
   if [[ "${struct_path##*.}" == "cif" && "${cycle_idx}" -eq 0 ]]; then
     local patched
     patched="${cycle_dir}/pred_min/model_0_UNKPATCH.cif"
-    patch_cif_unk "${struct_path}" "${patched}" "${UNK_PATCH_MODE}"
+    patch_cif_unk "${struct_path}" "${patched}" "${UNK_PATCH_MODE}" "${PREDICTOR}" "${ANTIFOLD_NANOBODY_CHAIN}"
     input_struct="${patched}"
   fi
 
@@ -5616,7 +5679,7 @@ run_cycle_wave_antifold_batch() {
       input_struct="${cycle_dir}/pred_min/model_0.cif"
       if [[ "${cycle_idx}" -eq 0 ]]; then
         patched="${cycle_dir}/pred_min/model_0_UNKPATCH.cif"
-        patch_cif_unk "${input_struct}" "${patched}" "${UNK_PATCH_MODE}"
+        patch_cif_unk "${input_struct}" "${patched}" "${UNK_PATCH_MODE}" "${PREDICTOR}" "${ANTIFOLD_NANOBODY_CHAIN}"
         input_struct="${patched}"
       fi
       pdb_path="${pdb_dir}/${run_tag}_${cycle_tag}.pdb"
@@ -6338,16 +6401,24 @@ CIFS_ALL_DIR="${EXPT_ROOT}/cifs_all"
 CIFS_PASS_DIR="${EXPT_ROOT}/cifs_iptm_ge_${PASS_TAG}"
 mkdir -p "${CIFS_ALL_DIR}" "${CIFS_PASS_DIR}"
 
+TARGET_SEQ="$(extract_target_sequence_from_yaml "${TEMPLATE_YAML}" || true)"
+TARGET_CHAIN_ID="$(extract_target_chain_id_from_yaml "${TEMPLATE_YAML}" || true)"
 if [[ -n "${TARGET_MSA_PATH_OVERRIDE}" ]]; then
   TARGET_MSA_PATH="${TARGET_MSA_PATH_OVERRIDE}"
 else
-  TARGET_MSA_PATH="$(extract_target_msa_from_yaml "${TEMPLATE_YAML}" || true)"
+  TARGET_MSA_PATH="$(extract_target_msa_from_yaml "${TEMPLATE_YAML}" "${TARGET_CHAIN_ID}" || true)"
   if [[ -n "${TARGET_MSA_PATH}" && "${TARGET_MSA_PATH}" != /* ]]; then
     TARGET_MSA_PATH="$(dirname "${TEMPLATE_YAML}")/${TARGET_MSA_PATH}"
   fi
 fi
-TARGET_SEQ="$(extract_target_sequence_from_yaml "${TEMPLATE_YAML}" || true)"
-TARGET_CHAIN_ID="$(extract_target_chain_id_from_yaml "${TEMPLATE_YAML}" || true)"
+TARGET_CHAINS_TSV="${EXPT_ROOT}/target_chains.tsv"
+extract_target_chains_from_yaml "${TEMPLATE_YAML}" > "${TARGET_CHAINS_TSV}" \
+  || die "Could not read the target-chain map from ${TEMPLATE_YAML}."
+TARGET_CHAIN_COUNT="$(awk 'NF {count += 1} END {print count + 0}' "${TARGET_CHAINS_TSV}")"
+TARGET_TOTAL_SEQUENCE_LENGTH="$(awk -F'\t' 'NF >= 2 {total += length($2)} END {print total + 0}' "${TARGET_CHAINS_TSV}")"
+if [[ "${TARGET_CHAIN_COUNT}" -gt 1 && "${TARGET_MSA_PATH_OVERRIDE_SET}" -eq 1 ]]; then
+  die "--target-msa-path names only one alignment and is ambiguous for ${TARGET_CHAIN_COUNT} target chains. Put an exact msa: path on each target chain instead."
+fi
 
 # Resolve predictor padding buckets only after both the target and requested
 # binder-length regime are known. Standard fixed-length campaigns therefore
@@ -6362,7 +6433,7 @@ elif [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]]; then
     MAX_REQUESTED_BINDER_LENGTH="${#_bucket_scaffold_seq}"
   fi
 fi
-MAX_REQUESTED_POLYMER_TOKENS="$((MAX_REQUESTED_BINDER_LENGTH + ${#TARGET_SEQ}))"
+MAX_REQUESTED_POLYMER_TOKENS="$((MAX_REQUESTED_BINDER_LENGTH + TARGET_TOTAL_SEQUENCE_LENGTH))"
 
 validate_bucket_spec() {
   python3 - "$1" <<'PY'
@@ -6479,6 +6550,70 @@ if [[ -n "${TARGET_MSA_PATH}" && -n "${TARGET_SEQ}" ]]; then
     publish_target_msa_to_shared_cache "${TARGET_MSA_PATH}" "${TARGET_SEQ}"
   fi
 fi
+
+# Preserve chain identity at the predictor boundary. A multimer target needs a
+# distinct query-matched alignment for every fixed subunit; reusing chain B's
+# MSA for C/D is scientifically invalid even when the backend accepts the YAML.
+TARGET_MSA_MANIFEST="${MSA_CACHE_DIR}/target_msa_manifest.tsv"
+: > "${TARGET_MSA_MANIFEST}"
+while IFS=$'\t' read -r _target_chain _target_sequence _embedded_msa; do
+  [[ -n "${_target_chain}" ]] || continue
+  _target_msa=""
+  _embedded_msa_kind="$(printf '%s' "${_embedded_msa}" | tr '[:upper:]' '[:lower:]')"
+  if [[ "${_target_chain}" == "${TARGET_CHAIN_ID}" ]]; then
+    _target_msa="${TARGET_MSA_PATH}"
+  elif [[ "${TARGET_MSA_MODE}" == "off" ]]; then
+    _target_msa="empty"
+  elif [[ -n "${_embedded_msa}" && "${_embedded_msa_kind}" != "auto" \
+          && "${_embedded_msa_kind}" != "empty" && "${_embedded_msa_kind}" != "none" \
+          && "${_embedded_msa_kind}" != "null" ]]; then
+    _target_msa="${_embedded_msa}"
+    if [[ "${_target_msa}" != /* ]]; then
+      _target_msa="$(dirname "${TEMPLATE_YAML}")/${_target_msa}"
+    fi
+  else
+    _target_msa="$(find_reusable_target_msa "${_target_sequence}" "${TARGET_MSA_SEARCH_ROOTS}" || true)"
+    if [[ -z "${_target_msa}" ]]; then
+      echo "==> No exact cached MSA for target chain ${_target_chain}; generating with ${TARGET_MSA_GENERATOR}..."
+      case "${TARGET_MSA_GENERATOR}" in
+        boltz)
+          _target_msa="$(generate_boltz_auto_msa_cache "${_target_sequence}" "${_target_chain}" "target_${_target_chain}" "${MSA_CACHE_DIR}" || true)"
+          ;;
+        protenix)
+          _target_msa="$(generate_protenix_auto_msa_cache "${_target_sequence}" "${_target_chain}" "target_${_target_chain}" "${MSA_CACHE_DIR}" || true)"
+          ;;
+        intellifold)
+          _target_msa="$(generate_intellifold_auto_msa_cache "${_target_sequence}" "${_target_chain}" "target_${_target_chain}" "${MSA_CACHE_DIR}" || true)"
+          ;;
+        openfold)
+          _target_msa="$(generate_openfold_target_msa_cache "${TEMPLATE_YAML}" "${MSA_CACHE_DIR}" "${_target_sequence}" "${_target_chain}" "target_${_target_chain}" || true)"
+          ;;
+      esac
+    fi
+    if [[ -z "${_target_msa}" ]]; then
+      if [[ "${TARGET_MSA_REQUIRED}" -eq 1 ]]; then
+        die "Required target MSA generation failed for chain ${_target_chain}; refusing to reuse another chain's alignment or fall back silently."
+      fi
+      _target_msa="${MSA_CACHE_DIR}/target_${_target_chain}_single.a3m"
+      write_single_seq_a3m "${_target_sequence}" "${_target_msa}"
+      echo "WARNING: Target chain ${_target_chain} is using an explicit single-sequence A3M." >&2
+    fi
+  fi
+
+  if [[ "${_target_msa}" == "empty" || -z "${_target_msa}" ]]; then
+    _target_msa="empty"
+  else
+    [[ -f "${_target_msa}" ]] || die "Target chain ${_target_chain} MSA does not exist: ${_target_msa}"
+    _target_msa="$(cd "$(dirname "${_target_msa}")" && pwd)/$(basename "${_target_msa}")"
+    _target_records="$(validate_target_msa_file "${_target_msa}" "${_target_sequence}" "${TARGET_MSA_REQUIRED}" "Target chain ${_target_chain}")" \
+      || die "Target chain ${_target_chain} MSA validation failed: ${_target_msa}"
+    echo "==> Validated target chain ${_target_chain} MSA: ${_target_msa} (records=${_target_records})"
+    if [[ "${_target_msa##*.}" == "a3m" && "${_target_records}" != "unknown" && "${_target_records}" -ge 2 ]]; then
+      publish_target_msa_to_shared_cache "${_target_msa}" "${_target_sequence}"
+    fi
+  fi
+  printf '%s\t%s\n' "${_target_chain}" "${_target_msa}" >> "${TARGET_MSA_MANIFEST}"
+done < "${TARGET_CHAINS_TSV}"
 
 prepare_nanobody_scaffold_msa_cache
 if [[ -n "${NANOBODY_SCAFFOLD_MSA_BASE_A3M}" ]]; then
@@ -6857,7 +6992,8 @@ if [[ "${PREDICTOR}" == "boltz" ]]; then
     echo "Boltz epitope residues  : none"
   fi
 fi
-echo "Target sequence length  : ${#TARGET_SEQ}"
+echo "Target chains           : ${TARGET_CHAIN_COUNT}"
+echo "Target sequence length  : ${TARGET_TOTAL_SEQUENCE_LENGTH} aa total"
 echo "Target MSA generator    : ${TARGET_MSA_GENERATOR}"
 if [[ -n "${TARGET_MSA_PATH}" ]]; then
   echo "Target MSA path         : ${TARGET_MSA_PATH}"
@@ -6868,6 +7004,9 @@ else
 fi
 if [[ -n "${OPENFOLD_TARGET_MSA_PATH:-}" ]]; then
   echo "OpenFold target MSA     : ${OPENFOLD_TARGET_MSA_PATH}"
+fi
+if [[ -s "${TARGET_MSA_MANIFEST:-}" ]]; then
+  echo "Target MSA chain map    : ${TARGET_MSA_MANIFEST}"
 fi
 if [[ "${WORKFLOW}" == "nanobody" && "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]]; then
   echo "Scaffold MSA mode       : ${NANOBODY_SCAFFOLD_MSA_MODE}"

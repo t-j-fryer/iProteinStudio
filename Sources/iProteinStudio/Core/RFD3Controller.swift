@@ -512,11 +512,12 @@ final class RFD3Controller: ObservableObject {
             payload.target_structure = request.targetStructurePath
             payload.target_sequence = request.targetSequence
             payload.target_chain = request.targetChain
+            payload.target_chains = request.selectedTargetChainIDs
             // Contig carries the binder range plus the fixed target motif.
             // design_from_yaml.py converts binder length to Foundry's total
             // component length per bin; writing `length` here would break that.
             let motif = request.targetContig.isEmpty
-                ? "\(request.targetChain)1-1"
+                ? request.selectedTargetChainIDs.map { "\($0)1-1" }.joined(separator: ",/0,")
                 : request.targetContig
             payload.contig = "\(request.minLength)-\(request.maxLength),/0,\(motif)"
         }
@@ -544,6 +545,7 @@ struct RFD3StudioRequest: Codable {
     var target_structure: String?
     var target_sequence: String?
     var target_chain: String?
+    var target_chains: [String]?
     var contig: String?
 
     var conditions: [String: [String]] = [:]
