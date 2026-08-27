@@ -200,6 +200,33 @@ def main() -> None:
                and mixed_proteins[1]["unpairedMsaPath"] == str(cached.resolve()),
                "Protenix mixed-chain policy lost the real MSA or searched the empty chain")
 
+        constraint_yaml = root / "constraint.yaml"
+        constraint_yaml.write_text(
+            "nanohunter:\n"
+            "  target_epitope_residues: [B2, B:4]\n"
+            "  protenix_pocket_max_distance: 8.0\n"
+            "sequences:\n"
+            "  - protein:\n      id: A\n      sequence: ACDEFG\n      msa: empty\n"
+            "  - protein:\n      id: B\n      sequence: HIKLMN\n      msa: empty\n"
+        )
+        constraint_job, _, _ = protenix.convert_yaml(constraint_yaml, True)
+        pocket = constraint_job["constraint"]["pocket"]
+        expect(pocket["binder_chain"] == {"entity": 1, "copy": 1}
+               and pocket["contact_residues"] == [
+                   {"entity": 2, "copy": 1, "position": 2},
+                   {"entity": 2, "copy": 1, "position": 4},
+               ] and pocket["max_distance"] == 8.0,
+               "Protenix constraint pocket did not preserve entity/position semantics")
+        constraint_command = protenix.protenix_command(
+            Path("protenix"), root / "constraint.json", root / "px-constraint",
+            protenix.CONSTRAINT_MODEL, "42", 1, True,
+        )
+        expect(constraint_command[constraint_command.index("--use_default_params") + 1] == "False"
+               and constraint_command[constraint_command.index("-c") + 1] == "10"
+               and constraint_command[constraint_command.index("-p") + 1] == "200"
+               and constraint_command[constraint_command.index("--use_tfg_guidance") + 1] == "False",
+               "Protenix constraint command drifted from the validated 10x200 profile")
+
         # Protenix gives an UNK residue alanine atoms plus a generic CG.  The
         # iterative handoff must remove only that pseudo-atom, normalize the
         # binder to ALA, keep CB/OXT, and leave another chain's UNK untouched.

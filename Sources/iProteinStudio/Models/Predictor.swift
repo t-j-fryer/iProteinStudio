@@ -4,13 +4,15 @@ import Foundation
 /// markers emitted by `setup_pipeline.sh`.
 enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     case boltz, mpnn, antifold, lasermpnn, intellifold, protenix, openfold3, alphafold3
+    case protenixConstraint = "protenix_constraint"
     case intellifoldJAX = "intellifold_jax"
     case rfd3
 
     /// AlphaFold 3 and IntelliFold JAX remain decodable so old projects and
     /// run manifests still open, but they are not installable components.
     static var allCases: [InstallComponent] {
-        [.boltz, .mpnn, .antifold, .lasermpnn, .intellifold, .protenix, .openfold3, .rfd3]
+        [.boltz, .mpnn, .antifold, .lasermpnn, .intellifold, .protenix,
+         .protenixConstraint, .openfold3, .rfd3]
     }
 
     var id: String { rawValue }
@@ -23,6 +25,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .lasermpnn:      return "LASErMPNN"
         case .intellifold:    return "IntelliFold"
         case .protenix:       return "Protenix"
+        case .protenixConstraint: return "Protenix Constraint v0.5"
         case .openfold3:      return "OpenFold-3"
         case .alphafold3:     return "AlphaFold 3 (retired)"
         case .intellifoldJAX: return "IntelliFold JAX (retired)"
@@ -43,6 +46,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .antifold:       return "--with-antifold"
         case .intellifold:    return "--with-intellifold"
         case .protenix:       return "--with-protenix"
+        case .protenixConstraint: return "--with-protenix-constraint"
         case .openfold3:      return "--with-openfold3"
         case .alphafold3, .intellifoldJAX: return nil
         case .lasermpnn:      return "--with-lasermpnn"
@@ -58,6 +62,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .antifold:       return "~2 GB"
         case .intellifold:    return "~5 GB"
         case .protenix:       return "~5 GB"
+        case .protenixConstraint: return "~3 GB"
         case .openfold3:      return "~4 GB"
         case .alphafold3, .intellifoldJAX: return "retired"
         case .lasermpnn:      return "~2 GB"
@@ -73,6 +78,8 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .antifold:       return "Nanobody CDR design."
         case .intellifold:    return "A second, independent folding engine."
         case .protenix:       return "Protenix v2 for accuracy and Protenix Mini for fast previews, both on the Apple GPU."
+        case .protenixConstraint:
+            return "Experimental iterative design against a selected protein epitope using Protenix's trained soft pocket guidance."
         case .intellifoldJAX: return "Retired after a same-input quality-control failure on Metal."
         case .openfold3:      return "Another independent folding engine, with Apple GPU kernels."
         case .alphafold3:     return "Retired after a same-input quality-control failure on Metal."
@@ -96,6 +103,8 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .lasermpnn:      return "Ligand-aware inverse folding. Runs on CPU — there is no Apple GPU build."
         case .openfold3:      return "Downloads a ~2 GB checkpoint."
         case .protenix:       return "Installs both v2 and Mini checkpoints. GPU-only: Apple Metal is required; CPU fallback is refused."
+        case .protenixConstraint:
+            return "Experimental, design-only checkpoint (~1.5 GB). Native Apple GPU, strict weights, no ESM download and no CPU fallback."
         case .alphafold3, .intellifoldJAX: return "No longer installable or runnable in Studio."
         case .rfd3:           return "Downloads a ~1.3 GB checkpoint."
         default:              return nil
@@ -116,6 +125,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     case intellifold
     case protenixV2 = "protenix_v2"
     case protenixMini = "protenix_mini"
+    case protenixConstraint = "protenix_constraint_v0_5"
     case alphafold3
     case openfold3
     /// Historical identity for IntelliFold's retired JAX backend.
@@ -123,7 +133,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
 
     /// Retired cases remain decodable solely for historical projects/results.
     static var allCases: [Predictor] {
-        [.boltz, .boltzPotentials, .protenixV2, .protenixMini, .intellifold, .openfold3]
+        [.boltz, .boltzPotentials, .protenixV2, .protenixMini,
+         .protenixConstraint, .intellifold, .openfold3]
     }
 
     var isAvailable: Bool {
@@ -139,6 +150,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .intellifold:     return "IntelliFold (PyTorch)"
         case .protenixV2:      return "Protenix v2"
         case .protenixMini:    return "Protenix Mini"
+        case .protenixConstraint: return "Protenix Constraint v0.5 — Experimental"
         case .alphafold3:      return "AlphaFold 3 (retired)"
         case .openfold3:       return "OpenFold-3"
         case .intellifoldJAX:  return "IntelliFold JAX/Metal (retired)"
@@ -154,6 +166,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .intellifold:             return "intellifold"
         case .protenixV2:              return "protenix-v2"
         case .protenixMini:            return "protenix-mini"
+        case .protenixConstraint:      return "protenix-constraint-v0.5"
         case .alphafold3:              return "alphafold3"
         case .openfold3:               return "openfold-3-mlx"
         case .intellifoldJAX:          return "intellifold-jax"
@@ -161,6 +174,14 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     }
 
     var usesSteeringPotentials: Bool { self == .boltzPotentials }
+
+    var supportsEpitopePocket: Bool {
+        self == .boltz || self == .boltzPotentials || self == .protenixConstraint
+    }
+
+    /// The constraint checkpoint generates guided design hypotheses. It is not
+    /// exposed as an independent unconstrained checker.
+    var canPostCheck: Bool { self != .protenixConstraint }
 
     /// Post-prediction never uses design-time steering restraints. Keep the
     /// backend identity, but collapse the design-only Boltz variant so it
@@ -174,7 +195,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// comparing them is useful in Predict, not orthogonal validation.
     var independenceIdentity: String {
         switch checkingVariant {
-        case .protenixV2, .protenixMini: return "protenix-family"
+        case .protenixV2, .protenixMini, .protenixConstraint: return "protenix-family"
         default: return checkingVariant.runnerValue
         }
     }
@@ -184,6 +205,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .boltz, .boltzPotentials: return .boltz
         case .intellifold:             return .intellifold
         case .protenixV2, .protenixMini: return .protenix
+        case .protenixConstraint:       return .protenixConstraint
         case .alphafold3:              return .alphafold3
         case .openfold3:               return .openfold3
         case .intellifoldJAX:          return .intellifoldJAX
@@ -209,6 +231,9 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         // same M4 Max. See Lab Book 0030; these are whole inference phases.
         case .protenixMini:    return 5.61
         case .protenixV2:      return 17.23
+        // 80-aa binder + 74-aa target, one sample, 10 recycles and 200
+        // diffusion steps in the validated M4 Max constraint study.
+        case .protenixConstraint: return 50.98
         case .intellifoldJAX:  return 0        // compatibility identity; never scheduled
         }
     }
@@ -238,6 +263,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
             return .fastest
         case .protenixV2:
             return .moderate
+        case .protenixConstraint:
+            return .slowest
         case .openfold3:
             return .slow
         case .alphafold3, .intellifoldJAX:
@@ -262,6 +289,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
             return "Accuracy-first Protenix model. On cobratoxin it matched the reference better than Mini and the other tested open predictors."
         case .protenixMini:
             return "Fast preview model using the same alignment and output contract as v2."
+        case .protenixConstraint:
+            return "Experimental native-MPS checkpoint that conditions iterative interface proposals on a selected target pocket."
         case .alphafold3:
             return "Retired: its experimental Metal backend failed a same-input quality control."
         case .openfold3:
@@ -282,6 +311,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
             return "No longer installable or runnable in Studio; use IntelliFold PyTorch."
         case .protenixMini:
             return "A preview model: use Protenix v2 or another independent engine before trusting a final design."
+        case .protenixConstraint:
+            return "Pocket conditioning was technically valid but did not robustly move the alternate epitope in the initial paired test. Treat it as a proposal prior and independently refold final sequences without the constraint."
         default:
             return ""
         }
@@ -325,6 +356,13 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
                     "4 recycles and 5 diffusion steps (upstream Mini defaults)",
                     "5 diffusion samples, seed 42 (upstream defaults used in validation)",
                     "uses Studio's exact cached A3M; no genetic databases"]
+        case .protenixConstraint:
+            return ["native Apple MPS, fp32; CPU fallback is refused",
+                    "official protenix_base_constraint_v0.5.0 checkpoint; strict loading",
+                    "10 recycles, 200 diffusion steps and one sample",
+                    "8 Å token-centre target-pocket prior (upstream example and validated default; not a heavy-atom cutoff)",
+                    "ESM disabled: this checkpoint has no trained ESM projection",
+                    "serial execution with at least 8 GiB measured MPS headroom"]
         }
     }
 
@@ -335,7 +373,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// per-design cost is high, so offering it here would mostly be a way to
     /// spend hours getting a worse result. It remains available as a checker.
     static var designChoices: [Predictor] {
-        [.boltz, .boltzPotentials, .protenixV2, .protenixMini, .intellifold]
+        [.boltz, .boltzPotentials, .protenixConstraint,
+         .protenixV2, .protenixMini, .intellifold]
     }
 
     /// Engines that can independently re-fold finished designs. Steering

@@ -101,28 +101,31 @@ struct TargetPrepView: View {
             Image(systemName: isLigand ? "cube.transparent" : "scope").font(.system(size: 44)).foregroundStyle(.tint)
             Text(isLigand ? "Predict the ligand structure" : "Predict the target structure").font(.title3.bold())
             VStack(alignment: .leading, spacing: 14) {
-                LabeledContent("Predictor") {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Prediction engine").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     Picker("", selection: $engine) {
                         ForEach(TargetEngine.allCases) { Text($0.label).tag($0) }
-                    }.pickerStyle(.segmented).labelsHidden().frame(width: 240)
+                    }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: .infinity)
                         .accessibilityLabel("Target prediction engine")
                 }
                 if engine == .intellifold {
-                    LabeledContent("Model") {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("IntelliFold model").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                         Picker("", selection: $model) {
                             ForEach(IntelliFoldModel.allCases) { Text($0.label).tag($0) }
-                        }.labelsHidden().frame(width: 240)
+                        }.labelsHidden().frame(maxWidth: .infinity)
                             .accessibilityLabel("IntelliFold model")
                     }
                 }
                 if cachedCIF == nil {
-                    LabeledContent("Name") {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Prediction name (optional)").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                         TextField("Name this prediction (optional)", text: $name)
-                            .textFieldStyle(.roundedBorder).frame(width: 240)
+                            .textFieldStyle(.roundedBorder).frame(maxWidth: .infinity)
                     }
                 }
             }
-            .frame(width: 420)
+            .frame(width: 360)
 
             if cachedCIF != nil {
                 // Already computed for this target + engine + model — offer retrieval.

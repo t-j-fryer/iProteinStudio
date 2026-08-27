@@ -36,6 +36,7 @@ mkdir -p \
 make_executable "${FIXTURE_ROOT}/venvs/Test_boltz/bin/python"
 make_executable "${FIXTURE_ROOT}/venvs/Test_ligandmpnn/bin/python"
 make_executable "${FIXTURE_ROOT}/venvs/Test_intellifold/bin/python"
+make_executable "${FIXTURE_ROOT}/venvs/Test_protenix_constraint/bin/python"
 touch \
   "${FIXTURE_ROOT}/src/LigandMPNN/run.py" \
   "${FIXTURE_ROOT}/src/LigandMPNN/model_params/solublempnn_v_48_020.pt" \
@@ -46,6 +47,11 @@ cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/find_target_m
   "${FIXTURE_ROOT}/scripts/find_target_msa.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/intellifold_predict.py" \
   "${FIXTURE_ROOT}/scripts/intellifold_predict.py"
+cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/protenix_predict.py" \
+  "${FIXTURE_ROOT}/scripts/protenix_predict.py"
+mkdir -p "${FIXTURE_ROOT}/models/protenix_constraint/checkpoint"
+touch "${FIXTURE_ROOT}/models/protenix_constraint/checkpoint/protenix_base_constraint_v0.5.0.pt"
+printf '{}\n' > "${FIXTURE_ROOT}/models/protenix_constraint/install_receipt.json"
 mkdir -p "${FIXTURE_ROOT}/msa_cache"
 
 cat > "${FIXTURE_ROOT}/protein_hotspot.yaml" <<'YAML'
@@ -117,6 +123,24 @@ expect_text "${output}" 'contact_mode=pocket' "protein hotspots did not resolve 
 expect_text "${output}" 'intellifold_model=unused' "irrelevant IntelliFold model was reported as active"
 expect_text "${output}" 'post=none' "empty checker list was not explicit"
 
+output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor protenix-constraint-v0.5 \
+  --template-yaml "${FIXTURE_ROOT}/protein_hotspot.yaml" \
+  --post-predictor none --post-mode none)"
+expect_text "${output}" 'predictor=protenix-constraint-v0.5' \
+  "constraint design engine was not accepted with target hotspots"
+
+set +e
+error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor boltz \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --post-predictor protenix-constraint-v0.5 --post-mode final 2>&1)"
+status=$?
+set -e
+[[ "${status}" -ne 0 ]] || fail "guided constraint checkpoint was accepted as a post-predictor"
+expect_text "${error}" 'guided design engine, not an independent post-predictor' \
+  "constraint post-check rejection was not actionable"
+
 output="$(python3 "${FIXTURE_ROOT}/scripts/find_target_msa.py" \
   --sequence MKTIIALSYIFCLVFADYKDDDDK --roots "${FIXTURE_ROOT}/msa_cache")"
 expected_msa="$(cd "${FIXTURE_ROOT}/msa_cache" && pwd -P)/exact_target.a3m"
@@ -148,7 +172,7 @@ error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
 status=$?
 set -e
 [[ "${status}" -ne 0 ]] || fail "non-Boltz hotspot request unexpectedly passed"
-expect_text "${error}" 'Target hotspot restraints require --predictor boltz' "non-Boltz hotspot failure was not actionable"
+expect_text "${error}" 'require Boltz or Protenix Constraint' "unsupported hotspot failure was not actionable"
 
 set +e
 error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \

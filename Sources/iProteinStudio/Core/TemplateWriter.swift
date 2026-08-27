@@ -1,6 +1,6 @@
 import Foundation
 
-/// Writes the Boltz/NanoHunter template YAML for a design request:
+/// Writes the predictor/NanoHunter template YAML for a design request:
 /// chain A = nanobody scaffold, chain B = target antigen, plus an optional
 /// `nanohunter:` block for epitope-directed contacts.
 enum TemplateWriter {
@@ -35,7 +35,7 @@ enum TemplateWriter {
 
         var yaml = ""
         // Epitope-directed contacts only make sense for a protein target.
-        let epitopeResult = request.targetKind == .protein
+        let epitopeResult = request.hasEpitopeSteering
             ? residueTokenResult(request.epitopeResidues,
                                  allowedTargetChains: request.targetChainIDs)
             : (tokens: [], invalid: [])
@@ -47,11 +47,18 @@ enum TemplateWriter {
             yaml += "nanohunter:\n"
             yaml += "  target_epitope_residues:\n"
             for r in epitopes { yaml += "    - \(r)\n" }
-            yaml += "  boltz_contact_distance: 6\n"
-            // The runner resolves auto by workflow: nanobody adds a CDR3-centre
-            // contact; generic protein binders use the shared pocket restraint.
-            yaml += "  boltz_contact_mode: auto\n"
-            yaml += "  boltz_contact_force: true\n"
+            if request.designPredictor == .protenixConstraint {
+                // The validated v0.5 checkpoint consumes a soft pocket made
+                // from binder entity 1 and these target residues. Keep this
+                // distinct from Boltz's contact restraint contract.
+                yaml += "  protenix_pocket_max_distance: 8.0\n"
+            } else {
+                yaml += "  boltz_contact_distance: 6\n"
+                // The runner resolves auto by workflow: nanobody adds a CDR3-centre
+                // contact; generic protein binders use the shared pocket restraint.
+                yaml += "  boltz_contact_mode: auto\n"
+                yaml += "  boltz_contact_force: true\n"
+            }
         }
         yaml += "sequences:\n"
         yaml += "  - protein:\n"

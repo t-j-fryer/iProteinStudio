@@ -1,0 +1,442 @@
+diff --git a/configs/configs_model_type.py b/configs/configs_model_type.py
+index 63853dc..5168fc6 100644
+--- a/configs/configs_model_type.py
++++ b/configs/configs_model_type.py
+@@ -179,11 +179,14 @@ model_configs = {
+             },
+         },
+         "esm": {
+-            "enable": True,
++            # This v0.5.0 checkpoint predates the 2026 ESM override and contains
++            # no linear_esm weight. The current module initializes that projection
++            # to exact zeros, so disabling the dead path restores strict loading
++            # without changing the checkpoint-defined function.
++            "enable": False,
+             "model_name": "esm2-3b",
+         },
+-        "load_strict": False,  # If finetuning from base model, model arch has been changed,
+-        # it should be False, for inference, it should be True.
++        "load_strict": True,
+         "finetune_params_with_substring": [
+             "constraint_embedder.substructure_z_embedder",
+             "constraint_embedder.pocket_z_embedder",
+diff --git a/protenix/model/modules/confidence.py b/protenix/model/modules/confidence.py
+index 6f995ab..b83b54a 100644
+--- a/protenix/model/modules/confidence.py
++++ b/protenix/model/modules/confidence.py
+@@ -21,6 +21,7 @@ from protenix.model.modules.pairformer import PairformerStack
+ from protenix.model.modules.primitives import LinearNoBias
+ from protenix.model.triangular.layers import LayerNorm
+ from protenix.model.utils import broadcast_token_to_atom, one_hot
++from protenix.utils.torch_utils import empty_device_cache
+ 
+ 
+ class ConfidenceHead(nn.Module):
+@@ -201,7 +202,7 @@ class ConfidenceHead(nn.Module):
+         z_trunk = z_init + z_trunk
+         if not self.training:
+             del z_init
+-            torch.cuda.empty_cache()
++            empty_device_cache(z_trunk.device)
+ 
+         plddt_preds, pae_preds, pde_preds, resolved_preds = (
+             [],
+@@ -230,7 +231,7 @@ class ConfidenceHead(nn.Module):
+                 # cpu offload pae_preds/pde_preds
+                 pae_pred = pae_pred.cpu()
+                 pde_pred = pde_pred.cpu()
+-                torch.cuda.empty_cache()
++                empty_device_cache(z_trunk.device)
+             plddt_preds.append(plddt_pred)
+             pae_preds.append(pae_pred)
+             pde_preds.append(pde_pred)
+@@ -344,5 +345,5 @@ class ConfidenceHead(nn.Module):
+                 self.resolved_weight[atom_to_tokatom_idx],
+             )
+         if not self.training and z_pair.shape[-2] > 2000:
+-            torch.cuda.empty_cache()
++            empty_device_cache(z_pair.device)
+         return plddt_pred, pae_pred, pde_pred, resolved_pred
+diff --git a/protenix/data/esm/compute_esm.py b/protenix/data/esm/compute_esm.py
+index 6d383fa..224a908 100644
+--- a/protenix/data/esm/compute_esm.py
++++ b/protenix/data/esm/compute_esm.py
+@@ -20,6 +20,8 @@ import torch
+ from esm import FastaBatchedDataset, pretrained
+ from tqdm.auto import tqdm
+ 
++torch.serialization.add_safe_globals([argparse.Namespace])
++
+ ESM_CONFIG = {
+     "esm2-3b": {
+         "type": "esm2",
+@@ -36,6 +38,17 @@ ESM_CONFIG = {
+ }
+ 
+ 
++def esm_device() -> torch.device:
++    """Select an accelerator explicitly; do not conceal CPU feature generation."""
++    if torch.cuda.is_available():
++        return torch.device("cuda")
++    if torch.backends.mps.is_available():
++        if os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK") == "1":
++            raise RuntimeError("MPS fallback must be disabled for ESM feature generation")
++        return torch.device("mps")
++    raise RuntimeError("ESM feature generation requires CUDA or Apple MPS")
++
++
+ def _load_esm2_model(model_path):
+     if os.path.exists(model_path):
+         model, alphabet = pretrained.load_model_and_alphabet_local(model_path)
+@@ -60,8 +73,9 @@ def load_esm_model(model_name, local_esm_dir="release_data/checkpoint"):
+     if model_name.startswith("esm2"):
+         model, alphabet = _load_esm2_model(local_model_path)
+     model.eval()
+-    if torch.cuda.is_available():
+-        model = model.cuda()
++    device = esm_device()
++    model = model.to(device)
++    print(f"ESM language model device: {device}")
+ 
+     return model, alphabet
+ 
+@@ -122,9 +136,11 @@ def compute_esm2_embeddings(
+             )
+             if _check_files_exist(save_dir, labels):
+                 continue
+-            if torch.cuda.is_available():
+-                toks = toks.to(device="cuda", non_blocking=True)
++            device = next(model.parameters()).device
++            toks = toks.to(device=device, non_blocking=device.type == "cuda")
+             out = model(toks, repr_layers=[repr_layer], return_contacts=False)
++            if device.type == "mps":
++                torch.mps.synchronize()
+             representation = out["representations"][repr_layer].to(device="cpu")
+             for i, label in enumerate(labels):
+                 truncate_len = min(truncation_seq_length, len(strs[i]))
+diff --git a/protenix/data/esm/esm_featurizer.py b/protenix/data/esm/esm_featurizer.py
+index 373a5eb..f2437cb 100644
+--- a/protenix/data/esm/esm_featurizer.py
++++ b/protenix/data/esm/esm_featurizer.py
+@@ -161,6 +161,14 @@ class ESMFeaturizer:
+         df_seq.to_csv(sequence_fpath)
+         print(f"Save sequence file to {sequence_fpath}")
+ 
++        expected_files = [
++            os.path.join(embedding_dir, row.part_id, row.seq_label + ".pt")
++            for row in df_seq.itertuples(index=False)
++        ]
++        if expected_files and all(os.path.exists(path) for path in expected_files):
++            print("Reuse complete cached ESM embeddings; language model load skipped")
++            return
++
+         model, alphabet = load_esm_model(model_name, local_esm_dir=checkpoint_dir)
+         error_parts = []
+         part_counts = dict(df_seq["part_id"].value_counts())
+@@ -189,4 +197,8 @@ class ESMFeaturizer:
+             except Exception as e:
+                 print(f"[{part_id}] {e}")
+                 error_parts.append(part_id)
++        del model
++        if torch.backends.mps.is_available():
++            torch.mps.synchronize()
++            torch.mps.empty_cache()
+         print("Error parts: ", error_parts)
+diff --git a/protenix/data/inference/infer_dataloader.py b/protenix/data/inference/infer_dataloader.py
+index c4d4040..0640bce 100644
+--- a/protenix/data/inference/infer_dataloader.py
++++ b/protenix/data/inference/infer_dataloader.py
+@@ -23,7 +23,6 @@ import torch
+ from biotite.structure import AtomArray
+ from torch.utils.data import DataLoader, Dataset, DistributedSampler
+ 
+-from protenix.data.esm.esm_featurizer import ESMFeaturizer
+ from protenix.data.inference.json_to_feature import SampleDictToFeatures
+ from protenix.data.msa.msa_featurizer import InferenceMSAFeaturizer
+ from protenix.data.template.template_featurizer import InferenceTemplateFeaturizer
+@@ -115,24 +114,31 @@ class InferenceDataset(Dataset):
+         else:
+             self.online_template_featurizer = None
+         esm_info = configs.get("esm", {})
+-        configs.esm.embedding_dir = f"./esm_embeddings/{configs.esm.model_name}"
++        esm_cache_root = os.path.join(
++            os.environ.get("PROTENIX_ROOT_DIR", "."), "esm_embeddings"
++        )
++        configs.esm.embedding_dir = os.path.join(
++            esm_cache_root, configs.esm.model_name
++        )
+         configs.esm.sequence_fpath = (
+-            f"./esm_embeddings/{json_task_name}_prot_sequences.csv"
++            os.path.join(esm_cache_root, f"{json_task_name}_prot_sequences.csv")
+         )
+         self.esm_enable = esm_info.get("enable", False)
+         if self.esm_enable:
++            from protenix.data.esm.esm_featurizer import ESMFeaturizer
++
+             os.makedirs(configs.esm.embedding_dir, exist_ok=True)
+             os.makedirs(os.path.dirname(configs.esm.sequence_fpath), exist_ok=True)
+             ESMFeaturizer.precompute_esm_embedding(
+                 self.inputs,
+                 configs.esm.model_name,
+                 configs.esm.embedding_dir,
+                 configs.esm.sequence_fpath,
+                 configs.load_checkpoint_dir,
+             )
+             self.esm_featurizer = ESMFeaturizer(
+                 embedding_dir=esm_info.embedding_dir,
+                 sequence_fpath=esm_info.sequence_fpath,
+                 embedding_dim=esm_info.embedding_dim,
+-                error_dir="./esm_embeddings/",
++                error_dir=esm_cache_root,
+             )
+ 
+     def process_one(
+diff --git a/protenix/model/sample_confidence.py b/protenix/model/sample_confidence.py
+index a1c00ae..f1125d9 100644
+--- a/protenix/model/sample_confidence.py
++++ b/protenix/model/sample_confidence.py
+@@ -704,7 +704,9 @@ def calculate_chain_pair_pae(
+     device = token_pair_pae.device
+ 
+     if contact_probs is None:
+-        contact_probs = torch.ones(token_pair_pae.shape[1:], dtype=float).to(device)
++        contact_probs = torch.ones(
++            token_pair_pae.shape[1:], dtype=token_pair_pae.dtype, device=device
++        )
+   
+     mask = token_has_frame[:, None] & token_has_frame[None, :]  # [N_token, N_token]
+     assert mask.shape == token_pair_pae.shape[1:]
+diff --git a/protenix/model/triangular/layers.py b/protenix/model/triangular/layers.py
+index d4ff17a..3c8032d 100644
+--- a/protenix/model/triangular/layers.py
++++ b/protenix/model/triangular/layers.py
+@@ -30,7 +30,12 @@ from protenix.model.utils import (
+     permute_final_dims,
+ )
+ 
+-fastln_is_installed = os.getenv("LAYERNORM_TYPE", "fast_layernorm") == "fast_layernorm"
++layernorm_type = os.getenv("LAYERNORM_TYPE")
++fastln_is_installed = (
++    layernorm_type == "fast_layernorm"
++    if layernorm_type is not None
++    else torch.cuda.is_available()
++)
+ if fastln_is_installed:
+     from protenix.model.layer_norm.layer_norm import FusedLayerNorm
+ 
+diff --git a/protenix/utils/torch_utils.py b/protenix/utils/torch_utils.py
+index 64a5243..60316ff 100644
+--- a/protenix/utils/torch_utils.py
++++ b/protenix/utils/torch_utils.py
+@@ -196,6 +196,17 @@ def round_values(data, recursive=True):
+     return data
+ 
+ 
++def empty_device_cache(device: torch.device | str | None = None) -> None:
++    """Release the active accelerator allocator without assuming CUDA."""
++    device_type = torch.device(device).type if device is not None else None
++    if device_type == "cuda" or (device_type is None and torch.cuda.is_available()):
++        torch.cuda.empty_cache()
++    elif device_type == "mps" or (
++        device_type is None and torch.backends.mps.is_available()
++    ):
++        torch.mps.empty_cache()
++
++
+ def autocasting_disable_decorator(disable_casting):
+     def func_wrapper(func):
+         def new_func(*args, **kwargs):
+diff --git a/runner/inference.py b/runner/inference.py
+index 8edd329..d3aea85 100644
+--- a/runner/inference.py
++++ b/runner/inference.py
+@@ -37,7 +37,7 @@ from protenix.data.inference.infer_dataloader import get_inference_dataloader
+ from protenix.model.protenix import Protenix
+ from protenix.utils.distributed import DIST_WRAPPER
+ from protenix.utils.seed import seed_everything
+-from protenix.utils.torch_utils import to_device
++from protenix.utils.torch_utils import empty_device_cache, to_device
+ from protenix.web_service.dependency_url import URL
+ 
+ from runner.dumper import DataDumper
+@@ -93,6 +93,12 @@ class InferenceRunner(object):
+             f"global rank: {DIST_WRAPPER.rank}, local rank: {DIST_WRAPPER.local_rank}"
+         )
+         self.use_cuda = torch.cuda.device_count() > 0
++        self.use_mps = (not self.use_cuda) and torch.backends.mps.is_available()
++        if not self.use_cuda and os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK") == "1":
++            raise RuntimeError(
++                "PYTORCH_ENABLE_MPS_FALLBACK=1 permits silent CPU execution; "
++                "unset it before running Protenix on Apple MPS."
++            )
+         if self.use_cuda:
+             self.device = torch.device(f"cuda:{DIST_WRAPPER.local_rank}")
+             os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+@@ -102,9 +108,20 @@ class InferenceRunner(object):
+                 f"LOCAL_RANK: {DIST_WRAPPER.local_rank} - CUDA_VISIBLE_DEVICES: [{devices}]"
+             )
+             torch.cuda.set_device(self.device)
++        elif self.use_mps:
++            self.device = torch.device("mps")
++            logging.info("Using Apple Metal Performance Shaders (MPS).")
+         else:
+-            self.device = torch.device("cpu")
++            raise RuntimeError(
++                "No supported GPU is available. Protenix requires CUDA or Apple MPS; "
++                "CPU fallback is disabled."
++            )
+ 
++        if self.use_mps and DIST_WRAPPER.world_size > 1:
++            raise RuntimeError(
++                "Multi-process Protenix inference is not supported on Apple MPS; "
++                "run one GPU process."
++            )
+         if DIST_WRAPPER.world_size > 1:
+             dist.init_process_group(backend="nccl")
+ 
+@@ -121,7 +138,9 @@ class InferenceRunner(object):
+                 "is first called."
+             )
+ 
+-        use_fastlayernorm = os.getenv("LAYERNORM_TYPE", "fast_layernorm")
++        use_fastlayernorm = os.getenv(
++            "LAYERNORM_TYPE", "fast_layernorm" if self.use_cuda else "torch"
++        )
+         if use_fastlayernorm == "fast_layernorm":
+             logging.info(
+                 "Kernels will be compiled when fast_layernorm is first called."
+@@ -172,10 +191,35 @@ class InferenceRunner(object):
+             checkpoint["model"] = {
+                 k[len("module.") :]: v for k, v in checkpoint["model"].items()
+             }
++        esm_info = self.configs.get("esm", {})
++        esm_enabled = esm_info.get("enable", False)
++        has_esm_projection = (
++            "input_embedder.linear_esm.weight" in checkpoint["model"]
++        )
++        if (
++            self.configs.model_name == "protenix_base_constraint_v0.5.0"
++            and esm_enabled
++        ):
++            raise RuntimeError(
++                "The released constraint v0.5.0 checkpoint is ESM-negative"
++            )
++        if esm_enabled != has_esm_projection:
++            raise RuntimeError(
++                "ESM configuration/checkpoint incompatibility: "
++                f"enabled={esm_enabled}, projection={has_esm_projection}"
++            )
+-        self.model.load_state_dict(
++        incompatible = self.model.load_state_dict(
+             state_dict=checkpoint["model"],
+             strict=self.configs.load_strict,
+         )
++        if self.configs.load_strict:
++            if incompatible.missing_keys or incompatible.unexpected_keys:
++                raise RuntimeError(
++                    "Strict checkpoint load returned incompatible keys: "
++                    f"missing={incompatible.missing_keys}, "
++                    f"unexpected={incompatible.unexpected_keys}"
++                )
++            self.print("Checkpoint strict load succeeded with no incompatible keys.")
+         self.model.eval()
+         self.print("Finish loading checkpoint.")
+ 
+@@ -236,6 +280,9 @@ class InferenceRunner(object):
+                 mc_dropout_apply_rate=self.configs.mc_dropout_apply_rate,
+             )
+ 
++        if self.device.type == "mps":
++            torch.mps.synchronize()
++
+         return prediction
+ 
+     def print(self, msg: str) -> None:
+@@ -456,35 +503,36 @@ def download_inference_cache(configs: Any) -> None:
+-    if "esm" in configs.model_name:  # currently esm only support 3b model
++    esm_info = configs.get("esm", {})
++    if esm_info.get("enable", False) and esm_info.get("model_name") == "esm2-3b":
+         esm_3b_ckpt_path = f"{checkpoint_dir}/esm2_t36_3B_UR50D.pt"
+         if not opexists(esm_3b_ckpt_path):
+             tos_url = URL["esm2_t36_3B_UR50D"]
+             logger.info(
+                 f"Downloading model checkpoint from\n {tos_url}...\n to {esm_3b_ckpt_path}"
+             )
+             download_from_url(tos_url, esm_3b_ckpt_path)
+         esm_3b_ckpt_path2 = f"{checkpoint_dir}/esm2_t36_3B_UR50D-contact-regression.pt"
+         if not opexists(esm_3b_ckpt_path2):
+             tos_url = URL["esm2_t36_3B_UR50D-contact-regression"]
+             logger.info(
+                 f"Downloading model checkpoint from\n {tos_url}...\n to {esm_3b_ckpt_path2}"
+             )
+             download_from_url(tos_url, esm_3b_ckpt_path2)
+-    if "ism" in configs.model_name:
++    if esm_info.get("enable", False) and esm_info.get("model_name") == "esm2-3b-ism":
+         esm_3b_ism_ckpt_path = f"{checkpoint_dir}/esm2_t36_3B_UR50D_ism.pt"
+ 
+         if not opexists(esm_3b_ism_ckpt_path):
+             tos_url = URL["esm2_t36_3B_UR50D_ism"]
+             logger.info(
+                 f"Downloading model checkpoint from\n {tos_url}...\n to {esm_3b_ism_ckpt_path}"
+             )
+             download_from_url(tos_url, esm_3b_ism_ckpt_path)
+ 
+         esm_3b_ism_ckpt_path2 = (
+             f"{checkpoint_dir}/esm2_t36_3B_UR50D_ism-contact-regression.pt"
+         )
+         if not opexists(esm_3b_ism_ckpt_path2):
+             tos_url = URL["esm2_t36_3B_UR50D_ism-contact-regression"]
+             logger.info(
+                 f"Downloading model checkpoint from\n {tos_url}...\n to {esm_3b_ism_ckpt_path2}"
+             )
+             download_from_url(tos_url, esm_3b_ism_ckpt_path2)
+
+@@ -591,6 +639,13 @@ def infer_predict(runner: InferenceRunner, configs: Any) -> None:
+                 new_configs = update_inference_configs(configs, data["N_token"].item())
+                 runner.update_model_configs(new_configs)
+                 prediction = runner.predict(data)
++                if runner.device.type == "mps":
++                    logger.info(
++                        "MPS memory after synchronized model forward: "
++                        f"current={torch.mps.current_allocated_memory()} bytes, "
++                        f"driver={torch.mps.driver_allocated_memory()} bytes, "
++                        f"recommended_max={torch.mps.recommended_max_memory()} bytes"
++                    )
+                 
+                 # Regularize the C-terminal carboxyl oxygens (O / OXT) of each
+                 # polymer chain: the O<->OXT substructure-permutation symmetry can
+@@ -619,7 +674,7 @@ def infer_predict(runner: InferenceRunner, configs: Any) -> None:
+                     f"Model forward time: {t2_end - t2_start:.2f}s. "
+                     f"Results saved to {configs.dump_dir}"
+                 )
+-                torch.cuda.empty_cache()
++                empty_device_cache(runner.device)
+             except Exception as e:
+                 error_message = (
+                     f"[Rank {DIST_WRAPPER.rank}] {sample_name} failed: {e}\n"
+@@ -632,7 +687,7 @@ def infer_predict(runner: InferenceRunner, configs: Any) -> None:
+                     encoding="utf-8",
+                 ) as f:
+                     f.write(error_message)
+-                torch.cuda.empty_cache()
++                empty_device_cache(runner.device)
+         t1_end = time.time()
+         logger.info(
+             f"[Rank {DIST_WRAPPER.rank}] Seed {seed} completed in {t1_end - t1_start:.2f}s."
+@@ -691,6 +746,16 @@ def update_gpu_compatible_configs(configs: Any) -> Any:
+             "Enforcing FP32 and torch kernels for compatibility with detected "
+             "GPU (Compute Capability 7.x)."
+         )
++    elif torch.backends.mps.is_available():
++        configs.dtype = "fp32"
++        configs.triangle_attention = "torch"
++        configs.triangle_multiplicative = "torch"
++        configs.enable_diffusion_shared_vars_cache = False
++        configs.enable_tf32 = False
++        configs.enable_efficient_fusion = False
++        logger.info(
++            "Enforcing FP32 and native PyTorch kernels for Apple MPS compatibility."
++        )
+     return configs
+ 
+ 

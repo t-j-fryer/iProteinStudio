@@ -167,6 +167,9 @@ final class PipelineInstaller: ObservableObject {
             relative = ["venvs/NanoHunter_intellifold", "src/IntelliFold", "models/intellifold"]
         case .protenix:
             relative = ["venvs/NanoHunter_protenix", "src/Protenix", "models/protenix"]
+        case .protenixConstraint:
+            relative = ["venvs/NanoHunter_protenix_constraint", "src/ProtenixConstraint",
+                        "models/protenix_constraint"]
         case .openfold3:
             relative = ["venvs/NanoHunter_openfold3_mlx", "src/openfold-3-mlx", "models/openfold3"]
         case .alphafold3:

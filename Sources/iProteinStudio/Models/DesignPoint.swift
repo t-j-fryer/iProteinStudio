@@ -32,8 +32,12 @@ struct DesignPoint: Identifiable, Hashable {
         switch predictor {
         case "boltz": return "Boltz-2"
         case "intellifold": return "IntelliFold"
+        case "protenix", "protenix-v2": return "Protenix v2"
+        case "protenix-mini": return "Protenix Mini"
+        case "protenix-constraint-v0.5": return "Protenix Constraint v0.5"
         case "alphafold3": return "AlphaFold 3 (retired)"
         case "openfold3", "openfold-3-mlx": return "OpenFold-3"
+        case "unknown": return "Unknown engine"
         default: return predictor
         }
     }

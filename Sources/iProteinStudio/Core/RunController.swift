@@ -70,10 +70,16 @@ final class RunController: ObservableObject {
     /// runner's --resume checkpoints completed cycles and predictions, so the
     /// app never reconstructs scientific settings from today's form values.
     func resume(_ record: StudioRunRecord) {
-        guard !isRunning, let url = record.manifestURL,
+        guard !isRunning else { return }
+        guard let url = record.manifestURL,
               let data = try? Data(contentsOf: url),
-              var manifest = try? JSONDecoder().decode(StudioRunManifest.self, from: data)
-        else { return }
+              var manifest = try? JSONDecoder().decode(StudioRunManifest.self, from: data) else {
+            phase = .failed("This run cannot be resumed because its recorded launch manifest is missing or unreadable.")
+            return
+        }
+        // Clicking Resume is an explicit request to reuse durable checkpoints,
+        // even if the original form's optional auto-resume toggle was off.
+        manifest.arguments = ResumeContract.arguments(from: manifest.arguments)
         manifest.state = .running
         manifest.updatedAt = Date()
         manifestURL = url
@@ -92,9 +98,12 @@ final class RunController: ObservableObject {
     }
 
     func retry() {
-        guard !isRunning, let args = lastArguments else { return }
+        guard !isRunning, let recorded = lastArguments else { return }
+        let args = ResumeContract.arguments(from: recorded)
+        lastArguments = args
+        updateManifestArguments(args)
         phase = .running
-        appendLog("— retrying with the recorded settings —")
+        appendLog("— retrying from durable checkpoints with the recorded settings —")
         launch(arguments: args, environment: lastEnvironment ?? CommandBuilder.environment())
     }
 
@@ -158,6 +167,16 @@ final class RunController: ObservableObject {
               var manifest = try? JSONDecoder().decode(StudioRunManifest.self, from: data)
         else { return }
         manifest.state = state
+        manifest.updatedAt = Date()
+        writeManifest(manifest)
+    }
+
+    private func updateManifestArguments(_ arguments: [String]) {
+        guard let url = manifestURL, let data = try? Data(contentsOf: url),
+              var manifest = try? JSONDecoder().decode(StudioRunManifest.self, from: data)
+        else { return }
+        manifest.arguments = arguments
+        manifest.state = .running
         manifest.updatedAt = Date()
         writeManifest(manifest)
     }

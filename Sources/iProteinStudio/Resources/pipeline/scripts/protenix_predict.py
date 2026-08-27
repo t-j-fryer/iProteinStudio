@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Protenix v2 or Mini from Studio's Boltz-YAML prediction contract.
+"""Run a declared Protenix profile from Studio's prediction contract.
 
 The adapter is deliberately small: it translates entities and passes exact A3M
 paths through to upstream Protenix. Explicit ``msa: empty`` remains a
@@ -11,8 +11,12 @@ this file, keeping their scientific behaviour identical.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.metadata
 import json
+import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -28,7 +32,22 @@ MODEL_NAMES = {
     "protenix-v2": "protenix-v2",
     "mini": "protenix_mini_default_v0.5.0",
     "protenix-mini": "protenix_mini_default_v0.5.0",
+    "constraint": "protenix_base_constraint_v0.5.0",
+    "protenix-constraint-v0.5": "protenix_base_constraint_v0.5.0",
 }
+
+CONSTRAINT_MODEL = "protenix_base_constraint_v0.5.0"
+CONSTRAINT_SHA256 = "5358025b20b2212853ad75579be04387859557915f398a1d60f6a1a9a0c8c887"
+CONSTRAINT_SIZE = 1_475_206_741
+REQUIRED_CONSTRAINT_LOG_MARKERS = (
+    "Using Apple Metal Performance Shaders (MPS).",
+    "Enforcing FP32 and native PyTorch kernels for Apple MPS compatibility.",
+    "Checkpoint strict load succeeded with no incompatible keys.",
+    "succeeded. Model forward time:",
+)
+FORBIDDEN_CONSTRAINT_LOG_MARKERS = (
+    "ESM language model device:", "Precompute ESM embeddings", "CPU fallback",
+)
 
 
 def die(message: str) -> None:
@@ -41,7 +60,40 @@ def scalar_id(value, fallback: str) -> str:
     return str(value or fallback)
 
 
-def convert_yaml(path: Path) -> tuple[dict, list[dict], bool]:
+def _pocket_residues(document: dict, proteins: dict[str, tuple[int, int]]) -> tuple[list[dict], float]:
+    metadata = document.get("nanohunter") or {}
+    raw_tokens = metadata.get("target_epitope_residues") or []
+    if isinstance(raw_tokens, str):
+        raw_tokens = re.split(r"[,;\s]+", raw_tokens.strip())
+    if not isinstance(raw_tokens, list):
+        die("nanohunter.target_epitope_residues must be a list")
+    residues, seen = [], set()
+    for raw in raw_tokens:
+        match = re.fullmatch(r"([A-Za-z])(?::)?([1-9][0-9]*)", str(raw).strip())
+        if not match:
+            die(f"invalid epitope residue {raw!r}; use a chain and one-based position such as B32")
+        chain, position = match.group(1).upper(), int(match.group(2))
+        if chain == "A":
+            die("epitope residues must belong to the target, not binder chain A")
+        if chain not in proteins:
+            die(f"epitope residue {chain}{position} names a missing or non-protein chain")
+        entity, length = proteins[chain]
+        if position > length:
+            die(f"epitope residue {chain}{position} exceeds chain length {length}")
+        key = (entity, position)
+        if key not in seen:
+            residues.append({"entity": entity, "copy": 1, "position": position})
+            seen.add(key)
+    try:
+        distance = float(metadata.get("protenix_pocket_max_distance", 8.0))
+    except (TypeError, ValueError):
+        die("protenix_pocket_max_distance must be a number")
+    if not math.isfinite(distance) or distance <= 0:
+        die("protenix_pocket_max_distance must be finite and positive")
+    return residues, distance
+
+
+def convert_yaml(path: Path, constraint_model: bool = False) -> tuple[dict, list[dict], bool]:
     try:
         document = yaml.safe_load(path.read_text()) or {}
     except (OSError, yaml.YAMLError) as exc:
@@ -50,6 +102,7 @@ def convert_yaml(path: Path) -> tuple[dict, list[dict], bool]:
     entities = []
     explicit_empty = []
     has_real_msa = False
+    proteins: dict[str, tuple[int, int]] = {}
     for index, wrapped in enumerate(document.get("sequences") or []):
         if not isinstance(wrapped, dict) or len(wrapped) != 1:
             die(f"{path} contains an unsupported sequence entry")
@@ -78,6 +131,7 @@ def convert_yaml(path: Path) -> tuple[dict, list[dict], bool]:
             else:
                 explicit_empty.append(protein)
             entities.append({"proteinChain": protein})
+            proteins[chain_id.upper()] = (len(entities), len(protein["sequence"]))
         elif kind == "ligand":
             value = raw.get("smiles")
             if not value and raw.get("ccd"):
@@ -107,7 +161,24 @@ def convert_yaml(path: Path) -> tuple[dict, list[dict], bool]:
 
     if not entities:
         die(f"{path} contains no sequences")
-    return ({"name": path.stem, "sequences": entities, "covalent_bonds": []},
+    job = {"name": path.stem, "sequences": entities, "covalent_bonds": []}
+    residues, max_distance = _pocket_residues(document, proteins)
+    if residues and not constraint_model:
+        # Boltz consumes the metadata directly; ordinary Protenix models do not.
+        # The runner normally strips it before post-checks, so reaching this
+        # branch means a caller tried to apply an unsupported restraint.
+        die("epitope pocket metadata requires the Protenix Constraint model")
+    if constraint_model:
+        binder = proteins.get("A")
+        if binder is None or binder[0] != 1:
+            die("Protenix Constraint requires protein binder chain A as entity 1")
+        if residues:
+            job["constraint"] = {"pocket": {
+                "binder_chain": {"entity": 1, "copy": 1},
+                "contact_residues": residues,
+                "max_distance": max_distance,
+            }}
+    return (job,
             explicit_empty, has_real_msa)
 
 
@@ -133,10 +204,11 @@ def materialize_single_sequence_msas(converted: list[tuple[dict, list[dict], boo
 def protenix_command(executable: Path, input_json: Path, output: Path,
                      model_name: str, seeds: str, samples: int,
                      use_msa: bool) -> list[str]:
-    return [
+    command = [
         str(executable), "pred", "-i", str(input_json), "-o", str(output),
         "-s", seeds, "-e", str(samples), "-n", model_name,
-        "--use_default_params", "True", "--use_msa", str(use_msa),
+        "--use_default_params", "False" if model_name == CONSTRAINT_MODEL else "True",
+        "--use_msa", str(use_msa),
         "--use_template", "False", "--use_rna_msa", "False",
         "--trimul_kernel", "torch", "--triatt_kernel", "torch",
         "--enable_cache", "False", "--enable_fusion", "False",
@@ -146,6 +218,39 @@ def protenix_command(executable: Path, input_json: Path, output: Path,
         "--enable_tf32", "False", "--need_atom_confidence", "True",
         "-d", "fp32",
     ]
+    if model_name == CONSTRAINT_MODEL:
+        command.extend(["-c", "10", "-p", "200", "--use_tfg_guidance", "False"])
+    return command
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def audit_constraint_runtime(executable: Path, checkpoint: Path, receipt: Path) -> None:
+    if checkpoint.stat().st_size != CONSTRAINT_SIZE or sha256(checkpoint) != CONSTRAINT_SHA256:
+        die("constraint checkpoint does not match the validated official v0.5 release")
+    if not receipt.is_file():
+        die("constraint install receipt is missing; repair this engine in Setup")
+    try:
+        importlib.metadata.version("fair-esm")
+    except importlib.metadata.PackageNotFoundError:
+        pass
+    else:
+        die("fair-esm is installed in the constraint-only environment")
+    # This adapter is launched by the constraint venv. Prove native Metal and
+    # reserve the empirically validated headroom before loading 368M parameters.
+    import torch
+    if not torch.backends.mps.is_available():
+        die("Apple MPS is unavailable; CPU execution is not offered")
+    if hasattr(torch.mps, "driver_allocated_memory") and hasattr(torch.mps, "recommended_max_memory"):
+        headroom = torch.mps.recommended_max_memory() - torch.mps.driver_allocated_memory()
+        if headroom < 8 * 1024**3:
+            die(f"constraint inference needs at least 8 GiB free Apple-GPU headroom; observed {headroom / 1024**3:.1f} GiB")
 
 
 def complete_predictions(job_dir: Path) -> list[tuple[float, Path, Path]]:
@@ -188,6 +293,57 @@ def normalize(output: Path, names: list[str], expected: int) -> None:
         shutil.copyfile(confidence, pred_min / "confidence.json")
 
 
+def annotate_constraint_geometry(output: Path, jobs: list[dict]) -> None:
+    """Record observed pocket geometry without treating it as binding proof."""
+    import numpy as np
+    from biotite.structure.io.pdbx import CIFFile, get_structure
+
+    for job in jobs:
+        pocket = (job.get("constraint") or {}).get("pocket")
+        if not pocket:
+            continue
+        pred_min = output / job["name"] / "pred_min"
+        structure = pred_min / "model_0.cif"
+        confidence_path = pred_min / "confidence.json"
+        atoms = get_structure(CIFFile.read(structure), model=1)
+        if len(atoms) == 0 or not np.isfinite(atoms.coord).all():
+            die(f"constraint result has invalid coordinates: {structure}")
+        entity_ids = []
+        for wrapped in job["sequences"]:
+            raw = next(iter(wrapped.values()))
+            ids = raw.get("id") or []
+            entity_ids.append(str(ids[0]) if ids else "")
+        binder_chain = entity_ids[int(pocket["binder_chain"]["entity"]) - 1]
+        binder_mask = (atoms.chain_id == binder_chain) & (atoms.atom_name == "CA")
+        binder_ca = atoms.coord[binder_mask].astype(float)
+        if len(binder_ca) == 0:
+            die(f"constraint result has no binder CA atoms on chain {binder_chain}")
+        distances = []
+        for residue in pocket["contact_residues"]:
+            chain = entity_ids[int(residue["entity"]) - 1]
+            mask = ((atoms.chain_id == chain) & (atoms.atom_name == "CA")
+                    & (atoms.res_id == int(residue["position"])))
+            coords = atoms.coord[mask]
+            if len(coords) != 1:
+                die(f"expected one CA for pocket residue {chain}{residue['position']}; found {len(coords)}")
+            distances.append(float(np.linalg.norm(binder_ca - coords[0], axis=1).min()))
+        cutoff = float(pocket["max_distance"])
+        metrics = {
+            "constraint_kind": "protenix_v0.5_pocket",
+            "constraint_pocket_distance_semantics": "mean nearest binder-to-target CA distance",
+            "constraint_pocket_max_distance": cutoff,
+            "constraint_pocket_residue_count": len(distances),
+            "constraint_pocket_mean_min_ca_distance": float(np.mean(distances)),
+            "constraint_pocket_max_min_ca_distance": float(np.max(distances)),
+            "constraint_pocket_fraction_within_max_distance": float(np.mean(np.asarray(distances) <= cutoff)),
+            "constraint_pocket_per_residue_min_ca_distances": distances,
+        }
+        confidence = json.loads(confidence_path.read_text())
+        confidence.update(metrics)
+        confidence_path.write_text(json.dumps(confidence, indent=2) + "\n")
+        (pred_min / "constraint_satisfaction.json").write_text(json.dumps(metrics, indent=2) + "\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     inputs = parser.add_mutually_exclusive_group(required=True)
@@ -197,24 +353,28 @@ def main() -> None:
     parser.add_argument("--nanohunter-root", type=Path, required=True)
     parser.add_argument("--model", choices=sorted(MODEL_NAMES), required=True)
     parser.add_argument("--seeds", default="42", help="comma-separated model seeds")
-    parser.add_argument("--samples", type=int, default=5)
+    parser.add_argument("--samples", type=int)
     args = parser.parse_args()
 
     root = args.nanohunter_root.expanduser().resolve()
-    model_root = root / "models" / "protenix"
-    executable = root / "venvs" / "NanoHunter_protenix" / "bin" / "protenix"
+    model_name = MODEL_NAMES[args.model]
+    constraint_model = model_name == CONSTRAINT_MODEL
+    profile = "protenix_constraint" if constraint_model else "protenix"
+    model_root = root / "models" / profile
+    executable = root / "venvs" / f"NanoHunter_{profile}" / "bin" / "protenix"
     if not executable.is_file():
         die(f"environment is not installed at {executable.parent.parent}")
     if os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK") == "1":
         die("PYTORCH_ENABLE_MPS_FALLBACK=1 is forbidden; this run must be native MPS")
-    if args.samples < 1:
+    samples = args.samples if args.samples is not None else (1 if constraint_model else 5)
+    if samples < 1:
         die("--samples must be at least 1")
 
     source = args.yaml or args.inputs
     yaml_paths = [source] if source.is_file() else sorted(source.glob("*.yaml"))
     if not yaml_paths:
         die(f"no YAML inputs found at {source}")
-    converted = [convert_yaml(path.resolve()) for path in yaml_paths]
+    converted = [convert_yaml(path.resolve(), constraint_model) for path in yaml_paths]
     jobs = [item[0] for item in converted]
     names = [job["name"] for job in jobs]
     if len(set(names)) != len(names):
@@ -226,10 +386,12 @@ def main() -> None:
     input_json = output / "protenix_input.json"
     input_json.write_text(json.dumps(jobs, indent=2) + "\n")
 
-    model_name = MODEL_NAMES[args.model]
     checkpoint = model_root / "checkpoint" / f"{model_name}.pt"
     if not checkpoint.is_file():
         die(f"requested checkpoint is missing: {checkpoint}")
+    if constraint_model:
+        audit_constraint_runtime(executable, checkpoint, model_root / "install_receipt.json")
+        shutil.copyfile(model_root / "install_receipt.json", output / "install_receipt.json")
 
     try:
         seeds = [int(value) for value in args.seeds.split(",") if value.strip()]
@@ -257,15 +419,28 @@ def main() -> None:
             group_input = output / f"protenix_input_{suffix}.json"
             group_input.write_text(json.dumps(group, indent=2) + "\n")
         command = protenix_command(executable, group_input, output, model_name,
-                                   args.seeds, args.samples, use_msa)
-        completed = subprocess.run(command, cwd=root, env=env)
+                                   args.seeds, samples, use_msa)
+        completed = subprocess.run(command, cwd=root, env=env, text=True,
+                                   stdout=subprocess.PIPE if constraint_model else None,
+                                   stderr=subprocess.STDOUT if constraint_model else None)
+        if constraint_model:
+            log = completed.stdout or ""
+            print(log, end="")
+            missing = [item for item in REQUIRED_CONSTRAINT_LOG_MARKERS if item not in log]
+            forbidden = [item for item in FORBIDDEN_CONSTRAINT_LOG_MARKERS if item in log]
+            expected_pockets = [len((job.get("constraint") or {}).get("pocket", {}).get("contact_residues", [])) for job in group]
+            loaded = [int(value) for value in re.findall(r"Loaded constraint feature: #atom contact:\d+ #contact:\d+ #pocket:(\d+)", log)]
+            if missing or forbidden or sorted(expected_pockets) != sorted(loaded):
+                die(f"constraint runtime proof failed: missing={missing}, forbidden={forbidden}, loaded_pockets={loaded}")
         if completed.returncode:
             raise SystemExit(completed.returncode)
     try:
         annotate_protenix(output, jobs)
     except (IPSAEError, OSError, ValueError, json.JSONDecodeError) as exc:
         die(f"ipSAE scoring failed: {exc}")
-    normalize(output, names, len(seeds) * args.samples)
+    normalize(output, names, len(seeds) * samples)
+    if constraint_model:
+        annotate_constraint_geometry(output, jobs)
 
 
 if __name__ == "__main__":

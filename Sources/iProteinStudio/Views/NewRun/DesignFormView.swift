@@ -75,9 +75,10 @@ struct DesignFormView: View {
                             Text("Length: \(TemplateWriter.clean(request.wrappedValue.targetSequence).count) aa")
                                 .font(.caption).foregroundStyle(.secondary)
                             Spacer()
-                            TextField("Epitope hotspots (optional, e.g. 32 55)", text: request.epitopeResidues)
+                            TextField("Epitope hotspots (e.g. 32 55)", text: request.epitopeResidues)
                                 .textFieldStyle(.roundedBorder).frame(width: 240)
-                                .help("Bare residue numbers use the first target chain (B). For multimers use chain-qualified residues such as C55. Hotspot steering uses Boltz with potentials.")
+                                .help("Bare residue numbers use the first target chain (B). For multimers use chain-qualified residues such as C55. Boltz and Protenix Constraint v0.5 can apply these residues.")
+                                .disabled(!request.wrappedValue.supportsEpitopePocket)
                                 .onChange(of: request.wrappedValue.epitopeResidues) { _, _ in
                                     var r = request.wrappedValue
                                     r.reconcilePredictors()
@@ -89,10 +90,16 @@ struct DesignFormView: View {
                                   systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption).foregroundStyle(.orange)
                         } else if request.wrappedValue.hasEpitopeSteering {
-                            Label(type == .nanobody
-                                  ? "Boltz will steer the binder pocket and the centre of CDR3 toward these target residues."
-                                  : "Boltz will steer the binder pocket toward these target residues.",
+                            Label(request.wrappedValue.designPredictor == .protenixConstraint
+                                  ? "Protenix Constraint will condition the proposal on its trained 8 Å token-centre pocket prior (the upstream and validated default). This is not a heavy-atom contact; the initial paired test found weak pocket steering, so it does not prove that the binder reached this epitope or that it binds."
+                                  : (type == .nanobody
+                                     ? "Boltz will steer the binder pocket and the centre of CDR3 toward these target residues."
+                                     : "Boltz will steer the binder pocket toward these target residues."),
                                   systemImage: "scope")
+                                .font(.caption).foregroundStyle(.secondary)
+                        } else if request.wrappedValue.hasEnteredEpitopeResidues {
+                            Label("Hotspots are saved but are not applied by \(request.wrappedValue.designPredictor.label). Choose Boltz or Protenix Constraint v0.5 to enable epitope guidance.",
+                                  systemImage: "info.circle")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Button { showTargetPrep = true } label: {
@@ -263,7 +270,11 @@ struct DesignFormView: View {
             return "(r.designPredictor.label) is retired after failing Apple-GPU quality control. Choose a supported design engine."
         }
         if r.hasInvalidEpitopeResidues { return "Fix the hotspot residue list before starting." }
-        if r.hasIncompatibleTargeting { return "The selected targeting restraint requires Boltz as the design engine." }
+        if r.hasIncompatibleTargeting {
+            return r.designPredictor == .protenixConstraint
+                ? "Protenix Constraint v0.5 currently supports protein epitopes, not ligand campaigns."
+                : "The selected ligand targeting restraint requires Boltz as the design engine."
+        }
         if r.ligandAtomsStale {
             return "Reload the ligand atoms — the saved names were generated for different settings."
         }
@@ -499,11 +510,12 @@ struct PredictorPicker: View {
     }
 
     private var designChoices: [Predictor] {
-        if request.hasEpitopeSteering { return [.boltzPotentials] }
         if request.targetKind == .ligand && !request.ligandContactAtoms.isEmpty {
             return request.ligandContactForce ? [.boltzPotentials] : [.boltz, .boltzPotentials]
         }
-        return Predictor.designChoices
+        return request.targetKind == .ligand
+            ? Predictor.designChoices.filter { $0 != .protenixConstraint }
+            : Predictor.designChoices
     }
 
     private var usesIntelliFold: Bool {
@@ -533,8 +545,12 @@ struct PredictorPicker: View {
                     }
                 }
                 .pickerStyle(.menu).labelsHidden()
-                if request.hasEpitopeSteering {
-                    Text("Hotspot restraints require Boltz with potentials, so other design engines are unavailable until the hotspot list is cleared.")
+                if request.hasEnteredEpitopeResidues {
+                    Text(request.designPredictor == .protenixConstraint
+                         ? "Protenix Constraint applies the selected residues as its upstream 8 Å token-centre pocket prior—not a heavy-atom cutoff. Independently refold final sequences without the constraint."
+                         : (request.usesBoltzDesignEngine
+                            ? "Boltz applies the selected epitope hotspots using steering potentials."
+                            : "\(request.designPredictor.label) designs against the full target complex; the saved epitope hotspots are not applied. Epitope guidance is available with Boltz or Protenix Constraint v0.5."))
                         .font(.caption2).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -585,10 +601,15 @@ struct PredictorPicker: View {
                     Picker("Check checkpoints", selection: $request.postCheckScope) {
                         Text("Final only (cycle \(String(format: "%02d", request.numCycles)))")
                             .tag(PostCheckScope.finalCycle)
-                        Text("All cycles (00–\(String(format: "%02d", request.numCycles)))")
+                        Text("All design cycles (01–\(String(format: "%02d", request.numCycles)))")
                             .tag(PostCheckScope.allCycles)
                     }
                     .pickerStyle(.segmented)
+                    if request.postCheckScope == .allCycles {
+                        Text("Checks every optimized checkpoint. The unoptimized cycle 00 seed is excluded.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     Toggle("Only check checkpoints that pass the hit threshold", isOn: $request.postOnlyHits)
                         .toggleStyle(.checkbox).font(.callout)
                 }

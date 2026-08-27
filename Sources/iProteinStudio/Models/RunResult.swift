@@ -1,5 +1,21 @@
 import Foundation
 
+enum StudioResultStage: String, Hashable {
+    case prediction
+    case design
+    case postPrediction
+    case rankedDesign
+
+    var label: String {
+        switch self {
+        case .prediction: return "Prediction"
+        case .design: return "Design stage"
+        case .postPrediction: return "Independent post-prediction"
+        case .rankedDesign: return "Ranked verification"
+        }
+    }
+}
+
 /// A structure and its most useful engine-emitted confidence summaries.
 /// Values stay numeric here so every workflow uses the same formatting in the UI.
 struct StudioResultItem: Identifiable, Hashable {
@@ -10,6 +26,10 @@ struct StudioResultItem: Identifiable, Hashable {
     let sequence: String?
     let metrics: [StudioResultMetric]
     let confidenceURL: URL?
+    let stage: StudioResultStage
+    /// The engine that emitted `metrics`; never inferred from the engine that
+    /// happened to create an earlier structure in the workflow.
+    let scoreSource: String
 
     var primaryMetric: StudioResultMetric? {
         metrics.first { $0.kind == .iptm }
@@ -31,6 +51,8 @@ struct StudioResultMetric: Identifiable, Hashable {
         case meanIPTM
         case bindingProbability
         case rankingScore
+        case pocketMeanDistance
+        case pocketFractionWithinCutoff
 
         var label: String {
             switch self {
@@ -44,6 +66,8 @@ struct StudioResultMetric: Identifiable, Hashable {
             case .meanIPTM: return "mean iPTM"
             case .bindingProbability: return "P(bind)"
             case .rankingScore: return "ranking score"
+            case .pocketMeanDistance: return "epitope distance"
+            case .pocketFractionWithinCutoff: return "epitope coverage"
             }
         }
 
@@ -62,6 +86,10 @@ struct StudioResultMetric: Identifiable, Hashable {
             case .meanIPTM: return "Mean iPTM across the verification engines; higher is better."
             case .bindingProbability: return "Boltz probability that the small molecule binds; higher is better."
             case .rankingScore: return "The workflow's own score used to order these results."
+            case .pocketMeanDistance:
+                return "Mean nearest Cα distance from each requested epitope residue to the binder. This reports response to the soft pocket prior; lower is closer."
+            case .pocketFractionWithinCutoff:
+                return "Fraction of requested epitope residues whose nearest binder Cα is within the recorded Protenix pocket cutoff. This is geometry, not evidence of binding."
             }
         }
     }
@@ -75,8 +103,10 @@ struct StudioResultMetric: Identifiable, Hashable {
         case .plddt:
             let conventional = value <= 1.000_001 ? value * 100 : value
             return String(format: "%.1f", conventional)
-        case .interfacePAEMinimum, .interfacePDE:
+        case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance:
             return String(format: "%.2f Å", value)
+        case .pocketFractionWithinCutoff:
+            return String(format: "%.0f%%", value * 100)
         default:
             return String(format: "%.3f", value)
         }
@@ -125,7 +155,8 @@ enum RunResultsLoader {
                     id: "\(predictor)|\(title)|\(structure.path)", title: title,
                     subtitle: predictor, structureURL: structure,
                     sequence: job.flatMap { sequences[$0] }, metrics: metrics,
-                    confidenceURL: documents.first
+                    confidenceURL: documents.first, stage: .prediction,
+                    scoreSource: predictor
                 )
             }
         }
@@ -149,29 +180,99 @@ enum RunResultsLoader {
     // MARK: Iterative designs
 
     private static func iterativeResults(root: URL) -> [StudioResultItem] {
-        var rows = CSVTable.rows(at: root.appendingPathComponent("comparison_scores_long.csv"))
-        if rows.isEmpty {
-            rows = CSVTable.rows(at: root.appendingPathComponent("summary_all_runs.csv"))
-        }
+        let rows = iterativeRows(root: root)
+        let recordedDesignPredictor = iterativeDesignPredictor(root: root)
         return rows.compactMap { row in
             guard let path = row["structure_path"],
                   let structure = resolvedURL(path, relativeTo: root),
                   fm.fileExists(atPath: structure.path) else { return nil }
-            let stage = row["stage"]?.capitalized ?? "Design"
-            let predictor = friendlyPredictor(row["predictor"] ?? "")
+            let isPost = row["stage"]?.lowercased() == "post"
+            let resultStage: StudioResultStage = isPost ? .postPrediction : .design
+            let predictorKey = nonempty(row["predictor"]) ?? (isPost ? nil : recordedDesignPredictor) ?? "Unknown engine"
+            let predictor = friendlyPredictor(predictorKey)
             let run = Int(row["run"] ?? "") ?? 0
             let cycle = Int(row["cycle"] ?? "") ?? 0
             let confidence = row["confidence_json"].flatMap { resolvedURL($0, relativeTo: root) }
             let documents = confidence.map { [$0] } ?? confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
             return StudioResultItem(
-                id: "\(stage)|\(predictor)|\(run)|\(cycle)|\(structure.path)",
+                id: "\(resultStage.rawValue)|\(predictor)|\(run)|\(cycle)|\(structure.path)",
                 title: String(format: "Run %02d · cycle %02d", run, cycle),
-                subtitle: predictor.isEmpty ? stage : "\(stage) · \(predictor)",
+                subtitle: "\(resultStage.label) · \(predictor)",
                 structureURL: structure, sequence: nonempty(row["binder_sequence"]),
                 metrics: collectMetrics(row: row, documents: documents),
-                confidenceURL: documents.first
+                confidenceURL: documents.first, stage: resultStage,
+                scoreSource: predictor
             )
         }
+    }
+
+    /// The final comparison table is convenient but is written only after all
+    /// design and post-prediction work succeeds. Rebuild the same provenance
+    /// columns from per-cycle checkpoints so stopped and failed runs remain
+    /// browseable without changing their source files.
+    private static func iterativeRows(root: URL) -> [[String: String]] {
+        let comparison = CSVTable.rows(at: root.appendingPathComponent("comparison_scores_long.csv"))
+        if !comparison.isEmpty { return comparison }
+
+        let designPredictor = iterativeDesignPredictor(root: root) ?? "Unknown engine"
+        let runDirectories = childDirectories(root).filter { $0.lastPathComponent.hasPrefix("run_") }
+        var rows: [[String: String]] = []
+        for runDirectory in runDirectories {
+            let run = String(Int(runDirectory.lastPathComponent.dropFirst("run_".count)) ?? 0)
+            for var row in CSVTable.rows(at: runDirectory.appendingPathComponent("metrics_per_cycle.csv")) {
+                row["stage"] = "design"
+                row["predictor"] = designPredictor
+                row["run"] = run
+                rows.append(row)
+            }
+            for postRoot in childDirectories(runDirectory) where postRoot.lastPathComponent.hasPrefix("post_") {
+                let predictor = String(postRoot.lastPathComponent.dropFirst("post_".count))
+                for cycleRoot in childDirectories(postRoot) where cycleRoot.lastPathComponent.hasPrefix("cycle_") {
+                    for var row in CSVTable.rows(at: cycleRoot.appendingPathComponent("post_metrics_row.csv")) {
+                        row["stage"] = "post"
+                        row["predictor"] = predictor
+                        if row["run"] == nil { row["run"] = run }
+                        rows.append(row)
+                    }
+                }
+            }
+        }
+        if !rows.isEmpty { return rows }
+
+        // Compatibility with older completed campaigns that retained only the
+        // aggregate design summary.
+        return CSVTable.rows(at: root.appendingPathComponent("summary_all_runs.csv")).map { raw in
+            var row = raw
+            row["stage"] = "design"
+            row["predictor"] = designPredictor
+            return row
+        }
+    }
+
+    static func iterativeHitThreshold(root: URL) -> Double {
+        let arguments = iterativeManifestArguments(root: root)
+        guard let index = arguments.firstIndex(of: "--iptm-threshold"),
+              arguments.indices.contains(index + 1),
+              let threshold = Double(arguments[index + 1]) else { return 0.70 }
+        return threshold
+    }
+
+    private static func iterativeDesignPredictor(root: URL) -> String? {
+        let arguments = iterativeManifestArguments(root: root)
+        guard let index = arguments.firstIndex(of: "--predictor"),
+              arguments.indices.contains(index + 1) else { return nil }
+        return arguments[index + 1]
+    }
+
+    private static func iterativeManifestArguments(root: URL) -> [String] {
+        jsonObject(at: root.appendingPathComponent("studio_run.json"))?["arguments"] as? [String] ?? []
+    }
+
+    private static func childDirectories(_ root: URL) -> [URL] {
+        (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey],
+                                     options: [.skipsHiddenFiles]))?.filter {
+            (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+        } ?? []
     }
 
     // MARK: RFdiffusion3 ranked designs
@@ -210,7 +311,8 @@ enum RunResultsLoader {
                     title: "#\(rankIndex + 1) · \(name)",
                     subtitle: friendlyPredictor(predictorKey), structureURL: structure,
                     sequence: sequence, metrics: collectMetrics(row: metricRow, documents: documents),
-                    confidenceURL: documents.first
+                    confidenceURL: documents.first, stage: .rankedDesign,
+                    scoreSource: friendlyPredictor(predictorKey)
                 ))
             }
         }
@@ -241,6 +343,8 @@ enum RunResultsLoader {
         add(.meanIPTM, rowNumber(["mean_iptm"]))
         add(.bindingProbability, rowNumber(["pbind", "affinity_probability_binary"]))
         add(.rankingScore, rowNumber(["score", "ranking_score"]))
+        add(.pocketMeanDistance, rowNumber(["constraint_pocket_mean_min_ca_distance"]))
+        add(.pocketFractionWithinCutoff, rowNumber(["constraint_pocket_fraction_within_max_distance"]))
 
         for document in documents {
             guard let object = jsonObject(at: document) else { continue }
@@ -253,6 +357,8 @@ enum RunResultsLoader {
             add(.interfacePDE, number(in: object, keys: ["complex_ipde", "interface_pde"]))
             add(.bindingProbability, number(in: object, keys: ["affinity_probability_binary", "pbind"]))
             add(.rankingScore, number(in: object, keys: ["ranking_score", "score"]))
+            add(.pocketMeanDistance, number(in: object, keys: ["constraint_pocket_mean_min_ca_distance"]))
+            add(.pocketFractionWithinCutoff, number(in: object, keys: ["constraint_pocket_fraction_within_max_distance"]))
         }
 
         let order = StudioResultMetric.Kind.allCases
@@ -394,8 +500,11 @@ enum RunResultsLoader {
         switch key.lowercased() {
         case "boltz", "boltz2", "boltz-2": return "Boltz-2"
         case "af3", "alphafold3", "alphafold-3": return "AlphaFold 3 (retired)"
-        case "openfold3", "openfold-3": return "OpenFold-3"
+        case "openfold3", "openfold-3", "openfold-3-mlx": return "OpenFold-3"
         case "intellifold": return "IntelliFold PyTorch"
+        case "protenix", "protenix-v2": return "Protenix v2"
+        case "protenix-mini": return "Protenix Mini"
+        case "protenix-constraint-v0.5": return "Protenix Constraint v0.5"
         case "intellifold-jax", "intellifold_jax": return "IntelliFold JAX/Metal (retired)"
         default: return key.replacingOccurrences(of: "_", with: " ").capitalized
         }

@@ -205,7 +205,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// keeps an orthogonal check affordable.
     var postOnlyHits: Bool = true
     /// Whether independent predictors see only the completed design or every
-    /// iterative checkpoint. Threshold gating is intentionally orthogonal.
+    /// optimized checkpoint (cycles 01...N). The unoptimized cycle 00 seed is
+    /// never included by Studio. Threshold gating is intentionally orthogonal.
     var postCheckScope: PostCheckScope = .finalCycle
     var speedMode: SpeedMode = .standard
 
@@ -270,13 +271,18 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     var usesBoltzDesignEngine: Bool { designPredictor.runnerValue == Predictor.boltz.runnerValue }
 
+    /// Both Boltz and the dedicated Protenix Constraint checkpoint can guide a
+    /// design toward selected target residues, albeit with different trained
+    /// restraint mechanisms.
+    var supportsEpitopePocket: Bool { designPredictor.supportsEpitopePocket }
+
     /// Canonical post-check list: checks never use steering potentials, never
     /// repeat the design engine, and never run one backend twice.
     var effectivePostPredictors: [Predictor] {
         var seen = Set<String>()
         return postPredictors.compactMap { raw in
             let predictor = raw.checkingVariant
-            guard predictor.isAvailable,
+            guard predictor.isAvailable, predictor.canPostCheck,
                   predictor.independenceIdentity != designPredictor.independenceIdentity,
                   seen.insert(predictor.independenceIdentity).inserted else { return nil }
             return predictor
@@ -296,20 +302,26 @@ struct DesignRequest: Codable, Equatable, Hashable {
                                           allowedTargetChains: targetChainIDs)
     }
 
-    var hasEpitopeSteering: Bool {
+    var hasEnteredEpitopeResidues: Bool {
         targetKind == .protein && !epitopeResidues.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Hotspots are retained when the user tries another design engine, and
+    /// become active only for a driver with an explicit epitope capability.
+    var hasEpitopeSteering: Bool {
+        hasEnteredEpitopeResidues && supportsEpitopePocket
+    }
+
     var hasInvalidEpitopeResidues: Bool {
-        targetKind == .protein && !epitopeTokenResult.invalid.isEmpty
+        hasEpitopeSteering && !epitopeTokenResult.invalid.isEmpty
     }
 
     /// Generic protein hotspot restraints and atom-specific ligand pockets are
     /// design-time Boltz features. Other engines may still see the target, but
     /// cannot honour these requested restraints.
     var hasIncompatibleTargeting: Bool {
-        (hasEpitopeSteering || (targetKind == .ligand && !ligandContactAtoms.isEmpty))
-            && !usesBoltzDesignEngine
+        (targetKind == .ligand && designPredictor == .protenixConstraint)
+            || (targetKind == .ligand && !ligandContactAtoms.isEmpty && !usesBoltzDesignEngine)
     }
 
     /// Key the ligand atom names were generated under. Changing either half
@@ -346,7 +358,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         var total = designPredictions * designPredictor.measuredSeconds(in: speedMode)
         // Use every eligible checkpoint so threshold gating can only make the
         // real run shorter.
-        let checkedCycles = postCheckScope == .allCycles ? cyclesIncludingSeed : 1
+        let checkedCycles = postCheckScope == .allCycles ? max(1, numCycles) : 1
         let postCandidates = Double(max(1, numDesigns) * checkedCycles)
         for p in effectivePostPredictors {
             total += postCandidates * p.measuredSeconds(in: speedMode)
@@ -375,16 +387,11 @@ struct DesignRequest: Codable, Equatable, Hashable {
         if !allowedDesigners.contains(designer) { designer = preferredDesigner }
     }
 
-    /// Remove duplicate/self-checking engines and make design-time targeting
-    /// executable instead of allowing a request the selected engine will ignore.
+    /// Remove duplicate/self-checking engines. Protein hotspot selections stay
+    /// saved but dormant under non-Boltz drivers; atom-specific ligand pockets
+    /// remain a hard Boltz requirement because they define the ligand campaign.
     mutating func reconcilePredictors() {
-        if hasEpitopeSteering && !usesBoltzDesignEngine {
-            let previousDesign = designPredictor.checkingVariant
-            designPredictor = .boltzPotentials
-            if previousDesign.runnerValue != Predictor.boltz.runnerValue {
-                postPredictors.append(previousDesign)
-            }
-        } else if targetKind == .ligand && !ligandContactAtoms.isEmpty && !usesBoltzDesignEngine {
+        if targetKind == .ligand && !ligandContactAtoms.isEmpty && !usesBoltzDesignEngine {
             let previousDesign = designPredictor.checkingVariant
             designPredictor = ligandContactForce ? .boltzPotentials : .boltz
             if previousDesign.runnerValue != Predictor.boltz.runnerValue {
@@ -400,7 +407,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     mutating func selectDesignPredictor(_ newPredictor: Predictor) {
         let previous = designPredictor.checkingVariant
         designPredictor = newPredictor
-        if previous.independenceIdentity != newPredictor.independenceIdentity {
+        if previous.canPostCheck && previous.independenceIdentity != newPredictor.independenceIdentity {
             postPredictors.append(previous)
         }
         reconcilePredictors()

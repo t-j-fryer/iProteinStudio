@@ -81,6 +81,36 @@ struct IterativeCommandContractHarness {
         expect(!yaml.contains("pocket+cdr3"), "generic template hard-coded a nanobody CDR mode")
     }
 
+    static func testProtenixConstraintPocket() throws {
+        var request = proteinRequest()
+        request.designPredictor = .protenixConstraint
+        request.postPredictors = [.protenixConstraint, .boltz]
+        request.reconcilePredictors()
+        expect(request.hasEpitopeSteering, "constraint engine did not activate the selected epitope")
+        expect(request.effectivePostPredictors == [.boltz], "guided constraint checkpoint was accepted as a post-checker")
+        expect(request.requiredComponents.contains(.protenixConstraint), "constraint runtime dependency was omitted")
+        let args = arguments(request)
+        expect(value(after: "--predictor", in: args) == "protenix-constraint-v0.5",
+               "constraint campaign was routed to the wrong runner identity")
+        expect(!args.contains("--boltz-use-potentials"), "constraint campaign leaked Boltz steering flags")
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("protenix-pocket-\(UUID().uuidString).yaml")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try TemplateWriter.write(request, to: url)
+        let yaml = try String(contentsOf: url, encoding: .utf8)
+        expect(yaml.contains("target_epitope_residues:") && yaml.contains("- B34"),
+               "constraint pocket residues were not written")
+        expect(yaml.contains("protenix_pocket_max_distance: 8.0"),
+               "constraint pocket distance was not explicit")
+        expect(!yaml.contains("boltz_contact_"), "constraint template leaked Boltz contact controls")
+
+        request.targetKind = .ligand
+        request.targetSequence = ""
+        request.targetSmiles = "CCO"
+        expect(!request.isRunnable, "protein-only constraint checkpoint accepted a ligand campaign")
+    }
+
     static func testMultimerTargetMapping() throws {
         var request = proteinRequest()
         request.targetSequence = "ACDEFGHIK:LMNPQRSTV"
@@ -125,11 +155,11 @@ struct IterativeCommandContractHarness {
         request.postCheckScope = .allCycles
         args = arguments(request)
         expect(value(after: "--post-mode", in: args) == "all", "ungated all-cycle checking was not emitted")
-        expect(args.contains("--post-include-cycle00"), "all-cycle checking silently skipped cycle 00")
+        expect(!args.contains("--post-include-cycle00"), "all-cycle checking incorrectly included unoptimized cycle 00")
         request.postOnlyHits = true
         args = arguments(request)
         expect(value(after: "--post-mode", in: args) == "iptm", "hit-gated all-cycle checking was not emitted")
-        expect(args.contains("--post-include-cycle00"), "hit-gated all-cycle checking skipped cycle 00")
+        expect(!args.contains("--post-include-cycle00"), "hit-gated all-cycle checking incorrectly included unoptimized cycle 00")
     }
 
     static func testCanonicalCheckers() {
@@ -143,8 +173,12 @@ struct IterativeCommandContractHarness {
         request.postPredictors = [.boltz]
         request.epitopeResidues = "34"
         request.reconcilePredictors()
-        expect(request.designPredictor == .boltzPotentials, "hotspot targeting did not select its required design engine")
-        expect(request.effectivePostPredictors == [.intellifold], "previous design engine was not retained as the orthogonal checker")
+        expect(request.designPredictor == .intellifold, "a saved hotspot silently replaced the selected design engine")
+        expect(request.effectivePostPredictors == [.boltz], "independent Boltz checking was lost")
+        expect(!request.hasEpitopeSteering, "non-Boltz design incorrectly claimed to apply epitope steering")
+        expect(request.hasEnteredEpitopeResidues, "dormant hotspot selection was discarded")
+        expect(request.isRunnable, "non-Boltz full-target design was blocked by a dormant hotspot selection")
+        expect(!arguments(request).contains("--boltz-use-potentials"), "dormant hotspots enabled Boltz potentials")
 
         request = proteinRequest()
         request.epitopeResidues = ""
@@ -171,6 +205,34 @@ struct IterativeCommandContractHarness {
         request.targetSequence = ""
         request.designer = .lasermpnn
         expect(value(after: "--lasermpnn-seed", in: arguments(request)) == "1234", "LASErMPNN seed routing failed")
+    }
+
+    static func testExplicitResumeContract() {
+        let recorded = ["--predictor", "boltz", "--num-runs", "4"]
+        let resumed = ResumeContract.arguments(from: recorded)
+        expect(resumed.filter { $0 == "--resume" }.count == 1,
+               "explicit Resume did not add exactly one checkpoint flag")
+        expect(Array(resumed.dropLast()) == recorded,
+               "explicit Resume changed recorded scientific settings")
+        let repeated = ResumeContract.arguments(from: resumed + ["--resume"])
+        expect(repeated.filter { $0 == "--resume" }.count == 1,
+               "repeated Resume accumulated duplicate flags")
+    }
+
+    static func testDormantHotspotsAreNotPassed() throws {
+        var request = proteinRequest()
+        request.designPredictor = .intellifold
+        request.postPredictors = [.boltz]
+        request.reconcilePredictors()
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("dormant-hotspot-\(UUID().uuidString).yaml")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try TemplateWriter.write(request, to: url)
+        let yaml = try String(contentsOf: url, encoding: .utf8)
+        expect(!yaml.contains("target_epitope_residues"),
+               "a non-Boltz campaign passed an unsupported epitope restraint")
+        expect(value(after: "--predictor", in: arguments(request)) == "intellifold",
+               "non-Boltz campaign was not routed to its selected engine")
     }
 
     static func testValidationAndDependencies() {
@@ -235,10 +297,13 @@ struct IterativeCommandContractHarness {
 
     static func main() async throws {
         try testBoltzProteinHotspots()
+        try testProtenixConstraintPocket()
         try testMultimerTargetMapping()
         testPostChecksAndModels()
         testCanonicalCheckers()
         testDesignerSeeds()
+        testExplicitResumeContract()
+        try testDormantHotspotsAreNotPassed()
         testValidationAndDependencies()
         try await testMultipleCheckersRemainVisible()
         if failures.isEmpty {

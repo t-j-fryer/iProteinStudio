@@ -62,6 +62,7 @@ LIGAND_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_ligandmpnn"
 ANTIFOLD_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_antifold"
 INTELLIFOLD_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_intellifold"
 PROTENIX_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_protenix"
+PROTENIX_CONSTRAINT_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_protenix_constraint"
 OPENFOLD_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_openfold3_mlx"
 
 BOLTZ_CLI="boltz"
@@ -69,6 +70,7 @@ INTELLIFOLD_CLI="intellifold"
 OPENFOLD_CLI="run_openfold"
 INTELLIFOLD_CACHE_DIR="${INTELLIFOLD_CACHE:-${REPO_ROOT}/models/intellifold}"
 PROTENIX_MODEL_DIR="${PROTENIX_ROOT_DIR:-${REPO_ROOT}/models/protenix}"
+PROTENIX_CONSTRAINT_MODEL_DIR="${REPO_ROOT}/models/protenix_constraint"
 PROTENIX_ADAPTER="${REPO_ROOT}/scripts/protenix_predict.py"
 OPENFOLD_CACHE_DIR="${OPENFOLD_CACHE:-${REPO_ROOT}/models/openfold3}"
 OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_CACHE_DIR}/of3_ft3_v1.pt"
@@ -308,7 +310,7 @@ Core:
   --workflow MODE                  protein | nanobody (default: ${WORKFLOW})
                                    protein: generic binders, motifs, partial redesign, ligands
                                    nanobody: fixed VHH scaffold with exact CDR-only redesign
-  --predictor TOOL                 boltz | protenix-v2 | protenix-mini | intellifold | openfold-3-mlx
+  --predictor TOOL                 boltz | protenix-constraint-v0.5 | protenix-v2 | protenix-mini | intellifold | openfold-3-mlx
   --sequence-designer TOOL         auto | proteinmpnn | solublempnn | ligandmpnn | lasermpnn | abmpnn | antifold
                                    (lasermpnn: small-molecule minibinders only; --workflow protein + ligand; CPU-only)
                                    default: ${SEQUENCE_DESIGNER}
@@ -401,7 +403,7 @@ Design controls:
   --antifold-seed N                base AntiFold seed; run/cycle offsets are added
   --mpnn-seed N                    base ProteinMPNN-family seed; run/cycle offsets are added
   --lasermpnn-seed N               base LASErMPNN seed; run/cycle offsets are added
-  --target-epitope-residues STR    target residues for Boltz constraints, e.g. "B6,B8,B9"
+  --target-epitope-residues STR    target residues for Boltz or Protenix Constraint, e.g. "B6,B8,B9"
   --boltz-contact-distance X       max CDR3/epitope contact distance in Angstrom (default: ${BOLTZ_CONTACT_DISTANCE})
   --boltz-epitope-distance X       alias of --boltz-contact-distance
   --boltz-contact-mode MODE        auto | none | pocket | cdr3 | pocket+cdr3 (default: ${BOLTZ_CONTACT_MODE})
@@ -456,6 +458,7 @@ norm_predictor() {
     intellifold) echo "intellifold" ;;
     protenix-v2|protenixv2|protenix_v2) echo "protenix-v2" ;;
     protenix-mini|protenixmini|protenix_mini) echo "protenix-mini" ;;
+    protenix-constraint-v0.5|protenix-constraint|protenix_constraint_v0_5|protenix_constraint) echo "protenix-constraint-v0.5" ;;
     openfold-3-mlx|openfold3|openfold|of3) echo "openfold-3-mlx" ;;
     alphafold3|alphafold-3|af3|intellifold-jax|intellifold_jax)
       echo "Retired predictor: $1 (Metal quality-control failure)." >&2
@@ -667,6 +670,7 @@ safe_predictor_name() {
     intellifold) echo "intellifold" ;;
     protenix-v2) echo "protenix_v2" ;;
     protenix-mini) echo "protenix_mini" ;;
+    protenix-constraint-v0.5) echo "protenix_constraint_v0_5" ;;
     openfold-3-mlx) echo "openfold3" ;;
     none) echo "none" ;;
     *) return 1 ;;
@@ -932,7 +936,7 @@ case "${TARGET_MSA_GENERATOR}" in
     case "${PREDICTOR}" in
       boltz) TARGET_MSA_GENERATOR="boltz" ;;
       intellifold) TARGET_MSA_GENERATOR="intellifold" ;;
-      protenix-v2|protenix-mini) TARGET_MSA_GENERATOR="protenix" ;;
+      protenix-v2|protenix-mini|protenix-constraint-v0.5) TARGET_MSA_GENERATOR="protenix" ;;
       openfold-3-mlx) TARGET_MSA_GENERATOR="openfold" ;;
       *) die "Cannot infer target MSA generator for predictor ${PREDICTOR}" ;;
     esac
@@ -1001,6 +1005,8 @@ if [[ "${POST_MODE}" == "none" && "${POST_IPTM_THRESHOLD_SET}" -eq 1 \
 fi
 
 for _post in "${POST_PREDICTORS[@]:-}"; do
+  [[ "${_post}" != "protenix-constraint-v0.5" ]] \
+    || die "Protenix Constraint v0.5 is a guided design engine, not an independent post-predictor."
   if [[ -n "${_post}" && "${_post}" == "${PREDICTOR}" ]]; then
     die "--post-predictor must be independent of --predictor; ${_post} cannot check its own designs."
   fi
@@ -1017,7 +1023,7 @@ if [[ "${PREDICTOR}" == protenix-* ]]; then
 fi
 
 PROTENIX_SELECTED=0
-case "${PREDICTOR}" in protenix-v2|protenix-mini) PROTENIX_SELECTED=1 ;; esac
+case "${PREDICTOR}" in protenix-v2|protenix-mini|protenix-constraint-v0.5) PROTENIX_SELECTED=1 ;; esac
 for _protenix_check in "${POST_PREDICTORS[@]:-}"; do
   case "${_protenix_check}" in protenix-v2|protenix-mini) PROTENIX_SELECTED=1 ;; esac
 done
@@ -1055,8 +1061,9 @@ else
     die "Motif scaffolding and arbitrary partial redesign belong to --workflow protein; nanobody mode redesigns exact CDR positions."
   fi
 fi
-if [[ -n "${TARGET_EPITOPE_RESIDUES}" && "${PREDICTOR}" != "boltz" ]]; then
-  die "Target hotspot restraints require --predictor boltz; ${PREDICTOR} cannot honour them."
+if [[ -n "${TARGET_EPITOPE_RESIDUES}" && "${PREDICTOR}" != "boltz" \
+      && "${PREDICTOR}" != "protenix-constraint-v0.5" ]]; then
+  die "Target hotspot restraints require Boltz or Protenix Constraint v0.5; ${PREDICTOR} cannot honour them."
 fi
 
 if [[ "${MOTIF_SCAFFOLDING}" -eq 1 && "${PREDICTOR}" != "boltz" ]]; then
@@ -1101,7 +1108,7 @@ if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" ]]; then
     *) die "--design-scheduler cycle-wave supports protein and nanobody workflows." ;;
   esac
   case "${PREDICTOR}" in
-    boltz|intellifold|protenix-v2|protenix-mini|openfold-3-mlx) ;;
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx) ;;
     *) die "--design-scheduler cycle-wave does not support predictor ${PREDICTOR}." ;;
   esac
   if [[ "${WORKFLOW}" == "nanobody" && "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 ]]; then
@@ -1355,6 +1362,12 @@ require_predictor_venv() {
       [[ -f "${PROTENIX_ADAPTER}" ]] || die "Protenix adapter not found: ${PROTENIX_ADAPTER}"
       [[ -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix-v2.pt" ]] || die "Protenix v2 checkpoint is missing. Re-run setup."
       [[ -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix_mini_default_v0.5.0.pt" ]] || die "Protenix Mini checkpoint is missing. Re-run setup." ;;
+    protenix-constraint-v0.5)
+      [[ "${CPU_ONLY}" -eq 0 ]] || die "Protenix Constraint is GPU-only; --cpu-only is not available."
+      [[ -x "${PROTENIX_CONSTRAINT_VENV}/bin/python" ]] || die "Protenix Constraint venv not found: ${PROTENIX_CONSTRAINT_VENV}"
+      [[ -f "${PROTENIX_ADAPTER}" ]] || die "Protenix adapter not found: ${PROTENIX_ADAPTER}"
+      [[ -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint/protenix_base_constraint_v0.5.0.pt" ]] || die "Protenix Constraint checkpoint is missing. Re-run setup."
+      [[ -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" ]] || die "Protenix Constraint install receipt is missing. Repair the engine in Setup." ;;
     openfold-3-mlx)
       [[ -x "${OPENFOLD_VENV}/bin/python" ]] || die "OpenFold venv not found: ${OPENFOLD_VENV}"
       [[ -f "${OPENFOLD_A3M_QUERY_REWRITER}" ]] || die "OpenFold A3M query helper not found: ${OPENFOLD_A3M_QUERY_REWRITER}" ;;
@@ -2482,7 +2495,12 @@ for line in Path(template).read_text().splitlines(keepends=True):
             continue
 
     if stripped in {"nanohunter:", "nano_hunter:", "NanoHunter:"} and not line.startswith((" ", "\t")):
-        skip_nanohunter_block = True
+        # The constraint adapter consumes this pocket metadata during design.
+        # Post-checks and other predictors remain explicitly unconstrained.
+        if predictor == "protenix-constraint-v0.5" and phase == "design":
+            out_lines.append(line)
+        else:
+            skip_nanohunter_block = True
         continue
 
     if stripped.startswith("- protein:"):
@@ -2925,7 +2943,7 @@ pick_target_msa_for_predictor() {
       fi
       return 0
       ;;
-    boltz|intellifold|protenix-v2|protenix-mini)
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5)
       if [[ "${msa_path##*.}" == "npz" ]]; then
         local a3m_path
         a3m_path="$(resolve_a3m_from_msa_path "${msa_path}")"
@@ -3188,16 +3206,22 @@ generate_protenix_auto_msa_cache() {
     echo "${cached_a3m}"
     return 0
   fi
-  [[ -x "${PROTENIX_VENV}/bin/python" ]] \
+  local msa_venv="${PROTENIX_VENV}" msa_model_dir="${PROTENIX_MODEL_DIR}" msa_profile="standard"
+  if [[ "${PREDICTOR}" == "protenix-constraint-v0.5" ]]; then
+    msa_venv="${PROTENIX_CONSTRAINT_VENV}"
+    msa_model_dir="${PROTENIX_CONSTRAINT_MODEL_DIR}"
+    msa_profile="constraint"
+  fi
+  [[ -x "${msa_venv}/bin/python" ]] \
     || { echo "ERROR: Protenix environment is not installed." >&2; return 1; }
   [[ -f "${REPO_ROOT}/scripts/protenix_msa.py" ]] \
     || { echo "ERROR: Protenix MSA adapter is missing." >&2; return 1; }
 
   set +e
-  PROTENIX_ROOT_DIR="${PROTENIX_MODEL_DIR}" \
-    "${PROTENIX_VENV}/bin/python" "${REPO_ROOT}/scripts/protenix_msa.py" \
+  PROTENIX_ROOT_DIR="${msa_model_dir}" \
+    "${msa_venv}/bin/python" "${REPO_ROOT}/scripts/protenix_msa.py" \
       --sequence "${seq}" --output "${cached_a3m}" \
-      --nanohunter-root "${REPO_ROOT}" --work-dir "${work_dir}" \
+      --nanohunter-root "${REPO_ROOT}" --work-dir "${work_dir}" --profile "${msa_profile}" \
       >"${log_path}" 2>&1
   local rc=$?
   set -e
@@ -3449,7 +3473,7 @@ make_masked_nanobody_scaffold_msa() {
     return 0
   fi
   case "${predictor}" in
-    boltz|intellifold|protenix-v2|protenix-mini|openfold-3-mlx) : ;;
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx) : ;;
     *) echo ""; return 0 ;;
   esac
   [[ -n "${NANOBODY_SCAFFOLD_MSA_BASE_A3M}" ]] || { echo ""; return 0; }
@@ -4496,10 +4520,16 @@ run_predict_protenix() {
   local pred_min="$4"
   local model="v2"
   [[ "${predictor}" == "protenix-mini" ]] && model="mini"
+  local protenix_venv="${PROTENIX_VENV}" protenix_model_dir="${PROTENIX_MODEL_DIR}"
+  if [[ "${predictor}" == "protenix-constraint-v0.5" ]]; then
+    model="constraint"
+    protenix_venv="${PROTENIX_CONSTRAINT_VENV}"
+    protenix_model_dir="${PROTENIX_CONSTRAINT_MODEL_DIR}"
+  fi
 
   mkdir -p "${out_dir}" "${pred_min}"
-  PROTENIX_ROOT_DIR="${PROTENIX_MODEL_DIR}" \
-    "${PROTENIX_VENV}/bin/python" "${PROTENIX_ADAPTER}" \
+  PROTENIX_ROOT_DIR="${protenix_model_dir}" \
+    "${protenix_venv}/bin/python" "${PROTENIX_ADAPTER}" \
       --yaml "${input_yaml}" --output "${out_dir}" \
       --nanohunter-root "${REPO_ROOT}" --model "${model}" \
       >"${out_dir}/predict.log" 2>&1 \
@@ -4772,7 +4802,7 @@ run_predictor_once() {
     intellifold)
       run_predict_intellifold "${cycle_yaml}" "${cycle_dir}/intellifold" "${pred_min}"
       ;;
-    protenix-v2|protenix-mini)
+    protenix-v2|protenix-mini|protenix-constraint-v0.5)
       run_predict_protenix "${predictor}" "${cycle_yaml}" "${cycle_dir}/${predictor}" "${pred_min}"
       ;;
     openfold-3-mlx)
@@ -6771,7 +6801,7 @@ print(max(1,min(cap,runs)))
 PY
 )"
         ;;
-      protenix-v2|protenix-mini)
+      protenix-v2|protenix-mini|protenix-constraint-v0.5)
         AUTO_MAX_BY_MPS=1
         ;;
     esac

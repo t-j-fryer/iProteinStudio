@@ -26,6 +26,17 @@ struct RunResultsView: View {
         items.first { $0.id == selectedID } ?? items.first
     }
 
+    private var iterativeHitSummary: String? {
+        guard workflow == .iterative, !items.isEmpty else { return nil }
+        let threshold = RunResultsLoader.iterativeHitThreshold(root: root)
+        func passes(_ item: StudioResultItem) -> Bool {
+            item.metrics.first { $0.kind == .iptm }.map { $0.value >= threshold } ?? false
+        }
+        let design = items.filter { $0.stage == .design && passes($0) }.count
+        let checked = items.filter { $0.stage == .postPrediction && passes($0) }.count
+        return "\(design) design-stage hit\(design == 1 ? "" : "s") · \(checked) post-check hit\(checked == 1 ? "" : "s") at iPTM ≥ \(String(format: "%.2f", threshold))"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -60,6 +71,9 @@ struct RunResultsView: View {
                 Text(title).font(.headline)
                 Text("\(items.count) viewable structure\(items.count == 1 ? "" : "s")")
                     .font(.caption).foregroundStyle(.secondary)
+                if let iterativeHitSummary {
+                    Text(iterativeHitSummary).font(.caption2).foregroundStyle(.secondary)
+                }
             }
             Spacer()
             Button {
@@ -179,6 +193,9 @@ private struct RunResultDetail: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title).font(.headline)
                 Text(item.subtitle).font(.caption).foregroundStyle(.secondary)
+                Label("Scores reported by \(item.scoreSource) · \(item.stage.label)",
+                      systemImage: "checkmark.seal")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
             Spacer()
             if let confidence = item.confidenceURL {
@@ -228,7 +245,8 @@ private struct MetricTile: View {
         case .plddt, .ptm: return .blue
         case .iptm, .meanIPTM, .minimumIPTM: return .green
         case .ipsaeMinimum: return .teal
-        case .interfacePAEMinimum, .interfacePDE: return .orange
+        case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance: return .orange
+        case .pocketFractionWithinCutoff: return .indigo
         case .bindingProbability: return .purple
         case .rankingScore: return .secondary
         }

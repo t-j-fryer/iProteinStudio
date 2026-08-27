@@ -33,6 +33,9 @@ struct LiveDashboardView: View {
         Set(validationHits.map { "\($0.run)-\($0.cycle)" }).count
     }
     private var bestIPTM: Double { designPoints.map(\.iptm).max() ?? 0 }
+    private var designScoreSource: String {
+        designPoints.first?.predictorLabel ?? project.request.designPredictor.label
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -70,7 +73,7 @@ struct LiveDashboardView: View {
                                         retryTitle: "Retry from checkpoints", retry: run.retry,
                                         output: run.campaignRoot, log: run.log)
                 }
-                Card(title: "Design iPTM by cycle", systemImage: "chart.xyaxis.line") {
+                Card(title: "Design iPTM by cycle · \(designScoreSource)", systemImage: "chart.xyaxis.line") {
                     MetricsChartsView(points: designPoints, threshold: threshold)
                 }
                 if case .failed = run.phase { EmptyView() }
@@ -129,9 +132,9 @@ struct LiveDashboardView: View {
     private var statTiles: some View {
         HStack(spacing: 12) {
             StatTile(title: "Designs", value: "\(designPoints.count)", systemImage: "square.stack.3d.up", tint: .blue)
-            StatTile(title: "Design hits", value: "\(designHits.count)", systemImage: "trophy", tint: .green)
+            StatTile(title: "Design hits · \(designScoreSource)", value: "\(designHits.count)", systemImage: "trophy", tint: .green)
             StatTile(title: "Pass ≥1 check", value: "\(confirmedDesignCount)", systemImage: "checkmark.seal", tint: .teal)
-            StatTile(title: "Best iPTM", value: bestIPTM > 0 ? String(format: "%.3f", bestIPTM) : "—", systemImage: "star", tint: .yellow)
+            StatTile(title: "Best iPTM · \(designScoreSource)", value: bestIPTM > 0 ? String(format: "%.3f", bestIPTM) : "—", systemImage: "star", tint: .yellow)
         }
     }
 }

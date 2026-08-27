@@ -80,14 +80,16 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--nanohunter-root", type=Path, required=True)
     parser.add_argument("--work-dir", type=Path, required=True)
+    parser.add_argument("--profile", choices=("standard", "constraint"), default="standard")
     args = parser.parse_args()
 
     sequence = canonical(args.sequence)
     if not sequence:
         raise SystemExit("Protenix MSA: sequence is empty")
     root = args.nanohunter_root.expanduser().resolve()
-    executable = root / "venvs" / "NanoHunter_protenix" / "bin" / "protenix"
-    source = root / "src" / "Protenix"
+    suffix = "protenix_constraint" if args.profile == "constraint" else "protenix"
+    executable = root / "venvs" / f"NanoHunter_{suffix}" / "bin" / "protenix"
+    source = root / "src" / ("ProtenixConstraint" if args.profile == "constraint" else "Protenix")
     if not executable.is_file() or not source.is_dir():
         raise SystemExit("Protenix MSA: Protenix is not installed")
 
@@ -99,7 +101,7 @@ def main() -> None:
     fasta.write_text(f">query\n{sequence}\n")
     environment = dict(os.environ)
     environment.update({
-        "PROTENIX_ROOT_DIR": str(root / "models" / "protenix"),
+        "PROTENIX_ROOT_DIR": str(root / "models" / suffix),
         "MPLCONFIGDIR": str(root / "matplotlib_cache"),
     })
     completed = subprocess.run(

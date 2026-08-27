@@ -16,6 +16,7 @@ final class MetricsWatcher: ObservableObject {
     private var timer: Timer?
     private var seen = Set<String>()
     private var root: URL?
+    private var designPredictor = "unknown"
 
     /// Distinct design-run numbers seen so far, ascending.
     var runNumbers: [Int] { Array(Set(designPoints.map(\.run))).sorted() }
@@ -27,6 +28,7 @@ final class MetricsWatcher: ObservableObject {
         self.designPoints = []
         self.validationPoints = []
         self.seen = []
+        self.designPredictor = recordedDesignPredictor(at: root) ?? "unknown"
         scan()
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.scan() }
@@ -57,8 +59,8 @@ final class MetricsWatcher: ObservableObject {
                     let c = line.components(separatedBy: ",")
                     guard c.count >= 6, let iptm = Double(c[1]) else { continue }
                     let cycle = Int(c[0]) ?? 0
-                    if insert(.design, "", runNum, cycle) {
-                        designPoints.append(DesignPoint(stage: .design, predictor: "", run: runNum, cycle: cycle,
+                    if insert(.design, designPredictor, runNum, cycle) {
+                        designPoints.append(DesignPoint(stage: .design, predictor: designPredictor, run: runNum, cycle: cycle,
                             iptm: iptm, ipsaeMinimum: ipsaeMinimum(at: c[3]),
                             plddt: Double(c[2]) ?? .nan, sequence: c[5], structurePath: c[4]))
                         addedDesign = true
@@ -114,6 +116,16 @@ final class MetricsWatcher: ObservableObject {
         if let number = object["ipsae_min"] as? NSNumber { return number.doubleValue }
         if let text = object["ipsae_min"] as? String { return Double(text) }
         return nil
+    }
+
+    private func recordedDesignPredictor(at root: URL) -> String? {
+        let url = root.appendingPathComponent("studio_run.json")
+        guard let data = try? Data(contentsOf: url),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let arguments = object["arguments"] as? [String],
+              let index = arguments.firstIndex(of: "--predictor"),
+              arguments.indices.contains(index + 1) else { return nil }
+        return arguments[index + 1]
     }
 }
 

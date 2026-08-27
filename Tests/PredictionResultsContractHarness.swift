@@ -71,6 +71,44 @@ struct PredictionResultsContractHarness {
                           userInfo: [NSLocalizedDescriptionKey:
                             "ipSAE(min) was not shown from saved confidence JSON"])
         }
+
+
+        // An interrupted iterative campaign has no final comparison table yet.
+        // Its per-cycle design and checker checkpoints must still reopen with
+        // the engine that actually emitted each score.
+        let iterative = fm.temporaryDirectory
+            .appendingPathComponent("iterative-results-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fm.removeItem(at: iterative) }
+        let designRoot = iterative.appendingPathComponent("run_001/cycle_01", isDirectory: true)
+        let postRoot = iterative.appendingPathComponent("run_001/post_intellifold/cycle_01", isDirectory: true)
+        try fm.createDirectory(at: designRoot, withIntermediateDirectories: true)
+        try fm.createDirectory(at: postRoot, withIntermediateDirectories: true)
+        let designStructure = designRoot.appendingPathComponent("model.cif")
+        let postStructure = postRoot.appendingPathComponent("model.cif")
+        try "data_design\n".write(to: designStructure, atomically: true, encoding: .utf8)
+        try "data_post\n".write(to: postStructure, atomically: true, encoding: .utf8)
+        try "cycle,iptm,complex_plddt,confidence_json,structure_path,binder_sequence\n1,0.81,0.77,,\(designStructure.path),AAAA\n"
+            .write(to: iterative.appendingPathComponent("run_001/metrics_per_cycle.csv"),
+                   atomically: true, encoding: .utf8)
+        try "run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json\n1,1,0.74,0.72,AAAA,\(postStructure.path),\n"
+            .write(to: postRoot.appendingPathComponent("post_metrics_row.csv"),
+                   atomically: true, encoding: .utf8)
+        let manifest = ["arguments": ["--predictor", "protenix-v2", "--iptm-threshold", "0.75"]]
+        try JSONSerialization.data(withJSONObject: manifest).write(
+            to: iterative.appendingPathComponent("studio_run.json"))
+
+        let partial = RunResultsLoader.load(root: iterative, workflow: .iterative)
+        guard partial.count == 2,
+              partial.contains(where: { $0.stage == .design && $0.scoreSource == "Protenix v2" }),
+              partial.contains(where: { $0.stage == .postPrediction && $0.scoreSource == "IntelliFold PyTorch" }) else {
+            throw NSError(domain: "PredictionResultsContract", code: 6,
+                          userInfo: [NSLocalizedDescriptionKey:
+                            "Interrupted iterative checkpoints lost result or score provenance: \(partial.map { "\($0.stage.rawValue):\($0.scoreSource)" })"])
+        }
+        guard abs(RunResultsLoader.iterativeHitThreshold(root: iterative) - 0.75) < 1e-12 else {
+            throw NSError(domain: "PredictionResultsContract", code: 7,
+                          userInfo: [NSLocalizedDescriptionKey: "Recorded iterative hit threshold was not restored"])
+        }
         print("PASS prediction result discovery contract")
     }
 }

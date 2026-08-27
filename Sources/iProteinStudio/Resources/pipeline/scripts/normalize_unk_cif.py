@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 
-PROTENIX_PREDICTORS = {"protenix-v2", "protenix-mini"}
+PROTENIX_PREDICTORS = {"protenix-v2", "protenix-mini", "protenix-constraint-v0.5"}
 PROTENIX_ALA_ATOMS = {"N", "CA", "C", "O", "CB", "OXT"}
 REQUIRED_ALA_ATOMS = {"N", "CA", "C", "O", "CB"}
 

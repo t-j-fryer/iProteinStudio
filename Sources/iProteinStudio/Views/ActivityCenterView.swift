@@ -116,12 +116,14 @@ struct ActivityCenterView: View {
                     .disabled(hasLiveActivity)
                     .help(hasLiveActivity ? "Stop the active GPU job before resuming this run." : "Continue from completed checkpoints")
             }
-            if record.state == .completed {
+            if record.hasViewableResults {
                 Button { selectedResults = record } label: {
                     Label("View", systemImage: "cube.transparent")
                 }
                 .controlSize(.small)
-                .help("View structures and metrics")
+                .help(record.state == .completed
+                      ? "View structures and metrics"
+                      : "View structures and metrics produced before this run stopped")
                 .accessibilityLabel("View results for \(record.name)")
             }
             Button { NSWorkspace.shared.activateFileViewerSelecting([record.root]) } label: {

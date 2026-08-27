@@ -78,6 +78,7 @@ struct StudioRunRecord: Identifiable, Hashable {
     var state: StudioRunState
     var detail: String
     var manifestURL: URL?
+    var hasViewableResults: Bool
 
     var isResumable: Bool {
         workflow == .iterative && manifestURL != nil
@@ -136,13 +137,25 @@ final class RunHistoryStore: ObservableObject {
             }
             let detail = runDirs.isEmpty ? "Campaign settings saved"
                 : "\(exitCodes.filter { $0 == 0 }.count) of \(runDirs.count) design units completed"
+            let recordedResults = csvRowCount(candidate.appendingPathComponent("comparison_scores_long.csv"))
+                + csvRowCount(candidate.appendingPathComponent("summary_all_runs.csv"))
+                + runDirs.reduce(0) { partial, directory in
+                    partial + csvRowCount(directory.appendingPathComponent("metrics_per_cycle.csv"))
+                        + directories(in: directory).filter { $0.lastPathComponent.hasPrefix("post_") }
+                            .reduce(0) { postTotal, postRoot in
+                                postTotal + directories(in: postRoot).reduce(0) { cycleTotal, cycleRoot in
+                                    cycleTotal + csvRowCount(cycleRoot.appendingPathComponent("post_metrics_row.csv"))
+                                }
+                            }
+                }
             return StudioRunRecord(projectID: project.id, projectName: project.name,
                                    workflow: .iterative,
                                    name: manifest?.runName ?? candidate.lastPathComponent,
                                    root: candidate,
                                    date: manifest?.createdAt ?? fileDate(candidate), state: state,
                                    detail: detail,
-                                   manifestURL: manifest == nil ? nil : manifestURL)
+                                   manifestURL: manifest == nil ? nil : manifestURL,
+                                   hasViewableResults: recordedResults > 0)
         }
     }
 
@@ -166,7 +179,7 @@ final class RunHistoryStore: ObservableObject {
                                    workflow: .prediction, name: candidate.lastPathComponent,
                                    root: candidate, date: fileDate(candidate), state: state,
                                    detail: completed ? "\(results) result(s), \(failures) failed" : "Settings saved; no final summary",
-                                   manifestURL: nil)
+                                   manifestURL: nil, hasViewableResults: results > 0)
         }
     }
 
@@ -184,6 +197,8 @@ final class RunHistoryStore: ObservableObject {
             let current = progress?["current_stage"] as? String
             let pidAlive = processIsAlive(candidate.appendingPathComponent("campaign.pid"))
             let hasResults = AppPaths.fm.fileExists(atPath: candidate.appendingPathComponent("analysis/top100.csv").path)
+            let hasViewableResults = AppPaths.fm.fileExists(
+                atPath: candidate.appendingPathComponent("analysis/top100_manifest.json").path)
             let state: StudioRunState
             if pidAlive { state = .running }
             else if hasResults || completed.contains("score") || completed.contains("rmsd") { state = .completed }
@@ -196,7 +211,8 @@ final class RunHistoryStore: ObservableObject {
             return StudioRunRecord(projectID: project.id, projectName: project.name,
                                    workflow: .rfdiffusion3, name: candidate.lastPathComponent,
                                    root: candidate, date: fileDate(candidate), state: state,
-                                   detail: detail, manifestURL: nil)
+                                   detail: detail, manifestURL: nil,
+                                   hasViewableResults: hasViewableResults)
         }
     }
 

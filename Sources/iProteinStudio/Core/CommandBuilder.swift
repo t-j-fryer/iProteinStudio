@@ -80,9 +80,6 @@ enum CommandBuilder {
             }
             args += ["--post-predictor", postPredictors.map(\.runnerValue).joined(separator: ","),
                      "--post-mode", postMode]
-            if request.postCheckScope == .allCycles {
-                args.append("--post-include-cycle00")
-            }
             if request.postOnlyHits {
                 args += ["--post-iptm-threshold", String(format: "%.2f", request.hitThreshold)]
             }

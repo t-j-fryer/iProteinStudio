@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-08-25_
+_Last updated: 2026-08-27_
 
 | | |
 |---|---|
@@ -42,7 +42,8 @@ separation, conformer ensembles weighed against experimental PDB structures, and
 design budget split across the shapes a molecule actually adopts, with directed
 core-to-linker bonds, annotated RFD atom names, reviewed condition suggestions and
 stereochemistry-safe PDB evidence; choice of design predictor (Boltz-2 ± potentials,
-Protenix v2/Mini, or IntelliFold PyTorch v2-flash/full v2)
+experimental Protenix Constraint v0.5 pocket proposals, Protenix v2/Mini, or
+IntelliFold PyTorch v2-flash/full v2)
 with IntelliFold or OpenFold-3 orthogonal checking; measured-optimum scheduling
 delegated to NanoHunter's runner; a pinned standalone installation that does not
 need a sibling checkout, with explicit reuse of an existing NanoHunter/RFD3
@@ -99,6 +100,9 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0041 | 2026-08-27 | [Exclude the unoptimized seed from iterative re-checks](lab_book/0041-exclude-cycle00-from-post-checks.md) | “All design cycles” now means optimized cycles 01 through N in the UI, command contract and runtime estimate; cycle 00 remains an explicit CLI-only diagnostic opt-in |
+| 0040 | 2026-08-27 | [Add Protenix Constraint v0.5 as an honest experimental pocket engine](lab_book/0040-protenix-constraint-pocket-engine.md) | Isolated ESM-free native-MPS install, exact pocket handoff and result geometry; one installed 10×200 acceptance reproduced the prior weak alternative-pocket response rather than overstating it |
+| 0039 | 2026-08-26 | [Make iterative resume, score provenance and partial results explicit](lab_book/0039-resume-provenance-and-persistent-results.md) | Explicit Resume semantics, measured checkpoint reuse, browseable interrupted outputs, per-score engine/stage provenance, non-Boltz full-target design and Target Prep layout |
 | 0038 | 2026-08-25 | [Unify multichain input and backend routing](lab_book/0038-unify-multichain-input.md) | Colon syntax, visible chain assignment, reserved binder-chain conventions, per-subunit MSAs, chain-qualified hotspots and RFdiffusion3 PDB/mmCIF normalization |
 | 0037 | 2026-08-25 | [Normalize Protenix unknown-residue handoffs](lab_book/0037-normalize-protenix-unk-handoffs.md) | Why Protenix `UNK` cannot be renamed textually, the chain-scoped alanine repair, and why backbone-only SolubleMPNN campaigns do not require restarting |
 | 0036 | 2026-08-23 | [Add conservative ipSAE(min) scoring from real PAE outputs](lab_book/0036-add-conservative-ipsae-scoring.md) | The exact directional-minimum definition, PAE-capable engine routes, Protenix full-confidence requirement, fail-loud exclusions and unchanged design rank policy |

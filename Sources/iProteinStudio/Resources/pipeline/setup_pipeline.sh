@@ -8,6 +8,8 @@
 #   Core     Boltz-2 · LigandMPNN family (+AbMPNN) · AntiFold · IntelliFold
 #   Optional --with-openfold3        OpenFold-3-MLX      (~2.1 GB checkpoint)
 #            --with-protenix         Protenix v2 + Mini   (native MPS, GPU-only)
+#            --with-protenix-constraint
+#                                    Protenix Constraint v0.5 (experimental)
 #            --with-rfd3             RFdiffusion3 on MLX (~1.3 GB checkpoint)
 #
 # Reuse instead of reinstall:
@@ -54,6 +56,7 @@ WITH_BOLTZ=0
 WITH_ANTIFOLD=0
 WITH_INTELLIFOLD=0
 WITH_PROTENIX=0
+WITH_PROTENIX_CONSTRAINT=0
 WITH_OPENFOLD3=0
 WITH_RFD3=0
 WITH_LASERMPNN=0
@@ -69,6 +72,7 @@ while [[ $# -gt 0 ]]; do
     --with-antifold)        WITH_ANTIFOLD=1; shift ;;
     --with-intellifold)     WITH_INTELLIFOLD=1; shift ;;
     --with-protenix)        WITH_PROTENIX=1; shift ;;
+    --with-protenix-constraint) WITH_PROTENIX_CONSTRAINT=1; shift ;;
     --with-openfold3)       WITH_OPENFOLD3=1; shift ;;
     --with-alphafold3|--with-intellifold-jax)
       echo "NHFAIL|AlphaFold 3 and IntelliFold JAX were retired after Metal quality-control failures."
@@ -77,7 +81,7 @@ while [[ $# -gt 0 ]]; do
     --link-existing)        LINK_EXISTING="$2"; shift 2 ;;
     --materialise|--materialize) MATERIALISE=1; shift ;;
     --all)                  WITH_BOLTZ=1; WITH_ANTIFOLD=1; WITH_INTELLIFOLD=1
-                            WITH_OPENFOLD3=1; WITH_PROTENIX=1
+                            WITH_OPENFOLD3=1; WITH_PROTENIX=1; WITH_PROTENIX_CONSTRAINT=1
                             WITH_LASERMPNN=1; WITH_RFD3=1; shift ;;
     --with-lasermpnn)       WITH_LASERMPNN=1; shift ;;
     --link-rfd3)            LINK_RFD3="$2"; shift 2 ;;
@@ -93,16 +97,19 @@ LIGAND_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_ligandmpnn"
 ANTIFOLD_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_antifold"
 INTELLIFOLD_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_intellifold"
 PROTENIX_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_protenix"
+PROTENIX_CONSTRAINT_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_protenix_constraint"
 OPENFOLD_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_openfold3_mlx"
 LIGANDMPNN_REPO="${SRC_DIR}/LigandMPNN"
 ANTIFOLD_REPO="${SRC_DIR}/AntiFold"
 INTELLIFOLD_REPO="${SRC_DIR}/IntelliFold"
 PROTENIX_REPO="${SRC_DIR}/Protenix"
+PROTENIX_CONSTRAINT_REPO="${SRC_DIR}/ProtenixConstraint"
 OPENFOLD_REPO="${SRC_DIR}/openfold-3-mlx"
 BOLTZ_MODEL_DIR="${NANOHUNTER_ROOT}/models/boltz2"
 NUMBA_CACHE_DIR="${NANOHUNTER_ROOT}/numba_cache"
 INTELLIFOLD_MODEL_DIR="${NANOHUNTER_ROOT}/models/intellifold"
 PROTENIX_MODEL_DIR="${NANOHUNTER_ROOT}/models/protenix"
+PROTENIX_CONSTRAINT_MODEL_DIR="${NANOHUNTER_ROOT}/models/protenix_constraint"
 OPENFOLD_MODEL_DIR="${NANOHUNTER_ROOT}/models/openfold3"
 OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_MODEL_DIR}/of3_ft3_v1.pt"
 RFD3_ROOT="${NANOHUNTER_ROOT}/rfd3"
@@ -113,7 +120,9 @@ RFD3_WEIGHTS_PATH="${RFD3_ROOT}/weights/rfd3_core.safetensors"
 STUDIO_RFD3_OVERLAY="${NANOHUNTER_ROOT}/rfd3_overlay"
 INTELLIFOLD_STUDIO_PATCH="${NANOHUNTER_ROOT}/patches/intellifold_pytorch_mps.patch"
 PROTENIX_STUDIO_PATCH="${NANOHUNTER_ROOT}/patches/protenix_mps.patch"
+PROTENIX_CONSTRAINT_PATCH="${NANOHUNTER_ROOT}/patches/protenix_constraint_mps.patch"
 PROTENIX_LOCK="${NANOHUNTER_ROOT}/requirements-protenix-mps-lock.txt"
+PROTENIX_CONSTRAINT_LOCK="${NANOHUNTER_ROOT}/requirements-protenix-constraint-mps-lock.txt"
 VERIFIED_DOWNLOADER="${NANOHUNTER_ROOT}/scripts/download_verified.py"
 
 step()  { echo "NHSTEP|$1|$2|$3"; }
@@ -176,6 +185,15 @@ detect() {
     state protenix ok "Protenix v2 and Mini with managed checkpoints and chemical data"
   else
     state protenix missing "environment, v2/Mini checkpoint, or chemical data absent"
+  fi
+  if [[ -x "${PROTENIX_CONSTRAINT_VENV}/bin/protenix" \
+     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint/protenix_base_constraint_v0.5.0.pt" \
+     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/common/components.cif" \
+     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/common/components.cif.rdkit_mol.pkl" \
+     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" ]]; then
+    state protenix_constraint ok "Protenix Constraint v0.5 (native MPS, strict ESM-free profile)"
+  else
+    state protenix_constraint missing "isolated environment, constraint checkpoint, chemical data, or receipt absent"
   fi
   if [[ -x "${OPENFOLD_VENV}/bin/python" && -f "${OPENFOLD_CHECKPOINT_PATH}" ]]; then
     state openfold3 ok "OpenFold-3-MLX with checkpoint"
@@ -825,6 +843,99 @@ PY
 state intellifold ok "IntelliFold v2-flash and full v2 (PyTorch/MPS)"
 else
 state intellifold skipped "not requested"
+fi
+
+# ---- Protenix Constraint v0.5 (isolated native-MPS profile) ----
+# This is intentionally not installed into the v2/Mini runtime. The official
+# constraint checkpoint has no trained ESM projection and must be strict-loaded
+# with ESM disabled.
+if [[ "${WITH_PROTENIX_CONSTRAINT}" -eq 1 ]]; then
+  step protenix_constraint 61 "Installing Protenix Constraint v0.5 for the Apple GPU"
+  ensure_pinned_repo "Protenix Constraint" "https://github.com/bytedance/Protenix.git" \
+    "${PROTENIX_REV}" "${PROTENIX_CONSTRAINT_REPO}"
+  [[ -f "${PROTENIX_CONSTRAINT_PATCH}" ]] || fail "Bundled Protenix Constraint MPS patch is missing."
+  if git -C "${PROTENIX_CONSTRAINT_REPO}" apply --check "${PROTENIX_CONSTRAINT_PATCH}" >/dev/null 2>&1; then
+    git -C "${PROTENIX_CONSTRAINT_REPO}" apply "${PROTENIX_CONSTRAINT_PATCH}" \
+      || fail "Could not apply the validated Protenix Constraint MPS patch."
+  elif git -C "${PROTENIX_CONSTRAINT_REPO}" apply --reverse --check "${PROTENIX_CONSTRAINT_PATCH}" >/dev/null 2>&1; then
+    echo "  Protenix Constraint MPS patch already applied"
+  else
+    fail "Protenix Constraint source does not match the validated patch base."
+  fi
+  [[ -f "${PROTENIX_CONSTRAINT_LOCK}" ]] || fail "Constraint dependency lock is missing."
+  [[ -f "${VERIFIED_DOWNLOADER}" ]] || fail "Bundled verified downloader is missing."
+  [[ -d "${PROTENIX_CONSTRAINT_VENV}" ]] \
+    || "${INTELLIFOLD_PYTHON_BIN}" -m venv "${PROTENIX_CONSTRAINT_VENV}" \
+    || fail "Protenix Constraint venv creation failed (Python 3.12 is required)."
+  "${PROTENIX_CONSTRAINT_VENV}/bin/pip" install --upgrade pip >/dev/null \
+    || fail "pip upgrade failed (Protenix Constraint)."
+  "${PROTENIX_CONSTRAINT_VENV}/bin/pip" install -r "${PROTENIX_CONSTRAINT_LOCK}" >/dev/null \
+    || fail "Protenix Constraint locked dependency install failed."
+  "${PROTENIX_CONSTRAINT_VENV}/bin/pip" install --no-deps -e "${PROTENIX_CONSTRAINT_REPO}" >/dev/null \
+    || fail "Protenix Constraint source install failed."
+  if "${PROTENIX_CONSTRAINT_VENV}/bin/python" -c 'import importlib.metadata; importlib.metadata.version("fair-esm")' >/dev/null 2>&1; then
+    fail "Constraint-only profile unexpectedly contains fair-esm; refusing an ambiguous runtime."
+  fi
+
+  mkdir -p "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint" "${PROTENIX_CONSTRAINT_MODEL_DIR}/common"
+  download_protenix_constraint() {
+    local relative="$1" url="$2" checksum="$3" label="$4" start="$5" end="$6"
+    "${PROTENIX_CONSTRAINT_VENV}/bin/python" "${VERIFIED_DOWNLOADER}" \
+      --url "${url}" --sha256 "${checksum}" \
+      --output "${PROTENIX_CONSTRAINT_MODEL_DIR}/${relative}" --label "${label}" \
+      --progress-key protenix_constraint --progress-start "${start}" --progress-end "${end}" \
+      || fail "Could not download or verify ${label}. The partial file was retained for resume."
+  }
+  download_protenix_constraint "checkpoint/protenix_base_constraint_v0.5.0.pt" \
+    "https://protenix.tos-cn-beijing.volces.com/checkpoint/protenix_base_constraint_v0.5.0.pt" \
+    "5358025b20b2212853ad75579be04387859557915f398a1d60f6a1a9a0c8c887" \
+    "Protenix Constraint v0.5 checkpoint" 61 63
+  [[ "$(stat -f%z "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint/protenix_base_constraint_v0.5.0.pt")" == "1475206741" ]] \
+    || fail "Protenix Constraint checkpoint size does not match the validated release."
+  download_protenix_constraint "common/components.cif" \
+    "https://protenix.tos-cn-beijing.volces.com/common/components.cif" \
+    "bb31ae5cf6c8bc669924313077cb4231ee5ffefd3a20118cd14f3ec89f8bb6a5" \
+    "Protenix Constraint chemical components" 63 63
+  download_protenix_constraint "common/components.cif.rdkit_mol.pkl" \
+    "https://protenix.tos-cn-beijing.volces.com/common/components.cif.rdkit_mol.pkl" \
+    "d1cfb71f5993a3ebea7c47877022d7f597bbfbaf86e28a4770e957da6c50cd35" \
+    "Protenix Constraint RDKit cache" 63 64
+  download_protenix_constraint "common/obsolete_release_date.csv" \
+    "https://protenix.tos-cn-beijing.volces.com/common/obsolete_release_date.csv" \
+    "a4f3f63ac5d7eebd78b07995cc669b9eccd6f5d8813c9492c9df02868893cf33" \
+    "Protenix Constraint obsolete-entry table" 64 64
+  download_protenix_constraint "common/clusters-by-entity-40.txt" \
+    "https://protenix.tos-cn-beijing.volces.com/common/clusters-by-entity-40.txt" \
+    "1ab4af905e75b382eda8dec59917dc3608bee0729e36b9e71baf860bbe86850c" \
+    "Protenix Constraint sequence clusters" 64 64
+
+  PROTENIX_ROOT_DIR="${PROTENIX_CONSTRAINT_MODEL_DIR}" \
+    "${PROTENIX_CONSTRAINT_VENV}/bin/python" - "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" \
+      "${PROTENIX_CONSTRAINT_REPO}" "${PROTENIX_CONSTRAINT_PATCH}" "${PROTENIX_CONSTRAINT_LOCK}" <<'PY' \
+    || fail "Protenix Constraint runtime audit failed."
+import hashlib, importlib.metadata, json, os, pathlib, subprocess, sys, torch
+receipt_path, source, patch, lock = map(pathlib.Path, sys.argv[1:])
+if os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK") == "1" or not torch.backends.mps.is_available():
+    raise SystemExit("native MPS is required and CPU fallback is forbidden")
+try:
+    importlib.metadata.version("fair-esm")
+except importlib.metadata.PackageNotFoundError:
+    pass
+else:
+    raise SystemExit("fair-esm is forbidden in the constraint profile")
+digest = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+payload = {"product": "Protenix Constraint v0.5 — Experimental",
+ "model": "protenix_base_constraint_v0.5.0",
+ "source_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip(),
+ "patch_sha256": digest(patch), "requirements_sha256": digest(lock),
+ "checkpoint_sha256": "5358025b20b2212853ad75579be04387859557915f398a1d60f6a1a9a0c8c887",
+ "python": sys.version.split()[0], "torch": torch.__version__,
+ "device_policy": "native-mps-fp32-no-cpu-fallback", "esm": "disabled-and-not-installed"}
+receipt_path.write_text(json.dumps(payload, indent=2) + "\n")
+PY
+  state protenix_constraint ok "Protenix Constraint v0.5 (native MPS, strict ESM-free profile)"
+else
+  state protenix_constraint skipped "not requested"
 fi
 
 # ---- Protenix v2 + Mini (native Apple MPS, no CPU fallback) ----
