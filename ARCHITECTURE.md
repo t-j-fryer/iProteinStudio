@@ -26,7 +26,7 @@ Sources/iProteinStudio/
   Core/             the engine (no SwiftUI):
     AppPaths          managed data dir + vendored-resource access + staging
     ScaffoldCatalog   reads examples/nanobody_scaffolds/catalog.tsv
-    TemplateWriter    DesignRequest -> Boltz/NanoHunter YAML (chain A scaffold, B target)
+    TemplateWriter    DesignRequest -> predictor/NanoHunter YAML (chain A binder, B/C… target)
     CommandBuilder    DesignRequest -> nanohunter_run.sh argv + environment
     ProcessRunner     Process wrapper: line streaming + cancel
     RunController     campaign lifecycle: template -> spawn -> phase/log
@@ -95,8 +95,10 @@ Missing alignments or requested predictors fail rather than being dropped.
 ~/.iproteinstudio/
   setup_pipeline.sh + scripts/   staged pipeline and helpers
   src/            pinned upstream source checkouts
-  models/         managed, verified checkpoints and model data
-  venvs/          NanoHunter_boltz, _ligandmpnn, _antifold, _intellifold
+  models/         managed, verified checkpoints and model data; the isolated
+                  Protenix constraint checkpoint lives in protenix_constraint/
+  venvs/          NanoHunter_boltz, _ligandmpnn, _antifold, _intellifold,
+                  _protenix, and the separate _protenix_constraint
   rfd3/           pinned RFdiffusion3 checkout with bundled overlay
   msa_cache/ + scaffold_msa_cache/  persistent alignments
   projects/<slug>/<run-name>/   pipeline --out-root for each campaign
@@ -105,9 +107,11 @@ Missing alignments or requested predictors fail rather than being dropped.
 
 The path is deliberately space-free: Python console-script shebangs fail under
 `Application Support`. The app **vendors** the pipeline, examples, IntelliFold
-and Protenix MPS patches and RFD3 overlay into its bundle, then stages them into the managed root,
-so a standalone install is independent of sibling source repos and old home
-directory model caches.
+and Protenix MPS patches/dependency locks and RFD3 overlay into its bundle, then
+stages them into the managed root, so a standalone install is independent of
+sibling source repos and old home-directory model caches. Protenix Constraint is
+an independent install component—venv, source and weights—because its official
+v0.5 checkpoint must run with ESM disabled and cannot share the v2/Mini profile.
 
 ## Live dashboard data flow
 
@@ -127,7 +131,7 @@ DesignForm ──▶ RunController.start
 
 A **hit** is any design with design-stage iPTM ≥ the user's threshold
 (default 0.70). The threshold is also passed to the runner as
-`--post-iptm-threshold` so the IntelliFold post stage matches.
+`--post-iptm-threshold` so every selected post-prediction stage matches.
 
 ## Defaults
 
@@ -135,9 +139,13 @@ Iterative design: Boltz-2 (design) + IntelliFold (independent check), AntiFold
 designer, `--max-parallel auto` with `--throughput-profile auto`, `--resume` on.
 The default setup installs Boltz-2, AntiFold, IntelliFold PyTorch/Metal and
 Protenix v2/Mini plus the unconditional MPNN family. OpenFold-3, LASErMPNN and
-RFdiffusion3 are opt-in. Protenix is one replaceable component (shared source,
-environment and chemical data) with two selectable model identities. It owns
-its MSA-server route and never brings Boltz as an install dependency.
+RFdiffusion3 are opt-in. Protenix v2/Mini is one replaceable component (shared
+source, environment and chemical data) with two selectable model identities. It
+owns its MSA-server route and never brings Boltz as an install dependency.
+Protenix Constraint v0.5 is another opt-in component: experimental, protein-only,
+design-only, isolated from v2/Mini, strict native MPS with no CPU fallback, and
+ineligible as an independent checker. Its 8 Å token-centre pocket prior is not
+the same quantity as Boltz's 6 Å contact setting.
 IntelliFold defaults to v2-flash; full v2 is an explicit per-run choice.
 AlphaFold 3 and IntelliFold JAX/Metal are retired and rejected at every launch
 boundary; legacy saved projects and results remain decodable.

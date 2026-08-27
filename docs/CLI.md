@@ -25,8 +25,14 @@ bash "$ROOT/setup_pipeline.sh" --all
 # Or pick engines individually
 bash "$ROOT/setup_pipeline.sh" --with-boltz --with-intellifold --with-rfd3
 
+# Add the experimental, design-only protein-epitope checkpoint
+bash "$ROOT/setup_pipeline.sh" --with-protenix-constraint
+
 # What is present
 bash "$ROOT/setup_pipeline.sh" --detect
+
+# List every supported component and its scope
+bash "$ROOT/setup_pipeline.sh" --help
 
 # Reuse an existing NanoHunter installation instead of downloading again
 bash "$ROOT/setup_pipeline.sh" --link-existing ~/NanoHunter --link-rfd3 ~/RFD3
@@ -37,6 +43,14 @@ bash "$ROOT/setup_pipeline.sh" --materialise
 
 AlphaFold 3 and `intellifold-jax` are retired. Setup and run entry points reject
 their old flags explicitly; IntelliFold's supported backend is PyTorch/Metal.
+
+`--with-protenix` installs the Protenix v2 and Mini prediction checkpoints.
+`--with-protenix-constraint` is deliberately separate: it creates
+`venvs/NanoHunter_protenix_constraint`, `src/ProtenixConstraint` and
+`models/protenix_constraint`, downloads and SHA-256 verifies
+`protenix_base_constraint_v0.5.0.pt`, and writes an install receipt recording the
+pinned source, patch, dependencies, checkpoint and native-MPS/no-fallback policy.
+It does not install ESM weights. `--all` includes both Protenix components.
 
 **The install path must not contain a space.** A Python console script carries an
 absolute shebang and the kernel splits it on whitespace, so a venv under
@@ -129,7 +143,8 @@ Flags worth knowing:
 | `--design-scheduler cycle-wave` | native batching for IntelliFold campaigns |
 | `--iptm-threshold 0.7` | defines campaign hits; Studio uses the same value to gate optional checking |
 | `--post-mode final-iptm` | independently checks only final-cycle designs that passed the gate; `final` checks every final design |
-| `--post-mode iptm --post-include-cycle00` | checks every passing checkpoint from cycle 00 onward; use `all` instead of `iptm` to disable the threshold gate |
+| `--post-mode iptm` | checks every passing optimized checkpoint from cycle 01 onward; use `all` instead of `iptm` to disable the threshold gate |
+| `--post-include-cycle00` | advanced CLI diagnostic opt-in for also checking the unoptimized seed; Studio never emits it |
 | `--model v2-flash` | choose `v2-flash` or the larger full `v2` IntelliFold model; omit when IntelliFold is not used |
 
 For target proteins, Studio's prediction, target-preparation, RFdiffusion3, and
@@ -159,6 +174,40 @@ Leave `--intellifold-buckets` alone. Its `auto` default resolves to the exact
 campaign token count, which is the single largest measured IntelliFold speed-up
 available; setting it explicitly undoes it.
 
+### Experimental Protenix Constraint pocket proposals
+
+Install the separate component above, select target residues in the same chain
+notation used by the GUI, and choose the dedicated design engine:
+
+```yaml
+nanohunter:
+  target_epitope_residues: [B34, B35]
+  protenix_pocket_max_distance: 8.0
+sequences:
+  - protein: {id: A, sequence: GGGGGGGGGG, msa: empty}
+  - protein: {id: B, sequence: HIKLMNPQRSTVWY, msa: target.a3m}
+version: 1
+```
+
+```bash
+"$ROOT/nanohunter_run.sh" \
+  --workflow protein --predictor protenix-constraint-v0.5 \
+  --sequence-designer solublempnn --template-yaml constraint_target.yaml \
+  --run-name constraint_campaign --num-runs 20 --num-opt-cycles 5 \
+  --target-msa-mode auto --target-msa-generator auto --require-target-msa \
+  --post-predictor boltz --post-mode final-iptm --resume
+```
+
+This route is protein-only and proposal-only. The adapter strict-loads the
+official v0.5 constraint checkpoint with ESM disabled, asserts native MPS, and
+uses the validated upstream 10 recycle × 200 sampling-step profile. The 8 Å
+value is a learned protein-token-centre (Cα) pocket prior, not the nearest-heavy-
+atom cutoff used to describe a physical contact. It is not interchangeable with
+Studio's 6 Å Boltz contact setting. The initial paired acceptance produced only
+weak alternative-pocket steering, so the engine remains explicitly experimental
+and cannot be selected as a post-predictor. Re-fold final designs with an
+independent unconstrained engine and inspect the resulting interface geometry.
+
 To target specific atoms of a small molecule, get the names Boltz will use —
 **they change when the affinity head is on**, because it standardises the SMILES
 first:
@@ -174,8 +223,11 @@ then write them into the template as a `pocket` constraint and run with
 Protein hotspot residues use the same high-level `nanohunter.target_epitope_residues`
 field for every binder type. `boltz_contact_mode: auto` resolves to a pocket plus
 CDR3-centre contact for nanobodies, and to the generic binder-pocket restraint
-for mini-binders and peptides. Hotspot restraints require Boltz as the design
-predictor; other engines fail clearly instead of ignoring them.
+for mini-binders and peptides when Boltz is selected. Protenix Constraint v0.5
+maps the same residues to its separate learned pocket prior. Other engines design
+against the full target: Studio keeps entered hotspots visible but dormant, and
+the CLI rejects any request that would silently claim to apply an unsupported
+restraint.
 
 ---
 
@@ -271,3 +323,9 @@ $ROOT/
   scaffold_msa_cache/        bundled deep MSAs for all seven nanobody scaffolds
   projects/<slug>/           durable, separately timestamped run outputs
 ```
+
+Protenix Constraint uses the explicit `_protenix_constraint`,
+`ProtenixConstraint` and `protenix_constraint` entries under `venvs/`, `src/`
+and `models/`, respectively. Removing that component from the Engines screen
+deletes only those managed runtime assets; workspaces, results and cached MSAs
+are retained.

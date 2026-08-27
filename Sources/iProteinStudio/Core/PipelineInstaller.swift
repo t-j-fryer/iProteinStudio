@@ -32,8 +32,9 @@ final class PipelineInstaller: ObservableObject {
     @Published var installed = AppPaths.isPipelineInstalled
     @Published var components: [InstallComponent: ComponentState] = [:]
     /// The practical default installation: the folding engine, nanobody
-    /// designer, independent checker, and unconditional MPNN family described
-    /// by onboarding. Heavy alternative predictors remain opt-in.
+    /// designer, independent checker, Protenix v2/Mini, and unconditional MPNN
+    /// family described by onboarding. Heavy alternatives and the experimental,
+    /// design-only Protenix Constraint checkpoint remain explicit opt-ins.
     @Published var optionalSelection: Set<InstallComponent> = [.boltz, .antifold, .intellifold, .protenix]
     /// An existing NanoHunter checkout found on this machine, if any.
     @Published var detectedNanoHunter: URL?

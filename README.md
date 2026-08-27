@@ -49,6 +49,7 @@ explicit disk-saving option.
 | | |
 |---|---|
 | Structure prediction | Boltz-2 (± steering potentials), Protenix v2/Mini on native MPS, IntelliFold PyTorch/Metal, OpenFold-3/MLX |
+| Epitope-guided iterative proposals | Boltz-2 steering potentials; experimental Protenix Constraint v0.5 pocket guidance on native MPS |
 | Sequence design | AntiFold, AbMPNN, ProteinMPNN, SolubleMPNN, LigandMPNN, LASErMPNN |
 | Backbone generation | RFdiffusion3 on MLX |
 
@@ -61,6 +62,16 @@ Protenix v2 is the accuracy-first option and Mini is a faster preview. They
 share one install and the same cached A3Ms, run only on the Apple GPU, and never
 fall back to CPU. Protenix can acquire a missing MSA through its own public
 server client; it does not require Boltz or local genetic databases.
+
+**Protenix Constraint v0.5 is separate and experimental.** It is an optional,
+design-only checkpoint for proposing protein binders toward a selected epitope;
+it is not installed with Protenix v2/Mini and cannot be used as an independent
+structure checker. Setup gives it an isolated ESM-free environment, downloads
+and verifies the exact constraint checkpoint, and refuses CPU fallback. Its
+upstream 8 Å setting is a learned token-centre pocket prior—not a heavy-atom
+contact cutoff—and the first paired acceptance showed weak alternative-pocket
+steering. Final sequences should therefore be re-folded with an independent
+unconstrained model rather than treated as validated binders.
 
 AlphaFold 3 and IntelliFold's JAX/Metal path are deliberately not offered. Both
 failed same-input Apple-GPU quality control while IntelliFold PyTorch produced a
@@ -93,8 +104,9 @@ To work on it in Xcode, `open Package.swift`.
 Studio is a front end: the scientific implementations originate in NanoHunter
 and upstream engine repositories, and Studio ports their validated behaviour
 rather than reimplementing it. The app bundle contains the pipeline, the
-IntelliFold PyTorch/Metal and Protenix MPS patches, RFdiffusion3's complete script overlay, worked
-examples, seven nanobody scaffolds, and their sequence-validated deep MSAs.
+IntelliFold PyTorch/Metal, Protenix v2/Mini and Protenix Constraint MPS patches
+and dependency locks, RFdiffusion3's complete script overlay, worked examples,
+seven nanobody scaffolds, and their sequence-validated deep MSAs.
 Setup clones pinned upstream revisions and installs everything beneath the
 space-free managed root `~/.iproteinstudio/`; no sibling checkout is required.
 
@@ -118,6 +130,7 @@ first launch:
 |---|---|---|
 | Pipeline | `nanohunter_run.sh` and its helper scripts | vendored from NanoHunter by `tools/sync_pipeline.sh` |
 | Studio helpers | prediction batching, ligand analysis, campaign preparation | written here |
+| Engine profiles | pinned Apple-MPS patches and dependency locks, including the isolated Protenix Constraint v0.5 profile | shipped in the app bundle and staged before setup |
 | RFdiffusion3 overlay | the whole RFD3 script layer — campaign orchestrators, ligand preparation, predictor adapters, length binning | vendored by `tools/sync_rfd3.sh` |
 
 The last one matters more than it sounds: **none of it is upstream**. A clean
@@ -128,9 +141,13 @@ which is necessary, because that installer calls scripts the overlay provides.
 
 The heavy parts — Python environments and model weights — are downloaded by
 `setup_pipeline.sh` on first run. Source revisions, critical package versions,
-and downloaded checkpoint hashes are pinned; an incomplete or changed artifact
-fails setup. Existing NanoHunter/RFD3 installations can be linked explicitly,
-then materialised into real local copies when a fully standalone root is wanted.
+checkpoint sizes and downloaded hashes are pinned; an incomplete or changed
+artifact fails setup. The optional Protenix Constraint component owns a separate
+environment, source checkout and model directory so its ESM-free checkpoint
+contract cannot contaminate Protenix v2/Mini. Existing NanoHunter/RFD3
+installations can be linked explicitly, then materialised into real local copies
+when a fully standalone root is wanted; all three constraint directories follow
+that reuse/materialisation path too.
 
 **Updates.** Push a change here and users get it the next time they launch a new
 build: the bundled scripts are re-staged on every launch, and the overlay is

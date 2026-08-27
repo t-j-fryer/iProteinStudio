@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 # iProteinStudio pipeline setup.
 #
-# Installs the design backends into the app's managed directory. Core backends
-# are always installed; the heavier predictors are opt-in because they cost
-# gigabytes.
+# Installs the design backends into the app's managed directory. Sequence
+# designers are unconditional; folding, guided-design and backbone engines are
+# selected by the app because they cost gigabytes.
 #
-#   Core     Boltz-2 · LigandMPNN family (+AbMPNN) · AntiFold · IntelliFold
-#   Optional --with-openfold3        OpenFold-3-MLX      (~2.1 GB checkpoint)
+#   Always   LigandMPNN family (+ AbMPNN, ProteinMPNN and SolubleMPNN)
+#   Selected --with-boltz            Boltz-2
+#            --with-antifold         AntiFold
+#            --with-intellifold      IntelliFold PyTorch/Metal
+#            --with-openfold3        OpenFold-3-MLX      (~2.1 GB checkpoint)
 #            --with-protenix         Protenix v2 + Mini   (native MPS, GPU-only)
 #            --with-protenix-constraint
-#                                    Protenix Constraint v0.5 (experimental)
+#                                    Protenix Constraint v0.5 (separate,
+#                                    experimental design-only checkpoint)
 #            --with-rfd3             RFdiffusion3 on MLX (~1.3 GB checkpoint)
 #
 # Reuse instead of reinstall:
@@ -66,6 +70,35 @@ LINK_EXISTING=""
 LINK_RFD3=""
 DETECT_ONLY=0
 
+usage() {
+  cat <<'EOF'
+Usage: setup_pipeline.sh [components | maintenance]
+
+Components (combine as needed):
+  --with-boltz                 Boltz-2 prediction and steering
+  --with-antifold              AntiFold nanobody sequence design
+  --with-intellifold           IntelliFold PyTorch/Metal
+  --with-protenix              Protenix v2 and Mini prediction checkpoints
+  --with-protenix-constraint   Experimental Protenix Constraint v0.5
+                               protein-epitope design checkpoint (separate,
+                               native MPS, design-only, no CPU fallback)
+  --with-openfold3             OpenFold-3/MLX
+  --with-lasermpnn             LASErMPNN ligand sequence design
+  --with-rfd3                  RFdiffusion3/MLX (also selects Boltz)
+  --all                        Install every supported component
+
+Maintenance:
+  --detect                     Report installed component state
+  --link-existing PATH         Reuse components from an installed NanoHunter root
+  --link-rfd3 PATH             Reuse an installed RFdiffusion3 checkout
+  --materialise                Replace managed component links with local copies
+  --repair-venvs               Repair absolute paths after moving an installation
+  -h, --help                   Show this help
+
+The MPNN sequence-designer family is installed for every non-maintenance setup.
+EOF
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --with-boltz)           WITH_BOLTZ=1; shift ;;
@@ -87,6 +120,7 @@ while [[ $# -gt 0 ]]; do
     --link-rfd3)            LINK_RFD3="$2"; shift 2 ;;
     --detect)               DETECT_ONLY=1; shift ;;
     --repair-venvs)         REPAIR_VENVS=1; shift ;;
+    -h|--help)              usage; exit 0 ;;
     *) echo "NHFAIL|Unknown option: $1"; exit 2 ;;
   esac
 done
@@ -303,11 +337,14 @@ if [[ -n "${LINK_EXISTING}" ]]; then
     "venvs/${VENV_PREFIX}_antifold" \
     "venvs/${VENV_PREFIX}_intellifold" \
     "venvs/${VENV_PREFIX}_protenix" \
+    "venvs/${VENV_PREFIX}_protenix_constraint" \
     "venvs/${VENV_PREFIX}_openfold3_mlx" \
     "venvs/${VENV_PREFIX}_lasermpnn" \
     "src/LigandMPNN" "src/AntiFold" "src/IntelliFold" "src/Protenix" \
+    "src/ProtenixConstraint" \
     "src/openfold-3-mlx" "src/LASErMPNN" \
-    "models/boltz2" "models/intellifold" "models/protenix" "models/openfold3"
+    "models/boltz2" "models/intellifold" "models/protenix" \
+    "models/protenix_constraint" "models/openfold3"
   do
     link_component "${rel}" || echo "  absent    ${rel} (not in ${LINK_EXISTING})"
   done
@@ -499,7 +536,12 @@ if [[ "${MATERIALISE}" -eq 1 ]]; then
   # Remember where the components came from, so editable installs pointing back
   # at that checkout can be re-pointed once the copies are in place.
   MATERIALISE_SOURCE=""
-  for probe in "venvs/${VENV_PREFIX}_openfold3_mlx" "src/openfold-3-mlx"; do
+  for probe in \
+    "venvs/${VENV_PREFIX}_protenix_constraint" "src/ProtenixConstraint" \
+    "venvs/${VENV_PREFIX}_openfold3_mlx" "src/openfold-3-mlx" \
+    "venvs/${VENV_PREFIX}_protenix" "src/Protenix" \
+    "venvs/${VENV_PREFIX}_intellifold" "src/IntelliFold"
+  do
     if [[ -L "${NANOHUNTER_ROOT}/${probe}" ]]; then
       MATERIALISE_SOURCE="$(readlink "${NANOHUNTER_ROOT}/${probe}")"
       MATERIALISE_SOURCE="${MATERIALISE_SOURCE%/${probe}}"
@@ -510,11 +552,14 @@ if [[ "${MATERIALISE}" -eq 1 ]]; then
     "venvs/${VENV_PREFIX}_boltz" "venvs/${VENV_PREFIX}_ligandmpnn" \
     "venvs/${VENV_PREFIX}_antifold" "venvs/${VENV_PREFIX}_intellifold" \
     "venvs/${VENV_PREFIX}_protenix" \
+    "venvs/${VENV_PREFIX}_protenix_constraint" \
     "venvs/${VENV_PREFIX}_openfold3_mlx" \
     "venvs/${VENV_PREFIX}_lasermpnn" \
     "src/LigandMPNN" "src/AntiFold" "src/IntelliFold" "src/Protenix" \
+    "src/ProtenixConstraint" \
     "src/openfold-3-mlx" "src/LASErMPNN" \
-    "models/boltz2" "models/intellifold" "models/protenix" "models/openfold3" \
+    "models/boltz2" "models/intellifold" "models/protenix" \
+    "models/protenix_constraint" "models/openfold3" \
     "rfd3" "venvs" "src" "models"
   do
     materialise_component "${rel}" || failed=1

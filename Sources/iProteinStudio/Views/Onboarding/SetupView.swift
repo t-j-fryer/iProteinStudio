@@ -51,7 +51,7 @@ private struct InnerSetup: View {
                 reuseCard(existing)
             }
 
-            Text("Setup installs the core design engines — Boltz-2, IntelliFold, AntiFold and the MPNN sequence designers — and downloads their model weights. One time, and it needs an internet connection.")
+            Text("The recommended setup installs Boltz-2, IntelliFold, Protenix v2/Mini, AntiFold and the MPNN sequence designers, with verified model weights. Experimental and specialist engines are optional. Setup runs once and needs an internet connection.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -109,7 +109,7 @@ private struct InnerSetup: View {
 
     private var optionalComponents: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("These add extra structure predictors you can use to double-check designs with an independent model. You can add them later.")
+            Text("Add only what you need. Most are prediction or backbone engines; Protenix Constraint v0.5 is an experimental, design-only epitope-guidance checkpoint and cannot serve as an independent checker. You can add or remove any of them later.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
