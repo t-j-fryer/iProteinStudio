@@ -149,16 +149,16 @@ installations can be linked explicitly, then materialised into real local copies
 when a fully standalone root is wanted; all three constraint directories follow
 that reuse/materialisation path too.
 
-**Updates.** Push a change here and users get it the next time they launch a new
-build: the bundled scripts are re-staged on every launch, and the overlay is
-version-stamped so it is rewritten whenever the bundle differs from what is
-installed. Environments and weights are *not* touched — they rarely change, and
-re-downloading gigabytes on every update would be indefensible. If a change needs
-a new dependency or a new model, that is a setup step and the app says so rather
-than silently working differently.
-
-Nothing here auto-updates the app itself. There is no updater and no signing yet,
-so a new build is a new build someone has to run.
+**Updates.** Version 0.2 introduces Sparkle-based application updates with clear
+release notes and user controls for automatic checking/downloading. The bundled
+scripts are re-staged after an app update, while environments and weights remain
+untouched. Engines and checkpoints are never automatic: Studio shows their
+purpose and approximate footprint and requires a final confirmation before any
+large download. Copies older than 0.2 require one manual upgrade to the first
+signed release. The code and release pipeline are ready, but public delivery is
+blocked until a Developer ID certificate is installed and the first notarized
+cross-version update is accepted on a second Mac. See
+[Application and engine updates](docs/UPDATES_AND_RELEASES.md).
 
 ## Working on this repo
 

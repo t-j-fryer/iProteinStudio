@@ -14,6 +14,7 @@ struct SetupView: View {
 private struct InnerSetup: View {
     @ObservedObject var installer: PipelineInstaller
     @State private var showOptions = false
+    @State private var pendingInstall: EngineInstallPlan?
 
     var body: some View {
         ScrollView {
@@ -41,6 +42,15 @@ private struct InnerSetup: View {
         }
         .safeAreaInset(edge: .bottom) { footnote }
         .background(.background)
+        .sheet(item: $pendingInstall) { plan in
+            EngineInstallReview(plan: plan) {
+                installer.optionalSelection = Set(plan.components.filter { !$0.isCore })
+                pendingInstall = nil
+                installer.install()
+            } onCancel: {
+                pendingInstall = nil
+            }
+        }
     }
 
     // MARK: Idle
@@ -64,9 +74,14 @@ private struct InnerSetup: View {
             .frame(maxWidth: 480)
 
             Button {
-                installer.install()
+                var selected = installer.optionalSelection
+                selected.insert(.mpnn)
+                for component in installer.optionalSelection {
+                    selected.formUnion(component.requires)
+                }
+                pendingInstall = EngineInstallPlan(components: Array(selected))
             } label: {
-                Label("Set Up iProteinStudio", systemImage: "arrow.down.circle.fill")
+                Label("Review Setup Downloads…", systemImage: "list.bullet.clipboard.fill")
                     .frame(maxWidth: 260)
             }
             .buttonStyle(.borderedProminent)
@@ -123,7 +138,12 @@ private struct InnerSetup: View {
                     }
                 )) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(component.label)
+                        HStack {
+                            Text(component.label)
+                            Text(component.approximateSize)
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
                         if let note = component.downloadNote {
                             Text(note).font(.caption2).foregroundStyle(.secondary)
                         }

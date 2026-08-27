@@ -8,6 +8,7 @@ struct RootView: View {
 
     var body: some View {
         RouterView(installer: app.installer)
+            .modifier(ApplicationLocationNotice())
     }
 }
 
@@ -70,7 +71,7 @@ struct WorkspaceView: View {
                     Label("Engines", systemImage: "square.grid.2x2")
                 }
                 .help("Add folding and design engines")
-                .keyboardShortcut(",", modifiers: .command)
+                .keyboardShortcut("e", modifiers: [.command, .shift])
             }
         }
         .sheet(isPresented: $showComponents) {

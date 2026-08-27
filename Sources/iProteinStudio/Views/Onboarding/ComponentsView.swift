@@ -10,6 +10,7 @@ struct ComponentsView: View {
     @ObservedObject var installer: PipelineInstaller
     @State private var selection: Set<InstallComponent> = []
     @State private var pendingRemoval: InstallComponent?
+    @State private var pendingInstall: EngineInstallPlan?
 
     private var optional: [InstallComponent] {
         InstallComponent.allCases.filter { !$0.isCore }
@@ -34,6 +35,16 @@ struct ComponentsView: View {
                 secondaryButton: .cancel()
             )
         }
+        .sheet(item: $pendingInstall) { plan in
+            EngineInstallReview(plan: plan) {
+                installer.optionalSelection = Set(plan.components.filter { !$0.isCore })
+                selection.removeAll()
+                pendingInstall = nil
+                installer.install()
+            } onCancel: {
+                pendingInstall = nil
+            }
+        }
     }
 
     private var header: some View {
@@ -57,6 +68,11 @@ struct ComponentsView: View {
             .foregroundStyle(.secondary)
             Text("Models and environments live in this managed folder, not inside the app bundle or the source repository.")
                 .font(.caption2).foregroundStyle(.tertiary)
+            Label("App updates never install or replace an engine checkpoint. Every large download is reviewed here first.",
+                  systemImage: "checkmark.shield")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
         }
     }
 
@@ -93,11 +109,10 @@ struct ComponentsView: View {
                             wanted.insert(dependency)
                         }
                     }
-                    installer.optionalSelection = wanted
-                    installer.install()
+                    pendingInstall = EngineInstallPlan(components: Array(wanted))
                 } label: {
-                    Label("Install \(selection.count) engine\(selection.count == 1 ? "" : "s")",
-                          systemImage: "arrow.down.circle")
+                    Label("Review \(selection.count) download\(selection.count == 1 ? "" : "s")…",
+                          systemImage: "list.bullet.clipboard")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(selection.isEmpty || installer.isRemoving)
@@ -159,6 +174,87 @@ struct ComponentsView: View {
             .fill(installed ? Color.green.opacity(0.07) : Color.quaternaryLabelBackground))
     }
 
+}
+
+/// A final consent boundary between selecting capabilities and transferring
+/// multi-gigabyte environments/checkpoints. This is shared by first-run setup
+/// and the Engines sheet so neither route can silently start a large download.
+struct EngineInstallPlan: Identifiable {
+    let id = UUID()
+    let components: [InstallComponent]
+
+    init(components: [InstallComponent]) {
+        self.components = Array(Set(components)).sorted { $0.label < $1.label }
+    }
+}
+
+struct EngineInstallReview: View {
+    let plan: EngineInstallPlan
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Review downloads").font(.title2.bold())
+                Text("Nothing is downloaded until you choose Install now.")
+                    .foregroundStyle(.secondary)
+            }
+
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(plan.components) { component in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: component.isCore ? "shippingbox.fill" : "externaldrive.badge.plus")
+                                .foregroundStyle(.tint)
+                                .frame(width: 20)
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack {
+                                    Text(component.label).font(.headline)
+                                    Spacer()
+                                    Text(component.approximateSize)
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(component.whatItGivesYou)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let note = component.downloadNote {
+                                    Text(note).font(.caption2).foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 9).fill(Color.quaternaryLabelBackground))
+                    }
+                }
+            }
+
+            Label("Sizes are approximate installed footprints. Partial transfers are retained for safe resume, and checkpoints are verified before use.",
+                  systemImage: "info.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Label("These downloads are independent of application updates. You can remove an engine later without deleting workspaces, results or saved alignments.",
+                  systemImage: "checkmark.shield")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Button("Cancel", role: .cancel, action: onCancel)
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Install now", action: onConfirm)
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 620, height: min(650, 270 + CGFloat(plan.components.count) * 92))
+    }
 }
 
 extension Color {

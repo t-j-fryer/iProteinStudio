@@ -14,7 +14,7 @@ _Last updated: 2026-08-27_
 
 | | |
 |---|---|
-| **Stage** | Alpha. Debug and release builds pass; a standalone managed install has completed acceptance folds; not signed or notarised. |
+| **Stage** | Alpha. Debug and release builds pass; a standalone managed install has completed acceptance folds. Signed-update code and release automation are implemented, but no Developer ID certificate is installed and no notarised public build has shipped. |
 | **Platform** | macOS 14+, Apple Silicon only. Developed on M4 Max / 64 GB / macOS 26.x. |
 | **Repo** | Public — `github.com/t-j-fryer/iProteinStudio` (renamed from NanoHunterStudio) |
 | **Runtime** | `~/.iproteinstudio` — **not** Application Support: a space in the path breaks every Python console-script shebang |
@@ -69,7 +69,7 @@ fallback and incomplete seed/sample output sets.
    paired apo–holo comparison with preorganisation RMSD and self-consistency.
 4. OpenFold-3 complex pLDDT has an unresolved scale problem — see
    [0002](lab_book/0002-inherited-speed-lessons.md) §7.
-5. No app icon, no Developer ID signing/notarisation, no self-update.
+5. No app icon. Sparkle self-update, size-aware engine consent and release automation are implemented, but Developer ID signing/notarisation and an old-to-new update acceptance on a second Mac remain blocked on Apple distribution credentials.
 
 **Deliberately out of scope:** NISE (experimental, stays in NanoHunter); RFdiffusion3
 against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
@@ -100,6 +100,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0044 | 2026-08-27 | [Separate signed app updates from explicit checkpoint downloads](lab_book/0044-signed-app-updates-and-engine-consent.md) | Pinned Sparkle integration, versioned bundles, visible release notes/settings, duplicate-copy cleanup, final engine-download consent and fail-closed signing/notarisation automation; existing pre-updater copies still need one manual signed upgrade |
 | 0043 | 2026-08-27 | [Recover the full Protenix Constraint macOS validation record](lab_book/0043-protenix-constraint-macos-validation-lineage.md) | Raw beta logs, receipts, paired outputs, memory/timing data, figures and ChimeraX artifacts establish exactly what was required to run the v0.5 checkpoint on native MPS and what its pocket/contact results do—and do not—show |
 | 0042 | 2026-08-27 | [Complete the Protenix Constraint install and documentation contract](lab_book/0042-complete-protenix-constraint-install-contract.md) | Fresh install, reuse, materialisation, removal, bundle staging and CLI/UI documentation now agree on one isolated experimental design-only checkpoint with verified weights and no CPU fallback |
 | 0041 | 2026-08-27 | [Exclude the unoptimized seed from iterative re-checks](lab_book/0041-exclude-cycle00-from-post-checks.md) | “All design cycles” now means optimized cycles 01 through N in the UI, command contract and runtime estimate; cycle 00 remains an explicit CLI-only diagnostic opt-in |
