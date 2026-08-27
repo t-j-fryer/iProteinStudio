@@ -17,6 +17,14 @@ runs on native Apple MPS. Studio needed a deliberately narrow first integration:
 protein-pocket conditioning in iterative design, not residue-pair or atom-pair
 contacts, and not a misleading constraint toggle on Protenix v2.
 
+The complete experimental lineage was subsequently re-audited directly against
+the preserved beta receipt, failure log, 12 paired full-profile predictions,
+analysis tables, figures and ChimeraX checksum manifest in
+[[0043-protenix-constraint-macos-validation-lineage]]. That entry records the
+Mac-enablement work and manuscript-grade evidence in full; the measurements
+below remain the separate acceptance of the implementation actually shipped by
+Studio.
+
 ## What was done
 
 - Added the distinct product identity **Protenix Constraint v0.5 — Experimental**
