@@ -435,9 +435,9 @@ enum SpeedBand: Int, Comparable {
 enum SpeedMode: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Independent complete designs, `--max-parallel auto`, device profile honoured.
     case standard
-    /// Cycle-wave: every design advances one cycle at a time and predictor inputs
-    /// are grouped into persistent native batches. This is where IntelliFold
-    /// wins most, because it amortises model load and shape compilation.
+    /// Cycle-wave: every design advances one cycle at a time and ready inputs are
+    /// processed by one directory invocation. The model still reloads once per
+    /// cycle; this is deliberately distinct from campaign-resident inference.
     case batched
 
     var id: String { rawValue }
@@ -445,7 +445,7 @@ enum SpeedMode: String, CaseIterable, Codable, Identifiable, Hashable {
     var label: String {
         switch self {
         case .standard: return "Standard"
-        case .batched:  return "Batched"
+        case .batched:  return "Cycle waves"
         }
     }
 
@@ -454,7 +454,7 @@ enum SpeedMode: String, CaseIterable, Codable, Identifiable, Hashable {
         case .standard:
             return "Each design runs start-to-finish independently. The validated default, and the safe choice for mixed workloads."
         case .batched:
-            return "Advances all designs one cycle at a time and feeds them to the model in one batch, so it loads once. Biggest gains on IntelliFold."
+            return "Advances all designs one cycle at a time and reuses one model load across that cycle. The model reloads for the next cycle."
         }
     }
 

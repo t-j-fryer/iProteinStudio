@@ -170,9 +170,11 @@ PDE rather than PAE. RFdiffusion3 protein outputs retain per-engine, mean and
 minimum ipSAE(min) diagnostics but continue to rank by their established mean
 iPTM unless that policy is separately validated and changed.
 
-Leave `--intellifold-buckets` alone. Its `auto` default resolves to the exact
-campaign token count, which is the single largest measured IntelliFold speed-up
-available; setting it explicitly undoes it.
+Leave `--intellifold-buckets` alone for established runs. Its `auto` default
+resolves to the exact campaign token maximum, which is the single largest
+measured IntelliFold speed-up available. `length-aware` is an experimental
+variable-length mode with 32-token total-length bands ending at the exact
+maximum; it is reserved for the 65–150-aa minibinder validation until measured.
 
 ### Experimental Protenix Constraint pocket proposals
 
@@ -207,6 +209,15 @@ Studio's 6 Å Boltz contact setting. The initial paired acceptance produced only
 weak alternative-pocket steering, so the engine remains explicitly experimental
 and cannot be selected as a post-predictor. Re-fold final designs with an
 independent unconstrained engine and inspect the resulting interface geometry.
+
+The managed patch also recognizes the exactly absent substructure channel used
+by pocket-only jobs. Upstream otherwise expands that zero feature into N²
+Transformer tokens and N⁴ attention memory. Studio evaluates the single
+checkpoint-defined zero-token value and broadcasts it; nonzero substructure
+constraints retain the upstream path. The official checkpoint's explicit and
+shortcut paths agree within 1e-6 on native-MPS validation cases. Setup hashes
+this patch into the install receipt and marks older runtimes as needing repair;
+valid weights are kept.
 
 To target specific atoms of a small molecule, get the names Boltz will use —
 **they change when the affinity head is on**, because it standardises the SMILES

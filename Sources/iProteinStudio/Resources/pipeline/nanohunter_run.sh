@@ -136,6 +136,8 @@ POST_INCLUDE_CYCLE00=0
 
 N_RUNS=3
 N_CYCLES=5
+PREDICTOR_SEED="${NANOHUNTER_PREDICTOR_SEED_DEFAULT:-42}"
+PREDICTOR_SAMPLES="${NANOHUNTER_PREDICTOR_SAMPLES_DEFAULT:-auto}"
 CPU_ONLY=0
 
 NO_PARALLEL=0
@@ -322,6 +324,8 @@ Core:
   --num-runs N                     default: ${N_RUNS}
   --num-opt-cycles N               optimization cycles after cycle_00 (default: ${N_CYCLES})
   --num-cycles N                   alias of --num-opt-cycles
+  --predictor-seed N               structure-predictor seed (default: ${PREDICTOR_SEED})
+  --predictor-samples N|auto       diffusion samples per input; auto preserves engine defaults
   --model NAME                     IntelliFold model when used (default: ${INTELLIFOLD_MODEL})
   --template-yaml PATH             default: ${TEMPLATE_YAML}
   --config-json PATH               optional workflow settings JSON; CLI flags override it
@@ -439,7 +443,7 @@ Hardware:
   --cpu-only                       force CPU where supported
 
 Extra flags passthrough:
-  --intellifold-buckets MODE       auto | default | comma-separated token sizes
+  --intellifold-buckets MODE       auto | length-aware | default | comma-separated token sizes
   --boltz-extra "ARGS"
   --intellifold-extra "ARGS"
   --openfold-extra "ARGS"
@@ -701,6 +705,8 @@ while [[ $# -gt 0 ]]; do
     --run-name) RUN_NAME="$2"; shift 2 ;;
     --num-runs) N_RUNS="$2"; shift 2 ;;
     --num-opt-cycles|--num-cycles) N_CYCLES="$2"; shift 2 ;;
+    --predictor-seed) PREDICTOR_SEED="$2"; shift 2 ;;
+    --predictor-samples) PREDICTOR_SAMPLES="$2"; shift 2 ;;
     --model) INTELLIFOLD_MODEL="$2"; shift 2 ;;
     --template-yaml) TEMPLATE_YAML="$2"; shift 2 ;;
     --config-json|--nanohunter-config-json|--input-json) NANOHUNTER_CONFIG_JSON="$2"; shift 2 ;;
@@ -1131,6 +1137,12 @@ fi
 if [[ -n "${BINDER_RANDOM_SEED}" && ! "${BINDER_RANDOM_SEED}" =~ ^[0-9]+$ ]]; then
   die "--binder-random-seed must be a non-negative integer."
 fi
+if [[ ! "${PREDICTOR_SEED}" =~ ^[0-9]+$ ]]; then
+  die "--predictor-seed must be a non-negative integer."
+fi
+if [[ "${PREDICTOR_SAMPLES}" != "auto" && ! "${PREDICTOR_SAMPLES}" =~ ^[1-9][0-9]*$ ]]; then
+  die "--predictor-samples must be auto or a positive integer."
+fi
 
 python3 - "$N_RUNS" "$N_CYCLES" "$IPTM_THRESHOLD" "$POST_IPTM_THRESHOLD" "$MEM_SAFETY" "$LIGAND_TEMP_DEFAULT" "$LIGAND_TEMP_CYCLE01" "$NEGATIVE_HELIX_CONSTANT" "$LOOP_KILL" "$ANTIFOLD_SEED" "$ANTIFOLD_NUM_SEQ_PER_TARGET" "$ANTIFOLD_BATCH_SIZE" "$ANTIFOLD_NUM_THREADS" "$NANOBODY_SEED_MAX_ATTEMPTS" "$NANOBODY_CHARGE_MIN" "$NANOBODY_CHARGE_MAX" "$NANOBODY_HYDRO_MAX" "$NANOBODY_SEED_PERCENT_X" "$BOLTZ_CONTACT_DISTANCE" "$NANOBODY_SCAFFOLD_MSA_MAX_SEQS" <<'PY'
 import sys
@@ -1282,6 +1294,16 @@ if [[ -n "${INTELLIFOLD_EXTRA_CLI_STRING}" ]]; then
   # shellcheck disable=SC2206
   _arr=(${INTELLIFOLD_EXTRA_CLI_STRING})
   INTELLIFOLD_EXTRA_FLAGS+=("${_arr[@]}")
+fi
+
+# Explicit work controls are primarily for reproducible validation. `auto`
+# keeps the established engine defaults; setting a value equalizes the number
+# of generated structures without changing it for existing projects.
+BOLTZ_EXTRA_FLAGS+=("--seed" "${PREDICTOR_SEED}")
+INTELLIFOLD_EXTRA_FLAGS+=("--seed" "${PREDICTOR_SEED}")
+if [[ "${PREDICTOR_SAMPLES}" != "auto" ]]; then
+  BOLTZ_EXTRA_FLAGS+=("--diffusion_samples" "${PREDICTOR_SAMPLES}")
+  INTELLIFOLD_EXTRA_FLAGS+=("--num_diffusion_samples" "${PREDICTOR_SAMPLES}")
 fi
 
 OPENFOLD_EXTRA_FLAGS=("${OPENFOLD_EXTRA_FLAGS_DEFAULT[@]}")
@@ -1593,7 +1615,7 @@ if [[ "${CHECK_CONFIG_ONLY}" -eq 1 ]]; then
   fi
   _check_intellifold_model="unused"
   [[ "${INTELLIFOLD_IN_USE}" -eq 0 ]] || _check_intellifold_model="${INTELLIFOLD_MODEL}"
-  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} post=${_check_post_names} post_mode=${POST_MODE} hit_threshold=${IPTM_THRESHOLD} intellifold_model=${_check_intellifold_model} contact_mode=${BOLTZ_CONTACT_MODE} template=${TEMPLATE_YAML} scheduler=${DESIGN_SCHEDULER}"
+  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} post=${_check_post_names} post_mode=${POST_MODE} hit_threshold=${IPTM_THRESHOLD} intellifold_model=${_check_intellifold_model} contact_mode=${BOLTZ_CONTACT_MODE} predictor_seed=${PREDICTOR_SEED} predictor_samples=${PREDICTOR_SAMPLES} template=${TEMPLATE_YAML} scheduler=${DESIGN_SCHEDULER}"
   exit 0
 fi
 
@@ -4527,11 +4549,17 @@ run_predict_protenix() {
     protenix_model_dir="${PROTENIX_CONSTRAINT_MODEL_DIR}"
   fi
 
+  local protenix_work_flags=(--seeds "${PREDICTOR_SEED}")
+  if [[ "${PREDICTOR_SAMPLES}" != "auto" ]]; then
+    protenix_work_flags+=(--samples "${PREDICTOR_SAMPLES}")
+  fi
+
   mkdir -p "${out_dir}" "${pred_min}"
   PROTENIX_ROOT_DIR="${protenix_model_dir}" \
     "${protenix_venv}/bin/python" "${PROTENIX_ADAPTER}" \
       --yaml "${input_yaml}" --output "${out_dir}" \
       --nanohunter-root "${REPO_ROOT}" --model "${model}" \
+      "${protenix_work_flags[@]}" \
       >"${out_dir}/predict.log" 2>&1 \
     || { tail -n 80 "${out_dir}/predict.log" >&2 || true; die "${predictor} prediction failed for ${input_yaml}"; }
 
@@ -5524,6 +5552,29 @@ run_cycle_wave_predictor_batch() {
       rc=$?
       deactivate || true
       ;;
+    protenix-v2|protenix-mini|protenix-constraint-v0.5)
+      local protenix_model="v2"
+      local protenix_venv="${PROTENIX_VENV}"
+      local protenix_model_dir="${PROTENIX_MODEL_DIR}"
+      if [[ "${PREDICTOR}" == "protenix-mini" ]]; then
+        protenix_model="mini"
+      elif [[ "${PREDICTOR}" == "protenix-constraint-v0.5" ]]; then
+        protenix_model="constraint"
+        protenix_venv="${PROTENIX_CONSTRAINT_VENV}"
+        protenix_model_dir="${PROTENIX_CONSTRAINT_MODEL_DIR}"
+      fi
+      local protenix_work_flags=(--seeds "${PREDICTOR_SEED}")
+      if [[ "${PREDICTOR_SAMPLES}" != "auto" ]]; then
+        protenix_work_flags+=(--samples "${PREDICTOR_SAMPLES}")
+      fi
+      PROTENIX_ROOT_DIR="${protenix_model_dir}" \
+        "${protenix_venv}/bin/python" "${PROTENIX_ADAPTER}" \
+          --inputs "${input_dir}" --output "${output_dir}" \
+          --nanohunter-root "${REPO_ROOT}" --model "${protenix_model}" \
+          "${protenix_work_flags[@]}" \
+          > "${log_path}" 2>&1
+      rc=$?
+      ;;
     intellifold)
       source "${INTELLIFOLD_VENV}/bin/activate"
       if [[ "${CPU_ONLY}" -eq 1 ]]; then
@@ -5620,6 +5671,13 @@ run_cycle_wave_predictor_batch() {
         leaf="${output_dir}/inputs/predictions/${stem}"
         conf="$(find "${leaf}" -maxdepth 1 -type f -name '*_summary_confidences.json' | sort | head -n 1 || true)"
         struct="$(find "${leaf}" -maxdepth 1 -type f \( -name '*.cif' -o -name '*.pdb' \) | sort | head -n 1 || true)"
+        ;;
+      protenix-v2|protenix-mini|protenix-constraint-v0.5)
+        leaf="${output_dir}/${stem}/pred_min"
+        conf="${leaf}/confidence.json"
+        struct="${leaf}/model_0.cif"
+        [[ -f "${conf}" ]] || conf=""
+        [[ -f "${struct}" ]] || struct=""
         ;;
       openfold-3-mlx)
         leaf="${output_dir}/${stem}/seed_42"
@@ -5896,10 +5954,20 @@ run_designs_cycle_wave() {
   local target_msa_path="$1"
   local wave_root="${EXPT_ROOT}/_cycle_wave"
   mkdir -p "${wave_root}"
-  echo "cycle,batch,batch_size,start_ts,end_ts,duration_sec" > "${wave_root}/predictor_batches.csv"
-  echo "cycle,batch_size,start_ts,end_ts,duration_sec" > "${wave_root}/antifold_batches.csv"
-  echo "cycle,batch_size,start_ts,end_ts,duration_sec,sequence_designer" > "${wave_root}/inverse_folding_batches.csv"
-  printf '%s\n' "$(now_epoch)" > "${wave_root}/campaign_start_epoch.txt"
+  if [[ "${RESUME}" -ne 1 || ! -s "${wave_root}/predictor_batches.csv" ]]; then
+    echo "cycle,batch,batch_size,start_ts,end_ts,duration_sec" > "${wave_root}/predictor_batches.csv"
+  fi
+  if [[ "${RESUME}" -ne 1 || ! -s "${wave_root}/antifold_batches.csv" ]]; then
+    echo "cycle,batch_size,start_ts,end_ts,duration_sec" > "${wave_root}/antifold_batches.csv"
+  fi
+  if [[ "${RESUME}" -ne 1 || ! -s "${wave_root}/inverse_folding_batches.csv" ]]; then
+    echo "cycle,batch_size,start_ts,end_ts,duration_sec,sequence_designer" > "${wave_root}/inverse_folding_batches.csv"
+  fi
+  # Preserve the original wall-clock origin and measured batch rows on resume.
+  # A no-work resume must not erase the timing provenance of the completed run.
+  if [[ "${RESUME}" -ne 1 || ! -s "${wave_root}/campaign_start_epoch.txt" ]]; then
+    printf '%s\n' "$(now_epoch)" > "${wave_root}/campaign_start_epoch.txt"
+  fi
   initialize_cycle_wave_designs
 
   local wave_batch_size
@@ -6486,6 +6554,23 @@ if [[ "${INTELLIFOLD_EXTRA_CLI_STRING}" == *"--buckets"* ]]; then
 elif [[ "${INTELLIFOLD_BUCKETS}" != "default" ]]; then
   if [[ "${INTELLIFOLD_BUCKETS}" == "auto" ]]; then
     INTELLIFOLD_BUCKETS="${MAX_REQUESTED_POLYMER_TOKENS}"
+  elif [[ "${INTELLIFOLD_BUCKETS}" == "length-aware" ]]; then
+    # Experimental variable-length policy. A few 32-token bands reduce padded
+    # work without creating one warm-up shape for every sampled binder length.
+    # Fixed-scaffold campaigns still resolve to one exact shape.
+    INTELLIFOLD_BUCKETS="$(python3 - \
+      "${TARGET_TOTAL_SEQUENCE_LENGTH}" "${BINDER_MIN_LEN}" "${MAX_REQUESTED_BINDER_LENGTH}" <<'PY'
+import math, sys
+target, minimum, maximum = map(int, sys.argv[1:4])
+low, high = target + minimum, target + maximum
+if low >= high:
+    print(high)
+else:
+    values = list(range(int(math.ceil(low / 32.0) * 32), high, 32))
+    values.append(high)
+    print(",".join(map(str, sorted(set(values)))))
+PY
+)"
   else
     INTELLIFOLD_BUCKETS="$(validate_bucket_spec "${INTELLIFOLD_BUCKETS}")" \
       || die "Invalid --intellifold-buckets specification."

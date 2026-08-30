@@ -1,0 +1,32 @@
+diff --git a/protenix/model/modules/embedders.py b/protenix/model/modules/embedders.py
+index 22545ca..8277f94 100644
+--- a/protenix/model/modules/embedders.py
++++ b/protenix/model/modules/embedders.py
+@@ -315,6 +315,27 @@ class SubstructureEmbedder(nn.Module):
+             x = x.view(-1, orig_shape[-3], orig_shape[-2], orig_shape[-1])
+             batch_size, n_token, _, n_classes = x.shape
+ 
++            # Pocket-only inference has no substructure specification, so this
++            # entire one-hot feature is exactly zero. Upstream nevertheless
++            # flattens its N_token x N_token map into a Transformer sequence of
++            # length N_token^2. Its attention matrix consequently scales as
++            # N_token^4 (a 227-token complex requested about 39.6 GB on MPS).
++            #
++            # With no positional encoding, all zero input tokens are identical;
++            # self-attention therefore produces the same token value regardless
++            # of sequence length. Evaluate that checkpoint-defined value once
++            # and broadcast it. This preserves learned biases and is not the same
++            # as dropping the substructure embedder. Nonzero substructure inputs
++            # continue through the unmodified upstream calculation below.
++            if torch.count_nonzero(x).item() == 0:
++                x = x.new_zeros((batch_size, 1, n_classes))
++                x = self.input_proj(x)
++                x = self.transformer(x)
++                x = self.output_proj(x)
++                x = x.reshape(batch_size, 1, 1, -1)
++                x = x.expand(batch_size, n_token, n_token, -1)
++                return x.reshape(*orig_shape[:-1], -1)
++
+             # Project and reshape to sequence
+             x = self.input_proj(x)
+             x = x.reshape(batch_size, n_token * n_token, -1)

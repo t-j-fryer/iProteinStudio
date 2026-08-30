@@ -72,6 +72,9 @@ upstream 8 Å setting is a learned token-centre pocket prior—not a heavy-atom
 contact cutoff—and the first paired acceptance showed weak alternative-pocket
 steering. Final sequences should therefore be re-folded with an independent
 unconstrained model rather than treated as validated binders.
+Existing installs may show this component as needing an update after upgrading
+Studio: repair reapplies the pinned native-MPS source patches and reuses a valid
+1.48-GB checkpoint rather than downloading it again.
 
 AlphaFold 3 and IntelliFold's JAX/Metal path are deliberately not offered. Both
 failed same-input Apple-GPU quality control while IntelliFold PyTorch produced a

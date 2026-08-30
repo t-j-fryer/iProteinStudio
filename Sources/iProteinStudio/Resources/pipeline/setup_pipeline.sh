@@ -155,6 +155,7 @@ STUDIO_RFD3_OVERLAY="${NANOHUNTER_ROOT}/rfd3_overlay"
 INTELLIFOLD_STUDIO_PATCH="${NANOHUNTER_ROOT}/patches/intellifold_pytorch_mps.patch"
 PROTENIX_STUDIO_PATCH="${NANOHUNTER_ROOT}/patches/protenix_mps.patch"
 PROTENIX_CONSTRAINT_PATCH="${NANOHUNTER_ROOT}/patches/protenix_constraint_mps.patch"
+PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH="${NANOHUNTER_ROOT}/patches/protenix_constraint_zero_substructure.patch"
 PROTENIX_LOCK="${NANOHUNTER_ROOT}/requirements-protenix-mps-lock.txt"
 PROTENIX_CONSTRAINT_LOCK="${NANOHUNTER_ROOT}/requirements-protenix-constraint-mps-lock.txt"
 VERIFIED_DOWNLOADER="${NANOHUNTER_ROOT}/scripts/download_verified.py"
@@ -192,6 +193,34 @@ check_sha256() {
 
 # ---------------------------------------------------------------- detection --
 
+constraint_runtime_current() {
+  [[ -x "${PROTENIX_CONSTRAINT_VENV}/bin/protenix" \
+     && -d "${PROTENIX_CONSTRAINT_REPO}" \
+     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint/protenix_base_constraint_v0.5.0.pt" \
+     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/common/components.cif" \
+     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/common/components.cif.rdkit_mol.pkl" \
+     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" \
+     && -f "${PROTENIX_CONSTRAINT_PATCH}" \
+     && -f "${PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH}" ]] || return 1
+  python3 - "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" \
+    "${PROTENIX_CONSTRAINT_PATCH}" "${PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH}" \
+    "${PROTENIX_CONSTRAINT_REPO}/protenix/model/modules/embedders.py" <<'PY'
+import hashlib, json, pathlib, sys
+receipt, base_patch, zero_patch, source = map(pathlib.Path, sys.argv[1:])
+try:
+    data = json.loads(receipt.read_text())
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+if data.get("patch_sha256") != digest(base_patch):
+    raise SystemExit(1)
+if data.get("zero_substructure_patch_sha256") != digest(zero_patch):
+    raise SystemExit(1)
+if not source.is_file() or data.get("substructure_source_sha256") != digest(source):
+    raise SystemExit(1)
+PY
+}
+
 detect() {
   if [[ -x "${BOLTZ_VENV}/bin/python" \
      && -f "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt" \
@@ -220,14 +249,10 @@ detect() {
   else
     state protenix missing "environment, v2/Mini checkpoint, or chemical data absent"
   fi
-  if [[ -x "${PROTENIX_CONSTRAINT_VENV}/bin/protenix" \
-     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint/protenix_base_constraint_v0.5.0.pt" \
-     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/common/components.cif" \
-     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/common/components.cif.rdkit_mol.pkl" \
-     && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" ]]; then
+  if constraint_runtime_current; then
     state protenix_constraint ok "Protenix Constraint v0.5 (native MPS, strict ESM-free profile)"
   else
-    state protenix_constraint missing "isolated environment, constraint checkpoint, chemical data, or receipt absent"
+    state protenix_constraint missing "install or update required; valid checkpoint files are reused without redownloading"
   fi
   if [[ -x "${OPENFOLD_VENV}/bin/python" && -f "${OPENFOLD_CHECKPOINT_PATH}" ]]; then
     state openfold3 ok "OpenFold-3-MLX with checkpoint"
@@ -907,6 +932,16 @@ if [[ "${WITH_PROTENIX_CONSTRAINT}" -eq 1 ]]; then
   else
     fail "Protenix Constraint source does not match the validated patch base."
   fi
+  [[ -f "${PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH}" ]] \
+    || fail "Bundled Protenix Constraint zero-substructure patch is missing."
+  if git -C "${PROTENIX_CONSTRAINT_REPO}" apply --check "${PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH}" >/dev/null 2>&1; then
+    git -C "${PROTENIX_CONSTRAINT_REPO}" apply "${PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH}" \
+      || fail "Could not apply the validated Protenix Constraint zero-substructure patch."
+  elif git -C "${PROTENIX_CONSTRAINT_REPO}" apply --reverse --check "${PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH}" >/dev/null 2>&1; then
+    echo "  Protenix Constraint zero-substructure patch already applied"
+  else
+    fail "Protenix Constraint substructure source does not match the validated patch base."
+  fi
   [[ -f "${PROTENIX_CONSTRAINT_LOCK}" ]] || fail "Constraint dependency lock is missing."
   [[ -f "${VERIFIED_DOWNLOADER}" ]] || fail "Bundled verified downloader is missing."
   [[ -d "${PROTENIX_CONSTRAINT_VENV}" ]] \
@@ -956,10 +991,11 @@ if [[ "${WITH_PROTENIX_CONSTRAINT}" -eq 1 ]]; then
 
   PROTENIX_ROOT_DIR="${PROTENIX_CONSTRAINT_MODEL_DIR}" \
     "${PROTENIX_CONSTRAINT_VENV}/bin/python" - "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" \
-      "${PROTENIX_CONSTRAINT_REPO}" "${PROTENIX_CONSTRAINT_PATCH}" "${PROTENIX_CONSTRAINT_LOCK}" <<'PY' \
+      "${PROTENIX_CONSTRAINT_REPO}" "${PROTENIX_CONSTRAINT_PATCH}" \
+      "${PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH}" "${PROTENIX_CONSTRAINT_LOCK}" <<'PY' \
     || fail "Protenix Constraint runtime audit failed."
 import hashlib, importlib.metadata, json, os, pathlib, subprocess, sys, torch
-receipt_path, source, patch, lock = map(pathlib.Path, sys.argv[1:])
+receipt_path, source, patch, zero_substructure_patch, lock = map(pathlib.Path, sys.argv[1:])
 if os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK") == "1" or not torch.backends.mps.is_available():
     raise SystemExit("native MPS is required and CPU fallback is forbidden")
 try:
@@ -972,10 +1008,14 @@ digest = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
 payload = {"product": "Protenix Constraint v0.5 — Experimental",
  "model": "protenix_base_constraint_v0.5.0",
  "source_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip(),
- "patch_sha256": digest(patch), "requirements_sha256": digest(lock),
+ "patch_sha256": digest(patch),
+ "zero_substructure_patch_sha256": digest(zero_substructure_patch),
+ "substructure_source_sha256": digest(source / "protenix/model/modules/embedders.py"),
+ "requirements_sha256": digest(lock),
  "checkpoint_sha256": "5358025b20b2212853ad75579be04387859557915f398a1d60f6a1a9a0c8c887",
  "python": sys.version.split()[0], "torch": torch.__version__,
- "device_policy": "native-mps-fp32-no-cpu-fallback", "esm": "disabled-and-not-installed"}
+ "device_policy": "native-mps-fp32-no-cpu-fallback", "esm": "disabled-and-not-installed",
+ "zero_substructure": "checkpoint-equivalent-single-token-broadcast"}
 receipt_path.write_text(json.dumps(payload, indent=2) + "\n")
 PY
   state protenix_constraint ok "Protenix Constraint v0.5 (native MPS, strict ESM-free profile)"

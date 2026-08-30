@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "target": {
+    "name": "SUMO",
+    "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+    "msa_sha256": "c5c2ee22f8430f0144c602338fdb250d6ce69e1f851753bf8a8ce5046702f0ff",
+    "msa_environment": "IPROTEINSTUDIO_VALIDATION_SUMO_MSA",
+    "constraint_epitope": ["B35", "B36", "B39", "B40"]
+  },
+  "campaign": {
+    "trajectories": 12,
+    "design_cycles": 5,
+    "binder_min_length": 65,
+    "binder_max_length": 150,
+    "binder_seed": 155160,
+    "mpnn_seed": 300160,
+    "predictor_seed": 42,
+    "predictor_samples": 1,
+    "hit_threshold": 0.70
+  },
+  "engines": {
+    "boltz2": {"predictor": "boltz"},
+    "intellifold_flash": {"predictor": "intellifold", "model": "v2-flash"},
+    "intellifold_v2": {"predictor": "intellifold", "model": "v2"},
+    "protenix_v2": {"predictor": "protenix-v2"},
+    "protenix_mini": {"predictor": "protenix-mini"},
+    "protenix_constraint": {"predictor": "protenix-constraint-v0.5", "constraint": true}
+  },
+  "arms": {
+    "standard_off": {"scheduler": "run", "helix_kill": 0.0},
+    "cycle_wave_off": {"scheduler": "cycle-wave", "helix_kill": 0.0},
+    "cycle_wave_length_aware_off": {
+      "scheduler": "cycle-wave",
+      "helix_kill": 0.0,
+      "intellifold_buckets": "length-aware",
+      "engine_filter": ["intellifold_flash", "intellifold_v2"]
+    },
+    "cycle_wave_max": {
+      "scheduler": "cycle-wave",
+      "helix_kill": 1.0,
+      "intellifold_buckets": "length-aware"
+    },
+    "resident_off": {
+      "scheduler": "resident",
+      "helix_kill": 0.0,
+      "enabled": false,
+      "blocked_reason": "A live cross-cycle worker has not passed lifecycle and resume gates."
+    },
+    "resident_max": {
+      "scheduler": "resident",
+      "helix_kill": 1.0,
+      "enabled": false,
+      "blocked_reason": "A live cross-cycle worker has not passed lifecycle and resume gates."
+    }
+  }
+}

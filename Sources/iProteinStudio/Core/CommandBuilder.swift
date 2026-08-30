@@ -163,8 +163,8 @@ enum CommandBuilder {
         case .standard:
             break
         case .batched:
-            // Cycle-wave groups predictor inputs into persistent native batches,
-            // amortising model load and shape compilation. `--wave-batch-size` is
+            // Cycle-wave groups ready predictor inputs into one directory call,
+            // amortising a model load within each cycle. `--wave-batch-size` is
             // deliberately left unset so the device profile supplies the batch
             // size; setting it here would override a measured value with a guess.
             args += ["--design-scheduler", "cycle-wave"]

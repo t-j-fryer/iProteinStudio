@@ -237,6 +237,12 @@ def audit_constraint_runtime(executable: Path, checkpoint: Path, receipt: Path) 
     if not receipt.is_file():
         die("constraint install receipt is missing; repair this engine in Setup")
     try:
+        installed = json.loads(receipt.read_text())
+    except (OSError, json.JSONDecodeError):
+        die("constraint install receipt is invalid; repair this engine in Setup")
+    if installed.get("zero_substructure") != "checkpoint-equivalent-single-token-broadcast":
+        die("constraint engine needs the pocket-only memory update; repair it in Setup")
+    try:
         importlib.metadata.version("fair-esm")
     except importlib.metadata.PackageNotFoundError:
         pass

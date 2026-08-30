@@ -24,6 +24,8 @@ printf '%s\n' "${help_output}" | grep -Fq 'design-only, no CPU fallback' \
   || fail "setup help omits the constraint checkpoint safety boundary"
 [[ -s "${PIPELINE}/patches/protenix_constraint_mps.patch" ]] \
   || fail "bundled Protenix Constraint MPS patch is absent"
+[[ -s "${PIPELINE}/patches/protenix_constraint_zero_substructure.patch" ]] \
+  || fail "bundled Protenix Constraint zero-substructure patch is absent"
 [[ -s "${PIPELINE}/requirements-protenix-constraint-mps-lock.txt" ]] \
   || fail "bundled Protenix Constraint dependency lock is absent"
 
@@ -33,14 +35,37 @@ printf '%s\n' "${help_output}" | grep -Fq 'design-only, no CPU fallback' \
 make_executable "${SOURCE_ROOT}/venvs/Test_boltz/bin/python"
 make_executable "${SOURCE_ROOT}/venvs/Test_protenix_constraint/bin/protenix"
 mkdir -p \
-  "${SOURCE_ROOT}/src/ProtenixConstraint" \
+  "${SOURCE_ROOT}/src/ProtenixConstraint/protenix/model/modules" \
   "${SOURCE_ROOT}/models/protenix_constraint/checkpoint" \
   "${SOURCE_ROOT}/models/protenix_constraint/common"
 printf 'fixture\n' > "${SOURCE_ROOT}/src/ProtenixConstraint/README"
+printf 'fixture substructure source\n' > "${SOURCE_ROOT}/src/ProtenixConstraint/protenix/model/modules/embedders.py"
 printf 'fixture\n' > "${SOURCE_ROOT}/models/protenix_constraint/checkpoint/protenix_base_constraint_v0.5.0.pt"
 printf 'fixture\n' > "${SOURCE_ROOT}/models/protenix_constraint/common/components.cif"
 printf 'fixture\n' > "${SOURCE_ROOT}/models/protenix_constraint/common/components.cif.rdkit_mol.pkl"
-printf '{}\n' > "${SOURCE_ROOT}/models/protenix_constraint/install_receipt.json"
+python3 - \
+  "${SOURCE_ROOT}/models/protenix_constraint/install_receipt.json" \
+  "${PIPELINE}/patches/protenix_constraint_mps.patch" \
+  "${PIPELINE}/patches/protenix_constraint_zero_substructure.patch" \
+  "${SOURCE_ROOT}/src/ProtenixConstraint/protenix/model/modules/embedders.py" <<'PY'
+import hashlib, json, pathlib, sys
+receipt, base, zero, source = map(pathlib.Path, sys.argv[1:])
+digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+receipt.write_text(json.dumps({
+    "patch_sha256": digest(base),
+    "zero_substructure_patch_sha256": digest(zero),
+    "substructure_source_sha256": digest(source),
+    "zero_substructure": "checkpoint-equivalent-single-token-broadcast",
+}) + "\n")
+PY
+
+# The app stages its bundled pipeline before linking an existing installation.
+# Mirror that contract so detection can fingerprint the managed patch payload.
+mkdir -p "${MANAGED_ROOT}/patches"
+cp "${PIPELINE}/patches/protenix_constraint_mps.patch" \
+  "${MANAGED_ROOT}/patches/protenix_constraint_mps.patch"
+cp "${PIPELINE}/patches/protenix_constraint_zero_substructure.patch" \
+  "${MANAGED_ROOT}/patches/protenix_constraint_zero_substructure.patch"
 
 link_output="$(NANOHUNTER_ROOT="${MANAGED_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   bash "${SETUP}" --link-existing "${SOURCE_ROOT}")"

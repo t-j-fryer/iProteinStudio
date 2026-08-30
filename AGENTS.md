@@ -42,6 +42,13 @@ not reinvent it, and do not silently diverge from its defaults**.
 See `docs/CLI.md`. Start with `bash "$ROOT/setup_pipeline.sh" --detect` and never
 assume an engine is installed.
 
+## Validation campaigns
+
+Performance and settings experiments belong under `Validation/`. Read
+`Validation/AGENTS.md` before touching that tree. Every campaign must have a
+declared manifest, immutable raw outputs, an output audit, and an entry in both
+the Validation Lab Book and the project Lab Book before a setting is promoted.
+
 ## Scope
 
 NISE stays in NanoHunter. RFdiffusion3 against DNA/RNA is out of scope — the

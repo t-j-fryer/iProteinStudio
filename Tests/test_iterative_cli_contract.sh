@@ -124,6 +124,64 @@ expect_text "${output}" 'intellifold_model=unused' "irrelevant IntelliFold model
 expect_text "${output}" 'post=none' "empty checker list was not explicit"
 
 output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor boltz \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --predictor-seed 73 --predictor-samples 1 \
+  --post-predictor none --post-mode none)"
+expect_text "${output}" 'predictor_seed=73' "predictor seed was not recorded"
+expect_text "${output}" 'predictor_samples=1' "predictor sample count was not recorded"
+
+set +e
+output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" --workflow protein --sequence-designer solublempnn \
+  --target-msa-mode off --max-parallel 1 --throughput-profile off \
+  --skip-predictor-calibration --num-runs 1 --num-opt-cycles 0 \
+  --run-name bucket_contract --out-root "${FIXTURE_ROOT}/output" \
+  --predictor intellifold --model v2-flash \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --random-binder --binder-min-len 65 --binder-max-len 150 \
+  --intellifold-buckets length-aware \
+  --post-predictor none --post-mode none 2>&1)"
+set -e
+expect_text "${output}" 'IntelliFold=96,128,160,174' \
+  "length-aware IntelliFold buckets did not cover the exact 89-174 token regime"
+
+set +e
+error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor boltz \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --predictor-samples 0 --post-predictor none --post-mode none 2>&1)"
+status=$?
+set -e
+[[ "${status}" -ne 0 ]] || fail "zero predictor samples unexpectedly passed"
+expect_text "${error}" 'positive integer' "invalid predictor sample failure was not actionable"
+
+# The cycle-wave validator and executor must agree on Protenix support. This
+# source-level contract prevents the advertised mode from silently losing its
+# adapter branch again; the real MPS execution is recorded in the Lab Book.
+expect_text "$(sed -n '/run_cycle_wave_predictor_batch()/,/record_cycle_wave_predictions()/p' "${RUNNER}")" \
+  'protenix-v2|protenix-mini|protenix-constraint-v0.5' \
+  "cycle-wave executor lost its Protenix branch"
+expect_text "$(sed -n '/run_cycle_wave_predictor_batch()/,/record_cycle_wave_predictions()/p' "${RUNNER}")" \
+  '--inputs "\$\{input_dir\}"' "cycle-wave Protenix did not use directory input"
+
+SETUP="${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/setup_pipeline.sh"
+ZERO_SUBSTRUCTURE_PATCH="${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/patches/protenix_constraint_zero_substructure.patch"
+[[ -s "${ZERO_SUBSTRUCTURE_PATCH}" ]] \
+  || fail "Protenix Constraint zero-substructure patch is missing"
+expect_text "$(cat "${ZERO_SUBSTRUCTURE_PATCH}")" 'torch.count_nonzero\(x\)' \
+  "constraint patch lost its absent-feature guard"
+expect_text "$(cat "${ZERO_SUBSTRUCTURE_PATCH}")" 'self.transformer\(x\)' \
+  "constraint patch no longer preserves the checkpoint-defined learned baseline"
+expect_text "$(cat "${SETUP}")" 'PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH' \
+  "installer does not apply the constraint memory patch"
+expect_text "$(cat "${SETUP}")" 'zero_substructure_patch_sha256' \
+  "constraint install detection does not fingerprint the memory patch"
+expect_text "$(cat "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/protenix_predict.py")" \
+  'checkpoint-equivalent-single-token-broadcast' \
+  "constraint launch does not reject an outdated engine runtime"
+
+output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   bash "${RUNNER}" "${common[@]}" --predictor protenix-constraint-v0.5 \
   --template-yaml "${FIXTURE_ROOT}/protein_hotspot.yaml" \
   --post-predictor none --post-mode none)"

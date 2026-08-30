@@ -16,3 +16,8 @@ xcuserdata/
 # Python bytecode from the vendored helper scripts
 __pycache__/
 *.pyc
+
+# Reproducible validation harnesses are tracked; large generated campaigns are not.
+Validation/output/
+Validation/cache/
+Validation/.venv/

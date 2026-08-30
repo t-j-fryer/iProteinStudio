@@ -100,6 +100,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0045 | 2026-08-30 | [Validate cycle waves before promoting model residency](lab_book/0045-validate-cycle-waves-before-residency.md) | Directory replay is not live persistence; Protenix cycle-wave execution, explicit predictor work controls, resume timing provenance and governed SUMO/helix validation are added while resident defaults remain gated |
 | 0044 | 2026-08-27 | [Separate signed app updates from explicit checkpoint downloads](lab_book/0044-signed-app-updates-and-engine-consent.md) | Pinned Sparkle integration, versioned bundles, visible release notes/settings, duplicate-copy cleanup, final engine-download consent and fail-closed signing/notarisation automation; existing pre-updater copies still need one manual signed upgrade |
 | 0043 | 2026-08-27 | [Recover the full Protenix Constraint macOS validation record](lab_book/0043-protenix-constraint-macos-validation-lineage.md) | Raw beta logs, receipts, paired outputs, memory/timing data, figures and ChimeraX artifacts establish exactly what was required to run the v0.5 checkpoint on native MPS and what its pocket/contact results do—and do not—show |
 | 0042 | 2026-08-27 | [Complete the Protenix Constraint install and documentation contract](lab_book/0042-complete-protenix-constraint-install-contract.md) | Fresh install, reuse, materialisation, removal, bundle staging and CLI/UI documentation now agree on one isolated experimental design-only checkpoint with verified weights and no CPU fallback |
