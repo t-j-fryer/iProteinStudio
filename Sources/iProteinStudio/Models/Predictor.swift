@@ -433,32 +433,32 @@ enum SpeedBand: Int, Comparable {
 /// device profile whose machine/package fingerprint does not match. These modes
 /// select between its validated strategies.
 enum SpeedMode: String, CaseIterable, Codable, Identifiable, Hashable {
-    /// Independent complete designs, `--max-parallel auto`, device profile honoured.
+    /// Historical per-trajectory execution, retained for old manifests and
+    /// troubleshooting comparisons.
     case standard
-    /// Cycle-wave: every design advances one cycle at a time and ready inputs are
-    /// processed by one directory invocation. The model still reloads once per
-    /// cycle; this is deliberately distinct from campaign-resident inference.
+    /// The measured engine-specific policy: campaign residency except for full
+    /// Protenix v2, whose sustained MPS slowdown makes cycle waves faster.
+    /// The raw value remains `batched` so existing saved projects migrate
+    /// without a decoding break.
     case batched
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .standard: return "Standard"
-        case .batched:  return "Cycle waves"
+        case .standard: return "Compatibility"
+        case .batched:  return "Optimized"
         }
     }
 
     var blurb: String {
         switch self {
         case .standard:
-            return "Each design runs start-to-finish independently. The validated default, and the safe choice for mixed workloads."
+            return "Reloads the predictor for each trajectory and cycle. Use only to reproduce an older campaign or diagnose an optimized run."
         case .batched:
-            return "Advances all designs one cycle at a time and reuses one model load across that cycle. The model reloads for the next cycle."
+            return "Keeps the selected predictor loaded across the campaign. Full Protenix v2 automatically uses one directory wave per cycle because that was faster on Apple MPS."
         }
     }
 
-    /// The batched scheduler has not been validated across ligand and potentials
-    /// workloads upstream, so the UI must say so rather than quietly defaulting to it.
-    var isExperimental: Bool { self == .batched }
+    var isExperimental: Bool { false }
 }

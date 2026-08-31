@@ -4,5 +4,5 @@ upstream_commit: 434b8fff6d7d220db57ccafb4b0bd3883dbfe18e (working tree dirty â€
 upstream_head:   434b8ff 2026-08-06 Merge branch 'agent/fix-nise-resume-crash-and-seed-doc'
 vendored_on:     2026-08-21T16:24:07Z
 studio_changes:  lab_book/0030-promote-authoritative-repo-and-harden-protenix.md, lab_book/0035-fail-loud-msa-and-mps-policy.md, lab_book/0036-add-conservative-ipsae-scoring.md, lab_book/0046-implement-campaign-resident-predictors.md
-runner_lines:    7529
-runner_sha256:   b0c825b68d705ba0018d120c1b0043663ba62f2ae0d4ac3e39923162398cd3a2
+runner_lines:    7537
+runner_sha256:   61b5ec5a7e2726e1d3db22e3a69e786a5a525002a23800aa3bb0cdce859c0b48

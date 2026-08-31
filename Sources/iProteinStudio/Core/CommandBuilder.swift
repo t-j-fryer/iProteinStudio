@@ -160,25 +160,29 @@ enum CommandBuilder {
         args += ["--throughput-profile", "auto"]
 
         switch request.speedMode {
-        case .standard:
-            break
         case .batched:
-            // Cycle-wave groups ready predictor inputs into one directory call,
-            // amortising a model load within each cycle. `--wave-batch-size` is
-            // deliberately left unset so the device profile supplies the batch
-            // size; setting it here would override a measured value with a guess.
-            args += ["--design-scheduler", "cycle-wave"]
-        }
-
-        switch request.parallelMode {
-        case .auto:
-            args += ["--max-parallel", "auto"]
-        case .performance:
-            // Budget from total physical RAM (capped by the safe budget), letting
-            // design use more memory and other apps swap/compress.
-            args += ["--max-parallel", "auto", "--mem-basis", "total"]
-        case .manual:
-            args += ["--max-parallel", String(max(1, request.manualParallel))]
+            // The complete 12-trajectory × 5-cycle SUMO campaign established
+            // one resident worker as the fastest measured policy for every
+            // iterative design engine except full Protenix v2. Full v2 slows
+            // under sustained MPS work, so it reloads once per cycle instead.
+            // Resident workers are intentionally one-process owners of the GPU.
+            args += ["--max-parallel", "1"]
+            if request.designPredictor == .protenixV2 {
+                args += ["--design-scheduler", "cycle-wave"]
+            } else {
+                args += ["--design-scheduler", "resident", "--wave-batch-size", "all"]
+            }
+        case .standard:
+            switch request.parallelMode {
+            case .auto:
+                args += ["--max-parallel", "auto"]
+            case .performance:
+                // Budget from total physical RAM (capped by the safe budget), letting
+                // design use more memory and other apps swap/compress.
+                args += ["--max-parallel", "auto", "--mem-basis", "total"]
+            case .manual:
+                args += ["--max-parallel", String(max(1, request.manualParallel))]
+            }
         }
         return args
     }

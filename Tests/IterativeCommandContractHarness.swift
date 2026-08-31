@@ -207,6 +207,40 @@ struct IterativeCommandContractHarness {
         expect(value(after: "--lasermpnn-seed", in: arguments(request)) == "1234", "LASErMPNN seed routing failed")
     }
 
+    static func testOptimizedSchedulerPolicy() {
+        var request = proteinRequest()
+        request.epitopeResidues = ""
+        expect(request.speedMode == .batched, "new campaigns did not default to optimized scheduling")
+
+        let residentEngines: [Predictor] = [
+            .boltz, .boltzPotentials, .intellifold,
+            .protenixMini, .protenixConstraint,
+        ]
+        for engine in residentEngines {
+            request.designPredictor = engine
+            let args = arguments(request)
+            expect(value(after: "--design-scheduler", in: args) == "resident",
+                   "\(engine.label) did not select campaign residency")
+            expect(value(after: "--wave-batch-size", in: args) == "all",
+                   "\(engine.label) resident worker did not own the complete wave")
+            expect(value(after: "--max-parallel", in: args) == "1",
+                   "\(engine.label) resident worker did not enforce one GPU owner")
+        }
+
+        request.designPredictor = .protenixV2
+        var args = arguments(request)
+        expect(value(after: "--design-scheduler", in: args) == "cycle-wave",
+               "full Protenix v2 did not select the measured cycle-wave policy")
+        expect(!args.contains("resident"), "full Protenix v2 incorrectly selected residency")
+        expect(!args.contains("--wave-batch-size"),
+               "full Protenix v2 hard-coded an unvalidated wave size")
+
+        request.speedMode = .standard
+        args = arguments(request)
+        expect(!args.contains("--design-scheduler"),
+               "compatibility scheduling did not preserve per-trajectory execution")
+    }
+
     static func testExplicitResumeContract() {
         let recorded = ["--predictor", "boltz", "--num-runs", "4"]
         let resumed = ResumeContract.arguments(from: recorded)
@@ -302,6 +336,7 @@ struct IterativeCommandContractHarness {
         testPostChecksAndModels()
         testCanonicalCheckers()
         testDesignerSeeds()
+        testOptimizedSchedulerPolicy()
         testExplicitResumeContract()
         try testDormantHotspotsAreNotPassed()
         testValidationAndDependencies()

@@ -4,7 +4,7 @@ title: Implement campaign-resident iterative predictors
 date: 2026-08-30
 author: codex
 type: implementation
-status: in-progress
+status: complete
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory, macOS 26.x
 tags: [iterative-design, persistence, boltz, intellifold, protenix, mps]
 ---
@@ -66,12 +66,33 @@ after daemonization broke Metal compiler service access. The next prototype
 completed cycle 00 and then exposed the stdout contamination bug. The third
 completed both requests and is the reported result.
 
+The complete paired campaign then finished with 1,080/1,080 optimized cycle
+structures (cycle 00 excluded) and no receipt-level audit errors:
+
+| Engine | Current | Cycle-wave | Resident | Selected |
+|---|---:|---:|---:|---|
+| Boltz 2 | 40.26 min | 28.35 min | **22.07 min** | resident |
+| IntelliFold v2-flash | 47.01 min | 38.52 min | **38.05 min** | resident |
+| IntelliFold full v2 | 170.35 min | 153.63 min | **151.04 min** | resident |
+| Protenix v2 | 84.96 min | **70.44 min** | 79.93 min | cycle-wave |
+| Protenix Mini | 20.39 min | 4.94 min | **4.54 min** | resident |
+| Protenix Constraint | 66.43 min | 42.65 min | **40.09 min** | resident |
+
+Model loads were 72, 6 and 1 for current, cycle-wave and resident arms.
+
 ## Decision and rationale
 
-The implementation is ready for the requested paired full-campaign benchmark,
-but is not an app default. A persistent Python object is insufficient evidence
-by itself; promotion depends on end-to-end wall time, exact outputs, interruption
-and memory behavior in the complete 12 by five setting.
+New campaigns now default to an engine-specific Optimized policy: resident for
+all iterative design engines except full Protenix v2, which uses cycle-wave.
+Compatibility mode retains the old process-per-trajectory route.
+
+Protenix v2 is not assigned residency because its resident model-forward mean
+rose to 65.14 s versus 55.30 s in cycle-wave, despite bounded 2.75--2.82 GB MPS
+allocation. A paired check found that the accidentally inherited IntelliFold
+single-thread environment explained only about 3% and was not the cause; that
+environment is now applied to IntelliFold alone. Sustained-load power/thermal
+or MPS process-lifetime effects are plausible but unproven because telemetry
+was not collected.
 
 ## Reproduce
 
@@ -85,13 +106,11 @@ caffeinate -dimsu python3 Validation/experiments/resident_design_v1/campaign.py 
 
 ## Limits and what was not tested
 
-The complete 18-campaign comparison has not yet completed. Smokes cover SUMO,
-80-aa protein binders, one seed/sample and this M4 Max. Nanobodies, ligands,
-other lengths and Apple chips remain outside the evidence. Boltz's known SVD
-fallback is counted rather than described as fully MPS-native.
-
-## Next
-
-Freeze the exact commit/runtime hashes, launch the 18 paired campaigns under
-`caffeinate`, audit all 1,296 requested structures (including cycle 00), and
-generate the declared speed figures before considering any default change.
+The result covers SUMO, 80-aa protein binders, one seed/sample and this M4 Max.
+Nanobodies, ligands, mixed lengths, post-predictor stages, other Apple chips,
+randomized scheduler ordering, temperature/power telemetry, interruption and
+worker-death injection remain outside the evidence. Boltz's known SVD fallback
+is counted rather than described as fully MPS-native. An upstream directory
+runner can advance one RNG stream across ordered inputs, so the optimized arms
+are comparable to one another but are not claimed to be bit-identical to the
+independently restarted current arm.

@@ -141,7 +141,13 @@ Flags worth knowing:
 | `--throughput-profile auto` | uses a measured per-machine schedule, and *rejects* one from a different Mac |
 | `--resume` | idempotent; reuses completed cycles after an interruption |
 | `--design-scheduler cycle-wave` | one directory predictor process per cycle for supported iterative engines |
-| `--design-scheduler resident` | validation-only: one live model across cycles; requires `--max-parallel 1 --wave-batch-size all` |
+| `--design-scheduler resident` | one live model across cycles; requires `--max-parallel 1 --wave-batch-size all` |
+
+The app's Optimized mode selects `resident` for Boltz 2, IntelliFold v2-flash,
+IntelliFold full v2, Protenix Mini and Protenix Constraint. It selects
+`cycle-wave` for full Protenix v2, which was faster than residency in the paired
+M4 Max campaign. Compatibility mode omits the scheduler flag and preserves the
+historical per-trajectory execution route.
 | `--iptm-threshold 0.7` | defines campaign hits; Studio uses the same value to gate optional checking |
 | `--post-mode final-iptm` | independently checks only final-cycle designs that passed the gate; `final` checks every final design |
 | `--post-mode iptm` | checks every passing optimized checkpoint from cycle 01 onward; use `all` instead of `iptm` to disable the threshold gate |

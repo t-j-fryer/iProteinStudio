@@ -208,7 +208,10 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// optimized checkpoint (cycles 01...N). The unoptimized cycle 00 seed is
     /// never included by Studio. Threshold gating is intentionally orthogonal.
     var postCheckScope: PostCheckScope = .finalCycle
-    var speedMode: SpeedMode = .standard
+    /// New campaigns use the measured engine-specific scheduler policy. The
+    /// compatibility mode remains decodable for old manifests and as an
+    /// explicit troubleshooting escape hatch.
+    var speedMode: SpeedMode = .batched
 
     /// Sampling temperature for the first redesign cycle, and for later ones.
     /// Cycle 1 starts hotter to explore, then cools to refine. These are the

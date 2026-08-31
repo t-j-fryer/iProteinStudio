@@ -750,10 +750,12 @@ struct AdvancedSettings: View {
                     .accessibilityLabel("Scheduling mode")
                 Text(request.speedMode.blurb).font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                if request.speedMode.isExperimental {
-                    Label("Not yet validated for ligand targets or steering potentials. If a run misbehaves, switch back to Standard.",
-                          systemImage: "flask")
-                        .font(.caption).foregroundStyle(.orange)
+                if request.speedMode == .batched {
+                    Label(request.designPredictor == .protenixV2
+                          ? "Protenix v2 uses cycle waves; the other design engines keep one model loaded for the complete campaign."
+                          : "One model-owning worker serves every design cycle; completed cycles remain independently resumable.",
+                          systemImage: "bolt.fill")
+                        .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Toggle("Reuse finished work if this run is restarted", isOn: $request.resumeIfPossible)
@@ -767,23 +769,29 @@ struct AdvancedSettings: View {
             // --- Parallelisation ---
             VStack(alignment: .leading, spacing: 6) {
                 Text("Parallelisation").font(.headline)
-                Picker("", selection: $request.parallelMode) {
-                    ForEach(ParallelMode.allCases) { Text($0.label).tag($0) }
-                }.pickerStyle(.segmented).labelsHidden().frame(width: 300)
-                    .accessibilityLabel("Memory and parallelism mode")
-                Text(request.parallelMode.blurb).font(.caption).foregroundStyle(.secondary)
-                if request.parallelMode == .manual {
-                    HStack(spacing: 6) {
-                        Text("Run")
-                        EditableIntStepper(value: $request.manualParallel,
-                                           in: 1...max(1, cpuCount),
-                                           accessibilityLabel: "Concurrent predictions")
-                        Text("prediction\(request.manualParallel == 1 ? "" : "s") at once")
+                if request.speedMode == .batched {
+                    Text("Optimized scheduling owns the Apple GPU with one predictor process. Sequence redesigns are still dispatched between prediction waves.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Picker("", selection: $request.parallelMode) {
+                        ForEach(ParallelMode.allCases) { Text($0.label).tag($0) }
+                    }.pickerStyle(.segmented).labelsHidden().frame(width: 300)
+                        .accessibilityLabel("Memory and parallelism mode")
+                    Text(request.parallelMode.blurb).font(.caption).foregroundStyle(.secondary)
+                    if request.parallelMode == .manual {
+                        HStack(spacing: 6) {
+                            Text("Run")
+                            EditableIntStepper(value: $request.manualParallel,
+                                               in: 1...max(1, cpuCount),
+                                               accessibilityLabel: "Concurrent predictions")
+                            Text("prediction\(request.manualParallel == 1 ? "" : "s") at once")
+                        }
+                    } else if request.parallelMode == .performance {
+                        Label("Best when you're not actively using the Mac for other work.",
+                              systemImage: "bolt.fill")
+                            .font(.caption).foregroundStyle(.orange)
                     }
-                } else if request.parallelMode == .performance {
-                    Label("Best when you're not actively using the Mac for other work.",
-                          systemImage: "bolt.fill")
-                        .font(.caption).foregroundStyle(.orange)
                 }
             }
             Divider()

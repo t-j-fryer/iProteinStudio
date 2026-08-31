@@ -4,7 +4,7 @@ title: Compare current, cycle-wave and resident iterative prediction
 date: 2026-08-30
 author: codex
 type: experiment
-status: in-progress
+status: complete
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory, macOS 26.x
 tags: [iterative-design, persistence, batching, throughput]
 ---
@@ -65,7 +65,31 @@ therefore remain normal campaign children. The first attached Mini retry exposed
 stdout contamination from the Protenix UNK normalizer, which prepended a
 diagnostic to the MPNN sequence. Diagnostics now use stderr and inverse-folding
 handoffs are explicitly alphabet- and length-validated. The third Mini smoke
-completed both prediction waves. The 18 full campaigns remain to be launched.
+completed both prediction waves.
+
+The complete 18-campaign matrix subsequently finished with 1,080/1,080
+designed cycle structures (cycle 00 excluded) and no receipt-level audit
+errors. End-to-end wall times for current / cycle-wave / resident were: Boltz
+2, 40.26/28.35/22.07 min; IntelliFold v2-flash, 47.01/38.52/38.05 min;
+IntelliFold full v2, 170.35/153.63/151.04 min; Protenix v2,
+84.96/70.44/79.93 min; Protenix Mini, 20.39/4.94/4.54 min; and Protenix
+Constraint, 66.43/42.65/40.09 min. Model-load counts were 72, 6 and 1,
+respectively.
+
+Protenix v2 was the exception to the otherwise fastest resident arm. Log-level
+decomposition shows that this is not model-loading overhead or a memory leak:
+mean model-forward time rose from 40.32 s in the one-input current processes to
+55.30 s in 12-input cycle waves and 65.14 s in the 72-input resident process,
+while resident MPS allocation remained bounded at 2.75--2.82 GB between waves.
+Within the first cycle-wave process, forward time rose from 40.38 s for the
+first input to 53.93 s for the twelfth. This pattern is consistent with
+sustained-load power/thermal throttling or an MPS process-lifetime effect; no
+temperature or power telemetry was recorded, so the mechanism remains an
+inference. The resident launcher's inherited IntelliFold thread cap was tested
+separately on the identical first input: unrestricted and single-threaded
+forwards were 36.13 and 37.06 s (64.25 and 66.25 s end-to-end), too small to
+explain the full-campaign difference. Protenix v2 therefore retains cycle-wave
+scheduling pending randomized-order batch-size and telemetry validation.
 
 ## Reproduce
 
@@ -81,5 +105,7 @@ The plan covers one protein target, one 80-aa binder length and Apple M4 Max.
 Ligands, nanobody scaffolds, other Apple chips, post-predictor stages, helix
 control and mixed-length padding require separate validation. A query-only
 binder MSA and cached target MSA are mandatory; online MSA search is not part of
-this experiment. No optimized scheduler is promoted until the full matrix and
-output audit complete.
+this experiment. Temperature/power telemetry, randomized arm order, Protenix
+v2 wave-size optimization, restart/cancellation, reverse-order determinism and
+a memory soak remain untested; residency must not be promoted as a universal
+default until those gates pass.

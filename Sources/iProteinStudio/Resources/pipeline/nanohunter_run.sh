@@ -5598,10 +5598,18 @@ temporary.replace(path)
 PY
 
   echo ">>> Resident ${PREDICTOR}: loading one campaign model (session ${session_tag})"
-  PYTORCH_ENABLE_MPS_FALLBACK=0 \
-    OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" \
-    VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" \
-    KMP_USE_SHM=0 \
+  # The one-thread BLAS/OpenMP policy is a measured IntelliFold optimization,
+  # not a generic MPS setting. Applying it to Protenix made its forwards slower
+  # and made the resident comparison less controlled.
+  local resident_environment=("PYTORCH_ENABLE_MPS_FALLBACK=0")
+  if [[ "${PREDICTOR}" == "intellifold" ]]; then
+    resident_environment+=(
+      "OMP_NUM_THREADS=${INTELLIFOLD_OMP_NUM_THREADS}"
+      "VECLIB_MAXIMUM_THREADS=${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}"
+      "KMP_USE_SHM=0"
+    )
+  fi
+  env "${resident_environment[@]}" \
     "${worker_python}" "${RESIDENT_PREDICTOR}" --config "${config_path}" \
     > "${RESIDENT_LOG}" 2>&1 &
   RESIDENT_PID="$!"

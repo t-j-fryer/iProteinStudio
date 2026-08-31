@@ -140,6 +140,12 @@ output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   --post-predictor none --post-mode none)"
 expect_text "${output}" 'scheduler=resident' "resident scheduler was not accepted as a distinct mode"
 
+resident_launcher="$(sed -n '/start_resident_predictor()/,/stop_resident_predictor()/p' "${RUNNER}")"
+expect_text "${resident_launcher}" 'if \[\[ "\$\{PREDICTOR\}" == "intellifold" \]\]' \
+  "resident launcher lost the IntelliFold-only thread guard"
+expect_text "${resident_launcher}" 'resident_environment=\("PYTORCH_ENABLE_MPS_FALLBACK=0"\)' \
+  "resident launcher no longer rejects silent MPS fallback"
+
 set +e
 output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   bash "${RUNNER}" --workflow protein --sequence-designer solublempnn \

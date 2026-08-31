@@ -37,9 +37,16 @@ Model residency is an optimization, never a new source of campaign truth.
 IntelliFold PyTorch and Protenix. The six app engine choices map to those three
 families and their fixed checkpoints. The worker remains a normal child of the
 campaign process; double-fork daemonization was rejected after it severed access
-to macOS `MTLCompilerService`. The CLI mode exists for governed validation, but
-the GUI continues to expose the established scheduler until promotion gates
-pass.
+to macOS `MTLCompilerService`.
+
+New GUI campaigns select the measured optimized policy automatically:
+
+- Boltz 2, IntelliFold v2-flash, IntelliFold full v2, Protenix Mini and
+  Protenix Constraint use one campaign-resident worker;
+- full Protenix v2 uses one cycle-wave process per cycle because its measured
+  resident run was slower under sustained MPS load;
+- Compatibility mode retains the historical per-trajectory process route for
+  reproducing old campaigns and diagnosis.
 
 ## Engine-specific batching and padding
 
@@ -72,19 +79,44 @@ make artificial length buckets for these engines.
 Fixed scaffolds have the same length, so token-aware scheduling adds no useful
 partition. CDR sequence changes do not change tensor length.
 
-## Promotion gates
+## Validation and promotion decision
 
-A backend can become the default only after the paired full campaign in
-`Validation/experiments/resident_design_v1` demonstrates a speed gain and all
-of the following pass:
+The paired 12-trajectory, five-cycle, 80-aa SUMO campaign completed for all six
+engines and all three schedulers. Cycle 00 was audited but excluded from the
+1,080 optimized design structures. Receipt-level cardinality and structure
+audits passed. End-to-end wall time in minutes was:
+
+| Engine | Per-trajectory | Cycle-wave | Resident | Selected policy |
+|---|---:|---:|---:|---|
+| Boltz 2 | 40.26 | 28.35 | **22.07** | resident |
+| IntelliFold v2-flash | 47.01 | 38.52 | **38.05** | resident |
+| IntelliFold full v2 | 170.35 | 153.63 | **151.04** | resident |
+| Protenix v2 | 84.96 | **70.44** | 79.93 | cycle-wave |
+| Protenix Mini | 20.39 | 4.94 | **4.54** | resident |
+| Protenix Constraint | 66.43 | 42.65 | **40.09** | resident |
+
+These values were measured on the M4 Max described in Lab Book 0046; they are
+not estimates for other Macs. Model-load counts were 72, 6 and 1 for the three
+respective scheduler arms.
+
+Protenix v2 resident memory stayed bounded at 2.75--2.82 GB, but mean model
+forward time increased from 55.30 s in cycle waves to 65.14 s in the resident
+process. The benchmark did not record power or temperature, so thermal or MPS
+process-lifetime effects remain hypotheses rather than claims.
+
+The following broader promotion gates remain for extending this policy beyond
+the validated fixed-length protein-binder route:
 
 - exact 12 × 6 prediction output cardinality (cycle 00 plus cycles 01–05);
 - exact submitted binder and target sequences and cached-MSA checksum;
 - finite coordinates, complete backbones and required confidence outputs;
-- identical job-local seed behavior under reversed input order;
 - clean interruption, cancellation, worker-death and resume behavior;
 - bounded unified-memory use across at least the complete campaign;
 - no CPU execution except the separately counted known Boltz SVD fallback.
 
-Until then, cycle-wave is an explicit experimental mode and the app must not
-describe it as persistent or as a single tensor batch.
+Mixed lengths, ligands, nanobodies, post-predictor stages and other Apple chips
+were not part of this benchmark. Residency is a process-lifetime optimization,
+not a tensor-batching claim; output order can also affect an upstream engine's
+RNG stream, so cycle-wave and resident scientific settings are held constant
+but are not asserted to reproduce independently restarted per-input samples
+bit-for-bit.
