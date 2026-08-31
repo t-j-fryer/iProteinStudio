@@ -79,15 +79,19 @@ struct PredictionResultsContractHarness {
         let iterative = fm.temporaryDirectory
             .appendingPathComponent("iterative-results-\(UUID().uuidString)", isDirectory: true)
         defer { try? fm.removeItem(at: iterative) }
+        let startRoot = iterative.appendingPathComponent("run_001/cycle_00", isDirectory: true)
         let designRoot = iterative.appendingPathComponent("run_001/cycle_01", isDirectory: true)
         let postRoot = iterative.appendingPathComponent("run_001/post_intellifold/cycle_01", isDirectory: true)
+        try fm.createDirectory(at: startRoot, withIntermediateDirectories: true)
         try fm.createDirectory(at: designRoot, withIntermediateDirectories: true)
         try fm.createDirectory(at: postRoot, withIntermediateDirectories: true)
+        let startStructure = startRoot.appendingPathComponent("model.cif")
         let designStructure = designRoot.appendingPathComponent("model.cif")
         let postStructure = postRoot.appendingPathComponent("model.cif")
+        try "data_start\n".write(to: startStructure, atomically: true, encoding: .utf8)
         try "data_design\n".write(to: designStructure, atomically: true, encoding: .utf8)
         try "data_post\n".write(to: postStructure, atomically: true, encoding: .utf8)
-        try "cycle,iptm,complex_plddt,confidence_json,structure_path,binder_sequence\n1,0.81,0.77,,\(designStructure.path),AAAA\n"
+        try "cycle,iptm,complex_plddt,confidence_json,structure_path,binder_sequence\n0,0.40,0.50,,\(startStructure.path),AAAA\n1,0.81,0.77,,\(designStructure.path),AAAA\n"
             .write(to: iterative.appendingPathComponent("run_001/metrics_per_cycle.csv"),
                    atomically: true, encoding: .utf8)
         try "run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json\n1,1,0.74,0.72,AAAA,\(postStructure.path),\n"
@@ -98,7 +102,8 @@ struct PredictionResultsContractHarness {
             to: iterative.appendingPathComponent("studio_run.json"))
 
         let partial = RunResultsLoader.load(root: iterative, workflow: .iterative)
-        guard partial.count == 2,
+        guard partial.count == 3,
+              partial.filter({ $0.stage == .startingStructure }).count == 1,
               partial.contains(where: { $0.stage == .design && $0.scoreSource == "Protenix v2" }),
               partial.contains(where: { $0.stage == .postPrediction && $0.scoreSource == "IntelliFold PyTorch" }) else {
             throw NSError(domain: "PredictionResultsContract", code: 6,

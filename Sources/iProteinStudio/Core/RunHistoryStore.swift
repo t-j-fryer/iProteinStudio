@@ -65,6 +65,14 @@ struct StudioRunManifest: Codable {
     var state: StudioRunState = .running
     var arguments: [String]
     var environmentOverrides: [String: String]? = nil
+    /// Redundant human-readable budget provenance. The command remains
+    /// authoritative; optional fields preserve decoding of older manifests.
+    var requestedTrajectories: Int? = nil
+    var optimizationCycles: Int? = nil
+    var expectedOptimizedDesigns: Int? = nil
+    /// Campaign-owned immutable policy/script snapshot. Optional so manifests
+    /// written by older versions remain decodable.
+    var pipelineSnapshot: String? = nil
 }
 
 struct StudioRunRecord: Identifiable, Hashable {

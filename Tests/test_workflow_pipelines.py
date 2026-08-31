@@ -506,7 +506,7 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
         ).command_for("intellifold", one_yaml, root / "overlay-if", root, "v2-flash")
         expect(overlay_if_command[1].endswith("scripts/intellifold_predict.py")
                and overlay_if_env.get("PYTORCH_ENABLE_MPS_FALLBACK") == "0"
-               and 'INTELLIFOLD_RUNNER="${REPO_ROOT}/scripts/intellifold_predict.py"'
+               and 'INTELLIFOLD_RUNNER="${PIPELINE_CODE_ROOT}/scripts/intellifold_predict.py"'
                in runner_source,
                "a design workflow bypassed the strict IntelliFold MPS launcher")
 

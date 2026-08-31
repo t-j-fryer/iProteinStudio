@@ -2,6 +2,7 @@ import Foundation
 
 enum StudioResultStage: String, Hashable {
     case prediction
+    case startingStructure
     case design
     case postPrediction
     case rankedDesign
@@ -9,6 +10,7 @@ enum StudioResultStage: String, Hashable {
     var label: String {
         switch self {
         case .prediction: return "Prediction"
+        case .startingStructure: return "Unoptimized starting structure"
         case .design: return "Design stage"
         case .postPrediction: return "Independent post-prediction"
         case .rankedDesign: return "Ranked verification"
@@ -187,11 +189,13 @@ enum RunResultsLoader {
                   let structure = resolvedURL(path, relativeTo: root),
                   fm.fileExists(atPath: structure.path) else { return nil }
             let isPost = row["stage"]?.lowercased() == "post"
-            let resultStage: StudioResultStage = isPost ? .postPrediction : .design
             let predictorKey = nonempty(row["predictor"]) ?? (isPost ? nil : recordedDesignPredictor) ?? "Unknown engine"
             let predictor = friendlyPredictor(predictorKey)
             let run = Int(row["run"] ?? "") ?? 0
             let cycle = Int(row["cycle"] ?? "") ?? 0
+            let resultStage: StudioResultStage = isPost
+                ? .postPrediction
+                : (cycle == 0 ? .startingStructure : .design)
             let confidence = row["confidence_json"].flatMap { resolvedURL($0, relativeTo: root) }
             let documents = confidence.map { [$0] } ?? confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
             return StudioResultItem(

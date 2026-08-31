@@ -14,7 +14,9 @@ struct ComponentsView: View {
     @State private var pendingInstall: EngineInstallPlan?
 
     private var optional: [InstallComponent] {
-        InstallComponent.allCases.filter { !$0.isCore }
+        InstallComponent.allCases.filter {
+            !$0.isCore && ($0.isUserSelectable || installer.hasManagedFiles($0))
+        }
     }
 
     var body: some View {
@@ -74,6 +76,17 @@ struct ComponentsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
+            HStack(spacing: 8) {
+                Button("Reveal managed files") {
+                    NSWorkspace.shared.activateFileViewerSelecting([AppPaths.support])
+                }
+                Button("Clear safe caches (\(installer.safeCacheSize))") {
+                    installer.clearSafeCaches()
+                }
+                .disabled(installer.isInstalling || installer.isRemoving)
+            }
+            .controlSize(.small)
+            .padding(.top, 4)
         }
     }
 
@@ -104,6 +117,19 @@ struct ComponentsView: View {
                     Text(installer.currentMessage).font(.callout).foregroundStyle(.secondary)
                 }
             }
+            HStack(spacing: 8) {
+                Text("Presets").font(.caption).foregroundStyle(.secondary)
+                Button("Essentials") {
+                    selection = [.boltz, .intellifold, .protenixMini]
+                }
+                Button("Independent validation") {
+                    selection = [.boltz, .intellifold, .protenixV2]
+                }
+                Button("Complete") {
+                    selection = Set(optional.filter { !installer.isUsable($0) })
+                }
+            }
+            .controlSize(.small)
             ForEach(optional) { component in
                 row(component)
             }
@@ -116,9 +142,12 @@ struct ComponentsView: View {
                     // Pull in anything the selection depends on, so a user cannot
                     // pick a component that then fails for a missing prerequisite.
                     var wanted = selection
-                    for component in selection {
-                        for dependency in component.requires where !installer.isUsable(dependency) {
+                    var pending = Array(selection)
+                    while let component = pending.popLast() {
+                        for dependency in component.requires
+                            where !installer.isUsable(dependency) && !wanted.contains(dependency) {
                             wanted.insert(dependency)
+                            pending.append(dependency)
                         }
                     }
                     pendingInstall = EngineInstallPlan(components: Array(wanted))

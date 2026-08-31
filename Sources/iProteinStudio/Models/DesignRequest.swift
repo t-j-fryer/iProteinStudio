@@ -369,6 +369,14 @@ struct DesignRequest: Codable, Equatable, Hashable {
         return total
     }
 
+    /// One independent trajectory yields one optimized structure per design
+    /// cycle. Cycle 00 is a starting structure and is never counted as a design.
+    var expectedOptimizedDesigns: Int {
+        max(1, numDesigns) * max(0, numCycles)
+    }
+
+    var expectedStartingStructures: Int { max(1, numDesigns) }
+
     var isRunnable: Bool {
         let targetOK = targetKind == .protein ? targetSequenceError == nil : !targetSmiles.isEmpty
         guard targetOK, designPredictor.isAvailable,

@@ -207,6 +207,45 @@ enum AppPaths {
         return dir
     }
 
+    /// Freeze the app-owned runner and helper scripts beside a campaign before
+    /// launch. Engine environments and checkpoints remain shared under
+    /// `support`; only the small executable policy layer is copied. A later app
+    /// update therefore cannot change a detached or resumed campaign midway.
+    static func createPipelineSnapshot(in campaign: URL) throws -> URL {
+        let runtime = campaign.appendingPathComponent(".studio_runtime", isDirectory: true)
+        let destination = runtime.appendingPathComponent("pipeline", isDirectory: true)
+        let runner = destination.appendingPathComponent("nanohunter_run.sh")
+        if fm.fileExists(atPath: runner.path) { return destination }
+        guard let source = bundledPipeline else {
+            throw NHError.message("Bundled pipeline assets are missing from the app.")
+        }
+        try fm.createDirectory(at: runtime, withIntermediateDirectories: true)
+        let staged = runtime.appendingPathComponent(".pipeline-stage-\(UUID().uuidString)",
+                                                     isDirectory: true)
+        do {
+            try fm.copyItem(at: source, to: staged)
+            removeGeneratedCaches(from: staged)
+            for name in ["nanohunter_run.sh", "setup_pipeline.sh"] {
+                let path = staged.appendingPathComponent(name).path
+                try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
+            }
+            let metadata: [String: Any] = [
+                "schema_version": 1,
+                "created_at": ISO8601DateFormatter().string(from: Date()),
+                "app_version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development",
+                "immutable_for_campaign": true,
+            ]
+            let data = try JSONSerialization.data(withJSONObject: metadata,
+                                                  options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: staged.appendingPathComponent("snapshot.json"), options: .atomic)
+            try fm.moveItem(at: staged, to: destination)
+        } catch {
+            try? fm.removeItem(at: staged)
+            throw error
+        }
+        return destination
+    }
+
     // MARK: Bundled resources
 
     /// Vendored pipeline assets shipped inside the app bundle.

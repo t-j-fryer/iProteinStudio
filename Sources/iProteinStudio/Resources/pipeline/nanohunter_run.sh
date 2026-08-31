@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${PROTEINHUNTER_ROOT:-${IPROTEINHUNTER_ROOT:-${NANOHUNTER_ROOT:-$SCRIPT_DIR}}}"
+PIPELINE_CODE_ROOT="${IPROTEINSTUDIO_PIPELINE_SNAPSHOT:-${REPO_ROOT}}"
 
 # One implementation serves both the original iProteinHunter protein-binder
 # workflow and NanoHunter fixed-scaffold nanobody design.  Resolve the workflow
@@ -36,7 +37,7 @@ case "${WORKFLOW}" in
 esac
 
 if [[ "${WORKFLOW}" == "nanobody" ]]; then
-  DEFAULT_TEMPLATE_YAML="${REPO_ROOT}/examples/NanoHunter_nanobody.yaml"
+  DEFAULT_TEMPLATE_YAML="${PIPELINE_CODE_ROOT}/examples/NanoHunter_nanobody.yaml"
   DEFAULT_POST_PREDICTOR="intellifold"
   DEFAULT_SCAFFOLD_FROM_TEMPLATE=1
   DEFAULT_SEQUENCE_DESIGNER="antifold"
@@ -44,7 +45,7 @@ if [[ "${WORKFLOW}" == "nanobody" ]]; then
   DEFAULT_NANOBODY_SEED_PERCENT_X=50
   DEFAULT_NANOBODY_SCAFFOLD_MSA_MODE="masked-cdr"
 else
-  DEFAULT_TEMPLATE_YAML="${REPO_ROOT}/examples/aCbx_bind.yaml"
+  DEFAULT_TEMPLATE_YAML="${PIPELINE_CODE_ROOT}/examples/aCbx_bind.yaml"
   DEFAULT_POST_PREDICTOR="none"
   DEFAULT_SCAFFOLD_FROM_TEMPLATE=0
   DEFAULT_SEQUENCE_DESIGNER="auto"
@@ -71,17 +72,17 @@ OPENFOLD_CLI="run_openfold"
 INTELLIFOLD_CACHE_DIR="${INTELLIFOLD_CACHE:-${REPO_ROOT}/models/intellifold}"
 PROTENIX_MODEL_DIR="${PROTENIX_ROOT_DIR:-${REPO_ROOT}/models/protenix}"
 PROTENIX_CONSTRAINT_MODEL_DIR="${REPO_ROOT}/models/protenix_constraint"
-PROTENIX_ADAPTER="${REPO_ROOT}/scripts/protenix_predict.py"
-RESIDENT_PREDICTOR="${REPO_ROOT}/scripts/resident_predictor.py"
+PROTENIX_ADAPTER="${PIPELINE_CODE_ROOT}/scripts/protenix_predict.py"
+RESIDENT_PREDICTOR="${PIPELINE_CODE_ROOT}/scripts/resident_predictor.py"
 OPENFOLD_CACHE_DIR="${OPENFOLD_CACHE:-${REPO_ROOT}/models/openfold3}"
 OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_CACHE_DIR}/of3_ft3_v1.pt"
 BOLTZ_CACHE="${BOLTZ_CACHE:-${REPO_ROOT}/models/boltz2}"
 NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-${REPO_ROOT}/numba_cache}"
 export BOLTZ_CACHE NUMBA_CACHE_DIR
 mkdir -p "${NUMBA_CACHE_DIR}"
-OPENFOLD_A3M_QUERY_REWRITER="${REPO_ROOT}/scripts/rewrite_a3m_query.py"
-POST_TASK_SELECTOR="${REPO_ROOT}/scripts/select_post_tasks.py"
-IPSAE_SCORER="${REPO_ROOT}/scripts/ipsae_score.py"
+OPENFOLD_A3M_QUERY_REWRITER="${PIPELINE_CODE_ROOT}/scripts/rewrite_a3m_query.py"
+POST_TASK_SELECTOR="${PIPELINE_CODE_ROOT}/scripts/select_post_tasks.py"
+IPSAE_SCORER="${PIPELINE_CODE_ROOT}/scripts/ipsae_score.py"
 
 LIGANDMPNN_REPO="${REPO_ROOT}/src/LigandMPNN"
 LIGANDMPNN_RUN="python run.py"
@@ -98,8 +99,8 @@ LIGANDMPNN_CHECKPOINT_ABMPNN="${LIGANDMPNN_REPO}/model_params/abmpnn.pt"
 LASERMPNN_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_lasermpnn"
 LASERMPNN_REPO="${REPO_ROOT}/src/LASErMPNN"
 LASERMPNN_WEIGHTS="${LASERMPNN_REPO}/model_weights/laser_weights_0p1A_nothing_heldout.pt"
-LASERMPNN_PREPARE="${REPO_ROOT}/scripts/lasermpnn_prepare_input.py"
-LASERMPNN_SEEDED_RUNNER="${REPO_ROOT}/scripts/run_lasermpnn_seeded.py"
+LASERMPNN_PREPARE="${PIPELINE_CODE_ROOT}/scripts/lasermpnn_prepare_input.py"
+LASERMPNN_SEEDED_RUNNER="${PIPELINE_CODE_ROOT}/scripts/run_lasermpnn_seeded.py"
 LASERMPNN_DEVICE="${LASERMPNN_DEVICE:-cpu}"
 LASERMPNN_NUM_SEQ="${LASERMPNN_NUM_SEQ:-1}"
 LASERMPNN_SEQ_TEMP="${LASERMPNN_SEQ_TEMP:-0.1}"
@@ -109,10 +110,10 @@ LASERMPNN_LIGAND_SMILES=""
 LASERMPNN_EXTRA_FLAGS=()
 ANTIFOLD_REPO="${REPO_ROOT}/src/AntiFold"
 ANTIFOLD_RUN="python antifold/main.py"
-ANTIFOLD_EXACT_SAMPLER="${REPO_ROOT}/scripts/sample_antifold_positions.py"
+ANTIFOLD_EXACT_SAMPLER="${PIPELINE_CODE_ROOT}/scripts/sample_antifold_positions.py"
 INTELLIFOLD_REPO="${REPO_ROOT}/src/IntelliFold"
 INTELLIFOLD_UPSTREAM_RUNNER="${INTELLIFOLD_REPO}/run_intellifold.py"
-INTELLIFOLD_RUNNER="${REPO_ROOT}/scripts/intellifold_predict.py"
+INTELLIFOLD_RUNNER="${PIPELINE_CODE_ROOT}/scripts/intellifold_predict.py"
 # IntelliFold's CPU-side BLAS/OpenMP work contends with MPS command submission
 # when every process uses all performance cores. Paired M4 Max benchmarks found
 # one thread faster with byte-identical structures; users can override either.
@@ -180,7 +181,7 @@ MOTIF_POSITIONS=""
 MOTIF_FIXED_POSITIONS=""
 MOTIF_SOURCE_SEQ=""
 MOTIF_GAP_BETWEEN=8
-MOTIF_HELPER="${REPO_ROOT}/motif_scaffolding_helper.py"
+MOTIF_HELPER="${PIPELINE_CODE_ROOT}/motif_scaffolding_helper.py"
 
 PARTIAL_REDESIGN=0
 PARTIAL_REDESIGN_RANGES=""
@@ -226,7 +227,7 @@ TARGET_MSA_SHARED_CACHE_DIR="${NANOHUNTER_TARGET_MSA_CACHE_DIR_DEFAULT:-${REPO_R
 TARGET_MSA_SEARCH_ROOTS="${NANOHUNTER_TARGET_MSA_SEARCH_ROOTS:-${TARGET_MSA_SHARED_CACHE_DIR}:${REPO_ROOT}/examples_data:${REPO_ROOT}/projects:${REPO_ROOT}/output}"
 NANOBODY_SCAFFOLD_MSA_MODE="${NANOHUNTER_SCAFFOLD_MSA_MODE_DEFAULT:-${DEFAULT_NANOBODY_SCAFFOLD_MSA_MODE}}"
 NANOBODY_SCAFFOLD_MSA_SOURCE="${NANOHUNTER_SCAFFOLD_MSA_SOURCE_DEFAULT:-}"
-NANOBODY_SCAFFOLD_MSA_CACHE_DIR="${NANOHUNTER_SCAFFOLD_MSA_CACHE_DIR_DEFAULT:-${REPO_ROOT}/examples/nanobody_scaffolds/msas}"
+NANOBODY_SCAFFOLD_MSA_CACHE_DIR="${NANOHUNTER_SCAFFOLD_MSA_CACHE_DIR_DEFAULT:-${PIPELINE_CODE_ROOT}/examples/nanobody_scaffolds/msas}"
 NANOBODY_SCAFFOLD_MSA_LEGACY_CACHE_DIR="${REPO_ROOT}/output/nanobody_scaffold_msas"
 NANOBODY_SCAFFOLD_MSA_MASK_CDRS="${NANOHUNTER_SCAFFOLD_MSA_MASK_CDRS_DEFAULT:-auto}"
 NANOBODY_SCAFFOLD_MSA_MAX_SEQS="${NANOHUNTER_SCAFFOLD_MSA_MAX_SEQS_DEFAULT:-256}"
@@ -1626,7 +1627,7 @@ if [[ "${CHECK_CONFIG_ONLY}" -eq 1 ]]; then
   fi
   _check_intellifold_model="unused"
   [[ "${INTELLIFOLD_IN_USE}" -eq 0 ]] || _check_intellifold_model="${INTELLIFOLD_MODEL}"
-  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} post=${_check_post_names} post_mode=${POST_MODE} hit_threshold=${IPTM_THRESHOLD} intellifold_model=${_check_intellifold_model} contact_mode=${BOLTZ_CONTACT_MODE} predictor_seed=${PREDICTOR_SEED} predictor_samples=${PREDICTOR_SAMPLES} template=${TEMPLATE_YAML} scheduler=${DESIGN_SCHEDULER}"
+  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} post=${_check_post_names} post_mode=${POST_MODE} hit_threshold=${IPTM_THRESHOLD} intellifold_model=${_check_intellifold_model} contact_mode=${BOLTZ_CONTACT_MODE} predictor_seed=${PREDICTOR_SEED} predictor_samples=${PREDICTOR_SAMPLES} num_runs=${N_RUNS} optimization_cycles=${N_CYCLES} expected_optimized_designs=$((N_RUNS * N_CYCLES)) template=${TEMPLATE_YAML} scheduler=${DESIGN_SCHEDULER}"
   exit 0
 fi
 
@@ -1907,7 +1908,7 @@ generate_nanobody_seed_seq() {
   local regions="$2"
   local seed="$3"
   local report_json="$4"
-  local catalog_tsv="${REPO_ROOT}/examples/nanobody_scaffolds/catalog.tsv"
+  local catalog_tsv="${PIPELINE_CODE_ROOT}/examples/nanobody_scaffolds/catalog.tsv"
 
   python3 - \
     "${base_seq}" \
@@ -2302,7 +2303,7 @@ make_yaml_with_binder_sequence() {
   local predictor="${5:-}"
   local binder_msa_path="${6:-}"
   local phase="${7:-design}"
-  local catalog_tsv="${REPO_ROOT}/examples/nanobody_scaffolds/catalog.tsv"
+  local catalog_tsv="${PIPELINE_CODE_ROOT}/examples/nanobody_scaffolds/catalog.tsv"
   python3 - \
     "$template_yaml" \
     "$out_yaml" \
@@ -3086,7 +3087,7 @@ PY
 find_reusable_target_msa() {
   local target_seq="$1"
   local search_roots="$2"
-  python3 "${REPO_ROOT}/scripts/find_target_msa.py" \
+  python3 "${PIPELINE_CODE_ROOT}/scripts/find_target_msa.py" \
     --sequence "${target_seq}" --roots "${search_roots}"
 }
 
@@ -3247,12 +3248,12 @@ generate_protenix_auto_msa_cache() {
   fi
   [[ -x "${msa_venv}/bin/python" ]] \
     || { echo "ERROR: Protenix environment is not installed." >&2; return 1; }
-  [[ -f "${REPO_ROOT}/scripts/protenix_msa.py" ]] \
+  [[ -f "${PIPELINE_CODE_ROOT}/scripts/protenix_msa.py" ]] \
     || { echo "ERROR: Protenix MSA adapter is missing." >&2; return 1; }
 
   set +e
   PROTENIX_ROOT_DIR="${msa_model_dir}" \
-    "${msa_venv}/bin/python" "${REPO_ROOT}/scripts/protenix_msa.py" \
+    "${msa_venv}/bin/python" "${PIPELINE_CODE_ROOT}/scripts/protenix_msa.py" \
       --sequence "${seq}" --output "${cached_a3m}" \
       --nanohunter-root "${REPO_ROOT}" --work-dir "${work_dir}" --profile "${msa_profile}" \
       >"${log_path}" 2>&1
@@ -3357,7 +3358,7 @@ prepare_nanobody_scaffold_msa_cache() {
   local scaffold_seq cache_dir source_path generated_path catalog_tsv precomputed_path scaffold_id
   scaffold_seq="$(extract_binder_sequence_from_yaml "${TEMPLATE_YAML}" "${ANTIFOLD_NANOBODY_CHAIN}")"
   [[ -n "${scaffold_seq}" ]] || die "Template chain ${ANTIFOLD_NANOBODY_CHAIN} sequence is empty; scaffold MSA requires a concrete nanobody scaffold sequence."
-  catalog_tsv="${REPO_ROOT}/examples/nanobody_scaffolds/catalog.tsv"
+  catalog_tsv="${PIPELINE_CODE_ROOT}/examples/nanobody_scaffolds/catalog.tsv"
 
   cache_dir="${MSA_CACHE_DIR}/nanobody_scaffold_msa"
   mkdir -p "${cache_dir}"
@@ -3513,7 +3514,7 @@ make_masked_nanobody_scaffold_msa() {
 
   local scaffold_seq catalog_tsv
   scaffold_seq="$(extract_binder_sequence_from_yaml "${TEMPLATE_YAML}" "${ANTIFOLD_NANOBODY_CHAIN}")"
-  catalog_tsv="${REPO_ROOT}/examples/nanobody_scaffolds/catalog.tsv"
+  catalog_tsv="${PIPELINE_CODE_ROOT}/examples/nanobody_scaffolds/catalog.tsv"
   mkdir -p "$(dirname "${out_a3m}")"
 
   python3 - \
@@ -3892,7 +3893,7 @@ PY
 }
 
 build_openfold_query_json() {
-  local builder="${REPO_ROOT}/scripts/openfold_query_json.py"
+  local builder="${PIPELINE_CODE_ROOT}/scripts/openfold_query_json.py"
   [[ -f "${builder}" ]] || die "Missing OpenFold query builder: ${builder}"
   python3 "${builder}" "$@"
 }
@@ -4009,7 +4010,7 @@ patch_cif_unk() {
   local mode="$3"
   local predictor="$4"
   local binder_chain="$5"
-  python3 "${REPO_ROOT}/scripts/normalize_unk_cif.py" \
+  python3 "${PIPELINE_CODE_ROOT}/scripts/normalize_unk_cif.py" \
     --input "${in_cif}" \
     --output "${out_cif}" \
     --mode "${mode}" \
@@ -5437,11 +5438,11 @@ initialize_cycle_wave_designs() {
   if [[ "$(printf '%s' "${NANOBODY_SEED_CDR_RANGES}" | tr '[:upper:]' '[:lower:]')" != "auto" ]]; then
     cdr_explicit_flags=(--explicit "${NANOBODY_SEED_CDR_RANGES}")
   fi
-  nanobody_exact_residues="$(python3 "${REPO_ROOT}/scripts/nanobody_cdrs.py" \
+  nanobody_exact_residues="$(python3 "${PIPELINE_CODE_ROOT}/scripts/nanobody_cdrs.py" \
     --seq "${scaffold_seq}" \
     --chain "${ANTIFOLD_NANOBODY_CHAIN}" \
     --cdrs "${ANTIFOLD_REGIONS}" \
-    --catalog "${REPO_ROOT}/examples/nanobody_scaffolds/catalog.tsv" \
+    --catalog "${PIPELINE_CODE_ROOT}/examples/nanobody_scaffolds/catalog.tsv" \
     ${cdr_explicit_flags[@]+"${cdr_explicit_flags[@]}"} \
     --emit residues)" \
     || die "Cycle-wave CDR detection failed for chain ${ANTIFOLD_NANOBODY_CHAIN}."
@@ -5872,7 +5873,7 @@ run_cycle_wave_predictor_batch() {
         of_query_files+=("${of_query_dir}/${of_stem}.json")
       done
       if [[ "${rc}" -eq 0 ]]; then
-        python3 "${REPO_ROOT}/scripts/merge_openfold_queries.py" \
+        python3 "${PIPELINE_CODE_ROOT}/scripts/merge_openfold_queries.py" \
           --output "${of_batch_query}" "${of_query_files[@]}" || rc=$?
       fi
       if [[ "${rc}" -eq 0 ]]; then
@@ -6452,11 +6453,11 @@ PY
       if [[ "$(printf '%s' "${NANOBODY_SEED_CDR_RANGES}" | tr '[:upper:]' '[:lower:]')" != "auto" ]]; then
         cdr_explicit_flags=(--explicit "${NANOBODY_SEED_CDR_RANGES}")
       fi
-      nanobody_exact_residues="$(python3 "${REPO_ROOT}/scripts/nanobody_cdrs.py" \
+      nanobody_exact_residues="$(python3 "${PIPELINE_CODE_ROOT}/scripts/nanobody_cdrs.py" \
         --seq "${scaffold_seq}" \
         --chain "${ANTIFOLD_NANOBODY_CHAIN}" \
         --cdrs "${ANTIFOLD_REGIONS}" \
-        --catalog "${REPO_ROOT}/examples/nanobody_scaffolds/catalog.tsv" \
+        --catalog "${PIPELINE_CODE_ROOT}/examples/nanobody_scaffolds/catalog.tsv" \
         ${cdr_explicit_flags[@]+"${cdr_explicit_flags[@]}"} \
         --emit residues)" \
         || die "CDR detection failed for exact nanobody design positions (chain ${ANTIFOLD_NANOBODY_CHAIN}, cdrs ${ANTIFOLD_REGIONS})."
@@ -6760,8 +6761,41 @@ build_comparison_tables() {
   fi
 }
 
+write_campaign_budget_contract() {
+  local output="${EXPT_ROOT}/campaign_budget.json"
+  local temporary="${output}.tmp.$$"
+  python3 - "${N_RUNS}" "${N_CYCLES}" "${DESIGN_SCHEDULER}" > "${temporary}" <<'PY'
+import json, sys
+trajectories, cycles = map(int, sys.argv[1:3])
+json.dump({
+    "schema_version": 1,
+    "requested_trajectories": trajectories,
+    "optimization_cycles": cycles,
+    "expected_starting_structures": trajectories,
+    "expected_optimized_designs": trajectories * cycles,
+    "expected_total_checkpoints": trajectories * (cycles + 1),
+    "cycle_00_counts_as_design": False,
+    "scheduler": sys.argv[3],
+}, sys.stdout, indent=2, sort_keys=True)
+print()
+PY
+  mv "${temporary}" "${output}"
+}
+
+audit_design_cardinality() {
+  local auditor="${PIPELINE_CODE_ROOT}/scripts/audit_design_cardinality.py"
+  [[ -f "${auditor}" ]] || die "Missing campaign cardinality auditor: ${auditor}"
+  python3 "${auditor}" \
+    --root "${EXPT_ROOT}" \
+    --trajectories "${N_RUNS}" \
+    --cycles "${N_CYCLES}" \
+    --output "${EXPT_ROOT}/design_cardinality_receipt.json" \
+    || die "Iterative campaign output count did not match the requested GUI budget."
+}
+
 EXPT_ROOT="${BASE_RUN_ROOT}/${RUN_NAME}"
 mkdir -p "${EXPT_ROOT}"
+write_campaign_budget_contract
 
 PASS_TAG="$(python3 - "$IPTM_THRESHOLD" <<'PY'
 import sys
@@ -7209,7 +7243,7 @@ PY
 )"
     fi
     set +e
-    _profile_choice="$(python3 "${REPO_ROOT}/scripts/compute_throughput_profile.py" recommend \
+    _profile_choice="$(python3 "${PIPELINE_CODE_ROOT}/scripts/compute_throughput_profile.py" recommend \
       --profile "${_profile_path}" \
       --predictor "${_profile_predictor}" \
       --binder-length "${CALIBRATION_LENGTH_HINT:-${BINDER_MAX_LEN}}" \
@@ -7444,6 +7478,8 @@ else
     die "One or more design runs failed; summaries were not finalized."
   fi
 fi
+
+audit_design_cardinality
 
 echo "run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json" > "${EXPT_ROOT}/summary_all_runs.csv"
 for run_index in $(seq 1 "${N_RUNS}"); do

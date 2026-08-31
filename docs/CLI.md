@@ -25,6 +25,10 @@ bash "$ROOT/setup_pipeline.sh" --all
 # Or pick engines individually
 bash "$ROOT/setup_pipeline.sh" --with-boltz --with-intellifold --with-rfd3
 
+# Add only optional checkpoints to their shared runtimes
+bash "$ROOT/setup_pipeline.sh" --with-boltz-affinity \
+  --with-intellifold-full --with-protenix-mini
+
 # Add the experimental, design-only protein-epitope checkpoint
 bash "$ROOT/setup_pipeline.sh" --with-protenix-constraint
 
@@ -44,7 +48,11 @@ bash "$ROOT/setup_pipeline.sh" --materialise
 AlphaFold 3 and `intellifold-jax` are retired. Setup and run entry points reject
 their old flags explicitly; IntelliFold's supported backend is PyTorch/Metal.
 
-`--with-protenix` installs the Protenix v2 and Mini prediction checkpoints.
+`--with-boltz` installs structure prediction without the optional affinity
+checkpoint. `--with-intellifold` installs v2 Flash without full v2.
+`--with-protenix-v2` and `--with-protenix-mini` independently add those
+checkpoints over one shared Protenix runtime; the legacy `--with-protenix`
+selects both.
 `--with-protenix-constraint` is deliberately separate: it creates
 `venvs/NanoHunter_protenix_constraint`, `src/ProtenixConstraint` and
 `models/protenix_constraint`, downloads and SHA-256 verifies
@@ -55,13 +63,22 @@ It does not install ESM weights. `--all` includes both Protenix components.
 Setup is serialized by `$ROOT/.install.lock`: a second app copy or CLI setup
 fails before changing an environment, while a lock whose recorded process no
 longer exists is recovered automatically. The installer keeps macOS awake.
-Boltz, MPNN, AntiFold, Protenix and RFdiffusion3 checkpoint transfers retain
-resumable `.part` files; IntelliFold and OpenFold remain checksum-verified and
-transactional but currently restart an interrupted transfer. No final checkpoint
-is exposed before its pinned SHA-256 passes. GUI installs write complete logs under
+Every managed checkpoint transfer, including IntelliFold and OpenFold, retains a
+resumable `.part` and goes through the same timeout-aware SHA-256 verifier. No
+final checkpoint is exposed before its pinned digest passes. GUI installs write complete logs under
 `$ROOT/logs/installer/`; the Engines screen can reveal the current log. Detection
 distinguishes an absent component from an incomplete install or broken link, and
 reports a runtime-contract update where a component has a comprehensive receipt.
+
+The installer runs a checksum-pinned uv build and exact CPython patch versions
+from `$ROOT/toolchains`, never an ambient developer Python. Each isolated engine
+uses a complete hash-locked package graph. New environments are built and health-
+checked under `$ROOT/components/<engine>/versions/`, then atomically switched into
+the familiar `$ROOT/venvs/` path; the prior environment is retained if a switch
+fails. Receipts under `$ROOT/receipts/` record Python, the complete resolved
+package graph, source revision plus validated patch state, artifacts and device
+policy. Protenix v2/Mini and Constraint keep isolated imports while referring to
+one verified chemical-data copy under `$ROOT/shared/protenix-common/`.
 
 Before a GUI install starts, Studio shows the aggregate approximate installed
 footprint and requires that amount plus a 3 GB operating-system/temporary-file
@@ -353,6 +370,11 @@ $ROOT/
   rfd3_scripts/              prediction, ligand analysis, campaign preparation
   rfd3/                      RFdiffusion3 + its script overlay
   venvs/  src/  models/      environments, code, weights
+  toolchains/                 checksum-pinned uv and exact managed CPython builds
+  components/*/versions/     staged/versioned engine environments
+  receipts/                  verified package/source/artifact/device manifests
+  shared/protenix-common/     one verified chemical-data copy for Protenix products
+  cache/{uv,pip}/             Studio-owned download/build caches (safe to clear)
   msa_cache/                 shared alignments, indexed by sequence
   scaffold_msa_cache/        bundled deep MSAs for all seven nanobody scaffolds
   logs/installer/            durable setup and repair logs
@@ -364,3 +386,8 @@ Protenix Constraint uses the explicit `_protenix_constraint`,
 and `models/`, respectively. Removing that component from the Engines screen
 deletes only those managed runtime assets; workspaces, results and cached MSAs
 are retained.
+
+New iterative campaigns also copy the small app-owned runner/policy layer into
+`<campaign>/.studio_runtime/pipeline` and record that path in `studio_run.json`.
+Resume therefore uses the exact code snapshot that started the campaign and
+fails loudly if it is missing, instead of silently adopting a later app update.

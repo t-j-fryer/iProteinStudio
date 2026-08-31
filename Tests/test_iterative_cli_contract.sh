@@ -128,10 +128,28 @@ expect_text "${output}" 'post=none' "empty checker list was not explicit"
 output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   bash "${RUNNER}" "${common[@]}" --predictor boltz \
   --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
-  --predictor-seed 73 --predictor-samples 1 \
+  --predictor-seed 73 --predictor-samples 1 --num-runs 37 --num-opt-cycles 7 \
   --post-predictor none --post-mode none)"
 expect_text "${output}" 'predictor_seed=73' "predictor seed was not recorded"
 expect_text "${output}" 'predictor_samples=1' "predictor sample count was not recorded"
+expect_text "${output}" 'num_runs=37' "runner ignored the GUI trajectory budget"
+expect_text "${output}" 'optimization_cycles=7' "runner ignored the GUI cycle budget"
+expect_text "${output}" 'expected_optimized_designs=259' "runner counted cycle 00 as a design"
+
+# The scientific policy layer is campaign-owned. Prove that a run can resolve
+# every helper from its immutable snapshot even when the mutable managed copy is
+# absent; model environments still come from NANOHUNTER_ROOT.
+mkdir -p "${FIXTURE_ROOT}/campaign_snapshot"
+cp -R "${FIXTURE_ROOT}/scripts" "${FIXTURE_ROOT}/campaign_snapshot/scripts"
+mv "${FIXTURE_ROOT}/scripts" "${FIXTURE_ROOT}/scripts.mutable-disabled"
+output="$(IPROTEINSTUDIO_PIPELINE_SNAPSHOT="${FIXTURE_ROOT}/campaign_snapshot" \
+  NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor boltz \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --num-runs 19 --num-opt-cycles 3 --post-predictor none --post-mode none)"
+expect_text "${output}" 'expected_optimized_designs=57' \
+  "runner did not use the campaign-owned pipeline snapshot"
+mv "${FIXTURE_ROOT}/scripts.mutable-disabled" "${FIXTURE_ROOT}/scripts"
 
 output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   bash "${RUNNER}" "${common[@]}" --predictor boltz \

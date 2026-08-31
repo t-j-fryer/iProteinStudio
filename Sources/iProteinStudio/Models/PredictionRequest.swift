@@ -147,7 +147,8 @@ struct PredictionRequest: Codable, Hashable {
         // Protenix has its own upstream MSA-server client. Do not make Boltz a
         // hidden dependency when either Protenix model can generate/cache the
         // same exact A3M itself.
-        if needsMSAGenerator && !result.contains(.boltz) && !result.contains(.protenix) {
+        if needsMSAGenerator && !result.contains(.boltz)
+            && !result.contains(.protenixV2) && !result.contains(.protenixMini) {
             result.append(.boltz)
         }
         return result

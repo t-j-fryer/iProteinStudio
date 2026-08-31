@@ -62,7 +62,7 @@ private struct InnerSetup: View {
                 reuseCard(existing)
             }
 
-            Text("The recommended setup installs Boltz-2, IntelliFold, Protenix v2/Mini, AntiFold and the MPNN sequence designers, with verified model weights. Experimental and specialist engines are optional. Setup runs once and needs an internet connection.")
+            Text("The recommended setup installs Boltz-2 structure prediction, IntelliFold v2 Flash, Protenix v2 and Mini, AntiFold and the MPNN sequence designers. Large full-model and affinity checkpoints remain separate choices. Setup runs once and needs an internet connection.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -130,7 +130,7 @@ private struct InnerSetup: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            ForEach(InstallComponent.allCases.filter { !$0.isCore }) { component in
+            ForEach(InstallComponent.allCases.filter { !$0.isCore && $0.isUserSelectable }) { component in
                 Toggle(isOn: Binding(
                     get: { installer.optionalSelection.contains(component) },
                     set: { on in

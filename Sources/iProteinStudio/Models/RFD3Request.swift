@@ -443,7 +443,8 @@ struct RFD3Request: Codable, Hashable {
         }
         // Protenix has its own upstream MSA-server client. Boltz is only needed
         // as the generator when neither it nor Protenix is already selected.
-        if targetKind == .protein && !result.contains(.boltz) && !result.contains(.protenix) {
+        if targetKind == .protein && !result.contains(.boltz)
+            && !result.contains(.protenixV2) && !result.contains(.protenixMini) {
             result.append(.boltz)
         }
         return result

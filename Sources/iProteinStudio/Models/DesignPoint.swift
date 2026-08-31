@@ -23,9 +23,14 @@ struct DesignPoint: Identifiable, Hashable {
     var id: String { "\(stage.rawValue)-\(predictor)-\(run)-\(cycle)" }
 
     func isHit(threshold: Double) -> Bool { iptm >= threshold }
+    var isStartingStructure: Bool { stage == .design && cycle == 0 }
+    var isOptimizedDesign: Bool { stage == .design && cycle > 0 }
+    var stageLabel: String { isStartingStructure ? "Starting structure" : stage.label }
 
     var label: String {
-        let base = String(format: "run %02d · cycle %02d", run, cycle)
+        let base = isStartingStructure
+            ? String(format: "run %02d · starting structure", run)
+            : String(format: "run %02d · cycle %02d", run, cycle)
         return predictor.isEmpty ? base : "\(base) · \(predictorLabel)"
     }
     var predictorLabel: String {

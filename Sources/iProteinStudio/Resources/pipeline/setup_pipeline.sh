@@ -6,11 +6,14 @@
 # selected by the app because they cost gigabytes.
 #
 #   Always   LigandMPNN family (+ AbMPNN, ProteinMPNN and SolubleMPNN)
-#   Selected --with-boltz            Boltz-2
+#   Selected --with-boltz            Boltz-2 structure model
+#            --with-boltz-affinity   optional small-molecule affinity model
 #            --with-antifold         AntiFold
-#            --with-intellifold      IntelliFold PyTorch/Metal
+#            --with-intellifold      IntelliFold v2 Flash PyTorch/Metal
+#            --with-intellifold-full optional full-v2 checkpoint
 #            --with-openfold3        OpenFold-3-MLX      (~2.1 GB checkpoint)
-#            --with-protenix         Protenix v2 + Mini   (native MPS, GPU-only)
+#            --with-protenix-v2      Protenix v2          (native MPS, GPU-only)
+#            --with-protenix-mini    Protenix Mini        (native MPS, GPU-only)
 #            --with-protenix-constraint
 #                                    Protenix Constraint v0.5 (separate,
 #                                    experimental design-only checkpoint)
@@ -49,11 +52,22 @@ fi
 
 NANOHUNTER_ROOT="${NANOHUNTER_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 VENV_PREFIX="${NANOHUNTER_VENV_PREFIX:-NanoHunter}"
-PYTHON_BIN="${PYTHON_BIN:-python3.11}"
-ANTIFOLD_PYTHON_BIN="${ANTIFOLD_PYTHON_BIN:-python3.10}"
-INTELLIFOLD_PYTHON_BIN="${INTELLIFOLD_PYTHON_BIN:-python3.12}"
-LOCAL_BIN="${HOME}/.local/bin"
-UV_BIN="${LOCAL_BIN}/uv"
+PYTHON_311_VERSION="3.11.13"
+PYTHON_310_VERSION="3.10.18"
+PYTHON_312_VERSION="3.12.11"
+PYTHON_BIN=""
+ANTIFOLD_PYTHON_BIN=""
+INTELLIFOLD_PYTHON_BIN=""
+UV_VERSION="0.11.32"
+UV_SHA256="ed336d0ba49db8ef89b2b41fffa372ce63bd032f22a56f001c265891aec32829"
+TOOLCHAIN_DIR="${NANOHUNTER_ROOT}/toolchains"
+UV_HOME="${TOOLCHAIN_DIR}/uv/${UV_VERSION}"
+UV_BIN="${UV_HOME}/uv"
+export UV_PYTHON_INSTALL_DIR="${TOOLCHAIN_DIR}/python"
+export UV_PYTHON_BIN_DIR="${TOOLCHAIN_DIR}/python-bin"
+export UV_CACHE_DIR="${NANOHUNTER_ROOT}/cache/uv"
+export PIP_CACHE_DIR="${NANOHUNTER_ROOT}/cache/pip"
+export UV_MANAGED_PYTHON=1
 
 # Source and package versions validated by the isolated-install acceptance run
 # recorded in Lab Book 0013.  A setup script that clones moving default branches
@@ -71,9 +85,13 @@ PROTENIX_REV="4c355be4553512f72453ecbfb65e69f4c35d1413" # upstream 2.0.0
 
 # Every engine is opt-in. Only the sequence designers are unconditional.
 WITH_BOLTZ=0
+WITH_BOLTZ_AFFINITY=0
 WITH_ANTIFOLD=0
 WITH_INTELLIFOLD=0
-WITH_PROTENIX=0
+WITH_INTELLIFOLD_FULL=0
+WITH_PROTENIX_RUNTIME=0
+WITH_PROTENIX_V2=0
+WITH_PROTENIX_MINI=0
 WITH_PROTENIX_CONSTRAINT=0
 WITH_OPENFOLD3=0
 WITH_RFD3=0
@@ -89,10 +107,15 @@ usage() {
 Usage: setup_pipeline.sh [components | maintenance]
 
 Components (combine as needed):
-  --with-boltz                 Boltz-2 prediction and steering
+  --with-boltz                 Boltz-2 structure prediction and steering
+  --with-boltz-affinity        Optional small-molecule affinity checkpoint
   --with-antifold              AntiFold nanobody sequence design
-  --with-intellifold           IntelliFold PyTorch/Metal
-  --with-protenix              Protenix v2 and Mini prediction checkpoints
+  --with-intellifold           IntelliFold v2 Flash PyTorch/Metal
+  --with-intellifold-full      Optional IntelliFold full-v2 checkpoint
+  --with-protenix-runtime      Shared Protenix runtime/data (normally automatic)
+  --with-protenix-v2           Protenix v2 prediction checkpoint
+  --with-protenix-mini         Protenix Mini prediction checkpoint
+  --with-protenix              Legacy alias selecting v2 and Mini
   --with-protenix-constraint   Experimental Protenix Constraint v0.5
                                protein-epitope design checkpoint (separate,
                                native MPS, design-only, no CPU fallback)
@@ -116,9 +139,14 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --with-boltz)           WITH_BOLTZ=1; shift ;;
+    --with-boltz-affinity)  WITH_BOLTZ=1; WITH_BOLTZ_AFFINITY=1; shift ;;
     --with-antifold)        WITH_ANTIFOLD=1; shift ;;
     --with-intellifold)     WITH_INTELLIFOLD=1; shift ;;
-    --with-protenix)        WITH_PROTENIX=1; shift ;;
+    --with-intellifold-full) WITH_INTELLIFOLD=1; WITH_INTELLIFOLD_FULL=1; shift ;;
+    --with-protenix-runtime) WITH_PROTENIX_RUNTIME=1; shift ;;
+    --with-protenix-v2)     WITH_PROTENIX_RUNTIME=1; WITH_PROTENIX_V2=1; shift ;;
+    --with-protenix-mini)   WITH_PROTENIX_RUNTIME=1; WITH_PROTENIX_MINI=1; shift ;;
+    --with-protenix)        WITH_PROTENIX_RUNTIME=1; WITH_PROTENIX_V2=1; WITH_PROTENIX_MINI=1; shift ;;
     --with-protenix-constraint) WITH_PROTENIX_CONSTRAINT=1; shift ;;
     --with-openfold3)       WITH_OPENFOLD3=1; shift ;;
     --with-alphafold3|--with-intellifold-jax)
@@ -127,8 +155,10 @@ while [[ $# -gt 0 ]]; do
     --with-rfd3)            WITH_RFD3=1; WITH_BOLTZ=1; shift ;;
     --link-existing)        LINK_EXISTING="$2"; shift 2 ;;
     --materialise|--materialize) MATERIALISE=1; shift ;;
-    --all)                  WITH_BOLTZ=1; WITH_ANTIFOLD=1; WITH_INTELLIFOLD=1
-                            WITH_OPENFOLD3=1; WITH_PROTENIX=1; WITH_PROTENIX_CONSTRAINT=1
+    --all)                  WITH_BOLTZ=1; WITH_BOLTZ_AFFINITY=1; WITH_ANTIFOLD=1
+                            WITH_INTELLIFOLD=1; WITH_INTELLIFOLD_FULL=1
+                            WITH_OPENFOLD3=1; WITH_PROTENIX_RUNTIME=1
+                            WITH_PROTENIX_V2=1; WITH_PROTENIX_MINI=1; WITH_PROTENIX_CONSTRAINT=1
                             WITH_LASERMPNN=1; WITH_RFD3=1; shift ;;
     --with-lasermpnn)       WITH_LASERMPNN=1; shift ;;
     --link-rfd3)            LINK_RFD3="$2"; shift 2 ;;
@@ -158,6 +188,7 @@ NUMBA_CACHE_DIR="${NANOHUNTER_ROOT}/numba_cache"
 INTELLIFOLD_MODEL_DIR="${NANOHUNTER_ROOT}/models/intellifold"
 PROTENIX_MODEL_DIR="${NANOHUNTER_ROOT}/models/protenix"
 PROTENIX_CONSTRAINT_MODEL_DIR="${NANOHUNTER_ROOT}/models/protenix_constraint"
+PROTENIX_COMMON_DIR="${NANOHUNTER_ROOT}/shared/protenix-common/v0.5"
 OPENFOLD_MODEL_DIR="${NANOHUNTER_ROOT}/models/openfold3"
 OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_MODEL_DIR}/of3_ft3_v1.pt"
 RFD3_ROOT="${NANOHUNTER_ROOT}/rfd3"
@@ -170,10 +201,21 @@ INTELLIFOLD_STUDIO_PATCH="${NANOHUNTER_ROOT}/patches/intellifold_pytorch_mps.pat
 PROTENIX_STUDIO_PATCH="${NANOHUNTER_ROOT}/patches/protenix_mps.patch"
 PROTENIX_CONSTRAINT_PATCH="${NANOHUNTER_ROOT}/patches/protenix_constraint_mps.patch"
 PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH="${NANOHUNTER_ROOT}/patches/protenix_constraint_zero_substructure.patch"
-PROTENIX_LOCK="${NANOHUNTER_ROOT}/requirements-protenix-mps-lock.txt"
-PROTENIX_CONSTRAINT_LOCK="${NANOHUNTER_ROOT}/requirements-protenix-constraint-mps-lock.txt"
+LOCK_DIR="${NANOHUNTER_ROOT}/locks"
+BOLTZ_LOCK="${LOCK_DIR}/boltz.txt"
+MPNN_LOCK="${LOCK_DIR}/mpnn.txt"
+ANTIFOLD_LOCK="${LOCK_DIR}/antifold.txt"
+INTELLIFOLD_LOCK="${LOCK_DIR}/intellifold.txt"
+PROTENIX_LOCK="${LOCK_DIR}/protenix.txt"
+PROTENIX_CONSTRAINT_LOCK="${LOCK_DIR}/protenix_constraint.txt"
+LASERMPNN_LOCK="${LOCK_DIR}/lasermpnn.txt"
+LASERMPNN_BOOTSTRAP_LOCK="${LOCK_DIR}/lasermpnn_bootstrap.txt"
+OPENFOLD_LOCK="${LOCK_DIR}/openfold3.txt"
 VERIFIED_DOWNLOADER="${NANOHUNTER_ROOT}/scripts/download_verified.py"
+COMPONENT_RECEIPT="${NANOHUNTER_ROOT}/scripts/component_receipt.py"
+RUNTIME_TRANSACTION="${NANOHUNTER_ROOT}/scripts/runtime_transaction.py"
 INSTALL_LOCK="${NANOHUNTER_ROOT}/.install.lock"
+RECEIPTS_DIR="${NANOHUNTER_ROOT}/receipts"
 
 step()  { echo "NHSTEP|$1|$2|$3"; }
 state() { echo "NHSTATE|$1|$2|$3"; }
@@ -225,23 +267,45 @@ acquire_install_lock() {
 }
 
 ensure_pinned_repo() {
-  local label="$1" url="$2" revision="$3" target="$4" actual
-  if [[ ! -e "${target}" ]]; then
-    mkdir -p "$(dirname "${target}")"
-    git init -q "${target}" || fail "${label} repository initialisation failed."
-    git -C "${target}" remote add origin "${url}" \
-      || fail "${label} remote configuration failed."
-    git -C "${target}" fetch -q --depth 1 origin "${revision}" \
-      || fail "${label} pinned revision download failed."
-    git -C "${target}" checkout -q --detach FETCH_HEAD \
-      || fail "${label} pinned revision checkout failed."
-  elif [[ ! -d "${target}/.git" ]]; then
-    fail "${target} exists but is not a ${label} Git checkout."
+  local label="$1" url="$2" revision="$3" target="$4" actual=""
+  if [[ -d "${target}/.git" ]]; then
+    actual="$(git -C "${target}" rev-parse HEAD 2>/dev/null || true)"
+    [[ "${actual}" == "${revision}" ]] && return 0
   fi
-  actual="$(git -C "${target}" rev-parse HEAD 2>/dev/null)" \
-    || fail "Could not identify the installed ${label} revision."
+
+  local parent stage backup_root backup
+  parent="$(dirname "${target}")"
+  mkdir -p "${parent}"
+  stage="${parent}/.stage-$(basename "${target}")-$$"
+  [[ ! -e "${stage}" ]] || fail "A stale source stage needs attention: ${stage}"
+  git init -q "${stage}" || fail "${label} repository staging failed."
+  git -C "${stage}" remote add origin "${url}" \
+    || fail "${label} remote configuration failed."
+  git -C "${stage}" fetch -q --depth 1 origin "${revision}" \
+    || fail "${label} pinned revision download failed."
+  git -C "${stage}" checkout -q --detach FETCH_HEAD \
+    || fail "${label} pinned revision checkout failed."
+  actual="$(git -C "${stage}" rev-parse HEAD 2>/dev/null)" \
+    || fail "Could not identify the staged ${label} revision."
   [[ "${actual}" == "${revision}" ]] \
-    || fail "${label} is revision ${actual}, expected ${revision}. Move it aside and run setup again."
+    || fail "Staged ${label} revision ${actual} did not match ${revision}."
+
+  if [[ -e "${target}" || -L "${target}" ]]; then
+    backup_root="${NANOHUNTER_ROOT}/backups/sources"
+    backup="${backup_root}/$(basename "${target}")-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    mkdir -p "${backup_root}"
+    mv "${target}" "${backup}" \
+      || fail "Could not preserve the previous ${label} source before update."
+    echo "  retained recoverable previous ${label} source at ${backup}"
+  fi
+  mv "${stage}" "${target}" || fail "Could not activate the pinned ${label} source."
+}
+
+assert_runtime_idle() {
+  if command -v pgrep >/dev/null 2>&1 \
+     && pgrep -f "${NANOHUNTER_ROOT}/venvs/" >/dev/null 2>&1; then
+    fail "A Studio prediction or design process is using the managed runtime. Let it finish before installing or updating engines."
+  fi
 }
 
 check_sha256() {
@@ -284,13 +348,16 @@ PY
 detect() {
   if [[ -x "${BOLTZ_VENV}/bin/python" \
      && -f "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt" \
-     && -f "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt" \
      && -d "${BOLTZ_MODEL_DIR}/mols" ]]; then
-    state boltz ok "Boltz-2 environment with managed model and CCD data"
+    state boltz ok "Boltz-2 structure environment with managed model and CCD data"
   else
-    state_absent_or_partial boltz "environment, model weights, affinity weights, or CCD data absent" \
+    state_absent_or_partial boltz "environment, structure weights, or CCD data absent" \
       "${BOLTZ_VENV}" "${BOLTZ_MODEL_DIR}"
   fi
+  [[ -f "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt" ]] \
+    && state boltz_affinity ok "optional small-molecule affinity checkpoint" \
+    || state_absent_or_partial boltz_affinity "optional affinity checkpoint absent" \
+         "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt"
   [[ -x "${LIGAND_VENV}/bin/python" \
      && -f "${LIGANDMPNN_REPO}/run.py" \
      && -f "${LIGANDMPNN_REPO}/model_params/proteinmpnn_v_48_020.pt" \
@@ -304,23 +371,32 @@ detect() {
     || state_absent_or_partial antifold "environment or source is incomplete" "${ANTIFOLD_VENV}" "${ANTIFOLD_REPO}"
   if [[ -x "${INTELLIFOLD_VENV}/bin/python" \
      && -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
-     && -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" \
      && -f "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl" ]]; then
-    state intellifold ok "IntelliFold PyTorch/MPS with v2-flash and full-v2 weights"
+    state intellifold ok "IntelliFold PyTorch/MPS with v2 Flash weights"
   else
-    state_absent_or_partial intellifold "environment, v2-flash/full-v2 weights, or CCD absent" \
+    state_absent_or_partial intellifold "environment, v2 Flash weights, or CCD absent" \
       "${INTELLIFOLD_VENV}" "${INTELLIFOLD_REPO}" "${INTELLIFOLD_MODEL_DIR}"
   fi
+  [[ -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" ]] \
+    && state intellifold_full ok "optional IntelliFold full-v2 checkpoint" \
+    || state_absent_or_partial intellifold_full "optional full-v2 checkpoint absent" \
+         "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt"
   if [[ -x "${PROTENIX_VENV}/bin/protenix" \
-     && -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix-v2.pt" \
-     && -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix_mini_default_v0.5.0.pt" \
      && -f "${PROTENIX_MODEL_DIR}/common/components.cif" \
      && -f "${PROTENIX_MODEL_DIR}/common/components.cif.rdkit_mol.pkl" ]]; then
-    state protenix ok "Protenix v2 and Mini with managed checkpoints and chemical data"
+    state protenix ok "shared native-MPS runtime and chemical data"
   else
-    state_absent_or_partial protenix "environment, v2/Mini checkpoint, or chemical data absent" \
+    state_absent_or_partial protenix "runtime or shared chemical data absent" \
       "${PROTENIX_VENV}" "${PROTENIX_REPO}" "${PROTENIX_MODEL_DIR}"
   fi
+  [[ -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix-v2.pt" ]] \
+    && state protenix_v2 ok "Protenix v2 checkpoint" \
+    || state_absent_or_partial protenix_v2 "Protenix v2 checkpoint absent" \
+         "${PROTENIX_MODEL_DIR}/checkpoint/protenix-v2.pt"
+  [[ -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix_mini_default_v0.5.0.pt" ]] \
+    && state protenix_mini ok "Protenix Mini checkpoint" \
+    || state_absent_or_partial protenix_mini "Protenix Mini checkpoint absent" \
+         "${PROTENIX_MODEL_DIR}/checkpoint/protenix_mini_default_v0.5.0.pt"
   if constraint_runtime_current; then
     state protenix_constraint ok "Protenix Constraint v0.5 (native MPS, strict ESM-free profile)"
   elif [[ -x "${PROTENIX_CONSTRAINT_VENV}/bin/protenix" \
@@ -369,6 +445,7 @@ if [[ "${DETECT_ONLY}" -eq 1 ]]; then
 fi
 
 acquire_install_lock
+assert_runtime_idle
 
 # ------------------------------------------------------------------- reuse ---
 # On a machine that already has NanoHunter installed, symlinking its venvs/,
@@ -689,21 +766,53 @@ fi
 # --------------------------------------------------------------- toolchain ---
 
 ensure_uv() {
-  [[ -x "${UV_BIN}" ]] && return 0
-  command -v uv >/dev/null 2>&1 && { UV_BIN="$(command -v uv)"; return 0; }
-  mkdir -p "${LOCAL_BIN}"
-  curl -LsSf https://astral.sh/uv/install.sh | sh || fail "Could not install uv (Python manager)."
+  if [[ -x "${UV_BIN}" ]] \
+     && [[ "$("${UV_BIN}" --version 2>/dev/null | awk '{print $2}')" == "${UV_VERSION}" ]]; then
+    return 0
+  fi
+  command -v curl >/dev/null 2>&1 || fail "curl is required to install the managed Python toolchain."
+  local archive stage extracted actual
+  mkdir -p "${TOOLCHAIN_DIR}/uv"
+  stage="$(mktemp -d "${TOOLCHAIN_DIR}/uv/.uv-${UV_VERSION}.XXXXXX")" \
+    || fail "Could not create the uv staging directory."
+  archive="${stage}/uv.tar.gz"
+  curl --proto '=https' --tlsv1.2 --fail --location --retry 3 \
+    --connect-timeout 20 --output "${archive}" \
+    "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-aarch64-apple-darwin.tar.gz" \
+    || { rm -rf "${stage}"; fail "Could not download pinned uv ${UV_VERSION}."; }
+  actual="$(shasum -a 256 "${archive}" | awk '{print $1}')"
+  [[ "${actual}" == "${UV_SHA256}" ]] \
+    || { rm -rf "${stage}"; fail "Pinned uv archive checksum mismatch; refusing to execute it."; }
+  tar -xzf "${archive}" -C "${stage}" \
+    || { rm -rf "${stage}"; fail "Could not extract pinned uv ${UV_VERSION}."; }
+  extracted="$(find "${stage}" -type f -name uv -perm -111 -print -quit)"
+  [[ -n "${extracted}" ]] \
+    || { rm -rf "${stage}"; fail "The verified uv archive contained no executable."; }
+  mkdir -p "${UV_HOME}"
+  cp "${extracted}" "${UV_HOME}/uv.new" || fail "Could not stage the uv executable."
+  chmod 755 "${UV_HOME}/uv.new"
+  mv -f "${UV_HOME}/uv.new" "${UV_BIN}"
+  rm -rf "${stage}"
+  [[ "$("${UV_BIN}" --version | awk '{print $2}')" == "${UV_VERSION}" ]] \
+    || fail "Managed uv version verification failed."
 }
 
 ensure_python() {
   local want="$1" var="$2"
-  local cur="${!var}"
-  if command -v "${cur}" >/dev/null 2>&1; then printf -v "$var" '%s' "$(command -v "${cur}")"; return 0; fi
   ensure_uv
-  "${UV_BIN}" python install "${want}" || fail "Could not install Python ${want}."
-  export PATH="${LOCAL_BIN}:${PATH}"
-  command -v "python${want}" >/dev/null 2>&1 || fail "Python ${want} still unavailable after install."
-  printf -v "$var" '%s' "$(command -v "python${want}")"
+  mkdir -p "${UV_PYTHON_INSTALL_DIR}" "${UV_PYTHON_BIN_DIR}" "${UV_CACHE_DIR}" "${PIP_CACHE_DIR}"
+  "${UV_BIN}" python install --managed-python "${want}" \
+    || fail "Could not install exact managed CPython ${want}."
+  local resolved
+  resolved="$("${UV_BIN}" python find --managed-python "${want}" 2>/dev/null)" \
+    || fail "Could not locate exact managed CPython ${want}."
+  case "${resolved}" in
+    "${UV_PYTHON_INSTALL_DIR}"/*) ;;
+    *) fail "uv resolved Python ${want} outside Studio's managed toolchain: ${resolved}" ;;
+  esac
+  [[ "$("${resolved}" -c 'import platform; print(platform.python_version())')" == "${want}" ]] \
+    || fail "Managed CPython resolved to the wrong patch version (wanted ${want})."
+  printf -v "$var" '%s' "${resolved}"
 }
 
 download_verified_artifact() {
@@ -717,6 +826,102 @@ download_verified_artifact() {
     || fail "Could not download or verify ${label}. The partial file was retained for resume."
 }
 
+write_component_receipt() {
+  local key="$1" version="$2" python="$3" policy="$4"; shift 4
+  [[ -f "${COMPONENT_RECEIPT}" ]] || fail "Bundled component receipt helper is missing."
+  mkdir -p "${RECEIPTS_DIR}"
+  "${python}" "${COMPONENT_RECEIPT}" write \
+    --output "${RECEIPTS_DIR}/${key}.json" --component "${key}" \
+    --version "${version}" --python "${python}" --device-policy "${policy}" "$@" \
+    || fail "Could not verify and record the ${key} installation receipt."
+}
+
+begin_versioned_venv() {
+  local key="$1" version="$2" final="$3" python="$4"
+  TRANSACTION_COMPONENT="${key}"
+  TRANSACTION_VERSION="${version}"
+  TRANSACTION_FINAL_VENV="${final}"
+  TRANSACTION_REUSED=0
+  if [[ -x "${final}/bin/python" && -f "${RECEIPTS_DIR}/${key}.json" ]] \
+     && python3 "${COMPONENT_RECEIPT}" verify \
+          --receipt "${RECEIPTS_DIR}/${key}.json" --packages >/dev/null 2>&1; then
+    TRANSACTION_VENV="${final}"
+    TRANSACTION_STAGE=""
+    TRANSACTION_REUSED=1
+    return 0
+  fi
+  [[ -f "${RUNTIME_TRANSACTION}" ]] || fail "Bundled runtime transaction helper is missing."
+  TRANSACTION_STAGE="$(python3 "${RUNTIME_TRANSACTION}" prepare \
+    --root "${NANOHUNTER_ROOT}" --component "${key}" --version "${version}")" \
+    || fail "Could not create the ${key} version staging area."
+  TRANSACTION_VENV="${TRANSACTION_STAGE}/venv"
+  "${python}" -m venv "${TRANSACTION_VENV}" \
+    || fail "Could not stage the ${key} Python environment."
+}
+
+commit_versioned_venv() {
+  [[ "${TRANSACTION_REUSED}" -eq 0 ]] || return 0
+  python3 "${RUNTIME_TRANSACTION}" commit \
+    --root "${NANOHUNTER_ROOT}" --component "${TRANSACTION_COMPONENT}" \
+    --version "${TRANSACTION_VERSION}" --stage "${TRANSACTION_STAGE}" \
+    --mapping "${TRANSACTION_FINAL_VENV}=venv" >/dev/null \
+    || fail "Could not atomically activate the verified ${TRANSACTION_COMPONENT} environment."
+  relocate_venv "${TRANSACTION_FINAL_VENV}"
+}
+
+seed_shared_protenix_common() {
+  local model_dir="$1" source="${model_dir}/common" name expected
+  mkdir -p "${PROTENIX_COMMON_DIR}"
+  [[ -d "${source}" && ! -L "${source}" ]] || return 0
+  while IFS='|' read -r name expected; do
+    [[ -n "${name}" ]] || continue
+    if check_sha256 "${source}/${name}" "${expected}" \
+       && ! check_sha256 "${PROTENIX_COMMON_DIR}/${name}" "${expected}"; then
+      cp -c "${source}/${name}" "${PROTENIX_COMMON_DIR}/${name}" 2>/dev/null \
+        || cp "${source}/${name}" "${PROTENIX_COMMON_DIR}/${name}" \
+        || fail "Could not migrate existing Protenix common data into shared storage."
+    fi
+  done <<'EOF'
+components.cif|bb31ae5cf6c8bc669924313077cb4231ee5ffefd3a20118cd14f3ec89f8bb6a5
+components.cif.rdkit_mol.pkl|d1cfb71f5993a3ebea7c47877022d7f597bbfbaf86e28a4770e957da6c50cd35
+obsolete_release_date.csv|a4f3f63ac5d7eebd78b07995cc669b9eccd6f5d8813c9492c9df02868893cf33
+clusters-by-entity-40.txt|1ab4af905e75b382eda8dec59917dc3608bee0729e36b9e71baf860bbe86850c
+EOF
+}
+
+activate_shared_protenix_common() {
+  local model_dir="$1" name expected common="${model_dir}/common"
+  while IFS='|' read -r name expected; do
+    [[ -n "${name}" ]] || continue
+    check_sha256 "${PROTENIX_COMMON_DIR}/${name}" "${expected}" \
+      || fail "Shared Protenix common-data verification failed: ${name}"
+  done <<'EOF'
+components.cif|bb31ae5cf6c8bc669924313077cb4231ee5ffefd3a20118cd14f3ec89f8bb6a5
+components.cif.rdkit_mol.pkl|d1cfb71f5993a3ebea7c47877022d7f597bbfbaf86e28a4770e957da6c50cd35
+obsolete_release_date.csv|a4f3f63ac5d7eebd78b07995cc669b9eccd6f5d8813c9492c9df02868893cf33
+clusters-by-entity-40.txt|1ab4af905e75b382eda8dec59917dc3608bee0729e36b9e71baf860bbe86850c
+EOF
+  if [[ -L "${common}" ]] && [[ "$(readlink "${common}")" == "${PROTENIX_COMMON_DIR}" ]]; then
+    return 0
+  fi
+  local temporary="${model_dir}/.common-link.$$"
+  local backup_root="${NANOHUNTER_ROOT}/backups/protenix-common"
+  local backup="${backup_root}/$(basename "${model_dir}")-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  mkdir -p "${model_dir}" "${backup_root}"
+  ln -s "${PROTENIX_COMMON_DIR}" "${temporary}" \
+    || fail "Could not stage the shared Protenix common-data link."
+  if [[ -e "${common}" || -L "${common}" ]]; then
+    mv "${common}" "${backup}" \
+      || { rm -f "${temporary}"; fail "Could not preserve existing Protenix common data."; }
+  fi
+  if ! mv "${temporary}" "${common}"; then
+    [[ -e "${backup}" || -L "${backup}" ]] && mv "${backup}" "${common}"
+    fail "Could not activate shared Protenix common data."
+  fi
+  [[ -e "${backup}" || -L "${backup}" ]] \
+    && echo "  retained recoverable pre-migration Protenix data at ${backup}"
+}
+
 # A shebang line cannot contain a space: the kernel splits on whitespace, so a
 # console script installed under ".../Application Support/..." fails with
 # "bad interpreter". Every venv pip creates here would be quietly broken.
@@ -726,32 +931,44 @@ esac
 
 mkdir -p "${NANOHUNTER_ROOT}"/{venvs,src,examples,models,output,numba_cache}
 
-step python 2 "Preparing Python environments"
+step python 2 "Preparing exact managed Python environments"
 command -v git >/dev/null 2>&1 || fail "git not found. Install Xcode Command Line Tools: xcode-select --install"
-ensure_python 3.11 PYTHON_BIN
-ensure_python 3.10 ANTIFOLD_PYTHON_BIN
-ensure_python 3.12 INTELLIFOLD_PYTHON_BIN
+ensure_python "${PYTHON_311_VERSION}" PYTHON_BIN
+if [[ "${WITH_ANTIFOLD}" -eq 1 ]]; then
+  ensure_python "${PYTHON_310_VERSION}" ANTIFOLD_PYTHON_BIN
+fi
+if [[ "${WITH_INTELLIFOLD}" -eq 1 || "${WITH_PROTENIX_CONSTRAINT}" -eq 1 ]]; then
+  ensure_python "${PYTHON_312_VERSION}" INTELLIFOLD_PYTHON_BIN
+fi
 
 # ---- Boltz-2 ----
 if [[ "${WITH_BOLTZ}" -eq 1 ]]; then
 step boltz 8 "Installing Boltz-2"
-[[ -d "${BOLTZ_VENV}" ]] || "${PYTHON_BIN}" -m venv "${BOLTZ_VENV}" || fail "Boltz venv creation failed."
-source "${BOLTZ_VENV}/bin/activate"
-pip install --upgrade pip >/dev/null || fail "pip upgrade failed (Boltz)."
-pip install "torch==${BOLTZ_TORCH_VERSION}" >/dev/null || fail "torch install failed (Boltz)."
-pip install "boltz==${BOLTZ_VERSION}" >/dev/null || fail "boltz install failed."
-deactivate
+BOLTZ_FINAL_VENV="${BOLTZ_VENV}"
+begin_versioned_venv boltz "${BOLTZ_VERSION}" "${BOLTZ_FINAL_VENV}" "${PYTHON_BIN}"
+BOLTZ_VENV="${TRANSACTION_VENV}"
+if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
+  source "${BOLTZ_VENV}/bin/activate"
+  pip install --require-hashes -r "${BOLTZ_LOCK}" >/dev/null \
+    || fail "Boltz hash-locked dependency install failed."
+  deactivate
+fi
 mkdir -p "${BOLTZ_MODEL_DIR}"
 download_verified_artifact "${BOLTZ_VENV}/bin/python" \
   "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt" \
   "https://model-gateway.boltz.bio/boltz2_conf.ckpt" \
   "090e82ac8c92f5e943fa1b39e7410a44027bea7243c0bbb3caa67a77fc1428e1" \
   "Boltz-2 structure checkpoint" boltz 8 12
-download_verified_artifact "${BOLTZ_VENV}/bin/python" \
-  "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt" \
-  "https://model-gateway.boltz.bio/boltz2_aff.ckpt" \
-  "dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e" \
-  "Boltz-2 affinity checkpoint" boltz 12 15
+if [[ "${WITH_BOLTZ_AFFINITY}" -eq 1 ]]; then
+  download_verified_artifact "${BOLTZ_VENV}/bin/python" \
+    "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt" \
+    "https://model-gateway.boltz.bio/boltz2_aff.ckpt" \
+    "dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e" \
+    "Boltz-2 affinity checkpoint" boltz_affinity 12 15
+  state boltz_affinity ok "optional small-molecule affinity checkpoint"
+else
+  state boltz_affinity skipped "not requested"
+fi
 if [[ ! -d "${BOLTZ_MODEL_DIR}/mols" ]]; then
   download_verified_artifact "${BOLTZ_VENV}/bin/python" \
     "${BOLTZ_MODEL_DIR}/mols.tar" \
@@ -807,22 +1024,39 @@ else:
     # twice for the same CCD data.
     (root / "mols.tar").unlink(missing_ok=True)
 PY
-state boltz ok "Boltz-2"
+"${BOLTZ_VENV}/bin/python" -c \
+  'import boltz, torch; assert torch.backends.mps.is_available()' >/dev/null \
+  || fail "Boltz-2 staged runtime failed its Apple-GPU import check."
+commit_versioned_venv
+BOLTZ_VENV="${BOLTZ_FINAL_VENV}"
+write_component_receipt boltz "${BOLTZ_VERSION}" "${BOLTZ_VENV}/bin/python" \
+  "native-mps-preferred" \
+  --artifact "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt=090e82ac8c92f5e943fa1b39e7410a44027bea7243c0bbb3caa67a77fc1428e1" \
+  --metadata "ccd_archive_sha256=39e076d96dbec6b4e86982bbda16f3a53a2a60c9bdc17828d88f6f9a0c7d1fd7"
+if [[ "${WITH_BOLTZ_AFFINITY}" -eq 1 ]]; then
+  write_component_receipt boltz_affinity "${BOLTZ_VERSION}" "${BOLTZ_VENV}/bin/python" \
+    "native-mps-preferred" \
+    --artifact "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt=dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e"
+fi
+state boltz ok "Boltz-2 structure prediction"
 else
   state boltz skipped "not requested"
+  state boltz_affinity skipped "not requested"
 fi
 
 # ---- LigandMPNN family (+ AbMPNN weights) ----
 step ligandmpnn 22 "Installing sequence designers (ProteinMPNN / SolubleMPNN / LigandMPNN / AbMPNN)"
-[[ -d "${LIGAND_VENV}" ]] || "${PYTHON_BIN}" -m venv "${LIGAND_VENV}" || fail "LigandMPNN venv creation failed."
-source "${LIGAND_VENV}/bin/activate"
-pip install --upgrade pip >/dev/null || fail "pip upgrade failed (LigandMPNN)."
-pip install torch==2.2.1 >/dev/null || fail "torch install failed (LigandMPNN)."
+LIGAND_FINAL_VENV="${LIGAND_VENV}"
+begin_versioned_venv mpnn "${LIGANDMPNN_REV}" "${LIGAND_FINAL_VENV}" "${PYTHON_BIN}"
+LIGAND_VENV="${TRANSACTION_VENV}"
 ensure_pinned_repo "LigandMPNN" "https://github.com/dauparas/LigandMPNN.git" \
   "${LIGANDMPNN_REV}" "${LIGANDMPNN_REPO}"
-REQ_OUT="${LIGANDMPNN_REPO}/requirements.macos_nocuda.txt"
-grep -Ev 'cuda|cublas|cudnn|nccl|nvidia|triton' "${LIGANDMPNN_REPO}/requirements.txt" > "${REQ_OUT}"
-pip install -r "${REQ_OUT}" >/dev/null || fail "LigandMPNN requirements install failed."
+if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
+  source "${LIGAND_VENV}/bin/activate"
+  pip install --require-hashes -r "${MPNN_LOCK}" >/dev/null \
+    || fail "Sequence-designer hash-locked dependency install failed."
+  deactivate
+fi
 MODEL_DIR="${LIGANDMPNN_REPO}/model_params"; mkdir -p "${MODEL_DIR}"
 step weights 32 "Downloading designer weights"
 download_verified_artifact "${LIGAND_VENV}/bin/python" \
@@ -845,7 +1079,17 @@ download_verified_artifact "${LIGAND_VENV}/bin/python" \
   "https://zenodo.org/records/8164693/files/abmpnn.pt?download=1" \
   "fd41b40ee0f51974d73e1acb754cd8acaa36b3327543d5d28bcf4aa4e07b4a1b" \
   "AbMPNN checkpoint" mpnn 41 44
-deactivate
+"${LIGAND_VENV}/bin/python" -c 'import torch, numpy' >/dev/null \
+  || fail "Sequence-designer staged runtime failed its import check."
+commit_versioned_venv
+LIGAND_VENV="${LIGAND_FINAL_VENV}"
+write_component_receipt mpnn "${LIGANDMPNN_REV}" "${LIGAND_VENV}/bin/python" \
+  "native-mps-when-supported" \
+  --source "${LIGANDMPNN_REPO}=${LIGANDMPNN_REV}" \
+  --artifact "${MODEL_DIR}/proteinmpnn_v_48_020.pt=c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd" \
+  --artifact "${MODEL_DIR}/solublempnn_v_48_020.pt=7af52d090172c230c7f0e9d21e02203f6b3a38b16db58d3c7a3960e0a9a6e31a" \
+  --artifact "${MODEL_DIR}/ligandmpnn_v_32_010_25.pt=161cd264061fda9680cbb940255522ae42f2966c552d045d87913d9452a80970" \
+  --artifact "${MODEL_DIR}/abmpnn.pt=fd41b40ee0f51974d73e1acb754cd8acaa36b3327543d5d28bcf4aa4e07b4a1b"
 state mpnn ok "ProteinMPNN / SolubleMPNN / LigandMPNN / AbMPNN"
 
 # ---- AntiFold ----
@@ -853,20 +1097,31 @@ if [[ "${WITH_ANTIFOLD}" -eq 1 ]]; then
 step antifold 45 "Installing AntiFold (antibody-aware designer)"
 ensure_pinned_repo "AntiFold" "https://github.com/oxpig/AntiFold.git" \
   "${ANTIFOLD_REV}" "${ANTIFOLD_REPO}"
-[[ -d "${ANTIFOLD_VENV}" ]] || "${ANTIFOLD_PYTHON_BIN}" -m venv "${ANTIFOLD_VENV}" || fail "AntiFold venv creation failed."
-source "${ANTIFOLD_VENV}/bin/activate"
-pip install --upgrade pip >/dev/null || fail "pip upgrade failed (AntiFold)."
-pip install torch==2.2.0 >/dev/null || fail "torch install failed (AntiFold)."
-pip install torch_geometric==2.4.0 biopython==1.83 biotite==0.38 "pygam==0.9.*" "numpy==1.26.*" "pandas==2.*" >/dev/null \
-  || fail "AntiFold dependency install failed."
-pip install -e "${ANTIFOLD_REPO}" --no-deps >/dev/null || fail "AntiFold install failed."
+ANTIFOLD_FINAL_VENV="${ANTIFOLD_VENV}"
+begin_versioned_venv antifold "${ANTIFOLD_REV}" "${ANTIFOLD_FINAL_VENV}" "${ANTIFOLD_PYTHON_BIN}"
+ANTIFOLD_VENV="${TRANSACTION_VENV}"
+if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
+  source "${ANTIFOLD_VENV}/bin/activate"
+  pip install --require-hashes -r "${ANTIFOLD_LOCK}" >/dev/null \
+    || fail "AntiFold hash-locked dependency install failed."
+  pip install -e "${ANTIFOLD_REPO}" --no-deps --no-build-isolation >/dev/null \
+    || fail "AntiFold install failed."
+  deactivate
+fi
 ANTIFOLD_MODEL_PATH="${ANTIFOLD_REPO}/models/model.pt"
 download_verified_artifact "${ANTIFOLD_VENV}/bin/python" \
   "${ANTIFOLD_MODEL_PATH}" \
   "https://opig.stats.ox.ac.uk/data/downloads/AntiFold/models/model.pt" \
   "d5c442fa0372c28f4d0026d2f551b6f8ba7e7a127cb6837813a88093ed233e9e" \
   "AntiFold checkpoint" antifold 45 59
-deactivate
+"${ANTIFOLD_VENV}/bin/python" -c 'import antifold, torch' >/dev/null \
+  || fail "AntiFold staged runtime failed its import check."
+commit_versioned_venv
+ANTIFOLD_VENV="${ANTIFOLD_FINAL_VENV}"
+write_component_receipt antifold "${ANTIFOLD_REV}" "${ANTIFOLD_VENV}/bin/python" \
+  "native-mps-when-supported" \
+  --source "${ANTIFOLD_REPO}=${ANTIFOLD_REV}" \
+  --artifact "${ANTIFOLD_MODEL_PATH}=d5c442fa0372c28f4d0026d2f551b6f8ba7e7a127cb6837813a88093ed233e9e"
 state antifold ok "AntiFold"
 else
   state antifold skipped "not requested"
@@ -887,83 +1142,87 @@ elif git -C "${INTELLIFOLD_REPO}" apply --reverse --check "${INTELLIFOLD_STUDIO_
 else
   fail "IntelliFold source does not match the validated PyTorch/MPS patch base."
 fi
-[[ -d "${INTELLIFOLD_VENV}" ]] || "${INTELLIFOLD_PYTHON_BIN}" -m venv "${INTELLIFOLD_VENV}" || fail "IntelliFold venv creation failed."
-source "${INTELLIFOLD_VENV}/bin/activate"
-pip install --upgrade pip >/dev/null || fail "pip upgrade failed (IntelliFold)."
-pip install torch==2.6.0 >/dev/null || fail "torch install failed (IntelliFold)."
-pip install -e "${INTELLIFOLD_REPO}" --no-deps >/dev/null || fail "IntelliFold install failed."
-pip install accelerate==1.1.1 biopython==1.85 click==8.1.8 einops==0.8.0 einx==0.3.0 ihm==2.5 \
-  mashumaro==3.14 ml_collections==1.0.0 modelcif==1.2 networkx==3.4.2 numba==0.61.0 numpy==1.26.4 \
-  pandas==2.2.3 pyyaml==6.0.2 rdkit==2026.3.3 requests==2.32.3 scipy==1.14.1 torchdiffeq==0.2.5 \
-  tqdm==4.67.1 fsspec==2025.3.0 zstandard==0.23.0 ml_dtypes==0.5.3 >/dev/null \
-  || fail "IntelliFold dependency install failed."
-deactivate
+INTELLIFOLD_FINAL_VENV="${INTELLIFOLD_VENV}"
+begin_versioned_venv intellifold "${INTELLIFOLD_REV}" "${INTELLIFOLD_FINAL_VENV}" "${INTELLIFOLD_PYTHON_BIN}"
+INTELLIFOLD_VENV="${TRANSACTION_VENV}"
+if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
+  source "${INTELLIFOLD_VENV}/bin/activate"
+  pip install --require-hashes -r "${INTELLIFOLD_LOCK}" >/dev/null \
+    || fail "IntelliFold hash-locked dependency install failed."
+  pip install -e "${INTELLIFOLD_REPO}" --no-deps --no-build-isolation >/dev/null \
+    || fail "IntelliFold install failed."
+  deactivate
+fi
 # The unified, revision-checked patch above also carries the validated
 # Apple-Silicon PyTorch changes. Keeping it atomic prevents a half-patched
 # predictor from being reported as installed.
-# Upstream defaults to ~/.intellifold. That makes an apparently fresh install
-# pass on a developer machine while a new user's first prediction still needs
-# to fetch its model. Keep every required artifact under the managed root and
-# download it as part of installing the engine.
+# Upstream defaults to ~/.intellifold and writes directly to final filenames.
+# Keep every artifact under the managed root and route it through Studio's
+# resumable, atomic checksum boundary instead. The immutable Hugging Face
+# revision prevents a moving branch from changing bytes behind a known URL.
 mkdir -p "${INTELLIFOLD_MODEL_DIR}"
-INTELLIFOLD_CACHE="${INTELLIFOLD_MODEL_DIR}" PYTHONPATH="${INTELLIFOLD_REPO}" \
-  "${INTELLIFOLD_VENV}/bin/python" - "${INTELLIFOLD_MODEL_DIR}" <<'PY' \
-  || fail "IntelliFold v2-flash model download failed."
-import hashlib
-import sys
-import os
-import shutil
-from pathlib import Path
-from intellifold.data.inference.utils import download
-
-target = Path(sys.argv[1])
-required = {
-    "intellifold_v2_flash.pt": "ac405f91c59a1b135dab0fbddd103d032bcb1ea1cb59f162348c0b90d4ab4fa5",
-    "intellifold_v2.pt": "8ee1c03344a94c8d3408f9579b3869f791701b7945e23255331d44fb7cc41aaa",
-    "ccd_v2.pkl": "8766edb6a88e01461a123e8a4e2d5e33846821b808444737cd82e441998801f8",
-    "unique_protein_sequences.fasta": "bcba48b77ee37b2eca0af50d05e71f7d68d36135b4884c47795d4d7ba47ac73f",
-    "unique_nucleic_acid_sequences.fasta": "67c703969c2d3f28ff39eb0e20c28541bce45b44514f5a6cbccc8070d08e3ddf",
-    "protein_id_groups.json": "b5a46c434278f5ea1aedd8a84ac2c7664acc08817c244c7d13396d4459632eaa",
-    "nucleic_acid_id_groups.json": "0aa0da461f7a36eed6921b1b3f7ea59f50d806fb0c12f94073a3d3b052491d12",
+INTELLIFOLD_HF_REV="8f5ec8ab39e89fabf1887e54fe5ce588aaaaf890"
+download_intellifold() {
+  local name="$1" checksum="$2" label="$3" start="$4" end="$5"
+  download_verified_artifact "${INTELLIFOLD_VENV}/bin/python" \
+    "${INTELLIFOLD_MODEL_DIR}/${name}" \
+    "https://huggingface.co/intelligenAI/intellifold/resolve/${INTELLIFOLD_HF_REV}/${name}?download=true" \
+    "${checksum}" "${label}" intellifold "${start}" "${end}"
 }
-def valid(path, expected):
-    if not path.is_file():
-        return False
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(8 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest() == expected
-if all(valid(target / name, expected) for name, expected in required.items()):
-    raise SystemExit(0)
-
-# IntelliFold's downloader writes directly to its destination and treats any
-# existing file as complete. Download into a disposable sibling first, verify
-# every artifact, then atomically replace the managed copies. An interrupted
-# run can therefore be resumed instead of preserving a plausible partial file.
-stage = target.parent / ".intellifold-download"
-shutil.rmtree(stage, ignore_errors=True)
-stage.mkdir(parents=True)
-try:
-    download(stage, "v2-flash", use_template=False)
-    download(stage, "v2", use_template=False)
-    for name, expected in required.items():
-        source = stage / name
-        if not valid(source, expected):
-            raise RuntimeError(f"IntelliFold artifact checksum mismatch: {name}")
-    target.mkdir(parents=True, exist_ok=True)
-    for name in required:
-        os.replace(stage / name, target / name)
-finally:
-    shutil.rmtree(stage, ignore_errors=True)
-PY
+download_intellifold "intellifold_v2_flash.pt" \
+  "ac405f91c59a1b135dab0fbddd103d032bcb1ea1cb59f162348c0b90d4ab4fa5" \
+  "IntelliFold v2 Flash checkpoint" 60 62
+download_intellifold "ccd_v2.pkl" \
+  "8766edb6a88e01461a123e8a4e2d5e33846821b808444737cd82e441998801f8" \
+  "IntelliFold chemical-component dictionary" 62 63
+download_intellifold "unique_protein_sequences.fasta" \
+  "bcba48b77ee37b2eca0af50d05e71f7d68d36135b4884c47795d4d7ba47ac73f" \
+  "IntelliFold protein sequence reference" 63 63
+download_intellifold "unique_nucleic_acid_sequences.fasta" \
+  "67c703969c2d3f28ff39eb0e20c28541bce45b44514f5a6cbccc8070d08e3ddf" \
+  "IntelliFold nucleic-acid sequence reference" 63 63
+download_intellifold "protein_id_groups.json" \
+  "b5a46c434278f5ea1aedd8a84ac2c7664acc08817c244c7d13396d4459632eaa" \
+  "IntelliFold protein ID groups" 63 63
+download_intellifold "nucleic_acid_id_groups.json" \
+  "0aa0da461f7a36eed6921b1b3f7ea59f50d806fb0c12f94073a3d3b052491d12" \
+  "IntelliFold nucleic-acid ID groups" 63 63
+if [[ "${WITH_INTELLIFOLD_FULL}" -eq 1 ]]; then
+  download_intellifold "intellifold_v2.pt" \
+    "8ee1c03344a94c8d3408f9579b3869f791701b7945e23255331d44fb7cc41aaa" \
+    "IntelliFold full-v2 checkpoint" 63 64
+fi
 [[ -s "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
-   && -s "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" \
    && -s "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl" ]] \
-  || fail "IntelliFold install finished without v2-flash/full-v2 weights or CCD data."
-state intellifold ok "IntelliFold v2-flash and full v2 (PyTorch/MPS)"
+  || fail "IntelliFold install finished without v2 Flash weights or CCD data."
+PYTORCH_ENABLE_MPS_FALLBACK=0 "${INTELLIFOLD_VENV}/bin/python" -c \
+  'import torch, intellifold; assert torch.backends.mps.is_available()' >/dev/null \
+  || fail "IntelliFold staged runtime failed its native-MPS import check."
+commit_versioned_venv
+INTELLIFOLD_VENV="${INTELLIFOLD_FINAL_VENV}"
+  write_component_receipt intellifold "${INTELLIFOLD_REV}" "${INTELLIFOLD_VENV}/bin/python" \
+    "native-mps-no-cpu-fallback" \
+    --source "${INTELLIFOLD_REPO}=${INTELLIFOLD_REV}" \
+    --artifact "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt=ac405f91c59a1b135dab0fbddd103d032bcb1ea1cb59f162348c0b90d4ab4fa5" \
+    --artifact "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl=8766edb6a88e01461a123e8a4e2d5e33846821b808444737cd82e441998801f8" \
+    --artifact "${INTELLIFOLD_MODEL_DIR}/unique_protein_sequences.fasta=bcba48b77ee37b2eca0af50d05e71f7d68d36135b4884c47795d4d7ba47ac73f" \
+    --artifact "${INTELLIFOLD_MODEL_DIR}/unique_nucleic_acid_sequences.fasta=67c703969c2d3f28ff39eb0e20c28541bce45b44514f5a6cbccc8070d08e3ddf" \
+    --artifact "${INTELLIFOLD_MODEL_DIR}/protein_id_groups.json=b5a46c434278f5ea1aedd8a84ac2c7664acc08817c244c7d13396d4459632eaa" \
+    --artifact "${INTELLIFOLD_MODEL_DIR}/nucleic_acid_id_groups.json=0aa0da461f7a36eed6921b1b3f7ea59f50d806fb0c12f94073a3d3b052491d12"
+state intellifold ok "IntelliFold v2 Flash (PyTorch/MPS)"
+if [[ "${WITH_INTELLIFOLD_FULL}" -eq 1 ]]; then
+  [[ -s "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" ]] \
+    || fail "IntelliFold full-v2 checkpoint was requested but is absent."
+  write_component_receipt intellifold_full "${INTELLIFOLD_REV}" "${INTELLIFOLD_VENV}/bin/python" \
+    "native-mps-no-cpu-fallback" \
+    --artifact "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt=8ee1c03344a94c8d3408f9579b3869f791701b7945e23255331d44fb7cc41aaa"
+  state intellifold_full ok "optional full-v2 checkpoint"
+else
+  state intellifold_full skipped "not requested"
+fi
 else
 state intellifold skipped "not requested"
+state intellifold_full skipped "not requested"
 fi
 
 # ---- Protenix Constraint v0.5 (isolated native-MPS profile) ----
@@ -995,25 +1254,32 @@ if [[ "${WITH_PROTENIX_CONSTRAINT}" -eq 1 ]]; then
   fi
   [[ -f "${PROTENIX_CONSTRAINT_LOCK}" ]] || fail "Constraint dependency lock is missing."
   [[ -f "${VERIFIED_DOWNLOADER}" ]] || fail "Bundled verified downloader is missing."
-  [[ -d "${PROTENIX_CONSTRAINT_VENV}" ]] \
-    || "${INTELLIFOLD_PYTHON_BIN}" -m venv "${PROTENIX_CONSTRAINT_VENV}" \
-    || fail "Protenix Constraint venv creation failed (Python 3.12 is required)."
-  "${PROTENIX_CONSTRAINT_VENV}/bin/pip" install --upgrade pip >/dev/null \
-    || fail "pip upgrade failed (Protenix Constraint)."
-  "${PROTENIX_CONSTRAINT_VENV}/bin/pip" install -r "${PROTENIX_CONSTRAINT_LOCK}" >/dev/null \
-    || fail "Protenix Constraint locked dependency install failed."
-  "${PROTENIX_CONSTRAINT_VENV}/bin/pip" install --no-deps -e "${PROTENIX_CONSTRAINT_REPO}" >/dev/null \
-    || fail "Protenix Constraint source install failed."
+  PROTENIX_CONSTRAINT_FINAL_VENV="${PROTENIX_CONSTRAINT_VENV}"
+  begin_versioned_venv protenix_constraint "${PROTENIX_REV}" \
+    "${PROTENIX_CONSTRAINT_FINAL_VENV}" "${INTELLIFOLD_PYTHON_BIN}"
+  PROTENIX_CONSTRAINT_VENV="${TRANSACTION_VENV}"
+  if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
+    "${PROTENIX_CONSTRAINT_VENV}/bin/pip" install --require-hashes \
+      -r "${PROTENIX_CONSTRAINT_LOCK}" >/dev/null \
+      || fail "Protenix Constraint locked dependency install failed."
+    "${PROTENIX_CONSTRAINT_VENV}/bin/pip" install --no-deps --no-build-isolation \
+      -e "${PROTENIX_CONSTRAINT_REPO}" >/dev/null \
+      || fail "Protenix Constraint source install failed."
+  fi
   if "${PROTENIX_CONSTRAINT_VENV}/bin/python" -c 'import importlib.metadata; importlib.metadata.version("fair-esm")' >/dev/null 2>&1; then
     fail "Constraint-only profile unexpectedly contains fair-esm; refusing an ambiguous runtime."
   fi
 
-  mkdir -p "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint" "${PROTENIX_CONSTRAINT_MODEL_DIR}/common"
+  seed_shared_protenix_common "${PROTENIX_CONSTRAINT_MODEL_DIR}"
+  mkdir -p "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint" "${PROTENIX_COMMON_DIR}"
   download_protenix_constraint() {
     local relative="$1" url="$2" checksum="$3" label="$4" start="$5" end="$6"
+    local output="${PROTENIX_CONSTRAINT_MODEL_DIR}/${relative}"
+    [[ "${relative}" == common/* ]] \
+      && output="${PROTENIX_COMMON_DIR}/${relative#common/}"
     "${PROTENIX_CONSTRAINT_VENV}/bin/python" "${VERIFIED_DOWNLOADER}" \
       --url "${url}" --sha256 "${checksum}" \
-      --output "${PROTENIX_CONSTRAINT_MODEL_DIR}/${relative}" --label "${label}" \
+      --output "${output}" --label "${label}" \
       --progress-key protenix_constraint --progress-start "${start}" --progress-end "${end}" \
       || fail "Could not download or verify ${label}. The partial file was retained for resume."
   }
@@ -1039,6 +1305,7 @@ if [[ "${WITH_PROTENIX_CONSTRAINT}" -eq 1 ]]; then
     "https://protenix.tos-cn-beijing.volces.com/common/clusters-by-entity-40.txt" \
     "1ab4af905e75b382eda8dec59917dc3608bee0729e36b9e71baf860bbe86850c" \
     "Protenix Constraint sequence clusters" 64 64
+  activate_shared_protenix_common "${PROTENIX_CONSTRAINT_MODEL_DIR}"
 
   PROTENIX_ROOT_DIR="${PROTENIX_CONSTRAINT_MODEL_DIR}" \
     "${PROTENIX_CONSTRAINT_VENV}/bin/python" - "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" \
@@ -1069,14 +1336,20 @@ payload = {"product": "Protenix Constraint v0.5 — Experimental",
  "zero_substructure": "checkpoint-equivalent-single-token-broadcast"}
 receipt_path.write_text(json.dumps(payload, indent=2) + "\n")
 PY
+  commit_versioned_venv
+  PROTENIX_CONSTRAINT_VENV="${PROTENIX_CONSTRAINT_FINAL_VENV}"
+  write_component_receipt protenix_constraint "${PROTENIX_REV}" \
+    "${PROTENIX_CONSTRAINT_VENV}/bin/python" "native-mps-fp32-no-cpu-fallback" \
+    --source "${PROTENIX_CONSTRAINT_REPO}=${PROTENIX_REV}" \
+    --artifact "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint/protenix_base_constraint_v0.5.0.pt=5358025b20b2212853ad75579be04387859557915f398a1d60f6a1a9a0c8c887"
   state protenix_constraint ok "Protenix Constraint v0.5 (native MPS, strict ESM-free profile)"
 else
   state protenix_constraint skipped "not requested"
 fi
 
-# ---- Protenix v2 + Mini (native Apple MPS, no CPU fallback) ----
-if [[ "${WITH_PROTENIX}" -eq 1 ]]; then
-  step protenix 64 "Installing Protenix v2 and Mini for the Apple GPU"
+# ---- Protenix runtime + selected checkpoints (native Apple MPS) ----
+if [[ "${WITH_PROTENIX_RUNTIME}" -eq 1 ]]; then
+  step protenix 64 "Installing the shared Protenix runtime for the Apple GPU"
   ensure_pinned_repo "Protenix" "https://github.com/bytedance/Protenix.git" \
     "${PROTENIX_REV}" "${PROTENIX_REPO}"
   [[ -f "${PROTENIX_STUDIO_PATCH}" ]] \
@@ -1092,36 +1365,54 @@ if [[ "${WITH_PROTENIX}" -eq 1 ]]; then
 
   [[ -f "${PROTENIX_LOCK}" ]] || fail "Bundled Protenix dependency lock is missing."
   [[ -f "${VERIFIED_DOWNLOADER}" ]] || fail "Bundled verified downloader is missing."
-  [[ -d "${PROTENIX_VENV}" ]] || "${PYTHON_BIN}" -m venv "${PROTENIX_VENV}" \
-    || fail "Protenix venv creation failed."
-  "${PROTENIX_VENV}/bin/pip" install --upgrade pip >/dev/null \
-    || fail "pip upgrade failed (Protenix)."
-  "${PROTENIX_VENV}/bin/pip" install -r "${PROTENIX_LOCK}" >/dev/null \
-    || fail "Protenix locked dependency install failed."
-  "${PROTENIX_VENV}/bin/pip" install --no-deps -e "${PROTENIX_REPO}" >/dev/null \
-    || fail "Protenix source install failed."
+  PROTENIX_FINAL_VENV="${PROTENIX_VENV}"
+  begin_versioned_venv protenix "${PROTENIX_REV}" "${PROTENIX_FINAL_VENV}" "${PYTHON_BIN}"
+  PROTENIX_VENV="${TRANSACTION_VENV}"
+  if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
+    "${PROTENIX_VENV}/bin/pip" install --require-hashes \
+      -r "${PROTENIX_LOCK}" >/dev/null \
+      || fail "Protenix locked dependency install failed."
+    "${PROTENIX_VENV}/bin/pip" install --no-deps --no-build-isolation \
+      -e "${PROTENIX_REPO}" >/dev/null \
+      || fail "Protenix source install failed."
+  fi
 
   # Checkpoints and chemical data live in the managed runtime, never in Git.
   # Every transfer resumes its .part file after a timed read and only becomes
   # visible under the final name after its pinned SHA-256 matches.
-  mkdir -p "${PROTENIX_MODEL_DIR}/checkpoint" "${PROTENIX_MODEL_DIR}/common"
+  seed_shared_protenix_common "${PROTENIX_MODEL_DIR}"
+  seed_shared_protenix_common "${PROTENIX_CONSTRAINT_MODEL_DIR}"
+  mkdir -p "${PROTENIX_MODEL_DIR}/checkpoint" "${PROTENIX_COMMON_DIR}"
   PROTENIX_HF_REV="653edab28103133512575365130916e3fd23ecc3"
   download_protenix() {
     local relative="$1" url="$2" checksum="$3" label="$4" start="$5" end="$6"
+    local output="${PROTENIX_MODEL_DIR}/${relative}"
+    [[ "${relative}" == common/* ]] \
+      && output="${PROTENIX_COMMON_DIR}/${relative#common/}"
     "${PROTENIX_VENV}/bin/python" "${VERIFIED_DOWNLOADER}" \
       --url "${url}" --sha256 "${checksum}" \
-      --output "${PROTENIX_MODEL_DIR}/${relative}" --label "${label}" \
+      --output "${output}" --label "${label}" \
       --progress-key protenix --progress-start "${start}" --progress-end "${end}" \
       || fail "Could not download or verify ${label}. The partial file was retained for resume."
   }
-  download_protenix "checkpoint/protenix-v2.pt" \
-    "https://huggingface.co/TMF001/protenix-v2-weights/resolve/${PROTENIX_HF_REV}/protenix-v2.pt?download=true" \
-    "8f931f9774a396b67033d0e58628e1834f4a1448165e04254b40a780b0c0d599" \
-    "Protenix v2 checkpoint" 64 70
-  download_protenix "checkpoint/protenix_mini_default_v0.5.0.pt" \
-    "https://protenix.tos-cn-beijing.volces.com/checkpoint/protenix_mini_default_v0.5.0.pt" \
-    "3803340c5d9958c038e799ddd2b53b532db21855f261592ad455a5f003791f81" \
-    "Protenix Mini checkpoint" 70 73
+  if [[ "${WITH_PROTENIX_V2}" -eq 1 ]]; then
+    download_protenix "checkpoint/protenix-v2.pt" \
+      "https://huggingface.co/TMF001/protenix-v2-weights/resolve/${PROTENIX_HF_REV}/protenix-v2.pt?download=true" \
+      "8f931f9774a396b67033d0e58628e1834f4a1448165e04254b40a780b0c0d599" \
+      "Protenix v2 checkpoint" 64 70
+    state protenix_v2 ok "Protenix v2 checkpoint"
+  else
+    state protenix_v2 skipped "not requested"
+  fi
+  if [[ "${WITH_PROTENIX_MINI}" -eq 1 ]]; then
+    download_protenix "checkpoint/protenix_mini_default_v0.5.0.pt" \
+      "https://protenix.tos-cn-beijing.volces.com/checkpoint/protenix_mini_default_v0.5.0.pt" \
+      "3803340c5d9958c038e799ddd2b53b532db21855f261592ad455a5f003791f81" \
+      "Protenix Mini checkpoint" 70 73
+    state protenix_mini ok "Protenix Mini checkpoint"
+  else
+    state protenix_mini skipped "not requested"
+  fi
   download_protenix "common/components.cif" \
     "https://protenix.tos-cn-beijing.volces.com/common/components.cif" \
     "bb31ae5cf6c8bc669924313077cb4231ee5ffefd3a20118cd14f3ec89f8bb6a5" \
@@ -1138,6 +1429,7 @@ if [[ "${WITH_PROTENIX}" -eq 1 ]]; then
     "https://protenix.tos-cn-beijing.volces.com/common/clusters-by-entity-40.txt" \
     "1ab4af905e75b382eda8dec59917dc3608bee0729e36b9e71baf860bbe86850c" \
     "Protenix sequence clusters" 80 81
+  activate_shared_protenix_common "${PROTENIX_MODEL_DIR}"
 
   PROTENIX_ROOT_DIR="${PROTENIX_MODEL_DIR}" "${PROTENIX_VENV}/bin/python" - <<'PY' \
     || fail "Protenix cannot use the Apple GPU on this Mac. CPU fallback is intentionally disabled."
@@ -1147,9 +1439,30 @@ if not torch.backends.mps.is_available():
 import protenix
 print(f"  Protenix ready on {torch.device('mps')}")
 PY
-  state protenix ok "Protenix v2 and Mini (native MPS, GPU-only)"
+  commit_versioned_venv
+  PROTENIX_VENV="${PROTENIX_FINAL_VENV}"
+  write_component_receipt protenix "${PROTENIX_REV}" "${PROTENIX_VENV}/bin/python" \
+    "native-mps-fp32-no-cpu-fallback" \
+    --source "${PROTENIX_REPO}=${PROTENIX_REV}" \
+    --artifact "${PROTENIX_COMMON_DIR}/components.cif=bb31ae5cf6c8bc669924313077cb4231ee5ffefd3a20118cd14f3ec89f8bb6a5" \
+    --artifact "${PROTENIX_COMMON_DIR}/components.cif.rdkit_mol.pkl=d1cfb71f5993a3ebea7c47877022d7f597bbfbaf86e28a4770e957da6c50cd35" \
+    --artifact "${PROTENIX_COMMON_DIR}/obsolete_release_date.csv=a4f3f63ac5d7eebd78b07995cc669b9eccd6f5d8813c9492c9df02868893cf33" \
+    --artifact "${PROTENIX_COMMON_DIR}/clusters-by-entity-40.txt=1ab4af905e75b382eda8dec59917dc3608bee0729e36b9e71baf860bbe86850c"
+  if [[ "${WITH_PROTENIX_V2}" -eq 1 ]]; then
+    write_component_receipt protenix_v2 "${PROTENIX_HF_REV}" "${PROTENIX_VENV}/bin/python" \
+      "native-mps-fp32-no-cpu-fallback" \
+      --artifact "${PROTENIX_MODEL_DIR}/checkpoint/protenix-v2.pt=8f931f9774a396b67033d0e58628e1834f4a1448165e04254b40a780b0c0d599"
+  fi
+  if [[ "${WITH_PROTENIX_MINI}" -eq 1 ]]; then
+    write_component_receipt protenix_mini "0.5.0" "${PROTENIX_VENV}/bin/python" \
+      "native-mps-fp32-no-cpu-fallback" \
+      --artifact "${PROTENIX_MODEL_DIR}/checkpoint/protenix_mini_default_v0.5.0.pt=3803340c5d9958c038e799ddd2b53b532db21855f261592ad455a5f003791f81"
+  fi
+  state protenix ok "shared native-MPS runtime and chemical data"
 else
   state protenix skipped "not requested"
+  state protenix_v2 skipped "not requested"
+  state protenix_mini skipped "not requested"
 fi
 
 # ---- LASErMPNN (ligand-aware inverse folding) ----
@@ -1159,34 +1472,38 @@ if [[ "${WITH_LASERMPNN}" -eq 1 ]]; then
   LASERMPNN_VENV="${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_lasermpnn"
   ensure_pinned_repo "LASErMPNN" "https://github.com/polizzilab/LASErMPNN.git" \
     "${LASERMPNN_REV}" "${LASERMPNN_REPO}"
-  [[ -d "${LASERMPNN_VENV}" ]] || "${PYTHON_BIN}" -m venv "${LASERMPNN_VENV}" || fail "LASErMPNN venv creation failed."
-  source "${LASERMPNN_VENV}/bin/activate"
-  pip install --upgrade pip >/dev/null || fail "pip upgrade failed (LASErMPNN)."
+  LASERMPNN_FINAL_VENV="${LASERMPNN_VENV}"
+  begin_versioned_venv lasermpnn "${LASERMPNN_REV}" "${LASERMPNN_FINAL_VENV}" "${PYTHON_BIN}"
+  LASERMPNN_VENV="${TRANSACTION_VENV}"
+  if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
+    source "${LASERMPNN_VENV}/bin/activate"
+    [[ -f "${LASERMPNN_LOCK}" && -f "${LASERMPNN_BOOTSTRAP_LOCK}" ]] \
+      || fail "LASErMPNN hash locks are missing."
   # torch-scatter/torch-cluster have no MPS kernels, so this runs on CPU. It is
   # seconds per design, so CPU is not the bottleneck.
   # This is the validated Apple-Silicon environment from NanoHunter. PyTorch
   # 2.2.x uses the NumPy 1.x ABI; the PyG extensions must be compiled against
   # that exact installed torch rather than in pip's isolated build env.
-  pip install "torch==2.2.1" "numpy==1.26.4" >/dev/null \
-    || fail "torch/numpy install failed (LASErMPNN)."
-  pip install "setuptools==79.0.1" "wheel==0.48.0" "ninja==1.13.0" >/dev/null \
-    || fail "build tools install failed (LASErMPNN)."
+  pip install --require-hashes -r "${LASERMPNN_BOOTSTRAP_LOCK}" >/dev/null \
+    || fail "LASErMPNN hash-locked build bootstrap failed."
   # The macOS 26 libc++ headers mark std::is_arithmetic as unspecialisable;
   # PyTorch 2.2.1's strong_type.h predates that annotation. Clang exposes this
   # exact compatibility diagnostic as -Winvalid-specialization. Suppressing it
   # restores the previously validated build without hiding other C++ errors.
   MACOSX_DEPLOYMENT_TARGET=11.0 CXXFLAGS="-Wno-invalid-specialization" \
-    pip install --no-build-isolation \
-    "torch-scatter==2.1.2" "torch-cluster==1.6.3" >/dev/null \
-    || fail "torch-scatter/torch-cluster build failed (LASErMPNN)."
-  pip install "prody==2.6.1" "rdkit==2026.3.5" "pydssp==0.9.1" "h5py==3.16.0" \
-    "logomaker==0.8.7" "matplotlib==3.11.1" "scipy==1.17.1" "pandas==3.0.5" \
-    "scikit-learn==1.9.0" "tqdm==4.70.0" >/dev/null \
-    || fail "runtime dependency install failed (LASErMPNN)."
-  (cd "${SRC_DIR}" && python -c \
+    pip install --require-hashes --no-build-isolation -r "${LASERMPNN_LOCK}" >/dev/null \
+    || fail "LASErMPNN hash-locked dependency/extension build failed."
+    deactivate
+  fi
+  (cd "${SRC_DIR}" && "${LASERMPNN_VENV}/bin/python" -c \
     "import LASErMPNN.run_batch_inference; from torch_cluster import knn_graph; from torch_scatter import scatter") \
-    >/dev/null 2>&1 || fail "LASErMPNN import check failed."
-  deactivate
+    >/dev/null 2>&1 || fail "LASErMPNN staged import check failed."
+  commit_versioned_venv
+  LASERMPNN_VENV="${LASERMPNN_FINAL_VENV}"
+  write_component_receipt lasermpnn "${LASERMPNN_REV}" "${LASERMPNN_VENV}/bin/python" \
+    "cpu-required-upstream-kernels" \
+    --source "${LASERMPNN_REPO}=${LASERMPNN_REV}" \
+    --artifact "${LASERMPNN_REPO}/model_weights/laser_weights_0p1A_nothing_heldout.pt=304fe02a4807c310bdd9d68c988ae87619da3cf2025d5c223fb31030aa411173"
   state lasermpnn ok "LASErMPNN (CPU)"
 else
   state lasermpnn skipped "not requested"
@@ -1197,46 +1514,32 @@ if [[ "${WITH_OPENFOLD3}" -eq 1 ]]; then
   step openfold3 87 "Installing OpenFold-3 (MLX kernels) — downloading ~2 GB checkpoint"
   ensure_pinned_repo "openfold-3-mlx" "https://github.com/latent-spacecraft/openfold-3-mlx.git" \
     "${OPENFOLD_REV}" "${OPENFOLD_REPO}"
-  [[ -d "${OPENFOLD_VENV}" ]] || "${PYTHON_BIN}" -m venv "${OPENFOLD_VENV}" || fail "OpenFold venv creation failed."
-  source "${OPENFOLD_VENV}/bin/activate"
-  pip install --upgrade pip >/dev/null || fail "pip upgrade failed (OpenFold)."
-  pip install torch==2.6.0 >/dev/null || fail "torch install failed (OpenFold)."
-  pip install -e "${OPENFOLD_REPO}" >/dev/null || fail "openfold-3-mlx install failed."
+  OPENFOLD_FINAL_VENV="${OPENFOLD_VENV}"
+  begin_versioned_venv openfold3 "${OPENFOLD_REV}" "${OPENFOLD_FINAL_VENV}" "${PYTHON_BIN}"
+  OPENFOLD_VENV="${TRANSACTION_VENV}"
+  if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
+    source "${OPENFOLD_VENV}/bin/activate"
+    pip install --require-hashes -r "${OPENFOLD_LOCK}" >/dev/null \
+      || fail "OpenFold hash-locked dependency install failed."
+    pip install -e "${OPENFOLD_REPO}" --no-deps --no-build-isolation >/dev/null \
+      || fail "openfold-3-mlx install failed."
+    deactivate
+  fi
   mkdir -p "${OPENFOLD_MODEL_DIR}"
-  python - "${OPENFOLD_CHECKPOINT_PATH}" <<'PY' || fail "OpenFold checkpoint download failed."
-import pathlib, sys
-import hashlib
-import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
-
-target = pathlib.Path(sys.argv[1]).expanduser()
-target.parent.mkdir(parents=True, exist_ok=True)
-bucket, key = "openfold", "openfold3_params/of3_ft3_v1.pt"
-s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-remote_size = int(s3.head_object(Bucket=bucket, Key=key)["ContentLength"])
-expected = "aedd8f3eb814e3926c8974ef34c9499df224443f173b7e396c97684da6e3eeb6"
-def valid(path):
-    if not path.is_file() or path.stat().st_size != remote_size:
-        return False
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(8 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest() == expected
-if valid(target):
-    print(f"  have OpenFold checkpoint: {target}"); raise SystemExit(0)
-tmp = target.with_suffix(target.suffix + ".part")
-tmp.unlink(missing_ok=True)
-print(f"  downloading OpenFold checkpoint ({remote_size / (1024**3):.2f} GB)")
-s3.download_file(bucket, key, str(tmp))
-if not valid(tmp):
-    tmp.unlink(missing_ok=True)
-    raise RuntimeError("OpenFold checkpoint download incomplete or checksum mismatch")
-tmp.replace(target)
-print(f"  OpenFold checkpoint ready: {target}")
-PY
-  deactivate
+  download_verified_artifact "${OPENFOLD_VENV}/bin/python" \
+    "${OPENFOLD_CHECKPOINT_PATH}" \
+    "https://openfold.s3.amazonaws.com/openfold3_params/of3_ft3_v1.pt" \
+    "aedd8f3eb814e3926c8974ef34c9499df224443f173b7e396c97684da6e3eeb6" \
+    "OpenFold-3 checkpoint" openfold3 87 95
+  MLX_METAL_PREWARM=1 "${OPENFOLD_VENV}/bin/python" -c \
+    'import mlx.core as mx, torch; assert mx.metal.is_available()' >/dev/null \
+    || fail "OpenFold staged runtime failed its MLX health check."
+  commit_versioned_venv
+  OPENFOLD_VENV="${OPENFOLD_FINAL_VENV}"
+  write_component_receipt openfold3 "${OPENFOLD_REV}" "${OPENFOLD_VENV}/bin/python" \
+    "mlx-and-mps-no-cpu-option" \
+    --source "${OPENFOLD_REPO}=${OPENFOLD_REV}" \
+    --artifact "${OPENFOLD_CHECKPOINT_PATH}=aedd8f3eb814e3926c8974ef34c9499df224443f173b7e396c97684da6e3eeb6"
   state openfold3 ok "OpenFold-3-MLX"
 else
   state openfold3 skipped "not requested"
@@ -1276,6 +1579,11 @@ if [[ "${WITH_RFD3}" -eq 1 ]]; then
       bash "${RFD3_ROOT}/install_rfd3.sh" --download-weights 2>&1 \
       | tee "${RFD3_INSTALL_LOG}" \
       || fail "RFdiffusion3 install failed — see ${RFD3_INSTALL_LOG}"
+    write_component_receipt rfd3 "${RFD3_REV}" "${RFD3_ROOT}/.venv/bin/python" \
+      "native-mlx-no-cpu-option" \
+      --source "${RFD3_ROOT}=${RFD3_REV}" \
+      --artifact "${RFD3_CHECKPOINT_PATH}=9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1" \
+      --artifact "${RFD3_WEIGHTS_PATH}=0beb87ff872d946a8af58428ae7c679eb364057bf12df77dba5994f6a0f1271b"
     state rfd3 ok "RFdiffusion3 MLX"
   else
     fail "No RFdiffusion3 checkout at ${RFD3_ROOT}."

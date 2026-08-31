@@ -710,9 +710,9 @@ struct RunSettings: View {
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
             GridRow {
-                Text("Number of designs")
+                Text("Independent trajectories")
                 EditableIntStepper(value: $request.numDesigns, in: 1...96,
-                                   accessibilityLabel: "Number of designs")
+                                   accessibilityLabel: "Independent trajectories")
             }
             GridRow {
                 Text("Optimization cycles")
@@ -727,6 +727,10 @@ struct RunSettings: View {
                 }
             }
         }
+        Text("This produces \(request.expectedOptimizedDesigns) optimized design structures across cycles 01–\(String(format: "%02d", request.numCycles)), plus \(request.expectedStartingStructures) unoptimized cycle-00 starting structure\(request.expectedStartingStructures == 1 ? "" : "s").")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 

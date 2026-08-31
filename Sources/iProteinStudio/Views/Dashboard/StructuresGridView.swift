@@ -5,6 +5,7 @@ import SwiftUI
 struct StructuresGridView: View {
     @ObservedObject var metrics: MetricsWatcher
     var threshold: Double
+    @State private var selectedPoint: DesignPoint?
 
     var body: some View {
         if metrics.designPoints.isEmpty {
@@ -30,7 +31,8 @@ struct StructuresGridView: View {
                             ScrollView(.horizontal, showsIndicators: true) {
                                 LazyHStack(spacing: 12) {
                                     ForEach(metrics.designPoints(forRun: run)) { p in
-                                        DesignTile(point: p, threshold: threshold, tileHeight: 140)
+                                        DesignTile(point: p, threshold: threshold, tileHeight: 140,
+                                                   onOpen: { selectedPoint = $0 })
                                             .frame(width: 180)
                                     }
                                 }
@@ -40,6 +42,10 @@ struct StructuresGridView: View {
                     }
                 }
                 .padding(4)
+            }
+            .sheet(item: $selectedPoint) { point in
+                StructureInspector(point: point)
+                    .interactiveDismissDisabled(false)
             }
         }
     }

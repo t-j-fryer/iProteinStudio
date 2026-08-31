@@ -3,7 +3,11 @@ import Foundation
 /// A backend component the setup wizard can install, keyed to the `NHSTATE|<key>`
 /// markers emitted by `setup_pipeline.sh`.
 enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
-    case boltz, mpnn, antifold, lasermpnn, intellifold, protenix, openfold3, alphafold3
+    case boltz, boltzAffinity = "boltz_affinity"
+    case mpnn, antifold, lasermpnn
+    case intellifold, intellifoldFull = "intellifold_full"
+    case protenix, protenixV2 = "protenix_v2", protenixMini = "protenix_mini"
+    case openfold3, alphafold3
     case protenixConstraint = "protenix_constraint"
     case intellifoldJAX = "intellifold_jax"
     case rfd3
@@ -11,20 +15,29 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     /// AlphaFold 3 and IntelliFold JAX remain decodable so old projects and
     /// run manifests still open, but they are not installable components.
     static var allCases: [InstallComponent] {
-        [.boltz, .mpnn, .antifold, .lasermpnn, .intellifold, .protenix,
-         .protenixConstraint, .openfold3, .rfd3]
+        [.boltz, .boltzAffinity, .mpnn, .antifold, .lasermpnn,
+         .intellifold, .intellifoldFull, .protenix, .protenixV2,
+         .protenixMini, .protenixConstraint, .openfold3, .rfd3]
     }
+
+    /// Runtime-only dependency rows are detected and managed, but users choose
+    /// the useful Protenix checkpoints rather than an abstract environment.
+    var isUserSelectable: Bool { self != .protenix }
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
         case .boltz:          return "Boltz-2"
+        case .boltzAffinity:  return "Boltz-2 binding-affinity checkpoint"
         case .mpnn:           return "Sequence designers"
         case .antifold:       return "AntiFold"
         case .lasermpnn:      return "LASErMPNN"
-        case .intellifold:    return "IntelliFold"
-        case .protenix:       return "Protenix"
+        case .intellifold:    return "IntelliFold v2 Flash"
+        case .intellifoldFull:return "IntelliFold full v2 checkpoint"
+        case .protenix:       return "Protenix runtime"
+        case .protenixV2:     return "Protenix v2 checkpoint"
+        case .protenixMini:   return "Protenix Mini checkpoint"
         case .protenixConstraint: return "Protenix Constraint v0.5"
         case .openfold3:      return "OpenFold-3"
         case .alphafold3:     return "AlphaFold 3 (retired)"
@@ -43,9 +56,13 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .mpnn:           return nil          // always installed
         case .boltz:          return "--with-boltz"
+        case .boltzAffinity:  return "--with-boltz-affinity"
         case .antifold:       return "--with-antifold"
         case .intellifold:    return "--with-intellifold"
-        case .protenix:       return "--with-protenix"
+        case .intellifoldFull:return "--with-intellifold-full"
+        case .protenix:       return "--with-protenix-runtime"
+        case .protenixV2:     return "--with-protenix-v2"
+        case .protenixMini:   return "--with-protenix-mini"
         case .protenixConstraint: return "--with-protenix-constraint"
         case .openfold3:      return "--with-openfold3"
         case .alphafold3, .intellifoldJAX: return nil
@@ -58,10 +75,14 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     var approximateSize: String {
         switch self {
         case .mpnn:           return "~500 MB"
-        case .boltz:          return "~8 GB"
+        case .boltz:          return "~6 GB"
+        case .boltzAffinity:  return "~2.1 GB"
         case .antifold:       return "~2 GB"
-        case .intellifold:    return "~5 GB"
-        case .protenix:       return "~5 GB"
+        case .intellifold:    return "~1.6 GB"
+        case .intellifoldFull:return "~3.4 GB"
+        case .protenix:       return "~2.5 GB"
+        case .protenixV2:     return "~1.9 GB"
+        case .protenixMini:   return "~540 MB"
         case .protenixConstraint: return "~3 GB"
         case .openfold3:      return "~4 GB"
         case .alphafold3, .intellifoldJAX: return "retired"
@@ -77,10 +98,14 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         let gib: Int64 = 1_073_741_824
         switch self {
         case .mpnn:                return gib / 2
-        case .boltz:               return 8 * gib
+        case .boltz:               return 6 * gib
+        case .boltzAffinity:       return 2 * gib + gib / 10
         case .antifold:            return 2 * gib
-        case .intellifold:         return 5 * gib
-        case .protenix:            return 5 * gib
+        case .intellifold:         return gib + gib / 2
+        case .intellifoldFull:     return 3 * gib + gib / 2
+        case .protenix:            return 2 * gib + gib / 2
+        case .protenixV2:          return 2 * gib
+        case .protenixMini:        return gib / 2
         case .protenixConstraint:  return 3 * gib
         case .openfold3:           return 4 * gib
         case .lasermpnn:           return 2 * gib
@@ -93,10 +118,14 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     var whatItGivesYou: String {
         switch self {
         case .mpnn:           return "Sequence design. Always installed — every design workflow needs it."
-        case .boltz:          return "The default folding engine, and the only one that predicts binding strength. Also generates alignments for the others."
+        case .boltz:          return "The default folding engine and an MSA generator. Includes structure prediction, not the optional affinity head."
+        case .boltzAffinity:  return "Adds Boltz's small-molecule binding-affinity head; it is not used for protein binders."
         case .antifold:       return "Nanobody CDR design."
-        case .intellifold:    return "A second, independent folding engine."
-        case .protenix:       return "Protenix v2 for accuracy and Protenix Mini for fast previews, both on the Apple GPU."
+        case .intellifold:    return "The fast IntelliFold v2 Flash model and shared chemical data."
+        case .intellifoldFull:return "Adds IntelliFold's much larger full-v2 checkpoint."
+        case .protenix:       return "Shared native-MPS runtime and chemical data used by Protenix checkpoints."
+        case .protenixV2:     return "The full Protenix v2 checkpoint for native Apple-GPU prediction."
+        case .protenixMini:   return "The smaller Protenix Mini checkpoint for fast Apple-GPU prediction."
         case .protenixConstraint:
             return "Experimental iterative design against a selected protein epitope using Protenix's trained soft pocket guidance."
         case .intellifoldJAX: return "Retired after a same-input quality-control failure on Metal."
@@ -113,6 +142,9 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         // RFdiffusion3 designs need sequences put on them and folds to check
         // them; Boltz is the engine its campaign scripts drive.
         case .rfd3:           return [.boltz]
+        case .boltzAffinity:  return [.boltz]
+        case .intellifoldFull:return [.intellifold]
+        case .protenixV2, .protenixMini: return [.protenix]
         default:              return []
         }
     }
@@ -121,7 +153,11 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .lasermpnn:      return "Ligand-aware inverse folding. Runs on CPU — there is no Apple GPU build."
         case .openfold3:      return "Downloads a ~2 GB checkpoint."
-        case .protenix:       return "Installs both v2 and Mini checkpoints. GPU-only: Apple Metal is required; CPU fallback is refused."
+        case .boltzAffinity:  return "Optional ~2.06 GB checkpoint for small-molecule affinity prediction."
+        case .intellifoldFull:return "Optional ~3.40 GB checkpoint; v2 Flash remains available without it."
+        case .protenix:       return "Installed automatically with a Protenix checkpoint. GPU-only: Apple Metal is required; CPU fallback is refused."
+        case .protenixV2:     return "Optional ~1.86 GB full checkpoint. Uses the shared Protenix runtime and chemical data."
+        case .protenixMini:   return "Optional ~537 MB compact checkpoint. Uses the shared Protenix runtime and chemical data."
         case .protenixConstraint:
             return "Experimental, design-only checkpoint (~1.5 GB). Native Apple GPU, strict weights, no ESM download and no CPU fallback."
         case .alphafold3, .intellifoldJAX: return "No longer installable or runnable in Studio."
@@ -223,7 +259,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .boltz, .boltzPotentials: return .boltz
         case .intellifold:             return .intellifold
-        case .protenixV2, .protenixMini: return .protenix
+        case .protenixV2:              return .protenixV2
+        case .protenixMini:            return .protenixMini
         case .protenixConstraint:       return .protenixConstraint
         case .alphafold3:              return .alphafold3
         case .openfold3:               return .openfold3

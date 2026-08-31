@@ -7,6 +7,7 @@ struct HitsGalleryView: View {
     let designHits: [DesignPoint]
     let validationHits: [DesignPoint]
     let threshold: Double
+    @State private var selectedPoint: DesignPoint?
 
     private let columns = [GridItem(.adaptive(minimum: 190, maximum: 240), spacing: 14)]
 
@@ -29,6 +30,10 @@ struct HitsGalleryView: View {
             }
             .padding(4)
         }
+        .sheet(item: $selectedPoint) { point in
+            StructureInspector(point: point)
+                .interactiveDismissDisabled(false)
+        }
     }
 
     @ViewBuilder
@@ -48,7 +53,8 @@ struct HitsGalleryView: View {
             } else {
                 LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(hits.sorted { $0.iptm > $1.iptm }) { hit in
-                        DesignTile(point: hit, threshold: threshold, tileHeight: 150)
+                        DesignTile(point: hit, threshold: threshold, tileHeight: 150,
+                                   onOpen: { selectedPoint = $0 })
                     }
                 }
             }

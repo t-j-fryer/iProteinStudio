@@ -100,6 +100,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0050 | 2026-08-31 | [Enforce iterative cardinality and complete installer v2](lab_book/0050-enforce-cardinality-and-complete-installer-v2.md) | GUI counts are preserved and audited with cycle 00 separate, live result inspectors have a stable closeable owner, and the deterministic versioned installer passes a real isolated cold MPNN install plus inference |
 | 0049 | 2026-08-31 | [Promote resident scheduling and installer hardening](lab_book/0049-promote-resident-scheduling-and-installer-hardening.md) | Integrated release policy, deterministic command/download/cancellation/result contracts, full Swift build and packaged-app verification for the two independently developed branches |
 | 0048 | 2026-08-31 | [Harden managed installation without perturbing the resident benchmark](lab_book/0048-harden-managed-runtime-installer.md) | Install locking, sleep protection, durable logs, disk preflight, descendant cancellation, explicit partial/broken states, verified resumable downloads and transactional resource staging pass synthetic contracts and the full Swift build |
 | 0047 | 2026-08-31 | [Audit and simplify the managed runtime installer](lab_book/0047-audit-managed-runtime-installer.md) | Why the nine logical environments should remain isolated, where the current install is not truly self-contained, and the ordered transactional/locked/shared-storage architecture that should replace in-place setup |

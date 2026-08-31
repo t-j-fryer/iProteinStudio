@@ -15,6 +15,7 @@ final class RunController: ObservableObject {
     private var persistentLogURL: URL?
     private var lastArguments: [String]?
     private var lastEnvironment: [String: String]?
+    private var lastPipelineSnapshot: URL?
 
     var isRunning: Bool { if case .running = phase { return true } else { return false } }
 
@@ -31,11 +32,13 @@ final class RunController: ObservableObject {
         let campaign = projectDir.appendingPathComponent(runName, isDirectory: true)
         let templateURL = projectDir.appendingPathComponent("\(runName)_template.yaml")
 
+        let pipelineSnapshot: URL
         do {
             try AppPaths.fm.createDirectory(at: campaign, withIntermediateDirectories: true)
+            pipelineSnapshot = try AppPaths.createPipelineSnapshot(in: campaign)
             try TemplateWriter.write(request, to: templateURL)
         } catch {
-            phase = .failed("Could not write template: \(error.localizedDescription)")
+            phase = .failed("Could not prepare campaign: \(error.localizedDescription)")
             return
         }
 
@@ -55,15 +58,23 @@ final class RunController: ObservableObject {
         manifestURL = campaign.appendingPathComponent("studio_run.json")
         persistentLogURL = campaign.appendingPathComponent("studio.log")
         lastArguments = args
-        let environment = CommandBuilder.environment(request: request)
+        var environment = CommandBuilder.environment(request: request)
+        environment["IPROTEINSTUDIO_PIPELINE_SNAPSHOT"] = pipelineSnapshot.path
         lastEnvironment = environment
+        lastPipelineSnapshot = pipelineSnapshot
         writeManifest(StudioRunManifest(projectID: project.id, projectName: project.name,
                                         runName: runName, arguments: args,
-                                        environmentOverrides: CommandBuilder.environmentOverrides(request: request)))
+                                        environmentOverrides: CommandBuilder.environmentOverrides(request: request),
+                                        requestedTrajectories: request.numDesigns,
+                                        optimizationCycles: request.numCycles,
+                                        expectedOptimizedDesigns: request.expectedOptimizedDesigns,
+                                        pipelineSnapshot: pipelineSnapshot.path))
         try? "".write(to: persistentLogURL!, atomically: true, encoding: .utf8)
+        appendLog("Requested budget: \(request.numDesigns) trajectories × \(request.numCycles) optimized cycles = \(request.expectedOptimizedDesigns) designs; cycle 00 excluded")
         appendLog("$ nanohunter_run.sh " + args.joined(separator: " "))
         phase = .running
-        launch(arguments: args, environment: environment)
+        launch(arguments: args, environment: environment,
+               pipelineSnapshot: pipelineSnapshot)
     }
 
     /// Continue an interrupted campaign using the exact recorded command. The
@@ -86,6 +97,19 @@ final class RunController: ObservableObject {
         campaignRoot = record.root
         persistentLogURL = record.root.appendingPathComponent("studio.log")
         lastArguments = manifest.arguments
+        let pipelineSnapshot: URL
+        if let recorded = manifest.pipelineSnapshot {
+            pipelineSnapshot = URL(fileURLWithPath: recorded, isDirectory: true)
+            guard AppPaths.fm.fileExists(atPath: pipelineSnapshot
+                .appendingPathComponent("nanohunter_run.sh").path) else {
+                phase = .failed("This run's recorded pipeline snapshot is missing. Studio will not silently resume it with different scientific code.")
+                return
+            }
+        } else {
+            // Compatibility for campaigns created before snapshots existed.
+            pipelineSnapshot = AppPaths.pipeline
+        }
+        lastPipelineSnapshot = pipelineSnapshot
         writeManifest(manifest)
         log = []
         appendLog("— resuming from durable checkpoints —")
@@ -93,8 +117,10 @@ final class RunController: ObservableObject {
         phase = .running
         var environment = CommandBuilder.environment()
         environment.merge(manifest.environmentOverrides ?? [:]) { _, new in new }
+        environment["IPROTEINSTUDIO_PIPELINE_SNAPSHOT"] = pipelineSnapshot.path
         lastEnvironment = environment
-        launch(arguments: manifest.arguments, environment: environment)
+        launch(arguments: manifest.arguments, environment: environment,
+               pipelineSnapshot: pipelineSnapshot)
     }
 
     func retry() {
@@ -104,7 +130,8 @@ final class RunController: ObservableObject {
         updateManifestArguments(args)
         phase = .running
         appendLog("— retrying from durable checkpoints with the recorded settings —")
-        launch(arguments: args, environment: lastEnvironment ?? CommandBuilder.environment())
+        launch(arguments: args, environment: lastEnvironment ?? CommandBuilder.environment(),
+               pipelineSnapshot: lastPipelineSnapshot ?? AppPaths.pipeline)
     }
 
     func cancel() {
@@ -147,12 +174,14 @@ final class RunController: ObservableObject {
         } catch { try? handle.close() }
     }
 
-    private func launch(arguments: [String], environment: [String: String]) {
+    private func launch(arguments: [String], environment: [String: String],
+                        pipelineSnapshot: URL) {
         let runner = ProcessRunner()
         self.runner = runner
+        let runnerScript = pipelineSnapshot.appendingPathComponent("nanohunter_run.sh")
         runner.launch(executable: URL(fileURLWithPath: "/usr/bin/caffeinate"),
-                      arguments: ["-dimsu", AppPaths.runnerScript.path] + arguments,
-                      environment: environment, workingDir: AppPaths.pipeline,
+                      arguments: ["-dimsu", runnerScript.path] + arguments,
+                      environment: environment, workingDir: pipelineSnapshot,
                       onLine: { [weak self] line in self?.appendLog(line) },
                       onExit: { [weak self] code in self?.finish(code: code) })
     }

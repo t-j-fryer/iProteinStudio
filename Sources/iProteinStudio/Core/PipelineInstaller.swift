@@ -38,11 +38,14 @@ final class PipelineInstaller: ObservableObject {
     @Published var installed = AppPaths.isPipelineInstalled
     @Published var components: [InstallComponent: ComponentState] = [:]
     @Published var latestLogURL: URL?
+    @Published private(set) var safeCacheBytes: Int64 = 0
     /// The practical default installation: the folding engine, nanobody
     /// designer, independent checker, Protenix v2/Mini, and unconditional MPNN
     /// family described by onboarding. Heavy alternatives and the experimental,
     /// design-only Protenix Constraint checkpoint remain explicit opt-ins.
-    @Published var optionalSelection: Set<InstallComponent> = [.boltz, .antifold, .intellifold, .protenix]
+    @Published var optionalSelection: Set<InstallComponent> = [
+        .boltz, .antifold, .intellifold, .protenixV2, .protenixMini,
+    ]
     /// An existing NanoHunter checkout found on this machine, if any.
     @Published var detectedNanoHunter: URL?
     @Published var detectedRFD3: URL?
@@ -53,6 +56,7 @@ final class PipelineInstaller: ObservableObject {
     init() {
         detectExistingCheckouts()
         repairRelocatedVenvsIfNeeded()
+        refreshSafeCacheSize()
     }
 
     /// A venv moved from another path keeps absolute references to where it came
@@ -106,6 +110,9 @@ final class PipelineInstaller: ObservableObject {
         var message: String
         if component == .rfd3 {
             message = "Deletes Studio's RFdiffusion3 environment and model weights. The checkout is kept to protect any legacy campaigns stored inside it."
+        } else if [.boltzAffinity, .intellifoldFull, .protenixV2, .protenixMini]
+            .contains(component) {
+            message = "Deletes only the optional \(component.label). Its shared engine environment and other checkpoints remain installed."
         } else {
             message = "Deletes Studio's \(component.label) environment, managed source (if any), model weights and engine caches."
         }
@@ -167,25 +174,51 @@ final class PipelineInstaller: ObservableObject {
     }
 
     private func removalTargets(for component: InstallComponent) -> [URL] {
-        let relative: [String]
+        var relative: [String]
         switch component {
         case .boltz:
-            relative = ["venvs/NanoHunter_boltz", "models/boltz2", "numba_cache"]
+            relative = ["venvs/NanoHunter_boltz", "models/boltz2", "numba_cache",
+                        "components/boltz", "receipts/boltz.json", "receipts/boltz_affinity.json"]
+        case .boltzAffinity:
+            relative = ["models/boltz2/boltz2_aff.ckpt", "receipts/boltz_affinity.json"]
         case .mpnn:
-            relative = ["venvs/NanoHunter_ligandmpnn", "src/LigandMPNN"]
+            relative = ["venvs/NanoHunter_ligandmpnn", "src/LigandMPNN",
+                        "components/mpnn", "receipts/mpnn.json"]
         case .antifold:
-            relative = ["venvs/NanoHunter_antifold", "src/AntiFold"]
+            relative = ["venvs/NanoHunter_antifold", "src/AntiFold",
+                        "components/antifold", "receipts/antifold.json"]
         case .lasermpnn:
-            relative = ["venvs/NanoHunter_lasermpnn", "src/LASErMPNN"]
+            relative = ["venvs/NanoHunter_lasermpnn", "src/LASErMPNN",
+                        "components/lasermpnn", "receipts/lasermpnn.json"]
         case .intellifold:
-            relative = ["venvs/NanoHunter_intellifold", "src/IntelliFold", "models/intellifold"]
+            relative = ["venvs/NanoHunter_intellifold", "src/IntelliFold", "models/intellifold",
+                        "components/intellifold", "receipts/intellifold.json",
+                        "receipts/intellifold_full.json"]
+        case .intellifoldFull:
+            relative = ["models/intellifold/intellifold_v2.pt", "receipts/intellifold_full.json"]
         case .protenix:
-            relative = ["venvs/NanoHunter_protenix", "src/Protenix", "models/protenix"]
+            relative = ["venvs/NanoHunter_protenix", "src/Protenix", "models/protenix/common",
+                        "components/protenix", "receipts/protenix.json"]
+            if !managedItemExists(AppPaths.support
+                .appendingPathComponent("venvs/NanoHunter_protenix_constraint")) {
+                relative.append("shared/protenix-common")
+            }
+        case .protenixV2:
+            relative = ["models/protenix/checkpoint/protenix-v2.pt", "receipts/protenix_v2.json"]
+        case .protenixMini:
+            relative = ["models/protenix/checkpoint/protenix_mini_default_v0.5.0.pt",
+                        "receipts/protenix_mini.json"]
         case .protenixConstraint:
             relative = ["venvs/NanoHunter_protenix_constraint", "src/ProtenixConstraint",
-                        "models/protenix_constraint"]
+                        "models/protenix_constraint", "components/protenix_constraint",
+                        "receipts/protenix_constraint.json"]
+            if !managedItemExists(AppPaths.support
+                .appendingPathComponent("venvs/NanoHunter_protenix")) {
+                relative.append("shared/protenix-common")
+            }
         case .openfold3:
-            relative = ["venvs/NanoHunter_openfold3_mlx", "src/openfold-3-mlx", "models/openfold3"]
+            relative = ["venvs/NanoHunter_openfold3_mlx", "src/openfold-3-mlx", "models/openfold3",
+                        "components/openfold3", "receipts/openfold3.json"]
         case .alphafold3:
             relative = ["venvs/NanoHunter_alphafold3", "src/alphafold3", "models/alphafold3"]
         case .intellifoldJAX:
@@ -193,7 +226,7 @@ final class PipelineInstaller: ObservableObject {
         case .rfd3:
             let rfd3 = AppPaths.rfd3Root
             if (try? AppPaths.fm.destinationOfSymbolicLink(atPath: rfd3.path)) != nil { return [rfd3] }
-            relative = ["rfd3/.venv", "rfd3/checkpoints", "rfd3/weights"]
+            relative = ["rfd3/.venv", "rfd3/checkpoints", "rfd3/weights", "receipts/rfd3.json"]
         }
         return relative.map { AppPaths.support.appendingPathComponent($0) }
     }
@@ -254,7 +287,7 @@ final class PipelineInstaller: ObservableObject {
     // MARK: Install
 
     func install() {
-        var requested = optionalSelection
+        var requested = expandedSelection(optionalSelection)
         requested.insert(.mpnn)
         let requiredBytes = requested
             .filter { !isUsable($0) }
@@ -263,10 +296,97 @@ final class PipelineInstaller: ObservableObject {
             }
         guard preflightFreeSpace(requiredBytes: requiredBytes) else { return }
         var extra: [String] = []
-        for component in optionalSelection.sorted(by: { $0.rawValue < $1.rawValue }) {
+        for component in requested.sorted(by: { $0.rawValue < $1.rawValue }) {
             if let flag = component.installFlag { extra.append(flag) }
         }
         launch(extraArguments: extra, startMessage: "Preparing…")
+    }
+
+    private func expandedSelection(_ selection: Set<InstallComponent>) -> Set<InstallComponent> {
+        var result = selection
+        var changed = true
+        while changed {
+            changed = false
+            for component in result {
+                for dependency in component.requires where !result.contains(dependency) {
+                    result.insert(dependency)
+                    changed = true
+                }
+            }
+        }
+        return result
+    }
+
+    /// Only caches created inside Studio's managed root are eligible. User-wide
+    /// uv/pip caches may serve unrelated projects and are never touched.
+    var safeCacheSize: String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: safeCacheBytes)
+    }
+
+    func clearSafeCaches() {
+        guard !isInstalling, !isRemoving,
+              !AppPaths.fm.fileExists(atPath: AppPaths.installerLock.path) else {
+            failure = "Wait for installation and active engine maintenance to finish before clearing caches."
+            return
+        }
+        let targets = [
+            AppPaths.support.appendingPathComponent("cache/uv", isDirectory: true),
+            AppPaths.support.appendingPathComponent("cache/pip", isDirectory: true),
+            AppPaths.support.appendingPathComponent("numba_cache", isDirectory: true),
+        ]
+        isRemoving = true
+        currentMessage = "Clearing Studio-owned caches…"
+        Task.detached(priority: .utility) {
+            var errors: [String] = []
+            for target in targets where FileManager.default.fileExists(atPath: target.path) {
+                do { try FileManager.default.removeItem(at: target) }
+                catch { errors.append("\(target.lastPathComponent): \(error.localizedDescription)") }
+            }
+            let removalErrors = errors
+            await MainActor.run {
+                self.isRemoving = false
+                if removalErrors.isEmpty {
+                    self.currentMessage = "Studio-owned caches cleared. Engines, checkpoints and results were kept."
+                } else {
+                    self.failure = "Some caches could not be cleared: " + removalErrors.joined(separator: "; ")
+                }
+                self.refreshSafeCacheSize()
+            }
+        }
+    }
+
+    /// Cache traversal can touch thousands of files. Keep it off SwiftUI's
+    /// render path so opening Engines remains responsive even after large
+    /// installs.
+    func refreshSafeCacheSize() {
+        Task.detached(priority: .utility) {
+            let bytes = Self.safeCacheAllocatedBytes()
+            await MainActor.run { self.safeCacheBytes = bytes }
+        }
+    }
+
+    nonisolated private static func safeCacheAllocatedBytes() -> Int64 {
+        let roots = [
+            AppPaths.support.appendingPathComponent("cache/uv", isDirectory: true),
+            AppPaths.support.appendingPathComponent("cache/pip", isDirectory: true),
+            AppPaths.support.appendingPathComponent("numba_cache", isDirectory: true),
+        ]
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileAllocatedSizeKey,
+                                         .totalFileAllocatedSizeKey]
+        var total: Int64 = 0
+        for root in roots {
+            guard let enumerator = AppPaths.fm.enumerator(
+                at: root, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles]
+            ) else { continue }
+            for case let item as URL in enumerator {
+                let values = try? item.resourceValues(forKeys: keys)
+                guard values?.isRegularFile == true else { continue }
+                total += Int64(values?.totalFileAllocatedSize ?? values?.fileAllocatedSize ?? 0)
+            }
+        }
+        return total
     }
 
     /// Ask the script what is already present, without installing anything.

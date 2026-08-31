@@ -26,7 +26,8 @@ struct LiveDashboardView: View {
     }
 
     private var threshold: Double { app.selectedProject?.request.hitThreshold ?? 0.7 }
-    private var designPoints: [DesignPoint] { metrics.designPoints }
+    private var designPoints: [DesignPoint] { metrics.designPoints.filter(\.isOptimizedDesign) }
+    private var startingStructures: [DesignPoint] { metrics.designPoints.filter(\.isStartingStructure) }
     private var designHits: [DesignPoint] { designPoints.filter { $0.isHit(threshold: threshold) } }
     private var validationHits: [DesignPoint] { metrics.validationPoints.filter { $0.isHit(threshold: threshold) } }
     private var confirmedDesignCount: Int {
@@ -131,7 +132,8 @@ struct LiveDashboardView: View {
 
     private var statTiles: some View {
         HStack(spacing: 12) {
-            StatTile(title: "Designs", value: "\(designPoints.count)", systemImage: "square.stack.3d.up", tint: .blue)
+            StatTile(title: "Optimized designs", value: "\(designPoints.count)", systemImage: "square.stack.3d.up", tint: .blue)
+                .help("Cycle 00 is excluded; \(startingStructures.count) starting structure\(startingStructures.count == 1 ? "" : "s") saved separately.")
             StatTile(title: "Design hits · \(designScoreSource)", value: "\(designHits.count)", systemImage: "trophy", tint: .green)
             StatTile(title: "Pass ≥1 check", value: "\(confirmedDesignCount)", systemImage: "checkmark.seal", tint: .teal)
             StatTile(title: "Best iPTM · \(designScoreSource)", value: bestIPTM > 0 ? String(format: "%.3f", bestIPTM) : "—", systemImage: "star", tint: .yellow)

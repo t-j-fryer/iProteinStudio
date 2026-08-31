@@ -241,6 +241,21 @@ struct IterativeCommandContractHarness {
                "compatibility scheduling did not preserve per-trajectory execution")
     }
 
+    static func testRequestedTrajectoryBudgetIsExact() {
+        var request = proteinRequest()
+        request.numDesigns = 37
+        request.numCycles = 7
+        let args = arguments(request)
+        expect(value(after: "--num-runs", in: args) == "37",
+               "GUI trajectory count reverted to a runner default")
+        expect(value(after: "--num-opt-cycles", in: args) == "7",
+               "GUI cycle count reverted to a runner default")
+        expect(request.expectedOptimizedDesigns == 259,
+               "optimized design budget incorrectly included cycle 00")
+        expect(request.expectedStartingStructures == 37,
+               "starting-structure budget did not match trajectories")
+    }
+
     static func testExplicitResumeContract() {
         let recorded = ["--predictor", "boltz", "--num-runs", "4"]
         let resumed = ResumeContract.arguments(from: recorded)
@@ -337,6 +352,7 @@ struct IterativeCommandContractHarness {
         testCanonicalCheckers()
         testDesignerSeeds()
         testOptimizedSchedulerPolicy()
+        testRequestedTrajectoryBudgetIsExact()
         testExplicitResumeContract()
         try testDormantHotspotsAreNotPassed()
         testValidationAndDependencies()

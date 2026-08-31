@@ -20,7 +20,8 @@ enum TargetEngine: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .intellifold: return .intellifold
         case .boltz: return .boltz
-        case .protenixV2, .protenixMini: return .protenix
+        case .protenixV2: return .protenixV2
+        case .protenixMini: return .protenixMini
         }
     }
 }

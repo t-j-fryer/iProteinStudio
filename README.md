@@ -41,8 +41,11 @@ their original names and copied into that backend-safe convention automatically.
 
 **One-click setup** — installs pinned engine revisions and verified model weights
 under iProteinStudio's own managed root. A new user does not need NanoHunter or
-any developer-machine model cache. Reusing an existing NanoHunter remains an
-explicit disk-saving option.
+any developer-machine Python or model cache. Environments are hash-locked,
+staged and health-checked before an atomic version switch; interrupted model
+downloads resume, and optional large checkpoints can be installed or removed
+independently. Reusing an existing NanoHunter remains an explicit disk-saving
+option.
 
 ## Engines
 

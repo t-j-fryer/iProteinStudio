@@ -37,6 +37,14 @@ struct RunResultsView: View {
         return "\(design) design-stage hit\(design == 1 ? "" : "s") · \(checked) post-check hit\(checked == 1 ? "" : "s") at iPTM ≥ \(String(format: "%.2f", threshold))"
     }
 
+    private var iterativeCountSummary: String? {
+        guard workflow == .iterative, !items.isEmpty else { return nil }
+        let designs = items.filter { $0.stage == .design }.count
+        let starts = items.filter { $0.stage == .startingStructure }.count
+        let checks = items.filter { $0.stage == .postPrediction }.count
+        return "\(designs) optimized design\(designs == 1 ? "" : "s") · \(starts) cycle-00 start\(starts == 1 ? "" : "s") · \(checks) independent check\(checks == 1 ? "" : "s")"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -69,7 +77,7 @@ struct RunResultsView: View {
                 .font(.title2).foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline)
-                Text("\(items.count) viewable structure\(items.count == 1 ? "" : "s")")
+                Text(iterativeCountSummary ?? "\(items.count) viewable structure\(items.count == 1 ? "" : "s")")
                     .font(.caption).foregroundStyle(.secondary)
                 if let iterativeHitSummary {
                     Text(iterativeHitSummary).font(.caption2).foregroundStyle(.secondary)

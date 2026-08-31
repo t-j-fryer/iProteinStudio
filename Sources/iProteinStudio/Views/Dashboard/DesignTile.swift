@@ -7,7 +7,7 @@ struct DesignTile: View {
     let point: DesignPoint
     var threshold: Double? = nil          // if set, badge turns green when a hit
     var tileHeight: CGFloat = 150
-    @State private var showInspector = false
+    var onOpen: (DesignPoint) -> Void = { _ in }
 
     private var isHit: Bool {
         guard let threshold else { return false }
@@ -38,21 +38,18 @@ struct DesignTile: View {
         .background(RoundedRectangle(cornerRadius: 10).fill(.quaternary.opacity(0.4)))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(isHit ? .green.opacity(0.35) : .clear))
         .contentShape(Rectangle())
-        .onTapGesture { showInspector = true }
-        .sheet(isPresented: $showInspector) {
-            StructureInspector(point: point) { showInspector = false }
-        }
+        .onTapGesture { onOpen(point) }
     }
 }
 
 struct StructureInspector: View {
+    @Environment(\.dismiss) private var dismiss
     let point: DesignPoint
-    var close: () -> Void
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading) {
-                    Text("\(point.stage.label) · \(point.label)").font(.headline)
+                    Text("\(point.stageLabel) · \(point.label)").font(.headline)
                     HStack(spacing: 12) {
                         Text("iPTM \(point.iptmText)").foregroundStyle(.green)
                         if let ipsae = point.ipsaeText {
@@ -65,7 +62,9 @@ struct StructureInspector: View {
                     .font(.subheadline)
                 }
                 Spacer()
-                Button("Done", action: close).keyboardShortcut(.defaultAction)
+                Button("Close") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("close-structure-inspector")
             }
             .padding()
             StructureViewer(structurePath: point.structurePath)
