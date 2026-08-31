@@ -10,11 +10,17 @@ import Combine
 /// letting a novice start a campaign that fails twenty minutes in.
 @MainActor
 final class PipelineInstaller: ObservableObject {
-    struct Step: Identifiable { let id = UUID(); let message: String }
+    struct Step: Identifiable {
+        let id = UUID()
+        let key: String
+        var message: String
+    }
 
     /// What `setup_pipeline.sh` reported about one backend.
     struct ComponentState: Equatable {
-        enum Availability: String { case ok, missing, skipped }
+        enum Availability: String {
+            case ok, missing, skipped, incomplete, broken, update, busy
+        }
         var availability: Availability
         /// Human-readable qualifier, e.g. "environment ready — place af3.bin at …".
         var detail: String
@@ -31,6 +37,7 @@ final class PipelineInstaller: ObservableObject {
     @Published var failure: String?
     @Published var installed = AppPaths.isPipelineInstalled
     @Published var components: [InstallComponent: ComponentState] = [:]
+    @Published var latestLogURL: URL?
     /// The practical default installation: the folding engine, nanobody
     /// designer, independent checker, Protenix v2/Mini, and unconditional MPNN
     /// family described by onboarding. Heavy alternatives and the experimental,
@@ -41,6 +48,7 @@ final class PipelineInstaller: ObservableObject {
     @Published var detectedRFD3: URL?
 
     private var runner: ProcessRunner?
+    private var cancelRequested = false
 
     init() {
         detectExistingCheckouts()
@@ -116,6 +124,11 @@ final class PipelineInstaller: ObservableObject {
     /// Project results and both MSA caches are deliberately outside every plan.
     func uninstall(_ component: InstallComponent) {
         guard !isInstalling, !isRemoving, !component.isCore else { return }
+        guard !AppPaths.fm.fileExists(atPath: AppPaths.installerLock.path) else {
+            failure = "An installation or repair is already changing the managed runtime. Wait for it to finish before removing an engine."
+            currentMessage = "The managed runtime is busy."
+            return
+        }
         guard !engineAppearsBusy(component) else {
             failure = "\(component.label) appears to be in use. Stop its active prediction or design run before uninstalling it."
             currentMessage = "Could not remove an engine that is running."
@@ -241,6 +254,14 @@ final class PipelineInstaller: ObservableObject {
     // MARK: Install
 
     func install() {
+        var requested = optionalSelection
+        requested.insert(.mpnn)
+        let requiredBytes = requested
+            .filter { !isUsable($0) }
+            .reduce(Int64(0)) { total, component in
+                total + max(0, component.estimatedInstalledBytes - managedAllocatedBytes(for: component))
+            }
+        guard preflightFreeSpace(requiredBytes: requiredBytes) else { return }
         var extra: [String] = []
         for component in optionalSelection.sorted(by: { $0.rawValue < $1.rawValue }) {
             if let flag = component.installFlag { extra.append(flag) }
@@ -271,6 +292,7 @@ final class PipelineInstaller: ObservableObject {
         progress = 0
         steps = []
         currentMessage = startMessage
+        cancelRequested = false
 
         // Stage vendored scripts/examples into the managed pipeline dir.
         do { try AppPaths.stagePipelineAssets() }
@@ -281,31 +303,45 @@ final class PipelineInstaller: ObservableObject {
 
         let runner = ProcessRunner()
         self.runner = runner
+        let log = AppPaths.installerLogs.appendingPathComponent(
+            "setup-\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString.prefix(8)).log"
+        )
+        latestLogURL = log
+        var environment = CommandBuilder.environment()
+        environment["IPROTEINSTUDIO_INSTALL_LOG"] = log.path
+        environment["IPROTEINSTUDIO_SETUP_CAFFEINATED"] = "1"
         runner.launch(
             executable: URL(fileURLWithPath: "/bin/bash"),
             arguments: [AppPaths.setupScript.path] + extraArguments,
-            environment: CommandBuilder.environment(),
+            environment: environment,
             workingDir: AppPaths.pipeline,
+            logURL: log,
+            preventsSleep: true,
             onLine: { [weak self] line in self?.handle(line) },
             onExit: { [weak self] code in self?.exit(code) }
         )
     }
 
     func cancel() {
+        cancelRequested = true
         runner?.cancel()
-        isInstalling = false
-        currentMessage = "Setup cancelled."
+        currentMessage = "Cancelling setup safely…"
     }
 
     // MARK: Output parsing
 
     private func handle(_ line: String, quiet: Bool = false) {
-        let parts = line.components(separatedBy: "|")
+        let parts = line.split(separator: "|", maxSplits: 3,
+                               omittingEmptySubsequences: false).map(String.init)
         if line.hasPrefix("NHSTEP|"), parts.count >= 4 {
             guard !quiet else { return }
             progress = (Double(parts[2]) ?? 0) / 100.0
             currentMessage = parts[3]
-            steps.append(Step(message: parts[3]))
+            if steps.last?.key == parts[1] {
+                steps[steps.count - 1].message = parts[3]
+            } else {
+                steps.append(Step(key: parts[1], message: parts[3]))
+            }
         } else if line.hasPrefix("NHSTATE|"), parts.count >= 3 {
             guard let component = InstallComponent(rawValue: parts[1]),
                   let availability = ComponentState.Availability(rawValue: parts[2]) else { return }
@@ -325,6 +361,12 @@ final class PipelineInstaller: ObservableObject {
     private func exit(_ code: Int32) {
         isInstalling = false
         installed = AppPaths.isPipelineInstalled
+        if cancelRequested {
+            cancelRequested = false
+            currentMessage = "Setup cancelled. Partial downloads were kept so retry can resume."
+            detectComponents()
+            return
+        }
         if code == 0 && installed {
             finished = true
             progress = 1.0
@@ -338,5 +380,59 @@ final class PipelineInstaller: ObservableObject {
         isInstalling = false
         failure = msg
         currentMessage = "Setup failed."
+    }
+
+    /// Keep a safety reserve for the operating system and temporary installer
+    /// files. This is intentionally conservative: failing before a download is
+    /// much kinder than producing a half-created Python environment.
+    private func preflightFreeSpace(requiredBytes: Int64) -> Bool {
+        guard requiredBytes > 0 else { return true }
+        let reserve: Int64 = 3 * 1_073_741_824
+        let values = try? AppPaths.support.resourceValues(
+            forKeys: [.volumeAvailableCapacityForImportantUsageKey]
+        )
+        guard let available = values?.volumeAvailableCapacityForImportantUsage else {
+            failure = "Studio could not determine available disk space. Setup was not started."
+            currentMessage = "Could not verify free disk space."
+            return false
+        }
+        guard available >= requiredBytes + reserve else {
+            let formatter = ByteCountFormatter()
+            formatter.countStyle = .file
+            failure = "This setup needs approximately \(formatter.string(fromByteCount: requiredBytes)) plus a 3 GB safety reserve, but only \(formatter.string(fromByteCount: available)) is available. Remove files or choose fewer engines."
+            currentMessage = "Not enough free disk space."
+            return false
+        }
+        return true
+    }
+
+    /// Credit bytes already retained by an interrupted install so a retry is
+    /// not refused as though it must download and unpack the whole component a
+    /// second time. Symlinked external installations consume no managed space.
+    private func managedAllocatedBytes(for component: InstallComponent) -> Int64 {
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileAllocatedSizeKey,
+                                         .totalFileAllocatedSizeKey]
+        var total: Int64 = 0
+        for root in removalTargets(for: component) {
+            if (try? AppPaths.fm.destinationOfSymbolicLink(atPath: root.path)) != nil { continue }
+            guard AppPaths.fm.fileExists(atPath: root.path) else { continue }
+            var isDirectory: ObjCBool = false
+            AppPaths.fm.fileExists(atPath: root.path, isDirectory: &isDirectory)
+            if !isDirectory.boolValue {
+                let values = try? root.resourceValues(forKeys: keys)
+                total += Int64(values?.totalFileAllocatedSize ?? values?.fileAllocatedSize ?? 0)
+                continue
+            }
+            guard let enumerator = AppPaths.fm.enumerator(
+                at: root, includingPropertiesForKeys: Array(keys),
+                options: [.skipsHiddenFiles]
+            ) else { continue }
+            for case let item as URL in enumerator {
+                let values = try? item.resourceValues(forKeys: keys)
+                guard values?.isRegularFile == true else { continue }
+                total += Int64(values?.totalFileAllocatedSize ?? values?.fileAllocatedSize ?? 0)
+            }
+        }
+        return total
     }
 }

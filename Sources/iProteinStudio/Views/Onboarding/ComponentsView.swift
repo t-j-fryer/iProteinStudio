@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Add engines after the first install.
 ///
@@ -80,7 +81,18 @@ struct ComponentsView: View {
         VStack(alignment: .leading, spacing: 8) {
             ProgressView(value: installer.progress).progressViewStyle(.linear)
             Text(installer.currentMessage).font(.callout)
-            Button("Cancel", role: .cancel) { installer.cancel() }.controlSize(.small)
+            Text("Studio is keeping this Mac awake. Closing the window does not make a partial checkpoint usable; Cancel stops the full installer process tree and keeps resumable download bytes.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Cancel", role: .cancel) { installer.cancel() }.controlSize(.small)
+                if let log = installer.latestLogURL {
+                    Button("Show installer log") {
+                        NSWorkspace.shared.activateFileViewerSelecting([log])
+                    }
+                    .controlSize(.small)
+                }
+            }
         }
     }
 
@@ -129,6 +141,7 @@ struct ComponentsView: View {
         let installed = installer.isUsable(component)
         let present = installer.hasManagedFiles(component)
         let detail = installer.detail(component)
+        let availability = installer.components[component]?.availability
         HStack(alignment: .top, spacing: 10) {
             if installed {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
@@ -144,7 +157,10 @@ struct ComponentsView: View {
                     Text(component.label).font(.callout.weight(.medium))
                     Text(component.approximateSize).font(.caption2).foregroundStyle(.secondary)
                     if installed { Text("installed").font(.caption2).foregroundStyle(.green) }
-                    else if present { Text("incomplete").font(.caption2).foregroundStyle(.orange) }
+                    else if availability == .update { Text("update available").font(.caption2).foregroundStyle(.blue) }
+                    else if availability == .broken { Text("broken").font(.caption2).foregroundStyle(.red) }
+                    else if availability == .busy { Text("in use").font(.caption2).foregroundStyle(.orange) }
+                    else if availability == .incomplete || present { Text("incomplete").font(.caption2).foregroundStyle(.orange) }
                 }
                 Text(component.whatItGivesYou).font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -186,6 +202,16 @@ struct EngineInstallPlan: Identifiable {
     init(components: [InstallComponent]) {
         self.components = Array(Set(components)).sorted { $0.label < $1.label }
     }
+
+    var estimatedInstalledBytes: Int64 {
+        components.reduce(Int64(0)) { $0 + $1.estimatedInstalledBytes }
+    }
+
+    var estimatedInstalledSize: String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: estimatedInstalledBytes)
+    }
 }
 
 struct EngineInstallReview: View {
@@ -199,6 +225,8 @@ struct EngineInstallReview: View {
                 Text("Review downloads").font(.title2.bold())
                 Text("Nothing is downloaded until you choose Install now.")
                     .foregroundStyle(.secondary)
+                Text("Allow approximately \(plan.estimatedInstalledSize) of installed space, plus 3 GB kept free for macOS and temporary files.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             ScrollView {

@@ -70,6 +70,25 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         }
     }
 
+    /// Conservative installed footprint used only for setup consent and the
+    /// free-space preflight. These are deliberately rounded product budgets,
+    /// not benchmark measurements or promised transfer sizes.
+    var estimatedInstalledBytes: Int64 {
+        let gib: Int64 = 1_073_741_824
+        switch self {
+        case .mpnn:                return gib / 2
+        case .boltz:               return 8 * gib
+        case .antifold:            return 2 * gib
+        case .intellifold:         return 5 * gib
+        case .protenix:            return 5 * gib
+        case .protenixConstraint:  return 3 * gib
+        case .openfold3:           return 4 * gib
+        case .lasermpnn:           return 2 * gib
+        case .rfd3:                return 5 * gib
+        case .alphafold3, .intellifoldJAX: return 0
+        }
+    }
+
     /// What stops working without it, in the user's terms.
     var whatItGivesYou: String {
         switch self {
