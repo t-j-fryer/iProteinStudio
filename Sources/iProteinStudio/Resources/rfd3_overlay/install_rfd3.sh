@@ -4,11 +4,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="${ROOT}/.venv"
 CKPT="${ROOT}/checkpoints/rfd3_latest.ckpt"
-CKPT_PART="${CKPT}.part"
 WEIGHTS="${ROOT}/weights/rfd3_core.safetensors"
 CKPT_URL="https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt"
 CKPT_SHA="9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1"
 WEIGHTS_SHA="0beb87ff872d946a8af58428ae7c679eb364057bf12df77dba5994f6a0f1271b"
+VERIFIED_DOWNLOADER="${IPROTEINSTUDIO_DOWNLOADER:-${ROOT}/scripts/download_verified.py}"
 
 DOWNLOAD=0
 CHECK_ONLY=0
@@ -43,18 +43,14 @@ fi
 
 if [[ "${DOWNLOAD}" -eq 1 ]] && ! check_sha "${CKPT}" "${CKPT_SHA}" >/dev/null 2>&1; then
   mkdir -p "$(dirname "${CKPT}")"
-  # Older installers wrote downloads directly to CKPT. Preserve any partial
-  # bytes as the resumable .part file, then expose the real checkpoint only
-  # after its published checksum passes.
-  if [[ -f "${CKPT}" && ! -f "${CKPT_PART}" ]]; then
-    mv "${CKPT}" "${CKPT_PART}"
-  fi
-  caffeinate -dimsu curl -fL --retry 3 -C - "${CKPT_URL}" -o "${CKPT_PART}" || {
-    rm -f "${CKPT_PART}"
-    caffeinate -dimsu curl -fL --retry 3 "${CKPT_URL}" -o "${CKPT_PART}"
+  [[ -f "${VERIFIED_DOWNLOADER}" ]] || {
+    echo "Missing Studio verified downloader: ${VERIFIED_DOWNLOADER}" >&2
+    exit 1
   }
-  check_sha "${CKPT_PART}" "${CKPT_SHA}"
-  mv "${CKPT_PART}" "${CKPT}"
+  "${VENV}/bin/python" "${VERIFIED_DOWNLOADER}" \
+    --url "${CKPT_URL}" --sha256 "${CKPT_SHA}" --output "${CKPT}" \
+    --label "RFdiffusion3 checkpoint" --progress-key rfd3 \
+    --progress-start 96 --progress-end 99
 fi
 
 if [[ -f "${CKPT}" ]]; then

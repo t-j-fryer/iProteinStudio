@@ -69,6 +69,35 @@ class VerifiedDownloaderTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_complete_partial_is_promoted_without_network(self):
+        payload = b"already complete" * 1024
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "checkpoint.pt"
+            partial = output.with_suffix(".pt.part")
+            partial.write_bytes(payload)
+            completed = subprocess.run(
+                ["python3", str(DOWNLOADER),
+                 "--url", "http://127.0.0.1:1/must-not-be-contacted",
+                 "--sha256", hashlib.sha256(payload).hexdigest(),
+                 "--output", str(output), "--label", "complete partial",
+                 "--retries", "1"],
+                text=True, capture_output=True, timeout=5,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            self.assertEqual(output.read_bytes(), payload)
+            self.assertFalse(partial.exists())
+
+    def test_rejects_malformed_digest_before_network(self):
+        with tempfile.TemporaryDirectory() as directory:
+            completed = subprocess.run(
+                ["python3", str(DOWNLOADER), "--url", "http://127.0.0.1:1/no",
+                 "--sha256", "not-a-digest", "--output", str(Path(directory) / "x"),
+                 "--label", "bad digest", "--retries", "1"],
+                text=True, capture_output=True, timeout=5,
+            )
+            self.assertNotEqual(completed.returncode, 0)
+            self.assertIn("64 hexadecimal", completed.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

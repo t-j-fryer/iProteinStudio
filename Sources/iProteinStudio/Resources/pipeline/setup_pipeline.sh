@@ -33,6 +33,20 @@
 #   NHFAIL|<message>
 set -uo pipefail
 
+# CLI installs deserve the same sleep protection as GUI installs. Detection and
+# help are read-only and fast, so do not spawn a keep-awake process for them.
+if [[ "${IPROTEINSTUDIO_SETUP_CAFFEINATED:-0}" != "1" ]] \
+   && command -v caffeinate >/dev/null 2>&1; then
+  KEEP_AWAKE=1
+  for setup_arg in "$@"; do
+    case "${setup_arg}" in --detect|-h|--help) KEEP_AWAKE=0 ;; esac
+  done
+  if [[ "${KEEP_AWAKE}" -eq 1 ]]; then
+    exec env IPROTEINSTUDIO_SETUP_CAFFEINATED=1 \
+      caffeinate -dimsu /bin/bash "$0" "$@"
+  fi
+fi
+
 NANOHUNTER_ROOT="${NANOHUNTER_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 VENV_PREFIX="${NANOHUNTER_VENV_PREFIX:-NanoHunter}"
 PYTHON_BIN="${PYTHON_BIN:-python3.11}"
@@ -159,10 +173,56 @@ PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH="${NANOHUNTER_ROOT}/patches/protenix
 PROTENIX_LOCK="${NANOHUNTER_ROOT}/requirements-protenix-mps-lock.txt"
 PROTENIX_CONSTRAINT_LOCK="${NANOHUNTER_ROOT}/requirements-protenix-constraint-mps-lock.txt"
 VERIFIED_DOWNLOADER="${NANOHUNTER_ROOT}/scripts/download_verified.py"
+INSTALL_LOCK="${NANOHUNTER_ROOT}/.install.lock"
 
 step()  { echo "NHSTEP|$1|$2|$3"; }
 state() { echo "NHSTATE|$1|$2|$3"; }
 fail()  { echo "NHFAIL|$1"; exit 1; }
+
+state_absent_or_partial() {
+  local key="$1" detail="$2"; shift 2
+  local any=0 broken=0 path
+  for path in "$@"; do
+    [[ -e "${path}" || -L "${path}" ]] && any=1
+    [[ -L "${path}" && ! -e "${path}" ]] && broken=1
+  done
+  if [[ "${broken}" -eq 1 ]]; then
+    state "${key}" broken "a linked environment, source, or model target is missing"
+  elif [[ "${any}" -eq 1 ]]; then
+    state "${key}" incomplete "${detail}"
+  else
+    state "${key}" missing "${detail}"
+  fi
+}
+
+release_install_lock() {
+  [[ -d "${INSTALL_LOCK}" ]] || return 0
+  local owner=""
+  [[ -f "${INSTALL_LOCK}/pid" ]] && owner="$(cat "${INSTALL_LOCK}/pid" 2>/dev/null || true)"
+  [[ "${owner}" == "$$" ]] || return 0
+  rm -f "${INSTALL_LOCK}/pid"
+  rmdir "${INSTALL_LOCK}" 2>/dev/null || true
+}
+
+acquire_install_lock() {
+  mkdir -p "${NANOHUNTER_ROOT}"
+  if ! mkdir "${INSTALL_LOCK}" 2>/dev/null; then
+    local owner=""
+    [[ -f "${INSTALL_LOCK}/pid" ]] && owner="$(cat "${INSTALL_LOCK}/pid" 2>/dev/null || true)"
+    if [[ "${owner}" =~ ^[0-9]+$ ]] && kill -0 "${owner}" 2>/dev/null; then
+      fail "Another Studio installation or repair is already running (process ${owner})."
+    fi
+    # Recover only a lock whose recorded owner no longer exists. rmdir refuses
+    # anything except the known pid file, so unrelated contents are preserved.
+    rm -f "${INSTALL_LOCK}/pid"
+    rmdir "${INSTALL_LOCK}" 2>/dev/null \
+      || fail "The installer lock is stale but could not be recovered: ${INSTALL_LOCK}"
+    mkdir "${INSTALL_LOCK}" 2>/dev/null \
+      || fail "Another Studio installation started at the same time."
+  fi
+  printf '%s\n' "$$" > "${INSTALL_LOCK}/pid"
+  trap release_install_lock EXIT
+}
 
 ensure_pinned_repo() {
   local label="$1" url="$2" revision="$3" target="$4" actual
@@ -228,17 +288,28 @@ detect() {
      && -d "${BOLTZ_MODEL_DIR}/mols" ]]; then
     state boltz ok "Boltz-2 environment with managed model and CCD data"
   else
-    state boltz missing "environment, model weights, affinity weights, or CCD data absent"
+    state_absent_or_partial boltz "environment, model weights, affinity weights, or CCD data absent" \
+      "${BOLTZ_VENV}" "${BOLTZ_MODEL_DIR}"
   fi
-  [[ -x "${LIGAND_VENV}/bin/python" ]]      && state mpnn ok "LigandMPNN family"                  || state mpnn missing ""
-  [[ -x "${ANTIFOLD_VENV}/bin/python" ]]    && state antifold ok "AntiFold"                       || state antifold missing ""
+  [[ -x "${LIGAND_VENV}/bin/python" \
+     && -f "${LIGANDMPNN_REPO}/run.py" \
+     && -f "${LIGANDMPNN_REPO}/model_params/proteinmpnn_v_48_020.pt" \
+     && -f "${LIGANDMPNN_REPO}/model_params/solublempnn_v_48_020.pt" \
+     && -f "${LIGANDMPNN_REPO}/model_params/ligandmpnn_v_32_010_25.pt" \
+     && -f "${LIGANDMPNN_REPO}/model_params/abmpnn.pt" ]] \
+    && state mpnn ok "ProteinMPNN / SolubleMPNN / LigandMPNN / AbMPNN" \
+    || state_absent_or_partial mpnn "environment or source is incomplete" "${LIGAND_VENV}" "${LIGANDMPNN_REPO}"
+  [[ -x "${ANTIFOLD_VENV}/bin/python" && -d "${ANTIFOLD_REPO}" \
+     && -f "${ANTIFOLD_REPO}/models/model.pt" ]] && state antifold ok "AntiFold" \
+    || state_absent_or_partial antifold "environment or source is incomplete" "${ANTIFOLD_VENV}" "${ANTIFOLD_REPO}"
   if [[ -x "${INTELLIFOLD_VENV}/bin/python" \
      && -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
      && -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" \
      && -f "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl" ]]; then
     state intellifold ok "IntelliFold PyTorch/MPS with v2-flash and full-v2 weights"
   else
-    state intellifold missing "environment, v2-flash/full-v2 weights, or CCD absent"
+    state_absent_or_partial intellifold "environment, v2-flash/full-v2 weights, or CCD absent" \
+      "${INTELLIFOLD_VENV}" "${INTELLIFOLD_REPO}" "${INTELLIFOLD_MODEL_DIR}"
   fi
   if [[ -x "${PROTENIX_VENV}/bin/protenix" \
      && -f "${PROTENIX_MODEL_DIR}/checkpoint/protenix-v2.pt" \
@@ -247,17 +318,23 @@ detect() {
      && -f "${PROTENIX_MODEL_DIR}/common/components.cif.rdkit_mol.pkl" ]]; then
     state protenix ok "Protenix v2 and Mini with managed checkpoints and chemical data"
   else
-    state protenix missing "environment, v2/Mini checkpoint, or chemical data absent"
+    state_absent_or_partial protenix "environment, v2/Mini checkpoint, or chemical data absent" \
+      "${PROTENIX_VENV}" "${PROTENIX_REPO}" "${PROTENIX_MODEL_DIR}"
   fi
   if constraint_runtime_current; then
     state protenix_constraint ok "Protenix Constraint v0.5 (native MPS, strict ESM-free profile)"
+  elif [[ -x "${PROTENIX_CONSTRAINT_VENV}/bin/protenix" \
+       && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint/protenix_base_constraint_v0.5.0.pt" ]]; then
+    state protenix_constraint update "installed checkpoint is reusable; runtime contract or patch needs updating"
   else
-    state protenix_constraint missing "install or update required; valid checkpoint files are reused without redownloading"
+    state_absent_or_partial protenix_constraint "install incomplete; valid checkpoint files are reused on retry" \
+      "${PROTENIX_CONSTRAINT_VENV}" "${PROTENIX_CONSTRAINT_REPO}" "${PROTENIX_CONSTRAINT_MODEL_DIR}"
   fi
   if [[ -x "${OPENFOLD_VENV}/bin/python" && -f "${OPENFOLD_CHECKPOINT_PATH}" ]]; then
     state openfold3 ok "OpenFold-3-MLX with checkpoint"
   else
-    state openfold3 missing "environment or checkpoint absent"
+    state_absent_or_partial openfold3 "environment or checkpoint absent" \
+      "${OPENFOLD_VENV}" "${OPENFOLD_REPO}" "${OPENFOLD_MODEL_DIR}"
   fi
   # LASErMPNN is ligand-aware inverse folding, used by both design tabs for
   # small-molecule targets. It has no MPS build, so it runs on CPU.
@@ -268,7 +345,8 @@ detect() {
        >/dev/null 2>&1); then
     state lasermpnn ok "LASErMPNN"
   else
-    state lasermpnn missing ""
+    state_absent_or_partial lasermpnn "environment, source, weights, or compiled extensions absent" \
+      "${NANOHUNTER_ROOT}/venvs/${VENV_PREFIX}_lasermpnn" "${NANOHUNTER_ROOT}/src/LASErMPNN"
   fi
   if [[ -x "${RFD3_ROOT}/.venv/bin/python" ]]; then
     # Installation and `install_rfd3.sh --check` verify both multi-GB hashes.
@@ -277,10 +355,10 @@ detect() {
     if [[ -f "${RFD3_CHECKPOINT_PATH}" && -f "${RFD3_WEIGHTS_PATH}" ]]; then
       state rfd3 ok "RFdiffusion3 MLX with checkpoint and exported weights"
     else
-      state rfd3 missing "checkpoint or exported MLX weight checksum mismatch"
+      state rfd3 incomplete "checkpoint or exported MLX weights absent"
     fi
   else
-    state rfd3 missing ""
+    state_absent_or_partial rfd3 "environment, checkpoint, or exported weights absent" "${RFD3_ROOT}"
   fi
 }
 
@@ -289,6 +367,8 @@ if [[ "${DETECT_ONLY}" -eq 1 ]]; then
   echo "NHDONE|ok"
   exit 0
 fi
+
+acquire_install_lock
 
 # ------------------------------------------------------------------- reuse ---
 # On a machine that already has NanoHunter installed, symlinking its venvs/,
@@ -626,6 +706,17 @@ ensure_python() {
   printf -v "$var" '%s' "$(command -v "python${want}")"
 }
 
+download_verified_artifact() {
+  local python="$1" output="$2" url="$3" checksum="$4" label="$5"
+  local key="$6" start="$7" end="$8"
+  [[ -f "${VERIFIED_DOWNLOADER}" ]] || fail "Bundled verified downloader is missing."
+  "${python}" "${VERIFIED_DOWNLOADER}" \
+    --url "${url}" --sha256 "${checksum}" --output "${output}" \
+    --label "${label}" --progress-key "${key}" \
+    --progress-start "${start}" --progress-end "${end}" \
+    || fail "Could not download or verify ${label}. The partial file was retained for resume."
+}
+
 # A shebang line cannot contain a space: the kernel splits on whitespace, so a
 # console script installed under ".../Application Support/..." fails with
 # "bad interpreter". Every venv pip creates here would be quietly broken.
@@ -651,6 +742,23 @@ pip install "torch==${BOLTZ_TORCH_VERSION}" >/dev/null || fail "torch install fa
 pip install "boltz==${BOLTZ_VERSION}" >/dev/null || fail "boltz install failed."
 deactivate
 mkdir -p "${BOLTZ_MODEL_DIR}"
+download_verified_artifact "${BOLTZ_VENV}/bin/python" \
+  "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt" \
+  "https://model-gateway.boltz.bio/boltz2_conf.ckpt" \
+  "090e82ac8c92f5e943fa1b39e7410a44027bea7243c0bbb3caa67a77fc1428e1" \
+  "Boltz-2 structure checkpoint" boltz 8 12
+download_verified_artifact "${BOLTZ_VENV}/bin/python" \
+  "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt" \
+  "https://model-gateway.boltz.bio/boltz2_aff.ckpt" \
+  "dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e" \
+  "Boltz-2 affinity checkpoint" boltz 12 15
+if [[ ! -d "${BOLTZ_MODEL_DIR}/mols" ]]; then
+  download_verified_artifact "${BOLTZ_VENV}/bin/python" \
+    "${BOLTZ_MODEL_DIR}/mols.tar" \
+    "https://huggingface.co/boltz-community/boltz-2/resolve/main/mols.tar" \
+    "39e076d96dbec6b4e86982bbda16f3a53a2a60c9bdc17828d88f6f9a0c7d1fd7" \
+    "Boltz-2 chemical-component archive" boltz 15 21
+fi
 "${BOLTZ_VENV}/bin/python" - "${BOLTZ_MODEL_DIR}" <<'PY' \
   || fail "Boltz-2 model or CCD download failed."
 import hashlib
@@ -658,21 +766,10 @@ import os
 import shutil
 import sys
 import tarfile
-import urllib.request
 from pathlib import Path
 
 root = Path(sys.argv[1])
 root.mkdir(parents=True, exist_ok=True)
-artifacts = {
-    "boltz2_conf.ckpt": (
-        "https://model-gateway.boltz.bio/boltz2_conf.ckpt",
-        "090e82ac8c92f5e943fa1b39e7410a44027bea7243c0bbb3caa67a77fc1428e1",
-    ),
-    "boltz2_aff.ckpt": (
-        "https://model-gateway.boltz.bio/boltz2_aff.ckpt",
-        "dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e",
-    ),
-}
 
 def digest(path):
     value = hashlib.sha256()
@@ -681,20 +778,6 @@ def digest(path):
             value.update(block)
     return value.hexdigest()
 
-for name, (url, expected) in artifacts.items():
-    target = root / name
-    if target.is_file() and digest(target) == expected:
-        print(f"  have {name}")
-        continue
-    partial = target.with_suffix(target.suffix + ".part")
-    partial.unlink(missing_ok=True)
-    print(f"  downloading {name}")
-    urllib.request.urlretrieve(url, partial)
-    if digest(partial) != expected:
-        partial.unlink(missing_ok=True)
-        raise RuntimeError(f"Boltz-2 checksum mismatch: {name}")
-    os.replace(partial, target)
-
 # Extract only after the archive has passed its checksum. Refuse path traversal
 # rather than trusting a remote tarball with the managed installation root.
 mols = root / "mols"
@@ -702,17 +785,7 @@ if not mols.is_dir():
     archive_path = root / "mols.tar"
     archive_sha = "39e076d96dbec6b4e86982bbda16f3a53a2a60c9bdc17828d88f6f9a0c7d1fd7"
     if not archive_path.is_file() or digest(archive_path) != archive_sha:
-        partial = root / "mols.tar.part"
-        partial.unlink(missing_ok=True)
-        print("  downloading mols.tar")
-        urllib.request.urlretrieve(
-            "https://huggingface.co/boltz-community/boltz-2/resolve/main/mols.tar",
-            partial,
-        )
-        if digest(partial) != archive_sha:
-            partial.unlink(missing_ok=True)
-            raise RuntimeError("Boltz-2 checksum mismatch: mols.tar")
-        os.replace(partial, archive_path)
+        raise RuntimeError("verified Boltz-2 chemical-component archive is missing")
     stage = root / ".mols-extract"
     shutil.rmtree(stage, ignore_errors=True)
     stage.mkdir()
@@ -752,31 +825,26 @@ grep -Ev 'cuda|cublas|cudnn|nccl|nvidia|triton' "${LIGANDMPNN_REPO}/requirements
 pip install -r "${REQ_OUT}" >/dev/null || fail "LigandMPNN requirements install failed."
 MODEL_DIR="${LIGANDMPNN_REPO}/model_params"; mkdir -p "${MODEL_DIR}"
 step weights 32 "Downloading designer weights"
-python - "${MODEL_DIR}" <<'PY' || exit 1
-import sys, urllib.request, pathlib
-out = pathlib.Path(sys.argv[1])
-import hashlib
-artifacts = {
-  "proteinmpnn_v_48_020.pt": ("https://files.ipd.uw.edu/pub/ligandmpnn/proteinmpnn_v_48_020.pt", "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd"),
-  "solublempnn_v_48_020.pt": ("https://files.ipd.uw.edu/pub/ligandmpnn/solublempnn_v_48_020.pt", "7af52d090172c230c7f0e9d21e02203f6b3a38b16db58d3c7a3960e0a9a6e31a"),
-  "ligandmpnn_v_32_010_25.pt": ("https://files.ipd.uw.edu/pub/ligandmpnn/ligandmpnn_v_32_010_25.pt", "161cd264061fda9680cbb940255522ae42f2966c552d045d87913d9452a80970"),
-  "abmpnn.pt": ("https://zenodo.org/records/8164693/files/abmpnn.pt?download=1", "fd41b40ee0f51974d73e1acb754cd8acaa36b3327543d5d28bcf4aa4e07b4a1b"),
-}
-def valid(path, expected):
-    return path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == expected
-for name, (url, expected) in artifacts.items():
-    p = out / name
-    if valid(p, expected):
-        print(f"  have {name}"); continue
-    print(f"  downloading {name}")
-    partial = p.with_suffix(p.suffix + ".part")
-    partial.unlink(missing_ok=True)
-    urllib.request.urlretrieve(url, partial)
-    if not valid(partial, expected):
-        partial.unlink(missing_ok=True)
-        print(f"NHFAIL|checksum mismatch for {name}"); sys.exit(1)
-    partial.replace(p)
-PY
+download_verified_artifact "${LIGAND_VENV}/bin/python" \
+  "${MODEL_DIR}/proteinmpnn_v_48_020.pt" \
+  "https://files.ipd.uw.edu/pub/ligandmpnn/proteinmpnn_v_48_020.pt" \
+  "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd" \
+  "ProteinMPNN checkpoint" mpnn 32 35
+download_verified_artifact "${LIGAND_VENV}/bin/python" \
+  "${MODEL_DIR}/solublempnn_v_48_020.pt" \
+  "https://files.ipd.uw.edu/pub/ligandmpnn/solublempnn_v_48_020.pt" \
+  "7af52d090172c230c7f0e9d21e02203f6b3a38b16db58d3c7a3960e0a9a6e31a" \
+  "SolubleMPNN checkpoint" mpnn 35 38
+download_verified_artifact "${LIGAND_VENV}/bin/python" \
+  "${MODEL_DIR}/ligandmpnn_v_32_010_25.pt" \
+  "https://files.ipd.uw.edu/pub/ligandmpnn/ligandmpnn_v_32_010_25.pt" \
+  "161cd264061fda9680cbb940255522ae42f2966c552d045d87913d9452a80970" \
+  "LigandMPNN checkpoint" mpnn 38 41
+download_verified_artifact "${LIGAND_VENV}/bin/python" \
+  "${MODEL_DIR}/abmpnn.pt" \
+  "https://zenodo.org/records/8164693/files/abmpnn.pt?download=1" \
+  "fd41b40ee0f51974d73e1acb754cd8acaa36b3327543d5d28bcf4aa4e07b4a1b" \
+  "AbMPNN checkpoint" mpnn 41 44
 deactivate
 state mpnn ok "ProteinMPNN / SolubleMPNN / LigandMPNN / AbMPNN"
 
@@ -793,28 +861,11 @@ pip install torch_geometric==2.4.0 biopython==1.83 biotite==0.38 "pygam==0.9.*" 
   || fail "AntiFold dependency install failed."
 pip install -e "${ANTIFOLD_REPO}" --no-deps >/dev/null || fail "AntiFold install failed."
 ANTIFOLD_MODEL_PATH="${ANTIFOLD_REPO}/models/model.pt"
-python - "${ANTIFOLD_MODEL_PATH}" <<'PY' || exit 1
-import hashlib, pathlib, sys, urllib.request
-t = pathlib.Path(sys.argv[1]); t.parent.mkdir(parents=True, exist_ok=True)
-expected = "d5c442fa0372c28f4d0026d2f551b6f8ba7e7a127cb6837813a88093ed233e9e"
-def valid(path):
-    if not path.is_file():
-        return False
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(8 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest() == expected
-if valid(t): print("  have antifold weights"); sys.exit(0)
-print("  downloading antifold weights")
-partial = t.with_suffix(t.suffix + ".part")
-partial.unlink(missing_ok=True)
-urllib.request.urlretrieve("https://opig.stats.ox.ac.uk/data/downloads/AntiFold/models/model.pt", partial)
-if not valid(partial):
-    partial.unlink(missing_ok=True)
-    raise RuntimeError("AntiFold weight checksum mismatch")
-partial.replace(t)
-PY
+download_verified_artifact "${ANTIFOLD_VENV}/bin/python" \
+  "${ANTIFOLD_MODEL_PATH}" \
+  "https://opig.stats.ox.ac.uk/data/downloads/AntiFold/models/model.pt" \
+  "d5c442fa0372c28f4d0026d2f551b6f8ba7e7a127cb6837813a88093ed233e9e" \
+  "AntiFold checkpoint" antifold 45 59
 deactivate
 state antifold ok "AntiFold"
 else
@@ -1205,6 +1256,8 @@ if [[ "${WITH_RFD3}" -eq 1 ]]; then
   if [[ -d "${STUDIO_RFD3_OVERLAY}" && -d "${RFD3_ROOT}" ]]; then
     mkdir -p "${RFD3_ROOT}/scripts"
     cp -f "${STUDIO_RFD3_OVERLAY}"/scripts/*.py "${RFD3_ROOT}/scripts/" 2>/dev/null || true
+    cp -f "${VERIFIED_DOWNLOADER}" "${RFD3_ROOT}/scripts/download_verified.py" \
+      || fail "Could not stage the verified downloader for RFdiffusion3."
     for extra in milestone0_oracle.py export_weights.py install_rfd3.sh \
                  requirements-rfd3.txt rfd3_env.sh; do
       [[ -f "${STUDIO_RFD3_OVERLAY}/${extra}" ]] && cp -f "${STUDIO_RFD3_OVERLAY}/${extra}" "${RFD3_ROOT}/"
@@ -1219,8 +1272,9 @@ if [[ "${WITH_RFD3}" -eq 1 ]]; then
   if [[ -x "${RFD3_ROOT}/install_rfd3.sh" ]]; then
     mkdir -p "${NANOHUNTER_ROOT}/logs"
     RFD3_INSTALL_LOG="${NANOHUNTER_ROOT}/logs/rfd3-install.log"
-    bash "${RFD3_ROOT}/install_rfd3.sh" --download-weights \
-      >"${RFD3_INSTALL_LOG}" 2>&1 \
+    IPROTEINSTUDIO_DOWNLOADER="${VERIFIED_DOWNLOADER}" \
+      bash "${RFD3_ROOT}/install_rfd3.sh" --download-weights 2>&1 \
+      | tee "${RFD3_INSTALL_LOG}" \
       || fail "RFdiffusion3 install failed — see ${RFD3_INSTALL_LOG}"
     state rfd3 ok "RFdiffusion3 MLX"
   else

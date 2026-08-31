@@ -52,6 +52,22 @@ their old flags explicitly; IntelliFold's supported backend is PyTorch/Metal.
 pinned source, patch, dependencies, checkpoint and native-MPS/no-fallback policy.
 It does not install ESM weights. `--all` includes both Protenix components.
 
+Setup is serialized by `$ROOT/.install.lock`: a second app copy or CLI setup
+fails before changing an environment, while a lock whose recorded process no
+longer exists is recovered automatically. The installer keeps macOS awake.
+Boltz, MPNN, AntiFold, Protenix and RFdiffusion3 checkpoint transfers retain
+resumable `.part` files; IntelliFold and OpenFold remain checksum-verified and
+transactional but currently restart an interrupted transfer. No final checkpoint
+is exposed before its pinned SHA-256 passes. GUI installs write complete logs under
+`$ROOT/logs/installer/`; the Engines screen can reveal the current log. Detection
+distinguishes an absent component from an incomplete install or broken link, and
+reports a runtime-contract update where a component has a comprehensive receipt.
+
+Before a GUI install starts, Studio shows the aggregate approximate installed
+footprint and requires that amount plus a 3 GB operating-system/temporary-file
+reserve. Cancel waits for the installer process tree—not merely its parent
+shell—to stop before setup controls become available again.
+
 **The install path must not contain a space.** A Python console script carries an
 absolute shebang and the kernel splits it on whitespace, so a venv under
 `~/Library/Application Support/…` produces `bad interpreter`. The installer
@@ -339,6 +355,7 @@ $ROOT/
   venvs/  src/  models/      environments, code, weights
   msa_cache/                 shared alignments, indexed by sequence
   scaffold_msa_cache/        bundled deep MSAs for all seven nanobody scaffolds
+  logs/installer/            durable setup and repair logs
   projects/<slug>/           durable, separately timestamped run outputs
 ```
 

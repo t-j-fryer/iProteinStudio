@@ -47,6 +47,20 @@ if [ -d "${BIN_DIR}/${BIN_NAME}_${BIN_NAME}.bundle" ]; then
   cp -R "${BIN_DIR}/${BIN_NAME}_${BIN_NAME}.bundle" "${APP}/Contents/Resources/"
 fi
 
+# SwiftPM resource copying does not consult .gitignore. Remove generated Python
+# and Numba caches from the assembled copy so a developer's local run can never
+# inflate or contaminate a release bundle.
+find "${APP}/Contents/Resources" -type d \
+  \( -name __pycache__ -o -name numba_cache \) -prune -exec rm -rf -- {} +
+find "${APP}/Contents/Resources" -type f \
+  \( -name '*.pyc' -o -name '.DS_Store' \) -delete
+if find "${APP}/Contents/Resources" \
+    \( -type d \( -name __pycache__ -o -name numba_cache \) \
+       -o -type f -name '*.pyc' \) -print -quit | grep -q .; then
+  echo "Generated cache artifacts remain in the app bundle." >&2
+  exit 2
+fi
+
 # SwiftPM links Sparkle dynamically. A hand-assembled bundle must embed the
 # framework (including its updater helpers and symlinks) just as Xcode's
 # "Embed & Sign" phase would.

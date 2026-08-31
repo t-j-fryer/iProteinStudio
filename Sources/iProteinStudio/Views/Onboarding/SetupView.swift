@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Friendly first-run wizard. Hides all the venv/clone/download complexity
 /// behind a single button with live progress, while still letting the user opt
@@ -168,8 +169,13 @@ private struct InnerSetup: View {
             Text("\(Int(installer.progress * 100))%")
                 .font(.caption).foregroundStyle(.secondary)
             recentSteps
-            Button("Cancel", role: .cancel) { installer.cancel() }
-                .controlSize(.small)
+            Text("Studio is keeping this Mac awake while setup runs.")
+                .font(.caption2).foregroundStyle(.secondary)
+            HStack {
+                Button("Cancel", role: .cancel) { installer.cancel() }
+                    .controlSize(.small)
+                logButton
+            }
         }
     }
 
@@ -183,12 +189,26 @@ private struct InnerSetup: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
-            Button {
-                installer.install()
-            } label: {
-                Label("Try Again", systemImage: "arrow.clockwise")
+            HStack {
+                logButton
+                Button {
+                    installer.install()
+                } label: {
+                    Label("Try Again", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    @ViewBuilder private var logButton: some View {
+        if let log = installer.latestLogURL {
+            Button {
+                NSWorkspace.shared.activateFileViewerSelecting([log])
+            } label: {
+                Label("Show log", systemImage: "doc.text.magnifyingglass")
+            }
+            .controlSize(.small)
         }
     }
 

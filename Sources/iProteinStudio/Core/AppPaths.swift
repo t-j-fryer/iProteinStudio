@@ -105,6 +105,19 @@ enum AppPaths {
 
     static var configFile: URL { support.appendingPathComponent("config.json") }
 
+    /// Durable setup logs. They are deliberately outside staged pipeline
+    /// resources, so an application update cannot erase the evidence needed to
+    /// diagnose a failed multi-gigabyte installation.
+    static var installerLogs: URL {
+        let dir = support.appendingPathComponent("logs/installer", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    static var installerLock: URL {
+        support.appendingPathComponent(".install.lock", isDirectory: true)
+    }
+
     /// Studio-authored RFdiffusion3 helpers, staged alongside the pipeline.
     static var rfd3ScriptsDir: URL {
         let dir = support.appendingPathComponent("rfd3_scripts", isDirectory: true)
@@ -226,7 +239,16 @@ enum AppPaths {
         // default, but remains optional so a user can intentionally install a
         // different predictor without setup being reported as a failure.
         let mpnn = venvs.appendingPathComponent("NanoHunter_ligandmpnn/bin/python")
-        return fm.fileExists(atPath: mpnn.path)
+        let source = support.appendingPathComponent("src/LigandMPNN", isDirectory: true)
+        let required = [
+            source.appendingPathComponent("run.py"),
+            source.appendingPathComponent("model_params/proteinmpnn_v_48_020.pt"),
+            source.appendingPathComponent("model_params/solublempnn_v_48_020.pt"),
+            source.appendingPathComponent("model_params/ligandmpnn_v_32_010_25.pt"),
+            source.appendingPathComponent("model_params/abmpnn.pt"),
+        ]
+        return fm.isExecutableFile(atPath: mpnn.path)
+            && required.allSatisfy { fm.fileExists(atPath: $0.path) }
     }
 
     /// True once the vendored scripts have been copied into the managed dir.
@@ -242,10 +264,7 @@ enum AppPaths {
         let items = try fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
         for item in items {
             let dest = pipeline.appendingPathComponent(item.lastPathComponent)
-            if fm.fileExists(atPath: dest.path) {
-                try? fm.removeItem(at: dest)
-            }
-            try fm.copyItem(at: item, to: dest)
+            try stageBundledItem(item, at: dest)
         }
         // Ensure scripts are executable.
         for name in ["nanohunter_run.sh", "setup_pipeline.sh"] {
@@ -258,6 +277,63 @@ enum AppPaths {
         stageRFD3Overlay()
         stageExamples()
         stageScaffoldMSAs()
+    }
+
+    /// Copy to a sibling first, then swap it into place. A quit, full disk or
+    /// copy error therefore leaves the previous runnable resource intact rather
+    /// than deleting it before its replacement exists.
+    private static func stageBundledItem(_ source: URL, at destination: URL) throws {
+        let token = UUID().uuidString
+        let staged = support.appendingPathComponent(".stage-\(destination.lastPathComponent)-\(token)")
+        let backup = destination.deletingLastPathComponent()
+            .appendingPathComponent(".backup-\(destination.lastPathComponent)-\(token)")
+        try? fm.removeItem(at: staged)
+        do {
+            try fm.copyItem(at: source, to: staged)
+            removeGeneratedCaches(from: staged)
+        } catch {
+            try? fm.removeItem(at: staged)
+            throw error
+        }
+
+        let destinationExists = fm.fileExists(atPath: destination.path)
+            || (try? fm.destinationOfSymbolicLink(atPath: destination.path)) != nil
+        guard destinationExists else {
+            try fm.moveItem(at: staged, to: destination)
+            return
+        }
+        do {
+            _ = try fm.replaceItemAt(
+                destination,
+                withItemAt: staged,
+                backupItemName: backup.lastPathComponent,
+                options: []
+            )
+            try? fm.removeItem(at: backup)
+        } catch {
+            try? fm.removeItem(at: staged)
+            throw error
+        }
+    }
+
+    /// SwiftPM's `.copy` resource rule copies the filesystem tree rather than
+    /// consulting Git ignore rules. Prune generated Python/Numba artifacts from
+    /// every staged payload so a developer's local cache can never ship.
+    private static func removeGeneratedCaches(from root: URL) {
+        let generatedDirectories: Set<String> = ["__pycache__", "numba_cache"]
+        guard let enumerator = fm.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { return }
+        for case let item as URL in enumerator {
+            if generatedDirectories.contains(item.lastPathComponent) {
+                enumerator.skipDescendants()
+                try? fm.removeItem(at: item)
+            } else if item.pathExtension == "pyc" || item.lastPathComponent == ".DS_Store" {
+                try? fm.removeItem(at: item)
+            }
+        }
     }
 
     /// Apply the RFdiffusion3 overlay to the installed checkout.
@@ -288,6 +364,15 @@ enum AppPaths {
 
         let installedStamp = root.appendingPathComponent(".studio_overlay_version")
         let installed = (try? String(contentsOf: installedStamp, encoding: .utf8)) ?? ""
+        let bundledDownloader = bundledPipeline?
+            .appendingPathComponent("scripts/download_verified.py")
+        let installedDownloader = root.appendingPathComponent("scripts/download_verified.py")
+        let downloaderChanged: Bool = {
+            guard let bundledDownloader,
+                  let sourceData = try? Data(contentsOf: bundledDownloader)
+            else { return false }
+            return (try? Data(contentsOf: installedDownloader)) != sourceData
+        }()
 
         // Directory overlays merge so upstream/generated files survive. These
         // two retired adapters are the exception: leaving them behind on an
@@ -303,7 +388,9 @@ enum AppPaths {
                     || removedRetiredAdapter
             }
         }
-        guard force || bundled != installed else { return removedRetiredAdapter }
+        guard force || bundled != installed || downloaderChanged else {
+            return removedRetiredAdapter
+        }
 
         guard let items = try? fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
         else { return false }
@@ -320,6 +407,14 @@ enum AppPaths {
                 try? fm.copyItem(at: item, to: dest)
                 try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dest.path)
             }
+        }
+        if let bundledDownloader, downloaderChanged || force {
+            try? fm.createDirectory(at: installedDownloader.deletingLastPathComponent(),
+                                    withIntermediateDirectories: true)
+            try? fm.removeItem(at: installedDownloader)
+            try? fm.copyItem(at: bundledDownloader, to: installedDownloader)
+            try? fm.setAttributes([.posixPermissions: 0o755],
+                                  ofItemAtPath: installedDownloader.path)
         }
         try? bundled.write(to: installedStamp, atomically: true, encoding: .utf8)
         return true

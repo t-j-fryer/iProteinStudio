@@ -75,8 +75,24 @@ def download(args) -> None:
     target = args.output.expanduser().resolve()
     partial = target.with_suffix(target.suffix + ".part")
     target.parent.mkdir(parents=True, exist_ok=True)
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", args.sha256):
+        raise ValueError("--sha256 must be exactly 64 hexadecimal characters")
+    args.sha256 = args.sha256.lower()
     if target.is_file() and digest(target) == args.sha256:
         print(f"NHSTEP|{args.progress_key}|{args.progress_end}|Have {args.label}", flush=True)
+        return
+    # Older installers sometimes exposed an interrupted transfer under its
+    # final name. Preserve those bytes as the resumable partial instead of
+    # throwing away gigabytes merely because the previous filename was wrong.
+    if target.is_file():
+        if not partial.exists():
+            os.replace(target, partial)
+        else:
+            target.unlink()
+    if partial.is_file() and digest(partial) == args.sha256:
+        os.replace(partial, target)
+        progress(args.progress_key, args.progress_start, args.progress_end, args.label,
+                 target.stat().st_size, target.stat().st_size, force=True)
         return
 
     last_report = 0.0
@@ -89,6 +105,10 @@ def download(args) -> None:
         try:
             with urllib.request.urlopen(request, timeout=args.timeout) as response:
                 append = offset > 0 and response.status == 206
+                content_range = response.headers.get("Content-Range", "")
+                range_match = re.match(r"bytes\s+(\d+)-", content_range)
+                if append and (not range_match or int(range_match.group(1)) != offset):
+                    append = False
                 if offset and not append:
                     offset = 0
                 total = total_from_headers(response, offset)
@@ -109,6 +129,7 @@ def download(args) -> None:
                             progress(args.progress_key, args.progress_start, args.progress_end, args.label,
                                      current, total)
                             last_report = now
+                    os.fsync(handle.fileno())
                 if total is not None and current != total:
                     raise OSError(
                         f"connection ended at {human(current)} of {human(total)}"
@@ -122,6 +143,17 @@ def download(args) -> None:
             return
         except (TimeoutError, socket.timeout, urllib.error.URLError,
                 urllib.error.HTTPError, ConnectionError, OSError) as error:
+            if (isinstance(error, urllib.error.HTTPError) and error.code == 416
+                    and partial.is_file()):
+                if digest(partial) == args.sha256:
+                    os.replace(partial, target)
+                    progress(args.progress_key, args.progress_start, args.progress_end,
+                             args.label, target.stat().st_size, target.stat().st_size,
+                             force=True)
+                    return
+                # The saved offset is beyond or incompatible with the remote
+                # object. It cannot be resumed safely; retry once from zero.
+                partial.unlink()
             if attempt >= args.retries:
                 raise RuntimeError(
                     f"{args.label} download failed after {attempt} attempts: {error}"
