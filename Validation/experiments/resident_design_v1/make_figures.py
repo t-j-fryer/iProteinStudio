@@ -62,6 +62,35 @@ def speed_figure(rows: list[dict[str, str]], output: Path) -> None:
     plt.close(fig)
 
 
+def speedup_figure(rows: list[dict[str, str]], output: Path) -> None:
+    rows = [row for row in rows if row["wall_seconds"]]
+    engines = list(dict.fromkeys(row["engine"] for row in rows))
+    arms = ["cycle_wave", "resident"]
+    width = 0.34
+    fig, ax = plt.subplots(figsize=(7.2, 3.2))
+    for arm_index, arm in enumerate(arms):
+        values = []
+        for engine in engines:
+            current = next((row for row in rows if row["engine"] == engine and row["arm"] == "current"), None)
+            compared = next((row for row in rows if row["engine"] == engine and row["arm"] == arm), None)
+            values.append(float(current["wall_seconds"]) / float(compared["wall_seconds"])
+                          if current and compared else 0)
+        positions = [index - width / 2 + arm_index * width for index in range(len(engines))]
+        ax.bar(positions, values, width=width, label=arm.replace("_", " "),
+               edgecolor="black", linewidth=0.7)
+    ax.axhline(1.0, color="black", linewidth=0.7)
+    ax.set_ylabel("Speed relative to current (×)")
+    ax.set_xticks(range(len(engines)), [item.replace("_", "\n") for item in engines])
+    ax.tick_params(top=False, right=False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.grid(False)
+    ax.legend(frameon=False, fontsize=7)
+    fig.tight_layout()
+    fig.savefig(output, transparent=True)
+    plt.close(fig)
+
+
 def secondary_figure(rows: list[dict[str, str]], output: Path) -> None:
     if not rows:
         return
@@ -96,21 +125,19 @@ def main() -> None:
     style()
     speed = analysis / "campaign_summary.csv"
     if speed.is_file():
-        speed_figure(load(speed), analysis / "campaign_wall_time.svg")
-    secondary = analysis / "secondary_structure_summary.csv"
-    if secondary.is_file():
-        secondary_figure(load(secondary), analysis / "secondary_structure.svg")
+        rows = load(speed)
+        speed_figure(rows, analysis / "campaign_wall_time.svg")
+        speedup_figure(rows, analysis / "campaign_speedup.svg")
     caption = analysis / "FIGURE_CAPTIONS.md"
     caption.write_text(
         "# Validation figure captions\n\n"
         "**Campaign wall time.** End-to-end wall time for complete iterative-design "
         "campaigns. Each bar is one 12-trajectory campaign with cycle 00 plus five "
         "design cycles; cycle 00 is not counted as a design. Scheduler contrasts "
-        "within an engine use identical seeds, sample counts and cached target MSA.\n\n"
-        "**Designed-binder secondary structure.** Biotite P-SEA assignments for binder "
-        "chain A from cycles 01–05 only, pooled as explicitly tabulated residues. Bars show residue "
-        "fractions and are descriptive; trajectory-level replicate statistics must be "
-        "reported separately before inferential claims.\n"
+        "within an engine use identical 80-aa binders, seeds, sample counts and cached target MSA.\n\n"
+        "**Scheduler speedup.** End-to-end campaign speed relative to the current "
+        "per-trajectory implementation (1.0×). Each bar is the ratio of two paired "
+        "campaign wall times; n=12 trajectories and 60 designed structures per campaign.\n"
     )
 
 

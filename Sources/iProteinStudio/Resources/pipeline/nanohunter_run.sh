@@ -72,6 +72,7 @@ INTELLIFOLD_CACHE_DIR="${INTELLIFOLD_CACHE:-${REPO_ROOT}/models/intellifold}"
 PROTENIX_MODEL_DIR="${PROTENIX_ROOT_DIR:-${REPO_ROOT}/models/protenix}"
 PROTENIX_CONSTRAINT_MODEL_DIR="${REPO_ROOT}/models/protenix_constraint"
 PROTENIX_ADAPTER="${REPO_ROOT}/scripts/protenix_predict.py"
+RESIDENT_PREDICTOR="${REPO_ROOT}/scripts/resident_predictor.py"
 OPENFOLD_CACHE_DIR="${OPENFOLD_CACHE:-${REPO_ROOT}/models/openfold3}"
 OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_CACHE_DIR}/of3_ft3_v1.pt"
 BOLTZ_CACHE="${BOLTZ_CACHE:-${REPO_ROOT}/models/boltz2}"
@@ -425,7 +426,7 @@ Parallelism:
   --resume                         reuse completed cycle predictions in an existing --run-name tree
   --check-config                   validate routing, inputs, envs, and checkpoints; do not predict
   --skip-predictor-calibration     requires an explicit --max-parallel value
-  --design-scheduler MODE          run | cycle-wave (default: ${DESIGN_SCHEDULER})
+  --design-scheduler MODE          run | cycle-wave | resident (default: ${DESIGN_SCHEDULER})
   --wave-batch-size N|all          predictor inputs per model load in cycle-wave mode
   --wave-mpnn-max-parallel N       concurrent MPNN redesigns between waves (default: ${MPNN_WAVE_MAX_PARALLEL})
   --throughput-profile PATH|auto|off
@@ -1100,7 +1101,8 @@ DESIGN_SCHEDULER="$(printf '%s' "${DESIGN_SCHEDULER}" | tr '[:upper:]' '[:lower:
 case "${DESIGN_SCHEDULER}" in
   run|per-run|run-parallel) DESIGN_SCHEDULER="run" ;;
   cycle-wave|wave) DESIGN_SCHEDULER="cycle-wave" ;;
-  *) die "--design-scheduler must be run or cycle-wave." ;;
+  resident|campaign-resident) DESIGN_SCHEDULER="resident" ;;
+  *) die "--design-scheduler must be run, cycle-wave, or resident." ;;
 esac
 if [[ "${WAVE_BATCH_SIZE}" != "all" && ! "${WAVE_BATCH_SIZE}" =~ ^[1-9][0-9]*$ ]]; then
   die "--wave-batch-size must be all or a positive integer."
@@ -1108,24 +1110,33 @@ fi
 if [[ ! "${MPNN_WAVE_MAX_PARALLEL}" =~ ^[1-9][0-9]*$ ]]; then
   die "--wave-mpnn-max-parallel must be a positive integer."
 fi
-if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" ]]; then
+if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" || "${DESIGN_SCHEDULER}" == "resident" ]]; then
   case "${WORKFLOW}" in
     nanobody|protein) ;;
-    *) die "--design-scheduler cycle-wave supports protein and nanobody workflows." ;;
+    *) die "--design-scheduler ${DESIGN_SCHEDULER} supports protein and nanobody workflows." ;;
   esac
   case "${PREDICTOR}" in
     boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx) ;;
-    *) die "--design-scheduler cycle-wave does not support predictor ${PREDICTOR}." ;;
+    *) die "--design-scheduler ${DESIGN_SCHEDULER} does not support predictor ${PREDICTOR}." ;;
   esac
   if [[ "${WORKFLOW}" == "nanobody" && "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 ]]; then
-    die "--design-scheduler cycle-wave requires fixed-scaffold nanobody design."
+    die "--design-scheduler ${DESIGN_SCHEDULER} requires fixed-scaffold nanobody design."
   fi
   if [[ "${WORKFLOW}" == "protein" && "${SEQUENCE_DESIGNER}" == "antifold" ]]; then
     die "AntiFold is nanobody-specific; use a ProteinMPNN-family designer for protein cycle-wave jobs."
   fi
   if [[ "${MOTIF_SCAFFOLDING}" -eq 1 || "${PARTIAL_REDESIGN}" -eq 1 ]]; then
-    die "--design-scheduler cycle-wave does not support motif or partial-redesign modes."
+    die "--design-scheduler ${DESIGN_SCHEDULER} does not support motif or partial-redesign modes."
   fi
+fi
+if [[ "${DESIGN_SCHEDULER}" == "resident" ]]; then
+  case "${PREDICTOR}" in
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5) ;;
+    *) die "--design-scheduler resident has no validated worker for predictor ${PREDICTOR}." ;;
+  esac
+  [[ -f "${RESIDENT_PREDICTOR}" ]] || die "Resident predictor worker not found: ${RESIDENT_PREDICTOR}"
+  [[ "${MAX_PARALLEL_USER}" == "1" ]] || die "--design-scheduler resident requires --max-parallel 1."
+  [[ "${WAVE_BATCH_SIZE}" == "all" ]] || die "--design-scheduler resident requires --wave-batch-size all."
 fi
 
 if [[ ! "${LIGANDMPNN_SEED}" =~ ^[0-9]+$ ]]; then
@@ -5264,6 +5275,26 @@ run_sequence_redesign() {
       ;;
   esac
 
+  candidate_sequence="$(python3 - "${candidate_sequence}" "${current_sequence}" <<'PY'
+import sys
+candidate = "".join(sys.argv[1].split()).upper()
+previous = "".join(sys.argv[2].split()).upper()
+invalid = sorted(set(candidate) - set("ACDEFGHIKLMNPQRSTVWY"))
+if invalid:
+    raise SystemExit(
+        "Inverse-folding handoff contained non-standard or diagnostic characters: "
+        + ",".join(repr(value) for value in invalid)
+    )
+if previous and len(candidate) != len(previous):
+    raise SystemExit(
+        f"Inverse-folding changed binder length from {len(previous)} to {len(candidate)}"
+    )
+if not candidate:
+    raise SystemExit("Inverse-folding returned an empty binder sequence")
+print(candidate)
+PY
+)"
+
   if [[ -n "${redesigned_residues}" && -n "${current_sequence}" ]]; then
     apply_nanobody_redesign_guard "${current_sequence}" "${candidate_sequence}" "${redesigned_residues}"
   else
@@ -5492,6 +5523,208 @@ prepare_cycle_wave_input() {
   printf '%s\n' "${cycle_yaml}"
 }
 
+RESIDENT_QUEUE=""
+RESIDENT_PID=""
+RESIDENT_LOG=""
+
+start_resident_predictor() {
+  [[ "${DESIGN_SCHEDULER}" == "resident" ]] || return 0
+  local wave_root="${EXPT_ROOT}/_cycle_wave"
+  local session_tag config_path worker_python resident_model resident_samples
+  local resident_use_msa="false"
+  local resident_engine_args=()
+  session_tag="session_$(date +%Y%m%dT%H%M%S)_$$"
+  RESIDENT_QUEUE="${wave_root}/resident_sessions/${session_tag}"
+  RESIDENT_LOG="${RESIDENT_QUEUE}/worker.log"
+  config_path="${RESIDENT_QUEUE}/config.json"
+  mkdir -p "${RESIDENT_QUEUE}"
+  [[ -n "${TARGET_MSA_PATH}" ]] && resident_use_msa="true"
+
+  resident_model="boltz2"
+  resident_samples="${PREDICTOR_SAMPLES}"
+  if [[ "${resident_samples}" == "auto" ]]; then
+    resident_samples=1
+    case "${PREDICTOR}" in protenix-v2|protenix-mini) resident_samples=5 ;; esac
+  fi
+  case "${PREDICTOR}" in
+    boltz)
+      worker_python="${BOLTZ_VENV}/bin/python"
+      resident_engine_args=("${BOLTZ_EXTRA_FLAGS[@]}")
+      ;;
+    intellifold)
+      worker_python="${INTELLIFOLD_VENV}/bin/python"
+      resident_model="${INTELLIFOLD_MODEL}"
+      resident_engine_args=("${INTELLIFOLD_EXTRA_FLAGS[@]}")
+      ;;
+    protenix-v2)
+      worker_python="${PROTENIX_VENV}/bin/python"
+      resident_model="v2"
+      ;;
+    protenix-mini)
+      worker_python="${PROTENIX_VENV}/bin/python"
+      resident_model="mini"
+      ;;
+    protenix-constraint-v0.5)
+      worker_python="${PROTENIX_CONSTRAINT_VENV}/bin/python"
+      resident_model="constraint"
+      ;;
+    *) die "No resident worker is defined for ${PREDICTOR}." ;;
+  esac
+
+  python3 - "${config_path}" "${RESIDENT_QUEUE}" "${REPO_ROOT}" \
+    "${PREDICTOR}" "${resident_model}" "${PREDICTOR_SEED}" \
+    "${resident_samples}" "${BOLTZ_USE_POTENTIALS_DEFAULT}" \
+    "${resident_use_msa}" "$$" \
+    ${resident_engine_args[@]+"${resident_engine_args[@]}"} <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+payload = {
+    "schema": 1,
+    "queue": sys.argv[2],
+    "root": sys.argv[3],
+    "engine": sys.argv[4],
+    "model": sys.argv[5],
+    "seed": sys.argv[6],
+    "samples": int(sys.argv[7]),
+    "use_potentials": sys.argv[8] == "1",
+    "use_msa": sys.argv[9].lower() == "true",
+    "owner_pid": int(sys.argv[10]),
+    "engine_args": sys.argv[11:],
+}
+temporary = path.with_suffix(".json.part")
+temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+temporary.replace(path)
+PY
+
+  echo ">>> Resident ${PREDICTOR}: loading one campaign model (session ${session_tag})"
+  PYTORCH_ENABLE_MPS_FALLBACK=0 \
+    OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" \
+    VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" \
+    KMP_USE_SHM=0 \
+    "${worker_python}" "${RESIDENT_PREDICTOR}" --config "${config_path}" \
+    > "${RESIDENT_LOG}" 2>&1 &
+  RESIDENT_PID="$!"
+
+  local tick=0
+  while [[ ! -s "${RESIDENT_QUEUE}/ready.json" ]]; do
+    sleep 0.25
+    tick=$((tick + 1))
+    if (( tick % 120 == 0 )); then
+      echo ">>> Resident ${PREDICTOR} still loading (elapsed=$((tick / 4))s)" >&2
+    fi
+    if (( tick >= 7200 )); then
+      tail -n 160 "${RESIDENT_LOG}" >&2 || true
+      die "Resident ${PREDICTOR} did not become ready within 30 minutes."
+    fi
+  done
+  local ready_pid
+  ready_pid="$(python3 - "${RESIDENT_QUEUE}/ready.json" <<'PY'
+import json, sys
+x=json.load(open(sys.argv[1]))
+assert x.get("device") == "mps" and x.get("fallback") == 0
+assert x.get("model_load_count") == 1
+print(int(x["pid"]))
+PY
+)" || die "Resident ${PREDICTOR} produced an invalid readiness receipt."
+  [[ "${ready_pid}" == "${RESIDENT_PID}" ]] || die "Resident readiness PID ${ready_pid} does not match child ${RESIDENT_PID}."
+  kill -0 "${RESIDENT_PID}" 2>/dev/null || {
+    tail -n 160 "${RESIDENT_LOG}" >&2 || true
+    die "Resident ${PREDICTOR} exited immediately after readiness."
+  }
+  cp -f "${RESIDENT_QUEUE}/ready.json" "${wave_root}/resident_ready.json"
+  echo "request_id,cycle,batch,batch_size,wall_seconds,model_load_count" > "${wave_root}/resident_requests.csv"
+  echo ">>> Resident ${PREDICTOR}: ready on native MPS (pid=${RESIDENT_PID}, model_load_count=1)"
+}
+
+stop_resident_predictor() {
+  [[ -n "${RESIDENT_QUEUE}" ]] || return 0
+  python3 - "${RESIDENT_QUEUE}/stop.json" <<'PY'
+import json, os, sys, time
+from pathlib import Path
+path=Path(sys.argv[1]); tmp=path.with_suffix(".json.part")
+tmp.write_text(json.dumps({"requested_epoch": time.time(), "requester_pid": os.getpid()}) + "\n")
+tmp.replace(path)
+PY
+  local tick=0
+  while [[ ! -s "${RESIDENT_QUEUE}/stopped.json" ]]; do
+    if [[ -n "${RESIDENT_PID}" ]] && ! kill -0 "${RESIDENT_PID}" 2>/dev/null; then
+      break
+    fi
+    sleep 0.25
+    tick=$((tick + 1))
+    (( tick < 480 )) || break
+  done
+  if [[ ! -s "${RESIDENT_QUEUE}/stopped.json" ]]; then
+    tail -n 160 "${RESIDENT_LOG}" >&2 || true
+    die "Resident ${PREDICTOR} did not stop cleanly."
+  fi
+  set +e
+  wait "${RESIDENT_PID}"
+  local resident_rc=$?
+  set -e
+  [[ "${resident_rc}" -eq 0 ]] || die "Resident ${PREDICTOR} exited with status ${resident_rc}."
+  cp -f "${RESIDENT_QUEUE}/stopped.json" "${EXPT_ROOT}/_cycle_wave/resident_stopped.json"
+  RESIDENT_PID=""
+  RESIDENT_QUEUE=""
+}
+
+submit_resident_predictor_request() {
+  local cycle_idx="$1" batch_idx="$2" input_dir="$3" output_dir="$4" expected="$5"
+  [[ -n "${RESIDENT_PID}" ]] || die "Resident predictor was not started."
+  kill -0 "${RESIDENT_PID}" 2>/dev/null || {
+    tail -n 160 "${RESIDENT_LOG}" >&2 || true
+    die "Resident ${PREDICTOR} died before cycle ${cycle_idx} batch ${batch_idx}."
+  }
+  local request_id request_path response_path
+  request_id="$(printf 'cycle_%02d_batch_%02d' "${cycle_idx}" "${batch_idx}")"
+  request_path="${RESIDENT_QUEUE}/requests/request_${request_id}.json"
+  response_path="${RESIDENT_QUEUE}/responses/request_${request_id}.json"
+  python3 - "${request_path}" "${request_id}" "${input_dir}" "${output_dir}" "${expected}" <<'PY'
+import hashlib, json, sys, time
+from pathlib import Path
+path=Path(sys.argv[1]); source=Path(sys.argv[3]).resolve()
+files=sorted(source.glob("*.yaml"))
+digest=hashlib.sha256()
+for item in files:
+    digest.update(item.name.encode()); digest.update(b"\0")
+    digest.update(item.resolve().read_bytes()); digest.update(b"\0")
+payload={"schema": 1, "request_id": sys.argv[2], "input_dir": str(source),
+         "output_dir": str(Path(sys.argv[4]).resolve()), "expected_jobs": int(sys.argv[5]),
+         "input_sha256": digest.hexdigest(), "submitted_epoch": time.time()}
+path.parent.mkdir(parents=True, exist_ok=True)
+tmp=path.with_suffix(".json.part"); tmp.write_text(json.dumps(payload, indent=2, sort_keys=True)+"\n"); tmp.replace(path)
+PY
+  local tick=0
+  while [[ ! -s "${response_path}" ]]; do
+    if ! kill -0 "${RESIDENT_PID}" 2>/dev/null; then
+      tail -n 200 "${RESIDENT_LOG}" >&2 || true
+      die "Resident ${PREDICTOR} died during ${request_id}."
+    fi
+    sleep 0.25
+    tick=$((tick + 1))
+    if (( tick % 240 == 0 )); then
+      echo ">>> Resident ${PREDICTOR} ${request_id} still running (elapsed=$((tick / 4))s)" >&2
+    fi
+  done
+  local receipt
+  receipt="$(python3 - "${response_path}" "${request_id}" "${expected}" <<'PY'
+import json, sys
+x=json.load(open(sys.argv[1]))
+if not x.get("ok"):
+    raise SystemExit(x.get("error", "resident request failed"))
+assert x.get("request_id") == sys.argv[2]
+assert int(x.get("completed_jobs", -1)) == int(sys.argv[3])
+assert int(x.get("model_load_count", -1)) == 1
+print(f"{x['wall_seconds']},{x['model_load_count']}")
+PY
+)" || {
+    tail -n 200 "${RESIDENT_LOG}" >&2 || true
+    die "Resident ${PREDICTOR} returned an invalid response for ${request_id}."
+  }
+  echo "${request_id},${cycle_idx},${batch_idx},${expected},${receipt}" >> "${EXPT_ROOT}/_cycle_wave/resident_requests.csv"
+}
+
 run_cycle_wave_predictor_batch() {
   local cycle_idx="$1"
   local batch_idx="$2"
@@ -5534,9 +5767,19 @@ run_cycle_wave_predictor_batch() {
 
   local start_ts end_ts duration rc
   start_ts="$(now_epoch)"
-  echo ">>> ${cycle_tag} ${batch_tag}: ${PREDICTOR} model load for ${#pending_runs[@]} run(s) in ${first_run}-${last_run}"
+  if [[ "${DESIGN_SCHEDULER}" == "resident" ]]; then
+    echo ">>> ${cycle_tag} ${batch_tag}: resident ${PREDICTOR} request for ${#pending_runs[@]} run(s) in ${first_run}-${last_run}"
+  else
+    echo ">>> ${cycle_tag} ${batch_tag}: ${PREDICTOR} model load for ${#pending_runs[@]} run(s) in ${first_run}-${last_run}"
+  fi
   set +e
-  case "${PREDICTOR}" in
+  if [[ "${DESIGN_SCHEDULER}" == "resident" ]]; then
+    submit_resident_predictor_request \
+      "${cycle_idx}" "${batch_idx}" "${input_dir}" "${output_dir}" "${#pending_runs[@]}"
+    rc=$?
+    cp -f "${RESIDENT_LOG}" "${log_path}" 2>/dev/null || true
+  else
+    case "${PREDICTOR}" in
     boltz)
       local use_potential_flags=()
       if [[ "${BOLTZ_USE_POTENTIALS_DEFAULT}" -eq 1 ]]; then
@@ -5640,7 +5883,8 @@ run_cycle_wave_predictor_batch() {
         deactivate || true
       fi
       ;;
-  esac
+    esac
+  fi
   set -e
   end_ts="$(now_epoch)"
   duration="$(calc_duration "${start_ts}" "${end_ts}")"
@@ -5874,9 +6118,14 @@ run_cycle_wave_mpnn_redesigns() {
   local exact_residues exact_positions candidate
   local status_file run_rc
   local status_files=()
+  local redesign_pids=()
   cycle_tag="$(printf "cycle_%02d" "${cycle_idx}")"
   for run_index in $(seq 1 "${N_RUNS}"); do
-    wait_for_slot "${redesign_parallel}"
+    if [[ "${DESIGN_SCHEDULER}" == "resident" ]]; then
+      wait_for_slot "$((redesign_parallel + 1))"
+    else
+      wait_for_slot "${redesign_parallel}"
+    fi
     run_tag="$(printf "run_%03d" "${run_index}")"
     status_file="${EXPT_ROOT}/${run_tag}/${cycle_tag}/mpnn_wave_exit_code.txt"
     printf 'running\n' > "${status_file}"
@@ -5908,10 +6157,14 @@ run_cycle_wave_mpnn_redesigns() {
       printf '%s\n' "${candidate}" > "${run_root}/state_current_seq.txt"
       run_rc=0
     ) &
+    redesign_pids+=("$!")
   done
 
   set +e
-  wait
+  local redesign_pid
+  for redesign_pid in "${redesign_pids[@]}"; do
+    wait "${redesign_pid}"
+  done
   set -e
   local failed=0
   for status_file in "${status_files[@]}"; do
@@ -5968,6 +6221,9 @@ run_designs_cycle_wave() {
   if [[ "${RESUME}" -ne 1 || ! -s "${wave_root}/campaign_start_epoch.txt" ]]; then
     printf '%s\n' "$(now_epoch)" > "${wave_root}/campaign_start_epoch.txt"
   fi
+  if [[ "${DESIGN_SCHEDULER}" == "resident" ]]; then
+    start_resident_predictor
+  fi
   initialize_cycle_wave_designs
 
   local wave_batch_size
@@ -5990,6 +6246,7 @@ run_designs_cycle_wave() {
     batch_idx=0
     first_run=1
     local predictor_batch_status_files=()
+    local predictor_batch_pids=()
     while (( first_run <= N_RUNS )); do
       batch_idx=$((batch_idx + 1))
       last_run=$((first_run + wave_batch_size - 1))
@@ -5999,7 +6256,9 @@ run_designs_cycle_wave() {
       # Each background task is one native directory/query batch (one model
       # process). MAX_PARALLEL controls how many such persistent batches share
       # the MPS device; WAVE_BATCH_SIZE controls inputs amortized per model load.
-      wait_for_slot "${MAX_PARALLEL}"
+      if [[ "${DESIGN_SCHEDULER}" != "resident" ]]; then
+        wait_for_slot "${MAX_PARALLEL}"
+      fi
       local predictor_batch_status="${wave_root}/$(printf 'cycle_%02d' "${cycle}")/$(printf 'batch_%02d' "${batch_idx}")/exit_code.txt"
       mkdir -p "$(dirname "${predictor_batch_status}")"
       printf 'running\n' > "${predictor_batch_status}"
@@ -6010,11 +6269,15 @@ run_designs_cycle_wave() {
         run_cycle_wave_predictor_batch "${cycle}" "${batch_idx}" "${first_run}" "${last_run}"
         batch_rc=0
       ) &
+      predictor_batch_pids+=("$!")
       first_run=$((last_run + 1))
     done
 
     set +e
-    wait
+    local predictor_batch_pid
+    for predictor_batch_pid in "${predictor_batch_pids[@]}"; do
+      wait "${predictor_batch_pid}"
+    done
     set -e
     local predictor_batch_failed=0 predictor_batch_status_value
     for predictor_batch_status in "${predictor_batch_status_files[@]}"; do
@@ -6056,8 +6319,11 @@ run_designs_cycle_wave() {
     echo "run,start_ts,end_ts,duration_sec" > "${run_root}/timing_run.csv"
     echo "${run_tag},${run_start},${campaign_end},${run_duration}" >> "${run_root}/timing_run.csv"
   done
+  if [[ "${DESIGN_SCHEDULER}" == "resident" ]]; then
+    stop_resident_predictor
+  fi
   echo "scheduler,wave_batch_size,start_ts,end_ts,duration_sec" > "${wave_root}/campaign_timing.csv"
-  echo "cycle-wave,${wave_batch_size},$(cat "${wave_root}/campaign_start_epoch.txt"),${campaign_end},$(calc_duration "$(cat "${wave_root}/campaign_start_epoch.txt")" "${campaign_end}")" >> "${wave_root}/campaign_timing.csv"
+  echo "${DESIGN_SCHEDULER},${wave_batch_size},$(cat "${wave_root}/campaign_start_epoch.txt"),${campaign_end},$(calc_duration "$(cat "${wave_root}/campaign_start_epoch.txt")" "${campaign_end}")" >> "${wave_root}/campaign_timing.csv"
 }
 
 run_one_design() {
@@ -7023,7 +7289,7 @@ fi
 if [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 0 && -n "${BINDER_RANDOM_SEED}" ]]; then
   echo "Cycle-00 seed scheme    : ${BINDER_RANDOM_SEED} + run_index"
 fi
-if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" ]]; then
+if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" || "${DESIGN_SCHEDULER}" == "resident" ]]; then
   echo "Wave batch size         : ${WAVE_BATCH_SIZE}"
   if [[ "${SEQUENCE_DESIGNER}" != "antifold" ]]; then
     echo "Wave MPNN parallelism   : ${MPNN_WAVE_MAX_PARALLEL}"
@@ -7132,7 +7398,7 @@ if [[ "${WORKFLOW}" == "nanobody" && "${SCAFFOLD_FROM_TEMPLATE}" -eq 1 ]]; then
 fi
 echo "========================================"
 
-if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" ]]; then
+if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" || "${DESIGN_SCHEDULER}" == "resident" ]]; then
   run_designs_cycle_wave "${TARGET_MSA_PATH}"
 else
   DESIGN_PIDS=()

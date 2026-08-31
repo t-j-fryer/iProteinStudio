@@ -140,7 +140,8 @@ Flags worth knowing:
 | `--require-target-msa` | an unreachable MSA server otherwise degrades the run to single-sequence silently |
 | `--throughput-profile auto` | uses a measured per-machine schedule, and *rejects* one from a different Mac |
 | `--resume` | idempotent; reuses completed cycles after an interruption |
-| `--design-scheduler cycle-wave` | native batching for IntelliFold campaigns |
+| `--design-scheduler cycle-wave` | one directory predictor process per cycle for supported iterative engines |
+| `--design-scheduler resident` | validation-only: one live model across cycles; requires `--max-parallel 1 --wave-batch-size all` |
 | `--iptm-threshold 0.7` | defines campaign hits; Studio uses the same value to gate optional checking |
 | `--post-mode final-iptm` | independently checks only final-cycle designs that passed the gate; `final` checks every final design |
 | `--post-mode iptm` | checks every passing optimized checkpoint from cycle 01 onward; use `all` instead of `iptm` to disable the threshold gate |

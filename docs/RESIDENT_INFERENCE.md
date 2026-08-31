@@ -13,11 +13,11 @@
 Directory replay with all future inputs already present is an upper-bound timing
 assay, not campaign residency.
 
-## Production contract
+## Implemented validation contract
 
 The shell runner remains the owner of trajectory state, MPNN calls, normalized
 outputs and resume decisions. A resident predictor is a replaceable child
-process with a line-delimited request/response protocol:
+process with an atomic file-backed request/response queue:
 
 1. startup fixes one engine, checkpoint, sample count, seed policy and scientific
    settings, asserts native MPS, loads the checkpoint and emits `ready`;
@@ -27,10 +27,19 @@ process with a line-delimited request/response protocol:
    verifies output cardinality and emits an atomic completion response;
 4. the shell audits and copies each result into its trajectory/cycle before MPNN
    creates the next request;
-5. EOF, malformed output, worker death or a checksum mismatch fails the campaign
-   loudly. Resume starts a new worker and submits only incomplete cycles.
+5. malformed output, worker death, owner-process death or a checksum mismatch
+   fails the campaign loudly. Resume starts a new worker and submits only
+   incomplete cycles.
 
 Model residency is an optimization, never a new source of campaign truth.
+
+`scripts/resident_predictor.py` implements three model-owning sessions: Boltz 2,
+IntelliFold PyTorch and Protenix. The six app engine choices map to those three
+families and their fixed checkpoints. The worker remains a normal child of the
+campaign process; double-fork daemonization was rejected after it severed access
+to macOS `MTLCompilerService`. The CLI mode exists for governed validation, but
+the GUI continues to expose the established scheduler until promotion gates
+pass.
 
 ## Engine-specific batching and padding
 
@@ -46,6 +55,9 @@ across cycles and use a short, declared list of total-token buckets. Candidate
 buckets must be benchmarked; more buckets reduce padded attention work but can
 increase shape warm-up overhead. Exact per-length buckets are not assumed to be
 optimal for only 12 trajectories.
+
+The current speed campaign does not test this policy: all binders are exactly
+80 aa and every IntelliFold arm uses the same 176-token bucket.
 
 ### Boltz 2 and Protenix
 

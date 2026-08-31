@@ -133,10 +133,11 @@ def template_text(config: dict, msa: Path, constrained: bool) -> str:
             "  protenix_pocket_max_distance: 8.0\n"
         )
     target = config["target"]["sequence"]
+    binder = "X" * int(config["campaign"]["binder_min_length"])
     return (
         metadata
         + "sequences:\n"
-        + "  - protein:\n      id: A\n      sequence: " + "X" * 65 + "\n      msa: empty\n"
+        + "  - protein:\n      id: A\n      sequence: " + binder + "\n      msa: empty\n"
         + "  - protein:\n      id: B\n      sequence: " + target + "\n"
         + f"      msa: {msa}\nversion: 1\n"
     )
@@ -219,6 +220,7 @@ def make_manifest(args: argparse.Namespace) -> tuple[dict, Path]:
     for relative in (
         "scripts/intellifold_predict.py",
         "scripts/protenix_predict.py",
+        "scripts/resident_predictor.py",
         "scripts/ipsae_score.py",
         "scripts/select_post_tasks.py",
     ):
@@ -411,9 +413,39 @@ def analyze(args: argparse.Namespace) -> None:
         )
         receipt_path = output / "receipts" / f"{job['run_name']}.json"
         receipt = json.loads(receipt_path.read_text()) if receipt_path.is_file() else {}
+        predictor_seconds = 0.0
+        inverse_seconds = 0.0
+        startup_seconds = 0.0
+        model_loads = 0
+        if job["arm"] == "current":
+            for timing in run_path.glob("run_*/timing_cycles.csv"):
+                with timing.open(newline="") as handle:
+                    predictor_seconds += sum(float(row["duration_sec"]) for row in csv.DictReader(handle))
+            model_loads = campaign["trajectories"] * (campaign["design_cycles"] + 1)
+        else:
+            wave = run_path / "_cycle_wave"
+            predictor_table = wave / "predictor_batches.csv"
+            inverse_table = wave / "inverse_folding_batches.csv"
+            if predictor_table.is_file():
+                with predictor_table.open(newline="") as handle:
+                    predictor_rows = list(csv.DictReader(handle))
+                predictor_seconds = sum(float(row["duration_sec"]) for row in predictor_rows)
+                model_loads = len(predictor_rows)
+            if inverse_table.is_file():
+                with inverse_table.open(newline="") as handle:
+                    inverse_seconds = sum(float(row["duration_sec"]) for row in csv.DictReader(handle))
+            if job["arm"] == "resident":
+                ready = wave / "resident_ready.json"
+                if ready.is_file():
+                    startup_seconds = float(json.loads(ready.read_text()).get("startup_seconds", 0.0))
+                model_loads = 1
         rows.append({
             "engine": job["engine"], "arm": job["arm"],
             "wall_seconds": receipt.get("wall_seconds", ""),
+            "predictor_request_seconds": predictor_seconds,
+            "inverse_folding_seconds": inverse_seconds,
+            "model_startup_seconds": startup_seconds,
+            "model_load_count": model_loads,
             "designs_excluding_cycle00": designs,
             "expected_designs": campaign["trajectories"] * campaign["design_cycles"],
             "audit_errors": len(errors),

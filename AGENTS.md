@@ -1,5 +1,13 @@
 # Instructions for AI agents
 
+## Repository authority
+
+`/Users/thomasfryer/iProteinStudio` is the canonical and only active Studio
+repository. Do not inspect, edit, test from, or create worktrees under the
+legacy `NanoHunterStudio` checkout unless the user explicitly asks for it.
+Linked development worktrees must live under
+`/Users/thomasfryer/iProteinStudio/.worktrees/`.
+
 This file is for any coding agent (Codex, Cursor, Copilot, and others). Claude
 Code should read `CLAUDE.md` first, which is more detailed; the skill at
 `.claude/skills/iprotein-run/` covers running the pipelines.

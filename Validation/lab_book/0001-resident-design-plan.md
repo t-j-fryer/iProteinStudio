@@ -1,12 +1,12 @@
 ---
 entry: 0001
-title: Validate resident iterative prediction and helix control
+title: Compare current, cycle-wave and resident iterative prediction
 date: 2026-08-30
 author: codex
 type: experiment
 status: in-progress
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory, macOS 26.x
-tags: [iterative-design, persistence, batching, token-padding, secondary-structure]
+tags: [iterative-design, persistence, batching, throughput]
 ---
 
 ## Context
@@ -22,54 +22,26 @@ here until reproduced in iProteinStudio.
 
 ## Questions
 
-- Does live residency remain correct across cycle 00 plus five redesign cycles?
-- What incremental speed remains after fair directory-per-cycle batching?
-- Does length-aware IntelliFold padding help 65–150-aa minibinder campaigns?
-- Does maximum helix suppression alter DSSP-class secondary structure in cycles
-  01–05 across engines?
-
-The current helix control is an initialization intervention: it biases the
-cycle-00 random binder away from helix-prone residues and changes the UNK patch
-policy. It is not a hidden predictor potential and is not reapplied as an MPNN
-amino-acid bias at every redesign. The experiment therefore asks whether that
-initial condition propagates through iterative inverse folding, not whether a
-direct secondary-structure restraint forces every later cycle.
+- Does one live model remain correct across cycle 00 plus five redesign cycles?
+- What end-to-end speed does true residency add beyond one directory process per
+  cycle?
+- Does either optimized scheduler preserve all 60 designs and 12 initialization
+  structures produced by the current implementation?
 
 ## Design
 
 Target: SUMO, 96 aa, using an exact cached A3M whose sequence and SHA-256 must
-match the declared fixture. Each engine receives 12 trajectories, five design
-cycles, one predictor seed/sample and the same MPNN/binder seeds.
+match the declared fixture. Each campaign receives 12 trajectories, five design
+cycles, one predictor seed/sample, one fixed 80-aa binder length and identical
+MPNN/binder seeds. Helix suppression is off and IntelliFold uses its established
+single 176-token bucket in every scheduler arm.
 
-Speed is paired at helix suppression off:
-
-- `standard_off`: existing per-trajectory scheduler;
-- `cycle_wave_off`: one directory process per cycle, the current load-amortized
-  control;
-- `cycle_wave_length_aware_off`: IntelliFold-only cycle waves using 32-token
-  candidate bands ending at the exact campaign maximum;
-- `resident_off`: one live predictor model across all available cycles.
-
-Helix control is paired within the resident scheduler:
-
-- `resident_off`;
-- `resident_max`: identical settings with helix suppression enabled at 1.0.
-
-The resident arms are declared but disabled until a real request-serving worker
-passes lifecycle and resume tests. The executable first phase uses
-`standard_off`, `cycle_wave_off`, the IntelliFold-only length-aware arm and
-`cycle_wave_max`; it must not be reported as a resident-model result.
-
-For the executable phase, helix suppression pairs `cycle_wave_off` against
-`cycle_wave_max` for Boltz and Protenix. IntelliFold pairs
-`cycle_wave_length_aware_off` against `cycle_wave_max`, so padding policy is
-held constant. Speed comparisons never use a helix-suppressed arm.
-
-Cycle 00 is audited but excluded from design counts and secondary-structure
-endpoints. Engines: Boltz 2, IntelliFold v2-flash, IntelliFold v2, Protenix v2,
-Protenix Mini and Protenix Constraint v0.5. Constraint runs use the same explicit
-SUMO pocket residues recorded in the campaign configuration; other engines only
-receive epitope controls they implement.
+The three paired arms are `current` (one predictor process per trajectory and
+cycle), `cycle_wave` (one directory predictor process per cycle) and `resident`
+(one model-owning process across all six prediction waves). Engines are Boltz 2,
+IntelliFold v2-flash, IntelliFold full v2, Protenix v2, Protenix Mini and
+Protenix Constraint v0.5, for 18 campaigns total. Cycle 00 is audited but not
+counted among the 60 designs per campaign.
 
 ## Promotion gates
 
@@ -80,22 +52,20 @@ interruption/resume, worker-death failure, cancellation and bounded-memory soak.
 
 ## Results
 
-The full manifest-frozen matrix is not run. Bounded native-MPS cycle-wave launch
-tests completed for all six requested engine choices. One-input directory wall
-times were 37.59 s (Boltz 2), 48.93 s (IntelliFold v2-flash), 234.17 s
-(IntelliFold v2), 98.49 s (Protenix v2), 17.03 s (Protenix Mini) and 62.58 s
-(Protenix Constraint after repair). These are one-shot acceptance timings, not
-comparative throughput estimates.
+All six resident checkpoint choices pass native-MPS launch smokes. Mini, Boltz 2
+and IntelliFold v2-flash each completed cycle 00, an intervening SolubleMPNN
+redesign and cycle 01 with one worker PID and `model_load_count=1`. Resident
+startup/request wall seconds were 8.97/(5.79, 2.18) for Mini,
+10.81/(13.62, 13.27) for Boltz and 4.15/(37.66, 34.34) for v2-flash. One-request
+checkpoint smokes passed for Protenix v2 (25.71/42.66 s), Constraint
+(27.95/34.61 s) and full IntelliFold v2 (5.70/143.39 s).
 
-Boltz also completed cycle 00 → SolubleMPNN → cycle 01 and an idempotent resume.
-P-SEA assigned every residue in the resulting 131-aa cycle-01 binder. Protenix
-Constraint initially failed at 227 tokens because an absent substructure channel
-requested a 39.57-GB attention buffer. A checkpoint-equivalent zero-feature
-shortcut agreed with the explicit path to maximum absolute error 9.54e-7 on MPS
-and reduced the successful job's synchronized driver allocation to 3.98 GB.
-After repair, all six engines passed strict availability checks and the complete
-configuration expanded deterministically to 20 manifest-frozen campaigns. The
-full 20-campaign manifest was planned but not launched.
+A rejected double-fork worker lost access to macOS `MTLCompilerService`; workers
+therefore remain normal campaign children. The first attached Mini retry exposed
+stdout contamination from the Protenix UNK normalizer, which prepended a
+diagnostic to the MPNN sequence. Diagnostics now use stderr and inverse-folding
+handoffs are explicitly alphabet- and length-validated. The third Mini smoke
+completed both prediction waves. The 18 full campaigns remain to be launched.
 
 ## Reproduce
 
@@ -107,7 +77,9 @@ python3 Validation/experiments/resident_design_v1/campaign.py analyze
 
 ## Limits and what was not tested
 
-The plan covers one protein target and Apple M4 Max. Ligands, nanobody scaffolds,
-other Apple chips and post-predictor stages require separate validation. A
-query-only binder MSA and cached target MSA are mandatory; online MSA search is
-not part of this experiment.
+The plan covers one protein target, one 80-aa binder length and Apple M4 Max.
+Ligands, nanobody scaffolds, other Apple chips, post-predictor stages, helix
+control and mixed-length padding require separate validation. A query-only
+binder MSA and cached target MSA are mandatory; online MSA search is not part of
+this experiment. No optimized scheduler is promoted until the full matrix and
+output audit complete.

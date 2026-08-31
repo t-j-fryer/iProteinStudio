@@ -14,6 +14,7 @@ import argparse
 import random
 import re
 import shlex
+import sys
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -320,6 +321,7 @@ def main() -> None:
         print(
             f"Protenix handoff normalized {residues} UNK residue(s) on chain "
             f"{args.binder_chain} to ALA and removed {removed} CG pseudo-atom(s)",
+            file=sys.stderr,
         )
 
 

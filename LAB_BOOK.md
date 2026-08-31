@@ -100,6 +100,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0046 | 2026-08-30 | [Implement campaign-resident iterative predictors](lab_book/0046-implement-campaign-resident-predictors.md) | One checksummed model-owning worker now serves successive MPNN-separated cycles for Boltz, IntelliFold and Protenix; all six engine choices pass MPS smokes and the fixed 80-aa three-scheduler benchmark is ready to launch |
 | 0045 | 2026-08-30 | [Validate cycle waves before promoting model residency](lab_book/0045-validate-cycle-waves-before-residency.md) | Directory replay is not live persistence; Protenix cycle-wave execution, explicit predictor work controls, resume timing provenance and governed SUMO/helix validation are added while resident defaults remain gated |
 | 0044 | 2026-08-27 | [Separate signed app updates from explicit checkpoint downloads](lab_book/0044-signed-app-updates-and-engine-consent.md) | Pinned Sparkle integration, versioned bundles, visible release notes/settings, duplicate-copy cleanup, final engine-download consent and fail-closed signing/notarisation automation; existing pre-updater copies still need one manual signed upgrade |
 | 0043 | 2026-08-27 | [Recover the full Protenix Constraint macOS validation record](lab_book/0043-protenix-constraint-macos-validation-lineage.md) | Raw beta logs, receipts, paired outputs, memory/timing data, figures and ChimeraX artifacts establish exactly what was required to run the v0.5 checkpoint on native MPS and what its pocket/contact results do—and do not—show |

@@ -49,6 +49,8 @@ cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/intellifold_p
   "${FIXTURE_ROOT}/scripts/intellifold_predict.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/protenix_predict.py" \
   "${FIXTURE_ROOT}/scripts/protenix_predict.py"
+cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/resident_predictor.py" \
+  "${FIXTURE_ROOT}/scripts/resident_predictor.py"
 mkdir -p "${FIXTURE_ROOT}/models/protenix_constraint/checkpoint"
 touch "${FIXTURE_ROOT}/models/protenix_constraint/checkpoint/protenix_base_constraint_v0.5.0.pt"
 printf '{}\n' > "${FIXTURE_ROOT}/models/protenix_constraint/install_receipt.json"
@@ -130,6 +132,13 @@ output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   --post-predictor none --post-mode none)"
 expect_text "${output}" 'predictor_seed=73' "predictor seed was not recorded"
 expect_text "${output}" 'predictor_samples=1' "predictor sample count was not recorded"
+
+output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor boltz \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --design-scheduler resident --wave-batch-size all \
+  --post-predictor none --post-mode none)"
+expect_text "${output}" 'scheduler=resident' "resident scheduler was not accepted as a distinct mode"
 
 set +e
 output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \

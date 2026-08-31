@@ -10,8 +10,8 @@
   "campaign": {
     "trajectories": 12,
     "design_cycles": 5,
-    "binder_min_length": 65,
-    "binder_max_length": 150,
+    "binder_min_length": 80,
+    "binder_max_length": 80,
     "binder_seed": 155160,
     "mpnn_seed": 300160,
     "predictor_seed": 42,
@@ -27,30 +27,12 @@
     "protenix_constraint": {"predictor": "protenix-constraint-v0.5", "constraint": true}
   },
   "arms": {
-    "standard_off": {"scheduler": "run", "helix_kill": 0.0},
-    "cycle_wave_off": {"scheduler": "cycle-wave", "helix_kill": 0.0},
-    "cycle_wave_length_aware_off": {
-      "scheduler": "cycle-wave",
-      "helix_kill": 0.0,
-      "intellifold_buckets": "length-aware",
-      "engine_filter": ["intellifold_flash", "intellifold_v2"]
-    },
-    "cycle_wave_max": {
-      "scheduler": "cycle-wave",
-      "helix_kill": 1.0,
-      "intellifold_buckets": "length-aware"
-    },
-    "resident_off": {
+    "current": {"scheduler": "run", "helix_kill": 0.0},
+    "cycle_wave": {"scheduler": "cycle-wave", "helix_kill": 0.0},
+    "resident": {
       "scheduler": "resident",
       "helix_kill": 0.0,
-      "enabled": false,
-      "blocked_reason": "A live cross-cycle worker has not passed lifecycle and resume gates."
-    },
-    "resident_max": {
-      "scheduler": "resident",
-      "helix_kill": 1.0,
-      "enabled": false,
-      "blocked_reason": "A live cross-cycle worker has not passed lifecycle and resume gates."
+      "enabled": true
     }
   }
 }
