@@ -98,6 +98,7 @@ WITH_RFD3=0
 WITH_LASERMPNN=0
 MATERIALISE=0
 REPAIR_VENVS=0
+MINIMIZE_STORAGE=0
 LINK_EXISTING=""
 LINK_RFD3=""
 DETECT_ONLY=0
@@ -130,6 +131,7 @@ Maintenance:
   --link-rfd3 PATH             Reuse an installed RFdiffusion3 checkout
   --materialise                Replace managed component links with local copies
   --repair-venvs               Repair absolute paths after moving an installation
+  --minimize-storage           Share verified duplicate assets in an existing install
   -h, --help                   Show this help
 
 The MPNN sequence-designer family is installed for every non-maintenance setup.
@@ -164,6 +166,7 @@ while [[ $# -gt 0 ]]; do
     --link-rfd3)            LINK_RFD3="$2"; shift 2 ;;
     --detect)               DETECT_ONLY=1; shift ;;
     --repair-venvs)         REPAIR_VENVS=1; shift ;;
+    --minimize-storage)     MINIMIZE_STORAGE=1; shift ;;
     -h|--help)              usage; exit 0 ;;
     *) echo "NHFAIL|Unknown option: $1"; exit 2 ;;
   esac
@@ -214,6 +217,7 @@ OPENFOLD_LOCK="${LOCK_DIR}/openfold3.txt"
 VERIFIED_DOWNLOADER="${NANOHUNTER_ROOT}/scripts/download_verified.py"
 COMPONENT_RECEIPT="${NANOHUNTER_ROOT}/scripts/component_receipt.py"
 RUNTIME_TRANSACTION="${NANOHUNTER_ROOT}/scripts/runtime_transaction.py"
+MANAGED_STORAGE="${NANOHUNTER_ROOT}/scripts/managed_storage.py"
 INSTALL_LOCK="${NANOHUNTER_ROOT}/.install.lock"
 RECEIPTS_DIR="${NANOHUNTER_ROOT}/receipts"
 
@@ -268,22 +272,38 @@ acquire_install_lock() {
 
 ensure_pinned_repo() {
   local label="$1" url="$2" revision="$3" target="$4" actual=""
-  if [[ -d "${target}/.git" ]]; then
+  if git -C "${target}" rev-parse --git-dir >/dev/null 2>&1; then
     actual="$(git -C "${target}" rev-parse HEAD 2>/dev/null || true)"
     [[ "${actual}" == "${revision}" ]] && return 0
   fi
 
-  local parent stage backup_root backup
+  local parent stage backup_root backup mirror_key mirror
   parent="$(dirname "${target}")"
   mkdir -p "${parent}"
   stage="${parent}/.stage-$(basename "${target}")-$$"
   [[ ! -e "${stage}" ]] || fail "A stale source stage needs attention: ${stage}"
-  git init -q "${stage}" || fail "${label} repository staging failed."
-  git -C "${stage}" remote add origin "${url}" \
-    || fail "${label} remote configuration failed."
-  git -C "${stage}" fetch -q --depth 1 origin "${revision}" \
+  # Keep one object store per upstream URL. Standard and Constraint Protenix
+  # need separate patched worktrees, but not two identical copies of Git's
+  # history. Each checkout explicitly references only this managed, non-cache
+  # object store; clearing download caches therefore cannot break a checkout.
+  mirror_key="$(printf '%s' "${url}" | shasum -a 256 | awk '{print $1}')"
+  mirror="${NANOHUNTER_ROOT}/shared/git-objects/${mirror_key}.git"
+  if [[ ! -d "${mirror}" ]]; then
+    mkdir -p "$(dirname "${mirror}")"
+    git init -q --bare "${mirror}" || fail "${label} shared source store creation failed."
+    git --git-dir="${mirror}" remote add origin "${url}" \
+      || fail "${label} shared-source remote configuration failed."
+  fi
+  git --git-dir="${mirror}" fetch -q --depth 1 origin \
+    "${revision}:refs/iproteinstudio/${revision}" \
     || fail "${label} pinned revision download failed."
-  git -C "${stage}" checkout -q --detach FETCH_HEAD \
+  git init -q "${stage}" || fail "${label} shared source checkout failed."
+  mkdir -p "${stage}/.git/objects/info"
+  (cd "${mirror}/objects" && pwd -P) > "${stage}/.git/objects/info/alternates" \
+    || fail "${label} shared object-store link failed."
+  git -C "${stage}" remote add origin "${url}" \
+    || fail "${label} source remote configuration failed."
+  git -C "${stage}" checkout -q --detach "${revision}" \
     || fail "${label} pinned revision checkout failed."
   actual="$(git -C "${stage}" rev-parse HEAD 2>/dev/null)" \
     || fail "Could not identify the staged ${label} revision."
@@ -299,6 +319,19 @@ ensure_pinned_repo() {
     echo "  retained recoverable previous ${label} source at ${backup}"
   fi
   mv "${stage}" "${target}" || fail "Could not activate the pinned ${label} source."
+}
+
+uv_install_locked() {
+  local python="$1" lock="$2"; shift 2
+  [[ -x "${UV_BIN}" ]] || fail "Pinned uv is missing: ${UV_BIN}"
+  "${UV_BIN}" pip install --python "${python}" --link-mode clone \
+    --require-hashes "$@" -r "${lock}" >/dev/null
+}
+
+uv_install_editable() {
+  local python="$1" source="$2"
+  "${UV_BIN}" pip install --python "${python}" --link-mode clone \
+    --no-deps --no-build-isolation -e "${source}" >/dev/null
 }
 
 assert_runtime_idle() {
@@ -446,6 +479,19 @@ fi
 
 acquire_install_lock
 assert_runtime_idle
+
+if [[ "${MINIMIZE_STORAGE}" -eq 1 ]]; then
+  step minimize 10 "Consolidating verified duplicate engine assets"
+  [[ -f "${MANAGED_STORAGE}" ]] \
+    || fail "Bundled managed-storage helper is missing."
+  result="$(python3 "${MANAGED_STORAGE}" --root "${NANOHUNTER_ROOT}")" \
+    || fail "Managed-storage consolidation failed without changing unverified data."
+  echo "  ${result}"
+  detect
+  step done 100 "Verified duplicate engine assets consolidated"
+  echo "NHDONE|ok"
+  exit 0
+fi
 
 # ------------------------------------------------------------------- reuse ---
 # On a machine that already has NanoHunter installed, symlinking its venvs/,
@@ -850,6 +896,30 @@ begin_versioned_venv() {
     TRANSACTION_REUSED=1
     return 0
   fi
+  # Receipt creation is deliberately last, after artifact/source/runtime
+  # validation. If it alone was interrupted, the atomically committed current
+  # environment is still a valid retry candidate. Reuse it only when its
+  # transaction marker says ready; the caller repeats health checks and writes
+  # a fresh receipt before reporting success.
+  if [[ -x "${final}/bin/python" && -L "${final}" ]]; then
+    local committed transaction_state transaction_component
+    committed="$(cd "$(dirname "${final}")" && cd "$(readlink "${final}")" 2>/dev/null && pwd -P || true)"
+    if [[ -n "${committed}" && -f "${committed}/transaction.json" ]]; then
+      read -r transaction_state transaction_component < <(python3 - "${committed}/transaction.json" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1]))
+print(data.get("state", ""), data.get("component", ""))
+PY
+)
+      if [[ "${transaction_state}" == "ready" && "${transaction_component}" == "${key}" ]]; then
+        TRANSACTION_VENV="${final}"
+        TRANSACTION_STAGE=""
+        TRANSACTION_REUSED=1
+        echo "  re-validating committed ${key} environment after an interrupted receipt"
+        return 0
+      fi
+    fi
+  fi
   [[ -f "${RUNTIME_TRANSACTION}" ]] || fail "Bundled runtime transaction helper is missing."
   TRANSACTION_STAGE="$(python3 "${RUNTIME_TRANSACTION}" prepare \
     --root "${NANOHUNTER_ROOT}" --component "${key}" --version "${version}")" \
@@ -937,7 +1007,8 @@ ensure_python "${PYTHON_311_VERSION}" PYTHON_BIN
 if [[ "${WITH_ANTIFOLD}" -eq 1 ]]; then
   ensure_python "${PYTHON_310_VERSION}" ANTIFOLD_PYTHON_BIN
 fi
-if [[ "${WITH_INTELLIFOLD}" -eq 1 || "${WITH_PROTENIX_CONSTRAINT}" -eq 1 ]]; then
+if [[ "${WITH_INTELLIFOLD}" -eq 1 || "${WITH_PROTENIX_CONSTRAINT}" -eq 1 \
+   || "${WITH_RFD3}" -eq 1 ]]; then
   ensure_python "${PYTHON_312_VERSION}" INTELLIFOLD_PYTHON_BIN
 fi
 
@@ -948,10 +1019,8 @@ BOLTZ_FINAL_VENV="${BOLTZ_VENV}"
 begin_versioned_venv boltz "${BOLTZ_VERSION}" "${BOLTZ_FINAL_VENV}" "${PYTHON_BIN}"
 BOLTZ_VENV="${TRANSACTION_VENV}"
 if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
-  source "${BOLTZ_VENV}/bin/activate"
-  pip install --require-hashes -r "${BOLTZ_LOCK}" >/dev/null \
+  uv_install_locked "${BOLTZ_VENV}/bin/python" "${BOLTZ_LOCK}" \
     || fail "Boltz hash-locked dependency install failed."
-  deactivate
 fi
 mkdir -p "${BOLTZ_MODEL_DIR}"
 download_verified_artifact "${BOLTZ_VENV}/bin/python" \
@@ -1030,7 +1099,7 @@ PY
 commit_versioned_venv
 BOLTZ_VENV="${BOLTZ_FINAL_VENV}"
 write_component_receipt boltz "${BOLTZ_VERSION}" "${BOLTZ_VENV}/bin/python" \
-  "native-mps-preferred" \
+  "native-mps-preferred" --lock "${BOLTZ_LOCK}" \
   --artifact "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt=090e82ac8c92f5e943fa1b39e7410a44027bea7243c0bbb3caa67a77fc1428e1" \
   --metadata "ccd_archive_sha256=39e076d96dbec6b4e86982bbda16f3a53a2a60c9bdc17828d88f6f9a0c7d1fd7"
 if [[ "${WITH_BOLTZ_AFFINITY}" -eq 1 ]]; then
@@ -1052,10 +1121,8 @@ LIGAND_VENV="${TRANSACTION_VENV}"
 ensure_pinned_repo "LigandMPNN" "https://github.com/dauparas/LigandMPNN.git" \
   "${LIGANDMPNN_REV}" "${LIGANDMPNN_REPO}"
 if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
-  source "${LIGAND_VENV}/bin/activate"
-  pip install --require-hashes -r "${MPNN_LOCK}" >/dev/null \
+  uv_install_locked "${LIGAND_VENV}/bin/python" "${MPNN_LOCK}" \
     || fail "Sequence-designer hash-locked dependency install failed."
-  deactivate
 fi
 MODEL_DIR="${LIGANDMPNN_REPO}/model_params"; mkdir -p "${MODEL_DIR}"
 step weights 32 "Downloading designer weights"
@@ -1084,7 +1151,7 @@ download_verified_artifact "${LIGAND_VENV}/bin/python" \
 commit_versioned_venv
 LIGAND_VENV="${LIGAND_FINAL_VENV}"
 write_component_receipt mpnn "${LIGANDMPNN_REV}" "${LIGAND_VENV}/bin/python" \
-  "native-mps-when-supported" \
+  "native-mps-when-supported" --lock "${MPNN_LOCK}" \
   --source "${LIGANDMPNN_REPO}=${LIGANDMPNN_REV}" \
   --artifact "${MODEL_DIR}/proteinmpnn_v_48_020.pt=c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd" \
   --artifact "${MODEL_DIR}/solublempnn_v_48_020.pt=7af52d090172c230c7f0e9d21e02203f6b3a38b16db58d3c7a3960e0a9a6e31a" \
@@ -1101,12 +1168,10 @@ ANTIFOLD_FINAL_VENV="${ANTIFOLD_VENV}"
 begin_versioned_venv antifold "${ANTIFOLD_REV}" "${ANTIFOLD_FINAL_VENV}" "${ANTIFOLD_PYTHON_BIN}"
 ANTIFOLD_VENV="${TRANSACTION_VENV}"
 if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
-  source "${ANTIFOLD_VENV}/bin/activate"
-  pip install --require-hashes -r "${ANTIFOLD_LOCK}" >/dev/null \
+  uv_install_locked "${ANTIFOLD_VENV}/bin/python" "${ANTIFOLD_LOCK}" \
     || fail "AntiFold hash-locked dependency install failed."
-  pip install -e "${ANTIFOLD_REPO}" --no-deps --no-build-isolation >/dev/null \
+  uv_install_editable "${ANTIFOLD_VENV}/bin/python" "${ANTIFOLD_REPO}" \
     || fail "AntiFold install failed."
-  deactivate
 fi
 ANTIFOLD_MODEL_PATH="${ANTIFOLD_REPO}/models/model.pt"
 download_verified_artifact "${ANTIFOLD_VENV}/bin/python" \
@@ -1119,7 +1184,7 @@ download_verified_artifact "${ANTIFOLD_VENV}/bin/python" \
 commit_versioned_venv
 ANTIFOLD_VENV="${ANTIFOLD_FINAL_VENV}"
 write_component_receipt antifold "${ANTIFOLD_REV}" "${ANTIFOLD_VENV}/bin/python" \
-  "native-mps-when-supported" \
+  "native-mps-when-supported" --lock "${ANTIFOLD_LOCK}" \
   --source "${ANTIFOLD_REPO}=${ANTIFOLD_REV}" \
   --artifact "${ANTIFOLD_MODEL_PATH}=d5c442fa0372c28f4d0026d2f551b6f8ba7e7a127cb6837813a88093ed233e9e"
 state antifold ok "AntiFold"
@@ -1146,12 +1211,10 @@ INTELLIFOLD_FINAL_VENV="${INTELLIFOLD_VENV}"
 begin_versioned_venv intellifold "${INTELLIFOLD_REV}" "${INTELLIFOLD_FINAL_VENV}" "${INTELLIFOLD_PYTHON_BIN}"
 INTELLIFOLD_VENV="${TRANSACTION_VENV}"
 if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
-  source "${INTELLIFOLD_VENV}/bin/activate"
-  pip install --require-hashes -r "${INTELLIFOLD_LOCK}" >/dev/null \
+  uv_install_locked "${INTELLIFOLD_VENV}/bin/python" "${INTELLIFOLD_LOCK}" \
     || fail "IntelliFold hash-locked dependency install failed."
-  pip install -e "${INTELLIFOLD_REPO}" --no-deps --no-build-isolation >/dev/null \
+  uv_install_editable "${INTELLIFOLD_VENV}/bin/python" "${INTELLIFOLD_REPO}" \
     || fail "IntelliFold install failed."
-  deactivate
 fi
 # The unified, revision-checked patch above also carries the validated
 # Apple-Silicon PyTorch changes. Keeping it atomic prevents a half-patched
@@ -1201,7 +1264,7 @@ PYTORCH_ENABLE_MPS_FALLBACK=0 "${INTELLIFOLD_VENV}/bin/python" -c \
 commit_versioned_venv
 INTELLIFOLD_VENV="${INTELLIFOLD_FINAL_VENV}"
   write_component_receipt intellifold "${INTELLIFOLD_REV}" "${INTELLIFOLD_VENV}/bin/python" \
-    "native-mps-no-cpu-fallback" \
+    "native-mps-no-cpu-fallback" --lock "${INTELLIFOLD_LOCK}" \
     --source "${INTELLIFOLD_REPO}=${INTELLIFOLD_REV}" \
     --artifact "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt=ac405f91c59a1b135dab0fbddd103d032bcb1ea1cb59f162348c0b90d4ab4fa5" \
     --artifact "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl=8766edb6a88e01461a123e8a4e2d5e33846821b808444737cd82e441998801f8" \
@@ -1259,11 +1322,11 @@ if [[ "${WITH_PROTENIX_CONSTRAINT}" -eq 1 ]]; then
     "${PROTENIX_CONSTRAINT_FINAL_VENV}" "${INTELLIFOLD_PYTHON_BIN}"
   PROTENIX_CONSTRAINT_VENV="${TRANSACTION_VENV}"
   if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
-    "${PROTENIX_CONSTRAINT_VENV}/bin/pip" install --require-hashes \
-      -r "${PROTENIX_CONSTRAINT_LOCK}" >/dev/null \
+    uv_install_locked "${PROTENIX_CONSTRAINT_VENV}/bin/python" \
+      "${PROTENIX_CONSTRAINT_LOCK}" \
       || fail "Protenix Constraint locked dependency install failed."
-    "${PROTENIX_CONSTRAINT_VENV}/bin/pip" install --no-deps --no-build-isolation \
-      -e "${PROTENIX_CONSTRAINT_REPO}" >/dev/null \
+    uv_install_editable "${PROTENIX_CONSTRAINT_VENV}/bin/python" \
+      "${PROTENIX_CONSTRAINT_REPO}" \
       || fail "Protenix Constraint source install failed."
   fi
   if "${PROTENIX_CONSTRAINT_VENV}/bin/python" -c 'import importlib.metadata; importlib.metadata.version("fair-esm")' >/dev/null 2>&1; then
@@ -1340,6 +1403,7 @@ PY
   PROTENIX_CONSTRAINT_VENV="${PROTENIX_CONSTRAINT_FINAL_VENV}"
   write_component_receipt protenix_constraint "${PROTENIX_REV}" \
     "${PROTENIX_CONSTRAINT_VENV}/bin/python" "native-mps-fp32-no-cpu-fallback" \
+    --lock "${PROTENIX_CONSTRAINT_LOCK}" \
     --source "${PROTENIX_CONSTRAINT_REPO}=${PROTENIX_REV}" \
     --artifact "${PROTENIX_CONSTRAINT_MODEL_DIR}/checkpoint/protenix_base_constraint_v0.5.0.pt=5358025b20b2212853ad75579be04387859557915f398a1d60f6a1a9a0c8c887"
   state protenix_constraint ok "Protenix Constraint v0.5 (native MPS, strict ESM-free profile)"
@@ -1369,11 +1433,9 @@ if [[ "${WITH_PROTENIX_RUNTIME}" -eq 1 ]]; then
   begin_versioned_venv protenix "${PROTENIX_REV}" "${PROTENIX_FINAL_VENV}" "${PYTHON_BIN}"
   PROTENIX_VENV="${TRANSACTION_VENV}"
   if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
-    "${PROTENIX_VENV}/bin/pip" install --require-hashes \
-      -r "${PROTENIX_LOCK}" >/dev/null \
+    uv_install_locked "${PROTENIX_VENV}/bin/python" "${PROTENIX_LOCK}" \
       || fail "Protenix locked dependency install failed."
-    "${PROTENIX_VENV}/bin/pip" install --no-deps --no-build-isolation \
-      -e "${PROTENIX_REPO}" >/dev/null \
+    uv_install_editable "${PROTENIX_VENV}/bin/python" "${PROTENIX_REPO}" \
       || fail "Protenix source install failed."
   fi
 
@@ -1442,7 +1504,7 @@ PY
   commit_versioned_venv
   PROTENIX_VENV="${PROTENIX_FINAL_VENV}"
   write_component_receipt protenix "${PROTENIX_REV}" "${PROTENIX_VENV}/bin/python" \
-    "native-mps-fp32-no-cpu-fallback" \
+    "native-mps-fp32-no-cpu-fallback" --lock "${PROTENIX_LOCK}" \
     --source "${PROTENIX_REPO}=${PROTENIX_REV}" \
     --artifact "${PROTENIX_COMMON_DIR}/components.cif=bb31ae5cf6c8bc669924313077cb4231ee5ffefd3a20118cd14f3ec89f8bb6a5" \
     --artifact "${PROTENIX_COMMON_DIR}/components.cif.rdkit_mol.pkl=d1cfb71f5993a3ebea7c47877022d7f597bbfbaf86e28a4770e957da6c50cd35" \
@@ -1476,7 +1538,6 @@ if [[ "${WITH_LASERMPNN}" -eq 1 ]]; then
   begin_versioned_venv lasermpnn "${LASERMPNN_REV}" "${LASERMPNN_FINAL_VENV}" "${PYTHON_BIN}"
   LASERMPNN_VENV="${TRANSACTION_VENV}"
   if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
-    source "${LASERMPNN_VENV}/bin/activate"
     [[ -f "${LASERMPNN_LOCK}" && -f "${LASERMPNN_BOOTSTRAP_LOCK}" ]] \
       || fail "LASErMPNN hash locks are missing."
   # torch-scatter/torch-cluster have no MPS kernels, so this runs on CPU. It is
@@ -1484,16 +1545,16 @@ if [[ "${WITH_LASERMPNN}" -eq 1 ]]; then
   # This is the validated Apple-Silicon environment from NanoHunter. PyTorch
   # 2.2.x uses the NumPy 1.x ABI; the PyG extensions must be compiled against
   # that exact installed torch rather than in pip's isolated build env.
-  pip install --require-hashes -r "${LASERMPNN_BOOTSTRAP_LOCK}" >/dev/null \
+  uv_install_locked "${LASERMPNN_VENV}/bin/python" "${LASERMPNN_BOOTSTRAP_LOCK}" \
     || fail "LASErMPNN hash-locked build bootstrap failed."
   # The macOS 26 libc++ headers mark std::is_arithmetic as unspecialisable;
   # PyTorch 2.2.1's strong_type.h predates that annotation. Clang exposes this
   # exact compatibility diagnostic as -Winvalid-specialization. Suppressing it
   # restores the previously validated build without hiding other C++ errors.
   MACOSX_DEPLOYMENT_TARGET=11.0 CXXFLAGS="-Wno-invalid-specialization" \
-    pip install --require-hashes --no-build-isolation -r "${LASERMPNN_LOCK}" >/dev/null \
+    uv_install_locked "${LASERMPNN_VENV}/bin/python" "${LASERMPNN_LOCK}" \
+      --no-build-isolation \
     || fail "LASErMPNN hash-locked dependency/extension build failed."
-    deactivate
   fi
   (cd "${SRC_DIR}" && "${LASERMPNN_VENV}/bin/python" -c \
     "import LASErMPNN.run_batch_inference; from torch_cluster import knn_graph; from torch_scatter import scatter") \
@@ -1501,7 +1562,7 @@ if [[ "${WITH_LASERMPNN}" -eq 1 ]]; then
   commit_versioned_venv
   LASERMPNN_VENV="${LASERMPNN_FINAL_VENV}"
   write_component_receipt lasermpnn "${LASERMPNN_REV}" "${LASERMPNN_VENV}/bin/python" \
-    "cpu-required-upstream-kernels" \
+    "cpu-required-upstream-kernels" --lock "${LASERMPNN_LOCK}" \
     --source "${LASERMPNN_REPO}=${LASERMPNN_REV}" \
     --artifact "${LASERMPNN_REPO}/model_weights/laser_weights_0p1A_nothing_heldout.pt=304fe02a4807c310bdd9d68c988ae87619da3cf2025d5c223fb31030aa411173"
   state lasermpnn ok "LASErMPNN (CPU)"
@@ -1518,12 +1579,10 @@ if [[ "${WITH_OPENFOLD3}" -eq 1 ]]; then
   begin_versioned_venv openfold3 "${OPENFOLD_REV}" "${OPENFOLD_FINAL_VENV}" "${PYTHON_BIN}"
   OPENFOLD_VENV="${TRANSACTION_VENV}"
   if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
-    source "${OPENFOLD_VENV}/bin/activate"
-    pip install --require-hashes -r "${OPENFOLD_LOCK}" >/dev/null \
+    uv_install_locked "${OPENFOLD_VENV}/bin/python" "${OPENFOLD_LOCK}" \
       || fail "OpenFold hash-locked dependency install failed."
-    pip install -e "${OPENFOLD_REPO}" --no-deps --no-build-isolation >/dev/null \
+    uv_install_editable "${OPENFOLD_VENV}/bin/python" "${OPENFOLD_REPO}" \
       || fail "openfold-3-mlx install failed."
-    deactivate
   fi
   mkdir -p "${OPENFOLD_MODEL_DIR}"
   download_verified_artifact "${OPENFOLD_VENV}/bin/python" \
@@ -1537,7 +1596,7 @@ if [[ "${WITH_OPENFOLD3}" -eq 1 ]]; then
   commit_versioned_venv
   OPENFOLD_VENV="${OPENFOLD_FINAL_VENV}"
   write_component_receipt openfold3 "${OPENFOLD_REV}" "${OPENFOLD_VENV}/bin/python" \
-    "mlx-and-mps-no-cpu-option" \
+    "mlx-and-mps-no-cpu-option" --lock "${OPENFOLD_LOCK}" \
     --source "${OPENFOLD_REPO}=${OPENFOLD_REV}" \
     --artifact "${OPENFOLD_CHECKPOINT_PATH}=aedd8f3eb814e3926c8974ef34c9499df224443f173b7e396c97684da6e3eeb6"
   state openfold3 ok "OpenFold-3-MLX"
@@ -1576,6 +1635,8 @@ if [[ "${WITH_RFD3}" -eq 1 ]]; then
     mkdir -p "${NANOHUNTER_ROOT}/logs"
     RFD3_INSTALL_LOG="${NANOHUNTER_ROOT}/logs/rfd3-install.log"
     IPROTEINSTUDIO_DOWNLOADER="${VERIFIED_DOWNLOADER}" \
+      IPROTEINSTUDIO_UV_BIN="${UV_BIN}" \
+      IPROTEINSTUDIO_PYTHON_BIN="${INTELLIFOLD_PYTHON_BIN}" \
       bash "${RFD3_ROOT}/install_rfd3.sh" --download-weights 2>&1 \
       | tee "${RFD3_INSTALL_LOG}" \
       || fail "RFdiffusion3 install failed — see ${RFD3_INSTALL_LOG}"

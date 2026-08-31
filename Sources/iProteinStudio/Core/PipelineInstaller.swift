@@ -357,6 +357,18 @@ final class PipelineInstaller: ObservableObject {
         }
     }
 
+    /// Consolidate only immutable assets whose complete file set and SHA-256
+    /// values match Studio's manifest. Modified or unknown files are retained.
+    func minimizeManagedStorage() {
+        guard !isInstalling, !isRemoving,
+              !AppPaths.fm.fileExists(atPath: AppPaths.installerLock.path) else {
+            failure = "Wait for installation and active engine maintenance to finish before minimizing storage."
+            return
+        }
+        launch(extraArguments: ["--minimize-storage"],
+               startMessage: "Consolidating verified duplicate engine assets…")
+    }
+
     /// Cache traversal can touch thousands of files. Keep it off SwiftUI's
     /// render path so opening Engines remains responsive even after large
     /// installs.

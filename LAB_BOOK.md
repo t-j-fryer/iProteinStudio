@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-08-27_
+_Last updated: 2026-08-31_
 
 | | |
 |---|---|
@@ -54,7 +54,10 @@ Protenix uses native MPS with no CPU fallback, owns its upstream public MSA-serv
 route, preserves explicit single-sequence requests without contacting that route,
 and is a removable managed component rather than a hidden Boltz dependency.
 IntelliFold runs through a pinned native-MPS launcher that rejects Accelerate CPU
-fallback and incomplete seed/sample output sets.
+fallback and incomplete seed/sample output sets. Managed engines retain separate
+dependency contracts while sharing APFS-cloned package payloads, Git objects and
+one checksum-verified Protenix chemical dataset; the Engines screen can safely
+consolidate matching assets from an older install.
 
 **Known gaps, in priority order:**
 
@@ -100,6 +103,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0051 | 2026-08-31 | [Minimize managed runtime storage without merging incompatible engines](lab_book/0051-minimize-managed-runtime-storage.md) | Nine scientifically incompatible runtime boundaries remain isolated while APFS-cloned packages, shared Git objects and verified Protenix data reduce safe physical duplication; cold install, receipt and post-cache-clean inference pass |
 | 0050 | 2026-08-31 | [Enforce iterative cardinality and complete installer v2](lab_book/0050-enforce-cardinality-and-complete-installer-v2.md) | GUI counts are preserved and audited with cycle 00 separate, live result inspectors have a stable closeable owner, and the deterministic versioned installer passes a real isolated cold MPNN install plus inference |
 | 0049 | 2026-08-31 | [Promote resident scheduling and installer hardening](lab_book/0049-promote-resident-scheduling-and-installer-hardening.md) | Integrated release policy, deterministic command/download/cancellation/result contracts, full Swift build and packaged-app verification for the two independently developed branches |
 | 0048 | 2026-08-31 | [Harden managed installation without perturbing the resident benchmark](lab_book/0048-harden-managed-runtime-installer.md) | Install locking, sleep protection, durable logs, disk preflight, descendant cancellation, explicit partial/broken states, verified resumable downloads and transactional resource staging pass synthetic contracts and the full Swift build |

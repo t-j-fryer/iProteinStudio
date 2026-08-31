@@ -84,6 +84,11 @@ struct ComponentsView: View {
                     installer.clearSafeCaches()
                 }
                 .disabled(installer.isInstalling || installer.isRemoving)
+                Button("Minimize duplicate assets") {
+                    installer.minimizeManagedStorage()
+                }
+                .help("Shares only engine data whose complete contents match Studio's checksum manifest. Projects and results are never touched.")
+                .disabled(installer.isInstalling || installer.isRemoving)
             }
             .controlSize(.small)
             .padding(.top, 4)

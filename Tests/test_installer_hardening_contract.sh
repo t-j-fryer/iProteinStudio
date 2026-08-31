@@ -78,12 +78,15 @@ expect "${APP_PATHS}" 'stageBundledItem' "pipeline resources are still replaced 
 expect "${RFD3_INSTALL}" 'VERIFIED_DOWNLOADER' "RFD3 bypasses the verified downloader"
 expect "${SETUP}" 'UV_VERSION="0.11.32"' "managed uv is not exactly pinned"
 expect "${SETUP}" 'UV_PYTHON_INSTALL_DIR=' "managed Python can escape Studio's root"
-expect "${SETUP}" 'pip install --require-hashes' "engine dependency graphs are not hash-enforced"
+expect "${SETUP}" 'uv_install_locked' "engines do not share uv's clone-backed package store"
+expect "${SETUP}" '--require-hashes' "engine dependency graphs are not hash-enforced"
 expect "${SETUP}" 'download_intellifold' "IntelliFold bypasses the resumable downloader"
 expect "${SETUP}" 'https://openfold.s3.amazonaws.com/' "OpenFold bypasses the resumable downloader"
 expect "${SETUP}" 'runtime_transaction.py' "versioned environment transactions are absent"
 expect "${SETUP}" 'component_receipt.py' "component receipts are absent"
 expect "${SETUP}" 'shared/protenix-common' "Protenix common data is still duplicated"
+expect "${SETUP}" 'shared/git-objects' "duplicate source checkouts do not share Git objects"
+expect "${SETUP}" 'managed_storage.py' "existing installs have no verified deduplication path"
 if grep -Eq 'curl .*CKPT_URL|CKPT_URL.*curl' "${RFD3_INSTALL}"; then
   fail "RFD3 checkpoint still uses its unverified curl path"
 fi

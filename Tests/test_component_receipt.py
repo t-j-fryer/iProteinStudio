@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import importlib.metadata
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,8 @@ with tempfile.TemporaryDirectory(prefix="iproteinstudio-receipt-") as raw:
     artifact.write_bytes(b"checkpoint fixture\n")
     digest = subprocess.check_output(["shasum", "-a", "256", str(artifact)], text=True).split()[0]
     receipt = root / "receipt.json"
+    lock = root / "fixture-lock.txt"
+    lock.write_text(f"pip=={importlib.metadata.version('pip')} \\\n+    --hash=sha256:{'0' * 64}\n")
     source = root / "source"
     source.mkdir()
     subprocess.run(["git", "init", "-q", str(source)], check=True)
@@ -33,6 +36,7 @@ with tempfile.TemporaryDirectory(prefix="iproteinstudio-receipt-") as raw:
         sys.executable, str(SCRIPT), "write",
         "--output", str(receipt), "--component", "fixture", "--version", "1",
         "--python", sys.executable, "--device-policy", "test-only",
+        "--lock", str(lock),
         "--artifact", f"{artifact}={digest}", "--metadata", "purpose=transaction-test",
         "--source", f"{source}={revision}",
     ], check=True)
@@ -41,6 +45,7 @@ with tempfile.TemporaryDirectory(prefix="iproteinstudio-receipt-") as raw:
     payload = json.loads(receipt.read_text())
     assert payload["component"] == "fixture"
     assert payload["python"]["resolved_packages"]
+    assert payload["dependency_lock"]["requirements"]["pip"] == importlib.metadata.version("pip")
     tracked.write_text("validated = False\n")
     failed = subprocess.run(
         [sys.executable, str(SCRIPT), "verify", "--receipt", str(receipt)],
@@ -54,5 +59,24 @@ with tempfile.TemporaryDirectory(prefix="iproteinstudio-receipt-") as raw:
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     assert failed.returncode != 0
+
+    # A venv interpreter is normally a symlink to its base Python. The receipt
+    # must preserve the venv path; resolving it audits the base environment.
+    venv = root / "venv"
+    subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
+    venv_python = venv / "bin/python"
+    venv_pip = subprocess.check_output(
+        [str(venv_python), "-c", "import importlib.metadata; print(importlib.metadata.version('pip'))"],
+        text=True,
+    ).strip()
+    venv_lock = root / "venv-lock.txt"
+    venv_lock.write_text(f"pip=={venv_pip} \\\n+    --hash=sha256:{'0' * 64}\n")
+    venv_receipt = root / "venv-receipt.json"
+    subprocess.run([
+        sys.executable, str(SCRIPT), "write", "--output", str(venv_receipt),
+        "--component", "venv", "--version", "1", "--python", str(venv_python),
+        "--lock", str(venv_lock),
+    ], check=True)
+    assert json.loads(venv_receipt.read_text())["python"]["executable"] == str(venv_python)
 
 print("PASS immutable component receipt contract")

@@ -9,6 +9,8 @@ CKPT_URL="https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckp
 CKPT_SHA="9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1"
 WEIGHTS_SHA="0beb87ff872d946a8af58428ae7c679eb364057bf12df77dba5994f6a0f1271b"
 VERIFIED_DOWNLOADER="${IPROTEINSTUDIO_DOWNLOADER:-${ROOT}/scripts/download_verified.py}"
+UV_BIN="${IPROTEINSTUDIO_UV_BIN:-$(command -v uv 2>/dev/null || true)}"
+PYTHON_SPEC="${IPROTEINSTUDIO_PYTHON_BIN:-3.12}"
 
 DOWNLOAD=0
 CHECK_ONLY=0
@@ -34,9 +36,11 @@ check_sha() {
 }
 
 if [[ "${CHECK_ONLY}" -eq 0 ]]; then
-  command -v uv >/dev/null || { echo "Install uv first: https://docs.astral.sh/uv/" >&2; exit 1; }
-  [[ -x "${VENV}/bin/python" ]] || uv venv --python 3.12 "${VENV}"
-  uv pip install --python "${VENV}/bin/python" -r "${ROOT}/requirements-rfd3.txt"
+  [[ -x "${UV_BIN}" ]] || { echo "Studio's pinned uv is missing." >&2; exit 1; }
+  [[ -x "${VENV}/bin/python" ]] \
+    || "${UV_BIN}" venv --python "${PYTHON_SPEC}" "${VENV}"
+  "${UV_BIN}" pip install --python "${VENV}/bin/python" --link-mode clone \
+    -r "${ROOT}/requirements-rfd3.txt"
   env DEBUG=false "${VENV}/bin/python" "${ROOT}/scripts/patch_foundry_rasa.py"
   env DEBUG=false "${VENV}/bin/python" "${ROOT}/scripts/prepare_fluorescein.py" --output-dir "${ROOT}/assets/fluorescein"
 fi

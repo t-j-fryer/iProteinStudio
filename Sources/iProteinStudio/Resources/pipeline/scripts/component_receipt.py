@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -48,6 +49,42 @@ def parse_pairs(values: list[str], label: str) -> dict[str, str]:
     return result
 
 
+def normalized_package(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def locked_requirements(path: Path) -> dict[str, str]:
+    """Read the exact direct/transitive graph from a pip-tools hash lock."""
+    result: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"^([A-Za-z0-9_.-]+)==([^\\\s]+)", line)
+        if match:
+            result[normalized_package(match.group(1))] = match.group(2)
+    if not result:
+        raise ValueError(f"dependency lock contains no exact requirements: {path}")
+    return result
+
+
+def installed_versions(executable: Path) -> dict[str, str]:
+    code = (
+        "import importlib.metadata,json,re; "
+        "n=lambda s:re.sub(r'[-_.]+','-',s).lower(); "
+        "print(json.dumps({n(d.metadata['Name']):d.version for d in "
+        "importlib.metadata.distributions() if d.metadata['Name']}))"
+    )
+    return json.loads(subprocess.check_output([str(executable), "-c", code], text=True))
+
+
+def verify_locked_graph(executable: Path, expected: dict[str, str]) -> None:
+    installed = installed_versions(executable)
+    wrong = {
+        name: {"expected": version, "installed": installed.get(name)}
+        for name, version in expected.items() if installed.get(name) != version
+    }
+    if wrong:
+        raise ValueError(f"installed environment does not match its curated lock: {wrong}")
+
+
 def source_worktree_digest(path: str) -> str:
     """Fingerprint tracked changes applied on top of the pinned revision."""
     patch = subprocess.check_output(
@@ -75,8 +112,12 @@ def write(args: argparse.Namespace) -> None:
 
     python: dict[str, object] | None = None
     packages: list[str] = []
+    lock_payload: dict[str, object] | None = None
     if args.python:
-        executable = Path(args.python).resolve()
+        # Do not resolve venv/bin/python: it is normally a symlink to the base
+        # interpreter, and invoking that resolved target loses the venv prefix
+        # and audits the wrong package graph.
+        executable = Path(os.path.abspath(args.python))
         if not executable.is_file():
             raise ValueError(f"Python executable is absent: {executable}")
         version = subprocess.check_output(
@@ -93,6 +134,14 @@ def write(args: argparse.Namespace) -> None:
                 ("\n".join(packages) + "\n").encode()
             ).hexdigest(),
         }
+        if args.lock:
+            expected = locked_requirements(args.lock)
+            verify_locked_graph(executable, expected)
+            lock_payload = {
+                "path": str(args.lock.resolve()),
+                "sha256": sha256(args.lock),
+                "requirements": expected,
+            }
 
     payload: dict[str, object] = {
         "schema_version": 1,
@@ -100,6 +149,7 @@ def write(args: argparse.Namespace) -> None:
         "component_version": args.version,
         "device_policy": args.device_policy,
         "python": python,
+        "dependency_lock": lock_payload,
         "sources": sources,
         "source_worktree_sha256": source_worktrees,
         "artifacts": artifacts,
@@ -142,6 +192,12 @@ def verify(receipt: Path, verify_packages: bool) -> None:
             digest = hashlib.sha256(("\n".join(packages) + "\n").encode()).hexdigest()
             if digest != python["resolved_packages_sha256"]:
                 raise ValueError("installed package graph changed after receipt creation")
+        lock = data.get("dependency_lock")
+        if lock:
+            lock_path = Path(lock["path"])
+            if not lock_path.is_file() or sha256(lock_path) != lock["sha256"]:
+                raise ValueError(f"recorded dependency lock changed or is absent: {lock_path}")
+            verify_locked_graph(executable, lock["requirements"])
 
 
 def main() -> int:
@@ -152,6 +208,7 @@ def main() -> int:
     writer.add_argument("--component", required=True)
     writer.add_argument("--version", required=True)
     writer.add_argument("--python")
+    writer.add_argument("--lock", type=Path)
     writer.add_argument("--device-policy", default="unspecified")
     writer.add_argument("--artifact", action="append", default=[])
     writer.add_argument("--source", action="append", default=[])

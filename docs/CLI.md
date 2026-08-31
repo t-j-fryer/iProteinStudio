@@ -43,6 +43,9 @@ bash "$ROOT/setup_pipeline.sh" --link-existing ~/NanoHunter --link-rfd3 ~/RFD3
 
 # Turn links into real local copies
 bash "$ROOT/setup_pipeline.sh" --materialise
+
+# Consolidate only checksum-verified duplicate managed assets
+bash "$ROOT/setup_pipeline.sh" --minimize-storage
 ```
 
 AlphaFold 3 and `intellifold-jax` are retired. Setup and run entry points reject
@@ -71,14 +74,22 @@ distinguishes an absent component from an incomplete install or broken link, and
 reports a runtime-contract update where a component has a comprehensive receipt.
 
 The installer runs a checksum-pinned uv build and exact CPython patch versions
-from `$ROOT/toolchains`, never an ambient developer Python. Each isolated engine
-uses a complete hash-locked package graph. New environments are built and health-
+from `$ROOT/toolchains`, never an ambient developer Python. Studio-managed
+engine environments use complete hash-locked package graphs. RFdiffusion3's
+upstream nested environment retains exact direct pins plus a pinned Foundry
+commit, but does not yet have a fully hashed transitive graph. New environments are built and health-
 checked under `$ROOT/components/<engine>/versions/`, then atomically switched into
 the familiar `$ROOT/venvs/` path; the prior environment is retained if a switch
 fails. Receipts under `$ROOT/receipts/` record Python, the complete resolved
 package graph, source revision plus validated patch state, artifacts and device
 policy. Protenix v2/Mini and Constraint keep isolated imports while referring to
-one verified chemical-data copy under `$ROOT/shared/protenix-common/`.
+one verified chemical-data copy under `$ROOT/shared/protenix-common/`. Package
+installation uses uv's macOS copy-on-write clone mode and a Studio-owned cache;
+clearing that cache cannot invalidate an environment. Pinned source checkouts
+share a managed Git object store while retaining independent patched worktrees.
+The Engines screen's **Minimize duplicate assets** action migrates older
+Protenix installs only when the complete generated file set matches the pinned
+SHA-256 manifest; modified or unknown files are retained.
 
 Before a GUI install starts, Studio shows the aggregate approximate installed
 footprint and requires that amount plus a 3 GB operating-system/temporary-file
