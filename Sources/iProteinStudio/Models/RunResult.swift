@@ -5,6 +5,8 @@ enum StudioResultStage: String, Hashable {
     case startingStructure
     case design
     case postPrediction
+    case generatedBackbone
+    case verificationPrediction
     case rankedDesign
 
     var label: String {
@@ -13,6 +15,8 @@ enum StudioResultStage: String, Hashable {
         case .startingStructure: return "Unoptimized starting structure"
         case .design: return "Design stage"
         case .postPrediction: return "Independent post-prediction"
+        case .generatedBackbone: return "RFdiffusion3 backbone"
+        case .verificationPrediction: return "RFdiffusion3 verification in progress"
         case .rankedDesign: return "Ranked verification"
         }
     }
@@ -36,11 +40,20 @@ struct StudioResultItem: Identifiable, Hashable {
     /// not apply a multi-metric filter; it must never be inferred silently.
     let isHit: Bool?
     let failedFilters: [String]
+    /// Source motif residue -> generated chain-A residue. Kept on every stage
+    /// so a design never loses the identity of its functional atoms merely
+    /// because it has progressed from diffusion to MPNN or prediction.
+    let motifMapping: [String: String]
+    /// Optional per-source-residue geometry diagnostics. These are emitted by
+    /// the MLX generator and independent-prediction recovery scorer, never
+    /// inferred by the presentation layer.
+    let motifResidueRMSDs: [String: Double]
 
     init(id: String, title: String, subtitle: String, structureURL: URL,
          sequence: String?, metrics: [StudioResultMetric], confidenceURL: URL?,
          stage: StudioResultStage, scoreSource: String, isHit: Bool? = nil,
-         failedFilters: [String] = []) {
+         failedFilters: [String] = [], motifMapping: [String: String] = [:],
+         motifResidueRMSDs: [String: Double] = [:]) {
         self.id = id
         self.title = title
         self.subtitle = subtitle
@@ -52,6 +65,8 @@ struct StudioResultItem: Identifiable, Hashable {
         self.scoreSource = scoreSource
         self.isHit = isHit
         self.failedFilters = failedFilters
+        self.motifMapping = motifMapping
+        self.motifResidueRMSDs = motifResidueRMSDs
     }
 
     var primaryMetric: StudioResultMetric? {
@@ -80,6 +95,10 @@ struct StudioResultMetric: Identifiable, Hashable {
         case binderBackboneRMSD
         case binderPLDDT
         case binderRMSD
+        case motifInsertionRMSD
+        case motifPredictionRMSD
+        case motifMaximumDrift
+        case backboneCAValidity
 
         var label: String {
             switch self {
@@ -99,6 +118,10 @@ struct StudioResultMetric: Identifiable, Hashable {
             case .binderBackboneRMSD: return "binder fold RMSD"
             case .binderPLDDT: return "binder pLDDT"
             case .binderRMSD: return "binder-alone RMSD"
+            case .motifInsertionRMSD: return "motif placement RMSD"
+            case .motifPredictionRMSD: return "predicted motif RMSD"
+            case .motifMaximumDrift: return "fixed-atom drift"
+            case .backboneCAValidity: return "valid Cα spacing"
             }
         }
 
@@ -129,6 +152,14 @@ struct StudioResultMetric: Identifiable, Hashable {
                 return "Local confidence of the binder predicted without its target. Higher is better."
             case .binderRMSD:
                 return "Cα RMSD between binder-alone and complex predictions after fitting the binder. Lower suggests preorganisation."
+            case .motifInsertionRMSD:
+                return "Atom RMSD used to assign each unindexed source motif token to a generated scaffold residue before the fixed atoms are copied into the output. Lower is better."
+            case .motifPredictionRMSD:
+                return "RMSD of the explicitly selected motif atoms in an independent sequence prediction after fitting those motif atoms to the generated design. Lower means the functional geometry was recovered."
+            case .motifMaximumDrift:
+                return "Largest displacement of an explicitly fixed motif atom during RFdiffusion3 sampling. It should remain near zero."
+            case .backboneCAValidity:
+                return "Percentage of adjacent binder Cα distances between 3.6 and 4.0 Å in the generated backbone."
             }
         }
     }
@@ -143,13 +174,16 @@ struct StudioResultMetric: Identifiable, Hashable {
             let conventional = value <= 1.000_001 ? value * 100 : value
             return String(format: "%.1f", conventional)
         case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance,
-             .complexRMSD, .binderBackboneRMSD, .binderRMSD:
+             .complexRMSD, .binderBackboneRMSD, .binderRMSD,
+             .motifInsertionRMSD, .motifPredictionRMSD, .motifMaximumDrift:
             return String(format: "%.2f Å", value)
         case .binderPLDDT:
             let conventional = value <= 1.000_001 ? value * 100 : value
             return String(format: "%.1f", conventional)
         case .pocketFractionWithinCutoff:
             return String(format: "%.0f%%", value * 100)
+        case .backboneCAValidity:
+            return String(format: "%.0f%%", value)
         default:
             return String(format: "%.3f", value)
         }
@@ -322,9 +356,21 @@ enum RunResultsLoader {
         } ?? []
     }
 
-    // MARK: RFdiffusion3 ranked designs
+    // MARK: RFdiffusion3 live and ranked designs
 
     private static func rfd3Results(root: URL) -> [StudioResultItem] {
+        let ranked = rankedRFD3Results(root: root)
+        if !ranked.isEmpty { return ranked }
+
+        // Prediction rows are append-only checkpoints. Prefer them as soon as
+        // structures exist, but fall back to raw generated backbones while the
+        // predictor stage has not started yet.
+        let predicted = liveRFD3Predictions(root: root)
+        let backbones = liveRFD3Backbones(root: root)
+        return backbones + predicted
+    }
+
+    private static func rankedRFD3Results(root: URL) -> [StudioResultItem] {
         let manifest = root.appendingPathComponent("analysis/top100_manifest.json")
         guard let data = try? Data(contentsOf: manifest),
               let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
@@ -352,6 +398,10 @@ enum RunResultsLoader {
                 var metricRow = row
                 if let value = row["iptm_\(predictorKey)"] { metricRow["iptm"] = value }
                 if let value = row["ipsae_min_\(predictorKey)"] { metricRow["ipsae_min"] = value }
+                if let values = dictionaryOfDoubles(raw["motif_rmsd_by_predictor"]),
+                   let value = values[predictorKey] {
+                    metricRow["motif_prediction_rmsd"] = String(value)
+                }
                 let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
                 results.append(StudioResultItem(
                     id: "\(rankIndex)|\(predictorKey)|\(structure.path)",
@@ -361,11 +411,107 @@ enum RunResultsLoader {
                     confidenceURL: documents.first, stage: .rankedDesign,
                     scoreSource: friendlyPredictor(predictorKey),
                     isHit: boolean(row["is_hit"]),
-                    failedFilters: splitFilters(row["failed_filters"])
+                    failedFilters: splitFilters(row["failed_filters"]),
+                    motifMapping: dictionaryOfStrings(raw["diffused_index_map"])
+                        ?? dictionaryOfStrings(row["diffused_index_map"]) ?? [:],
+                    motifResidueRMSDs: predictorDictionaryOfDoubles(
+                        raw["motif_rmsd_by_residue"], predictor: predictorKey)
+                        ?? predictorDictionaryOfDoubles(
+                            row["motif_rmsd_by_residue"], predictor: predictorKey) ?? [:]
                 ))
             }
         }
         return results
+    }
+
+    private static func liveRFD3Predictions(root: URL) -> [StudioResultItem] {
+        let rows = CSVTable.rows(at: root.appendingPathComponent("predictions/holo/prediction_metrics.csv"))
+        guard !rows.isEmpty else { return [] }
+        let sequenceRows = CSVTable.rows(at: root.appendingPathComponent("mpnn/sequences.csv"))
+        let sequences = Dictionary(uniqueKeysWithValues: sequenceRows.compactMap { row -> (String, [String: String])? in
+            guard let design = nonempty(row["design"]) else { return nil }
+            let index = nonempty(row["seq_index"])
+            return (index.map { "\(design)_\($0)" } ?? design, row)
+        })
+        let backboneRows = rfd3BackboneRows(root: root)
+        let backboneByDesign = Dictionary(uniqueKeysWithValues: backboneRows.compactMap { row -> (String, [String: String])? in
+            nonempty(row["design"]).map { ($0, row) }
+        })
+
+        return rows.compactMap { row in
+            let succeeded = row["exit_code"] == "0" || row["ok"]?.lowercased() == "true"
+            guard succeeded,
+                  let path = nonempty(row["structure"]) ?? nonempty(row["pdb"]),
+                  let structure = resolvedURL(path, relativeTo: root),
+                  fm.fileExists(atPath: structure.path) else { return nil }
+            let design = nonempty(row["design"]) ?? nonempty(row["name"]) ?? structure.deletingPathExtension().lastPathComponent
+            let source = sequences[design]
+            let backboneName = source.flatMap { nonempty($0["design"]) } ?? design.replacingOccurrences(
+                of: #"_[0-9]+$"#, with: "", options: .regularExpression)
+            let backbone = backboneByDesign[backboneName] ?? [:]
+            var metricRow = backbone
+            source?.forEach { metricRow[$0.key] = $0.value }
+            row.forEach { metricRow[$0.key] = $0.value }
+            let predictorKey = nonempty(row["predictor"]) ?? "Prediction"
+            let predictor = friendlyPredictor(predictorKey)
+            let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
+            return StudioResultItem(
+                id: "live|\(predictorKey)|\(design)|\(structure.path)",
+                title: design, subtitle: "Verification arriving · \(predictor)",
+                structureURL: structure, sequence: source.flatMap { nonempty($0["sequence"]) },
+                metrics: collectMetrics(row: metricRow, documents: documents),
+                confidenceURL: documents.first, stage: .verificationPrediction,
+                scoreSource: predictor,
+                motifMapping: dictionaryOfStrings(backbone["diffused_index_map"]) ?? [:],
+                motifResidueRMSDs: dictionaryOfDoubles(backbone["motif_insertion_rmsd_by_token"]) ?? [:]
+            )
+        }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
+    private static func liveRFD3Backbones(root: URL) -> [StudioResultItem] {
+        rfd3BackboneRows(root: root).compactMap { row in
+            guard let path = nonempty(row["backbone_pdb"]) ?? nonempty(row["source_pdb"]),
+                  let structure = resolvedURL(path, relativeTo: root),
+                  fm.fileExists(atPath: structure.path) else { return nil }
+            let design = nonempty(row["design"]) ?? structure.deletingPathExtension().lastPathComponent
+            return StudioResultItem(
+                id: "backbone|\(structure.path)", title: design,
+                subtitle: "Generated backbone · awaiting sequence verification",
+                structureURL: structure, sequence: nil,
+                metrics: collectMetrics(row: row, documents: []), confidenceURL: nil,
+                stage: .generatedBackbone, scoreSource: "RFdiffusion3 MLX",
+                motifMapping: dictionaryOfStrings(row["diffused_index_map"]) ?? [:],
+                motifResidueRMSDs: dictionaryOfDoubles(row["motif_insertion_rmsd_by_token"]) ?? [:]
+            )
+        }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
+    private static func rfd3BackboneRows(root: URL) -> [[String: String]] {
+        let table = CSVTable.rows(at: root.appendingPathComponent("rfd3/backbone_metrics.csv"))
+        if !table.isEmpty { return table }
+
+        // During generation, queues checkpoint one JSON and PDB per accepted
+        // sample before the bin is flattened. Reading those immutable files is
+        // what makes structures visible while diffusion is still running.
+        let resultFiles = recursiveFiles(in: root.appendingPathComponent("rfd3")).filter {
+            $0.pathExtension.lowercased() == "json"
+                && $0.deletingLastPathComponent().lastPathComponent == "results"
+                && $0.lastPathComponent.hasPrefix("design_")
+        }
+        return resultFiles.compactMap { result -> [String: String]? in
+            guard let object = jsonObject(at: result) else { return nil }
+            var row = stringRow(object)
+            for key in ["diffused_index_map", "motif_fixed_atoms", "motif_insertion_rmsd_by_token"] {
+                if let value = object[key],
+                   let data = try? JSONSerialization.data(withJSONObject: value),
+                   let text = String(data: data, encoding: .utf8) { row[key] = text }
+            }
+            let pdb = result.deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("backbones/\(result.deletingPathExtension().lastPathComponent).pdb")
+            row["backbone_pdb"] = pdb.path
+            row["design"] = result.deletingPathExtension().lastPathComponent
+            return row
+        }
     }
 
     // MARK: Metric extraction
@@ -398,6 +544,10 @@ enum RunResultsLoader {
         add(.binderBackboneRMSD, rowNumber(["maximum_binder_backbone_rmsd", "binder_backbone_rmsd"]))
         add(.binderPLDDT, rowNumber(["minimum_binder_plddt", "binder_plddt"]))
         add(.binderRMSD, rowNumber(["maximum_binder_rmsd", "binder_rmsd"]))
+        add(.motifInsertionRMSD, rowNumber(["motif_insertion_rmsd"]))
+        add(.motifPredictionRMSD, rowNumber(["motif_prediction_rmsd", "maximum_motif_rmsd"]))
+        add(.motifMaximumDrift, rowNumber(["motif_max_drift"]))
+        add(.backboneCAValidity, rowNumber(["ca_valid_pct"]))
 
         for document in documents {
             guard let object = jsonObject(at: document) else { continue }
@@ -542,6 +692,43 @@ enum RunResultsLoader {
             if let text = pair.value as? String { result[pair.key] = text }
             else if let number = pair.value as? NSNumber { result[pair.key] = number.stringValue }
         }
+    }
+
+    private static func dictionaryOfStrings(_ value: Any?) -> [String: String]? {
+        if let value = value as? [String: String] { return value }
+        guard let text = value as? String, let data = text.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return object.reduce(into: [:]) { result, pair in
+            if let text = pair.value as? String { result[pair.key] = text }
+            else if let number = pair.value as? NSNumber { result[pair.key] = number.stringValue }
+        }
+    }
+
+    private static func dictionaryOfDoubles(_ value: Any?) -> [String: Double]? {
+        let object: [String: Any]?
+        if let map = value as? [String: Any] { object = map }
+        else if let text = value as? String, let data = text.data(using: .utf8) {
+            object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        } else { object = nil }
+        guard let object else { return nil }
+        return object.reduce(into: [:]) { result, pair in
+            if let number = pair.value as? NSNumber { result[pair.key] = number.doubleValue }
+            else if let text = pair.value as? String, let number = Double(text) { result[pair.key] = number }
+        }
+    }
+
+    /// Accept either a flat residue map or the scorer's auditable
+    /// predictor -> residue -> RMSD representation.
+    private static func predictorDictionaryOfDoubles(_ value: Any?, predictor: String) -> [String: Double]? {
+        if let flat = dictionaryOfDoubles(value), !flat.isEmpty { return flat }
+        let object: [String: Any]?
+        if let value = value as? [String: Any] { object = value }
+        else if let text = value as? String, let data = text.data(using: .utf8) {
+            object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        } else { object = nil }
+        guard let nested = object?[predictor] else { return nil }
+        return dictionaryOfDoubles(nested)
     }
 
     private static func nonempty(_ text: String?) -> String? {

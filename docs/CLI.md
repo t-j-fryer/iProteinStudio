@@ -297,6 +297,15 @@ restraint.
 
 ## RFdiffusion3
 
+Studio separates RFdiffusion3 into three input contracts: **De novo design**,
+**Partial diffusion**, and **Motif scaffolding**. The latter two accept an
+existing complex, normalize the diffused/source chain to A and keep target
+chains fixed as B/C/D…. In the app, each has a one-click p53–MDM2 worked
+example based on the bundled 1YCR coordinates. Partial diffusion uses
+`partial_t` as coordinate-noise standard deviation in Å. Motif scaffolding
+requires an explicit atom list for every unindexed motif residue; Studio does
+not rely on Foundry's broader default atom mask.
+
 ```bash
 cd "$ROOT/rfd3"
 
@@ -370,6 +379,16 @@ New GUI campaigns live under
 `campaign_progress.json` and accept `--resume`; the Activity panel detects the
 PID, checkpoints and final `analysis/top100.csv`. Existing `projects/<slug>/rfd3`
 campaigns remain visible as legacy history.
+
+The RFdiffusion3 results sheet is live. It discovers each append-only accepted
+backbone checkpoint and each successful verification structure without waiting
+for final ranking, refreshes while the run is active, and provides Overview,
+Structures and Hits views. Overview plots distributions of whichever saved
+metric is selected. Motif rows display the source → designed residue mapping;
+independent predictions are globally fitted on the explicitly constrained motif
+atoms before overall and per-residue motif RMSDs are calculated. The generated
+backbone's pre-copy insertion-assignment RMSD is shown separately and is not
+mistaken for post-prediction motif recovery.
 
 ---
 

@@ -205,8 +205,12 @@ final class RunHistoryStore: ObservableObject {
             let current = progress?["current_stage"] as? String
             let pidAlive = processIsAlive(candidate.appendingPathComponent("campaign.pid"))
             let hasResults = AppPaths.fm.fileExists(atPath: candidate.appendingPathComponent("analysis/top100.csv").path)
+            // Results are useful before final ranking: RFdiffusion3 checkpoints
+            // accepted backbones and verification predictions incrementally.
             let hasViewableResults = AppPaths.fm.fileExists(
                 atPath: candidate.appendingPathComponent("analysis/top100_manifest.json").path)
+                || hasStructure(in: candidate.appendingPathComponent("rfd3"))
+                || hasStructure(in: candidate.appendingPathComponent("predictions/holo"))
             let state: StudioRunState
             if pidAlive { state = .running }
             else if hasResults || completed.contains("score") || completed.contains("rmsd") { state = .completed }
@@ -222,6 +226,20 @@ final class RunHistoryStore: ObservableObject {
                                    detail: detail, manifestURL: nil,
                                    hasViewableResults: hasViewableResults)
         }
+    }
+
+    /// Stop at the first structure rather than parsing an entire active
+    /// campaign merely to decide whether the Results button should be shown.
+    private func hasStructure(in root: URL) -> Bool {
+        guard let iterator = AppPaths.fm.enumerator(
+            at: root, includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]) else { return false }
+        while let url = iterator.nextObject() as? URL {
+            if ["pdb", "cif", "mmcif", "bcif"].contains(url.pathExtension.lowercased()) {
+                return true
+            }
+        }
+        return false
     }
 
     private func directories(in root: URL) -> [URL] {

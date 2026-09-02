@@ -11,6 +11,12 @@ tags: [rfd3, mlx, partial-diffusion, motif-scaffolding, validation, ui]
 
 ## Context
 
+> **Later boundary:** Entry
+> [[0067-add-live-rfd3-results-and-exact-motif-recovery]] supersedes this
+> entry's explicit side-chain-atom adapter evidence and adds a default-schedule,
+> three-residue validation. The three-mode architecture and dual-validation
+> decisions recorded here remain current.
+
 Studio exposed RFdiffusion3 only as de-novo binder generation. Current Foundry
 supports partial diffusion and unindexed motif scaffolding, but these paths have
 had important version-dependent failures: tagged v0.1.9 did not propagate

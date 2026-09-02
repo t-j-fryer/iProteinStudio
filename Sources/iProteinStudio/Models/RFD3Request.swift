@@ -45,12 +45,15 @@ struct RFD3HitFilters: Codable, Hashable {
     var maximumComplexRMSD: Double? = 2.5
     var minimumBinderPLDDT: Double? = 0.80
     var maximumBinderRMSD: Double? = 2.0
+    /// Recovery of the explicitly constrained motif atoms after an independent
+    /// complex prediction. Only applied to motif-scaffolding campaigns.
+    var maximumMotifRMSD: Double? = 1.0
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
         case minimumIPTM, minimumIPSAEMin, maximumComplexRMSD
-        case minimumBinderPLDDT, maximumBinderRMSD
+        case minimumBinderPLDDT, maximumBinderRMSD, maximumMotifRMSD
     }
 
     init(from decoder: Decoder) throws {
@@ -61,6 +64,7 @@ struct RFD3HitFilters: Codable, Hashable {
         maximumComplexRMSD = try c.decodeIfPresent(Double.self, forKey: .maximumComplexRMSD) ?? d.maximumComplexRMSD
         minimumBinderPLDDT = try c.decodeIfPresent(Double.self, forKey: .minimumBinderPLDDT) ?? d.minimumBinderPLDDT
         maximumBinderRMSD = try c.decodeIfPresent(Double.self, forKey: .maximumBinderRMSD) ?? d.maximumBinderRMSD
+        maximumMotifRMSD = try c.decodeIfPresent(Double.self, forKey: .maximumMotifRMSD) ?? d.maximumMotifRMSD
     }
 }
 

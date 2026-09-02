@@ -53,7 +53,11 @@ def write_csv(rows: list[dict], path: Path) -> None:
     with path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows([
+            {key: json.dumps(value, sort_keys=True) if isinstance(value, (dict, list)) else value
+             for key, value in row.items()}
+            for row in rows
+        ])
 
 
 def default_root() -> Path:
@@ -99,6 +103,13 @@ def main() -> None:
         raise SystemExit(f"No PDB files found in {args.backbones}")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    backbone_metadata = {}
+    metrics_path = args.backbones.resolve().parent / "backbone_metrics.csv"
+    if metrics_path.exists():
+        backbone_metadata = {
+            row.get("design", ""): row for row in csv.DictReader(metrics_path.open())
+            if row.get("design")
+        }
     seq_dir = output / "seqs"
     expected = [seq_dir / f"{p.stem}.fa" for p in backbones]
 
@@ -158,6 +169,7 @@ def main() -> None:
                 )
             rows.append(
                 {
+                    **backbone_metadata.get(backbone.stem, {}),
                     "design": backbone.stem,
                     "seq_index": seq_index,
                     "sequence": sequence,

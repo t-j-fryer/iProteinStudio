@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "mlx_port"))
 
 import rfd3_mlx as rfd3  # noqa: E402
 from sampler import Sampler  # noqa: E402
+from featurizer import DENSE  # noqa: E402
 
 
 AA3 = [
@@ -47,7 +48,8 @@ def pdb_atom_field(name: str, element: str) -> str:
 
 
 class Fixture:
-    def __init__(self, path: Path, ligand_code: str, motif_source_residues: list[str]):
+    def __init__(self, path: Path, ligand_code: str, motif_source_residues: list[str],
+                 motif_fixed_atoms: dict[str, list[str]]):
         self.path = path
         with np.load(path) as z:
             self.feats = {k[6:]: z[k] for k in z.files if k.startswith("feats/")}
@@ -75,6 +77,10 @@ class Fixture:
         self.motif_tokens = np.where(self.fixed_tokens)[0]
         self.ligand_code = ligand_code
         self.motif_source_residues = motif_source_residues
+        self.requested_motif_atoms = {
+            residue: [str(atom).strip().upper() for atom in atoms]
+            for residue, atoms in motif_fixed_atoms.items()
+        }
         if self.coord.ndim == 2:
             self.coord = self.coord[None]
         if self.coord.shape != (1, self.n_atoms, 3):
@@ -93,11 +99,57 @@ class Fixture:
         self.is_partial = partial is not None and np.isfinite(np.asarray(partial, dtype=float)).any()
         if len(self.design_tokens) == 0:
             raise ValueError("Fixture has no diffused design tokens")
+        self._normalize_unindexed_atom_masks()
+
+    def _slot_maps(self, token: int) -> tuple[dict[str, str], dict[str, str]]:
+        restype = int(self.restype[token])
+        if not 0 <= restype < len(AA3):
+            return {}, {}
+        real_to_slot = {real: slot for real, slot in DENSE[AA3[restype]]}
+        return real_to_slot, {slot: real for real, slot in real_to_slot.items()}
+
+    def _normalize_unindexed_atom_masks(self) -> None:
+        """Restore exact atom selections lost by older Foundry fixtures.
+
+        The pinned Apple bridge uses generic atom14 slots. Its Foundry build
+        expands an unindexed token to every atom even when the request names a
+        subset. Narrowing all coordinate/unindex masks here matches current
+        production semantics and the explicit, saved Studio request.
+        """
+        if not self.unindexed_tokens.size:
+            return
+        if len(self.motif_source_residues) != len(self.unindexed_tokens):
+            raise ValueError("motif residue provenance does not match unindexed fixture tokens")
+        for index, token in enumerate(map(int, self.unindexed_tokens)):
+            source = self.motif_source_residues[index]
+            requested = self.requested_motif_atoms.get(source, [])
+            real_to_slot, _ = self._slot_maps(token)
+            missing = [name for name in requested if name not in real_to_slot]
+            if missing:
+                raise ValueError(f"{source} has no atom(s): {', '.join(missing)}")
+            allowed = {real_to_slot[name] for name in requested}
+            if not allowed:
+                raise ValueError(f"{source} has no explicitly requested motif atoms")
+            token_atoms = np.where(self.tok == token)[0]
+            selected = np.asarray([self.names[a] in allowed for a in token_atoms], dtype=bool)
+            for key in ("is_motif_atom_with_fixed_coord", "ref_is_motif_atom_with_fixed_coord",
+                        "is_motif_atom_unindexed", "ref_is_motif_atom_unindexed"):
+                if key in self.feats:
+                    mask = np.asarray(self.feats[key]).copy()
+                    mask[token_atoms] = selected.astype(mask.dtype)
+                    self.feats[key] = mask
+            if "is_motif_token_with_fully_fixed_coord" in self.feats:
+                token_mask = np.asarray(self.feats["is_motif_token_with_fully_fixed_coord"]).copy()
+                token_mask[token] = 0
+                self.feats["is_motif_token_with_fully_fixed_coord"] = token_mask
+            self.fixed_atoms[token_atoms] = selected
+        self.fixed_tokens = np.asarray(
+            self.feats["is_motif_token_with_fully_fixed_coord"], dtype=bool)
 
     def _unindexed_assignments(self, coords: np.ndarray) -> tuple[dict[int, int], dict]:
         if not self.unindexed_tokens.size:
             return {}, {"diffused_index_map": {}, "motif_insertion_rmsd": None,
-                        "fixed_residues": ""}
+                        "motif_fixed_atoms": {}, "fixed_residues": ""}
         remaining = set(map(int, self.design_tokens))
         assignments: dict[int, int] = {}
         rmsds: dict[str, float] = {}
@@ -128,10 +180,22 @@ class Fixture:
         guide_order = list(map(int, self.unindexed_tokens))
         mapping = {source: f"A{design_num[assignments[guide_order[i]]]}"
                    for i, source in enumerate(rmsds)}
+        fixed_atoms = {
+            source: sorted({
+                self._slot_maps(guide_order[i])[1].get(self.names[a], self.names[a])
+                for a in np.where(
+                    (self.tok == guide_order[i]) & self.fixed_atoms
+                )[0]
+                if self._slot_maps(guide_order[i])[1].get(self.names[a], self.names[a])
+                in REAL_PROTEIN_ATOMS
+            })
+            for i, source in enumerate(rmsds)
+        }
         return assignments, {
             "diffused_index_map": mapping,
             "motif_insertion_rmsd": float(np.mean(list(rmsds.values()))),
             "motif_insertion_rmsd_by_token": rmsds,
+            "motif_fixed_atoms": fixed_atoms,
             "fixed_residues": " ".join(sorted(mapping.values(), key=lambda x: int(x[1:]))),
         }
 
@@ -151,12 +215,18 @@ class Fixture:
         serial = 1
         for atom_idx, (token, name) in enumerate(zip(self.tok, self.names, strict=True)):
             x, y, z = coords[atom_idx]
+            output_name = name
             if token in design_num:
                 guide = motif_by_design.get(int(token))
                 guide_atoms = ({self.names[a]: a for a in np.where((self.tok == guide) & self.fixed_atoms)[0]}
                                if guide is not None else {})
-                if name in guide_atoms and name in REAL_PROTEIN_ATOMS:
-                    x, y, z = coords[guide_atoms[name]]
+                if guide is not None:
+                    _, slot_to_real = self._slot_maps(guide)
+                    output_name = slot_to_real.get(name, name)
+                    if output_name not in REAL_PROTEIN_ATOMS:
+                        continue
+                    if name in guide_atoms:
+                        x, y, z = coords[guide_atoms[name]]
                 elif name not in BINDER_ATOMS:
                     continue
                 ri = int(self.restype[guide if guide is not None else token])
@@ -174,10 +244,10 @@ class Fixture:
                 record, chain, resnum, resname = "HETATM", "B", 1, self.ligand_code
             else:
                 continue
-            element = "".join(c for c in name if c.isalpha())[:2].strip().upper() or "C"
+            element = "".join(c for c in output_name if c.isalpha())[:2].strip().upper() or "C"
             if element not in {"CL", "BR"}:
                 element = element[:1]
-            atom_field = pdb_atom_field(name, element)
+            atom_field = pdb_atom_field(output_name, element)
             lines.append(
                 f"{record}{serial:5d} {atom_field}{' ':1}{resname:>3} {chain}{resnum:4d}{' ':1}   "
                 f"{x:8.3f}{y:8.3f}{z:8.3f}{1.00:6.2f}{0.00:6.2f}          {element:>2}  "
@@ -265,7 +335,11 @@ def write_csv(rows: list[dict], path: Path) -> None:
     with path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows([
+            {key: json.dumps(value, sort_keys=True) if isinstance(value, (dict, list)) else value
+             for key, value in row.items()}
+            for row in rows
+        ])
 
 
 def main() -> None:
@@ -280,6 +354,7 @@ def main() -> None:
     parser.add_argument("--precision", choices=["fp32", "bf16", "int8"], default="bf16")
     parser.add_argument("--ligand-code", default="FHE")
     parser.add_argument("--motif-residues", default="")
+    parser.add_argument("--motif-atoms-json", default="{}")
     parser.add_argument("--cache-limit-gb", type=float, default=4.0)
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--max-attempts-per-design", type=int, default=10)
@@ -295,7 +370,13 @@ def main() -> None:
         pass
 
     motif_residues = [item.strip() for item in args.motif_residues.split(",") if item.strip()]
-    fixture = Fixture(args.fixture.resolve(), args.ligand_code, motif_residues)
+    try:
+        motif_fixed_atoms = json.loads(args.motif_atoms_json)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"--motif-atoms-json is invalid: {exc}") from exc
+    if not isinstance(motif_fixed_atoms, dict):
+        raise SystemExit("--motif-atoms-json must contain a JSON object")
+    fixture = Fixture(args.fixture.resolve(), args.ligand_code, motif_residues, motif_fixed_atoms)
     output = args.output.resolve()
     backbone_dir = output / "backbones"
     result_dir = output / "results"

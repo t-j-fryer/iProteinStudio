@@ -1,10 +1,18 @@
 import SwiftUI
 import AppKit
+import Charts
 
 /// One in-app home for successful structures from all three workflows.
 /// The loader normalises only the presentation layer; original files remain the
 /// source of truth and are always one click away.
 struct RunResultsView: View {
+    private enum ResultsSection: String, CaseIterable, Identifiable {
+        case overview = "Overview"
+        case structures = "Structures"
+        case hits = "Hits"
+        var id: String { rawValue }
+    }
+
     let root: URL
     let workflow: StudioWorkflow
     let title: String
@@ -12,6 +20,8 @@ struct RunResultsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var items: [StudioResultItem]
     @State private var selectedID: String?
+    @State private var section: ResultsSection = .overview
+    @State private var selectedMetric: StudioResultMetric.Kind = .iptm
 
     init(root: URL, workflow: StudioWorkflow, title: String? = nil) {
         self.root = root
@@ -20,6 +30,9 @@ struct RunResultsView: View {
         let loaded = RunResultsLoader.load(root: root, workflow: workflow)
         _items = State(initialValue: loaded)
         _selectedID = State(initialValue: loaded.first?.id)
+        if let preferred = Self.preferredDistributionMetric(in: loaded) {
+            _selectedMetric = State(initialValue: preferred)
+        }
     }
 
     private var selection: StudioResultItem? {
@@ -65,26 +78,35 @@ struct RunResultsView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            if items.isEmpty {
-                ContentUnavailableView(
-                    "No viewable structures found",
-                    systemImage: "cube.transparent",
-                    description: Text("This run has no successful CIF or PDB output yet. Its folder and logs are still available.")
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                HSplitView {
-                    resultsList.frame(minWidth: 240, idealWidth: 275, maxWidth: 340)
-                    if let selection {
-                        RunResultDetail(item: selection)
-                            .id(selection.id)
-                            .frame(minWidth: 620, maxWidth: .infinity, maxHeight: .infinity)
-                    }
+            if workflow == .rfdiffusion3 {
+                Picker("Results section", selection: $section) {
+                    ForEach(ResultsSection.allCases) { Text($0.rawValue).tag($0) }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding(.horizontal, 14).padding(.vertical, 10)
+                Divider()
+                switch section {
+                case .overview: rfd3Overview
+                case .structures: resultsBrowser(items)
+                case .hits: resultsBrowser(items.filter { $0.isHit == true }, hitsOnly: true)
+                }
+            } else {
+                resultsBrowser(items)
             }
         }
         .frame(minWidth: 920, idealWidth: 1060, minHeight: 650, idealHeight: 760)
         .accessibilityIdentifier("run-results-browser")
+        .task(id: root.path) {
+            guard workflow == .rfdiffusion3 else { return }
+            while !Task.isCancelled {
+                refresh()
+                if FileManager.default.fileExists(atPath: root.appendingPathComponent("analysis/hit_summary.json").path) {
+                    break
+                }
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+            }
+        }
     }
 
     private var header: some View {
@@ -102,6 +124,11 @@ struct RunResultsView: View {
                 }
             }
             Spacer()
+            if workflow == .rfdiffusion3 {
+                Button { refresh() } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+            }
             Button {
                 NSWorkspace.shared.activateFileViewerSelecting([root])
             } label: {
@@ -112,14 +139,240 @@ struct RunResultsView: View {
         .padding(14)
     }
 
-    private var resultsList: some View {
+    private func resultsBrowser(_ visibleItems: [StudioResultItem], hitsOnly: Bool = false) -> some View {
+        Group {
+            if visibleItems.isEmpty {
+                ContentUnavailableView(
+                    hitsOnly ? "No saved hits yet" : "Waiting for structures",
+                    systemImage: hitsOnly ? "line.3.horizontal.decrease.circle" : "cube.transparent",
+                    description: Text(hitsOnly
+                        ? "Hits appear after verification has applied every saved filter. You can still inspect all structures while the campaign runs."
+                        : "Accepted backbones and successful verification structures will appear here automatically as they are written.")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                HSplitView {
+                    resultsList(visibleItems).frame(minWidth: 240, idealWidth: 275, maxWidth: 340)
+                    if let selected = visibleItems.first(where: { $0.id == selectedID }) ?? visibleItems.first {
+                        RunResultDetail(item: selected)
+                            .id(selected.id)
+                            .frame(minWidth: 620, maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+            }
+        }
+    }
+
+    private func resultsList(_ visibleItems: [StudioResultItem]) -> some View {
         List(selection: $selectedID) {
-            ForEach(items) { item in
+            ForEach(visibleItems) { item in
                 RunResultRow(item: item).tag(item.id)
             }
         }
         .listStyle(.sidebar)
         .accessibilityLabel("Structures in this run")
+    }
+
+    private var availableMetrics: [StudioResultMetric.Kind] {
+        StudioResultMetric.Kind.allCases.filter { kind in
+            items.contains { item in item.metrics.contains { $0.kind == kind } }
+        }
+    }
+
+    private func distributionValues(for kind: StudioResultMetric.Kind) -> [Double] {
+        items.compactMap { item in item.metrics.first { $0.kind == kind }?.value }
+    }
+
+    /// A campaign can move from backbone-only metrics to predictor metrics
+    /// while this sheet is open. Never leave the chart bound to a metric that
+    /// disappeared during that stage transition.
+    private var effectiveDistributionMetric: StudioResultMetric.Kind? {
+        if availableMetrics.contains(selectedMetric),
+           !distributionValues(for: selectedMetric).isEmpty {
+            return selectedMetric
+        }
+        return Self.preferredDistributionMetric(in: items)
+    }
+
+    private var rfd3Overview: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 12) {
+                    SummaryCard(value: items.count, label: "viewable structures")
+                    SummaryCard(value: items.filter { $0.stage == .generatedBackbone }.count,
+                                label: "generated backbones")
+                    SummaryCard(value: items.filter { $0.stage == .verificationPrediction || $0.stage == .rankedDesign }.count,
+                                label: "verification structures")
+                    SummaryCard(value: items.filter { $0.isHit == true }.count, label: "saved hits")
+                }
+
+                if availableMetrics.isEmpty || effectiveDistributionMetric == nil {
+                    ContentUnavailableView(
+                        "Waiting for scored structures", systemImage: "chart.bar",
+                        description: Text("The dashboard refreshes automatically as RFdiffusion3, sequence design and verification checkpoints arrive.")
+                    )
+                    .frame(minHeight: 360)
+                } else if let metric = effectiveDistributionMetric {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Score distribution").font(.headline)
+                            Text(metric.explanation).font(.caption).foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        Spacer()
+                        Picker("Metric", selection: Binding(
+                            get: { metric }, set: { selectedMetric = $0 })) {
+                            ForEach(availableMetrics, id: \.self) { kind in Text(kind.label).tag(kind) }
+                        }
+                        .frame(width: 230)
+                    }
+                    MetricDistributionChart(kind: metric, values: distributionValues(for: metric))
+                        .frame(minHeight: 320)
+                        .padding(14)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(.quaternary.opacity(0.20)))
+                }
+
+                HStack {
+                    Button { section = .structures } label: {
+                        Label("Browse Structures", systemImage: "cube.transparent")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button { section = .hits } label: {
+                        Label("Browse Hits", systemImage: "checkmark.seal")
+                    }
+                    .disabled(!items.contains { $0.isHit == true })
+                    Spacer()
+                    Text("Updates automatically while the campaign is running")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(18)
+        }
+    }
+
+    private func refresh() {
+        let loaded = RunResultsLoader.load(root: root, workflow: workflow)
+        items = loaded
+        if !loaded.contains(where: { $0.id == selectedID }) { selectedID = loaded.first?.id }
+        if !availableMetrics.contains(selectedMetric),
+           let preferred = Self.preferredDistributionMetric(in: loaded) {
+            selectedMetric = preferred
+        }
+    }
+
+    private static func preferredDistributionMetric(in items: [StudioResultItem]) -> StudioResultMetric.Kind? {
+        let order: [StudioResultMetric.Kind] = [.iptm, .ipsaeMinimum, .motifPredictionRMSD,
+                                                .motifInsertionRMSD, .plddt, .rankingScore,
+                                                .backboneCAValidity]
+        return order.first { kind in items.contains { $0.metrics.contains { $0.kind == kind } } }
+            ?? items.first?.metrics.first?.kind
+    }
+}
+
+private struct SummaryCard: View {
+    let value: Int
+    let label: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(value)").font(.title2.bold()).monospacedDigit()
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 10).fill(.quaternary.opacity(0.25)))
+    }
+}
+
+private struct MetricDistributionChart: View {
+    struct Bin: Identifiable {
+        let index: Int
+        let lower: Double
+        let upper: Double
+        let count: Int
+        var id: Int { index }
+        var label: String { String(format: "%.3g–%.3g", lower, upper) }
+    }
+
+    let kind: StudioResultMetric.Kind
+    let values: [Double]
+
+    private var bins: [Bin] {
+        guard let minimum = values.min(), let maximum = values.max() else { return [] }
+        let count = min(12, max(1, Int(ceil(sqrt(Double(values.count))))))
+        let span = maximum - minimum
+        let width = span > 0 ? span / Double(count) : max(abs(minimum) * 0.05, 0.01)
+        return (0..<count).map { index in
+            let lower = span > 0 ? minimum + Double(index) * width : minimum - width / 2
+            let upper = lower + width
+            let frequency = values.filter { value in
+                index == count - 1 ? value >= lower && value <= upper : value >= lower && value < upper
+            }.count
+            return Bin(index: index, lower: lower, upper: upper, count: frequency)
+        }
+    }
+
+    private var sortedValues: [Double] { values.sorted() }
+
+    private var median: Double? {
+        let values = sortedValues
+        guard !values.isEmpty else { return nil }
+        let middle = values.count / 2
+        return values.count.isMultiple(of: 2)
+            ? (values[middle - 1] + values[middle]) / 2
+            : values[middle]
+    }
+
+    private func display(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return StudioResultMetric(kind: kind, value: value).displayValue
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Chart(bins) { bin in
+                BarMark(x: .value(kind.label, bin.label),
+                        y: .value("Structures", bin.count), width: .ratio(0.82))
+                    .foregroundStyle(Color.accentColor.opacity(0.78))
+                    .annotation(position: .top, spacing: 3) {
+                        if bin.count > 0 {
+                            Text("\(bin.count)").font(.caption2).foregroundStyle(.primary)
+                        }
+                    }
+            }
+            .chartXAxis {
+                AxisMarks(position: .bottom) { _ in
+                    AxisTick(stroke: StrokeStyle(lineWidth: 1)).foregroundStyle(.primary)
+                    AxisValueLabel().foregroundStyle(.primary)
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { _ in
+                    AxisTick(stroke: StrokeStyle(lineWidth: 1)).foregroundStyle(.primary)
+                    AxisValueLabel().foregroundStyle(.primary)
+                }
+            }
+            .chartYScale(domain: 0...max(1, (bins.map(\.count).max() ?? 0) + 1))
+            .accessibilityLabel("Distribution of \(kind.label) across \(values.count) structures")
+
+            HStack(spacing: 20) {
+                DistributionStatistic(label: "n", value: "\(values.count)")
+                DistributionStatistic(label: "minimum", value: display(values.min()))
+                DistributionStatistic(label: "median", value: display(median))
+                DistributionStatistic(label: "maximum", value: display(values.max()))
+            }
+        }
+    }
+}
+
+private struct DistributionStatistic: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Text(value).font(.callout.monospacedDigit().weight(.medium))
+        }
     }
 }
 
@@ -196,6 +449,31 @@ private struct RunResultDetail: View {
                               systemImage: "line.3.horizontal.decrease.circle")
                             .font(.caption).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if !item.motifMapping.isEmpty {
+                        DisclosureGroup("Motif correspondence") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Source residues are matched to their actual positions in the generated chain. RMSD values use the same global fit of the explicitly constrained motif atoms.")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                ForEach(item.motifMapping.keys.sorted(), id: \.self) { source in
+                                    HStack {
+                                        Text(source).font(.caption.monospaced().weight(.semibold))
+                                        Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.secondary)
+                                        Text(item.motifMapping[source] ?? "—").font(.caption.monospaced())
+                                        Spacer()
+                                        if let value = item.motifResidueRMSDs[source] {
+                                            Text(String(format: "%.2f Å", value))
+                                                .font(.caption.monospacedDigit())
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.top, 6)
+                        }
+                        .font(.callout)
                     }
 
                     if let sequence = item.sequence, !sequence.isEmpty {
@@ -290,9 +568,11 @@ private struct MetricTile: View {
         case .iptm, .meanIPTM, .minimumIPTM: return .green
         case .ipsaeMinimum: return .teal
         case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance,
-             .complexRMSD, .binderBackboneRMSD, .binderRMSD: return .orange
+             .complexRMSD, .binderBackboneRMSD, .binderRMSD,
+             .motifInsertionRMSD, .motifPredictionRMSD, .motifMaximumDrift: return .orange
         case .pocketFractionWithinCutoff: return .indigo
         case .bindingProbability: return .purple
+        case .backboneCAValidity: return .cyan
         case .rankingScore: return .secondary
         }
     }

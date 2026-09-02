@@ -39,6 +39,7 @@ def run_queue(bin_spec: dict, out_dir: Path, num_designs: int, args, seed_start:
         cmd += ["--ligand-code", args.ligand_code]
     if bin_spec.get("motif_source_residues"):
         cmd += ["--motif-residues", ",".join(bin_spec["motif_source_residues"])]
+        cmd += ["--motif-atoms-json", json.dumps(bin_spec.get("motif_fixed_atoms") or {})]
     log = (out_dir / "queue.log").open("w")
     return subprocess.Popen(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT), log
 
@@ -140,7 +141,11 @@ def main() -> None:
         fields = sorted({key for row in merged_rows for key in row})
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
-        writer.writerows(merged_rows)
+        writer.writerows([
+            {key: json.dumps(value, sort_keys=True) if isinstance(value, (dict, list)) else value
+             for key, value in row.items()}
+            for row in merged_rows
+        ])
     fixed_map = {row["backbone_pdb"]: row.get("fixed_residues", "")
                  for row in merged_rows if row.get("fixed_residues")}
     if fixed_map:

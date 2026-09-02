@@ -17,13 +17,14 @@ independent model, because a design engine scoring its own designs is marking it
 own homework. Protein interfaces also report conservative `ipSAE(min)` whenever
 the selected predictor emits PAE (Boltz, IntelliFold, or Protenix).
 
-**RFdiffusion3** — generate binder backbones from scratch against a protein or a
-small molecule. Choose which ligand atoms end up buried, exposed, or hydrogen
-bonded by clicking them in a list read out of your own molecule. Small-molecule
-campaigns run the full pipeline: backbones → LASErMPNN sequences → Boltz-2 with
-steering potentials and the affinity head → ranking by ligand pLDDT + P(bind) →
-apo re-folding of the best designs to see whether the binding site is already
-formed before the ligand arrives.
+**RFdiffusion3** — generate binders de novo, locally explore an existing bound
+structure with partial diffusion, or scaffold explicit functional motif atoms
+into a new binder. Mode-specific worked p53–MDM2 examples make the two
+structure-guided workflows directly runnable. Motif campaigns retain the exact
+source-residue → designed-residue map, protect those residues through MPNN, and
+score recovery of the selected atoms after independent prediction. For small
+molecules, click ligand atoms to request burial, exposure or hydrogen bonding;
+the full pipeline runs backbones → LASErMPNN → Boltz-2 affinity/apo checks.
 
 **Predict** — fold sequences you already have, with no design involved. Paste
 them, or bring a FASTA or CSV; fold as monomers, all against one partner, or each
@@ -133,8 +134,11 @@ Runs are written to separate, durable directories. The global Activity panel and
 per-project history show completed, failed, active and interrupted work after a
 restart, with Reveal and checkpoint Resume where the recorded command supports
 it. RFdiffusion3 campaigns can run for days, so Studio also reattaches to their
-live PID after relaunch. Every workload is launched under `caffeinate` for its
-actual lifetime so a sleeping Mac does not strand a GPU campaign.
+live PID after relaunch. Accepted RFdiffusion3 backbones and verification folds
+appear in a live structure browser as they are written, alongside score
+histograms, saved hit-filter verdicts and motif correspondence. Every workload
+is launched under `caffeinate` for its actual lifetime so a sleeping Mac does
+not strand a GPU campaign.
 
 Large confidence arrays are retained losslessly as checksum-verified gzip files;
 selected structures, galleries and batch logs use references rather than duplicate

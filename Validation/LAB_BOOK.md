@@ -2,6 +2,7 @@
 
 | Entry | Date | Status | Question |
 |---|---|---|---|
+| [0005](lab_book/0005-rfd3-mode-examples.md) | 2026-09-02 | complete | Do Studio's bundled partial-diffusion and motif-scaffolding examples run through the exact MLX overlay and preserve explicit motif atoms? |
 | [0004](lab_book/0004-runtime-consolidation-plan.md) | 2026-09-01 | complete | Can newer compatible dependencies safely reduce Studio's runtime complexity? |
 | [0003](lab_book/0003-boltz-mps-precision-control.md) | 2026-09-01 | complete | Does Boltz's bfloat16-labelled MPS path actually differ from Studio FP32? |
 | [0002](lab_book/0002-boltz-mps-allocator-control.md) | 2026-09-01 | complete | Does the MPS allocator reset alter M4 Boltz speed or prediction output? |

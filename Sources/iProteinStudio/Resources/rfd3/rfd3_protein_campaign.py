@@ -314,6 +314,11 @@ def stage_predict(cfg: dict, campaign: Path, rfd3_root: Path, env: dict,
 def write_preserved_sequences(campaign: Path) -> None:
     """Record the exact chain-A sequence from each partial-diffusion backbone."""
     rows = []
+    metadata = {}
+    metrics_path = campaign / "rfd3" / "backbone_metrics.csv"
+    if metrics_path.exists():
+        metadata = {row.get("design", ""): row for row in csv.DictReader(metrics_path.open())
+                    if row.get("design")}
     for backbone in sorted((campaign / "rfd3" / "backbones").glob("design_*.pdb")):
         residues = []
         seen = set()
@@ -330,7 +335,8 @@ def write_preserved_sequences(campaign: Path) -> None:
             residues.append(AA1[name])
         if not residues:
             die(f"No binder sequence found in {backbone}")
-        rows.append({"design": backbone.stem, "seq_index": 1,
+        rows.append({**metadata.get(backbone.stem, {}),
+                     "design": backbone.stem, "seq_index": 1,
                      "sequence": "".join(residues), "sequence_length": len(residues),
                      "model_type": "preserved_input", "backbone_pdb": str(backbone)})
     out = campaign / "mpnn" / "sequences.csv"
@@ -369,6 +375,8 @@ def stage_validate(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> Non
     if not cfg.get("run_apo", True):
         filters["minimum_binder_plddt"] = None
         filters["maximum_binder_rmsd"] = None
+    if cfg.get("design_mode") != "motifScaffolding":
+        filters["maximum_motif_rmsd"] = None
     path = campaign / "config" / "hit_filters.json"
     path.write_text(json.dumps(filters, indent=2, sort_keys=True) + "\n")
     run([sys.executable, str(rfd3_root / "scripts" / "score_binder_validation.py"),

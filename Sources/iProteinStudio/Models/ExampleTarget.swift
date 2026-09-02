@@ -131,6 +131,97 @@ extension RFD3Request {
     }
 }
 
+/// Mode-specific RFdiffusion3 examples.  These are separate from
+/// ``ExampleTarget`` because partial diffusion and motif scaffolding require a
+/// complete starting complex, a source chain, and mode-specific controls rather
+/// than only a target.
+struct RFD3WorkflowExample: Identifiable, Hashable {
+    var id: String
+    var name: String
+    var subtitle: String
+    var goodFor: String
+    var mode: RFD3DesignMode
+
+    static let p53Partial = RFD3WorkflowExample(
+        id: "p53-mdm2-partial",
+        name: "p53–MDM2 local exploration",
+        subtitle: "PDB 1YCR · 1 Å partial diffusion",
+        goodFor: "Perturb the bound p53 helix while every MDM2 atom stays fixed. The starting sequence is preserved, so this is a small and interpretable first partial-diffusion run.",
+        mode: .partialDiffusion)
+
+    static let p53Motif = RFD3WorkflowExample(
+        id: "p53-mdm2-motif",
+        name: "p53–MDM2 motif scaffold",
+        subtitle: "Published binder-motif example · PDB 1YCR",
+        goodFor: "Build a new 70-residue binder around the three canonical p53 side chains F19, W23 and L26 that occupy the MDM2 cleft. Studio records where all three land in every design and verifies their recovery after prediction.",
+        mode: .motifScaffolding)
+
+    static func examples(for mode: RFD3DesignMode) -> [RFD3WorkflowExample] {
+        switch mode {
+        case .deNovo: return []
+        case .partialDiffusion: return [.p53Partial]
+        case .motifScaffolding: return [.p53Motif]
+        }
+    }
+
+    private static var complexPath: String {
+        AppPaths.examplesDir.appendingPathComponent("p53_mdm2/1YCR.pdb").path
+    }
+
+    /// Exact observed MDM2 residues A25–109 in the bundled crystal structure.
+    /// Using the observed sequence, rather than SEQRES with missing termini,
+    /// keeps structure/MSA validation exact.
+    private static let mdm2Sequence =
+        "ETLVRPKPLLLKLLKSVGAQKDTYTMKEVLFYLGQYIMTKRLYDEKQQHIVYCSNDLLGDLFGVPSFSVKEHRKIYTMIYRNLVV"
+
+    func apply(to request: inout RFD3Request) {
+        request.designMode = mode
+        request.targetKind = .protein
+        request.targetStructurePath = Self.complexPath
+        request.sourceBinderChain = "B"
+        request.targetChain = "A"
+        request.targetContig = "A25-109"
+        request.targetSequence = Self.mdm2Sequence
+        request.structureTargetSequence = Self.mdm2Sequence
+        request.conditions = [:]
+        request.originStrategy = .com
+        request.minLength = 70
+        request.maxLength = 70
+        request.numBins = 1
+        request.explicitLengths = [70]
+        request.numDesigns = 8
+        request.sequenceModel = .solublempnn
+        request.sequenceTemperature = request.sequenceModel.defaultTemperature
+        request.sequencesPerBackbone = 2
+        request.verification.extraPredictors = [.boltz]
+        request.verification.useBoltzPotentials = false
+        request.verification.runAffinityHead = false
+        request.verification.runApoCheck = true
+
+        switch mode {
+        case .partialDiffusion:
+            request.partialT = 1.0
+            request.preservePartialSequence = true
+            request.motifSites = []
+        case .motifScaffolding:
+            request.preservePartialSequence = false
+            // Multiple atoms per side chain preserve both position and
+            // orientation. These are the three deeply buried p53 recognition
+            // residues used in the published p53–MDM2 RFdiffusion experiment.
+            request.motifSites = [
+                RFD3MotifSite(residue: "B19", atoms: "CG,CE1,CZ"),
+                RFD3MotifSite(residue: "B23", atoms: "CG,NE1,CH2"),
+                RFD3MotifSite(residue: "B26", atoms: "CG,CD1,CD2"),
+            ]
+        case .deNovo:
+            break
+        }
+        request.reconcileSequenceModel()
+        request.reconcileVerification()
+        request.verification.topN = request.totalDesignedSequences
+    }
+}
+
 extension PredictionRequest {
     mutating func apply(_ example: ExampleTarget) {
         guard example.kind == .protein else { return }

@@ -2,6 +2,20 @@
 
 ## 0.2.0 — updater foundation
 
+- Adds separate RFdiffusion3 de-novo, partial-diffusion and motif-scaffolding
+  workflows, including bundled p53–MDM2 examples.
+- Adds a live RFdiffusion3 results dashboard: accepted backbones and verification
+  structures appear during the run with structure browsing, score histograms,
+  summary statistics and saved hit-filter verdicts.
+- Preserves exact source-motif → designed-residue correspondence through
+  generation, MPNN and prediction, and scores recovery of every explicitly
+  constrained motif atom after one global alignment.
+- Fixes the MLX adapter dropping residue-specific motif side-chain atoms, and
+  fails motif scoring when any requested atom is absent rather than scoring a
+  misleading partial intersection.
+- Fixes RFdiffusion3 score distributions appearing empty after a live campaign
+  changes from backbone metrics to predictor metrics.
+
 - Adds cryptographically verified Sparkle updates for trusted betas and future
   Developer ID releases, with a visible **Check for Updates…** command.
 - Adds update preferences for automatic checks and automatic app downloads.

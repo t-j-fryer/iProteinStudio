@@ -609,6 +609,7 @@ struct RFD3FilterPayload: Codable {
     var maximum_complex_rmsd: Double?
     var minimum_binder_plddt: Double?
     var maximum_binder_rmsd: Double?
+    var maximum_motif_rmsd: Double?
 
     init() {}
     init(_ value: RFD3HitFilters) {
@@ -617,6 +618,7 @@ struct RFD3FilterPayload: Codable {
         maximum_complex_rmsd = value.maximumComplexRMSD
         minimum_binder_plddt = value.minimumBinderPLDDT
         maximum_binder_rmsd = value.maximumBinderRMSD
+        maximum_motif_rmsd = value.maximumMotifRMSD
     }
 }
 

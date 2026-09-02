@@ -80,10 +80,20 @@ struct RFD3View: View {
                 header
                 modePicker
                 SetupExperiencePicker(selection: $setupExperience)
-                ExamplesBar { example in
-                    request.wrappedValue.apply(example)
-                    inspector.reset()
-                    intelligence.reset()
+                if request.wrappedValue.designMode == .deNovo {
+                    ExamplesBar { example in
+                        request.wrappedValue.apply(example)
+                        inspector.reset()
+                        intelligence.reset()
+                    }
+                } else {
+                    RFD3WorkflowExamplesBar(mode: request.wrappedValue.designMode) { example in
+                        var value = request.wrappedValue
+                        example.apply(to: &value)
+                        request.wrappedValue = value
+                        inspector.reset()
+                        intelligence.reset()
+                    }
                 }
 
                 Card(title: request.wrappedValue.designMode == .deNovo
@@ -1111,6 +1121,10 @@ struct RFD3View: View {
                               placeholder: "off")
                     filterRow("Maximum target-aligned binder RMSD", value: request.verification.filters.maximumComplexRMSD,
                               placeholder: "off", suffix: "Å")
+                    if request.wrappedValue.designMode == .motifScaffolding {
+                        filterRow("Maximum predicted motif-atom RMSD", value: request.verification.filters.maximumMotifRMSD,
+                                  placeholder: "off", suffix: "Å")
+                    }
                     if request.wrappedValue.verification.runApoCheck {
                         filterRow("Minimum binder pLDDT", value: request.verification.filters.minimumBinderPLDDT,
                                   placeholder: "off")
@@ -1337,8 +1351,8 @@ struct RFD3ProgressView: View {
                                     output: controller.campaignRoot, log: controller.log)
             }
 
-            if case .finished = controller.phase, let root = controller.campaignRoot {
-                RFD3ResultsSummary(root: root)
+            if let root = controller.campaignRoot {
+                RFD3ResultsSummary(root: root, finished: controller.phase == .finished)
             }
 
             if !controller.log.isEmpty, controller.phase != .finished {
@@ -1364,7 +1378,9 @@ struct RFD3ProgressView: View {
 
 private struct RFD3ResultsSummary: View {
     let root: URL
+    let finished: Bool
     @State private var showResults = false
+    @State private var items: [StudioResultItem] = []
 
     private var rows: [[String: Any]] {
         let url = root.appendingPathComponent("analysis/top100_manifest.json")
@@ -1384,34 +1400,48 @@ private struct RFD3ResultsSummary: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.title).foregroundStyle(.green)
+            Image(systemName: finished ? "checkmark.seal.fill" : "chart.bar.doc.horizontal")
+                .font(.title).foregroundStyle(finished ? .green : .accentColor)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Ranked results are ready").font(.headline)
+                Text(finished ? "Ranked results are ready" : "Results are arriving").font(.headline)
                 Text(summary).font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
             Button { showResults = true } label: {
-                Label("View Results", systemImage: "cube.transparent")
+                Label(finished ? "View Results" : "Browse Live Results", systemImage: "cube.transparent")
             }
             .buttonStyle(.borderedProminent)
+            .disabled(items.isEmpty)
             .accessibilityIdentifier("view-rfd3-results")
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.09)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(
+            finished ? Color.green.opacity(0.09) : Color.accentColor.opacity(0.07)))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Ranked RFdiffusion3 results ready. \(summary)")
+        .accessibilityLabel("RFdiffusion3 results. \(summary)")
         .sheet(isPresented: $showResults) {
             RunResultsView(root: root, workflow: .rfdiffusion3)
+        }
+        .task(id: root.path + String(finished)) {
+            while !Task.isCancelled {
+                items = RunResultsLoader.load(root: root, workflow: .rfdiffusion3)
+                if finished { break }
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+            }
         }
     }
 
     private var summary: String {
-        guard let first = rows.first else { return "Open the campaign folder to inspect its outputs." }
-        let score = first["score"] as? Double
-        let metric = first["mean_iptm"] != nil ? "mean iPTM" : "score"
+        guard let first = rows.first else {
+            if items.isEmpty { return "Accepted backbones will become browseable as soon as RFdiffusion3 writes them." }
+            return "\(items.count) structure\(items.count == 1 ? "" : "s") can be inspected now; this view updates automatically."
+        }
+        let meanIPTM = (first["mean_iptm"] as? NSNumber)?.doubleValue
+        let score = (first["score"] as? NSNumber)?.doubleValue
+        let value = meanIPTM ?? score
+        let metric = meanIPTM != nil ? "mean iPTM" : "score"
         let hits = hitCount.map { "\($0) passed every saved hit filter; " } ?? ""
-        if let score { return "\(hits)\(rows.count) selected design(s); top \(metric) \(String(format: "%.3f", score))." }
+        if let value { return "\(hits)\(rows.count) selected design(s); top \(metric) \(String(format: "%.3f", value))." }
         return "\(hits)\(rows.count) selected design(s)."
     }
 }

@@ -198,6 +198,14 @@ def score_proteins(rows: list[dict], args: argparse.Namespace) -> None:
             **{f"iptm_{p}": iptms[p] for p in predictors},
             **{f"ipsae_min_{p}": ipsaes[p] for p in ipsae_predictors},
         }
+        # Preserve RFdiffusion3's source→design motif identity and generation
+        # diagnostics. These columns originate in immutable per-backbone JSON;
+        # ranking must not sever them from the sequence and predictions.
+        for key in ("diffused_index_map", "motif_fixed_atoms",
+                    "motif_insertion_rmsd", "motif_insertion_rmsd_by_token",
+                    "motif_max_drift", "ca_valid_pct", "fixed_residues"):
+            if source.get(key, "") not in ("", None):
+                score_row[key] = source[key]
         if ipsae_values:
             score_row["mean_ipsae_min"] = sum(ipsae_values) / len(ipsae_values)
             score_row["min_ipsae_min"] = min(ipsae_values)
@@ -220,7 +228,11 @@ def score_proteins(rows: list[dict], args: argparse.Namespace) -> None:
         with (output / filename).open("w", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fields)
             writer.writeheader()
-            writer.writerows(selected)
+            writer.writerows([
+                {key: json.dumps(value, sort_keys=True) if isinstance(value, (dict, list)) else value
+                 for key, value in row.items()}
+                for row in selected
+            ])
     top = scored[: args.top_n]
     (output / "top100_manifest.json").write_text(json.dumps(top, indent=2) + "\n")
     (output / "dropped_designs.json").write_text(json.dumps(dropped, indent=2) + "\n")

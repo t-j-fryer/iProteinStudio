@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -80,6 +81,93 @@ def target_aligned_binder_rmsd(prediction: str, design: str) -> float | None:
     return float(np.sqrt(((aligned_binder - design_binder) ** 2).sum(1).mean()))
 
 
+def json_dict(value) -> dict:
+    """Decode a JSON dictionary carried through the campaign CSV."""
+    if isinstance(value, dict):
+        return value
+    if not value:
+        return {}
+    try:
+        decoded = json.loads(value)
+        return decoded if isinstance(decoded, dict) else {}
+    except (TypeError, json.JSONDecodeError):
+        return {}
+
+
+def residue_selector(value: str) -> tuple[str, int, str] | None:
+    # Studio's normalized RFD3 structures deliberately use one-character PDB
+    # chain IDs (binder A, targets B onward). Keeping the chain group narrow
+    # prevents a selector such as A22 being greedily parsed as chain A2/residue 2.
+    match = re.fullmatch(r"([A-Za-z0-9])(-?\d+)([A-Za-z]?)", str(value).strip())
+    if not match:
+        return None
+    return match.group(1), int(match.group(2)), match.group(3)
+
+
+def selected_atom_map(path: str, residue: str, atom_names: list[str]) -> dict[str, np.ndarray]:
+    """Return requested atoms for a chain/residue selector such as ``A19``."""
+    selector = residue_selector(residue)
+    if selector is None:
+        return {}
+    chain, res_id, ins_code = selector
+    array = load_array(path)
+    wanted = {str(name).strip().upper() for name in atom_names if str(name).strip()}
+    result = {}
+    for atom in array:
+        atom_ins = str(atom.ins_code or "")
+        if (str(atom.chain_id) == chain and int(atom.res_id) == res_id
+                and atom_ins == ins_code and str(atom.atom_name).upper() in wanted):
+            result[str(atom.atom_name).upper()] = np.asarray(atom.coord, dtype=float)
+    return result
+
+
+def motif_recovery_rmsd(prediction: str, design: str, row: dict):
+    """Fit and score the exact constrained motif atoms in an independent fold.
+
+    ``diffused_index_map`` records where each source motif residue landed in the
+    generated chain.  The fit uses only the explicitly constrained atoms, so it
+    remains valid when unindexing shifts the motif along the designed sequence.
+    Per-residue values use the same global motif fit and are therefore directly
+    interpretable rather than independently over-fitted.
+    """
+    mapping = json_dict(row.get("diffused_index_map"))
+    fixed_atoms = json_dict(row.get("motif_fixed_atoms"))
+    if not mapping:
+        return None, {}
+
+    moving, reference, owners = [], [], []
+    for source_residue, generated_residue in sorted(mapping.items()):
+        names = fixed_atoms.get(source_residue, [])
+        if isinstance(names, str):
+            names = [name for name in re.split(r"[\s,]+", names) if name]
+        requested = {str(name).strip().upper() for name in names if str(name).strip()}
+        if not requested:
+            return None, {}
+        predicted = selected_atom_map(prediction, str(generated_residue), sorted(requested))
+        designed = selected_atom_map(design, str(generated_residue), sorted(requested))
+        # A partial intersection would make a damaged motif look artificially
+        # good. Every requested atom must exist in both structures or the saved
+        # motif-recovery metric is unavailable and its configured gate fails.
+        if set(predicted) != requested or set(designed) != requested:
+            return None, {}
+        for atom_name in sorted(requested):
+            moving.append(predicted[atom_name])
+            reference.append(designed[atom_name])
+            owners.append(str(source_residue))
+    if len(moving) < 3:
+        return None, {}
+
+    moving_array, reference_array = np.asarray(moving), np.asarray(reference)
+    rotation, translation = kabsch_transform(moving_array, reference_array)
+    aligned = (rotation @ moving_array.T).T + translation
+    squared = ((aligned - reference_array) ** 2).sum(1)
+    per_residue = {}
+    for owner in sorted(set(owners)):
+        values = [value for value, residue in zip(squared, owners) if residue == owner]
+        per_residue[owner] = float(np.sqrt(np.mean(values)))
+    return float(np.sqrt(np.mean(squared))), per_residue
+
+
 def number(row: dict, *keys: str) -> float | None:
     for key in keys:
         try:
@@ -126,12 +214,16 @@ def main() -> None:
         backbone = row.get("backbone_pdb", "")
         predictors = [p for p in row.get("predictors", "").split(",") if p]
         complex_rmsds, binder_backbone_rmsds, binder_plddts, binder_rmsds = {}, {}, {}, {}
+        motif_rmsds, motif_residue_rmsds = {}, {}
         for predictor in predictors:
             h = holo.get((design, predictor))
             m = monomer.get((design, predictor))
             if h and backbone:
                 complex_rmsds[predictor] = target_aligned_binder_rmsd(h["structure"], backbone)
                 binder_backbone_rmsds[predictor] = rmsd(h["structure"], backbone)
+                motif_value, residue_values = motif_recovery_rmsd(h["structure"], backbone, row)
+                motif_rmsds[predictor] = motif_value
+                motif_residue_rmsds[predictor] = residue_values
             if m:
                 binder_plddts[predictor] = number(
                     m, "plddt", "complex_plddt", "protein_plddt", "mean_plddt")
@@ -142,11 +234,13 @@ def main() -> None:
         finite_backbone = [v for v in binder_backbone_rmsds.values() if v is not None]
         finite_plddt = [v for v in binder_plddts.values() if v is not None]
         finite_binder = [v for v in binder_rmsds.values() if v is not None]
+        finite_motif = [v for v in motif_rmsds.values() if v is not None]
         aggregate = {
             "maximum_complex_rmsd": max(finite_complex) if finite_complex else None,
             "maximum_binder_backbone_rmsd": max(finite_backbone) if finite_backbone else None,
             "minimum_binder_plddt": min(finite_plddt) if finite_plddt else None,
             "maximum_binder_rmsd": max(finite_binder) if finite_binder else None,
+            "maximum_motif_rmsd": max(finite_motif) if finite_motif else None,
         }
         failed = []
         gates = [
@@ -155,6 +249,7 @@ def main() -> None:
             ("maximum_complex_rmsd", aggregate["maximum_complex_rmsd"], lambda x, t: x <= t),
             ("minimum_binder_plddt", aggregate["minimum_binder_plddt"], lambda x, t: x >= t),
             ("maximum_binder_rmsd", aggregate["maximum_binder_rmsd"], lambda x, t: x <= t),
+            ("maximum_motif_rmsd", aggregate["maximum_motif_rmsd"], lambda x, t: x <= t),
         ]
         for key, value, predicate in gates:
             threshold = filters.get(key)
@@ -168,6 +263,8 @@ def main() -> None:
             "binder_backbone_rmsd_by_predictor": json.dumps(binder_backbone_rmsds, sort_keys=True),
             "binder_plddt_by_predictor": json.dumps(binder_plddts, sort_keys=True),
             "binder_rmsd_by_predictor": json.dumps(binder_rmsds, sort_keys=True),
+            "motif_rmsd_by_predictor": json.dumps(motif_rmsds, sort_keys=True),
+            "motif_rmsd_by_residue": json.dumps(motif_residue_rmsds, sort_keys=True),
             "filter_provenance": str(args.filters.resolve()),
         })
 
@@ -182,7 +279,7 @@ def main() -> None:
         "hits": sum(str(row["is_hit"]).lower() == "true" for row in merged),
         "filters": filters,
         "aggregation": "minimum confidence and maximum RMSD across selected predictors",
-        "rmsd_definition": "complex RMSD is binder pose after fixed-target alignment; binder-backbone RMSD fits the binder itself",
+        "rmsd_definition": "complex RMSD is binder pose after fixed-target alignment; binder-backbone RMSD fits the binder itself; motif RMSD aligns and scores the exact constrained motif atoms using the saved unindex map",
     }
     (output / "hit_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(f"validated {len(merged)} designs; {summary['hits']} hit(s) -> {output}")

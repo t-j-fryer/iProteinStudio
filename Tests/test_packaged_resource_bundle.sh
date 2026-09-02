@@ -14,6 +14,10 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
   || fail "SwiftPM resource bundle is missing its pipeline sentinel"
 [[ -s "${BUNDLE}/pipeline/scripts/storage_policy.py" ]] \
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
+[[ -s "${BUNDLE}/examples/p53_mdm2/1YCR.pdb" ]] \
+  || fail "resource bundle is missing the p53-MDM2 RFdiffusion3 example"
+[[ -s "${BUNDLE}/rfd3_overlay/OVERLAY_VERSION" ]] \
+  || fail "resource bundle is missing the RFdiffusion3 overlay receipt"
 [[ ! -d "${APP}/iProteinStudio_iProteinStudio.bundle" ]] \
   || fail "resource bundle is incorrectly placed at the sealed app root"
 

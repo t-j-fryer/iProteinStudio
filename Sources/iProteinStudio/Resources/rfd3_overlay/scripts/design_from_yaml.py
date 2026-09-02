@@ -389,6 +389,11 @@ def _bins_for_conformer(spec, run, name, lengths, quotas, conf_path, tag, motif_
                             else "motifScaffolding" if spec.get("unindex") else "deNovo"),
             "motif_source_residues": ([part.strip() for part in str(spec.get("unindex", "")).split(",")
                                         if part.strip()]),
+            "motif_fixed_atoms": {
+                residue: [atom.strip().upper() for atom in str(atoms).split(",") if atom.strip()]
+                for residue, atoms in (spec.get("select_fixed_atoms") or {}).items()
+                if residue in {part.strip() for part in str(spec.get("unindex", "")).split(",")}
+            },
         })
     return bins
 

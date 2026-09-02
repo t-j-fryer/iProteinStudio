@@ -50,7 +50,11 @@ Protenix v2; a pinned standalone installation that does not
 need a sibling checkout, with explicit reuse of an existing NanoHunter/RFD3
 install as an option; an RFdiffusion3 tab that drives the
 validated production pipeline, survives quitting the app, resumes protein stages
-and small-molecule stages from checkpoints and presents its ranked-result summary.
+and small-molecule stages from checkpoints, and presents generated backbones,
+verification structures, score distributions and hit verdicts while they arrive.
+Partial diffusion and motif scaffolding include runnable p53–MDM2 examples;
+motif provenance follows exact functional atoms from source residues through
+generated positions, sequence design and independent-prediction recovery.
 Protenix uses native MPS with no CPU fallback, owns its upstream public MSA-server
 route, preserves explicit single-sequence requests without contacting that route,
 and is a removable managed component rather than a hidden Boltz dependency.
@@ -92,8 +96,9 @@ outside the source checkout before handoff.
 2. Accessibility labels now cover examples, primary Start actions, navigation
    and the active-run banner, but the remaining forms have not had a complete
    VoiceOver, keyboard-focus, large-text or contrast pass.
-3. RFdiffusion3's ranked structures are browsable, but it does not yet provide a
-   paired apo–holo comparison with preorganisation RMSD and self-consistency.
+3. The new RFdiffusion3 partial/motif examples have single-backbone 200-step MLX
+   acceptance, exact motif-atom recovery and an MPNN handoff test. Their complete
+   multi-predictor campaigns and experimental enrichment are not yet calibrated.
 4. OpenFold-3 complex pLDDT has an unresolved scale problem — see
    [0002](lab_book/0002-inherited-speed-lessons.md) §7.
 5. No app icon. Sparkle self-update, size-aware engine consent, signed-release automation and a trusted unsigned-beta route are implemented, but Developer ID signing/notarisation and an old-to-new update acceptance on a second Mac remain blocked on Apple distribution credentials. The unsigned path still needs its first second-Mac Gatekeeper/install test and a real beta-to-beta Sparkle acceptance test.
@@ -127,6 +132,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0067 | 2026-09-02 | [Add live RFdiffusion3 results and exact motif recovery](lab_book/0067-add-live-rfd3-results-and-exact-motif-recovery.md) | Makes accepted structures and score distributions visible during campaigns, adds runnable p53–MDM2 examples, repairs explicit side-chain atom conditioning in the MLX adapter, and validates source-to-design motif correspondence at the default diffusion schedule. |
 | 0066 | 2026-09-02 | [Add RFdiffusion3 partial diffusion, motif scaffolding and dual validation](lab_book/0066-add-rfd3-partial-motif-and-dual-validation.md) | Separates de-novo, partial and motif workflows; ports current partial scheduling to MLX; rejects malformed motif outputs; and makes target-aligned pose, binder-fold and binder-alone validation auditable in persistent results. |
 | 0065 | 2026-09-02 | [Accept IntelliFold outputs below its staged input directory](lab_book/0065-accept-intellifold-staged-output-layout.md) | M1 build-10 inference succeeded but a broad `_inputs` filter rejected the valid result; discovery now accepts only `_inputs/predictions` and regression coverage reproduces Plain Predict's exact layout. |
 | 0064 | 2026-09-02 | [Make run storage lossless and deduplicated](lab_book/0064-make-run-storage-lossless-and-deduplicated.md) | Dense confidence output is checksum-compressed, aliases/logs stop copying canonical bytes, A3Ms and exact pipeline snapshots share content-addressed APFS storage, and real MPS smoke outputs pass geometry. |
