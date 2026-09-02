@@ -25,6 +25,8 @@ from pathlib import Path
 import yaml
 
 from ipsae_score import IPSAEError, annotate_protenix
+from storage_policy import (compact_detailed_confidence, json_variants,
+                            relative_symlink)
 
 
 MODEL_NAMES = {
@@ -278,7 +280,7 @@ def best_prediction(job_dir: Path, expected: int) -> tuple[Path, Path]:
     candidates = complete_predictions(job_dir)
     structures = list(job_dir.rglob("*_sample_*.cif"))
     confidences = list(job_dir.rglob("*_summary_confidence_sample_*.json"))
-    full_confidences = list(job_dir.rglob("*_full_data_sample_*.json"))
+    full_confidences = json_variants(job_dir, "*_full_data_sample_*.json")
     if (len(candidates) != expected or len(structures) != expected
             or len(confidences) != expected or len(full_confidences) != expected):
         die(f"expected exactly {expected} complete prediction(s) under {job_dir}; "
@@ -295,8 +297,8 @@ def normalize(output: Path, names: list[str], expected: int) -> None:
         structure, confidence = best_prediction(source_root, expected)
         pred_min = source_root / "pred_min"
         pred_min.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(structure, pred_min / "model_0.cif")
-        shutil.copyfile(confidence, pred_min / "confidence.json")
+        relative_symlink(structure, pred_min / "model_0.cif", replace=True)
+        relative_symlink(confidence, pred_min / "confidence.json", replace=True)
 
 
 def annotate_constraint_geometry(output: Path, jobs: list[dict]) -> None:
@@ -447,6 +449,10 @@ def main() -> None:
     normalize(output, names, len(seeds) * samples)
     if constraint_model:
         annotate_constraint_geometry(output, jobs)
+    receipt = compact_detailed_confidence(output)
+    if receipt["failures"]:
+        print("WARNING: Protenix detailed-confidence compaction retained the original "
+              f"for {len(receipt['failures'])} file(s).", file=sys.stderr)
 
 
 if __name__ == "__main__":

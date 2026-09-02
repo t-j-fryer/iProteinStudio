@@ -37,6 +37,14 @@
   structure in the library.
 - Prevents Boltz from redownloading its 1.8 GB chemical-component archive when
   the verified extracted component library is already installed.
+- Stores Protenix and IntelliFold detailed confidence arrays as lossless,
+  SHA-256-verified gzip files after scoring and geometry checks.
+- Keeps one canonical copy of structures and batch logs while galleries,
+  selected results and per-trajectory views use durable relative references.
+- Shares exact MSAs and independently resumable pipeline snapshots through a
+  content-addressed APFS store, without changing or deleting older projects.
+- Correctly reports that automatic Protenix v2/Mini prediction uses five
+  diffusion samples while the other supported engines use one.
 
 Trusted beta update archives are signed with the project's Sparkle EdDSA key,
 but the beta application itself is not Developer ID signed or notarized by Apple.

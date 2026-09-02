@@ -439,6 +439,10 @@ class ProtenixSession:
         self.adapter.normalize(output, names, len(self.seeds) * self.samples)
         if self.constraint:
             self.adapter.annotate_constraint_geometry(output, jobs)
+        receipt = self.adapter.compact_detailed_confidence(output)
+        if receipt["failures"]:
+            print("WARNING: resident Protenix retained uncompressed detailed confidence "
+                  f"for {len(receipt['failures'])} file(s).", file=sys.stderr)
 
 
 def make_session(config: dict[str, Any]) -> Any:

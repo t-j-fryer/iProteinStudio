@@ -388,6 +388,8 @@ $ROOT/
   receipts/                  verified package/source/artifact/device manifests
   shared/protenix-common/     one verified chemical-data copy for Protenix products
   cache/{uv,pip}/             Studio-owned download/build caches (safe to clear)
+  objects/sha256/             immutable content-addressed A3Ms
+  objects/pipeline/sha256/    exact app policy snapshots, stored once per version
   msa_cache/                 shared alignments, indexed by sequence
   scaffold_msa_cache/        bundled deep MSAs for all seven nanobody scaffolds
   logs/installer/            durable setup and repair logs
@@ -400,7 +402,10 @@ and `models/`, respectively. Removing that component from the Engines screen
 deletes only those managed runtime assets; workspaces, results and cached MSAs
 are retained.
 
-New iterative campaigns also copy the small app-owned runner/policy layer into
-`<campaign>/.studio_runtime/pipeline` and record that path in `studio_run.json`.
-Resume therefore uses the exact code snapshot that started the campaign and
-fails loudly if it is missing, instead of silently adopting a later app update.
+New iterative campaigns APFS-clone the small app-owned runner/policy layer from
+its content-addressed object into `<campaign>/.studio_runtime/pipeline` and
+record that path in `studio_run.json`. The clone is independently mutable but
+shares physical blocks until changed. Resume therefore uses the exact code
+snapshot that started the campaign and fails loudly if it is missing, instead
+of silently adopting a later app update. Detailed output retention and sampling
+provenance are specified in [Output storage and retention](OUTPUT_STORAGE.md).

@@ -136,6 +136,12 @@ it. RFdiffusion3 campaigns can run for days, so Studio also reattaches to their
 live PID after relaunch. Every workload is launched under `caffeinate` for its
 actual lifetime so a sleeping Mac does not strand a GPU campaign.
 
+Large confidence arrays are retained losslessly as checksum-verified gzip files;
+selected structures, galleries and batch logs use references rather than duplicate
+copies. Exact MSAs and campaign policy snapshots share content-addressed APFS
+storage while every run remains independently resumable. See
+[Output storage and retention](docs/OUTPUT_STORAGE.md).
+
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the design, and
 **[LAB_BOOK.md](LAB_BOOK.md) for why things are the way they are** — every
 measurement, decision and dead end is recorded there.

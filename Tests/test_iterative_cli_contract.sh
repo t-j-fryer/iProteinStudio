@@ -51,6 +51,8 @@ cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/protenix_pred
   "${FIXTURE_ROOT}/scripts/protenix_predict.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/resident_predictor.py" \
   "${FIXTURE_ROOT}/scripts/resident_predictor.py"
+cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/storage_policy.py" \
+  "${FIXTURE_ROOT}/scripts/storage_policy.py"
 mkdir -p "${FIXTURE_ROOT}/models/protenix_constraint/checkpoint"
 touch "${FIXTURE_ROOT}/models/protenix_constraint/checkpoint/protenix_base_constraint_v0.5.0.pt"
 printf '{}\n' > "${FIXTURE_ROOT}/models/protenix_constraint/install_receipt.json"

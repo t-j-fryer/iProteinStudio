@@ -240,6 +240,7 @@ final class PredictionController: ObservableObject {
             // is one record per file, so breadth costs almost nothing.
             index_roots: [
                 AppPaths.msaCache.path,
+                AppPaths.objectStore.appendingPathComponent("sha256", isDirectory: true).path,
                 AppPaths.scaffoldMSACache.path,
                 AppPaths.projects.path,
                 AppPaths.fm.homeDirectoryForCurrentUser.appendingPathComponent("NanoHunter/output").path,
@@ -302,7 +303,8 @@ struct PredictionConfig: Codable {
     var affinity: Bool = false
     var seed: Int = 42
     var num_seeds: Int = 1
-    /// 0 means preserve the established per-engine defaults.
+    /// 0 preserves established per-engine defaults: five samples for Protenix
+    /// v2/Mini and one for Boltz, IntelliFold, Constraint and OpenFold-3.
     var diffusion_samples: Int = 0
     var max_parallel: Int = 0
     var batch_size: Int = 0

@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-09-01_
+_Last updated: 2026-09-02_
 
 | | |
 |---|---|
@@ -59,6 +59,10 @@ fallback and incomplete seed/sample output sets. Managed engines retain separate
 dependency contracts while sharing APFS-cloned package payloads, Git objects and
 one checksum-verified Protenix chemical dataset; the Engines screen can safely
 consolidate matching assets from an older install.
+New runs retain dense Protenix/IntelliFold confidence data as checksum-verified
+gzip, keep one canonical copy of selected structures and batch logs, and share
+exact A3Ms plus independently resumable pipeline snapshots through a
+content-addressed APFS store (Entry 0064).
 
 Build 8's M1 Pro acceptance correctly rejected invalid Boltz geometry and exposed
 a second IntelliFold MPS indexing abort. Build 9 contains the follow-up allocator
@@ -122,6 +126,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0064 | 2026-09-02 | [Make run storage lossless and deduplicated](lab_book/0064-make-run-storage-lossless-and-deduplicated.md) | Dense confidence output is checksum-compressed, aliases/logs stop copying canonical bytes, A3Ms and exact pipeline snapshots share content-addressed APFS storage, and real MPS smoke outputs pass geometry. |
 | 0063 | 2026-09-01 | [Test runtime consolidation without touching the trusted install](lab_book/0063-test-runtime-consolidation-safely.md) | Isolated final-RC PyTorch 2.14 preserves an M4 Boltz fold and removes its observed SVD fallback; one shared Protenix dependency base is feasible, while production promotion remains gated on stable-wheel, M1 and full installer/model regression. |
 | 0062 | 2026-09-01 | [Audit the Boltz MPS reset across Apple GPU generations](lab_book/0062-audit-boltz-mps-cross-generation.md) | Shows that the 4-second number was model-only, proves the build-9 reset leaves a paired M4 fold bit-identical with no detected timing penalty, and anchors the M1/M4 divergence in PyTorch and Apple primary evidence. |
 | 0061 | 2026-09-01 | [Finish the M1 predictor-correctness repair](lab_book/0061-finish-m1-predictor-correctness.md) | Records the decisive build-8 M1 failures, replaces all three IntelliFold GatherND formulations, adds the PyTorch-MPS allocator boundary to Boltz and defines the remaining M1 acceptance gate. |

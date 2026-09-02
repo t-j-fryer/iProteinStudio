@@ -31,6 +31,8 @@ from typing import Iterable, Sequence
 import numpy as np
 import yaml
 
+from storage_policy import json_variants, read_json
+
 
 PAE_CUTOFF = 10.0
 METHOD = "DunbrackLab/IPSAE v4 d0res; conservative directional minimum"
@@ -138,7 +140,7 @@ def calculate_ipsae(
 
 def _write_annotation(path: Path, metrics: dict) -> None:
     try:
-        document = json.loads(path.read_text())
+        document = read_json(path)
     except (OSError, json.JSONDecodeError) as exc:
         raise IPSAEError(f"cannot read confidence JSON {path}: {exc}") from exc
     if not isinstance(document, dict):
@@ -233,12 +235,12 @@ def annotate_boltz(yaml_path: Path, output: Path) -> int:
 def annotate_intellifold(output: Path) -> int:
     """Annotate IntelliFold summary confidence files from detailed PAE JSON."""
     detailed = sorted(
-        path for path in output.rglob("*_confidences.json")
+        path for path in json_variants(output, "*_confidences.json")
         if "summary_confidences" not in path.name
     )
     annotated = 0
     for path in detailed:
-        data = json.loads(path.read_text())
+        data = read_json(path)
         pae = data.get("pae")
         chains = data.get("token_chain_ids")
         if pae is None or chains is None:
@@ -246,7 +248,10 @@ def annotate_intellifold(output: Path) -> int:
         proteins = _ordered_unique(chains)
         if len(proteins) < 2:
             continue
-        summary = path.with_name(path.name.replace("_confidences.json", "_summary_confidences.json"))
+        detail_name = path.name.removesuffix(".gz")
+        summary = path.with_name(
+            detail_name.replace("_confidences.json", "_summary_confidences.json")
+        )
         if not summary.is_file():
             raise IPSAEError(f"IntelliFold summary confidence is missing beside {path}")
         metrics = calculate_ipsae(pae, chains, proteins)
@@ -287,21 +292,23 @@ def annotate_protenix(output: Path, jobs: Sequence[dict]) -> int:
         if len(proteins) < 2:
             continue
         job_root = output / str(job.get("name", ""))
-        full_files = sorted(job_root.rglob("*_full_data_sample_*.json"))
+        full_files = json_variants(job_root, "*_full_data_sample_*.json")
         if not full_files:
             raise IPSAEError(
                 f"Protenix emitted no full confidence for multimer {job.get('name', '')}; "
                 "--need_atom_confidence True is required"
             )
         for full_path in full_files:
-            data = json.loads(full_path.read_text())
+            data = read_json(full_path)
             pae = data.get("token_pair_pae")
             asym = data.get("token_asym_id")
             if pae is None or asym is None:
                 raise IPSAEError(f"Protenix full confidence lacks PAE/chain IDs: {full_path}")
             chains, protein_ids = _protenix_chain_map(job, asym)
             metrics = calculate_ipsae(pae, chains, protein_ids)
-            summary_name = full_path.name.replace("_full_data_sample_", "_summary_confidence_sample_")
+            summary_name = full_path.name.removesuffix(".gz").replace(
+                "_full_data_sample_", "_summary_confidence_sample_"
+            )
             summary = full_path.with_name(summary_name)
             if not summary.is_file():
                 raise IPSAEError(f"Protenix summary confidence is missing beside {full_path}")

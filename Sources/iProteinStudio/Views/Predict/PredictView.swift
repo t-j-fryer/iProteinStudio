@@ -379,7 +379,7 @@ struct PredictView: View {
                     }
                 }
             }
-            Text("Existing defaults are preserved at 0: every available engine uses one diffusion sample. Boltz supports diffusion samples but only one model seed per fold; additional seeds still apply to IntelliFold and OpenFold-3.")
+            Text("At 0, Studio preserves validated engine defaults: Boltz-2, IntelliFold, Protenix Constraint and OpenFold-3 use one diffusion sample; Protenix v2 and Mini use five. Boltz supports diffusion samples but only one model seed per fold; additional seeds apply to the other engines.")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
             Divider().padding(.vertical, 2)

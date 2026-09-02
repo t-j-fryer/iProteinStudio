@@ -143,13 +143,16 @@ def stage_one_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict,
         die(f"The cached target MSA query does not match the recorded target sequence: {a3m}")
 
     root = Path(cfg["nanohunter_root"])
-    for search_root in (root / "msa_cache", root / "examples_data", root / "projects"):
+    sys.path.insert(0, str(root / "scripts"))
+    from storage_policy import materialize_object
+    for search_root in (root / "msa_cache", root / "objects" / "sha256",
+                        root / "examples_data", root / "projects"):
         if not search_root.exists():
             continue
         for candidate in search_root.rglob("*.a3m"):
             if validate_a3m(candidate, sequence):
                 cache.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(candidate, a3m)
+                materialize_object(candidate, root / "objects", a3m)
                 info(f"reused exact target MSA -> {candidate}")
                 return a3m
 
@@ -176,6 +179,7 @@ def stage_one_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict,
             campaign / "logs" / f"msa_{chain}.log", rfd3_root, env)
         if not validate_a3m(a3m, sequence):
             die("Protenix produced no valid target MSA; refusing a single-sequence fallback.")
+        materialize_object(a3m, root / "objects", a3m)
         info(f"target MSA -> {a3m}")
         return a3m
 
@@ -194,6 +198,7 @@ def stage_one_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict,
         die("Boltz produced no MSA. The MSA server may be unreachable — a run "
             "without a real target MSA would silently be much worse, so this stops here.")
     csv_to_a3m(raw[0], a3m, sequence)
+    materialize_object(a3m, root / "objects", a3m)
     info(f"target MSA -> {a3m}")
     return a3m
 

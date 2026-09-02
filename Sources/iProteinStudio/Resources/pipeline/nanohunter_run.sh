@@ -83,6 +83,22 @@ mkdir -p "${NUMBA_CACHE_DIR}"
 OPENFOLD_A3M_QUERY_REWRITER="${PIPELINE_CODE_ROOT}/scripts/rewrite_a3m_query.py"
 POST_TASK_SELECTOR="${PIPELINE_CODE_ROOT}/scripts/select_post_tasks.py"
 IPSAE_SCORER="${PIPELINE_CODE_ROOT}/scripts/ipsae_score.py"
+STORAGE_POLICY="${PIPELINE_CODE_ROOT}/scripts/storage_policy.py"
+
+materialize_output_reference() {
+  local source="$1"
+  local destination="$2"
+  python3 "${STORAGE_POLICY}" link \
+    --source "${source}" --destination "${destination}" >/dev/null
+}
+
+materialize_immutable_input() {
+  local source="$1"
+  local destination="$2"
+  python3 "${STORAGE_POLICY}" materialize \
+    --source "${source}" --object-root "${REPO_ROOT}/objects" \
+    --destination "${destination}" >/dev/null
+}
 
 LIGANDMPNN_REPO="${REPO_ROOT}/src/LigandMPNN"
 LIGANDMPNN_RUN="python run.py"
@@ -224,7 +240,7 @@ TARGET_MSA_GENERATOR="${NANOHUNTER_TARGET_MSA_GENERATOR_DEFAULT:-auto}"
 TARGET_MSA_PATH_OVERRIDE="${NANOHUNTER_TARGET_MSA_PATH_DEFAULT:-}"
 TARGET_MSA_REQUIRED="${NANOHUNTER_TARGET_MSA_REQUIRED_DEFAULT:-0}"
 TARGET_MSA_SHARED_CACHE_DIR="${NANOHUNTER_TARGET_MSA_CACHE_DIR_DEFAULT:-${REPO_ROOT}/msa_cache}"
-TARGET_MSA_SEARCH_ROOTS="${NANOHUNTER_TARGET_MSA_SEARCH_ROOTS:-${TARGET_MSA_SHARED_CACHE_DIR}:${REPO_ROOT}/examples_data:${REPO_ROOT}/projects:${REPO_ROOT}/output}"
+TARGET_MSA_SEARCH_ROOTS="${NANOHUNTER_TARGET_MSA_SEARCH_ROOTS:-${TARGET_MSA_SHARED_CACHE_DIR}:${REPO_ROOT}/objects/sha256:${REPO_ROOT}/examples_data:${REPO_ROOT}/projects:${REPO_ROOT}/output}"
 NANOBODY_SCAFFOLD_MSA_MODE="${NANOHUNTER_SCAFFOLD_MSA_MODE_DEFAULT:-${DEFAULT_NANOBODY_SCAFFOLD_MSA_MODE}}"
 NANOBODY_SCAFFOLD_MSA_SOURCE="${NANOHUNTER_SCAFFOLD_MSA_SOURCE_DEFAULT:-}"
 NANOBODY_SCAFFOLD_MSA_CACHE_DIR="${NANOHUNTER_SCAFFOLD_MSA_CACHE_DIR_DEFAULT:-${PIPELINE_CODE_ROOT}/examples/nanobody_scaffolds/msas}"
@@ -1358,6 +1374,7 @@ fi
 
 [[ -d "${REPO_ROOT}" ]] || die "Repo root not found: ${REPO_ROOT}"
 [[ -f "${TEMPLATE_YAML}" ]] || die "Template YAML not found: ${TEMPLATE_YAML}"
+[[ -f "${STORAGE_POLICY}" ]] || die "Storage policy helper not found: ${STORAGE_POLICY}"
 if [[ -n "${INITIAL_CONFIDENCE_JSON}" && -z "${INITIAL_STRUCTURE}" ]]; then
   die "--initial-confidence-json requires --initial-structure."
 fi
@@ -3106,9 +3123,20 @@ print(hashlib.sha256(sequence.encode()).hexdigest()[:32])
 PY
 )"
   destination="${TARGET_MSA_SHARED_CACHE_DIR}/${digest}.a3m"
-  if [[ "$(cd "$(dirname "${msa_path}")" && pwd)/$(basename "${msa_path}")" != "$(cd "${TARGET_MSA_SHARED_CACHE_DIR}" && pwd)/$(basename "${destination}")" ]]; then
-    cp -f "${msa_path}" "${destination}"
+  if [[ ! -e "${destination}" ]]; then
+    materialize_immutable_input "${msa_path}" "${destination}"
   fi
+}
+
+localize_target_msa() {
+  local source="$1"
+  local chain_id="$2"
+  [[ -n "${source}" && "${source}" != "empty" ]] || { printf '%s\n' "${source}"; return 0; }
+  local extension destination
+  extension="${source##*.}"
+  destination="${MSA_CACHE_DIR}/target_${chain_id}.${extension}"
+  materialize_immutable_input "${source}" "${destination}"
+  printf '%s\n' "${destination}"
 }
 
 csv_msa_to_a3m() {
@@ -3485,7 +3513,9 @@ PY
     local persistent_dir generated_csv
     persistent_dir="${NANOBODY_SCAFFOLD_MSA_CACHE_DIR}/${scaffold_id}"
     mkdir -p "${persistent_dir}"
-    cp -f "${source_path}" "${persistent_dir}/full_msa.a3m"
+    if [[ ! -e "${persistent_dir}/full_msa.a3m" ]]; then
+      materialize_immutable_input "${source_path}" "${persistent_dir}/full_msa.a3m"
+    fi
     generated_csv="$(dirname "${source_path}")/nanobody_scaffold_full_msa.csv"
     if [[ -s "${generated_csv}" ]]; then
       cp -f "${generated_csv}" "${persistent_dir}/full_msa.csv"
@@ -4267,11 +4297,11 @@ run_predict_boltz() {
   [[ -n "$struct" ]] || die "Boltz structure not found in ${leaf}"
 
   mkdir -p "${pred_min}"
-  if [[ -n "$conf" ]]; then cp -f "$conf" "${pred_min}/confidence.json"; fi
+  if [[ -n "$conf" ]]; then materialize_output_reference "$conf" "${pred_min}/confidence.json"; fi
   if [[ "${struct##*.}" == "cif" ]]; then
-    cp -f "$struct" "${pred_min}/model_0.cif"
+    materialize_output_reference "$struct" "${pred_min}/model_0.cif"
   else
-    cp -f "$struct" "${pred_min}/model_0.pdb"
+    materialize_output_reference "$struct" "${pred_min}/model_0.pdb"
   fi
 
   local iptm plddt
@@ -4534,8 +4564,8 @@ run_predict_intellifold() {
   [[ -n "$struct" ]] || die "IntelliFold structure not found in ${leaf}"
 
   mkdir -p "${pred_min}"
-  if [[ -n "$conf" ]]; then cp -f "$conf" "${pred_min}/confidence.json"; fi
-  cp -f "$struct" "${pred_min}/model_0.cif"
+  if [[ -n "$conf" ]]; then materialize_output_reference "$conf" "${pred_min}/confidence.json"; fi
+  materialize_output_reference "$struct" "${pred_min}/model_0.cif"
 
   local iptm plddt
   iptm="nan"; plddt="nan"
@@ -4576,11 +4606,11 @@ run_predict_protenix() {
     || { tail -n 80 "${out_dir}/predict.log" >&2 || true; die "${predictor} prediction failed for ${input_yaml}"; }
 
   local struct conf iptm plddt
-  struct="$(find "${out_dir}" -type f -path '*/pred_min/model_0.cif' | sort | head -n 1 || true)"
-  conf="$(find "${out_dir}" -type f -path '*/pred_min/confidence.json' | sort | head -n 1 || true)"
+  struct="$(find "${out_dir}" -path '*/pred_min/model_0.cif' | sort | head -n 1 || true)"
+  conf="$(find "${out_dir}" -path '*/pred_min/confidence.json' | sort | head -n 1 || true)"
   [[ -n "${struct}" ]] || die "${predictor} produced no normalized model_0.cif in ${out_dir}"
-  cp -f "${struct}" "${pred_min}/model_0.cif"
-  [[ -n "${conf}" ]] && cp -f "${conf}" "${pred_min}/confidence.json"
+  materialize_output_reference "${struct}" "${pred_min}/model_0.cif"
+  [[ -n "${conf}" ]] && materialize_output_reference "${conf}" "${pred_min}/confidence.json"
   iptm="nan"; plddt="nan"
   if [[ -f "${pred_min}/confidence.json" ]]; then
     IFS=',' read -r iptm plddt <<< "$(extract_metrics_from_conf_json "${pred_min}/confidence.json")"
@@ -4668,11 +4698,11 @@ run_predict_openfold() {
   [[ -n "$struct" ]] || die "OpenFold structure not found in ${leaf}"
 
   mkdir -p "${pred_min}"
-  if [[ -n "$conf" ]]; then cp -f "$conf" "${pred_min}/confidence.json"; fi
+  if [[ -n "$conf" ]]; then materialize_output_reference "$conf" "${pred_min}/confidence.json"; fi
   if [[ "${struct##*.}" == "cif" ]]; then
-    cp -f "$struct" "${pred_min}/model_0.cif"
+    materialize_output_reference "$struct" "${pred_min}/model_0.cif"
   else
-    cp -f "$struct" "${pred_min}/model_0.pdb"
+    materialize_output_reference "$struct" "${pred_min}/model_0.pdb"
   fi
 
   local iptm plddt
@@ -5316,14 +5346,14 @@ export_cif() {
   [[ -f "$cif_path" ]] || return 0
 
   local base_name="${run_tag}_${cycle_tag}_model_0.cif"
-  cp -f "$cif_path" "${CIFS_ALL_DIR}/${base_name}"
+  materialize_output_reference "$cif_path" "${CIFS_ALL_DIR}/${base_name}"
 
   if [[ "$cycle_idx" -eq 0 ]]; then
     return 0
   fi
 
   if is_float "$iptm" && float_ge "$iptm" "$IPTM_THRESHOLD"; then
-    cp -f "$cif_path" "${CIFS_PASS_DIR}/${base_name}"
+    materialize_output_reference "$cif_path" "${CIFS_PASS_DIR}/${base_name}"
   fi
 }
 
@@ -5786,7 +5816,7 @@ run_cycle_wave_predictor_batch() {
     submit_resident_predictor_request \
       "${cycle_idx}" "${batch_idx}" "${input_dir}" "${output_dir}" "${#pending_runs[@]}"
     rc=$?
-    cp -f "${RESIDENT_LOG}" "${log_path}" 2>/dev/null || true
+    materialize_output_reference "${RESIDENT_LOG}" "${log_path}" 2>/dev/null || true
   else
     case "${PREDICTOR}" in
     boltz)
@@ -5910,7 +5940,7 @@ run_cycle_wave_predictor_batch() {
     pred_min="${EXPT_ROOT}/${run_tag}/${cycle_tag}/pred_min"
     predictor_dir="${EXPT_ROOT}/${run_tag}/${cycle_tag}/${PREDICTOR}"
     mkdir -p "${pred_min}" "${predictor_dir}"
-    cp -f "${log_path}" "${predictor_dir}/predict.log"
+    materialize_output_reference "${log_path}" "${predictor_dir}/predict.log"
     case "${PREDICTOR}" in
       boltz)
         annotate_boltz_ipsae \
@@ -5941,14 +5971,14 @@ run_cycle_wave_predictor_batch() {
     esac
     [[ -n "${struct}" && -f "${struct}" ]] || die "Cycle-wave structure not found for ${stem} in ${leaf}."
     if [[ -n "${conf}" && "${conf}" != "${pred_min}/confidence.json" ]]; then
-      cp -f "${conf}" "${pred_min}/confidence.json"
+      materialize_output_reference "${conf}" "${pred_min}/confidence.json"
     fi
     if [[ "${struct}" == "${pred_min}/model_0.cif" || "${struct}" == "${pred_min}/model_0.pdb" ]]; then
       :
     elif [[ "${struct##*.}" == "cif" ]]; then
-      cp -f "${struct}" "${pred_min}/model_0.cif"
+      materialize_output_reference "${struct}" "${pred_min}/model_0.cif"
     else
-      cp -f "${struct}" "${pred_min}/model_0.pdb"
+      materialize_output_reference "${struct}" "${pred_min}/model_0.pdb"
     fi
     iptm="nan"
     plddt="nan"
@@ -6079,7 +6109,7 @@ run_cycle_wave_antifold_batch() {
     [[ -n "${logits_csv}" ]] || die "Cycle-wave AntiFold logits missing for ${run_tag}/${cycle_tag}."
     antifold_dir="${cycle_dir}/antifold"
     mkdir -p "${antifold_dir}" "${cycle_dir}/antifold_min"
-    cp -f "${log_path}" "${antifold_dir}/antifold.log"
+    materialize_output_reference "${log_path}" "${antifold_dir}/antifold.log"
     cp -f "${logits_csv}" "${antifold_dir}/$(basename "${logits_csv}")"
     exact_fasta="${antifold_dir}/antifold_exact_positions.fasta"
     if [[ "${cycle_idx}" -eq 0 ]]; then
@@ -6764,7 +6794,13 @@ build_comparison_tables() {
 write_campaign_budget_contract() {
   local output="${EXPT_ROOT}/campaign_budget.json"
   local temporary="${output}.tmp.$$"
-  python3 - "${N_RUNS}" "${N_CYCLES}" "${DESIGN_SCHEDULER}" > "${temporary}" <<'PY'
+  local effective_samples="${PREDICTOR_SAMPLES}"
+  if [[ "${effective_samples}" == "auto" ]]; then
+    effective_samples=1
+    case "${PREDICTOR}" in protenix-v2|protenix-mini) effective_samples=5 ;; esac
+  fi
+  python3 - "${N_RUNS}" "${N_CYCLES}" "${DESIGN_SCHEDULER}" \
+    "${PREDICTOR}" "${PREDICTOR_SAMPLES}" "${effective_samples}" > "${temporary}" <<'PY'
 import json, sys
 trajectories, cycles = map(int, sys.argv[1:3])
 json.dump({
@@ -6776,6 +6812,9 @@ json.dump({
     "expected_total_checkpoints": trajectories * (cycles + 1),
     "cycle_00_counts_as_design": False,
     "scheduler": sys.argv[3],
+    "predictor": sys.argv[4],
+    "predictor_samples_requested": sys.argv[5],
+    "predictor_samples_effective": int(sys.argv[6]),
 }, sys.stdout, indent=2, sort_keys=True)
 print()
 PY
@@ -6965,6 +7004,7 @@ if [[ "${TARGET_MSA_REQUIRED}" -eq 1 && -n "${TARGET_SEQ}" && -z "${TARGET_MSA_P
   die "A real target MSA is required, but no target MSA path was produced."
 fi
 if [[ -n "${TARGET_MSA_PATH}" && -n "${TARGET_SEQ}" ]]; then
+  TARGET_MSA_PATH="$(localize_target_msa "${TARGET_MSA_PATH}" "${TARGET_CHAIN_ID:-B}")"
   TARGET_MSA_RECORDS="$(
     validate_target_msa_file "${TARGET_MSA_PATH}" "${TARGET_SEQ}" "${TARGET_MSA_REQUIRED}"
   )" || die "Target MSA validation failed: ${TARGET_MSA_PATH}"
@@ -7028,6 +7068,7 @@ while IFS=$'\t' read -r _target_chain _target_sequence _embedded_msa; do
   else
     [[ -f "${_target_msa}" ]] || die "Target chain ${_target_chain} MSA does not exist: ${_target_msa}"
     _target_msa="$(cd "$(dirname "${_target_msa}")" && pwd)/$(basename "${_target_msa}")"
+    _target_msa="$(localize_target_msa "${_target_msa}" "${_target_chain}")"
     _target_records="$(validate_target_msa_file "${_target_msa}" "${_target_sequence}" "${TARGET_MSA_REQUIRED}" "Target chain ${_target_chain}")" \
       || die "Target chain ${_target_chain} MSA validation failed: ${_target_msa}"
     echo "==> Validated target chain ${_target_chain} MSA: ${_target_msa} (records=${_target_records})"
@@ -7390,6 +7431,12 @@ if [[ "${MAX_PARALLEL_USER}" == "auto" ]]; then
   fi
 fi
 echo "CPU only                : ${CPU_ONLY}"
+_display_predictor_samples="${PREDICTOR_SAMPLES}"
+if [[ "${_display_predictor_samples}" == "auto" ]]; then
+  _display_predictor_samples=1
+  case "${PREDICTOR}" in protenix-v2|protenix-mini) _display_predictor_samples=5 ;; esac
+fi
+echo "Predictor samples       : ${_display_predictor_samples} (requested=${PREDICTOR_SAMPLES})"
 echo "Sequence designer       : ${SEQUENCE_DESIGNER_LABEL}"
 echo "Design temp cycle_00->01: ${LIGAND_TEMP_CYCLE01}"
 echo "Design temp other cycles: ${LIGAND_TEMP_DEFAULT}"
@@ -7557,6 +7604,7 @@ if [[ "$(post_predictors_count)" -gt 0 ]]; then
 fi
 
 build_comparison_tables
+python3 "${STORAGE_POLICY}" index-campaign --root "${EXPT_ROOT}" >/dev/null
 
 echo
 echo "Done."

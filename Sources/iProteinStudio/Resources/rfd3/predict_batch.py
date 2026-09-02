@@ -409,24 +409,40 @@ def resolve_msas(jobs: list, cfg: dict, root: Path, env: dict) -> dict:
     return resolved
 
 
-def materialize_msas(resolved: dict, input_dir: Path) -> dict:
-    """Copy every selected alignment into the durable run inputs.
+def materialize_msas(resolved: dict, input_dir: Path,
+                     object_root: Path | None = None) -> dict:
+    """Materialise every selected alignment into durable run inputs.
 
     The cache index may find an alignment anywhere on the machine, including an
     older checkout. Pointing the saved YAML at that external file makes a run
-    impossible to reproduce after the source is moved or deleted. Each run owns
-    an exact byte-for-byte copy instead.
+    impossible to reproduce after the source is moved or deleted.  Each run gets
+    verified local bytes, while identical alignments share APFS blocks through
+    the managed content-addressed store.
     """
+    if object_root is None:
+        object_root = input_dir.parent / ".objects"
+    scripts = object_root.parent / "scripts"
+    if scripts.is_dir() and str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    from storage_policy import materialize_object
+
     msa_dir = input_dir / "msas"
     msa_dir.mkdir(parents=True, exist_ok=True)
     local = {}
     for digest, source_text in resolved.items():
         source = Path(source_text)
         target = msa_dir / f"{digest}.a3m"
-        if not target.exists() or target.read_bytes() != source.read_bytes():
-            shutil.copyfile(source, target)
+        materialize_object(source, object_root, target)
         local[digest] = str(target.resolve())
     return local
+
+
+def effective_diffusion_samples(predictor: str, configured: int) -> int:
+    if configured > 0:
+        return configured
+    if predictor in {"protenix-v2", "protenix-mini"}:
+        return 5
+    return 1
 
 
 # --------------------------------------------------------------------- inputs --
@@ -617,7 +633,7 @@ def main() -> None:
     stage("plan", 32, "Preparing inputs")
     yaml_dir = output / "inputs"
     yaml_dir.mkdir(exist_ok=True)
-    resolved = materialize_msas(resolved, yaml_dir)
+    resolved = materialize_msas(resolved, yaml_dir, root / "objects")
     prepared = []
     for job in jobs:
         path = yaml_dir / f"{job['name']}.yaml"
@@ -743,6 +759,11 @@ def main() -> None:
                "seed": int(cfg.get("seed", 42)),
                "num_seeds": int(cfg.get("num_seeds", 1)),
                "diffusion_samples": int(cfg.get("diffusion_samples", 0)),
+               "effective_diffusion_samples": {
+                   predictor: effective_diffusion_samples(
+                       predictor, int(cfg.get("diffusion_samples", 0))
+                   ) for predictor in predictors
+               },
                "msa_cache": cfg["msa"]["cache_dir"]}
     (output / "run_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     info(json.dumps(summary))

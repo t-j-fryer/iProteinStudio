@@ -1,4 +1,6 @@
 import Foundation
+import CryptoKit
+import Darwin
 
 /// Central owner of on-disk locations and vendored resource access.
 ///
@@ -69,6 +71,12 @@ enum AppPaths {
     /// would be quietly broken. A space-free home is the only way a from-scratch
     /// install can work.
     static var support: URL {
+        if let isolated = ProcessInfo.processInfo.environment["IPROTEINSTUDIO_TEST_SUPPORT_ROOT"],
+           !isolated.isEmpty {
+            let dir = URL(fileURLWithPath: isolated, isDirectory: true)
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            return dir
+        }
         let dir = fm.homeDirectoryForCurrentUser.appendingPathComponent(".iproteinstudio",
                                                                         isDirectory: true)
         if !fm.fileExists(atPath: dir.path) { migrateLegacyRootIfPresent(to: dir) }
@@ -237,6 +245,15 @@ enum AppPaths {
         return dir
     }
 
+    /// Immutable content-addressed run inputs and versioned policy snapshots.
+    /// Files remain independently reachable from campaigns, so deleting a
+    /// cache index can never make a recorded run unreproducible.
+    static var objectStore: URL {
+        let dir = support.appendingPathComponent("objects", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     static var runnerScript: URL { pipeline.appendingPathComponent("nanohunter_run.sh") }
     static var setupScript: URL { pipeline.appendingPathComponent("setup_pipeline.sh") }
     static var catalogTSV: URL {
@@ -250,32 +267,35 @@ enum AppPaths {
     }
 
     /// Freeze the app-owned runner and helper scripts beside a campaign before
-    /// launch. Engine environments and checkpoints remain shared under
-    /// `support`; only the small executable policy layer is copied. A later app
-    /// update therefore cannot change a detached or resumed campaign midway.
+    /// launch. Exact versions are retained in a content-addressed object store;
+    /// campaign copies use APFS clones when available, so they remain independently
+    /// editable/resumable without multiplying the physical blocks.
     static func createPipelineSnapshot(in campaign: URL) throws -> URL {
         let runtime = campaign.appendingPathComponent(".studio_runtime", isDirectory: true)
         let destination = runtime.appendingPathComponent("pipeline", isDirectory: true)
         let runner = destination.appendingPathComponent("nanohunter_run.sh")
         if fm.fileExists(atPath: runner.path) { return destination }
-        guard let source = bundledPipeline else {
+        guard let bundled = bundledPipeline else {
             throw NHError.message("Bundled pipeline assets are missing from the app.")
         }
         try fm.createDirectory(at: runtime, withIntermediateDirectories: true)
+        let source = try contentAddressedPipeline(from: bundled)
+        let digest = source.lastPathComponent
         let staged = runtime.appendingPathComponent(".pipeline-stage-\(UUID().uuidString)",
                                                      isDirectory: true)
         do {
-            try fm.copyItem(at: source, to: staged)
-            removeGeneratedCaches(from: staged)
-            for name in ["nanohunter_run.sh", "setup_pipeline.sh"] {
-                let path = staged.appendingPathComponent(name).path
-                try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
+            let methods = try cloneDirectoryTree(from: source, to: staged)
+            guard try directoryDigest(staged) == digest else {
+                throw NHError.message("Pipeline snapshot checksum verification failed.")
             }
             let metadata: [String: Any] = [
-                "schema_version": 1,
+                "schema_version": 2,
                 "created_at": ISO8601DateFormatter().string(from: Date()),
                 "app_version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development",
                 "immutable_for_campaign": true,
+                "pipeline_sha256": digest,
+                "content_object": source.path,
+                "materialization": methods,
             ]
             let data = try JSONSerialization.data(withJSONObject: metadata,
                                                   options: [.prettyPrinted, .sortedKeys])
@@ -286,6 +306,134 @@ enum AppPaths {
             throw error
         }
         return destination
+    }
+
+    /// Publish a generated-cache-free pipeline tree under its deterministic
+    /// digest. Existing objects are always re-hashed before reuse.
+    private static var cachedPipelineObject: URL?
+
+    private static func contentAddressedPipeline(from bundled: URL) throws -> URL {
+        if let cachedPipelineObject,
+           fm.fileExists(atPath: cachedPipelineObject.path),
+           try directoryDigest(cachedPipelineObject) == cachedPipelineObject.lastPathComponent {
+            return cachedPipelineObject
+        }
+        let parent = objectStore.appendingPathComponent("pipeline/sha256", isDirectory: true)
+        try fm.createDirectory(at: parent, withIntermediateDirectories: true)
+        let staged = parent.appendingPathComponent(".pipeline-\(UUID().uuidString)",
+                                                   isDirectory: true)
+        do {
+            try fm.copyItem(at: bundled, to: staged)
+            removeGeneratedCaches(from: staged)
+            for name in ["nanohunter_run.sh", "setup_pipeline.sh"] {
+                let path = staged.appendingPathComponent(name).path
+                try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
+            }
+            let digest = try directoryDigest(staged)
+            let object = parent.appendingPathComponent(digest, isDirectory: true)
+            if fm.fileExists(atPath: object.path) {
+                guard try directoryDigest(object) == digest else {
+                    throw NHError.message("A stored pipeline snapshot failed checksum verification.")
+                }
+                try fm.removeItem(at: staged)
+                cachedPipelineObject = object
+                return object
+            }
+            do {
+                try fm.moveItem(at: staged, to: object)
+            } catch where fm.fileExists(atPath: object.path) {
+                try? fm.removeItem(at: staged)
+                guard try directoryDigest(object) == digest else { throw error }
+            }
+            cachedPipelineObject = object
+            return object
+        } catch {
+            try? fm.removeItem(at: staged)
+            throw error
+        }
+    }
+
+    /// Hash names, types, symlink targets and bytes in deterministic order.
+    private static func directoryDigest(_ root: URL) throws -> String {
+        guard let enumerator = fm.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey],
+            options: []
+        ) else { throw NHError.message("Could not enumerate pipeline snapshot assets.") }
+        let generatedDirectories: Set<String> = ["__pycache__", "numba_cache"]
+        var items: [URL] = []
+        for case let item as URL in enumerator {
+            if generatedDirectories.contains(item.lastPathComponent) {
+                enumerator.skipDescendants()
+                continue
+            }
+            if item.pathExtension == "pyc" || item.lastPathComponent == ".DS_Store" { continue }
+            items.append(item)
+        }
+        items.sort { $0.path < $1.path }
+        var digest = SHA256()
+        let rootComponentCount = root.standardizedFileURL.pathComponents.count
+        for item in items {
+            let relative = item.standardizedFileURL.pathComponents
+                .dropFirst(rootComponentCount).joined(separator: "/")
+            let values = try item.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey,
+                                                            .isSymbolicLinkKey])
+            if values.isDirectory == true {
+                digest.update(data: Data("D\0\(relative)\0".utf8))
+            } else if values.isSymbolicLink == true {
+                let target = try fm.destinationOfSymbolicLink(atPath: item.path)
+                digest.update(data: Data("L\0\(relative)\0\(target)\0".utf8))
+            } else if values.isRegularFile == true {
+                digest.update(data: Data("F\0\(relative)\0".utf8))
+                let handle = try FileHandle(forReadingFrom: item)
+                while let data = try handle.read(upToCount: 8 * 1024 * 1024), !data.isEmpty {
+                    digest.update(data: data)
+                }
+                try handle.close()
+                digest.update(data: Data([0]))
+            }
+        }
+        return digest.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Recursively materialise a tree with independent APFS copy-on-write files.
+    /// A non-APFS volume falls back to ordinary copies, never shared mutable links.
+    private static func cloneDirectoryTree(from source: URL, to destination: URL) throws
+        -> [String: Int] {
+        var cloned = 0
+        var copied = 0
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        let children = try fm.contentsOfDirectory(
+            at: source,
+            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey]
+        )
+        for child in children {
+            let target = destination.appendingPathComponent(child.lastPathComponent)
+            let values = try child.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey,
+                                                             .isSymbolicLinkKey])
+            if values.isDirectory == true {
+                let nested = try cloneDirectoryTree(from: child, to: target)
+                cloned += nested["apfs_clone", default: 0]
+                copied += nested["copy", default: 0]
+            } else if values.isSymbolicLink == true {
+                try fm.createSymbolicLink(atPath: target.path,
+                                         withDestinationPath: fm.destinationOfSymbolicLink(atPath: child.path))
+            } else if values.isRegularFile == true {
+                let result = child.withUnsafeFileSystemRepresentation { sourcePath in
+                    target.withUnsafeFileSystemRepresentation { targetPath in
+                        guard let sourcePath, let targetPath else { return Int32(-1) }
+                        return clonefile(sourcePath, targetPath, 0)
+                    }
+                }
+                if result == 0 {
+                    cloned += 1
+                } else {
+                    try fm.copyItem(at: child, to: target)
+                    copied += 1
+                }
+            }
+        }
+        return ["apfs_clone": cloned, "copy": copied]
     }
 
     // MARK: Bundled resources

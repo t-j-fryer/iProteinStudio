@@ -19,6 +19,7 @@ import subprocess
 import sys
 
 from ipsae_score import IPSAEError, annotate_intellifold
+from storage_policy import compact_detailed_confidence, json_variants
 
 
 STRICT_ACCELERATE_VERSION = "1.1.1"
@@ -65,7 +66,7 @@ def verify_outputs(arguments: list[str]) -> None:
         structures = set(job_dir.glob(f"{job}_seed-*_sample-*.{extension}"))
         summaries = set(job_dir.glob(f"{job}_seed-*_sample-*_summary_confidences.json"))
         detailed = {
-            path for path in job_dir.glob(f"{job}_seed-*_sample-*_confidences.json")
+            path for path in json_variants(job_dir, f"{job}_seed-*_sample-*_confidences.json")
             if "summary_confidences" not in path.name
         }
         expected = len(seeds) * samples
@@ -88,6 +89,10 @@ def verify_outputs(arguments: list[str]) -> None:
     completed = subprocess.run([sys.executable, str(validator), str(output)])
     if completed.returncode:
         die("prediction produced invalid protein geometry; see the diagnostic above")
+    receipt = compact_detailed_confidence(output)
+    if receipt["failures"]:
+        print("WARNING: IntelliFold detailed-confidence compaction retained the original "
+              f"for {len(receipt['failures'])} file(s).", file=sys.stderr)
 
 
 def main() -> None:

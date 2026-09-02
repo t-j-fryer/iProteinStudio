@@ -75,7 +75,8 @@ def target_msa(yaml_path: Path) -> str:
     return ""
 
 
-def normalize_openfold_msa_paths(query_json: Path, work_dir: Path) -> None:
+def normalize_openfold_msa_paths(query_json: Path, work_dir: Path,
+                                 object_root: Path | None = None) -> None:
     """Give raw alignments a basename OpenFold-3 actually parses.
 
     OpenFold-3 accepts arbitrary A3M/STO *paths* in its query schema, but its
@@ -113,7 +114,11 @@ def normalize_openfold_msa_paths(query_json: Path, work_dir: Path) -> None:
             chain_dir = work_dir / f"query_{query_index}" / f"chain_{chain_index}"
             chain_dir.mkdir(parents=True, exist_ok=True)
             normalized = chain_dir / f"colabfold_main{suffix}"
-            shutil.copyfile(source, normalized)
+            if object_root is None:
+                shutil.copyfile(source, normalized)
+            else:
+                from storage_policy import materialize_object
+                materialize_object(source, object_root, normalized)
             chain["main_msa_file_paths"] = [str(normalized)]
 
     query_json.write_text(json.dumps(payload, indent=2) + "\n")
@@ -133,6 +138,8 @@ def main() -> None:
         die("num-seeds and diffusion-samples must both be positive")
 
     root = args.nanohunter_root.resolve()
+    sys.path.insert(0, str(root / "scripts"))
+    from storage_policy import relative_symlink
     venv = root / "venvs" / "NanoHunter_openfold3_mlx"
     cli = venv / "bin" / "run_openfold"
     query_builder = root / "scripts" / "openfold_query_json.py"
@@ -165,7 +172,8 @@ def main() -> None:
         capture_output=True, text=True)
     if build.returncode:
         die(f"query JSON build failed: {build.stderr.strip()[:400]}")
-    normalize_openfold_msa_paths(query_json, args.output / "_openfold_msas")
+    normalize_openfold_msa_paths(query_json, args.output / "_openfold_msas",
+                                 root / "objects")
     # The builder prints "true" when a chain still has no MSA and the server is
     # needed. Passing that straight through preserves the runner's behaviour.
     use_server = build.stdout.strip() or "false"
@@ -215,9 +223,13 @@ def main() -> None:
         die(f"no structure written in {leaf}")
 
     if confidences:
-        shutil.copyfile(confidences[0], pred_min / "confidence.json")
+        relative_symlink(confidences[0], pred_min / "confidence.json", replace=True)
     structure = structures[0]
-    shutil.copyfile(structure, pred_min / ("model_0.cif" if structure.suffix == ".cif" else "model_0.pdb"))
+    relative_symlink(
+        structure,
+        pred_min / ("model_0.cif" if structure.suffix == ".cif" else "model_0.pdb"),
+        replace=True,
+    )
 
     iptm = plddt = None
     if (pred_min / "confidence.json").exists():

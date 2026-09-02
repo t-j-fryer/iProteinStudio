@@ -382,6 +382,11 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
                "Protenix full confidence was not scored")
         expect("ipsae_min" in json.loads(protenix_summary.read_text()),
                "Protenix summary did not receive ipSAE(min)")
+        protenix.compact_detailed_confidence(protenix_score_root)
+        expect(not protenix_full.exists()
+               and Path(str(protenix_full) + ".gz").is_file()
+               and ipsae.annotate_protenix(protenix_score_root, [mixed_job]) == 1,
+               "Protenix resume/ipSAE did not transparently read compressed confidence")
 
         # The strict IntelliFold wrapper is testable without importing PyTorch.
         # Validate its exact seed/sample accounting against a synthetic output.
@@ -491,6 +496,13 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
         expect(openfold_cmd[openfold_cmd.index("--num-seeds") + 1] == "3"
                and openfold_cmd[openfold_cmd.index("--diffusion-samples") + 1] == "2",
                "OpenFold sampling controls did not reach its adapter")
+        expect(predict.effective_diffusion_samples("protenix-v2", 0) == 5
+               and predict.effective_diffusion_samples("protenix-mini", 0) == 5
+               and predict.effective_diffusion_samples("boltz", 0) == 1
+               and predict.effective_diffusion_samples("intellifold", 0) == 1
+               and predict.effective_diffusion_samples("openfold-3-mlx", 0) == 1
+               and predict.effective_diffusion_samples("protenix-v2", 2) == 2,
+               "saved effective sample provenance drifted from engine defaults")
 
         # Protein design ranking remains the established mean iPTM while the
         # conservative interface metric survives per engine and in aggregate.
