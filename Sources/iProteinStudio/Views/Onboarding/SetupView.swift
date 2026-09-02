@@ -62,7 +62,7 @@ private struct InnerSetup: View {
                 reuseCard(existing)
             }
 
-            Text("The recommended setup installs Boltz-2 structure prediction, IntelliFold v2 Flash, Protenix v2 and Mini, AntiFold and the MPNN sequence designers. Large full-model and affinity checkpoints remain separate choices. Setup runs once and needs an internet connection.")
+            Text("Every setup automatically installs the core ProteinMPNN, SolubleMPNN, LigandMPNN and AbMPNN sequence designers. The recommended setup also installs Boltz-2 structure prediction, IntelliFold v2 Flash, Protenix v2 and Mini, and AntiFold. Large full-model and affinity checkpoints remain separate choices. Setup runs once and needs an internet connection.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

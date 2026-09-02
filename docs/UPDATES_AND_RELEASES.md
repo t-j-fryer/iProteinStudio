@@ -16,8 +16,16 @@ confirmation. Updating the app never removes or silently replaces projects,
 results, MSAs, environments or weights.
 
 Copies older than 0.2.0 contain no updater. Their users must install the first
-signed 0.2.x DMG manually into `/Applications`; later signed releases can update
-themselves.
+0.2.x beta DMG manually into `/Applications`; later trusted beta or signed
+releases can update themselves.
+
+**Trusted unsigned betas use Sparkle, but remain unsigned by Apple.** Their
+update ZIPs are signed with the project's Sparkle EdDSA key and rejected if that
+signature does not match the public key embedded in the app. This provides
+update continuity for a small trusted testing group; it does not establish the
+developer's identity, provide notarization or remove the first-install
+Gatekeeper warning. Their bundle metadata remains distinct from local
+development and Developer ID distribution builds.
 
 ## Trust boundary
 
@@ -25,8 +33,9 @@ themselves.
 - Update archives are signed with the EdDSA key whose public half is in
   `release/sparkle_public_key.txt`; the private half lives only in the release
   maintainer's login Keychain.
-- Distribution builds must be signed with an Apple Developer ID Application
-  certificate, use Hardened Runtime, be notarized and have their ticket stapled.
+- Public distribution builds must be signed with an Apple Developer ID
+  Application certificate, use Hardened Runtime, be notarized and have their
+  ticket stapled. Controlled betas explicitly lack this Apple trust layer.
 - The feed uses HTTPS and Sparkle verifies an update before extraction.
 - Model downloads retain the existing pinned URL, size and SHA-256 checks in
   `setup_pipeline.sh` and are outside Sparkle.
@@ -34,6 +43,39 @@ themselves.
 Back up the Sparkle private key to encrypted offline storage using the pinned
 `generate_keys --account iproteinstudio -x` tool. Never place that exported file
 in this repository or a cloud-synced working directory.
+
+## Controlled unsigned beta
+
+The unsigned route exists for trusted testing before Apple credentials are
+available. It produces an Apple-silicon DMG, ZIP, SHA-256 manifest, build-
+provenance record and signed appcast. The packager fails unless the Sparkle
+private key in the maintainer's Keychain matches the checked-in public key:
+
+```bash
+release/release_app.sh --unsigned-beta
+```
+
+A clean Git worktree is required for any artifact that could be shared. During
+development, `--unsigned-beta --allow-dirty` may produce a local acceptance
+artifact, but its provenance is visibly `dirty-local-test` and the script warns
+that it must not be published.
+
+After committing and testing a clean beta, publish its GitHub prerelease assets
+and signed appcast together:
+
+```bash
+release/release_app.sh --publish-unsigned-beta
+```
+
+The command publishes a `vVERSION-beta` prerelease, uploads the ZIP, DMG,
+checksums and provenance, then commits the generated appcast to `main`. Publishing
+only the appcast or only the archive would create a broken update, so this is one
+release operation.
+
+The DMG includes [installation instructions](INSTALL_UNSIGNED_BETA.md), privacy,
+security, support, licensing and third-party notices. Testers drag the app to
+Applications and use macOS's documented per-app **Open Anyway** control. Do not
+instruct users to disable Gatekeeper globally or strip quarantine attributes.
 
 ## One-time Apple setup
 
@@ -88,3 +130,10 @@ SwiftPM executable assembled without an Xcode project. Before the first public
 release, verify every nested Sparkle helper with `codesign --verify --deep
 --strict`; moving to an Xcode archive is preferable if Apple's release tooling
 reports any nested-code issue.
+
+## Licensing gate
+
+The unsigned packager is technically usable, but a broadly advertised release
+remains gated on the institutional review in [LICENSING.md](../LICENSING.md).
+The app carries exact available licence texts for embedded components; optional
+engines and checkpoints retain their own upstream terms.

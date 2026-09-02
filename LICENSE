@@ -1,0 +1,15 @@
+iProteinStudio licensing status
+================================
+
+No licence is currently granted for the original iProteinStudio source code.
+Copyright ownership and an appropriate release licence are under institutional
+review. Making this repository readable on GitHub does not place that code in
+the public domain and does not grant permission to redistribute it.
+
+This statement does not change the licences of third-party components. Those
+components remain available under their respective terms; see LICENSING.md and
+THIRD_PARTY_NOTICES.md.
+
+Do not replace this file with an open-source licence until authorship,
+sponsorship, third-party materials and the MIT Technology Licensing Office
+release process have been resolved in writing.

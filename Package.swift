@@ -16,13 +16,10 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/iProteinStudio",
-            resources: [
-                .copy("Resources/pipeline"),
-                .copy("Resources/web"),
-                .copy("Resources/rfd3"),
-                .copy("Resources/rfd3_overlay"),
-                .copy("Resources/examples"),
-            ],
+            // Resources are copied explicitly by build_app.sh into the standard
+            // sealed macOS bundle location. SwiftPM's executable resource
+            // accessor embeds a machine-specific absolute fallback path.
+            exclude: ["Resources"],
             linkerSettings: [
                 // The release bundle embeds Sparkle under Contents/Frameworks.
                 // SwiftPM otherwise emits only an executable-local runpath,

@@ -175,7 +175,7 @@ struct DesignFormView: View {
                     Card(title: "4 · Current models", systemImage: "checkmark.seal") {
                         Label(quickModelSummary, systemImage: "cpu")
                             .font(.callout)
-                        Text("Switch to Advanced to change the designer, checking models, temperatures, or scheduling.")
+                        Text("Switch to Advanced to change the designer, checking models, temperatures, or diagnostics.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -662,7 +662,7 @@ struct PredictorPicker: View {
             && p == .intellifold {
             Text("not benchmarked").font(.caption).foregroundStyle(.secondary)
         } else {
-            let band = p.speed(in: request.speedMode)
+            let band = p.speed(in: .batched)
             HStack(spacing: 4) {
                 ForEach(0..<4, id: \.self) { i in
                     RoundedRectangle(cornerRadius: 1)
@@ -731,6 +731,13 @@ struct RunSettings: View {
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+        Label(request.designPredictor == .protenixV2
+              ? "Automatic scheduling: Protenix v2 is loaded once per cycle, its fastest validated policy."
+              : "Automatic scheduling: one resident predictor stays loaded across the complete campaign.",
+              systemImage: "bolt.fill")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -745,23 +752,9 @@ struct AdvancedSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // --- Scheduling ---
+            // --- Recovery ---
             VStack(alignment: .leading, spacing: 6) {
-                Text("Scheduling").font(.headline)
-                Picker("", selection: $request.speedMode) {
-                    ForEach(SpeedMode.allCases) { Text($0.label).tag($0) }
-                }.pickerStyle(.segmented).labelsHidden().frame(width: 300)
-                    .accessibilityLabel("Scheduling mode")
-                Text(request.speedMode.blurb).font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if request.speedMode == .batched {
-                    Label(request.designPredictor == .protenixV2
-                          ? "Protenix v2 uses cycle waves; the other design engines keep one model loaded for the complete campaign."
-                          : "One model-owning worker serves every design cycle; completed cycles remain independently resumable.",
-                          systemImage: "bolt.fill")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text("Recovery").font(.headline)
                 Toggle("Reuse finished work if this run is restarted", isOn: $request.resumeIfPossible)
                     .toggleStyle(.checkbox).font(.callout)
                 Text("Long campaigns get interrupted. With this on, completed cycles, sequences and checks are read back from disk instead of recomputed.")
@@ -770,33 +763,18 @@ struct AdvancedSettings: View {
             }
             Divider()
 
-            // --- Parallelisation ---
+            // --- Automatic scheduling ---
             VStack(alignment: .leading, spacing: 6) {
-                Text("Parallelisation").font(.headline)
-                if request.speedMode == .batched {
-                    Text("Optimized scheduling owns the Apple GPU with one predictor process. Sequence redesigns are still dispatched between prediction waves.")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Picker("", selection: $request.parallelMode) {
-                        ForEach(ParallelMode.allCases) { Text($0.label).tag($0) }
-                    }.pickerStyle(.segmented).labelsHidden().frame(width: 300)
-                        .accessibilityLabel("Memory and parallelism mode")
-                    Text(request.parallelMode.blurb).font(.caption).foregroundStyle(.secondary)
-                    if request.parallelMode == .manual {
-                        HStack(spacing: 6) {
-                            Text("Run")
-                            EditableIntStepper(value: $request.manualParallel,
-                                               in: 1...max(1, cpuCount),
-                                               accessibilityLabel: "Concurrent predictions")
-                            Text("prediction\(request.manualParallel == 1 ? "" : "s") at once")
-                        }
-                    } else if request.parallelMode == .performance {
-                        Label("Best when you're not actively using the Mac for other work.",
-                              systemImage: "bolt.fill")
-                            .font(.caption).foregroundStyle(.orange)
-                    }
-                }
+                Text("Automatic scheduling").font(.headline)
+                Label(request.designPredictor == .protenixV2
+                      ? "Protenix v2 uses one directory wave per cycle; this was faster than keeping that checkpoint resident under sustained Apple-GPU work."
+                      : "One model-owning worker serves every design cycle. Sequence redesigns run between prediction waves, and completed cycles remain independently resumable.",
+                      systemImage: "bolt.fill")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Studio selects the validated policy automatically. Historical per-trajectory scheduling remains available only from the CLI for controlled diagnostics.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Divider()
 
@@ -834,7 +812,7 @@ struct AdvancedSettings: View {
                         }.disabled(!request.isRunnable)
                     }
                 }
-                Text("Runs one heaviest-case prediction (longest binder + your target, on Boltz) to measure peak memory — the same step the automatic mode does before a run.")
+                Text("Runs one heaviest-case prediction (longest binder + your target, on Boltz) to measure peak memory and confirm that the campaign fits on this Mac.")
                     .font(.caption).foregroundStyle(.secondary)
                 calibrationResults
             }

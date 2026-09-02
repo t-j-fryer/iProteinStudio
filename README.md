@@ -90,6 +90,19 @@ the evidence and retirement boundary are recorded in [Lab Book 0029](lab_book/00
 - Xcode Command Line Tools (`xcode-select --install`)
 - Internet access for first-run setup (downloads are several GB)
 
+## Unsigned beta installation
+
+Until a Developer ID-signed release is available, controlled second-Mac builds
+are distributed as an explicitly labelled unsigned beta DMG. macOS requires a
+one-time **Privacy & Security → Open Anyway** confirmation; after that, the app
+can receive update archives verified with the project's Sparkle EdDSA key. See
+[Install the unsigned beta](docs/INSTALL_UNSIGNED_BETA.md)
+before opening one.
+
+Every beta release includes SHA-256 checksums and build provenance. Model engines
+and checkpoints are not embedded in the DMG; the user reviews and confirms those
+separate downloads in the app.
+
 ## Build & run
 
 ```bash
@@ -127,6 +140,11 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the design, and
 **[LAB_BOOK.md](LAB_BOOK.md) for why things are the way they are** — every
 measurement, decision and dead end is recorded there.
 
+Distribution and support documents: [Privacy](PRIVACY.md),
+[Security](SECURITY.md), [Support](SUPPORT.md),
+[Licensing status](LICENSING.md), and
+[Third-party notices](THIRD_PARTY_NOTICES.md).
+
 ## What a fresh install gets, and how updates reach people
 
 Everything needed to run is shipped **inside the app bundle** and written out on
@@ -161,9 +179,10 @@ scripts are re-staged after an app update, while environments and weights remain
 untouched. Engines and checkpoints are never automatic: Studio shows their
 purpose and approximate footprint and requires a final confirmation before any
 large download. Copies older than 0.2 require one manual upgrade to the first
-signed release. The code and release pipeline are ready, but public delivery is
-blocked until a Developer ID certificate is installed and the first notarized
-cross-version update is accepted on a second Mac. See
+trusted beta or signed release. Trusted betas verify update archives with the
+project's Sparkle EdDSA key but remain ad-hoc signed and unnotarized by Apple.
+Public delivery remains blocked until a Developer ID certificate is installed
+and the first notarized cross-version update is accepted on a second Mac. See
 [Application and engine updates](docs/UPDATES_AND_RELEASES.md).
 
 ## Working on this repo

@@ -36,6 +36,21 @@ def atomic_json(path: Path, payload: dict[str, object]) -> None:
 def prepare(root: Path, component: str, version: str) -> Path:
     versions = root / "components" / component / "versions"
     versions.mkdir(parents=True, exist_ok=True)
+    # The global installer lock guarantees that no live setup owns a stage when
+    # a new invocation reaches this point. Remove only directories that carry
+    # our own incomplete transaction marker for this component. Unknown or
+    # malformed entries are preserved for inspection rather than guessed at.
+    for candidate in versions.iterdir():
+        if candidate.is_symlink() or not candidate.is_dir() \
+                or not candidate.name.startswith(".staging-"):
+            continue
+        try:
+            transaction = json.loads((candidate / "transaction.json").read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if transaction.get("component") == component \
+                and transaction.get("state") == "staging":
+            shutil.rmtree(candidate)
     stage = versions / f".staging-{version}-{uuid.uuid4().hex}"
     stage.mkdir()
     atomic_json(stage / "transaction.json", {

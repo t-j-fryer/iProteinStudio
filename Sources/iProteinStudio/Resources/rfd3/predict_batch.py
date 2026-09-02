@@ -225,8 +225,32 @@ def build_index(cache_dir: Path, roots: list[Path], limit: int = 40000) -> dict:
     return index
 
 
+def msa_log_summary(log: Path) -> str:
+    """Return the useful cause from a noisy upstream MSA log."""
+    try:
+        text = log.read_text(errors="replace").replace("\r", "\n")
+    except OSError:
+        return "No diagnostic log was produced."
+    needles = (
+        "error", "exception", "failed", "failure", "timed out", "timeout",
+        "certificate", "ssl", "connection", "name resolution", "dns",
+        "no homolog", "429", "500", "502", "503", "504",
+    )
+    useful = []
+    for raw in text.splitlines():
+        line = " ".join(raw.strip().split())
+        if line and any(needle in line.lower() for needle in needles):
+            if not useful or useful[-1] != line:
+                useful.append(line)
+    if not useful:
+        useful = [" ".join(line.strip().split()) for line in text.splitlines()
+                  if line.strip()]
+    summary = "; ".join(useful[-3:]) if useful else "No error detail was reported."
+    return summary[-1200:]
+
+
 def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict,
-                 provider: str) -> Path | None:
+                 provider: str) -> tuple[Path | None, str]:
     """Generate and retain one verified MSA using an installed server client.
 
     Protenix has its own upstream MSA command, so it must never bring Boltz as
@@ -237,7 +261,7 @@ def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict,
     digest = sequence_key(sequence)
     target = cache_dir / f"{digest}.a3m"
     if target.exists() and valid_a3m(target, sequence):
-        return target
+        return target, ""
     if target.exists():
         target.unlink()
 
@@ -246,23 +270,31 @@ def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict,
     protenix = root / "venvs" / "NanoHunter_protenix" / "bin" / "protenix"
     if provider == "protenix":
         if not protenix.exists():
-            return None
+            return None, "The Protenix MSA client is not installed."
         adapter = root / "scripts" / "protenix_msa.py"
         if not adapter.is_file():
-            return None
+            return None, "The installed Protenix MSA adapter is missing."
         info("Generating the missing alignment with Protenix's MSA server client")
         log = work / "msa.log"
-        with log.open("w") as handle:
-            result = subprocess.run(
-                [str(protenix.parent / "python"), str(adapter),
-                 "--sequence", canonical(sequence), "--output", str(target),
-                 "--nanohunter-root", str(root),
-                 "--work-dir", str(work / "protenix_msa")],
-                env=env, stdout=handle, stderr=subprocess.STDOUT)
-        if result.returncode == 0 and valid_a3m(target, sequence):
-            shutil.rmtree(work, ignore_errors=True)
-            return target
-        return None
+        log.unlink(missing_ok=True)
+        for attempt in range(1, 4):
+            with log.open("a") as handle:
+                handle.write(f"\n=== Protenix MSA attempt {attempt}/3 ===\n")
+                handle.flush()
+                result = subprocess.run(
+                    [str(protenix.parent / "python"), str(adapter),
+                     "--sequence", canonical(sequence), "--output", str(target),
+                     "--nanohunter-root", str(root),
+                     "--work-dir", str(work / "protenix_msa")],
+                    env=env, stdout=handle, stderr=subprocess.STDOUT)
+            if result.returncode == 0 and valid_a3m(target, sequence):
+                shutil.rmtree(work, ignore_errors=True)
+                return target, ""
+            target.unlink(missing_ok=True)
+            if attempt < 3:
+                info(f"Protenix MSA attempt {attempt}/3 failed; retrying")
+                time.sleep(attempt * 5)
+        return None, f"All 3 attempts failed. {msa_log_summary(log)}"
 
     yaml_path = work / "query.yaml"
     yaml_path.write_text(
@@ -270,46 +302,57 @@ def generate_msa(sequence: str, cache_dir: Path, root: Path, env: dict,
         f"      sequence: {canonical(sequence)}\n"
         "version: 1\n"
     )
-    boltz = root / "venvs" / "NanoHunter_boltz" / "bin" / "boltz"
-    if not boltz.exists():
-        return None
+    boltz_python = root / "venvs" / "NanoHunter_boltz" / "bin" / "python"
+    boltz_launcher = root / "scripts" / "boltz_mps.py"
+    if not boltz_python.exists() or not boltz_launcher.exists():
+        return None, "The Boltz MSA client is not installed."
     info("Generating the missing alignment with Boltz's ColabFold client")
     log = work / "msa.log"
-    with log.open("w") as handle:
-        result = subprocess.run(
-            [str(boltz), "predict", str(yaml_path), "--out_dir", str(work),
-             "--use_msa_server", "--msa_server_url", "https://api.colabfold.com",
-             "--msa_pairing_strategy", "greedy", "--override"],
-            env=env, stdout=handle, stderr=subprocess.STDOUT)
-    raw = sorted(work.rglob("msa/*.csv"))
-    if result.returncode and not raw:
-        return None
-    if not raw:
-        return None
-
-    rows = list(csv.DictReader(raw[0].open()))
-    if not rows:
-        return None
-    key = "sequence" if "sequence" in rows[0] else list(rows[0])[0]
-    lines = [">query", canonical(sequence)]
-    for i, row in enumerate(rows):
-        seq = (row.get(key) or "").strip()
-        if not seq:
-            continue
-        bare = "".join(c for c in seq if not c.islower() and c not in "-.").upper()
-        if i == 0 and bare == canonical(sequence):
-            continue
-        lines += [f">seq{i}", seq]
-    if len(lines) < 4:
-        return None
-    partial = target.with_suffix(target.suffix + ".part")
-    partial.write_text("\n".join(lines) + "\n")
-    if not valid_a3m(partial, sequence):
-        partial.unlink(missing_ok=True)
-        return None
-    partial.replace(target)
-    shutil.rmtree(work, ignore_errors=True)
-    return target
+    log.unlink(missing_ok=True)
+    for attempt in range(1, 4):
+        # Boltz's pinned MMseqs2 client treats the mere presence of out.tar.gz
+        # as a valid completed download. A truncated archive or an HTML error
+        # response therefore poisons every retry if the output directory is
+        # reused. Each attempt must start from a clean download namespace.
+        attempt_dir = work / f"boltz_attempt_{attempt}"
+        shutil.rmtree(attempt_dir, ignore_errors=True)
+        with log.open("a") as handle:
+            handle.write(f"\n=== Boltz/ColabFold MSA attempt {attempt}/3 ===\n")
+            handle.flush()
+            result = subprocess.run(
+                [str(boltz_python), str(boltz_launcher), "predict", str(yaml_path),
+                 "--out_dir", str(attempt_dir),
+                 "--use_msa_server", "--msa_server_url", "https://api.colabfold.com",
+                 "--msa_pairing_strategy", "greedy", "--override"],
+                env=env, stdout=handle, stderr=subprocess.STDOUT)
+        raw = sorted(attempt_dir.rglob("msa/*.csv"))
+        if raw:
+            with raw[0].open() as handle:
+                rows = list(csv.DictReader(handle))
+            if rows:
+                key = "sequence" if "sequence" in rows[0] else list(rows[0])[0]
+                lines = [">query", canonical(sequence)]
+                for i, row in enumerate(rows):
+                    seq = (row.get(key) or "").strip()
+                    if not seq:
+                        continue
+                    bare = "".join(c for c in seq
+                                   if not c.islower() and c not in "-.").upper()
+                    if i == 0 and bare == canonical(sequence):
+                        continue
+                    lines += [f">seq{i}", seq]
+                if len(lines) >= 4:
+                    partial = target.with_suffix(target.suffix + ".part")
+                    partial.write_text("\n".join(lines) + "\n")
+                    if valid_a3m(partial, sequence):
+                        partial.replace(target)
+                        shutil.rmtree(work, ignore_errors=True)
+                        return target, ""
+                    partial.unlink(missing_ok=True)
+        if attempt < 3:
+            info(f"Boltz/ColabFold MSA attempt {attempt}/3 failed; retrying")
+            time.sleep(attempt * 5)
+    return None, f"All 3 attempts failed. {msa_log_summary(log)}"
 
 
 def resolve_msas(jobs: list, cfg: dict, root: Path, env: dict) -> dict:
@@ -350,10 +393,15 @@ def resolve_msas(jobs: list, cfg: dict, root: Path, env: dict) -> dict:
     for n, (digest, sequence) in enumerate(todo, 1):
         stage("msa", 10 + int(20 * n / max(1, len(todo))),
               f"Generating alignment {n} of {len(todo)}")
-        path = generate_msa(sequence, cache_dir, root, env, provider)
+        path, detail = generate_msa(sequence, cache_dir, root, env, provider)
         if path is None:
-            die("The MSA server could not be reached. A fold without a real alignment is much "
-                "worse, so this stops rather than quietly continuing.")
+            provider_name = ("Protenix MSA service" if provider == "protenix"
+                             else "ColabFold MSA service through Boltz")
+            log = cache_dir / f"_gen_{digest}" / "msa.log"
+            log_note = f" Full diagnostic log: {log}." if log.is_file() else ""
+            die(f"Could not generate the alignment with the {provider_name}. {detail}"
+                f"{log_note} Studio stopped instead of silently "
+                "running a lower-quality single-sequence prediction.")
         resolved[digest] = str(path)
         misses += 1
     if misses:
@@ -438,7 +486,8 @@ def run_directory_batch(predictor: str, yamls: list, out_dir: Path, root: Path,
 
     if predictor.startswith("boltz"):
         venv = root / "venvs" / "NanoHunter_boltz"
-        command = [str(venv / "bin" / "boltz"), "predict", str(batch_dir),
+        command = [str(venv / "bin" / "python"), str(root / "scripts" / "boltz_mps.py"),
+                   "predict", str(batch_dir),
                    "--out_dir", str(out_dir), "--accelerator", "gpu", "--devices", "1",
                    "--num_workers", "0", "--output_format", "mmcif", "--override",
                    "--seed", str(cfg.get("seed", 42))]
@@ -520,6 +569,20 @@ def annotate_boltz_ipsae(root: Path, yaml_paths: list[Path], output: Path,
             if completed.returncode:
                 return completed.returncode
     return 0
+
+
+def validate_geometry(root: Path, output: Path, log_path: Path) -> int:
+    """Reject success markers for structures with broken protein backbones."""
+    validator = root / "scripts" / "validate_prediction_geometry.py"
+    if not validator.is_file():
+        info("Managed prediction-geometry validator is missing")
+        return 1
+    with log_path.open("a") as log:
+        completed = subprocess.run(
+            [sys.executable, str(validator), str(output)],
+            stdout=log, stderr=subprocess.STDOUT,
+        )
+    return completed.returncode
 
 
 def main() -> None:
@@ -606,18 +669,22 @@ def main() -> None:
                     marker = out_dir / "chunk_complete.json"
                     names = [member["name"] for member in chunk]
                     if completed_chunk(marker, names, out_dir):
-                        if predictor == "boltz" and annotate_boltz_ipsae(
-                                root, [member["yaml"] for member in chunk], out_dir, log_path):
-                            die(f"{tag}: saved Boltz multimer output could not be scored for ipSAE")
-                        for member in chunk:
-                            results.append({"job": member["name"], "predictor": predictor,
-                                            "bucket": bucket, "exit_code": 0,
-                                            "output": str(out_dir)})
-                        done_units += len(chunk)
-                        info(f"{tag}: reused {len(chunk)} completed fold(s)")
-                        stage("fold", 35 + int(60 * done_units / max(1, total_units)),
-                              f"{done_units} of {total_units} folds done")
-                        continue
+                        if validate_geometry(root, out_dir, log_path):
+                            marker.unlink(missing_ok=True)
+                            info(f"{tag}: saved output failed geometry validation; recomputing")
+                        else:
+                            if predictor == "boltz" and annotate_boltz_ipsae(
+                                    root, [member["yaml"] for member in chunk], out_dir, log_path):
+                                die(f"{tag}: saved Boltz multimer output could not be scored for ipSAE")
+                            for member in chunk:
+                                results.append({"job": member["name"], "predictor": predictor,
+                                                "bucket": bucket, "exit_code": 0,
+                                                "output": str(out_dir)})
+                            done_units += len(chunk)
+                            info(f"{tag}: reused {len(chunk)} completed fold(s)")
+                            stage("fold", 35 + int(60 * done_units / max(1, total_units)),
+                                  f"{done_units} of {total_units} folds done")
+                            continue
                     if key in DIRECTORY_CAPABLE:
                         proc, handle = run_directory_batch(key, [c["yaml"] for c in chunk],
                                                            out_dir, root, env, cfg, log_path)
@@ -639,6 +706,10 @@ def main() -> None:
                     if code == 0 and missing:
                         code = 1
                         info(f"{tag} returned success but produced no structure for: {', '.join(missing)}")
+                    if code == 0:
+                        code = validate_geometry(root, out_dir, log_path)
+                        if code:
+                            info(f"{tag} returned a structure with invalid protein geometry")
                     if code == 0 and predictor == "boltz":
                         code = annotate_boltz_ipsae(
                             root, [member["yaml"] for member in chunk], out_dir, log_path)

@@ -390,9 +390,18 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
         (if_inputs / "one.yaml").write_text("sequences: []\n")
         if_job = root / "if-results" / "if-inputs" / "predictions" / "one"
         if_job.mkdir(parents=True)
+        valid_one_residue_cif = (
+            "data_test\n#\nloop_\n_atom_site.group_PDB\n"
+            "_atom_site.label_atom_id\n_atom_site.label_comp_id\n"
+            "_atom_site.label_asym_id\n_atom_site.label_seq_id\n"
+            "_atom_site.Cartn_x\n_atom_site.Cartn_y\n_atom_site.Cartn_z\n"
+            "ATOM N ALA A 1 0.0 0.0 0.0\n"
+            "ATOM CA ALA A 1 1.45 0.0 0.0\n"
+            "ATOM C ALA A 1 2.50 0.8 0.0\n#\n"
+        )
         for sample in range(2):
             stem = f"one_seed-42_sample-{sample}"
-            (if_job / f"{stem}.cif").write_text("data_test\n")
+            (if_job / f"{stem}.cif").write_text(valid_one_residue_cif)
             (if_job / f"{stem}_summary_confidences.json").write_text("{}\n")
             (if_job / f"{stem}_confidences.json").write_text(json.dumps({
                 "pae": [[0.0]], "token_chain_ids": ["A"],

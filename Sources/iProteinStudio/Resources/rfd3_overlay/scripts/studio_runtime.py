@@ -195,7 +195,8 @@ def parse_prediction(out_dir, stem):
 
 def _boltz_cmd(yaml_dir, out_dir, recycling, sampling_steps, extra, use_potentials=False):
     command = [
-        pipeline_root() / "venvs" / "NanoHunter_boltz" / "bin" / "boltz",
+        pipeline_root() / "venvs" / "NanoHunter_boltz" / "bin" / "python",
+        pipeline_root() / "scripts" / "boltz_mps.py",
         "predict", yaml_dir, "--out_dir", out_dir, "--output_format", "pdb",
         "--num_workers", "0", "--override",
     ]

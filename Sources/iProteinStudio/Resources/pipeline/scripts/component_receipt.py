@@ -75,6 +75,53 @@ def installed_versions(executable: Path) -> dict[str, str]:
     return json.loads(subprocess.check_output([str(executable), "-c", code], text=True))
 
 
+def package_inventory(
+    executable: Path, method: str | None = None
+) -> tuple[list[str], str]:
+    """Inventory installed packages even in intentionally pip-less runtimes.
+
+    Existing receipts retain pip-freeze semantics. New minimal environments,
+    such as RFdiffusion3's uv runtime, fall back to importlib.metadata and record
+    that choice so later verification uses the identical representation.
+    """
+    if method in (None, "pip-freeze"):
+        try:
+            packages = sorted(line for line in subprocess.check_output(
+                [str(executable), "-m", "pip", "freeze", "--exclude-editable"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).splitlines() if line and not line.startswith("#"))
+            return packages, "pip-freeze"
+        except subprocess.CalledProcessError:
+            if method == "pip-freeze":
+                raise
+    if method not in (None, "importlib-metadata"):
+        raise ValueError(f"unsupported package inventory method: {method}")
+    code = r"""
+import importlib.metadata
+import json
+
+skip = {"pip", "setuptools", "distribute", "wheel"}
+packages = []
+for distribution in importlib.metadata.distributions():
+    name = distribution.metadata.get("Name")
+    if not name or name.lower() in skip:
+        continue
+    try:
+        direct_url = json.loads(distribution.read_text("direct_url.json") or "{}")
+    except (json.JSONDecodeError, OSError):
+        direct_url = {}
+    if direct_url.get("dir_info", {}).get("editable") is True:
+        continue
+    packages.append(f"{name}=={distribution.version}")
+print(json.dumps(sorted(packages, key=str.lower)))
+"""
+    packages = json.loads(subprocess.check_output(
+        [str(executable), "-c", code], text=True
+    ))
+    return packages, "importlib-metadata"
+
+
 def verify_locked_graph(executable: Path, expected: dict[str, str]) -> None:
     installed = installed_versions(executable)
     wrong = {
@@ -123,13 +170,12 @@ def write(args: argparse.Namespace) -> None:
         version = subprocess.check_output(
             [str(executable), "-c", "import platform; print(platform.python_version())"], text=True
         ).strip()
-        packages = sorted(line for line in subprocess.check_output(
-            [str(executable), "-m", "pip", "freeze", "--exclude-editable"], text=True
-        ).splitlines() if line and not line.startswith("#"))
+        packages, inventory_method = package_inventory(executable)
         python = {
             "executable": str(executable),
             "version": version,
             "resolved_packages": packages,
+            "package_inventory_method": inventory_method,
             "resolved_packages_sha256": hashlib.sha256(
                 ("\n".join(packages) + "\n").encode()
             ).hexdigest(),
@@ -186,9 +232,9 @@ def verify(receipt: Path, verify_packages: bool) -> None:
         if actual_version != python["version"]:
             raise ValueError(f"Python version changed: {actual_version} != {python['version']}")
         if verify_packages:
-            packages = sorted(line for line in subprocess.check_output(
-                [str(executable), "-m", "pip", "freeze", "--exclude-editable"], text=True
-            ).splitlines() if line and not line.startswith("#"))
+            packages, _ = package_inventory(
+                executable, python.get("package_inventory_method", "pip-freeze")
+            )
             digest = hashlib.sha256(("\n".join(packages) + "\n").encode()).hexdigest()
             if digest != python["resolved_packages_sha256"]:
                 raise ValueError("installed package graph changed after receipt creation")

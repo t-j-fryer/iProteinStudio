@@ -179,11 +179,13 @@ def stage_one_msa(cfg: dict, campaign: Path, rfd3_root: Path, env: dict,
         info(f"target MSA -> {a3m}")
         return a3m
 
-    boltz = root / "venvs" / "NanoHunter_boltz" / "bin" / "boltz"
-    if not boltz.exists():
-        die(f"Boltz not found at {boltz}; the target MSA cannot be generated.")
+    boltz = root / "venvs" / "NanoHunter_boltz" / "bin" / "python"
+    boltz_launcher = root / "scripts" / "boltz_mps.py"
+    if not boltz.exists() or not boltz_launcher.exists():
+        die("The managed Boltz Apple-GPU launcher is missing; the target MSA cannot be generated.")
     out_dir = cache / "boltz"
-    run([str(boltz), "predict", str(yaml_path), "--out_dir", str(out_dir),
+    run([str(boltz), str(boltz_launcher), "predict", str(yaml_path),
+         "--out_dir", str(out_dir),
          "--use_msa_server", "--override"],
         campaign / "logs" / f"msa_{chain}.log", rfd3_root, env)
 

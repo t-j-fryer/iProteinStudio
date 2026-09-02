@@ -39,14 +39,16 @@ families and their fixed checkpoints. The worker remains a normal child of the
 campaign process; double-fork daemonization was rejected after it severed access
 to macOS `MTLCompilerService`.
 
-New GUI campaigns select the measured optimized policy automatically:
+GUI campaigns select the measured optimized policy automatically, including
+projects saved when Compatibility was still exposed in Advanced:
 
 - Boltz 2, IntelliFold v2-flash, IntelliFold full v2, Protenix Mini and
   Protenix Constraint use one campaign-resident worker;
 - full Protenix v2 uses one cycle-wave process per cycle because its measured
   resident run was slower under sustained MPS load;
-- Compatibility mode retains the historical per-trajectory process route for
-  reproducing old campaigns and diagnosis.
+- the GUI no longer exposes a scheduling mode because the slower route is not a
+  scientific campaign choice. Direct CLI diagnostics can still select
+  `--design-scheduler run`, and Resume preserves a campaign's recorded command.
 
 ## Engine-specific batching and padding
 

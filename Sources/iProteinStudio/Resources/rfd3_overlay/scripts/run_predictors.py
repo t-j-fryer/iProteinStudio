@@ -26,7 +26,8 @@ def command_for(predictor: str, yaml_path: Path, output: Path, root: Path,
                     "BOLTZ_CACHE": str(root / "models" / "boltz2"),
                     "NUMBA_CACHE_DIR": str(root / "numba_cache")})
         command = [
-            str(venv / "bin" / "boltz"), "predict", str(yaml_path),
+            str(venv / "bin" / "python"), str(root / "scripts" / "boltz_mps.py"),
+            "predict", str(yaml_path),
             "--out_dir", str(output), "--accelerator", "gpu", "--devices", "1",
             "--num_workers", "0", "--output_format", "mmcif", "--override",
         ]

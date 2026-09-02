@@ -21,6 +21,12 @@ The same audit also found that the active legacy Boltz installation retained the
 downloaded `mols.tar` after successfully extracting the runtime `mols/` dataset.
 The current installer already removes that archive.
 
+**Operational correction (Entry 0060):** the extracted directory is the only
+scientific runtime input, but upstream Boltz 2.2.1 incorrectly uses the archive
+file as its download-completion sentinel. Removing the archive was still safe;
+Studio's managed launcher now recognizes the verified extracted directory so
+upstream cannot silently download the archive again.
+
 ## What was done
 
 - Recomputed the active Boltz archive's SHA-256 and confirmed it matched the

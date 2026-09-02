@@ -6,6 +6,7 @@ TILE="${ROOT}/Sources/iProteinStudio/Views/Dashboard/DesignTile.swift"
 GRID="${ROOT}/Sources/iProteinStudio/Views/Dashboard/StructuresGridView.swift"
 HITS="${ROOT}/Sources/iProteinStudio/Views/Dashboard/HitsGalleryView.swift"
 RESULTS="${ROOT}/Sources/iProteinStudio/Views/RunResultsView.swift"
+FORM="${ROOT}/Sources/iProteinStudio/Views/NewRun/DesignFormView.swift"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
@@ -21,5 +22,11 @@ rg -q '\.sheet\(item: \$selectedPoint\)' "${HITS}" \
   || fail "hits gallery does not own the inspector lifecycle"
 rg -q 'optimized design' "${RESULTS}" \
   || fail "results still label cycle-00 structures as designs"
+! rg -q 'selection: \$request\.speedMode|SpeedMode\.allCases|accessibilityLabel\("Scheduling mode"\)' "${FORM}" \
+  || fail "iterative scheduling is still exposed as an Advanced form preference"
+rg -q 'Automatic scheduling: one resident predictor stays loaded' "${FORM}" \
+  || fail "the main run form does not explain automatic model residency"
+rg -q 'Protenix v2 is loaded once per cycle' "${FORM}" \
+  || fail "the main run form does not explain Protenix v2's measured exception"
 
 echo "PASS iterative results UI contract"

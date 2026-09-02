@@ -11,9 +11,11 @@ record. The upstream runner and its scientific defaults remain unchanged.
 from __future__ import annotations
 
 import importlib.metadata
+import importlib.util
 import os
 from pathlib import Path
 import runpy
+import subprocess
 import sys
 
 from ipsae_score import IPSAEError, annotate_intellifold
@@ -78,6 +80,15 @@ def verify_outputs(arguments: list[str]) -> None:
     except (IPSAEError, OSError, ValueError) as exc:
         die(f"ipSAE scoring failed: {exc}")
 
+    root_value = os.environ.get("NANOHUNTER_ROOT") or os.environ.get("IPROTEIN_ROOT")
+    root = Path(root_value).expanduser().resolve() if root_value else Path(__file__).resolve().parents[1]
+    validator = Path(__file__).resolve().with_name("validate_prediction_geometry.py")
+    if not validator.is_file():
+        die("managed prediction-geometry validator is missing")
+    completed = subprocess.run([sys.executable, str(validator), str(output)])
+    if completed.returncode:
+        die("prediction produced invalid protein geometry; see the diagnostic above")
+
 
 def main() -> None:
     arguments = sys.argv[1:]
@@ -97,6 +108,21 @@ def main() -> None:
         die(f"expected Accelerate {STRICT_ACCELERATE_VERSION}, found {accelerate_version}")
     if torch_version != STRICT_TORCH_VERSION:
         die(f"expected PyTorch {STRICT_TORCH_VERSION}, found {torch_version}")
+
+    # Resolve policy code beside this launcher. Iterative campaigns execute an
+    # immutable pipeline snapshot, so consulting a later app-staged copy would
+    # silently change the scientific runtime during Resume.
+    compatibility_path = Path(__file__).resolve().with_name("intellifold_mps_compat.py")
+    spec = importlib.util.spec_from_file_location("iproteinstudio_intellifold_mps", compatibility_path)
+    if spec is None or spec.loader is None:
+        die(f"MPS compatibility module is missing: {compatibility_path}")
+    compatibility = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(compatibility)
+    try:
+        status = compatibility.patch_source(root)
+    except RuntimeError as exc:
+        die(str(exc))
+    print(f"IPROTEINSTUDIO_MPS_PATCH|intellifold|advanced_indexing={status}", flush=True)
 
     import torch
     if not torch.backends.mps.is_built() or not torch.backends.mps.is_available():

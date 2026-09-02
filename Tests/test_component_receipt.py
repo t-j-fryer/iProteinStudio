@@ -79,4 +79,31 @@ with tempfile.TemporaryDirectory(prefix="iproteinstudio-receipt-") as raw:
     ], check=True)
     assert json.loads(venv_receipt.read_text())["python"]["executable"] == str(venv_python)
 
+    # RFdiffusion3 deliberately uses a lean uv environment with no pip module.
+    # Receipt creation must inventory it through importlib.metadata rather than
+    # turning a successful scientific installation into a setup failure.
+    pipless = root / "pipless-venv"
+    subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(pipless)], check=True)
+    pipless_python = pipless / "bin/python"
+    purelib = Path(subprocess.check_output([
+        str(pipless_python), "-c", "import sysconfig; print(sysconfig.get_paths()['purelib'])"
+    ], text=True).strip())
+    metadata = purelib / "receipt_fixture-1.2.3.dist-info"
+    metadata.mkdir()
+    (metadata / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: receipt-fixture\nVersion: 1.2.3\n"
+    )
+    pipless_receipt = root / "pipless-receipt.json"
+    subprocess.run([
+        sys.executable, str(SCRIPT), "write", "--output", str(pipless_receipt),
+        "--component", "pipless", "--version", "1", "--python", str(pipless_python),
+    ], check=True)
+    pipless_payload = json.loads(pipless_receipt.read_text())
+    assert pipless_payload["python"]["package_inventory_method"] == "importlib-metadata"
+    assert pipless_payload["python"]["resolved_packages"] == ["receipt-fixture==1.2.3"]
+    subprocess.run([
+        sys.executable, str(SCRIPT), "verify", "--receipt", str(pipless_receipt),
+        "--packages",
+    ], check=True)
+
 print("PASS immutable component receipt contract")

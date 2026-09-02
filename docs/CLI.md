@@ -186,17 +186,19 @@ Flags worth knowing:
 | `--resume` | idempotent; reuses completed cycles after an interruption |
 | `--design-scheduler cycle-wave` | one directory predictor process per cycle for supported iterative engines |
 | `--design-scheduler resident` | one live model across cycles; requires `--max-parallel 1 --wave-batch-size all` |
-
-The app's Optimized mode selects `resident` for Boltz 2, IntelliFold v2-flash,
-IntelliFold full v2, Protenix Mini and Protenix Constraint. It selects
-`cycle-wave` for full Protenix v2, which was faster than residency in the paired
-M4 Max campaign. Compatibility mode omits the scheduler flag and preserves the
-historical per-trajectory execution route.
 | `--iptm-threshold 0.7` | defines campaign hits; Studio uses the same value to gate optional checking |
 | `--post-mode final-iptm` | independently checks only final-cycle designs that passed the gate; `final` checks every final design |
 | `--post-mode iptm` | checks every passing optimized checkpoint from cycle 01 onward; use `all` instead of `iptm` to disable the threshold gate |
 | `--post-include-cycle00` | advanced CLI diagnostic opt-in for also checking the unoptimized seed; Studio never emits it |
 | `--model v2-flash` | choose `v2-flash` or the larger full `v2` IntelliFold model; omit when IntelliFold is not used |
+
+The app always selects `resident` for Boltz 2, IntelliFold v2-flash,
+IntelliFold full v2, Protenix Mini and Protenix Constraint. It selects
+`cycle-wave` for full Protenix v2, which was faster than residency in the paired
+M4 Max campaign. Scheduling is not a GUI preference: direct CLI users can still
+pass `--design-scheduler run` explicitly to reproduce or diagnose the historical
+per-trajectory route, while an existing campaign Resume reuses its recorded
+command unchanged.
 
 For target proteins, Studio's prediction, target-preparation, RFdiffusion3, and
 iterative-design workflows all reuse an A3M only when its first record exactly

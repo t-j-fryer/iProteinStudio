@@ -17,6 +17,48 @@ import Foundation
 enum AppPaths {
     static let fm = FileManager.default
 
+    /// Locate shipped resources without SwiftPM's generated `Bundle.module`
+    /// accessor. That accessor assumes an executable layout, tries to put its
+    /// bundle at the sealed .app root and embeds an absolute build-machine path
+    /// as fallback. Distribution resources live conventionally under
+    /// Contents/Resources; checkout builds are discovered relative to their
+    /// executable or current working directory without machine-specific paths.
+    private static let bundledResourcesRoot: URL = {
+        let sentinel = "pipeline/PIPELINE_VERSION"
+        var candidates: [URL] = []
+
+        if let resources = Bundle.main.resourceURL {
+            candidates.append(resources.appendingPathComponent("iProteinStudioResources",
+                                                                isDirectory: true))
+        }
+        if let explicit = ProcessInfo.processInfo.environment["IPROTEINSTUDIO_RESOURCE_ROOT"],
+           !explicit.isEmpty {
+            candidates.append(URL(fileURLWithPath: explicit, isDirectory: true))
+        }
+        candidates.append(URL(fileURLWithPath: fm.currentDirectoryPath, isDirectory: true)
+            .appendingPathComponent("Sources/iProteinStudio/Resources", isDirectory: true))
+
+        if var ancestor = Bundle.main.executableURL?.deletingLastPathComponent() {
+            for _ in 0..<8 {
+                candidates.append(ancestor
+                    .appendingPathComponent("Sources/iProteinStudio/Resources", isDirectory: true))
+                ancestor.deleteLastPathComponent()
+            }
+        }
+
+        if let match = candidates.first(where: {
+            fm.fileExists(atPath: $0.appendingPathComponent(sentinel).path)
+        }) {
+            return match
+        }
+        preconditionFailure("iProteinStudio resources are missing; reinstall the application")
+    }()
+
+    private static func bundledResource(_ name: String) -> URL? {
+        let candidate = bundledResourcesRoot.appendingPathComponent(name, isDirectory: true)
+        return fm.fileExists(atPath: candidate.path) ? candidate : nil
+    }
+
     /// The managed runtime root.
     ///
     /// **Not** under Application Support, and that is not a style choice. A
@@ -140,7 +182,7 @@ enum AppPaths {
     }
 
     static var bundledExamples: URL? {
-        Bundle.module.url(forResource: "examples", withExtension: nil)
+        bundledResource("examples")
     }
 
     /// Copy the examples out, and seed the alignment cache with the one they
@@ -250,25 +292,25 @@ enum AppPaths {
 
     /// Vendored pipeline assets shipped inside the app bundle.
     static var bundledPipeline: URL? {
-        Bundle.module.url(forResource: "pipeline", withExtension: nil)
+        bundledResource("pipeline")
     }
 
     /// Offline molecular-viewer assets (py2Dmol plus the specialised legacy
     /// 3Dmol hydrophobic-surface mode and RDKit ligand depictions).
     static var webRoot: URL? {
-        Bundle.module.url(forResource: "web", withExtension: nil)
+        bundledResource("web")
     }
 
     /// Studio-authored RFdiffusion3 helpers shipped inside the app bundle.
     static var bundledRFD3Scripts: URL? {
-        Bundle.module.url(forResource: "rfd3", withExtension: nil)
+        bundledResource("rfd3")
     }
 
     /// The RFdiffusion3 script layer — campaign orchestrators, ligand
     /// preparation, predictor adapters, length binning. None of it is upstream,
     /// so a checkout without this overlay cannot run anything Studio offers.
     static var bundledRFD3Overlay: URL? {
-        Bundle.module.url(forResource: "rfd3_overlay", withExtension: nil)
+        bundledResource("rfd3_overlay")
     }
 
     /// True once the pipeline runtime has been installed (venvs present).

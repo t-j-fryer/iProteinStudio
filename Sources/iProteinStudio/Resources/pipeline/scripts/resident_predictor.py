@@ -18,6 +18,7 @@ import importlib.util
 import json
 import os
 import shutil
+import subprocess
 import sys
 import time
 import traceback
@@ -93,6 +94,15 @@ def load_path(name: str, path: Path) -> Any:
     return module
 
 
+def validate_geometry(root: Path, output: Path) -> None:
+    validator = Path(__file__).resolve().with_name("validate_prediction_geometry.py")
+    if not validator.is_file():
+        die("managed prediction-geometry validator is missing")
+    completed = subprocess.run([sys.executable, str(validator), str(output)])
+    if completed.returncode:
+        die("predictor returned invalid protein geometry")
+
+
 class BoltzSession:
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
@@ -101,6 +111,12 @@ class BoltzSession:
         self.torch = require_mps()
         import boltz.main as boltz_main
         from dataclasses import asdict
+
+        compatibility = load_path(
+            "iproteinstudio_boltz_mps",
+            Path(__file__).resolve().with_name("boltz_mps.py"),
+        )
+        compatibility.configure_runtime(boltz_main, self.torch)
 
         self.boltz_main = boltz_main
         cache = Path(option(self.arguments, "--cache", str(self.root / "models" / "boltz2"))).expanduser()
@@ -169,6 +185,7 @@ class BoltzSession:
             found.add(name)
         if len(found) != expected:
             die(f"Boltz expected {expected} completed jobs, found {len(found)}")
+        validate_geometry(self.root, output)
 
 
 class IntelliFoldSession:
@@ -181,6 +198,15 @@ class IntelliFoldSession:
             die("resident IntelliFold requires pinned Accelerate 1.1.1")
         if importlib.metadata.version("torch") != "2.6.0":
             die("resident IntelliFold requires pinned PyTorch 2.6.0")
+
+        compatibility = load_path(
+            "iproteinstudio_intellifold_mps",
+            Path(__file__).resolve().with_name("intellifold_mps_compat.py"),
+        )
+        try:
+            compatibility.patch_source(self.root)
+        except RuntimeError as exc:
+            die(str(exc))
 
         from accelerate import Accelerator
         from accelerate.state import AcceleratorState, PartialState
@@ -333,6 +359,7 @@ class IntelliFoldSession:
         adapter.verify_outputs([
             str(source), "--out_dir", str(output), *self.arguments,
         ])
+        validate_geometry(self.root, output)
 
 
 class ProtenixSession:

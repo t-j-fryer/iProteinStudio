@@ -12,21 +12,30 @@ final class AppUpdateService {
     let controller: SPUStandardUpdaterController
     let isConfigured: Bool
     let configurationProblem: String?
+    let trustNotice: String?
 
     var updater: SPUUpdater { controller.updater }
 
     init(bundle: Bundle = .main) {
         let feed = bundle.object(forInfoDictionaryKey: "SUFeedURL") as? String
         let publicKey = bundle.object(forInfoDictionaryKey: "SUPublicEDKey") as? String
+        let sparkleUpdateBuild = bundle.object(forInfoDictionaryKey: "IPStudioSparkleUpdateBuild") as? Bool == true
+        let distributionChannel = bundle.object(forInfoDictionaryKey: "IPStudioDistributionChannel") as? String
         let feedIsSecure = feed.flatMap(URL.init(string:))?.scheme == "https"
         let keyLooksValid = (publicKey?.count ?? 0) >= 40
 
-        if feedIsSecure && keyLooksValid {
+        if sparkleUpdateBuild && feedIsSecure && keyLooksValid {
             isConfigured = true
             configurationProblem = nil
+            if distributionChannel == "unsigned-beta" {
+                trustNotice = "Trusted beta channel: Sparkle verifies every update archive with the project's EdDSA key, but Apple has not verified or notarized this developer."
+            } else {
+                trustNotice = nil
+            }
         } else {
             isConfigured = false
-            configurationProblem = "This development build has no signed update feed. Install a signed release to receive automatic updates."
+            trustNotice = nil
+            configurationProblem = "This development build has no verified update feed. Install a distribution build to receive application updates."
         }
 
         controller = SPUStandardUpdaterController(
@@ -108,6 +117,13 @@ struct UpdateSettingsView: View {
 
                 if let problem = service.configurationProblem {
                     Label(problem, systemImage: "hammer")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let notice = service.trustNotice {
+                    Label(notice, systemImage: "checkmark.shield")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

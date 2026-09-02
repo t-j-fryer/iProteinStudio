@@ -30,7 +30,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .boltz:          return "Boltz-2"
         case .boltzAffinity:  return "Boltz-2 binding-affinity checkpoint"
-        case .mpnn:           return "Sequence designers"
+        case .mpnn:           return "Core sequence designers"
         case .antifold:       return "AntiFold"
         case .lasermpnn:      return "LASErMPNN"
         case .intellifold:    return "IntelliFold v2 Flash"
@@ -117,7 +117,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     /// What stops working without it, in the user's terms.
     var whatItGivesYou: String {
         switch self {
-        case .mpnn:           return "Sequence design. Always installed — every design workflow needs it."
+        case .mpnn:           return "ProteinMPNN, SolubleMPNN, LigandMPNN and AbMPNN. Installed automatically because every design workflow needs this suite."
         case .boltz:          return "The default folding engine and an MSA generator. Includes structure prediction, not the optional affinity head."
         case .boltzAffinity:  return "Adds Boltz's small-molecule binding-affinity head; it is not used for protein binders."
         case .antifold:       return "Nanobody CDR design."
@@ -489,8 +489,9 @@ enum SpeedBand: Int, Comparable {
 /// device profile whose machine/package fingerprint does not match. These modes
 /// select between its validated strategies.
 enum SpeedMode: String, CaseIterable, Codable, Identifiable, Hashable {
-    /// Historical per-trajectory execution, retained for old manifests and
-    /// troubleshooting comparisons.
+    /// Historical per-trajectory execution, retained only to decode old project
+    /// JSON. The GUI migrates it to `batched`; CLI diagnostics select the runner
+    /// scheduler directly rather than setting this value.
     case standard
     /// The measured engine-specific policy: campaign residency except for full
     /// Protenix v2, whose sustained MPS slowdown makes cycle waves faster.
@@ -510,7 +511,7 @@ enum SpeedMode: String, CaseIterable, Codable, Identifiable, Hashable {
     var blurb: String {
         switch self {
         case .standard:
-            return "Reloads the predictor for each trajectory and cycle. Use only to reproduce an older campaign or diagnose an optimized run."
+            return "Legacy project value; Studio migrates it to automatic optimized scheduling."
         case .batched:
             return "Keeps the selected predictor loaded across the campaign. Full Protenix v2 automatically uses one directory wave per cycle because that was faster on Apple MPS."
         }

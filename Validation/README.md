@@ -17,3 +17,8 @@ an app default until the full output audit and lifecycle gates in
 
 Start with `python3 Validation/experiments/resident_design_v1/campaign.py plan`.
 The generated manifest records all commands before GPU time is spent.
+
+`boltz_mps_allocator_v1` is a smaller paired correctness/performance experiment:
+it runs the same short-protein fold in fresh processes with the build-8 FP32
+wrapper and the build-9 pre-batch MPS allocator reset, holding every scientific
+input constant.

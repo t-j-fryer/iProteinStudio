@@ -66,7 +66,7 @@ PROTENIX_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_protenix"
 PROTENIX_CONSTRAINT_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_protenix_constraint"
 OPENFOLD_VENV="${REPO_ROOT}/venvs/${VENV_PREFIX}_openfold3_mlx"
 
-BOLTZ_CLI="boltz"
+BOLTZ_CLI=("${BOLTZ_VENV}/bin/python" "${PIPELINE_CODE_ROOT}/scripts/boltz_mps.py")
 INTELLIFOLD_CLI="intellifold"
 OPENFOLD_CLI="run_openfold"
 INTELLIFOLD_CACHE_DIR="${INTELLIFOLD_CACHE:-${REPO_ROOT}/models/intellifold}"
@@ -3193,7 +3193,7 @@ PY
   for attempt in $(seq 1 "${attempts}"); do
     source "${BOLTZ_VENV}/bin/activate"
     set +e
-    "${BOLTZ_CLI}" predict "${yaml_path}" \
+    "${BOLTZ_CLI[@]}" predict "${yaml_path}" \
       --out_dir "${out_dir}" \
       "${BOLTZ_EXTRA_FLAGS[@]}" \
       --override \
@@ -4201,7 +4201,7 @@ run_predict_boltz() {
   predict_log="${out_dir}/predict.log"
 
   mkdir -p "${out_dir}"
-  local cmd=("${BOLTZ_CLI}" predict "${input_yaml}" --out_dir "${out_dir}" "${BOLTZ_EXTRA_FLAGS[@]}")
+  local cmd=("${BOLTZ_CLI[@]}" predict "${input_yaml}" --out_dir "${out_dir}" "${BOLTZ_EXTRA_FLAGS[@]}")
   if [[ "${use_potentials}" -eq 1 ]]; then
     local _has_pot=0 tok
     for tok in "${cmd[@]}"; do
@@ -4295,7 +4295,7 @@ run_boltz_predict_monitored() {
   mkdir -p "${out_dir}"
   rm -f "${peak_file}"
 
-  local cmd=("${BOLTZ_CLI}" predict "${yaml}" --out_dir "${out_dir}" "${BOLTZ_EXTRA_FLAGS[@]}")
+  local cmd=("${BOLTZ_CLI[@]}" predict "${yaml}" --out_dir "${out_dir}" "${BOLTZ_EXTRA_FLAGS[@]}")
   if [[ "${use_potentials}" -eq 1 ]]; then
     local _has_pot=0 tok
     for tok in "${cmd[@]}"; do
@@ -5795,7 +5795,7 @@ run_cycle_wave_predictor_batch() {
         use_potential_flags=(--use_potentials)
       fi
       source "${BOLTZ_VENV}/bin/activate"
-      "${BOLTZ_CLI}" predict "${input_dir}" \
+      "${BOLTZ_CLI[@]}" predict "${input_dir}" \
         --out_dir "${output_dir}" \
         "${BOLTZ_EXTRA_FLAGS[@]}" \
         ${use_potential_flags[@]+"${use_potential_flags[@]}"} \

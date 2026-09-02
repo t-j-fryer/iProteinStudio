@@ -207,7 +207,7 @@ struct IterativeCommandContractHarness {
         expect(value(after: "--lasermpnn-seed", in: arguments(request)) == "1234", "LASErMPNN seed routing failed")
     }
 
-    static func testOptimizedSchedulerPolicy() {
+    static func testOptimizedSchedulerPolicy() throws {
         var request = proteinRequest()
         request.epitopeResidues = ""
         expect(request.speedMode == .batched, "new campaigns did not default to optimized scheduling")
@@ -237,8 +237,17 @@ struct IterativeCommandContractHarness {
 
         request.speedMode = .standard
         args = arguments(request)
-        expect(!args.contains("--design-scheduler"),
-               "compatibility scheduling did not preserve per-trajectory execution")
+        expect(value(after: "--design-scheduler", in: args) == "cycle-wave",
+               "legacy GUI scheduling value bypassed Protenix v2's optimized policy")
+
+        request = proteinRequest()
+        request.speedMode = .standard
+        let legacyData = try JSONEncoder().encode(request)
+        let migrated = try JSONDecoder().decode(DesignRequest.self, from: legacyData)
+        expect(migrated.speedMode == .batched,
+               "saved Compatibility project was not migrated to optimized scheduling")
+        expect(value(after: "--design-scheduler", in: arguments(migrated)) == "resident",
+               "migrated saved project did not launch a resident worker")
     }
 
     static func testRequestedTrajectoryBudgetIsExact() {
@@ -351,7 +360,7 @@ struct IterativeCommandContractHarness {
         testPostChecksAndModels()
         testCanonicalCheckers()
         testDesignerSeeds()
-        testOptimizedSchedulerPolicy()
+        try testOptimizedSchedulerPolicy()
         testRequestedTrajectoryBudgetIsExact()
         testExplicitResumeContract()
         try testDormantHotspotsAreNotPassed()

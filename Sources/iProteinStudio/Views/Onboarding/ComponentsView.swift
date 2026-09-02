@@ -60,7 +60,7 @@ struct ComponentsView: View {
                 }
                 .controlSize(.small)
             }
-            Text("Install only what you need. You can add or remove engines at any time; removing one never deletes workspaces, results, or saved alignments.")
+            Text("Every installation includes the core ProteinMPNN, SolubleMPNN, LigandMPNN and AbMPNN sequence-design suite. Choose only the additional prediction, specialist-design and backbone engines you need; removing an optional engine never deletes workspaces, results or saved alignments.")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             LabeledContent("Managed runtime") {
                 Text(AppPaths.support.path)
@@ -122,6 +122,7 @@ struct ComponentsView: View {
                     Text(installer.currentMessage).font(.callout).foregroundStyle(.secondary)
                 }
             }
+            coreSuiteRow
             HStack(spacing: 8) {
                 Text("Presets").font(.caption).foregroundStyle(.secondary)
                 Button("Essentials") {
@@ -147,6 +148,7 @@ struct ComponentsView: View {
                     // Pull in anything the selection depends on, so a user cannot
                     // pick a component that then fails for a missing prerequisite.
                     var wanted = selection
+                    if !installer.isUsable(.mpnn) { wanted.insert(.mpnn) }
                     var pending = Array(selection)
                     while let component = pending.popLast() {
                         for dependency in component.requires
@@ -157,8 +159,7 @@ struct ComponentsView: View {
                     }
                     pendingInstall = EngineInstallPlan(components: Array(wanted))
                 } label: {
-                    Label("Review \(selection.count) download\(selection.count == 1 ? "" : "s")…",
-                          systemImage: "list.bullet.clipboard")
+                    Label("Review downloads…", systemImage: "list.bullet.clipboard")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(selection.isEmpty || installer.isRemoving)
@@ -169,6 +170,45 @@ struct ComponentsView: View {
                     .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var coreSuiteRow: some View {
+        let installed = installer.isUsable(.mpnn)
+        let availability = installer.components[.mpnn]?.availability
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: installed ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(installed ? .green : .orange)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(InstallComponent.mpnn.label).font(.callout.weight(.semibold))
+                    Text(InstallComponent.mpnn.approximateSize)
+                        .font(.caption2).foregroundStyle(.secondary)
+                    Text(installed ? "installed automatically" : "needs installation")
+                        .font(.caption2)
+                        .foregroundStyle(installed ? .green : .orange)
+                }
+                Text("ProteinMPNN · SolubleMPNN · LigandMPNN · AbMPNN")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("This shared core suite is available throughout design workflows and is not a separate optional engine.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+                if let availability, availability == .broken || availability == .incomplete {
+                    Text(installer.detail(.mpnn)).font(.caption2).foregroundStyle(.orange)
+                }
+            }
+            Spacer()
+            if !installed {
+                Button("Install core…") {
+                    pendingInstall = EngineInstallPlan(components: [.mpnn])
+                }
+                .controlSize(.small)
+                .disabled(installer.isRemoving)
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 8)
+            .fill(installed ? Color.green.opacity(0.07) : Color.orange.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 8)
+            .stroke(installed ? Color.green.opacity(0.20) : Color.orange.opacity(0.25)))
     }
 
     @ViewBuilder private func row(_ component: InstallComponent) -> some View {

@@ -462,7 +462,11 @@ detect() {
     # Do not re-read them on every app launch merely to populate the Engines
     # sheet; that makes detection take many seconds on an otherwise ready app.
     if [[ -f "${RFD3_CHECKPOINT_PATH}" && -f "${RFD3_WEIGHTS_PATH}" ]]; then
-      state rfd3 ok "RFdiffusion3 MLX with checkpoint and exported weights"
+      if [[ -f "${RECEIPTS_DIR}/rfd3.json" ]]; then
+        state rfd3 ok "RFdiffusion3 MLX with checkpoint and exported weights"
+      else
+        state rfd3 update "engine is usable; installation provenance still needs finalizing"
+      fi
     else
       state rfd3 incomplete "checkpoint or exported MLX weights absent"
     fi
@@ -940,7 +944,8 @@ commit_versioned_venv() {
 }
 
 seed_shared_protenix_common() {
-  local model_dir="$1" source="${model_dir}/common" name expected
+  local model_dir="$1" source name expected
+  source="${model_dir}/common"
   mkdir -p "${PROTENIX_COMMON_DIR}"
   [[ -d "${source}" && ! -L "${source}" ]] || return 0
   while IFS='|' read -r name expected; do
@@ -960,7 +965,8 @@ EOF
 }
 
 activate_shared_protenix_common() {
-  local model_dir="$1" name expected common="${model_dir}/common"
+  local model_dir="$1" name expected common
+  common="${model_dir}/common"
   while IFS='|' read -r name expected; do
     [[ -n "${name}" ]] || continue
     check_sha256 "${PROTENIX_COMMON_DIR}/${name}" "${expected}" \
@@ -1258,6 +1264,9 @@ fi
 [[ -s "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
    && -s "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl" ]] \
   || fail "IntelliFold install finished without v2 Flash weights or CCD data."
+"${INTELLIFOLD_VENV}/bin/python" \
+  "${NANOHUNTER_ROOT}/scripts/intellifold_mps_compat.py" "${NANOHUNTER_ROOT}" \
+  || fail "Could not install IntelliFold's Apple-MPS pair-lookup compatibility fix."
 PYTORCH_ENABLE_MPS_FALLBACK=0 "${INTELLIFOLD_VENV}/bin/python" -c \
   'import torch, intellifold; assert torch.backends.mps.is_available()' >/dev/null \
   || fail "IntelliFold staged runtime failed its native-MPS import check."

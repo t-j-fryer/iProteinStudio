@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-08-31_
+_Last updated: 2026-09-01_
 
 | | |
 |---|---|
@@ -44,8 +44,9 @@ core-to-linker bonds, annotated RFD atom names, reviewed condition suggestions a
 stereochemistry-safe PDB evidence; choice of design predictor (Boltz-2 ± potentials,
 experimental Protenix Constraint v0.5 pocket proposals, Protenix v2/Mini, or
 IntelliFold PyTorch v2-flash/full v2)
-with IntelliFold or OpenFold-3 orthogonal checking; measured-optimum scheduling
-delegated to NanoHunter's runner; a pinned standalone installation that does not
+with IntelliFold or OpenFold-3 orthogonal checking; automatic measured-optimum
+scheduling that keeps five design engines resident and uses cycle waves for full
+Protenix v2; a pinned standalone installation that does not
 need a sibling checkout, with explicit reuse of an existing NanoHunter/RFD3
 install as an option; an RFdiffusion3 tab that drives the
 validated production pipeline, survives quitting the app, resumes protein stages
@@ -58,6 +59,24 @@ fallback and incomplete seed/sample output sets. Managed engines retain separate
 dependency contracts while sharing APFS-cloned package payloads, Git objects and
 one checksum-verified Protenix chemical dataset; the Engines screen can safely
 consolidate matching assets from an older install.
+
+Build 8's M1 Pro acceptance correctly rejected invalid Boltz geometry and exposed
+a second IntelliFold MPS indexing abort. Build 9 contains the follow-up allocator
+boundary and all three IntelliFold indexing replacements; M4 acceptance passes,
+but the decisive post-macOS-update M1 rerun is still pending (Entry 0061).
+
+Controlled unsigned-beta packaging now produces versioned Apple-Silicon DMG and
+ZIP artifacts with checksums, provenance, embedded notices and a trusted Sparkle
+update boundary. Beta archives require the project's EdDSA signature even though
+the application remains ad-hoc signed and unnotarised by Apple. The notarised
+release route remains intact, and privacy, support, security and the unresolved
+MIT licensing review are documented explicitly.
+
+The first external build exposed and build 3 fixes a clean-Mac startup crash in
+SwiftPM's executable-resource accessor. Packaged resources now use the sealed
+`Contents/Resources` location through an app-aware resolver, and the shipped
+binary contains no absolute checkout path. Release validation launches the app
+outside the source checkout before handoff.
 
 **Known gaps, in priority order:**
 
@@ -72,7 +91,7 @@ consolidate matching assets from an older install.
    paired apo–holo comparison with preorganisation RMSD and self-consistency.
 4. OpenFold-3 complex pLDDT has an unresolved scale problem — see
    [0002](lab_book/0002-inherited-speed-lessons.md) §7.
-5. No app icon. Sparkle self-update, size-aware engine consent and release automation are implemented, but Developer ID signing/notarisation and an old-to-new update acceptance on a second Mac remain blocked on Apple distribution credentials.
+5. No app icon. Sparkle self-update, size-aware engine consent, signed-release automation and a trusted unsigned-beta route are implemented, but Developer ID signing/notarisation and an old-to-new update acceptance on a second Mac remain blocked on Apple distribution credentials. The unsigned path still needs its first second-Mac Gatekeeper/install test and a real beta-to-beta Sparkle acceptance test.
 
 **Deliberately out of scope:** NISE (experimental, stays in NanoHunter); RFdiffusion3
 against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
@@ -103,6 +122,16 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0062 | 2026-09-01 | [Audit the Boltz MPS reset across Apple GPU generations](lab_book/0062-audit-boltz-mps-cross-generation.md) | Shows that the 4-second number was model-only, proves the build-9 reset leaves a paired M4 fold bit-identical with no detected timing penalty, and anchors the M1/M4 divergence in PyTorch and Apple primary evidence. |
+| 0061 | 2026-09-01 | [Finish the M1 predictor-correctness repair](lab_book/0061-finish-m1-predictor-correctness.md) | Records the decisive build-8 M1 failures, replaces all three IntelliFold GatherND formulations, adds the PyTorch-MPS allocator boundary to Boltz and defines the remaining M1 acceptance gate. |
+| 0060 | 2026-09-01 | [Make Boltz and IntelliFold Apple-GPU output fail-safe](lab_book/0060-fix-boltz-intellifold-apple-gpu-correctness.md) | Adds the geometry gate and records the initial FP32/single-GatherND repair; its Boltz root-cause claim and incomplete IntelliFold patch are explicitly superseded by Entry 0061. |
+| 0059 | 2026-09-01 | [Make prediction MSA failures retryable and diagnosable](lab_book/0059-make-prediction-msa-failures-diagnosable.md) | Confirms both public MSA routes are live, adds bounded retries to plain Predict, and preserves the actual provider/network cause and full log without allowing a silent single-sequence fallback. |
+| 0058 | 2026-09-01 | [Close the remaining clean-Mac installer failures](lab_book/0058-close-clean-mac-installer-failures.md) | Uses six external install logs to repair Protenix nounset initialization, LASErMPNN's incorrect filelock hashes and pip-less RFdiffusion3 receipts, while making the mandatory four-model MPNN core suite explicit in Engines. |
+| 0057 | 2026-09-01 | [Repair the fresh AntiFold hash-locked install](lab_book/0057-repair-antifold-hash-lock.md) | Reproduces the external installer failure, removes an unnecessary `wheel` entry with an unhashed transitive dependency, and validates the exact transactional install plus a real one-sequence AntiFold MPS run. |
+| 0056 | 2026-09-01 | [Fix the clean-Mac packaged-resource startup crash](lab_book/0056-fix-clean-mac-resource-crash.md) | Diagnoses the external build 2 `Bundle.module` crash, removes SwiftPM's absolute build-machine fallback from shipped code, packages resources conventionally, and validates build 3 from the mounted DMG outside the checkout. |
+| 0055 | 2026-09-01 | [Enable cryptographically verified Sparkle updates for trusted betas](lab_book/0055-enable-sparkle-for-trusted-betas.md) | Enables EdDSA-verified application updates in ad-hoc trusted betas, preserves the Apple trust warning, and adds an atomic clean-tree GitHub prerelease/appcast publishing route. |
+| 0054 | 2026-09-01 | [Package auditable unsigned betas without weakening signed releases](lab_book/0054-package-auditable-unsigned-betas.md) | Adds versioned unsigned DMG/ZIP packaging, checksums, provenance and distribution notices; its original manual-update decision is superseded by Entry 0055's trusted-beta channel. |
+| 0053 | 2026-09-01 | [Make measured resident scheduling automatic](lab_book/0053-make-resident-scheduling-automatic.md) | Removes scheduling as a GUI preference, migrates old Compatibility forms, and enforces resident workers for five engines with the measured cycle-wave exception for full Protenix v2 |
 | 0052 | 2026-08-31 | [Audit and archive the pre-standalone runtime](lab_book/0052-audit-and-archive-legacy-runtime.md) | Removes the verified redundant Boltz archive and preserves historical projects, RFdiffusion3 artifacts and licensed AF3 parameters before the separately approved deletion of the obsolete 23 GB runtime |
 | 0051 | 2026-08-31 | [Minimize managed runtime storage without merging incompatible engines](lab_book/0051-minimize-managed-runtime-storage.md) | Nine scientifically incompatible runtime boundaries remain isolated while APFS-cloned packages, shared Git objects and verified Protenix data reduce safe physical duplication; cold install, receipt and post-cache-clean inference pass |
 | 0050 | 2026-08-31 | [Enforce iterative cardinality and complete installer v2](lab_book/0050-enforce-cardinality-and-complete-installer-v2.md) | GUI counts are preserved and audited with cycle 00 separate, live result inspectors have a stable closeable owner, and the deterministic versioned installer passes a real isolated cold MPNN install plus inference |

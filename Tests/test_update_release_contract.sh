@@ -19,6 +19,8 @@ rg -q '<key>SUPublicEDKey</key>' "${REPO_ROOT}/build_app.sh" \
   || fail "release bundle omits the Sparkle public key"
 rg -q '<key>SUVerifyUpdateBeforeExtraction</key><true/>' "${REPO_ROOT}/build_app.sh" \
   || fail "updates are not verified before extraction"
+rg -q '<key>IPStudioSparkleUpdateBuild</key>' "${REPO_ROOT}/build_app.sh" \
+  || fail "build channels cannot explicitly opt into Sparkle updates"
 rg -q 'Automatically check for app updates' \
   "${REPO_ROOT}/Sources/iProteinStudio/Core/AppUpdateService.swift" \
   || fail "automatic update opt-out is not visible"

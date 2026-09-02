@@ -208,9 +208,10 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// optimized checkpoint (cycles 01...N). The unoptimized cycle 00 seed is
     /// never included by Studio. Threshold gating is intentionally orthogonal.
     var postCheckScope: PostCheckScope = .finalCycle
-    /// New campaigns use the measured engine-specific scheduler policy. The
-    /// compatibility mode remains decodable for old manifests and as an
-    /// explicit troubleshooting escape hatch.
+    /// GUI campaigns always use the measured engine-specific scheduler policy.
+    /// The stored field remains solely so older project JSON continues to
+    /// decode; decoding migrates historical Compatibility values to Optimized.
+    /// Per-trajectory troubleshooting remains an explicit CLI-only option.
     var speedMode: SpeedMode = .batched
 
     /// Sampling temperature for the first redesign cycle, and for later ones.
@@ -358,13 +359,13 @@ struct DesignRequest: Codable, Equatable, Hashable {
         // cycles, so five optimisation cycles means six folds per design.
         let cyclesIncludingSeed = max(0, numCycles) + 1
         let designPredictions = Double(max(1, numDesigns) * cyclesIncludingSeed)
-        var total = designPredictions * designPredictor.measuredSeconds(in: speedMode)
+        var total = designPredictions * designPredictor.measuredSeconds(in: .batched)
         // Use every eligible checkpoint so threshold gating can only make the
         // real run shorter.
         let checkedCycles = postCheckScope == .allCycles ? max(1, numCycles) : 1
         let postCandidates = Double(max(1, numDesigns) * checkedCycles)
         for p in effectivePostPredictors {
-            total += postCandidates * p.measuredSeconds(in: speedMode)
+            total += postCandidates * p.measuredSeconds(in: .batched)
         }
         return total
     }
@@ -487,7 +488,12 @@ struct DesignRequest: Codable, Equatable, Hashable {
         intellifoldModel = try c.decodeIfPresent(IntelliFoldModel.self, forKey: .intellifoldModel) ?? d.intellifoldModel
         postOnlyHits    = try c.decodeIfPresent(Bool.self, forKey: .postOnlyHits) ?? d.postOnlyHits
         postCheckScope  = try c.decodeIfPresent(PostCheckScope.self, forKey: .postCheckScope) ?? d.postCheckScope
-        speedMode       = try c.decodeIfPresent(SpeedMode.self, forKey: .speedMode) ?? d.speedMode
+        // Compatibility scheduling was once exposed in Advanced. It made an
+        // old saved form silently bypass the validated resident default. Read
+        // the legacy value so malformed data still fails decoding, then migrate
+        // every GUI project to the automatic optimized policy.
+        _ = try c.decodeIfPresent(SpeedMode.self, forKey: .speedMode)
+        speedMode       = .batched
         resumeIfPossible = try c.decodeIfPresent(Bool.self, forKey: .resumeIfPossible) ?? d.resumeIfPossible
         mpnnTempCycle1  = try c.decodeIfPresent(Double.self, forKey: .mpnnTempCycle1) ?? d.mpnnTempCycle1
         mpnnTempLater   = try c.decodeIfPresent(Double.self, forKey: .mpnnTempLater) ?? d.mpnnTempLater
