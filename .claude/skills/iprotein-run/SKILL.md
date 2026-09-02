@@ -23,6 +23,13 @@ bash "$ROOT/setup_pipeline.sh" --detect      # what is installed
 Never assume an engine is present. `--detect` prints one `NHSTATE|<component>|ok|…`
 line per engine; check before offering one to the user.
 
+When `$ROOT/mcp/server.py` is staged and the client is configured, prefer its
+typed tools over assembling commands by hand. Create a workflow-specific plan,
+show the normalized settings and digest to the user, then call `job_start`.
+`job_status`, `job_wait`, `job_cancel`, and `job_resume` operate on durable jobs
+that survive the Claude session. The MCP bridge deliberately routes back to the
+same commands described below; it does not replace their scientific behaviour.
+
 ## The traps
 
 These have all caused real, silent failures in this project. They do not raise —

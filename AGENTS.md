@@ -50,6 +50,13 @@ not reinvent it, and do not silently diverge from its defaults**.
 See `docs/CLI.md`. Start with `bash "$ROOT/setup_pipeline.sh" --detect` and never
 assume an engine is installed.
 
+For Codex, Claude Code, or another MCP client, use the shipped client-neutral
+bridge under `$ROOT/mcp/`. Keep the `read`, `run`, and normally disabled `admin`
+profiles separate. Expensive work must go through a preflight plan and
+`job_start`; do not bypass the bridge's immutable plan digest, script-provenance
+check, shared execution lock, MSA policy, or recorded resident/cycle-wave
+scheduler. See `docs/CLI.md#ai-agents-model-context-protocol`.
+
 ## Validation campaigns
 
 Performance and settings experiments belong under `Validation/`. Read

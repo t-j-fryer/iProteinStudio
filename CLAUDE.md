@@ -101,6 +101,17 @@ results are worth as much as positive ones** — an entry saying "we tried X, it
 - **Build check.** `swift build` must pass before you commit. `./build_app.sh` produces
   the runnable app bundle.
 
+## MCP access
+
+The staged `$ROOT/mcp/` bridge is the supported client-neutral route for Claude
+Code and Codex to inspect and run Studio without driving SwiftUI. Use `read` for
+inspection, `run` for immutable scientific plans/jobs, and enable `admin` only
+for an explicitly approved engine or storage operation. Do not call model
+scripts directly when the MCP tool exists: the bridge supplies cross-client GPU
+serialization, script-provenance checks, content-addressed imports and the same
+resident/cycle-wave scheduling policy as the app. Configuration and tool details
+are in `docs/CLI.md#ai-agents-model-context-protocol`.
+
 ## Scope note
 
 NISE (Neural Iterative Selection–Expansion) is deliberately **out of scope** for this

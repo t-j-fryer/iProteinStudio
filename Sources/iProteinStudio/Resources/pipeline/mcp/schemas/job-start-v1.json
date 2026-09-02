@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "iprotein://schemas/job-start-v1",
+  "type": "object", "additionalProperties": false,
+  "required": ["plan_id", "plan_sha256"],
+  "properties": {
+    "plan_id": {"type": "string", "pattern": "^plan-[a-f0-9]{16}$"},
+    "plan_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

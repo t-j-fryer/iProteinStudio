@@ -14,6 +14,113 @@ export NANOHUNTER_ROOT="$ROOT"             # the pipeline reads this
 Every environment lives in `$ROOT/venvs/`, every model repo in `$ROOT/src/`,
 weights in `$ROOT/models/`, and RFdiffusion3 in `$ROOT/rfd3/`.
 
+## AI agents: Model Context Protocol
+
+iProteinStudio ships one dependency-free MCP implementation with three
+least-privilege profiles. Codex and Claude Code use the same server and schemas;
+only their configuration file formats differ.
+
+| Profile | Intended access |
+|---|---|
+| `read` | Installed engines, projects, runs, manifests, bounded logs and normalized result tables |
+| `run` | Content-addressed input import, target inspection, immutable preflight plans, scientific jobs, cancellation and resume |
+| `admin` | Engine installation/repair and verified storage maintenance; disabled by default |
+
+Configure a trusted project after launching the app once, which stages the
+bridge at `$ROOT/mcp/`:
+
+```bash
+# Preview both changes first.
+/usr/bin/python3 "$ROOT/mcp/configure.py" \
+  --client both --scope project --project-root /path/to/trusted/project
+
+# Apply after review.
+/usr/bin/python3 "$ROOT/mcp/configure.py" \
+  --client both --scope project --project-root /path/to/trusted/project --write
+```
+
+The normal configuration advertises `read` and `run`. Administration requires
+both an explicit profile and an environment opt-in:
+
+```bash
+IPROTEINSTUDIO_ENABLE_ADMIN_MCP=1 \
+  /usr/bin/python3 "$ROOT/mcp/configure.py" \
+  --client codex --scope project --project-root /path/to/trusted/project \
+  --profiles read,run,admin --write
+```
+
+The configuration writer preserves unrelated Codex TOML and Claude MCP entries.
+It writes resolved paths only into the user's generated configuration; no
+machine-specific path is part of shipped source.
+
+### Execution contract
+
+Long tool calls do not hold an MCP request open. A workflow uses:
+
+1. `prediction_plan`, `target_prepare_plan`, `iterative_design_plan`, or one of
+   the three mode-specific RFD3 plan tools.
+2. Review the normalized request, exact command preview, input/script hashes and
+   output location.
+3. Pass both returned `plan_id` and `plan_sha256` to `job_start`.
+4. Poll with `job_status` or the bounded `job_wait`; use `job_resume` after an
+   interruption.
+
+Plans are immutable. `job_start` recalculates the plan digest and verifies every
+recorded runner before launching. If an app update changed a script after
+preflight, the job fails and requires a new plan rather than silently using new
+scientific code.
+
+Each MCP client has its own local stdio server process, but every scientific or
+administration worker uses `$ROOT/agent/execution.lock`. Codex, Claude and the
+direct `studioctl.py` route therefore cannot launch overlapping Apple-GPU jobs.
+The lock serializes jobs conservatively; scheduling *within* an iterative or
+RFD3 verification campaign remains the validated resident/cycle-wave policy of
+the underlying runner.
+
+The existing GUI launch path is intentionally unchanged and does not acquire
+this agent lock. Do not start a GUI campaign while an agent job is active (or
+vice versa); `studioctl.py jobs` is the authoritative agent-job check. Moving
+the GUI itself behind the broker would change validated interactive launch
+semantics and requires a separate migration and performance validation.
+
+The detached worker, plan, status, logs and audit records live under
+`$ROOT/agent/`. Closing the MCP client does not stop the job. Cancellation sends
+SIGTERM to the worker process group, not just its immediate model process.
+
+### Scientific tools
+
+- `target_inspect` uses the same exact target/RFD3 atom vocabulary as the GUI.
+- `prediction_plan` preserves per-chain `auto`, `empty`, or exact imported MSA
+  policy and never silently converts an alignment failure to single-sequence.
+- `iterative_design_plan` accepts only an allowlisted scientific argument set.
+  Studio supplies output paths, snapshots, `--resume`, memory policy, and the
+  measured resident/cycle-wave scheduler.
+- `rfd3_denovo_plan`, `rfd3_partial_diffusion_plan`, and
+  `rfd3_motif_scaffolding_plan` are separate so their incompatible semantics
+  cannot be mixed. Partial diffusion constrains `partial_t` to 0.1–15 Å and
+  removes de-novo origin overrides. Motif scaffolding requires a non-empty atom
+  selection for every source motif residue.
+- `results_query` reads only recognized result tables, can select hits, and
+  returns a bounded numeric distribution without inventing missing metrics.
+
+There is deliberately no arbitrary shell, Python, executable, environment,
+RFD3-YAML, file deletion, or raw engine-argument tool. External inputs are
+copied into checksum-addressed managed storage. Additional import roots must be
+added explicitly to `$ROOT/agent/policy.json`.
+
+The same implementation has a direct JSON CLI for diagnostics and automation:
+
+```bash
+/usr/bin/python3 "$ROOT/mcp/studioctl.py" doctor
+/usr/bin/python3 "$ROOT/mcp/studioctl.py" detect
+/usr/bin/python3 "$ROOT/mcp/studioctl.py" projects
+/usr/bin/python3 "$ROOT/mcp/studioctl.py" runs --project my-project
+/usr/bin/python3 "$ROOT/mcp/studioctl.py" jobs
+```
+
+`doctor` is offline and checks that all three privilege profiles and every
+versioned request schema can load. `detect` then checks the managed engines.
+
 ---
 
 ## Install

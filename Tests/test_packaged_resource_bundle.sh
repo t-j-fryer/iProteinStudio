@@ -14,6 +14,12 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
   || fail "SwiftPM resource bundle is missing its pipeline sentinel"
 [[ -s "${BUNDLE}/pipeline/scripts/storage_policy.py" ]] \
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
+[[ -s "${BUNDLE}/pipeline/mcp/server.py" ]] \
+  || fail "resource bundle is missing the MCP server"
+[[ -s "${BUNDLE}/pipeline/mcp/schemas/prediction-v1.json" ]] \
+  || fail "resource bundle is missing the MCP request schemas"
+[[ -s "${BUNDLE}/pipeline/mcp/schemas/target-prepare-v1.json" ]] \
+  || fail "resource bundle is missing the MCP target-preparation schema"
 [[ -s "${BUNDLE}/examples/p53_mdm2/1YCR.pdb" ]] \
   || fail "resource bundle is missing the p53-MDM2 RFdiffusion3 example"
 [[ -s "${BUNDLE}/rfd3_overlay/OVERLAY_VERSION" ]] \

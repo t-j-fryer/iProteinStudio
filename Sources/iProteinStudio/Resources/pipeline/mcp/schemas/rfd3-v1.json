@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "iprotein://schemas/rfd3-v1",
+  "type": "object", "additionalProperties": false,
+  "required": ["project", "request"],
+  "properties": {
+    "project": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"},
+    "run_name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"},
+    "request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["target_kind"],
+      "properties": {
+        "design_mode": {"enum": ["deNovo", "partialDiffusion", "motifScaffolding"]},
+        "target_kind": {"enum": ["protein", "small_molecule"]},
+        "component_id": {"type": "string"}, "ligand_source": {"enum": ["smiles", "structure_file"]},
+        "smiles": {"type": "string"}, "ligand_structure": {"type": "string"}, "ligand_residue": {"type": "string"},
+        "target_structure": {"type": "string"}, "target_sequence": {"type": "string"}, "target_chain": {"type": "string"},
+        "target_chains": {"type": "array", "items": {"type": "string"}}, "contig": {"type": "string"},
+        "source_binder_chain": {"type": "string"}, "partial_t": {"type": "number", "minimum": 0.1, "maximum": 15},
+        "preserve_partial_sequence": {"type": "boolean"},
+        "motif_sites": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
+        "conditions": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
+        "is_non_loopy": {"type": "boolean"}, "infer_ori_strategy": {"type": "string"},
+        "ori_token": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}},
+        "lengths": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"type": "integer", "minimum": 5, "maximum": 1000}},
+        "num_backbones": {"type": "integer", "minimum": 1}, "timesteps": {"type": "integer", "minimum": 1},
+        "recycles": {"type": "integer", "minimum": 0}, "batch_size": {"type": "integer", "minimum": 1, "maximum": 64},
+        "queues_per_bin": {"type": "integer", "minimum": 1, "maximum": 4}, "precision": {"enum": ["bf16", "fp32"]},
+        "seed_base": {"type": "integer"}, "sequences_per_backbone": {"type": "integer", "minimum": 1},
+        "sequence_model": {"enum": ["lasermpnn", "ligandmpnn", "solublempnn", "proteinmpnn"]},
+        "sequence_temperature": {"type": "number"}, "first_shell_temperature": {"type": "number"},
+        "top_n": {"type": "integer", "minimum": 1}, "use_potentials": {"type": "boolean"},
+        "run_affinity": {"type": "boolean"}, "run_apo": {"type": "boolean"},
+        "hit_filters": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "minimum_iptm": {"type": ["number", "null"]}, "minimum_ipsae_min": {"type": ["number", "null"]},
+            "maximum_complex_rmsd": {"type": ["number", "null"]}, "minimum_binder_plddt": {"type": ["number", "null"]},
+            "maximum_binder_rmsd": {"type": ["number", "null"]}, "maximum_motif_rmsd": {"type": ["number", "null"]}
+          }
+        },
+        "extra_predictors": {"type": "array", "items": {"enum": ["boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"]}},
+        "intellifold_model": {"enum": ["v2-flash", "v2"]},
+        "conformers": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+        "mpnn_max_parallel": {"type": "integer", "minimum": 1}, "boltz_chunk_size": {"type": "integer", "minimum": 1},
+        "boltz_calibrate_n": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}
