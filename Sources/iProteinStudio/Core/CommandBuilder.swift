@@ -83,6 +83,15 @@ enum CommandBuilder {
             if request.postOnlyHits {
                 args += ["--post-iptm-threshold", String(format: "%.2f", request.hitThreshold)]
             }
+            args += [request.postRunBinderAlone ? "--post-binder-alone" : "--post-no-binder-alone"]
+            func appendFilter(_ flag: String, _ value: Double?) {
+                args += [flag, value.map { String(format: "%.3f", $0) } ?? "off"]
+            }
+            appendFilter("--filter-min-iptm", request.postFilters.minimumIPTM)
+            appendFilter("--filter-min-ipsae", request.postFilters.minimumIPSAEMin)
+            appendFilter("--filter-max-complex-rmsd", request.postFilters.maximumComplexRMSD)
+            appendFilter("--filter-min-binder-plddt", request.postFilters.minimumBinderPLDDT)
+            appendFilter("--filter-max-binder-rmsd", request.postFilters.maximumBinderRMSD)
         }
 
         // Fresh base seed so a new launch explores new sequences while its

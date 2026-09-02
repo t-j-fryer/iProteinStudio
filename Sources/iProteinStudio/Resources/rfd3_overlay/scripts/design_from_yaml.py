@@ -215,6 +215,11 @@ def fixed_motif_residue_count(contig) -> int:
 
 
 def plan_lengths(spec: dict, run: dict) -> list[int]:
+    # Partial diffusion preserves the input composition. Foundry explicitly
+    # forbids a `length` alongside partial_t, so infer the diffused protein
+    # chain length and ignore de-novo bin controls.
+    if spec.get("partial_t") is not None:
+        return [input_chain_length(spec, "A")]
     if run.get("lengths"):
         return [int(x) for x in run["lengths"]]
     if run.get("min_length") is not None and run.get("max_length") is not None:
@@ -239,6 +244,26 @@ def plan_lengths(spec: dict, run: dict) -> list[int]:
             f"Set `lengths: [{lo}, ..., {hi}]` (or min_length/max_length/num_bins) to build one fixture per bin."
         )
     return [lo]
+
+
+def input_chain_length(spec: dict, chain: str) -> int:
+    """Count distinct protein residues in one input chain."""
+    if not spec.get("input"):
+        raise SystemExit("partial diffusion requires an input structure")
+    try:
+        from biotite.structure.io.pdbx import CIFFile, get_structure as cif_structure
+        from biotite.structure.io.pdb import PDBFile
+        path = Path(spec["input"])
+        array = (cif_structure(CIFFile.read(path), model=1)
+                 if path.suffix.lower() in {".cif", ".mmcif", ".bcif"}
+                 else PDBFile.read(path).get_structure(model=1))
+        mask = (array.chain_id == chain) & array.hetero.__eq__(False)
+        ids = set(zip(array.chain_id[mask].tolist(), array.res_id[mask].tolist()))
+    except Exception as exc:
+        raise SystemExit(f"could not read partial-diffusion chain {chain}: {exc}") from exc
+    if not ids:
+        raise SystemExit(f"partial-diffusion input has no protein residues in chain {chain}")
+    return len(ids)
 
 
 def allocate(total: int, n: int) -> list[int]:
@@ -305,6 +330,8 @@ def build_fixtures(spec: dict, run: dict, name: str, lengths: list[int],
     manifest_path = rfd3_dir / "bin_manifest.json"
     manifest_path.write_text(json.dumps({
         "design_name": name,
+        "design_mode": ("partialDiffusion" if spec.get("partial_t") is not None
+                        else "motifScaffolding" if spec.get("unindex") else "deNovo"),
         "component_id": spec.get("ligand"),
         "ccd_mirror": env.get("CCD_MIRROR_PATH"),
         "num_designs": int(run["num_designs"]),
@@ -330,7 +357,8 @@ def _bins_for_conformer(spec, run, name, lengths, quotas, conf_path, tag, motif_
         if conf_path:
             bin_spec["input"] = str(conf_path)
         total_length = length + motif_residues
-        bin_spec["length"] = f"{total_length}-{total_length}"
+        if spec.get("partial_t") is None:
+            bin_spec["length"] = f"{total_length}-{total_length}"
         input_json.write_text(json.dumps({bin_name: bin_spec}, indent=2) + "\n")
 
         if fixture.exists() and not overwrite:
@@ -357,6 +385,10 @@ def _bins_for_conformer(spec, run, name, lengths, quotas, conf_path, tag, motif_
             "conformer": str(conf_path) if conf_path else None,
             "input_json": str(input_json), "fixture": str(fixture),
             "seed": int(run["seed_base"]) + i,
+            "design_mode": ("partialDiffusion" if spec.get("partial_t") is not None
+                            else "motifScaffolding" if spec.get("unindex") else "deNovo"),
+            "motif_source_residues": ([part.strip() for part in str(spec.get("unindex", "")).split(",")
+                                        if part.strip()]),
         })
     return bins
 

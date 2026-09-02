@@ -32,6 +32,27 @@ struct StudioResultItem: Identifiable, Hashable {
     /// The engine that emitted `metrics`; never inferred from the engine that
     /// happened to create an earlier structure in the workflow.
     let scoreSource: String
+    /// Explicit workflow verdict read from disk. Nil means that workflow did
+    /// not apply a multi-metric filter; it must never be inferred silently.
+    let isHit: Bool?
+    let failedFilters: [String]
+
+    init(id: String, title: String, subtitle: String, structureURL: URL,
+         sequence: String?, metrics: [StudioResultMetric], confidenceURL: URL?,
+         stage: StudioResultStage, scoreSource: String, isHit: Bool? = nil,
+         failedFilters: [String] = []) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.structureURL = structureURL
+        self.sequence = sequence
+        self.metrics = metrics
+        self.confidenceURL = confidenceURL
+        self.stage = stage
+        self.scoreSource = scoreSource
+        self.isHit = isHit
+        self.failedFilters = failedFilters
+    }
 
     var primaryMetric: StudioResultMetric? {
         metrics.first { $0.kind == .iptm }
@@ -55,6 +76,10 @@ struct StudioResultMetric: Identifiable, Hashable {
         case rankingScore
         case pocketMeanDistance
         case pocketFractionWithinCutoff
+        case complexRMSD
+        case binderBackboneRMSD
+        case binderPLDDT
+        case binderRMSD
 
         var label: String {
             switch self {
@@ -70,6 +95,10 @@ struct StudioResultMetric: Identifiable, Hashable {
             case .rankingScore: return "ranking score"
             case .pocketMeanDistance: return "epitope distance"
             case .pocketFractionWithinCutoff: return "epitope coverage"
+            case .complexRMSD: return "binder pose RMSD"
+            case .binderBackboneRMSD: return "binder fold RMSD"
+            case .binderPLDDT: return "binder pLDDT"
+            case .binderRMSD: return "binder-alone RMSD"
             }
         }
 
@@ -92,6 +121,14 @@ struct StudioResultMetric: Identifiable, Hashable {
                 return "Mean nearest Cα distance from each requested epitope residue to the binder. This reports response to the soft pocket prior; lower is closer."
             case .pocketFractionWithinCutoff:
                 return "Fraction of requested epitope residues whose nearest binder Cα is within the recorded Protenix pocket cutoff. This is geometry, not evidence of binding."
+            case .complexRMSD:
+                return "Cα RMSD of the complex binder to its designed pose after fitting the fixed target. This detects a good fold predicted on the wrong target surface; lower is better."
+            case .binderBackboneRMSD:
+                return "Cα RMSD of the independently predicted complex binder to the designed backbone after fitting the binder itself. This measures fold recovery without interface placement; lower is better."
+            case .binderPLDDT:
+                return "Local confidence of the binder predicted without its target. Higher is better."
+            case .binderRMSD:
+                return "Cα RMSD between binder-alone and complex predictions after fitting the binder. Lower suggests preorganisation."
             }
         }
     }
@@ -105,8 +142,12 @@ struct StudioResultMetric: Identifiable, Hashable {
         case .plddt:
             let conventional = value <= 1.000_001 ? value * 100 : value
             return String(format: "%.1f", conventional)
-        case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance:
+        case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance,
+             .complexRMSD, .binderBackboneRMSD, .binderRMSD:
             return String(format: "%.2f Å", value)
+        case .binderPLDDT:
+            let conventional = value <= 1.000_001 ? value * 100 : value
+            return String(format: "%.1f", conventional)
         case .pocketFractionWithinCutoff:
             return String(format: "%.0f%%", value * 100)
         default:
@@ -205,7 +246,9 @@ enum RunResultsLoader {
                 structureURL: structure, sequence: nonempty(row["binder_sequence"]),
                 metrics: collectMetrics(row: row, documents: documents),
                 confidenceURL: documents.first, stage: resultStage,
-                scoreSource: predictor
+                scoreSource: predictor,
+                isHit: boolean(row["is_hit"]),
+                failedFilters: splitFilters(row["failed_filters"])
             )
         }
     }
@@ -316,7 +359,9 @@ enum RunResultsLoader {
                     subtitle: friendlyPredictor(predictorKey), structureURL: structure,
                     sequence: sequence, metrics: collectMetrics(row: metricRow, documents: documents),
                     confidenceURL: documents.first, stage: .rankedDesign,
-                    scoreSource: friendlyPredictor(predictorKey)
+                    scoreSource: friendlyPredictor(predictorKey),
+                    isHit: boolean(row["is_hit"]),
+                    failedFilters: splitFilters(row["failed_filters"])
                 ))
             }
         }
@@ -349,6 +394,10 @@ enum RunResultsLoader {
         add(.rankingScore, rowNumber(["score", "ranking_score"]))
         add(.pocketMeanDistance, rowNumber(["constraint_pocket_mean_min_ca_distance"]))
         add(.pocketFractionWithinCutoff, rowNumber(["constraint_pocket_fraction_within_max_distance"]))
+        add(.complexRMSD, rowNumber(["maximum_complex_rmsd", "complex_rmsd"]))
+        add(.binderBackboneRMSD, rowNumber(["maximum_binder_backbone_rmsd", "binder_backbone_rmsd"]))
+        add(.binderPLDDT, rowNumber(["minimum_binder_plddt", "binder_plddt"]))
+        add(.binderRMSD, rowNumber(["maximum_binder_rmsd", "binder_rmsd"]))
 
         for document in documents {
             guard let object = jsonObject(at: document) else { continue }
@@ -498,6 +547,18 @@ enum RunResultsLoader {
     private static func nonempty(_ text: String?) -> String? {
         guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
         return text
+    }
+
+    private static func boolean(_ text: String?) -> Bool? {
+        guard let text = nonempty(text)?.lowercased() else { return nil }
+        if ["true", "1", "yes"].contains(text) { return true }
+        if ["false", "0", "no"].contains(text) { return false }
+        return nil
+    }
+
+    private static func splitFilters(_ text: String?) -> [String] {
+        guard let text = nonempty(text) else { return [] }
+        return text.split(separator: ";").map(String.init)
     }
 
     private static func friendlyPredictor(_ key: String) -> String {

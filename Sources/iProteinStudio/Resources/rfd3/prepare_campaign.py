@@ -51,8 +51,12 @@ def yaml_quote(value: str) -> str:
 
 
 def normalize_protein_target(req: dict, campaign: Path) -> dict[str, str]:
-    """Reserve A for the designed binder and remap supplied target chains B onward."""
-    from protein_structure import write_selected_pdb
+    """Normalize a target, or an existing binder-target complex, safely.
+
+    De-novo mode selects only target chains and reserves A for generated matter.
+    Existing-complex modes additionally retain the source binder/motif chain as A.
+    """
+    from protein_structure import read_protein_atoms, write_selected_pdb
 
     source_chains = req.get("target_chains") or [value.strip() for value in
                      str(req.get("target_chain", "B")).split(",") if value.strip()]
@@ -60,6 +64,12 @@ def normalize_protein_target(req: dict, campaign: Path) -> dict[str, str]:
         fail("RFdiffusion3 supports at most 25 target chains because chain A is reserved for the binder.")
     assigned = [chr(ord("B") + index) for index in range(len(source_chains))]
     chain_map = dict(zip(source_chains, assigned))
+    mode = req.get("design_mode", "deNovo")
+    if mode in {"partialDiffusion", "motifScaffolding"}:
+        source_binder = str(req.get("source_binder_chain", "A")).strip().upper()
+        if source_binder in chain_map:
+            fail("The source binder/motif chain must not also be listed as a fixed target chain.")
+        chain_map[source_binder] = "A"
     try:
         normalized = write_selected_pdb(
             req["target_structure"], campaign / "assets" / "target" / "normalized_target.pdb",
@@ -86,6 +96,26 @@ def normalize_protein_target(req: dict, campaign: Path) -> dict[str, str]:
     req["target_structure"] = str(normalized)
     req["target_chain"] = ",".join(assigned)
     req["target_chains"] = assigned
+    atoms = read_protein_atoms(normalized)
+    ranges = {}
+    for chain in sorted({atom.chain for atom in atoms}):
+        ids = sorted({atom.residue_number for atom in atoms if atom.chain == chain})
+        if ids:
+            ranges[chain] = f"{chain}{ids[0]}-{ids[-1]}"
+    req["normalized_chain_ranges"] = ranges
+    if mode in {"partialDiffusion", "motifScaffolding"}:
+        req["source_binder_chain"] = "A"
+        req["source_binder_contig"] = ranges.get("A", "")
+        if not req["source_binder_contig"]:
+            fail("The selected source binder/motif chain contains no protein residues.")
+        req["source_binder_length"] = len({atom.residue_number for atom in atoms if atom.chain == "A"})
+        # Motif selections were entered against the user's chain ID; remap them
+        # only after the input structure itself has been normalized.
+        if mode == "motifScaffolding":
+            remapped = {}
+            for residue, names in (req.get("motif_sites") or {}).items():
+                remapped[remap_token(str(residue))] = names
+            req["motif_sites"] = remapped
     return chain_map
 
 
@@ -128,6 +158,7 @@ def write_design_yaml(req: dict, campaign: Path, ligand_input: Path | None,
         lines.append(f"  {key}:")
         lines.append(f"    {yaml_quote(selection_key)}: {yaml_quote(','.join(atoms))}")
 
+    mode = req.get("design_mode", "deNovo")
     if req["target_kind"] == "small_molecule":
         if ligand_input is None:
             fail("No ligand structure was produced.")
@@ -135,18 +166,41 @@ def write_design_yaml(req: dict, campaign: Path, ligand_input: Path | None,
         emit("ligand", yaml_quote(req["component_id"]))
         # No contig: input + ligand already introduce the component. Naming it
         # again duplicates every ligand atom.
-    else:
+    elif mode == "deNovo":
         emit("input", yaml_quote(req["target_structure"]))
         # Contig carries the binder range plus the fixed target motif;
         # design_from_yaml.py converts binder length -> total component length.
         emit("contig", yaml_quote(req["contig"]))
+    elif mode == "partialDiffusion":
+        emit("input", yaml_quote(req["target_structure"]))
+        emit("partial_t", f"{float(req['partial_t']):.6g}")
+        lines.append("  select_fixed_atoms:")
+        for chain in req["target_chains"]:
+            lines.append(f"    {yaml_quote(req['normalized_chain_ranges'][chain])}: {yaml_quote('ALL')}")
+        # The source binder sequence remains conditioning during structural
+        # perturbation. Optional sequence redesign happens later in MPNN.
+    else:  # motifScaffolding
+        emit("input", yaml_quote(req["target_structure"]))
+        target_contig = ",/0,".join(req["normalized_chain_ranges"][c]
+                                     for c in req["target_chains"])
+        emit("contig", yaml_quote(f"{req['lengths'][0]}-{req['lengths'][-1]},/0,{target_contig}"))
+        residues = list((req.get("motif_sites") or {}).keys())
+        emit("unindex", yaml_quote(",".join(residues)))
+        lines.append("  select_fixed_atoms:")
+        for residue, atoms in sorted(req["motif_sites"].items()):
+            lines.append(f"    {yaml_quote(residue)}: {yaml_quote(atoms)}")
+        for chain in req["target_chains"]:
+            lines.append(f"    {yaml_quote(req['normalized_chain_ranges'][chain])}: {yaml_quote('ALL')}")
 
     emit("redesign_motif_sidechains", "false")
     if req.get("is_non_loopy") is not None:
         emit("is_non_loopy", "true" if req["is_non_loopy"] else "false")
-    if req.get("infer_ori_strategy"):
+    # Partial diffusion must retain Foundry's diffused-region COM centering.
+    # Applying the de-novo hotspot/origin override here can pull a small binder
+    # toward the full target COM and defeats the upstream partial-diffusion fix.
+    if mode == "deNovo" and req.get("infer_ori_strategy"):
         emit("infer_ori_strategy", str(req["infer_ori_strategy"]))
-    if req.get("ori_token"):
+    if mode == "deNovo" and req.get("ori_token"):
         emit("ori_token", "[" + ", ".join(f"{v:.3f}" for v in req["ori_token"]) + "]")
 
     if req["target_kind"] == "small_molecule":
@@ -272,6 +326,9 @@ def _env() -> dict:
 
 
 def validate_request(req: dict) -> None:
+    mode = req.get("design_mode", "deNovo")
+    if mode not in {"deNovo", "partialDiffusion", "motifScaffolding"}:
+        fail("design_mode must be deNovo, partialDiffusion, or motifScaffolding.")
     kind = req.get("target_kind")
     if kind not in {"small_molecule", "protein"}:
         fail("target_kind must be small_molecule or protein.")
@@ -321,6 +378,25 @@ def validate_request(req: dict) -> None:
             fail("Protein target chain IDs must be unique single letters.")
         if not req.get("extra_predictors"):
             fail("Protein campaigns require at least one verification predictor.")
+        if mode in {"partialDiffusion", "motifScaffolding"}:
+            binder = str(req.get("source_binder_chain", "")).strip().upper()
+            if len(binder) != 1 or not binder.isalpha() or binder in chains:
+                fail("Choose one source binder/motif chain that is not a target chain.")
+        if mode == "partialDiffusion":
+            partial_t = req.get("partial_t")
+            if not isinstance(partial_t, (int, float)) or not (0.1 <= partial_t <= 15):
+                fail("partial_t must be between 0.1 and 15 Angstroms.")
+        if mode == "motifScaffolding":
+            sites = req.get("motif_sites") or {}
+            if not sites or any(not str(v).strip() for v in sites.values()):
+                fail("Motif scaffolding requires explicit fixed atoms for every motif residue.")
+            import re
+            invalid = [residue for residue in sites
+                       if re.fullmatch(rf"{re.escape(binder)}[1-9][0-9]*",
+                                       str(residue).strip().upper()) is None]
+            if invalid:
+                fail("Motif residues must use the source motif chain and residue number, "
+                     f"for example {binder}42; invalid: {', '.join(map(str, invalid))}")
     else:
         if req.get("sequence_model") not in {"lasermpnn", "ligandmpnn"}:
             fail("Small-molecule campaigns require LASErMPNN or LigandMPNN.")
@@ -389,6 +465,7 @@ def main() -> None:
     config = {
         "campaign_dir": str(campaign),
         "design_name": req["design_name"],
+        "design_mode": req.get("design_mode", "deNovo"),
         "design_yaml": str(design_yaml),
         "component_id": req.get("component_id"),
         "lengths": req["lengths"],
@@ -409,6 +486,7 @@ def main() -> None:
         "use_potentials": req.get("use_potentials", True),
         "run_affinity": req.get("run_affinity", True),
         "run_apo": req.get("run_apo", True),
+        "hit_filters": req.get("hit_filters", {}),
         "extra_predictors": req.get("extra_predictors", []),
         "intellifold_model": req.get("intellifold_model", "v2-flash"),
         # Ligand Intelligence may recommend designing across several ligand
@@ -439,7 +517,13 @@ def main() -> None:
         config["source_target_structure"] = original_target_structure
         config["target_chain_map"] = target_chain_map
         # The predictor template needs a binder placeholder of the right length.
-        config["max_length"] = max(req["lengths"])
+        config["max_length"] = (req.get("source_binder_length")
+                                if req.get("design_mode") == "partialDiffusion"
+                                else max(req["lengths"]))
+        config["source_binder_length"] = req.get("source_binder_length")
+        config["source_binder_contig"] = req.get("source_binder_contig")
+        config["preserve_partial_sequence"] = req.get("preserve_partial_sequence", True)
+        config["motif_sites"] = req.get("motif_sites", {})
         config["predict_max_parallel"] = req.get("predict_max_parallel", 4)
 
     config_path = campaign / "config" / "campaign.json"

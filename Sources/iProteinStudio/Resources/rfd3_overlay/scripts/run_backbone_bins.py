@@ -26,17 +26,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run_queue(fixture: str, out_dir: Path, num_designs: int, args, seed_start: int) -> subprocess.Popen:
+def run_queue(bin_spec: dict, out_dir: Path, num_designs: int, args, seed_start: int) -> subprocess.Popen:
     out_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
         sys.executable, str(ROOT / "scripts" / "generate_backbones.py"),
-        "--fixture", fixture, "--output", str(out_dir),
+        "--fixture", bin_spec["fixture"], "--output", str(out_dir),
         "--num-designs", str(num_designs), "--steps", str(args.steps),
         "--recycle", str(args.recycle), "--batch-size", str(args.batch_size),
         "--precision", args.precision, "--seed-start", str(seed_start),
     ]
     if args.ligand_code:
         cmd += ["--ligand-code", args.ligand_code]
+    if bin_spec.get("motif_source_residues"):
+        cmd += ["--motif-residues", ",".join(bin_spec["motif_source_residues"])]
     log = (out_dir / "queue.log").open("w")
     return subprocess.Popen(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT), log
 
@@ -85,7 +87,7 @@ def main() -> None:
         for q, (qdir, qn) in enumerate(zip(queue_dirs, quotas, strict=True)):
             if qn == 0:
                 continue
-            proc, log = run_queue(b["fixture"], qdir, qn, args, seed_offset + q * 500_000)
+            proc, log = run_queue(b, qdir, qn, args, seed_offset + q * 500_000)
             procs.append((proc, log, qdir))
         failures = []
         for proc, log, qdir in procs:
@@ -139,6 +141,11 @@ def main() -> None:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         writer.writerows(merged_rows)
+    fixed_map = {row["backbone_pdb"]: row.get("fixed_residues", "")
+                 for row in merged_rows if row.get("fixed_residues")}
+    if fixed_map:
+        (output / "fixed_residues_multi.json").write_text(
+            json.dumps(fixed_map, indent=2, sort_keys=True) + "\n")
 
     (output / "run_manifest.json").write_text(
         json.dumps({"num_designs": len(rows), "bins": bin_records}, indent=2) + "\n"

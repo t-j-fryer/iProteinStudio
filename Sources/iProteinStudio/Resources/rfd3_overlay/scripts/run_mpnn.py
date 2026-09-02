@@ -125,6 +125,9 @@ def main() -> None:
         "--omit_AA", args.omit_aa,
         "--verbose", "0",
     ]
+    fixed_map = args.backbones.resolve().parent / "fixed_residues_multi.json"
+    if fixed_map.exists():
+        command += ["--fixed_residues_multi", str(fixed_map)]
     command_path = output / "command.json"
     command_path.write_text(json.dumps(command, indent=2) + "\n")
 

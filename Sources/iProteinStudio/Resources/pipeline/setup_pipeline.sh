@@ -1633,6 +1633,11 @@ if [[ "${WITH_RFD3}" -eq 1 ]]; then
                  requirements-rfd3.txt rfd3_env.sh; do
       [[ -f "${STUDIO_RFD3_OVERLAY}/${extra}" ]] && cp -f "${STUDIO_RFD3_OVERLAY}/${extra}" "${RFD3_ROOT}/"
     done
+    if [[ -d "${STUDIO_RFD3_OVERLAY}/mlx_port" ]]; then
+      mkdir -p "${RFD3_ROOT}/mlx_port"
+      cp -f "${STUDIO_RFD3_OVERLAY}"/mlx_port/*.py "${RFD3_ROOT}/mlx_port/" \
+        || fail "Could not stage the RFdiffusion3 MLX compatibility layer."
+    fi
     [[ -d "${STUDIO_RFD3_OVERLAY}/assets" ]] && cp -R "${STUDIO_RFD3_OVERLAY}/assets/." "${RFD3_ROOT}/assets/" 2>/dev/null
     chmod 755 "${RFD3_ROOT}"/scripts/*.py "${RFD3_ROOT}"/*.sh 2>/dev/null || true
     [[ -f "${STUDIO_RFD3_OVERLAY}/OVERLAY_VERSION" ]] && \

@@ -612,6 +612,30 @@ struct PredictorPicker: View {
                     }
                     Toggle("Only check checkpoints that pass the hit threshold", isOn: $request.postOnlyHits)
                         .toggleStyle(.checkbox).font(.callout)
+
+                    Toggle("Also predict each binder by itself", isOn: $request.postRunBinderAlone)
+                        .toggleStyle(.checkbox).font(.callout)
+                    Text("Compares the binder-alone fold with its conformation in the independently predicted complex. This adds one fold per checked design and engine.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    DisclosureGroup("Hit filters") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("A hit must pass every enabled gate. Clear a field to disable it; the saved values and score engine remain in the result provenance.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 7) {
+                                designFilterRow("Minimum post iPTM", value: $request.postFilters.minimumIPTM)
+                                designFilterRow("Minimum post ipSAE(min)", value: $request.postFilters.minimumIPSAEMin)
+                                designFilterRow("Maximum target-aligned binder RMSD", value: $request.postFilters.maximumComplexRMSD, suffix: "Å")
+                                designFilterRow("Minimum binder pLDDT", value: $request.postFilters.minimumBinderPLDDT)
+                                designFilterRow("Maximum binder-alone RMSD", value: $request.postFilters.maximumBinderRMSD, suffix: "Å")
+                            }
+                            if !request.postRunBinderAlone {
+                                Text("Binder pLDDT and binder-alone RMSD gates are ignored while binder-alone prediction is off.")
+                                    .font(.caption2).foregroundStyle(.orange)
+                            }
+                        }.padding(.top, 6)
+                    }
                 }
 
                 if usesIntelliFold {
@@ -632,6 +656,18 @@ struct PredictorPicker: View {
 
             Divider()
             estimate
+        }
+    }
+
+    @ViewBuilder private func designFilterRow(_ label: String, value: Binding<Double?>,
+                                               suffix: String = "") -> some View {
+        GridRow {
+            Text(label).font(.caption)
+            HStack(spacing: 5) {
+                TextField("Off", value: value, format: .number.precision(.fractionLength(0...2)))
+                    .textFieldStyle(.roundedBorder).frame(width: 72)
+                if !suffix.isEmpty { Text(suffix).font(.caption).foregroundStyle(.secondary) }
+            }
         }
     }
 

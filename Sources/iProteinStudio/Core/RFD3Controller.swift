@@ -153,7 +153,7 @@ final class RFD3Controller: ObservableObject {
     private func launchCampaign(config: URL, request: RFD3Request, rfd3Root: URL) {
         configURL = config
         lastWasProtein = request.targetKind == .protein
-        currentStage = "validate"
+        currentStage = "fixtures"
         currentMessage = "Starting the campaign…"
         launchStartedAt = Date()
 
@@ -324,7 +324,7 @@ final class RFD3Controller: ObservableObject {
         else { return }
         completedStages = payload["completed_stages"] as? [String] ?? []
         currentStage = payload["current_stage"] as? String ?? ""
-        if completedStages.contains("score") && currentStage.isEmpty {
+        if completedStages.contains("validate") && currentStage.isEmpty {
             phase = .finished
             progress = 1
             currentMessage = "Campaign finished. Ranked results are ready."
@@ -336,15 +336,16 @@ final class RFD3Controller: ObservableObject {
             phase = .failed("The campaign stopped during \(currentStage.isEmpty ? "startup" : currentStage). Completed stages remain on disk and Retry will resume them.")
             pollTimer?.invalidate(); pollTimer = nil
         }
-        let proteinWeights: [String: Double] = ["fixtures": 0.08, "backbones": 0.25,
-                                                "mpnn": 0.12, "msa": 0.10,
-                                                "predict": 0.40, "score": 0.05]
+        let proteinWeights: [String: Double] = ["fixtures": 0.05, "backbones": 0.20,
+                                                "mpnn": 0.10, "msa": 0.08,
+                                                "predict": 0.30, "score": 0.05,
+                                                "predict-monomer": 0.18, "validate": 0.04]
         progress = min(1, completedStages.reduce(0) { $0 + (proteinWeights[$1] ?? 0) })
     }
 
     private func describe(stage: String) -> String {
         switch stage {
-        case "validate":     return "Checking the target and building the chemical component…"
+        case "prepare", "validate-target": return "Checking the target and building the chemical component…"
         case "fixtures":     return "Building one fixture per binder length…"
         case "backbones":    return "Generating backbones — \(counts["backbones"] ?? 0) so far"
         case "mpnn":         return "Designing sequences — \(counts["sequences"] ?? 0) so far"
@@ -352,6 +353,8 @@ final class RFD3Controller: ObservableObject {
         case "predict":      return "Folding designs with the target…"
         case "predict-holo": return "Folding designs with the target — \(counts["holo_predictions"] ?? 0) so far"
         case "score":        return "Ranking successful designs…"
+        case "predict-monomer": return "Folding selected binders on their own…"
+        case "validate":     return "Computing RMSDs and applying the saved hit filters…"
         case "predict-apo":  return "Folding the best designs on their own — \(counts["apo_predictions"] ?? 0) so far"
         case "rmsd":         return "Measuring binding-site preorganisation…"
         default:             return stage.isEmpty ? "Working…" : stage
@@ -467,6 +470,7 @@ final class RFD3Controller: ObservableObject {
         payload.campaign_dir = campaign.path
         payload.design_name = project.slug
         payload.nanohunter_root = AppPaths.support.path
+        payload.design_mode = request.designMode.rawValue
         payload.target_kind = request.targetKind == .smallMolecule ? "small_molecule" : "protein"
 
         payload.lengths = request.binLengths
@@ -477,7 +481,8 @@ final class RFD3Controller: ObservableObject {
         payload.queues_per_bin = request.queuesPerBin
         payload.precision = request.precision
         payload.seed_base = request.seedBase
-        payload.sequences_per_backbone = request.sequencesPerBackbone
+        payload.sequences_per_backbone = request.designMode == .partialDiffusion
+            && request.preservePartialSequence ? 1 : request.sequencesPerBackbone
         payload.sequence_model = request.sequenceModel.configValue
         payload.sequence_temperature = request.sequenceTemperature
         payload.first_shell_temperature = request.firstShellTemperature
@@ -487,6 +492,7 @@ final class RFD3Controller: ObservableObject {
         // a protein target would produce a number that means nothing.
         payload.run_affinity = request.verification.runAffinityHead && request.targetKind == .smallMolecule
         payload.run_apo = request.verification.runApoCheck
+        payload.hit_filters = RFD3FilterPayload(request.verification.filters)
         // For a protein target this is the whole list, not "extras": nothing is
         // pinned, because the affinity head that pins Boltz is ligand-only.
         payload.extra_predictors = request.targetKind == .smallMolecule
@@ -516,10 +522,24 @@ final class RFD3Controller: ObservableObject {
             // Contig carries the binder range plus the fixed target motif.
             // design_from_yaml.py converts binder length to Foundry's total
             // component length per bin; writing `length` here would break that.
-            let motif = request.targetContig.isEmpty
-                ? request.selectedTargetChainIDs.map { "\($0)1-1" }.joined(separator: ",/0,")
-                : request.targetContig
-            payload.contig = "\(request.minLength)-\(request.maxLength),/0,\(motif)"
+            payload.source_binder_chain = request.sourceBinderChain.uppercased()
+            payload.partial_t = request.designMode == .partialDiffusion ? request.partialT : nil
+            payload.preserve_partial_sequence = request.preservePartialSequence
+            payload.motif_sites = request.designMode == .motifScaffolding
+                ? Dictionary(uniqueKeysWithValues: request.motifSites.map {
+                    ($0.residue.uppercased(), $0.atoms.uppercased())
+                }) : [:]
+            if request.designMode == .deNovo {
+                let motif = request.targetContig.isEmpty
+                    ? request.selectedTargetChainIDs.map { "\($0)1-1" }.joined(separator: ",/0,")
+                    : request.targetContig
+                payload.contig = "\(request.minLength)-\(request.maxLength),/0,\(motif)"
+            } else {
+                // Existing-complex modes derive exact normalized ranges from
+                // the structure during preparation; stale UI residue numbers
+                // must not be spliced into a different chain map here.
+                payload.contig = request.targetContig
+            }
         }
 
         payload.conditions = request.conditions.mapValues { $0.map(\.rawValue).sorted() }
@@ -534,6 +554,7 @@ struct RFD3StudioRequest: Codable {
     var campaign_dir: String = ""
     var design_name: String = "design"
     var nanohunter_root: String = ""
+    var design_mode: String = RFD3DesignMode.deNovo.rawValue
     var target_kind: String = "small_molecule"
 
     var component_id: String?
@@ -547,6 +568,10 @@ struct RFD3StudioRequest: Codable {
     var target_chain: String?
     var target_chains: [String]?
     var contig: String?
+    var source_binder_chain: String = "A"
+    var partial_t: Double?
+    var preserve_partial_sequence: Bool = true
+    var motif_sites: [String: String] = [:]
 
     var conditions: [String: [String]] = [:]
     var is_non_loopy: Bool = true
@@ -569,12 +594,30 @@ struct RFD3StudioRequest: Codable {
     var use_potentials: Bool = true
     var run_affinity: Bool = true
     var run_apo: Bool = true
+    var hit_filters = RFD3FilterPayload()
     var extra_predictors: [String] = []
     var intellifold_model: String = "v2-flash"
     var conformers: [[String: AnyJSON]] = []
     var mpnn_max_parallel: Int = 6
     var boltz_chunk_size: Int = 50
     var boltz_calibrate_n: Int = 12
+}
+
+struct RFD3FilterPayload: Codable {
+    var minimum_iptm: Double?
+    var minimum_ipsae_min: Double?
+    var maximum_complex_rmsd: Double?
+    var minimum_binder_plddt: Double?
+    var maximum_binder_rmsd: Double?
+
+    init() {}
+    init(_ value: RFD3HitFilters) {
+        minimum_iptm = value.minimumIPTM
+        minimum_ipsae_min = value.minimumIPSAEMin
+        maximum_complex_rmsd = value.maximumComplexRMSD
+        minimum_binder_plddt = value.minimumBinderPLDDT
+        maximum_binder_rmsd = value.maximumBinderRMSD
+    }
 }
 
 /// A JSON scalar: string or number. Enough for the conformer plan, whose shape

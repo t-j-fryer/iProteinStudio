@@ -151,6 +151,12 @@ POST_MODE="all"
 POST_IPTM_THRESHOLD="0.70"
 POST_IPTM_THRESHOLD_SET=0
 POST_INCLUDE_CYCLE00=0
+POST_BINDER_ALONE=1
+FILTER_MIN_IPTM="0.50"
+FILTER_MIN_IPSAE="0.50"
+FILTER_MAX_COMPLEX_RMSD="2.50"
+FILTER_MIN_BINDER_PLDDT="0.80"
+FILTER_MAX_BINDER_RMSD="2.00"
 
 N_RUNS=3
 N_CYCLES=5
@@ -338,6 +344,13 @@ Core:
   --post-mode MODE                 none | all | iptm | final | final-iptm (default: ${POST_MODE})
   --post-iptm-threshold T          default: ${POST_IPTM_THRESHOLD}
   --post-include-cycle00           include cycle_00 in post stage
+  --post-binder-alone              also fold each checked binder without target (default)
+  --post-no-binder-alone           skip the binder-alone fold and its two filters
+  --filter-min-iptm T              post-predictor hit gate (default: ${FILTER_MIN_IPTM})
+  --filter-min-ipsae T             post-predictor ipSAE(min) gate (default: ${FILTER_MIN_IPSAE})
+  --filter-max-complex-rmsd A      design-to-refold binder C-alpha RMSD (default: ${FILTER_MAX_COMPLEX_RMSD})
+  --filter-min-binder-plddt T      binder-alone pLDDT gate (default: ${FILTER_MIN_BINDER_PLDDT})
+  --filter-max-binder-rmsd A       apo-to-complex binder C-alpha RMSD (default: ${FILTER_MAX_BINDER_RMSD})
   --run-name NAME                  default: ${RUN_NAME}
   --num-runs N                     default: ${N_RUNS}
   --num-opt-cycles N               optimization cycles after cycle_00 (default: ${N_CYCLES})
@@ -719,6 +732,13 @@ while [[ $# -gt 0 ]]; do
     --post-mode) POST_MODE="$2"; shift 2 ;;
     --post-iptm-threshold) POST_IPTM_THRESHOLD="$2"; POST_IPTM_THRESHOLD_SET=1; shift 2 ;;
     --post-include-cycle00) POST_INCLUDE_CYCLE00=1; shift 1 ;;
+    --post-binder-alone) POST_BINDER_ALONE=1; shift 1 ;;
+    --post-no-binder-alone) POST_BINDER_ALONE=0; shift 1 ;;
+    --filter-min-iptm) FILTER_MIN_IPTM="$2"; shift 2 ;;
+    --filter-min-ipsae) FILTER_MIN_IPSAE="$2"; shift 2 ;;
+    --filter-max-complex-rmsd) FILTER_MAX_COMPLEX_RMSD="$2"; shift 2 ;;
+    --filter-min-binder-plddt) FILTER_MIN_BINDER_PLDDT="$2"; shift 2 ;;
+    --filter-max-binder-rmsd) FILTER_MAX_BINDER_RMSD="$2"; shift 2 ;;
 
     --run-name) RUN_NAME="$2"; shift 2 ;;
     --num-runs) N_RUNS="$2"; shift 2 ;;
@@ -1172,7 +1192,7 @@ if [[ "${PREDICTOR_SAMPLES}" != "auto" && ! "${PREDICTOR_SAMPLES}" =~ ^[1-9][0-9
   die "--predictor-samples must be auto or a positive integer."
 fi
 
-python3 - "$N_RUNS" "$N_CYCLES" "$IPTM_THRESHOLD" "$POST_IPTM_THRESHOLD" "$MEM_SAFETY" "$LIGAND_TEMP_DEFAULT" "$LIGAND_TEMP_CYCLE01" "$NEGATIVE_HELIX_CONSTANT" "$LOOP_KILL" "$ANTIFOLD_SEED" "$ANTIFOLD_NUM_SEQ_PER_TARGET" "$ANTIFOLD_BATCH_SIZE" "$ANTIFOLD_NUM_THREADS" "$NANOBODY_SEED_MAX_ATTEMPTS" "$NANOBODY_CHARGE_MIN" "$NANOBODY_CHARGE_MAX" "$NANOBODY_HYDRO_MAX" "$NANOBODY_SEED_PERCENT_X" "$BOLTZ_CONTACT_DISTANCE" "$NANOBODY_SCAFFOLD_MSA_MAX_SEQS" <<'PY'
+python3 - "$N_RUNS" "$N_CYCLES" "$IPTM_THRESHOLD" "$POST_IPTM_THRESHOLD" "$MEM_SAFETY" "$LIGAND_TEMP_DEFAULT" "$LIGAND_TEMP_CYCLE01" "$NEGATIVE_HELIX_CONSTANT" "$LOOP_KILL" "$ANTIFOLD_SEED" "$ANTIFOLD_NUM_SEQ_PER_TARGET" "$ANTIFOLD_BATCH_SIZE" "$ANTIFOLD_NUM_THREADS" "$NANOBODY_SEED_MAX_ATTEMPTS" "$NANOBODY_CHARGE_MIN" "$NANOBODY_CHARGE_MAX" "$NANOBODY_HYDRO_MAX" "$NANOBODY_SEED_PERCENT_X" "$BOLTZ_CONTACT_DISTANCE" "$NANOBODY_SCAFFOLD_MSA_MAX_SEQS" "$FILTER_MIN_IPTM" "$FILTER_MIN_IPSAE" "$FILTER_MAX_COMPLEX_RMSD" "$FILTER_MIN_BINDER_PLDDT" "$FILTER_MAX_BINDER_RMSD" <<'PY'
 import sys
 for idx, name, minimum in (
     (1, "--num-runs", 1),
@@ -1235,6 +1255,22 @@ except Exception:
     raise SystemExit("--nanobody-seed-percent-x must be numeric")
 if not (0.0 <= seed_pct_x <= 100.0):
     raise SystemExit("--nanobody-seed-percent-x must be between 0 and 100")
+for idx, name, minimum, maximum in (
+    (21, "--filter-min-iptm", 0.0, 1.0),
+    (22, "--filter-min-ipsae", 0.0, 1.0),
+    (23, "--filter-max-complex-rmsd", 0.0, None),
+    (24, "--filter-min-binder-plddt", 0.0, 1.0),
+    (25, "--filter-max-binder-rmsd", 0.0, None),
+):
+    if sys.argv[idx].lower() in {"off", "none"}:
+        continue
+    try:
+        value = float(sys.argv[idx])
+    except Exception:
+        raise SystemExit(f"{name} must be numeric")
+    if value < minimum or (maximum is not None and value > maximum):
+        suffix = f" and {maximum}" if maximum is not None else ""
+        raise SystemExit(f"{name} must be between {minimum}{suffix}")
 try:
     contact_distance = float(sys.argv[19])
 except Exception:
@@ -6660,6 +6696,43 @@ PY
   echo ">>> Finished ${run_tag} in ${run_dur}s"
 }
 
+write_binder_only_yaml() {
+  local output="$1" sequence="$2" msa_path="${3:-}"
+  python3 - "$output" "$sequence" "$msa_path" <<'PY'
+import sys
+from pathlib import Path
+
+output, sequence, msa = sys.argv[1:4]
+sequence = "".join(ch for ch in sequence.upper() if ch.isalpha())
+if not sequence:
+    raise SystemExit("Cannot prepare a binder-alone prediction for an empty sequence.")
+msa_value = msa if msa and Path(msa).is_file() else "empty"
+Path(output).write_text(
+    "sequences:\n"
+    "  - protein:\n"
+    "      id: A\n"
+    f"      sequence: {sequence}\n"
+    f"      msa: {msa_value}\n"
+    "version: 1\n"
+)
+PY
+}
+
+post_score_python() {
+  # score_post_prediction_pair.py requires NumPy. The macOS system Python does
+  # not promise it, whereas every installed predictor environment does. Keeping
+  # the scorer in the selected engine's declared runtime makes a DMG install
+  # self-contained instead of accidentally depending on a developer machine.
+  local predictor="$1"
+  case "${predictor}" in
+    boltz) echo "${BOLTZ_VENV}/bin/python" ;;
+    intellifold) echo "${INTELLIFOLD_VENV}/bin/python" ;;
+    protenix-v2|protenix-mini) echo "${PROTENIX_VENV}/bin/python" ;;
+    openfold-3-mlx) echo "${OPENFOLD_VENV}/bin/python" ;;
+    *) die "No managed scoring interpreter is defined for post-predictor ${predictor}." ;;
+  esac
+}
+
 run_post_task() {
   local predictor="$1"
   local run_index="$2"
@@ -6703,10 +6776,39 @@ run_post_task() {
   [[ -n "${iptm:-}" ]] || iptm="nan"
   [[ -n "${plddt:-}" ]] || plddt="nan"
 
-  {
-    echo "run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json"
-    echo "${run_index},${cycle_index},${iptm},${plddt},${binder_seq},${struct},${conf}"
-  } > "${post_cycle_root}/post_metrics_row.csv"
+  local binder_struct="" binder_conf="" binder_plddt="nan"
+  if [[ "${POST_BINDER_ALONE}" -eq 1 ]]; then
+    local binder_root binder_yaml binder_result binder_iptm
+    binder_root="${post_cycle_root}/binder_alone"
+    binder_yaml="${binder_root}/binder_input.yaml"
+    mkdir -p "${binder_root}"
+    write_binder_only_yaml "${binder_yaml}" "${binder_seq}" "${binder_msa_for_post}"
+    binder_result="$(run_predictor_once "${predictor}" "${binder_yaml}" "${binder_seq}" "${qname}_binder" "${binder_root}" "" "post")"
+    binder_result="$(normalize_predictor_result_line "${binder_result}")"
+    IFS='|' read -r binder_struct binder_conf binder_iptm binder_plddt <<< "${binder_result}"
+  fi
+
+  local design_structure
+  design_structure="$(cycle_structure_path "${EXPT_ROOT}/${run_tag}/${cycle_tag}")"
+  local score_args=(
+    "${PIPELINE_CODE_ROOT}/scripts/score_post_prediction_pair.py"
+    --output "${post_cycle_root}/post_metrics_row.csv"
+    --run "${run_index}" --cycle "${cycle_index}" --predictor "${predictor}"
+    --sequence "${binder_seq}" --design-structure "${design_structure}"
+    --complex-structure "${struct}" --complex-confidence "${conf}" --complex-iptm "${iptm}" --complex-plddt "${plddt}"
+    --binder-structure "${binder_struct}" --binder-confidence "${binder_conf}" --binder-plddt "${binder_plddt}"
+  )
+  [[ "${FILTER_MIN_IPTM}" == "off" || "${FILTER_MIN_IPTM}" == "none" ]] || score_args+=(--min-iptm "${FILTER_MIN_IPTM}")
+  [[ "${FILTER_MIN_IPSAE}" == "off" || "${FILTER_MIN_IPSAE}" == "none" ]] || score_args+=(--min-ipsae "${FILTER_MIN_IPSAE}")
+  [[ "${FILTER_MAX_COMPLEX_RMSD}" == "off" || "${FILTER_MAX_COMPLEX_RMSD}" == "none" ]] || score_args+=(--max-complex-rmsd "${FILTER_MAX_COMPLEX_RMSD}")
+  if [[ "${POST_BINDER_ALONE}" -eq 1 ]]; then
+    [[ "${FILTER_MIN_BINDER_PLDDT}" == "off" || "${FILTER_MIN_BINDER_PLDDT}" == "none" ]] || score_args+=(--min-binder-plddt "${FILTER_MIN_BINDER_PLDDT}")
+    [[ "${FILTER_MAX_BINDER_RMSD}" == "off" || "${FILTER_MAX_BINDER_RMSD}" == "none" ]] || score_args+=(--max-binder-rmsd "${FILTER_MAX_BINDER_RMSD}")
+  fi
+  local score_python
+  score_python="$(post_score_python "${predictor}")"
+  [[ -x "${score_python}" ]] || die "Managed scoring interpreter is missing: ${score_python}"
+  "${score_python}" "${score_args[@]}"
 
   {
     echo "run,cycle,start_ts,end_ts,duration_sec"
@@ -6723,7 +6825,8 @@ aggregate_post_predictor() {
   summary_csv="${EXPT_ROOT}/summary_post_${pred_safe}.csv"
   summary_timing_csv="${EXPT_ROOT}/summary_post_${pred_safe}_timing.csv"
 
-  echo "run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json" > "${summary_csv}"
+  local score_header="run,cycle,predictor,iptm,ipsae_min,complex_plddt,binder_plddt,complex_rmsd,binder_backbone_rmsd,binder_rmsd,binder_sequence,structure_path,confidence_json,binder_structure_path,binder_confidence_json,is_hit,failed_filters,filter_provenance"
+  echo "${score_header}" > "${summary_csv}"
   echo "run,cycle,start_ts,end_ts,duration_sec" > "${summary_timing_csv}"
 
   local run_index run_tag post_root
@@ -6735,7 +6838,7 @@ aggregate_post_predictor() {
     local run_metrics run_timing
     run_metrics="${post_root}/post_metrics.csv"
     run_timing="${post_root}/post_timing.csv"
-    echo "run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json" > "${run_metrics}"
+    echo "${score_header}" > "${run_metrics}"
     echo "run,cycle,start_ts,end_ts,duration_sec" > "${run_timing}"
 
     local row
@@ -6756,14 +6859,14 @@ build_comparison_tables() {
   cmp_scores="${EXPT_ROOT}/comparison_scores_long.csv"
   cmp_timing="${EXPT_ROOT}/comparison_timing_long.csv"
 
-  echo "stage,predictor,run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json" > "${cmp_scores}"
+  echo "stage,predictor,run,cycle,iptm,ipsae_min,complex_plddt,binder_plddt,complex_rmsd,binder_backbone_rmsd,binder_rmsd,binder_sequence,structure_path,confidence_json,binder_structure_path,binder_confidence_json,is_hit,failed_filters,filter_provenance" > "${cmp_scores}"
   echo "stage,predictor,run,phase,cycle,start_ts,end_ts,duration_sec" > "${cmp_timing}"
 
   local run_index run_tag
   for run_index in $(seq 1 "${N_RUNS}"); do
     run_tag="$(printf "run_%03d" "$run_index")"
     if [[ -f "${EXPT_ROOT}/${run_tag}/metrics_per_cycle.csv" ]]; then
-      tail -n +2 "${EXPT_ROOT}/${run_tag}/metrics_per_cycle.csv" | awk -F',' -v p="$PREDICTOR" -v r="$run_index" 'BEGIN{OFS=","} {print "design",p,r,$1,$2,$3,$6,$5,$4}' >> "${cmp_scores}"
+      tail -n +2 "${EXPT_ROOT}/${run_tag}/metrics_per_cycle.csv" | awk -F',' -v p="$PREDICTOR" -v r="$run_index" 'BEGIN{OFS=","} {print "design",p,r,$1,$2,"",$3,"","","","",$6,$5,$4,"","","","",""}' >> "${cmp_scores}"
     fi
     if [[ -f "${EXPT_ROOT}/${run_tag}/timing_cycles.csv" ]]; then
       tail -n +2 "${EXPT_ROOT}/${run_tag}/timing_cycles.csv" | awk -F',' -v p="$PREDICTOR" -v r="$run_index" 'BEGIN{OFS=","} {print "design",p,r,"cycle",$1,$2,$3,$4}' >> "${cmp_timing}"
@@ -6782,7 +6885,7 @@ build_comparison_tables() {
       tfile="${EXPT_ROOT}/summary_post_${psafe}_timing.csv"
 
       if [[ -f "$sfile" ]]; then
-        tail -n +2 "$sfile" | awk -F',' -v p="$pp" 'BEGIN{OFS=","} {print "post",p,$1,sprintf("%02d",$2),$3,$4,$5,$6,$7}' >> "${cmp_scores}"
+        tail -n +2 "$sfile" | awk -F',' 'BEGIN{OFS=","} {print "post",$3,$1,sprintf("%02d",$2),$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18}' >> "${cmp_scores}"
       fi
       if [[ -f "$tfile" ]]; then
         tail -n +2 "$tfile" | awk -F',' -v p="$pp" 'BEGIN{OFS=","} {print "post",p,$1,"post_cycle",sprintf("%02d",$2),$3,$4,$5}' >> "${cmp_timing}"

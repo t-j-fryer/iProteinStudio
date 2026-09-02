@@ -34,6 +34,8 @@ def main() -> None:
     parser.add_argument("--target-msa", type=Path)
     parser.add_argument("--target-msa-map", type=Path,
                         help="JSON object mapping each target chain ID to its exact A3M")
+    parser.add_argument("--monomer", action="store_true",
+                        help="binder-only prediction: template contains only chain A")
     args = parser.parse_args()
 
     template = yaml.safe_load(args.template.read_text())
@@ -43,8 +45,10 @@ def main() -> None:
     if not proteins or proteins[0].get("id") != "A":
         raise SystemExit("Template must contain binder protein chain A first")
     target_proteins = proteins[1:]
-    if bool(target_proteins) == bool(ligands):
+    if not args.monomer and bool(target_proteins) == bool(ligands):
         raise SystemExit("Template must contain one or more protein targets, or one ligand target")
+    if args.monomer and (target_proteins or ligands or len(proteins) != 1):
+        raise SystemExit("--monomer requires a template containing only binder chain A")
 
     target_msas = {}
     msa_records = {}
@@ -93,7 +97,7 @@ def main() -> None:
         "template": str(args.template.resolve()),
         "sequences_csv": str(args.sequences.resolve()),
         "num_designs": len(rows),
-        "target_type": "protein" if target_proteins else "ligand",
+        "target_type": "monomer" if args.monomer else ("protein" if target_proteins else "ligand"),
         "binder_msa": "empty",
         "target_msas": {chain: str(path) for chain, path in target_msas.items()},
         "target_msa_records": msa_records,

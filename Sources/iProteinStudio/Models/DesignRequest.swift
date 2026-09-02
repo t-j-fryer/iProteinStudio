@@ -208,6 +208,13 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// optimized checkpoint (cycles 01...N). The unoptimized cycle 00 seed is
     /// never included by Studio. Threshold gating is intentionally orthogonal.
     var postCheckScope: PostCheckScope = .finalCycle
+    /// Also fold each independently checked binder without its target. This is
+    /// required for a direct preorganisation check rather than inferring
+    /// monomer stability from a complex prediction.
+    var postRunBinderAlone: Bool = true
+    /// Saved, tunable verdict thresholds. The post-predictor remains the score
+    /// source; the design engine's self-score is never substituted here.
+    var postFilters = RFD3HitFilters()
     /// GUI campaigns always use the measured engine-specific scheduler policy.
     /// The stored field remains solely so older project JSON continues to
     /// decode; decoding migrates historical Compatibility values to Optimized.
@@ -366,6 +373,9 @@ struct DesignRequest: Codable, Equatable, Hashable {
         let postCandidates = Double(max(1, numDesigns) * checkedCycles)
         for p in effectivePostPredictors {
             total += postCandidates * p.measuredSeconds(in: .batched)
+            if postRunBinderAlone {
+                total += postCandidates * p.measuredSeconds(in: .batched)
+            }
         }
         return total
     }
@@ -453,6 +463,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         case targetKind, targetName, targetSequence, targetSmiles, epitopeResidues
         case designer, numDesigns, numCycles, hitThreshold, parallelMode, manualParallel
         case designPredictor, postPredictors, intellifoldModel, postOnlyHits, postCheckScope
+        case postRunBinderAlone, postFilters
         case speedMode, resumeIfPossible
         case mpnnTempCycle1, mpnnTempLater, lasermpnnSeqTemp, lasermpnnFirstShellTemp
         case ligandContactAtoms, ligandContactDistance, ligandContactForce
@@ -488,6 +499,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
         intellifoldModel = try c.decodeIfPresent(IntelliFoldModel.self, forKey: .intellifoldModel) ?? d.intellifoldModel
         postOnlyHits    = try c.decodeIfPresent(Bool.self, forKey: .postOnlyHits) ?? d.postOnlyHits
         postCheckScope  = try c.decodeIfPresent(PostCheckScope.self, forKey: .postCheckScope) ?? d.postCheckScope
+        postRunBinderAlone = try c.decodeIfPresent(Bool.self, forKey: .postRunBinderAlone) ?? d.postRunBinderAlone
+        postFilters     = try c.decodeIfPresent(RFD3HitFilters.self, forKey: .postFilters) ?? d.postFilters
         // Compatibility scheduling was once exposed in Advanced. It made an
         // old saved form silently bypass the validated resident default. Read
         // the legacy value so malformed data still fails decoding, then migrate

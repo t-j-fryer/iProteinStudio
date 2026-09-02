@@ -28,6 +28,7 @@ fi
 echo "Vendoring RFdiffusion3 overlay from ${UPSTREAM}"
 rm -rf "${VENDOR}"
 mkdir -p "${VENDOR}/scripts"
+mkdir -p "${VENDOR}/mlx_port"
 
 # The whole script layer, plus the fixture builder they all call. Excludes
 # __pycache__ and anything campaign-specific.
@@ -36,6 +37,12 @@ for src in "${UPSTREAM}"/scripts/*.py; do
   [[ -f "${src}" ]] || continue
   cp "${src}" "${VENDOR}/scripts/"
   count=$((count + 1))
+done
+for src in "${UPSTREAM}"/mlx_port/*.py; do
+  [[ -f "${src}" ]] || continue
+  case "$(basename "${src}")" in
+    sampler.py) cp "${src}" "${VENDOR}/mlx_port/"; count=$((count + 1)) ;;
+  esac
 done
 for extra in milestone0_oracle.py export_weights.py install_rfd3.sh requirements-rfd3.txt rfd3_env.sh; do
   [[ -f "${UPSTREAM}/${extra}" ]] && cp "${UPSTREAM}/${extra}" "${VENDOR}/" && count=$((count + 1))
@@ -51,7 +58,7 @@ cat > "${VENDOR}/OVERLAY_VERSION" <<EOF
 source_repo:  $(git -C "${UPSTREAM}" remote get-url origin 2>/dev/null || echo "local checkout")
 vendored_on:  $(date -u '+%Y-%m-%dT%H:%M:%SZ')
 files:        ${count}
-checksum:     $(find "${VENDOR}/scripts" -name '*.py' -exec shasum -a 256 {} \; | sort -k2 | shasum -a 256 | awk '{print $1}')
+checksum:     $(find "${VENDOR}" -name '*.py' -exec shasum -a 256 {} \; | sort -k2 | shasum -a 256 | awk '{print $1}')
 EOF
 
 echo "  ${count} file(s) vendored"

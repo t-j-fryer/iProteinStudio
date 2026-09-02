@@ -30,11 +30,27 @@ struct RunResultsView: View {
         guard workflow == .iterative, !items.isEmpty else { return nil }
         let threshold = RunResultsLoader.iterativeHitThreshold(root: root)
         func passes(_ item: StudioResultItem) -> Bool {
-            item.metrics.first { $0.kind == .iptm }.map { $0.value >= threshold } ?? false
+            if let verdict = item.isHit { return verdict }
+            return item.metrics.first { $0.kind == .iptm }.map { $0.value >= threshold } ?? false
         }
         let design = items.filter { $0.stage == .design && passes($0) }.count
         let checked = items.filter { $0.stage == .postPrediction && passes($0) }.count
+        let hasSavedVerdicts = items.contains { $0.stage == .postPrediction && $0.isHit != nil }
+        if hasSavedVerdicts {
+            return "\(design) design-stage hit\(design == 1 ? "" : "s") at iPTM ≥ \(String(format: "%.2f", threshold)) · \(checked) independent check\(checked == 1 ? "" : "s") passed every saved filter"
+        }
         return "\(design) design-stage hit\(design == 1 ? "" : "s") · \(checked) post-check hit\(checked == 1 ? "" : "s") at iPTM ≥ \(String(format: "%.2f", threshold))"
+    }
+
+    private var rfd3HitSummary: String? {
+        guard workflow == .rfdiffusion3 else { return nil }
+        let url = root.appendingPathComponent("analysis/hit_summary.json")
+        guard let data = try? Data(contentsOf: url),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hits = (payload["hits"] as? NSNumber)?.intValue,
+              let evaluated = (payload["designs_evaluated"] as? NSNumber)?.intValue
+        else { return nil }
+        return "\(hits) of \(evaluated) selected design\(evaluated == 1 ? "" : "s") passed every saved filter"
     }
 
     private var iterativeCountSummary: String? {
@@ -81,6 +97,8 @@ struct RunResultsView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 if let iterativeHitSummary {
                     Text(iterativeHitSummary).font(.caption2).foregroundStyle(.secondary)
+                } else if let rfd3HitSummary {
+                    Text(rfd3HitSummary).font(.caption2).foregroundStyle(.secondary)
                 }
             }
             Spacer()
@@ -117,6 +135,11 @@ private struct RunResultRow: View {
                 Text(item.subtitle).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 4)
+            if let isHit = item.isHit {
+                Image(systemName: isHit ? "checkmark.seal.fill" : "xmark.circle")
+                    .foregroundStyle(isHit ? .green : .secondary)
+                    .help(isHit ? "Passed every saved hit filter" : "Did not pass every saved hit filter")
+            }
             if let metric = item.primaryMetric {
                 VStack(alignment: .trailing, spacing: 0) {
                     Text(metric.displayValue).font(.caption.monospacedDigit().weight(.medium))
@@ -165,6 +188,13 @@ private struct RunResultDetail: View {
                     if shouldExplainMissingIPSAE {
                         Text("ipSAE(min) could not be calculated because this run has no supported PAE output. Studio does not substitute minimum PAE or interface PDE for it.")
                             .font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if item.isHit == false, !item.failedFilters.isEmpty {
+                        Label("Did not pass: \(item.failedFilters.map(filterLabel).joined(separator: ", "))",
+                              systemImage: "line.3.horizontal.decrease.circle")
+                            .font(.caption).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
@@ -228,6 +258,12 @@ private struct RunResultDetail: View {
         !item.metrics.contains { $0.kind == .ipsaeMinimum }
             && item.metrics.contains { [.iptm, .interfacePAEMinimum, .interfacePDE].contains($0.kind) }
     }
+
+
+    private func filterLabel(_ raw: String) -> String {
+        raw.replacingOccurrences(of: "_unavailable", with: " unavailable")
+            .replacingOccurrences(of: "_", with: " ")
+    }
 }
 
 private struct MetricTile: View {
@@ -250,10 +286,11 @@ private struct MetricTile: View {
 
     private var tint: Color {
         switch metric.kind {
-        case .plddt, .ptm: return .blue
+        case .plddt, .ptm, .binderPLDDT: return .blue
         case .iptm, .meanIPTM, .minimumIPTM: return .green
         case .ipsaeMinimum: return .teal
-        case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance: return .orange
+        case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance,
+             .complexRMSD, .binderBackboneRMSD, .binderRMSD: return .orange
         case .pocketFractionWithinCutoff: return .indigo
         case .bindingProbability: return .purple
         case .rankingScore: return .secondary

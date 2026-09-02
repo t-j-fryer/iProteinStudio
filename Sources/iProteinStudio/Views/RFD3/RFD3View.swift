@@ -78,6 +78,7 @@ struct RFD3View: View {
             ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                modePicker
                 SetupExperiencePicker(selection: $setupExperience)
                 ExamplesBar { example in
                     request.wrappedValue.apply(example)
@@ -85,16 +86,20 @@ struct RFD3View: View {
                     intelligence.reset()
                 }
 
-                Card(title: "1 · What are you designing against?", systemImage: "target") {
-                    targetKindPicker
-                    if request.wrappedValue.targetKind == .smallMolecule {
-                        ligandInput
+                Card(title: request.wrappedValue.designMode == .deNovo
+                     ? "1 · What are you designing against?" : "1 · Starting complex",
+                     systemImage: "target") {
+                    if request.wrappedValue.designMode == .deNovo {
+                        targetKindPicker
+                        if request.wrappedValue.targetKind == .smallMolecule { ligandInput }
+                        else { proteinInput }
                     } else {
-                        proteinInput
+                        existingComplexInput
                     }
                 }
 
-                if request.wrappedValue.targetKind == .smallMolecule,
+                if request.wrappedValue.designMode == .deNovo,
+                   request.wrappedValue.targetKind == .smallMolecule,
                    request.wrappedValue.ligandSource == .smiles,
                    !request.wrappedValue.smiles.trimmingCharacters(in: .whitespaces).isEmpty {
                     Card(title: "2 · Understand the molecule", systemImage: "sparkles.rectangle.stack") {
@@ -107,13 +112,21 @@ struct RFD3View: View {
                     }
                 }
 
-                if inspector.hasResult || inspector.isInspecting || inspector.error != nil {
+                if request.wrappedValue.designMode == .deNovo,
+                   (inspector.hasResult || inspector.isInspecting || inspector.error != nil) {
                     Card(title: "3 · Shape the binding site", systemImage: "hand.point.up.left") {
                         conditioningSection
                     }
                 }
 
-                Card(title: "4 · Binder size", systemImage: "ruler") {
+                if request.wrappedValue.designMode == .motifScaffolding {
+                    Card(title: "3 · Functional motif", systemImage: "point.3.connected.trianglepath.dotted") {
+                        motifSection
+                    }
+                }
+
+                Card(title: request.wrappedValue.designMode == .motifScaffolding
+                     ? "4 · New scaffold size" : "4 · Binder size", systemImage: "ruler") {
                     lengthSection
                 }
 
@@ -122,7 +135,10 @@ struct RFD3View: View {
                         sequenceDesignSection
                     }
                 } else {
-                    Label("\(request.wrappedValue.sequenceModel.label) will design \(request.wrappedValue.sequencesPerBackbone) sequence(s) per backbone using its recommended temperatures.",
+                    Label(request.wrappedValue.designMode == .partialDiffusion
+                          && request.wrappedValue.preservePartialSequence
+                          ? "The starting binder sequence is preserved; no inverse-folding model is loaded."
+                          : "\(request.wrappedValue.sequenceModel.label) will design \(request.wrappedValue.sequencesPerBackbone) sequence(s) per backbone using its recommended temperatures.",
                           systemImage: "textformat.abc")
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -184,12 +200,50 @@ struct RFD3View: View {
 
     // MARK: Sequence design
 
+    private var modePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("RFdiffusion3 mode", selection: Binding(
+                get: { request.wrappedValue.designMode },
+                set: { mode in
+                    request.wrappedValue.designMode = mode
+                    if mode != .deNovo {
+                        request.wrappedValue.targetKind = .protein
+                        request.wrappedValue.reconcileSequenceModel()
+                        request.wrappedValue.reconcileVerification()
+                    }
+                    inspector.reset()
+                }
+            )) {
+                ForEach(RFD3DesignMode.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            Text(request.wrappedValue.designMode.blurb)
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private var sequenceDesignSection: some View {
         let kind = request.wrappedValue.targetKind
         return VStack(alignment: .leading, spacing: 12) {
-            Text("Backbones carry no sequence. This step decides what each one is actually made of.")
+            if request.wrappedValue.designMode == .partialDiffusion {
+                Toggle("Keep the starting binder sequence", isOn: request.preservePartialSequence)
+                    .toggleStyle(.checkbox)
+                Text("On preserves the input sequence and varies only its backbone. Off runs the selected inverse folder after diffusion.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(request.wrappedValue.designMode == .partialDiffusion
+                 && request.wrappedValue.preservePartialSequence
+                 ? "No inverse-folding model is loaded in this mode."
+                 : "Backbones carry no complete sequence. This step decides what each one is actually made of.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if request.wrappedValue.designMode == .partialDiffusion
+                && request.wrappedValue.preservePartialSequence {
+                EmptyView()
+            } else {
 
             Picker("Inverse folder", selection: Binding(
                 get: { request.wrappedValue.sequenceModel },
@@ -232,7 +286,7 @@ struct RFD3View: View {
                     Text(String(format: "%.2f", request.wrappedValue.sequenceTemperature))
                         .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
                 }
-                if request.wrappedValue.sequenceModel == .lasermpnn {
+            if request.wrappedValue.sequenceModel == .lasermpnn {
                     GridRow {
                         Text("Binding site").font(.callout)
                         Slider(value: request.firstShellTemperature, in: 0.1...2.0, step: 0.1).frame(width: 200)
@@ -248,11 +302,12 @@ struct RFD3View: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
+    }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("RFdiffusion3").font(.largeTitle.bold())
-            Text("Generate binder backbones from scratch, then design sequences onto them and check them with an independent model.")
+            Text("Create new binders, explore nearby backbones, or scaffold a functional motif — then verify the resulting sequence both with its target and on its own.")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -494,6 +549,89 @@ struct RFD3View: View {
         }
     }
 
+    private var existingComplexInput: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(request.wrappedValue.designMode == .partialDiffusion
+                 ? "Choose a complex containing the binder to perturb and every target chain that must remain fixed."
+                 : "Choose a complex containing the functional binder motif and the fixed target. Studio remaps the source binder to A and targets to B, C, D… on disk.")
+                .font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            filePicker(path: request.targetStructurePath,
+                       prompt: "Choose a binder–target PDB or mmCIF",
+                       types: [.init(filenameExtension: "pdb") ?? .data,
+                               .init(filenameExtension: "cif") ?? .data,
+                               .init(filenameExtension: "mmcif") ?? .data],
+                       onChoose: { invalidateInspectedTarget(clearProteinMetadata: true) })
+            Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
+                GridRow {
+                    Text(request.wrappedValue.designMode == .partialDiffusion ? "Binder chain" : "Motif chain")
+                    TextField("A", text: request.sourceBinderChain)
+                        .textFieldStyle(.roundedBorder).frame(width: 70)
+                        .font(.system(.body, design: .monospaced))
+                }
+                GridRow {
+                    Text("Fixed target chains")
+                    TextField("B,C", text: request.targetChain)
+                        .textFieldStyle(.roundedBorder).frame(width: 100)
+                        .font(.system(.body, design: .monospaced))
+                }
+            }
+            if request.wrappedValue.designMode == .partialDiffusion {
+                LabeledContent("Noise magnitude") {
+                    HStack(spacing: 6) {
+                        TextField("2.0", value: request.partialT, format: .number.precision(.fractionLength(1)))
+                            .textFieldStyle(.roundedBorder).frame(width: 72)
+                        Text("Å").foregroundStyle(.secondary)
+                    }
+                }
+                Text("This is coordinate-noise standard deviation, not a timestep. Start near 2 Å; 0.5–1 Å is conservative exploration and 5 Å is a much larger move.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Studio fixes every target atom and lets the current Foundry implementation centre on the diffused binder region; de-novo hotspot-origin controls are intentionally not reused here.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text("Paste or read the target-chain sequence below. It is used only for target MSAs and must match the selected fixed chains.")
+                .font(.caption).foregroundStyle(.secondary)
+            ProteinChainInputView(text: request.targetSequence, startingAt: 1,
+                                  placeholder: "Target chain B[:target chain C…]",
+                                  minimumLength: 5)
+            inspectButton
+        }
+    }
+
+    private var motifSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("List each source residue and only the atoms needed to preserve function. RFD3 may place these residues at new scaffold positions; Studio records the mapping and fixes them during MPNN design.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(Array(request.wrappedValue.motifSites.indices), id: \.self) { index in
+                HStack {
+                    TextField("A108", text: Binding(
+                        get: { request.wrappedValue.motifSites[index].residue },
+                        set: { request.wrappedValue.motifSites[index].residue = $0.uppercased() }))
+                        .textFieldStyle(.roundedBorder).frame(width: 90)
+                    TextField("ND2,CG", text: Binding(
+                        get: { request.wrappedValue.motifSites[index].atoms },
+                        set: { request.wrappedValue.motifSites[index].atoms = $0.uppercased() }))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                    Button(role: .destructive) {
+                        request.wrappedValue.motifSites.remove(at: index)
+                    } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.plain)
+                }
+            }
+            Button {
+                request.wrappedValue.motifSites.append(
+                    RFD3MotifSite(residue: request.wrappedValue.sourceBinderChain.uppercased(), atoms: "TIP"))
+            } label: { Label("Add motif residue", systemImage: "plus") }
+            Text("TIP is a useful starting macro for functional side-chain atoms. Use BKBN only when the backbone geometry itself is the constraint. Empty atom selections are never accepted.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private func filePicker(path: Binding<String>, prompt: String, types: [UTType],
                             onChoose: (() -> Void)? = nil) -> some View {
         HStack {
@@ -731,17 +869,19 @@ struct RFD3View: View {
     private var lengthSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
-                GridRow {
-                    Text("Shortest")
-                    EditableIntStepper(value: request.minLength,
-                                       in: 20...min(400, request.wrappedValue.maxLength),
-                                       suffix: "aa", accessibilityLabel: "Shortest binder length")
-                }
-                GridRow {
-                    Text("Longest")
-                    EditableIntStepper(value: request.maxLength,
-                                       in: request.wrappedValue.minLength...500,
-                                       suffix: "aa", accessibilityLabel: "Longest binder length")
+                if request.wrappedValue.designMode != .partialDiffusion {
+                    GridRow {
+                        Text("Shortest")
+                        EditableIntStepper(value: request.minLength,
+                                           in: 20...min(400, request.wrappedValue.maxLength),
+                                           suffix: "aa", accessibilityLabel: "Shortest binder length")
+                    }
+                    GridRow {
+                        Text("Longest")
+                        EditableIntStepper(value: request.maxLength,
+                                           in: request.wrappedValue.minLength...500,
+                                           suffix: "aa", accessibilityLabel: "Longest binder length")
+                    }
                 }
                 GridRow {
                     Text("How many designs")
@@ -754,13 +894,19 @@ struct RFD3View: View {
                     ), in: 1...5000, step: 10, accessibilityLabel: "Number of designs")
                 }
             }
+            if request.wrappedValue.designMode != .partialDiffusion {
             Toggle("Prefer structured folds over loopy ones", isOn: request.preferStructured)
                 .toggleStyle(.checkbox)
             Text("On by default. De-novo binders otherwise come out loop-heavy, which tends to fold and express badly.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            }
             Divider().padding(.vertical, 2)
+            if request.wrappedValue.designMode == .partialDiffusion {
+                Text("The binder length is read from the input complex; Studio will not resize it during partial diffusion.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
             Label {
                 Text("Lengths are spread across \(request.wrappedValue.binLengths.count) batches: \(binSummary). Designs within a batch share a length; different batches use different lengths.")
             } icon: {
@@ -771,6 +917,7 @@ struct RFD3View: View {
             Text("That split isn't cosmetic — the model can only batch trajectories that share a shape, so one batch is one length.")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -895,7 +1042,7 @@ struct RFD3View: View {
     private var verificationSection: some View {
         let kind = request.wrappedValue.targetKind
         let isLigand = kind == .smallMolecule
-        let folds = request.wrappedValue.numDesigns * request.wrappedValue.sequencesPerBackbone
+        let folds = request.wrappedValue.totalDesignedSequences
         return VStack(alignment: .leading, spacing: 12) {
             Text(isLigand
                  ? "Designed sequences are folded back with the ligand present and ranked. Every fold here is a real cost — this stage dominates the run."
@@ -945,17 +1092,59 @@ struct RFD3View: View {
                 Text("Comparing the two tells you whether the pocket is already formed before the ligand arrives, or only assembles around it.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Toggle("Also fold selected binders on their own",
+                       isOn: request.verification.runApoCheck)
+                    .toggleStyle(.checkbox)
+                Text("Studio compares each binder-only fold with the binder backbone in the predicted complex. A confident monomer that returns to the bound shape is a stronger self-consistency check.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Divider().padding(.vertical, 2)
+                Text("Hit filters").font(.callout.weight(.medium))
+                Text("Literature-informed starting points, not universal truth. Every threshold is saved with the run and can be edited.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
+                    filterRow("Minimum iPTM", value: request.verification.filters.minimumIPTM,
+                              placeholder: "off")
+                    filterRow("Minimum ipSAE(min)", value: request.verification.filters.minimumIPSAEMin,
+                              placeholder: "off")
+                    filterRow("Maximum target-aligned binder RMSD", value: request.verification.filters.maximumComplexRMSD,
+                              placeholder: "off", suffix: "Å")
+                    if request.wrappedValue.verification.runApoCheck {
+                        filterRow("Minimum binder pLDDT", value: request.verification.filters.minimumBinderPLDDT,
+                                  placeholder: "off")
+                        filterRow("Maximum binder RMSD", value: request.verification.filters.maximumBinderRMSD,
+                                  placeholder: "off", suffix: "Å")
+                    }
+                }
+                if !request.wrappedValue.verification.runApoCheck {
+                    Text("Binder pLDDT and binder-alone RMSD gates are inactive because binder-only folding is off.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
             }
 
             let engines = max(1, request.wrappedValue.verification.allPredictors(for: kind).count)
-            let apoFolds = isLigand && request.wrappedValue.verification.runApoCheck
-                ? request.wrappedValue.verification.topN : 0
+            let apoFolds = request.wrappedValue.verification.runApoCheck
+                ? request.wrappedValue.verification.topN * engines : 0
             let totalFolds = folds * engines + apoFolds
             Label("\(totalFolds) folds in total\(apoFolds > 0 ? " (including \(apoFolds) apo checks)" : ""). This stage will dominate the run — expect days, not hours, at this scale.",
                   systemImage: "clock")
                 .font(.caption)
                 .foregroundStyle(totalFolds > 1000 ? .orange : .secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder private func filterRow(_ label: String, value: Binding<Double?>,
+                                        placeholder: String, suffix: String = "") -> some View {
+        GridRow {
+            Text(label).font(.caption)
+            HStack(spacing: 5) {
+                TextField(placeholder, value: value, format: .number.precision(.fractionLength(0...2)))
+                    .textFieldStyle(.roundedBorder).frame(width: 72)
+                if !suffix.isEmpty { Text(suffix).font(.caption).foregroundStyle(.secondary) }
+            }
         }
     }
 
@@ -1074,7 +1263,8 @@ struct RFD3ProgressView: View {
         if controller.isProteinCampaign {
             return [("fixtures", "Length bins"), ("backbones", "Backbones"),
                     ("mpnn", "Sequences"), ("msa", "Alignment"),
-                    ("predict", "Folding"), ("score", "Ranking")]
+                    ("predict", "Complex folding"), ("score", "Ranking"),
+                    ("predict-monomer", "Binder folding"), ("validate", "Hit filters")]
         }
         return [("validate", "Target"), ("fixtures", "Length bins"), ("backbones", "Backbones"),
                 ("mpnn", "Sequences"), ("predict-holo", "Folding"), ("score", "Ranking"),
@@ -1184,6 +1374,14 @@ private struct RFD3ResultsSummary: View {
         return payload
     }
 
+    private var hitCount: Int? {
+        let url = root.appendingPathComponent("analysis/hit_summary.json")
+        guard let data = try? Data(contentsOf: url),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return (payload["hits"] as? NSNumber)?.intValue
+    }
+
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: "checkmark.seal.fill")
@@ -1212,7 +1410,8 @@ private struct RFD3ResultsSummary: View {
         guard let first = rows.first else { return "Open the campaign folder to inspect its outputs." }
         let score = first["score"] as? Double
         let metric = first["mean_iptm"] != nil ? "mean iPTM" : "score"
-        if let score { return "\(rows.count) selected design(s); top \(metric) \(String(format: "%.3f", score))." }
-        return "\(rows.count) selected design(s)."
+        let hits = hitCount.map { "\($0) passed every saved hit filter; " } ?? ""
+        if let score { return "\(hits)\(rows.count) selected design(s); top \(metric) \(String(format: "%.3f", score))." }
+        return "\(hits)\(rows.count) selected design(s)."
     }
 }

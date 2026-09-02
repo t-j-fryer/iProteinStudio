@@ -1,5 +1,69 @@
 import Foundation
 
+/// The three scientifically distinct RFdiffusion3 workflows exposed by Studio.
+/// Keeping this explicit prevents a partial-diffusion request from accidentally
+/// passing through the de-novo length planner.
+enum RFD3DesignMode: String, CaseIterable, Codable, Identifiable, Hashable {
+    case deNovo
+    case partialDiffusion
+    case motifScaffolding
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .deNovo: return "De novo design"
+        case .partialDiffusion: return "Partial diffusion"
+        case .motifScaffolding: return "Motif scaffolding"
+        }
+    }
+    var blurb: String {
+        switch self {
+        case .deNovo:
+            return "Generate a new binder backbone from noise around a protein or small molecule."
+        case .partialDiffusion:
+            return "Explore nearby backbones from an existing binder–target complex while keeping the target fixed."
+        case .motifScaffolding:
+            return "Build a new binder around explicitly selected functional atoms from an existing binder–target complex."
+        }
+    }
+}
+
+/// One functional residue supplied to RFD3's unindexed motif mechanism.
+/// Atom names are explicit because fixing every atom by default can overconstrain
+/// a scaffold and an empty selection is rejected upstream.
+struct RFD3MotifSite: Codable, Hashable, Identifiable {
+    var residue: String
+    var atoms: String
+    var id: String { residue.uppercased() }
+}
+
+/// Tunable, provenance-preserving gates applied after both complex and
+/// binder-alone prediction. Nil disables an individual gate.
+struct RFD3HitFilters: Codable, Hashable {
+    var minimumIPTM: Double? = 0.50
+    var minimumIPSAEMin: Double? = 0.50
+    var maximumComplexRMSD: Double? = 2.5
+    var minimumBinderPLDDT: Double? = 0.80
+    var maximumBinderRMSD: Double? = 2.0
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case minimumIPTM, minimumIPSAEMin, maximumComplexRMSD
+        case minimumBinderPLDDT, maximumBinderRMSD
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = RFD3HitFilters()
+        minimumIPTM = try c.decodeIfPresent(Double.self, forKey: .minimumIPTM) ?? d.minimumIPTM
+        minimumIPSAEMin = try c.decodeIfPresent(Double.self, forKey: .minimumIPSAEMin) ?? d.minimumIPSAEMin
+        maximumComplexRMSD = try c.decodeIfPresent(Double.self, forKey: .maximumComplexRMSD) ?? d.maximumComplexRMSD
+        minimumBinderPLDDT = try c.decodeIfPresent(Double.self, forKey: .minimumBinderPLDDT) ?? d.minimumBinderPLDDT
+        maximumBinderRMSD = try c.decodeIfPresent(Double.self, forKey: .maximumBinderRMSD) ?? d.maximumBinderRMSD
+    }
+}
+
 /// What RFdiffusion3 is designing a binder against.
 ///
 /// Deliberately limited to protein and small-molecule targets. The nucleic-acid
@@ -240,9 +304,9 @@ struct TargetSite: Codable, Hashable, Identifiable {
 
 /// Which predictors verify the finished designs.
 struct RFD3Verification: Codable, Hashable {
-    /// Independent predictors added *alongside* Boltz. Boltz itself is always
-    /// used: it is the only backend with an affinity head, and the ranking
-    /// metric needs P(bind).
+    /// Verification predictors. Small-molecule campaigns add these alongside
+    /// mandatory Boltz affinity scoring; protein campaigns run exactly this
+    /// selection because the affinity head is not trained for their interface.
     var extraPredictors: [Predictor] = []
     var intellifoldModel: IntelliFoldModel = .v2flash
     /// Steering potentials roughly double Boltz's time but give physically
@@ -255,6 +319,7 @@ struct RFD3Verification: Codable, Hashable {
     /// its own rather than only in complex.
     var runApoCheck: Bool = true
     var topN: Int = 100
+    var filters = RFD3HitFilters()
 
     /// Everything that will actually run.
     ///
@@ -290,7 +355,7 @@ struct RFD3Verification: Codable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case extraPredictors, intellifoldModel, useBoltzPotentials, runAffinityHead, runApoCheck, topN
+        case extraPredictors, intellifoldModel, useBoltzPotentials, runAffinityHead, runApoCheck, topN, filters
     }
 
     init() {}
@@ -306,12 +371,24 @@ struct RFD3Verification: Codable, Hashable {
         runAffinityHead    = try c.decodeIfPresent(Bool.self, forKey: .runAffinityHead) ?? d.runAffinityHead
         runApoCheck        = try c.decodeIfPresent(Bool.self, forKey: .runApoCheck) ?? d.runApoCheck
         topN               = try c.decodeIfPresent(Int.self, forKey: .topN) ?? d.topN
+        filters            = try c.decodeIfPresent(RFD3HitFilters.self, forKey: .filters) ?? d.filters
     }
 }
 
 /// Everything the user specifies for an RFdiffusion3 campaign.
 struct RFD3Request: Codable, Hashable {
+    var designMode: RFD3DesignMode = .deNovo
     var targetKind: RFD3TargetKind = .smallMolecule
+
+    // --- Existing-complex workflows ---
+    /// Source binder chain in the user structure. It is normalized to A.
+    var sourceBinderChain: String = "A"
+    /// Partial diffusion noise magnitude in Angstroms, not a timestep index.
+    var partialT: Double = 2.0
+    /// Keep the supplied binder sequence rather than running an inverse folder.
+    var preservePartialSequence: Bool = true
+    /// Functional residues and the minimum atoms whose geometry must be retained.
+    var motifSites: [RFD3MotifSite] = []
 
     // --- Small-molecule target ---
     var ligandSource: LigandSource = .smiles
@@ -410,7 +487,8 @@ struct RFD3Request: Codable, Hashable {
     var designsPerBin: Int { max(1, numDesigns / max(1, binLengths.count)) }
 
     var totalDesignedSequences: Int {
-        max(1, numDesigns) * max(1, sequencesPerBackbone)
+        max(1, numDesigns) * max(1, designMode == .partialDiffusion && preservePartialSequence
+                                ? 1 : sequencesPerBackbone)
     }
 
     var selectedTargetChainIDs: [String] {
@@ -436,7 +514,10 @@ struct RFD3Request: Codable, Hashable {
     }
 
     var requiredComponents: [InstallComponent] {
-        var result: [InstallComponent] = [.rfd3, sequenceModel.component]
+        var result: [InstallComponent] = [.rfd3]
+        if !(designMode == .partialDiffusion && preservePartialSequence) {
+            result.append(sequenceModel.component)
+        }
         for predictor in verification.allPredictors(for: targetKind)
             where !result.contains(predictor.component) {
             result.append(predictor.component)
@@ -486,6 +567,9 @@ struct RFD3Request: Codable, Hashable {
 
     var isRunnable: Bool {
         guard minLength >= 1, maxLength >= minLength, numDesigns >= 1 else { return false }
+        if designMode != .deNovo {
+            return targetKind == .protein && !targetStructurePath.isEmpty
+        }
         switch targetKind {
         case .smallMolecule:
             switch ligandSource {
@@ -512,6 +596,49 @@ struct RFD3Request: Codable, Hashable {
         }
         if !explicitLengths.isEmpty && explicitLengths.contains(where: { $0 < 1 }) {
             issues.append("Explicit binder lengths must all be positive.")
+        }
+
+        if designMode != .deNovo && targetKind != .protein {
+            issues.append("Partial diffusion and motif scaffolding currently require a protein complex.")
+        }
+        if designMode == .partialDiffusion {
+            if partialT < 0.1 || partialT > 15 {
+                issues.append("Partial-diffusion noise must be between 0.1 and 15 Å.")
+            }
+            let binder = sourceBinderChain.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            if binder.count != 1 || !binder.allSatisfy(\.isLetter) {
+                issues.append("Choose one source binder chain, such as A.")
+            }
+            if selectedTargetChainIDs.contains(binder) {
+                issues.append("The source binder chain and fixed target chains must be different.")
+            }
+        }
+        if designMode == .motifScaffolding {
+            let binder = sourceBinderChain.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            if binder.count != 1 || !binder.allSatisfy(\.isLetter) {
+                issues.append("Choose one source motif chain, such as A.")
+            }
+            if motifSites.isEmpty {
+                issues.append("Add at least one motif residue and its functional atoms.")
+            }
+            let residues = motifSites.map { $0.residue.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+            if selectedTargetChainIDs.contains(binder) {
+                issues.append("The source motif chain and fixed target chains must be different.")
+            }
+            if Set(residues).count != residues.count {
+                issues.append("Each motif residue can only be listed once.")
+            }
+            let residuePattern = try? NSRegularExpression(pattern: "^[A-Z][1-9][0-9]*$")
+            if residues.contains(where: { value in
+                let range = NSRange(value.startIndex..<value.endIndex, in: value)
+                return residuePattern?.firstMatch(in: value, range: range) == nil
+                    || value.first.map(String.init) != binder
+            }) {
+                issues.append("Write each motif residue as its source chain and number, such as \(binder)42.")
+            }
+            if motifSites.contains(where: { $0.atoms.split(separator: ",").allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty } }) {
+                issues.append("Every motif residue needs at least one explicit atom.")
+            }
         }
 
         if targetKind == .smallMolecule {
@@ -563,7 +690,7 @@ struct RFD3Request: Codable, Hashable {
                 issues.append("Select at least one verification predictor for the protein campaign.")
             }
         }
-        if originStrategy == .hotspots && !hasAnyHotspot {
+        if designMode == .deNovo && originStrategy == .hotspots && !hasAnyHotspot {
             issues.append("You chose to centre the design on hotspots but have not picked any.")
         }
         if maxLength - minLength > 0 && numBins > (maxLength - minLength + 1) {
@@ -573,6 +700,7 @@ struct RFD3Request: Codable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case designMode, sourceBinderChain, partialT, preservePartialSequence, motifSites
         case targetKind, ligandSource, smiles, componentCode, ligandStructurePath, ligandResidueName
         case targetStructurePath, targetChain, targetContig, structureTargetSequence
         case conditions, originStrategy, originXYZ
@@ -587,6 +715,11 @@ struct RFD3Request: Codable, Hashable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = RFD3Request()
+        designMode          = try c.decodeIfPresent(RFD3DesignMode.self, forKey: .designMode) ?? d.designMode
+        sourceBinderChain   = try c.decodeIfPresent(String.self, forKey: .sourceBinderChain) ?? d.sourceBinderChain
+        partialT            = try c.decodeIfPresent(Double.self, forKey: .partialT) ?? d.partialT
+        preservePartialSequence = try c.decodeIfPresent(Bool.self, forKey: .preservePartialSequence) ?? d.preservePartialSequence
+        motifSites         = try c.decodeIfPresent([RFD3MotifSite].self, forKey: .motifSites) ?? d.motifSites
         targetKind          = try c.decodeIfPresent(RFD3TargetKind.self, forKey: .targetKind) ?? d.targetKind
         ligandSource        = try c.decodeIfPresent(LigandSource.self, forKey: .ligandSource) ?? d.ligandSource
         smiles              = try c.decodeIfPresent(String.self, forKey: .smiles) ?? d.smiles

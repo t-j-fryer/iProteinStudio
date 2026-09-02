@@ -127,6 +127,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0066 | 2026-09-02 | [Add RFdiffusion3 partial diffusion, motif scaffolding and dual validation](lab_book/0066-add-rfd3-partial-motif-and-dual-validation.md) | Separates de-novo, partial and motif workflows; ports current partial scheduling to MLX; rejects malformed motif outputs; and makes target-aligned pose, binder-fold and binder-alone validation auditable in persistent results. |
 | 0065 | 2026-09-02 | [Accept IntelliFold outputs below its staged input directory](lab_book/0065-accept-intellifold-staged-output-layout.md) | M1 build-10 inference succeeded but a broad `_inputs` filter rejected the valid result; discovery now accepts only `_inputs/predictions` and regression coverage reproduces Plain Predict's exact layout. |
 | 0064 | 2026-09-02 | [Make run storage lossless and deduplicated](lab_book/0064-make-run-storage-lossless-and-deduplicated.md) | Dense confidence output is checksum-compressed, aliases/logs stop copying canonical bytes, A3Ms and exact pipeline snapshots share content-addressed APFS storage, and real MPS smoke outputs pass geometry. |
 | 0063 | 2026-09-01 | [Test runtime consolidation without touching the trusted install](lab_book/0063-test-runtime-consolidation-safely.md) | Isolated final-RC PyTorch 2.14 preserves an M4 Boltz fold and removes its observed SVD fallback; one shared Protenix dependency base is feasible, while production promotion remains gated on stable-wheel, M1 and full installer/model regression. |

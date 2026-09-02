@@ -33,8 +33,15 @@ import sys
 import time
 from pathlib import Path
 
-STAGES = ("fixtures", "backbones", "mpnn", "msa", "predict", "score")
-STAGE_PCT = {"fixtures": 5, "backbones": 20, "mpnn": 45, "msa": 55, "predict": 60, "score": 95}
+STAGES = ("fixtures", "backbones", "mpnn", "msa", "predict", "score",
+          "predict-monomer", "validate")
+STAGE_PCT = {"fixtures": 5, "backbones": 20, "mpnn": 40, "msa": 48,
+             "predict": 55, "score": 78, "predict-monomer": 82, "validate": 97}
+
+AA1 = {"ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C",
+       "GLN": "Q", "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I",
+       "LEU": "L", "LYS": "K", "MET": "M", "PHE": "F", "PRO": "P",
+       "SER": "S", "THR": "T", "TRP": "W", "TYR": "Y", "VAL": "V"}
 
 
 def stage(name: str, message: str) -> None:
@@ -304,6 +311,71 @@ def stage_predict(cfg: dict, campaign: Path, rfd3_root: Path, env: dict,
         campaign / "logs" / "predict_holo.log", rfd3_root, env)
 
 
+def write_preserved_sequences(campaign: Path) -> None:
+    """Record the exact chain-A sequence from each partial-diffusion backbone."""
+    rows = []
+    for backbone in sorted((campaign / "rfd3" / "backbones").glob("design_*.pdb")):
+        residues = []
+        seen = set()
+        for line in backbone.read_text().splitlines():
+            if not line.startswith("ATOM") or line[21:22] != "A":
+                continue
+            key = (line[22:26], line[26:27])
+            if key in seen:
+                continue
+            seen.add(key)
+            name = line[17:20].strip()
+            if name not in AA1:
+                die(f"Cannot preserve non-canonical binder residue {name} in {backbone}")
+            residues.append(AA1[name])
+        if not residues:
+            die(f"No binder sequence found in {backbone}")
+        rows.append({"design": backbone.stem, "seq_index": 1,
+                     "sequence": "".join(residues), "sequence_length": len(residues),
+                     "model_type": "preserved_input", "backbone_pdb": str(backbone)})
+    out = campaign / "mpnn" / "sequences.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+        writer.writeheader(); writer.writerows(rows)
+    info(f"preserved {len(rows)} input binder sequence(s) -> {out}")
+
+
+def stage_predict_monomer(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> None:
+    if not cfg.get("run_apo", True):
+        info("binder-alone prediction disabled by the saved request")
+        return
+    selected = campaign / "analysis" / "top100.csv"
+    if not selected.exists():
+        die(f"No selected designs at {selected}")
+    template = campaign / "config" / "monomer_template.yaml"
+    template.write_text("sequences:\n  - protein:\n      id: A\n      sequence: G\nversion: 1\n")
+    inputs = campaign / "predictor_inputs" / "monomer"
+    run([sys.executable, str(rfd3_root / "scripts" / "prepare_predictor_inputs.py"),
+         "--sequences", str(selected), "--template", str(template),
+         "--output", str(inputs), "--monomer"],
+        campaign / "logs" / "prepare_monomer_inputs.log", rfd3_root, env)
+    run([sys.executable, str(rfd3_root / "scripts" / "run_predictors.py"),
+         "--inputs", str(inputs), "--output", str(campaign / "predictions" / "monomer"),
+         "--predictors", ",".join(verification_predictors(cfg)),
+         "--intellifold-model", cfg.get("intellifold_model", "v2-flash"),
+         "--max-parallel", str(cfg.get("predict_max_parallel", 4)),
+         "--nanohunter-root", cfg["nanohunter_root"], "--resume"],
+        campaign / "logs" / "predict_monomer.log", rfd3_root, env)
+
+
+def stage_validate(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> None:
+    filters = dict(cfg.get("hit_filters") or {})
+    if not cfg.get("run_apo", True):
+        filters["minimum_binder_plddt"] = None
+        filters["maximum_binder_rmsd"] = None
+    path = campaign / "config" / "hit_filters.json"
+    path.write_text(json.dumps(filters, indent=2, sort_keys=True) + "\n")
+    run([sys.executable, str(rfd3_root / "scripts" / "score_binder_validation.py"),
+         "--campaign", str(campaign), "--filters", str(path)],
+        campaign / "logs" / "validate_hits.log", rfd3_root, env)
+
+
 def stage_score(cfg: dict, campaign: Path, rfd3_root: Path, env: dict) -> None:
     metrics = campaign / "predictions" / "holo" / "prediction_metrics.csv"
     if not metrics.exists():
@@ -388,6 +460,11 @@ def main() -> None:
                 die(f"Expected {cfg['num_backbones']} backbones, found {produced}.")
             info(f"{produced} backbones")
         elif name == "mpnn":
+            if cfg.get("design_mode") == "partialDiffusion" and cfg.get("preserve_partial_sequence"):
+                stage("mpnn", "Preserving the starting binder sequence")
+                write_preserved_sequences(campaign)
+                completed.append(name); record(None)
+                continue
             model = cfg.get("sequence_model", "solublempnn")
             if model not in {"solublempnn", "proteinmpnn"}:
                 die(f"Unsupported protein sequence model: {model}")
@@ -426,6 +503,12 @@ def main() -> None:
         elif name == "score":
             stage("score", "Ranking designs")
             stage_score(cfg, campaign, rfd3_root, env)
+        elif name == "predict-monomer":
+            stage("predict-monomer", "Folding selected binders without the target")
+            stage_predict_monomer(cfg, campaign, rfd3_root, env)
+        elif name == "validate":
+            stage("validate", "Computing self-consistency and applying saved hit filters")
+            stage_validate(cfg, campaign, rfd3_root, env)
         completed.append(name)
         record(None)
 
