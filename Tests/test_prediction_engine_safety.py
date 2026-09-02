@@ -23,6 +23,21 @@ def load(name: str, path: Path):
 
 
 class PredictorSafetyTests(unittest.TestCase):
+    def test_geometry_discovery_accepts_intellifold_results_below_inputs(self):
+        validator = load("prediction_geometry", SCRIPTS / "validate_prediction_geometry.py")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            staged = root / "_inputs" / "target.cif"
+            prediction = root / "_inputs" / "predictions" / "target" / "model.cif"
+            ordinary = root / "boltz" / "predictions" / "target" / "model.cif"
+            for path in (staged, prediction, ordinary):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("data_test\n")
+            self.assertEqual(
+                validator.discover_structures(root),
+                sorted((prediction, ordinary)),
+            )
+
     def test_intellifold_patch_is_atomic_and_idempotent(self):
         compatibility = load("intellifold_mps_compat", SCRIPTS / "intellifold_mps_compat.py")
         with tempfile.TemporaryDirectory() as directory:

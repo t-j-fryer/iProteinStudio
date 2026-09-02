@@ -64,10 +64,11 @@ gzip, keep one canonical copy of selected structures and batch logs, and share
 exact A3Ms plus independently resumable pipeline snapshots through a
 content-addressed APFS store (Entry 0064).
 
-Build 8's M1 Pro acceptance correctly rejected invalid Boltz geometry and exposed
-a second IntelliFold MPS indexing abort. Build 9 contains the follow-up allocator
-boundary and all three IntelliFold indexing replacements; M4 acceptance passes,
-but the decisive post-macOS-update M1 rerun is still pending (Entry 0061).
+Build 10's post-macOS-update M1 Pro acceptance produced valid Boltz and IntelliFold
+structures with both compatibility boundaries active. IntelliFold was nevertheless
+reported as failed because the post-run validator excluded its upstream
+`_inputs/predictions` output path. Build 11 fixes that bookkeeping defect without
+admitting arbitrary staged coordinate inputs (Entry 0065).
 
 Controlled unsigned-beta packaging now produces versioned Apple-Silicon DMG and
 ZIP artifacts with checksums, provenance, embedded notices and a trusted Sparkle
@@ -126,6 +127,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0065 | 2026-09-02 | [Accept IntelliFold outputs below its staged input directory](lab_book/0065-accept-intellifold-staged-output-layout.md) | M1 build-10 inference succeeded but a broad `_inputs` filter rejected the valid result; discovery now accepts only `_inputs/predictions` and regression coverage reproduces Plain Predict's exact layout. |
 | 0064 | 2026-09-02 | [Make run storage lossless and deduplicated](lab_book/0064-make-run-storage-lossless-and-deduplicated.md) | Dense confidence output is checksum-compressed, aliases/logs stop copying canonical bytes, A3Ms and exact pipeline snapshots share content-addressed APFS storage, and real MPS smoke outputs pass geometry. |
 | 0063 | 2026-09-01 | [Test runtime consolidation without touching the trusted install](lab_book/0063-test-runtime-consolidation-safely.md) | Isolated final-RC PyTorch 2.14 preserves an M4 Boltz fold and removes its observed SVD fallback; one shared Protenix dependency base is feasible, while production promotion remains gated on stable-wheel, M1 and full installer/model regression. |
 | 0062 | 2026-09-01 | [Audit the Boltz MPS reset across Apple GPU generations](lab_book/0062-audit-boltz-mps-cross-generation.md) | Shows that the 4-second number was model-only, proves the build-9 reset leaves a paired M4 fold bit-identical with no detected timing penalty, and anchors the M1/M4 divergence in PyTorch and Apple primary evidence. |

@@ -45,6 +45,9 @@
   content-addressed APFS store, without changing or deleting older projects.
 - Correctly reports that automatic Protenix v2/Mini prediction uses five
   diffusion samples while the other supported engines use one.
+- Fixes successful IntelliFold predictions being rejected after inference when
+  their canonical output followed upstream's `_inputs/predictions` directory
+  layout; staged coordinate inputs remain excluded from geometry acceptance.
 
 Trusted beta update archives are signed with the project's Sparkle EdDSA key,
 but the beta application itself is not Developer ID signed or notarized by Apple.

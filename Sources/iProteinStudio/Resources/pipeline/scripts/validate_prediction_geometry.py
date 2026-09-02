@@ -162,15 +162,37 @@ def validate(path: Path) -> list[str]:
     return failures
 
 
+def discover_structures(path: Path) -> list[Path]:
+    """Find predictor outputs without treating staged coordinate inputs as results.
+
+    Plain Predict stages YAML inputs in ``_inputs``. IntelliFold also writes its
+    canonical predictions below ``_inputs/predictions`` because its upstream
+    output layout includes the input-directory name. The old blanket exclusion
+    of every path containing ``_inputs`` therefore rejected successful
+    IntelliFold runs after inference. Keep excluding arbitrary staged structures,
+    but admit the upstream predictor's explicit results subtree.
+    """
+    if path.is_file():
+        return [path]
+    structures: list[Path] = []
+    for pattern in ("*.cif", "*.pdb"):
+        for candidate in path.rglob(pattern):
+            relative_parts = candidate.relative_to(path).parts
+            if "_inputs" in relative_parts:
+                input_index = relative_parts.index("_inputs")
+                if (input_index + 1 >= len(relative_parts)
+                        or relative_parts[input_index + 1] != "predictions"):
+                    continue
+            structures.append(candidate)
+    return sorted(structures)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=Path)
     args = parser.parse_args()
     path = args.path.resolve()
-    structures = [path] if path.is_file() else sorted(
-        candidate for pattern in ("*.cif", "*.pdb") for candidate in path.rglob(pattern)
-        if "_inputs" not in candidate.parts
-    )
+    structures = discover_structures(path)
     if not structures:
         raise SystemExit(f"Geometry validation found no structures under {path}")
     all_failures = [f"{structure}: {failure}" for structure in structures

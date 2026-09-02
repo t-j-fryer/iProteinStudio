@@ -390,10 +390,13 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
 
         # The strict IntelliFold wrapper is testable without importing PyTorch.
         # Validate its exact seed/sample accounting against a synthetic output.
-        if_inputs = root / "if-inputs"
+        # Reproduce Plain Predict's real staging name. IntelliFold embeds the
+        # input-directory name in its output layout, so valid results live under
+        # ``_inputs/predictions`` and must not be mistaken for staged inputs.
+        if_inputs = root / "_inputs"
         if_inputs.mkdir()
         (if_inputs / "one.yaml").write_text("sequences: []\n")
-        if_job = root / "if-results" / "if-inputs" / "predictions" / "one"
+        if_job = root / "if-results" / "_inputs" / "predictions" / "one"
         if_job.mkdir(parents=True)
         valid_one_residue_cif = (
             "data_test\n#\nloop_\n_atom_site.group_PDB\n"
