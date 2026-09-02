@@ -22,3 +22,7 @@ The generated manifest records all commands before GPU time is spent.
 it runs the same short-protein fold in fresh processes with the build-8 FP32
 wrapper and the build-9 pre-batch MPS allocator reset, holding every scientific
 input constant.
+
+`runtime_consolidation_v1` statically compares every shipped dependency lock and
+creates disposable candidate environments under ignored Validation output. It
+never upgrades or writes into the installed `~/.iproteinstudio` runtime.
