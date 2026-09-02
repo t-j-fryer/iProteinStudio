@@ -132,6 +132,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0068 | 2026-09-02 | [Reuse resident predictors for RFdiffusion3 validation](lab_book/0068-reuse-resident-predictors-for-rfd3-validation.md) | Applies the measured iterative-design scheduling policy to RFdiffusion3 complex and binder-only verification, with one resident MPS model per stage and the faster cycle-wave exception for full Protenix v2. |
 | 0067 | 2026-09-02 | [Add live RFdiffusion3 results and exact motif recovery](lab_book/0067-add-live-rfd3-results-and-exact-motif-recovery.md) | Makes accepted structures and score distributions visible during campaigns, adds runnable p53–MDM2 examples, repairs explicit side-chain atom conditioning in the MLX adapter, and validates source-to-design motif correspondence at the default diffusion schedule. |
 | 0066 | 2026-09-02 | [Add RFdiffusion3 partial diffusion, motif scaffolding and dual validation](lab_book/0066-add-rfd3-partial-motif-and-dual-validation.md) | Separates de-novo, partial and motif workflows; ports current partial scheduling to MLX; rejects malformed motif outputs; and makes target-aligned pose, binder-fold and binder-alone validation auditable in persistent results. |
 | 0065 | 2026-09-02 | [Accept IntelliFold outputs below its staged input directory](lab_book/0065-accept-intellifold-staged-output-layout.md) | M1 build-10 inference succeeded but a broad `_inputs` filter rejected the valid result; discovery now accepts only `_inputs/predictions` and regression coverage reproduces Plain Predict's exact layout. |

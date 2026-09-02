@@ -1,6 +1,6 @@
 # Provenance of the vendored RFdiffusion3 overlay. Regenerate with tools/sync_rfd3.sh.
 source_repo:  https://github.com/javierbq/rfd3-mlx.git
 vendored_on:  2026-08-14T14:10:33Z
-studio_updated: 2026-09-02-live-results-exact-motif-atoms
+studio_updated: 2026-09-02-resident-verification-predictors
 files:        33
-checksum:     df9743476918d693f6f5df9d0126af63c224e0865b0997c1665e6af49760b8b3
+checksum:     66bba53d4ef4b7cf14fdfd34f51ac0e5dde71797df7a5b3cf06514024a1badfd

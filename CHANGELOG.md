@@ -15,6 +15,9 @@
   misleading partial intersection.
 - Fixes RFdiffusion3 score distributions appearing empty after a live campaign
   changes from backbone metrics to predictor metrics.
+- Reuses one resident Boltz, IntelliFold or Protenix Mini model across every
+  complex or binder-only RFdiffusion3 verification stage; full Protenix v2 uses
+  its faster measured directory-wave policy instead of reloading per design.
 
 - Adds cryptographically verified Sparkle updates for trusted betas and future
   Developer ID releases, with a visible **Check for Updates…** command.
