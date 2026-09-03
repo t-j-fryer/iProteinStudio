@@ -236,7 +236,16 @@ class Fixture:
                            and 0 <= ri < len(AA3) else "ALA")
                 record, chain, resnum = "ATOM  ", "A", design_num[token]
             elif token in target_num:
-                if name not in REAL_PROTEIN_ATOMS:
+                # Foundry stores side-chain atoms in generic atom14 slots
+                # (V0...V8).  The coordinates are fixed correctly, but those
+                # slot labels are not valid PDB atom names.  Restore the real
+                # residue-specific names before filtering/exporting.  Without
+                # this conversion every target was truncated to N/CA/C/O/CB;
+                # disulfide-rich targets consequently appeared chemically
+                # broken even though their backbone coordinates were intact.
+                _, slot_to_real = self._slot_maps(int(token))
+                output_name = slot_to_real.get(name, name)
+                if output_name not in REAL_PROTEIN_ATOMS:
                     continue
                 ri = int(self.restype[token])
                 record, chain, resnum = ("ATOM  ", target_chain[int(self.asym_id[token])],

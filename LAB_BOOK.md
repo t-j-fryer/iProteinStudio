@@ -39,6 +39,9 @@ A and keep targets as B/C/D, with distinct query-validated MSAs per target subun
 RFdiffusion3 normalizes selected external PDB/mmCIF chains into that convention.
 Its live and completed result browser retains generated MLX backbones alongside
 complex and binder-alone predictions, with the emitting engine identified.
+The bundled alpha-cobratoxin example now uses complete experimental RCSB 1CTX
+coordinates, and the MLX exporter retains all residue-specific target atoms
+instead of dropping atom14 side-chain slots before name conversion (Entry 0078).
 Protein de-novo campaigns now use explicit whole-surface, broad-region,
 targeted-epitope, or advanced manual-XYZ placement. An unspecified site maps to
 reproducible solvent-surface coverage, never the fixed protein centre of mass;
@@ -159,6 +162,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0078 | 2026-09-03 | [Repair the aCbx target and RFdiffusion3 target export](lab_book/0078-repair-acbx-target-and-rfd3-export.md) | Separates exact fixed-backbone preservation from two real visual/scientific faults: an invalid bundled aCbx structure and atom14 side-chain names discarded during MLX export; replaces the target with experimental 1CTX and retains template-free verification. |
 | 0077 | 2026-09-03 | [Add explicit protein-surface origin modes](lab_book/0077-add-explicit-protein-surface-origin-modes.md) | Replaces unsafe protein-COM/empty-hotspot placement with reproducible whole-surface coverage, broad-region positioning without hotspot conditioning, exact epitope hotspots, and hidden manual XYZ across GUI, MLX fixtures and MCP v5. |
 | 0076 | 2026-09-03 | [Enforce RFdiffusion3 EMA weight provenance](lab_book/0076-enforce-rfd3-ema-weight-provenance.md) | Replaces the accidentally pinned raw MLX network with Foundry's verified EMA shadow artifact and makes export, installation, GUI, MCP detection and inference fail closed on provenance. |
 | 0075 | 2026-09-03 | [Package RFdiffusion3 result parity for GUI and MCP](lab_book/0075-package-rfd3-result-parity-for-gui-and-mcp.md) | Builds and verifies the 0.2.0 (13) app bundle, packages MCP v4, and gives run-profile agents complete RFdiffusion3 backbone/complex/binder-alone result discovery with explicit provenance. |

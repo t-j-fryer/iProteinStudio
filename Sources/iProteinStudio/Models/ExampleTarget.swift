@@ -20,7 +20,8 @@ struct ExampleTarget: Identifiable, Hashable {
 
     var sequence: String = ""
     var smiles: String = ""
-    /// Surface residues the validated work targeted, as chain-B tokens.
+    /// Suggested surface residues used by legacy workflow acceptance, as
+    /// chain-B tokens. They are not a validated binder epitope.
     var hotspots: [String] = []
     /// Directed acyclic bond from recognition core into the linker.
     var attachmentCoreAtom: Int?
@@ -103,11 +104,13 @@ extension RFD3Request {
             // needs the complete residue range rather than the one-residue
             // fallback used for an otherwise unspecified target.
             targetContig = "B1-\(example.sequence.count)"
-            // The validated surface patch, and the origin strategy that goes
-            // with aiming at one face rather than the whole molecule.
-            conditions = Dictionary(uniqueKeysWithValues:
-                example.hotspots.map { ($0, Set([AtomCondition.hotspot])) })
-            originStrategy = .hotspots
+            // No scientifically validated aCbx epitope ships with Studio.
+            // Start a real campaign by sampling the solvent-accessible surface
+            // instead of presenting the legacy B67/B69/B71 execution fixture
+            // as a proven hotspot constraint.
+            conditions = [:]
+            surfacePatchResidues = []
+            originStrategy = .surfaceScan
             verification.extraPredictors = [.boltz]
             verification.useBoltzPotentials = false
             attachmentAtom = nil

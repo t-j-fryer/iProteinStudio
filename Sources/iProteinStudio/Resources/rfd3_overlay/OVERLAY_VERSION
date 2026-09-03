@@ -1,6 +1,6 @@
 # Provenance of the vendored RFdiffusion3 overlay. Regenerate with tools/sync_rfd3.sh.
 source_repo:  https://github.com/javierbq/rfd3-mlx.git
 vendored_on:  2026-08-14T14:10:33Z
-studio_updated: 2026-09-03-surface-origin-plans
+studio_updated: 2026-09-03-complete-target-atom-export
 files:        34
-checksum:     efdb76ccc693972fabf9ed7f2de2f6a76fd1b755f15827d13ed1dbef9f8ed344
+checksum:     71564e5189856eec2c1ce4032b3eab2483de20fad932d6535d59702b069dfa90

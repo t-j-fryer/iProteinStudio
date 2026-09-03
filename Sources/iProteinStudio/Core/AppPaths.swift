@@ -204,9 +204,12 @@ enum AppPaths {
         else { return }
         for item in items {
             let dest = examplesDir.appendingPathComponent(item.lastPathComponent)
-            if !fm.fileExists(atPath: dest.path) {
-                try? fm.copyItem(at: item, to: dest)
-            }
+            // Examples are versioned application assets, not user projects.
+            // Refresh them atomically so a corrected structure reaches an
+            // existing installation as well as a clean one. Keeping the first
+            // copy forever previously pinned a scientifically invalid aCbx
+            // target even after the bundle was fixed.
+            try? stageBundledItem(item, at: dest)
         }
         let alignment = examplesDir.appendingPathComponent("acbx/target_msa.a3m")
         let seeded = msaCache.appendingPathComponent("example_acbx.a3m")
