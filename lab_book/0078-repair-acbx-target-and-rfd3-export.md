@@ -89,6 +89,27 @@ output retained all 1,876 target atoms, including the complete residue-specific
 side-chain inventory. The job stopped before sequence design or prediction, so
 it provides exporter acceptance only and no enrichment result.
 
+The ten checkpoints nevertheless permit a raw-backbone comparison. They cover
+two distinct surface placements (five 55-residue designs at surface-scan-01 and
+five 65-residue designs at surface-scan-02). All ten had 100% valid adjacent
+C-alpha geometry and no nonlocal C-alpha pairs below 3.5 Angstrom. Their median
+radius of gyration was 10.411 Angstrom, versus 20.579 Angstrom across the old
+raw-weight 100-backbone campaign (20.653 and 20.414 Angstrom in its matched 55-
+and 65-residue groups). Biotite assigned a median 85.8% alpha helix and 14.2%
+coil to the new set; the old 55-residue group had median 23.6% helix and 67.3%
+coil. No new complex had an inter-chain heavy-atom pair below 2.0 Angstrom;
+the old 55-residue group reached 34 such pairs in one design.
+
+The first five new checkpoints exactly repeat the seeds and coordinates from
+the completed EMA surface-scan smoke, so ten sequence designs provide an
+independent foldability comparison. Boltz binder-to-generated-backbone RMSD was
+0.369/0.626/1.615 Angstrom (minimum/median/maximum), versus
+2.859/13.529/22.407 Angstrom in the 200 old-weight sequences. Median binder
+pLDDT improved from 0.593 to 0.947 and median apo-vs-bound binder RMSD from
+15.215 to 0.460 Angstrom. This is strong evidence of better foldable backbone
+generation, but not of better binding: median target-aligned bound-pose RMSD
+was still 19.741 Angstrom and none passed the saved strict hit filters.
+
 ## Decision and rationale
 
 Boltz verification remains template-free. RFD3 already receives and fully fixes
