@@ -5,11 +5,14 @@ import importlib
 import json
 import os
 import plistlib
+import socket
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 
@@ -54,8 +57,13 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         )
 
     def tearDown(self):
+        try:
+            subprocess.run(["/usr/bin/python3", str(MCP / "remote_gateway.py"), "stop"], env=os.environ, capture_output=True, timeout=5)
+        except Exception:
+            pass
         os.environ.pop("IPROTEINSTUDIO_TEST_SUPPORT_ROOT", None)
         os.environ.pop("IPROTEINSTUDIO_AGENT_ROOT", None)
+        os.environ.pop("IPROTEINSTUDIO_CLAUDE_DESKTOP_CONFIG", None)
         self.temporary.cleanup()
 
     def prediction_arguments(self, name="one"):
@@ -233,6 +241,32 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         claude = json.loads((project / ".mcp.json").read_text())
         self.assertEqual(claude["mcpServers"]["iproteinstudio-admin"]["env"]["IPROTEINSTUDIO_ENABLE_ADMIN_MCP"], "1")
 
+    def test_clickable_desktop_configuration_status_and_removal_are_scoped(self):
+        project = self.root / "desktop-project"
+        project.mkdir()
+        codex_config = project / ".codex" / "config.toml"
+        codex_config.parent.mkdir()
+        codex_config.write_text('model = "gpt-test"\n')
+        desktop_config = self.root / "claude_desktop_config.json"
+        desktop_config.write_text(json.dumps({"theme": "dark", "mcpServers": {"other": {"command": "true"}}}))
+        os.environ["IPROTEINSTUDIO_CLAUDE_DESKTOP_CONFIG"] = str(desktop_config)
+
+        subprocess.run(["/usr/bin/python3", str(MCP / "configure.py"), "--client", "codex", "--scope", "project", "--project-root", str(project), "--profiles", "read,run", "--write"], check=True, env=os.environ, capture_output=True, text=True)
+        subprocess.run(["/usr/bin/python3", str(MCP / "configure.py"), "--client", "claude-desktop", "--scope", "user", "--profiles", "read", "--write"], check=True, env=os.environ, capture_output=True, text=True)
+        status = subprocess.run(["/usr/bin/python3", str(MCP / "configure.py"), "--client", "claude-desktop", "--scope", "user", "--status"], check=True, env=os.environ, capture_output=True, text=True)
+        report = json.loads(status.stdout)
+        self.assertEqual(report["claude_desktop"]["profiles"], ["read"])
+        self.assertNotIn("type", json.loads(desktop_config.read_text())["mcpServers"]["iproteinstudio-read"])
+        self.assertEqual(codex_config.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(desktop_config.stat().st_mode & 0o777, 0o600)
+
+        subprocess.run(["/usr/bin/python3", str(MCP / "configure.py"), "--client", "codex", "--scope", "project", "--project-root", str(project), "--remove", "--write"], check=True, env=os.environ, capture_output=True, text=True)
+        subprocess.run(["/usr/bin/python3", str(MCP / "configure.py"), "--client", "claude-desktop", "--scope", "user", "--remove", "--write"], check=True, env=os.environ, capture_output=True, text=True)
+        self.assertEqual(codex_config.read_text(), 'model = "gpt-test"\n')
+        desktop = json.loads(desktop_config.read_text())
+        self.assertEqual(desktop["theme"], "dark")
+        self.assertEqual(set(desktop["mcpServers"]), {"other"})
+
     def test_studioctl_doctor_loads_every_profile_and_versioned_schema(self):
         completed = subprocess.run(
             ["/usr/bin/python3", str(MCP / "studioctl.py"), "doctor"],
@@ -242,6 +276,62 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         self.assertTrue(report["ok"])
         self.assertEqual(set(report["profiles"]), {"read", "run", "admin"})
         self.assertIn("target-prepare-v1.json", report["schemas"])
+
+    def test_remote_gateway_is_loopback_capability_authenticated_and_stoppable(self):
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        launched = subprocess.run(
+            ["/usr/bin/python3", str(MCP / "remote_gateway.py"), "start", "--profile", "read", "--port", str(port)],
+            check=True, capture_output=True, text=True, env=os.environ,
+        )
+        state = json.loads(launched.stdout)
+        self.assertTrue(state["running"])
+        self.assertEqual(state["bind"], "127.0.0.1")
+        gateway_pid = state["pid"]
+        with self.assertRaises(urllib.error.HTTPError) as unauthorized:
+            urllib.request.urlopen(f"http://127.0.0.1:{port}/mcp/not-the-token", data=b"{}", timeout=2)
+        self.assertEqual(unauthorized.exception.code, 401)
+        request = urllib.request.Request(
+            state["local_endpoint"],
+            data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read())
+        names = {tool["name"] for tool in payload["result"]["tools"]}
+        self.assertIn("results_query", names)
+        self.assertNotIn("job_start", names)
+        stopped = subprocess.run(
+            ["/usr/bin/python3", str(MCP / "remote_gateway.py"), "stop"],
+            check=True, capture_output=True, text=True, env=os.environ,
+        )
+        self.assertFalse(json.loads(stopped.stdout)["running"])
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and common.process_alive(gateway_pid):
+            time.sleep(0.05)
+        self.assertFalse(common.process_alive(gateway_pid))
+
+        run_launch = subprocess.run(
+            ["/usr/bin/python3", str(MCP / "remote_gateway.py"), "start", "--profile", "run", "--port", str(port)],
+            check=True, capture_output=True, text=True, env=os.environ,
+        )
+        run_state = json.loads(run_launch.stdout)
+        self.assertNotEqual(run_state["local_endpoint"], state["local_endpoint"])
+        request = urllib.request.Request(
+            run_state["local_endpoint"],
+            data=json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=2) as response:
+            run_payload = json.loads(response.read())
+        run_names = {tool["name"] for tool in run_payload["result"]["tools"]}
+        self.assertIn("job_start", run_names)
+        self.assertNotIn("engine_install_plan", run_names)
+        subprocess.run(
+            ["/usr/bin/python3", str(MCP / "remote_gateway.py"), "stop"],
+            check=True, capture_output=True, text=True, env=os.environ,
+        )
 
 
 if __name__ == "__main__":

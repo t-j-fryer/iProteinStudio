@@ -29,6 +29,11 @@ only their configuration file formats differ.
 Configure a trusted project after launching the app once, which stages the
 bridge at `$ROOT/mcp/`:
 
+End users do not need these commands. The workspace toolbar's **AI** button and
+**Settings → AI assistants** install/remove user-level Codex and Claude Desktop
+registration after the user chooses `read` or `read + run`. The configuration
+utility remains the reproducible automation and troubleshooting route.
+
 ```bash
 # Preview both changes first.
 /usr/bin/python3 "$ROOT/mcp/configure.py" \
@@ -120,6 +125,31 @@ The same implementation has a direct JSON CLI for diagnostics and automation:
 
 `doctor` is offline and checks that all three privilege profiles and every
 versioned request schema can load. `detect` then checks the managed engines.
+
+### ChatGPT, remote clients and phone delegation
+
+ChatGPT cannot start the laptop's local stdio server from OpenAI's infrastructure.
+iProteinStudio therefore ships a separate opt-in Streamable-HTTP boundary. The
+AI settings screen can start or stop it; the gateway remains loopback-only,
+capability-authenticated, limited to `read` or `run`, and keeps the Mac awake
+while active. It never exposes administration.
+
+That local listener is not a public endpoint. A trusted HTTPS tunnel or hosted
+relay must forward its port before ChatGPT can connect. Enter the resulting
+public HTTPS base in the app to copy a complete capability-bearing MCP URL, then
+add that URL in ChatGPT using the documented custom-app flow. Treat the URL like
+a password: its path is the credential and may otherwise leak through proxy
+access logs. Stopping the gateway revokes the live listener; rotating its token
+invalidates the old URL.
+
+Starting the gateway also rotates its capability URL, including when switching
+from read-only to run access. An old read-only URL can never silently gain write
+privileges.
+
+The application intentionally does not choose, install or authorize a tunnel
+provider. That action changes external network state and needs a separate user
+choice. A future hosted Studio relay could remove this last infrastructure step
+while retaining account authentication and revocation.
 
 ---
 

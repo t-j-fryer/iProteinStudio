@@ -21,6 +21,12 @@ direct launch path, so do not overlap GUI and agent campaigns.
 
 ## Configure clients
 
+Normal users do this from **iProteinStudio → AI** or **Settings → AI
+assistants**. The app presents the access level and adds/removes only Studio's
+entries for Codex or Claude Desktop. No terminal is required.
+
+The commands below are retained for automation and diagnosis.
+
 From the staged installation:
 
 ```bash
@@ -34,6 +40,12 @@ marked iProteinStudio section to Codex TOML and merges only
 
 The normal profiles are `read,run`. Installing `admin` additionally requires an
 explicit `IPROTEINSTUDIO_ENABLE_ADMIN_MCP=1` environment variable.
+
+`--client codex --scope user` configures clients that share Codex's user
+configuration. `--client claude-desktop --scope user` safely merges Claude
+Desktop's JSON. The historical `claude` name means Claude Code; it remains
+available separately because Claude Code and Claude Desktop do not use the same
+registration route.
 
 Verify the staged bridge without starting a model:
 
@@ -65,3 +77,31 @@ printf '%s\n' \
 - `PYTORCH_ENABLE_MPS_FALLBACK=0` is enforced for worker processes.
 - Every tool call is recorded under `agent/audit/` without copying full
   sequences, structures or arguments into the audit record.
+
+## ChatGPT and a phone
+
+`remote_gateway.py` provides the local half of an opt-in remote connection. It
+uses the same MCP implementation and durable job broker, permits only `read` or
+`run`, binds to loopback, requires a random mode-0600 capability credential and
+keeps the Mac awake only while enabled. The secret is accepted as a bearer token
+or as the unguessable endpoint path for clients that support no-auth custom MCP
+URLs.
+
+Every start rotates the capability URL. A previously shared read-only URL can
+therefore never acquire `run` privileges after the gateway is restarted with a
+different profile.
+
+The gateway deliberately does **not** publish itself. ChatGPT executes remote
+tools from OpenAI infrastructure, so a trusted HTTPS tunnel or hosted relay must
+forward to the loopback port. The full secret URL can appear in proxy logs and
+must be treated like a password. Stop or rotate the gateway to revoke it. Never
+forward the bare local port, and never expose the `admin` profile remotely.
+
+For diagnosis:
+
+```bash
+/usr/bin/python3 "$NANOHUNTER_ROOT/mcp/remote_gateway.py" status
+/usr/bin/python3 "$NANOHUNTER_ROOT/mcp/remote_gateway.py" start --profile read
+/usr/bin/python3 "$NANOHUNTER_ROOT/mcp/remote_gateway.py" stop
+/usr/bin/python3 "$NANOHUNTER_ROOT/mcp/remote_gateway.py" rotate-token
+```

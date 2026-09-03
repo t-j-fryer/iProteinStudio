@@ -36,6 +36,7 @@ struct WorkspaceView: View {
     @ObservedObject var installer: PipelineInstaller
     @State private var showComponents = false
     @State private var showActivity = false
+    @State private var showAIIntegrations = false
 
     var body: some View {
         NavigationSplitView {
@@ -73,6 +74,14 @@ struct WorkspaceView: View {
                 .help("Add folding and design engines")
                 .keyboardShortcut("e", modifiers: [.command, .shift])
             }
+            ToolbarItem(placement: .primaryAction) {
+                Button { showAIIntegrations = true } label: {
+                    Label("AI", systemImage: "sparkles")
+                }
+                .help("Connect Codex or Claude Desktop")
+                .accessibilityLabel("Configure AI assistant access")
+                .accessibilityIdentifier("ai-integrations-button")
+            }
         }
         .sheet(isPresented: $showComponents) {
             VStack(spacing: 0) {
@@ -84,6 +93,16 @@ struct WorkspaceView: View {
                 }.padding(12)
             }
             .frame(width: 720, height: 620)
+        }
+        .sheet(isPresented: $showAIIntegrations) {
+            VStack(spacing: 0) {
+                AIIntegrationsView()
+                Divider()
+                HStack {
+                    Spacer()
+                    Button("Done") { showAIIntegrations = false }.keyboardShortcut(.defaultAction)
+                }.padding(12)
+            }
         }
     }
 }

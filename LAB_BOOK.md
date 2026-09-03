@@ -59,6 +59,10 @@ Codex and Claude can use the same local least-privilege MCP bridge to inspect
 managed projects, freeze reproducible plans and run resumable workflows without
 an arbitrary shell; immutable runner provenance and one shared agent execution
 lock protect cross-client campaigns (Entry 0069).
+The app now installs or removes Codex and Claude Desktop access with explicit
+buttons, and an opt-in capability-authenticated loopback gateway provides the
+local half of ChatGPT/phone delegation without silently publishing the Mac
+(Entry 0070).
 Protenix uses native MPS with no CPU fallback, owns its upstream public MSA-server
 route, preserves explicit single-sequence requests without contacting that route,
 and is a removable managed component rather than a hidden Boltz dependency.
@@ -136,6 +140,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0070 | 2026-09-02 | [Add one-click AI clients and a private remote gateway](lab_book/0070-add-one-click-ai-and-private-remote-gateway.md) | Moves Codex and Claude Desktop registration into explicit UI controls and adds a read/run-only authenticated loopback transport for remote clients while keeping public HTTPS exposure a separate user choice. |
 | 0069 | 2026-09-02 | [Add a client-neutral agent bridge](lab_book/0069-add-client-neutral-agent-bridge.md) | Gives Codex and Claude the same least-privilege MCP profiles, immutable plan/start contract, durable serialized workers, bounded results and non-destructive client configuration without exposing an arbitrary shell. |
 | 0068 | 2026-09-02 | [Reuse resident predictors for RFdiffusion3 validation](lab_book/0068-reuse-resident-predictors-for-rfd3-validation.md) | Applies the measured iterative-design scheduling policy to RFdiffusion3 complex and binder-only verification, with one resident MPS model per stage and the faster cycle-wave exception for full Protenix v2. |
 | 0067 | 2026-09-02 | [Add live RFdiffusion3 results and exact motif recovery](lab_book/0067-add-live-rfd3-results-and-exact-motif-recovery.md) | Makes accepted structures and score distributions visible during campaigns, adds runnable p53–MDM2 examples, repairs explicit side-chain atom conditioning in the MLX adapter, and validates source-to-design motif correspondence at the default diffusion schedule. |

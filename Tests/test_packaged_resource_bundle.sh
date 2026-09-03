@@ -16,6 +16,10 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
 [[ -s "${BUNDLE}/pipeline/mcp/server.py" ]] \
   || fail "resource bundle is missing the MCP server"
+[[ -s "${BUNDLE}/pipeline/mcp/remote_server.py" ]] \
+  || fail "resource bundle is missing the authenticated remote MCP transport"
+[[ -s "${BUNDLE}/pipeline/mcp/remote_gateway.py" ]] \
+  || fail "resource bundle is missing the remote MCP lifecycle controller"
 [[ -s "${BUNDLE}/pipeline/mcp/schemas/prediction-v1.json" ]] \
   || fail "resource bundle is missing the MCP request schemas"
 [[ -s "${BUNDLE}/pipeline/mcp/schemas/target-prepare-v1.json" ]] \

@@ -28,7 +28,12 @@ struct iProteinStudioApp: App {
         }
 
         Settings {
-            UpdateSettingsView(service: updates)
+            TabView {
+                UpdateSettingsView(service: updates)
+                    .tabItem { Label("Application", systemImage: "gear") }
+                AIIntegrationsView()
+                    .tabItem { Label("AI assistants", systemImage: "sparkles") }
+            }
         }
     }
 }
