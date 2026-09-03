@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Guided design form. Adapts to the chosen design type (nanobody vs de-novo
 /// mini-binder / peptide). Sensible defaults; advanced options tucked away.
@@ -9,6 +10,8 @@ struct DesignFormView: View {
     @State private var showAdvanced = false
     @State private var setupExperience: SetupExperience = .quick
     @State private var showTargetPrep = false
+    @State private var showTargetTemplateImporter = false
+    @State private var targetTemplateImportError: String?
     @StateObject private var ligandAtoms = BoltzLigandAtoms()
     @StateObject private var ligandIntelligence = LigandIntelligence()
 
@@ -71,6 +74,38 @@ struct DesignFormView: View {
                         ProteinChainInputView(text: request.targetSequence, startingAt: 1,
                                               placeholder: "Target chain B[:target chain C…]",
                                               minimumLength: 5)
+                        VStack(alignment: .leading, spacing: 7) {
+                            HStack {
+                                Button {
+                                    showTargetTemplateImporter = true
+                                } label: {
+                                    Label(request.wrappedValue.hasTargetTemplate
+                                          ? "Replace target template"
+                                          : "Guide target fold with PDB/CIF",
+                                          systemImage: "cube.transparent")
+                                }
+                                if request.wrappedValue.hasTargetTemplate {
+                                    Text(URL(fileURLWithPath: request.wrappedValue.targetTemplatePath).lastPathComponent)
+                                        .font(.caption.monospaced()).lineLimit(1)
+                                    Button("Remove") {
+                                        request.wrappedValue.targetTemplatePath = ""
+                                        request.wrappedValue.targetTemplateMode = .guide
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
+                            }
+                            Text("Optional. Guides the target chains toward an experimental or trusted predicted structure during each design cycle. Binder chain A is never templated, and independent checks remain untemplated.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let error = request.wrappedValue.targetTemplateCompatibilityError {
+                                Label(error, systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption).foregroundStyle(.orange)
+                            }
+                            if let error = targetTemplateImportError {
+                                Label(error, systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption).foregroundStyle(.orange)
+                            }
+                        }
                         HStack {
                             Text("Length: \(TemplateWriter.clean(request.wrappedValue.targetSequence).count) aa")
                                 .font(.caption).foregroundStyle(.secondary)
@@ -209,6 +244,34 @@ struct DesignFormView: View {
                 onClose: { showTargetPrep = false }
             )
         }
+        .fileImporter(isPresented: $showTargetTemplateImporter,
+                      allowedContentTypes: [.data], allowsMultipleSelection: false) { result in
+            importTargetTemplate(result)
+        }
+    }
+
+    private func importTargetTemplate(_ result: Result<[URL], Error>) {
+        do {
+            guard let source = try result.get().first else { return }
+            let ext = source.pathExtension.lowercased()
+            guard ["pdb", "cif", "mmcif"].contains(ext) else {
+                throw NHError.message("Choose a .pdb, .cif, or .mmcif structure file.")
+            }
+            let accessed = source.startAccessingSecurityScopedResource()
+            defer { if accessed { source.stopAccessingSecurityScopedResource() } }
+            let directory = AppPaths.projectDir(project)
+                .appendingPathComponent("target_templates", isDirectory: true)
+            try AppPaths.fm.createDirectory(at: directory, withIntermediateDirectories: true)
+            let destination = directory.appendingPathComponent("target-\(UUID().uuidString).\(ext)")
+            try AppPaths.fm.copyItem(at: source, to: destination)
+            var updated = request.wrappedValue
+            updated.targetTemplatePath = destination.path
+            updated.targetTemplateMode = .guide
+            request.wrappedValue = updated
+            targetTemplateImportError = nil
+        } catch {
+            targetTemplateImportError = error.localizedDescription
+        }
     }
 
     private var quickModelSummary: String {
@@ -271,6 +334,7 @@ struct DesignFormView: View {
         }
         if r.hasInvalidEpitopeResidues { return "Fix the hotspot residue list before starting." }
         if r.hasIncompatibleTargeting {
+            if let templateError = r.targetTemplateCompatibilityError { return templateError }
             return r.designPredictor == .protenixConstraint
                 ? "Protenix Constraint v0.5 currently supports protein epitopes, not ligand campaigns."
                 : "The selected ligand targeting restraint requires Boltz as the design engine."
@@ -510,6 +574,12 @@ struct PredictorPicker: View {
     }
 
     private var designChoices: [Predictor] {
+        if request.hasTargetTemplate {
+            if request.targetTemplateMode == .strong {
+                return [.boltz, .boltzPotentials]
+            }
+            return [.boltz, .boltzPotentials, .protenixV2, .intellifold]
+        }
         if request.targetKind == .ligand && !request.ligandContactAtoms.isEmpty {
             return request.ligandContactForce ? [.boltzPotentials] : [.boltz, .boltzPotentials]
         }

@@ -31,12 +31,22 @@ final class RunController: ObservableObject {
         let runName = uniqueRunName(project: project, in: projectDir)
         let campaign = projectDir.appendingPathComponent(runName, isDirectory: true)
         let templateURL = projectDir.appendingPathComponent("\(runName)_template.yaml")
+        var stagedTargetTemplate: URL?
 
         let pipelineSnapshot: URL
         do {
             try AppPaths.fm.createDirectory(at: campaign, withIntermediateDirectories: true)
             pipelineSnapshot = try AppPaths.createPipelineSnapshot(in: campaign)
             try TemplateWriter.write(request, to: templateURL)
+            if request.hasTargetTemplate {
+                let source = URL(fileURLWithPath: request.targetTemplatePath)
+                let inputs = campaign.appendingPathComponent("inputs", isDirectory: true)
+                try AppPaths.fm.createDirectory(at: inputs, withIntermediateDirectories: true)
+                let ext = source.pathExtension.lowercased()
+                let destination = inputs.appendingPathComponent("target_template.\(ext)")
+                try AppPaths.fm.copyItem(at: source, to: destination)
+                stagedTargetTemplate = destination
+            }
         } catch {
             phase = .failed("Could not prepare campaign: \(error.localizedDescription)")
             return
@@ -52,7 +62,8 @@ final class RunController: ObservableObject {
         let mpnnSeed = Int.random(in: 1...900_000)
         let args = CommandBuilder.arguments(request: request, templateYAML: templateURL,
                                              outRoot: projectDir, runName: runName,
-                                             cdrRanges: cdrRanges, mpnnSeed: mpnnSeed)
+                                             cdrRanges: cdrRanges, mpnnSeed: mpnnSeed,
+                                             targetTemplate: stagedTargetTemplate)
         log = []
         campaignRoot = campaign
         manifestURL = campaign.appendingPathComponent("studio_run.json")

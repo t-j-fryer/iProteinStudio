@@ -197,6 +197,15 @@ BINDER_RANDOM_SEED="${NANOHUNTER_BINDER_RANDOM_SEED:-}"
 SCAFFOLD_FROM_TEMPLATE="${NANOHUNTER_SCAFFOLD_FROM_TEMPLATE_DEFAULT:-${DEFAULT_SCAFFOLD_FROM_TEMPLATE}}"
 INITIAL_STRUCTURE=""
 INITIAL_CONFIDENCE_JSON=""
+TARGET_TEMPLATE=""
+TARGET_TEMPLATE_MODE="guide"
+TARGET_TEMPLATE_THRESHOLD="2.0"
+TARGET_TEMPLATE_SHA256=""
+TARGET_TEMPLATE_RUNTIME=""
+TARGET_TEMPLATE_RUNTIME_SHA256=""
+INTELLIFOLD_TARGET_TEMPLATE_MANIFEST=""
+TARGET_TEMPLATE_MODE_SET=0
+TARGET_TEMPLATE_THRESHOLD_SET=0
 
 MOTIF_SCAFFOLDING=0
 MOTIF_POSITIONS=""
@@ -420,6 +429,8 @@ Design controls:
                                    auto follows the selected structural predictor's native MSA path
   --target-msa-path PATH            explicit reusable target A3M or NPZ; overrides template MSA
   --require-target-msa              fail if native target MSA generation does not produce a real MSA
+  --target-template PATH            PDB/CIF used for target chains in design cycles only
+  --target-template-mode MODE       guide (default; target-only structural conditioning)
   --nanobody-scaffold-msa MODE     off | masked-cdr | single (default: ${NANOBODY_SCAFFOLD_MSA_MODE})
   --nanobody-scaffold-msa-source PATH
                                    optional precomputed scaffold A3M to mask/reuse
@@ -758,6 +769,9 @@ while [[ $# -gt 0 ]]; do
     --random-binder) SCAFFOLD_FROM_TEMPLATE=0; shift 1 ;;
     --initial-structure) INITIAL_STRUCTURE="$2"; shift 2 ;;
     --initial-confidence-json) INITIAL_CONFIDENCE_JSON="$2"; shift 2 ;;
+    --target-template) TARGET_TEMPLATE="$2"; shift 2 ;;
+    --target-template-mode) TARGET_TEMPLATE_MODE="$2"; TARGET_TEMPLATE_MODE_SET=1; shift 2 ;;
+    --target-template-threshold) TARGET_TEMPLATE_THRESHOLD="$2"; TARGET_TEMPLATE_THRESHOLD_SET=1; shift 2 ;;
     --motif-scaffolding) MOTIF_SCAFFOLDING=1; shift 1 ;;
     --motif-positions) MOTIF_POSITIONS="$2"; shift 2 ;;
     --motif-source-seq) MOTIF_SOURCE_SEQ="$2"; shift 2 ;;
@@ -1411,6 +1425,38 @@ fi
 [[ -d "${REPO_ROOT}" ]] || die "Repo root not found: ${REPO_ROOT}"
 [[ -f "${TEMPLATE_YAML}" ]] || die "Template YAML not found: ${TEMPLATE_YAML}"
 [[ -f "${STORAGE_POLICY}" ]] || die "Storage policy helper not found: ${STORAGE_POLICY}"
+TARGET_TEMPLATE_MODE="$(printf '%s' "${TARGET_TEMPLATE_MODE}" | tr '[:upper:]' '[:lower:]')"
+case "${TARGET_TEMPLATE_MODE}" in
+  guide) : ;;
+  strong) die "Strong target-coordinate restraint is disabled: Apple-GPU acceptance tests reproducibly produced broken target geometry. Use --target-template-mode guide." ;;
+  *) die "--target-template-mode must be guide." ;;
+esac
+[[ "${TARGET_TEMPLATE_THRESHOLD_SET}" -eq 0 ]] \
+  || die "--target-template-threshold is unavailable because strong target restraint is disabled."
+if [[ -z "${TARGET_TEMPLATE}" && ( "${TARGET_TEMPLATE_MODE_SET}" -eq 1 || "${TARGET_TEMPLATE_THRESHOLD_SET}" -eq 1 ) ]]; then
+  die "--target-template-mode/threshold require --target-template."
+fi
+if [[ -n "${TARGET_TEMPLATE}" ]]; then
+  [[ -f "${TARGET_TEMPLATE}" ]] || die "Target template not found: ${TARGET_TEMPLATE}"
+  case "$(printf '%s' "${TARGET_TEMPLATE##*.}" | tr '[:upper:]' '[:lower:]')" in
+    pdb|cif|mmcif) : ;;
+    *) die "--target-template must be a PDB, CIF, or mmCIF file." ;;
+  esac
+  case "${PREDICTOR}:${TARGET_TEMPLATE_MODE}" in
+    boltz:guide|protenix-v2:guide|intellifold:guide) : ;;
+    *) die "Target-fold guidance is supported only by Boltz, Protenix v2, and IntelliFold v2 Flash/full; ${PREDICTOR} cannot consume an arbitrary PDB/CIF template." ;;
+  esac
+  TARGET_TEMPLATE="$(cd "$(dirname "${TARGET_TEMPLATE}")" && pwd)/$(basename "${TARGET_TEMPLATE}")"
+  TARGET_TEMPLATE_SHA256="$(python3 - "${TARGET_TEMPLATE}" <<'PY'
+import hashlib, sys
+h = hashlib.sha256()
+with open(sys.argv[1], "rb") as handle:
+    for block in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+        h.update(block)
+print(h.hexdigest())
+PY
+)"
+fi
 if [[ -n "${INITIAL_CONFIDENCE_JSON}" && -z "${INITIAL_STRUCTURE}" ]]; then
   die "--initial-confidence-json requires --initial-structure."
 fi
@@ -1591,6 +1637,9 @@ for raw in open(path):
 print("0")
 PY
 )"
+if [[ -n "${TARGET_TEMPLATE}" && "${HAS_SMALL_MOLECULE_LIGAND}" == "1" ]]; then
+  die "Target templates apply only to protein target chains; remove --target-template for a ligand campaign."
+fi
 
 if [[ "${SEQUENCE_DESIGNER}" == "auto" ]]; then
   if [[ "${WORKFLOW}" == "nanobody" ]]; then
@@ -1680,7 +1729,9 @@ if [[ "${CHECK_CONFIG_ONLY}" -eq 1 ]]; then
   fi
   _check_intellifold_model="unused"
   [[ "${INTELLIFOLD_IN_USE}" -eq 0 ]] || _check_intellifold_model="${INTELLIFOLD_MODEL}"
-  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} post=${_check_post_names} post_mode=${POST_MODE} hit_threshold=${IPTM_THRESHOLD} intellifold_model=${_check_intellifold_model} contact_mode=${BOLTZ_CONTACT_MODE} predictor_seed=${PREDICTOR_SEED} predictor_samples=${PREDICTOR_SAMPLES} num_runs=${N_RUNS} optimization_cycles=${N_CYCLES} expected_optimized_designs=$((N_RUNS * N_CYCLES)) template=${TEMPLATE_YAML} scheduler=${DESIGN_SCHEDULER}"
+  _check_target_template="none"
+  [[ -z "${TARGET_TEMPLATE}" ]] || _check_target_template="${TARGET_TEMPLATE_MODE}:${TARGET_TEMPLATE_SHA256}"
+  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} post=${_check_post_names} post_mode=${POST_MODE} hit_threshold=${IPTM_THRESHOLD} intellifold_model=${_check_intellifold_model} contact_mode=${BOLTZ_CONTACT_MODE} predictor_seed=${PREDICTOR_SEED} predictor_samples=${PREDICTOR_SAMPLES} num_runs=${N_RUNS} optimization_cycles=${N_CYCLES} expected_optimized_designs=$((N_RUNS * N_CYCLES)) template=${TEMPLATE_YAML} target_template=${_check_target_template} post_checks_template=none scheduler=${DESIGN_SCHEDULER}"
   exit 0
 fi
 
@@ -2371,7 +2422,12 @@ make_yaml_with_binder_sequence() {
     "$catalog_tsv" \
     "$binder_msa_path" \
     "$phase" \
-    "${TARGET_MSA_MANIFEST:-}" <<'PY'
+    "${TARGET_MSA_MANIFEST:-}" \
+    "${TARGET_TEMPLATE_RUNTIME:-${TARGET_TEMPLATE}}" \
+    "${TARGET_TEMPLATE_MODE}" \
+    "${TARGET_TEMPLATE_THRESHOLD}" \
+    "${TARGET_TEMPLATE_SHA256}" \
+    "${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}" <<'PY'
 import csv
 import re
 import sys
@@ -2392,7 +2448,12 @@ from pathlib import Path
     binder_msa_path,
     phase,
     target_msa_manifest,
-) = sys.argv[1:15]
+    target_template,
+    target_template_mode,
+    target_template_threshold,
+    target_template_sha256,
+    intellifold_template_manifest,
+) = sys.argv[1:20]
 msa_path = msa_path or None
 binder_msa_path = binder_msa_path or None
 contact_distance = float(contact_distance_raw)
@@ -2407,6 +2468,7 @@ cur = None
 original_binder_seq = ""
 out_lines = []
 skip_nanohunter_block = False
+target_chain_ids = []
 
 target_msa_by_chain = {}
 if target_msa_manifest:
@@ -2420,6 +2482,44 @@ if target_msa_manifest:
         if len(fields) != 2 or not fields[0] or not fields[1]:
             raise SystemExit(f"Invalid target MSA manifest row: {line!r}")
         target_msa_by_chain[fields[0]] = fields[1]
+
+intellifold_template_by_chain = {}
+intellifold_msa_by_chain = {}
+if intellifold_template_manifest and predictor == "intellifold" and phase == "design":
+    import json
+    manifest_path = Path(intellifold_template_manifest)
+    if not manifest_path.is_file():
+        raise SystemExit(f"IntelliFold target-template manifest is missing: {manifest_path}")
+    manifest = json.loads(manifest_path.read_text())
+    if manifest.get("schema") != 1 or manifest.get("kind") != "iproteinstudio-intellifold-user-template":
+        raise SystemExit(f"Invalid IntelliFold target-template manifest: {manifest_path}")
+    intellifold_template_by_chain = {
+        str(chain): str(path)
+        for chain, path in (manifest.get("a3m_by_query_chain") or {}).items()
+    }
+    intellifold_msa_by_chain = {
+        str(chain): str(path)
+        for chain, path in (manifest.get("msa_by_query_chain") or {}).items()
+    }
+    import os
+    for chain, destination_raw in intellifold_msa_by_chain.items():
+        source_raw = target_msa_by_chain.get(chain, msa_path)
+        if not source_raw or str(source_raw).lower() in {"empty", "none", "null"}:
+            continue
+        source = Path(source_raw)
+        destination = Path(destination_raw)
+        if source.suffix.lower() != ".a3m":
+            raise SystemExit(
+                f"IntelliFold target templates require an A3M target alignment for chain {chain}; "
+                f"received {source.suffix or '<none>'}."
+            )
+        if not source.is_file():
+            raise SystemExit(f"Target MSA for IntelliFold template chain {chain} is missing: {source}")
+        payload = source.read_bytes()
+        if destination.read_bytes() != payload:
+            temporary = destination.with_name(f".{destination.name}.{os.getpid()}.part")
+            temporary.write_bytes(payload)
+            os.replace(temporary, destination)
 
 
 def parse_range_value(value):
@@ -2548,6 +2648,12 @@ def build_dynamic_constraints():
 
 
 def desired_msa_for_chain(chain_id):
+    if (predictor == "intellifold" and phase == "design"
+            and chain_id != "A" and intellifold_template_by_chain):
+        value = intellifold_msa_by_chain.get(chain_id)
+        if not value:
+            raise SystemExit(f"No paired IntelliFold MSA path for target chain {chain_id}")
+        return value
     if chain_id == "A":
         return binder_msa_path
     if chain_id in target_msa_by_chain:
@@ -2612,6 +2718,8 @@ for line in Path(template).read_text().splitlines(keepends=True):
         cid = stripped.split("id:", 1)[1].strip().strip("'\"")
         cur = cid
         in_binder = cid == "A"
+        if cid != "A":
+            target_chain_ids.append(cid)
         desired_msa_value = desired_msa_for_chain(cid)
         skip_existing_msa = desired_msa_value is not None
         out_lines.append(line)
@@ -2627,6 +2735,12 @@ for line in Path(template).read_text().splitlines(keepends=True):
         if skip_existing_msa:
             continue
 
+    # A template in the user's base YAML must never leak into a blind post
+    # check or onto binder A.  Design-time IntelliFold sidecars are inserted
+    # explicitly after the sequence below.
+    if in_protein and stripped.startswith("template:"):
+        continue
+
     if in_binder and stripped.startswith("sequence:"):
         original_binder_seq = stripped.split("sequence:", 1)[1].strip().strip("'\"")
         indent = line.split("sequence:")[0]
@@ -2641,6 +2755,36 @@ for line in Path(template).read_text().splitlines(keepends=True):
         continue
 
     out_lines.append(line)
+
+
+# Target chains without an MSA override still need their IntelliFold template
+# sidecar inserted.  Keep binder A and post-prediction inputs template-free.
+if predictor == "intellifold" and phase == "design" and target_template:
+    rebuilt = []
+    current = None
+    in_protein_block = False
+    for line in out_lines:
+        stripped = line.strip()
+        if stripped.startswith("- protein:"):
+            in_protein_block, current = True, None
+        elif in_protein_block and stripped.startswith("- ") and not stripped.startswith("- protein:"):
+            in_protein_block, current = False, None
+        elif in_protein_block and stripped.startswith("id:"):
+            current = stripped.split("id:", 1)[1].strip().strip("'\"")
+        rebuilt.append(line)
+        if in_protein_block and stripped.startswith("sequence:"):
+            indent = line.split("sequence:")[0]
+            if current == "A":
+                # Upstream uses -1 as its explicit no-template sentinel. This
+                # prevents --use_template from launching a template search for
+                # the single-sequence binder.
+                rebuilt.append(f"{indent}template: -1\n")
+            else:
+                template_path = intellifold_template_by_chain.get(current or "")
+                if not template_path:
+                    raise SystemExit(f"No prepared IntelliFold target template for query chain {current}")
+                rebuilt.append(f"{indent}template: {template_path}\n")
+    out_lines = rebuilt
 
 
 def remove_top_level_block(lines, block_name):
@@ -2670,6 +2814,8 @@ if predictor != "boltz" or phase != "design":
     out_lines = remove_top_level_block(out_lines, "constraints")
 if predictor != "boltz":
     out_lines = remove_top_level_block(out_lines, "properties")
+out_lines = remove_top_level_block(out_lines, "templates")
+out_lines = remove_top_level_block(out_lines, "target_template")
 
 dynamic_constraints = build_dynamic_constraints()
 if dynamic_constraints:
@@ -2694,6 +2840,34 @@ if dynamic_constraints:
                 break
         block = ["constraints:\n", *dynamic_constraints]
         out_lines[insert_at:insert_at] = block
+
+if target_template and phase == "design":
+    import json
+    if not target_chain_ids:
+        raise SystemExit("Target template was requested but the design input has no target protein chains.")
+    if predictor == "boltz":
+        field = "pdb" if target_template.lower().endswith(".pdb") else "cif"
+        block = ["templates:\n", f"  - {field}: {json.dumps(target_template)}\n"]
+        block.append("    chain_id: [" + ", ".join(target_chain_ids) + "]\n")
+        if target_template_mode == "strong":
+            block.extend([
+                "    force: true\n",
+                f"    threshold: {float(target_template_threshold):g}\n",
+            ])
+        out_lines.extend(block)
+    elif predictor == "protenix-v2":
+        out_lines.extend([
+            "target_template:\n",
+            f"  path: {json.dumps(target_template)}\n",
+            f"  sha256: {target_template_sha256}\n",
+            "  query_chains: [" + ", ".join(target_chain_ids) + "]\n",
+            "  mode: guide\n",
+        ])
+    elif predictor == "intellifold":
+        if not intellifold_template_by_chain:
+            raise SystemExit("IntelliFold target-template preparation produced no query-chain mappings.")
+    else:
+        raise SystemExit(f"{predictor} cannot consume the requested target template.")
 
 Path(out).write_text("".join(out_lines))
 PY
@@ -4472,11 +4646,18 @@ run_intellifold_predict_monitored() {
   mkdir -p "${out_dir}"
   rm -f "${peak_file}"
 
+  local template_flags=()
+  local template_environment=()
+  if [[ "${PREDICTOR}" == "intellifold" && -n "${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}" ]]; then
+    template_flags=(--use_template)
+    template_environment=("IPROTEINSTUDIO_INTELLIFOLD_TEMPLATE_MANIFEST=${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}")
+  fi
+
   source "${INTELLIFOLD_VENV}/bin/activate"
   if [[ "${CPU_ONLY}" -eq 1 ]]; then
-    ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1 &
+    env "${template_environment[@]}" ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" "${template_flags[@]}" >"${predict_log}" 2>&1 &
   else
-    OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1 &
+    env "${template_environment[@]}" OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" "${template_flags[@]}" >"${predict_log}" 2>&1 &
   fi
   local pid=$!
 
@@ -4568,6 +4749,7 @@ run_predict_intellifold() {
   local input_yaml="$1"
   local out_dir="$2"
   local pred_min="$3"
+  local phase="${4:-design}"
   local predict_log rc
   predict_log="${out_dir}/predict.log"
 
@@ -4575,12 +4757,19 @@ run_predict_intellifold() {
   input_stem="$(basename "${input_yaml%.*}")"
 
   mkdir -p "${out_dir}"
+  local template_flags=()
+  local template_environment=()
+  if [[ "${phase}" == "design" && "${PREDICTOR}" == "intellifold" \
+        && -n "${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}" ]]; then
+    template_flags=(--use_template)
+    template_environment=("IPROTEINSTUDIO_INTELLIFOLD_TEMPLATE_MANIFEST=${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}")
+  fi
   source "${INTELLIFOLD_VENV}/bin/activate"
   set +e
   if [[ "${CPU_ONLY}" -eq 1 ]]; then
-    ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1
+    env "${template_environment[@]}" ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" "${template_flags[@]}" >"${predict_log}" 2>&1
   else
-    OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" >"${predict_log}" 2>&1
+    env "${template_environment[@]}" OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" "${template_flags[@]}" >"${predict_log}" 2>&1
   fi
   rc=$?
   set -e
@@ -4906,7 +5095,7 @@ run_predictor_once() {
       run_predict_boltz "${cycle_yaml}" "${cycle_dir}/boltz" "${pred_min}" "${_use_pot}"
       ;;
     intellifold)
-      run_predict_intellifold "${cycle_yaml}" "${cycle_dir}/intellifold" "${pred_min}"
+      run_predict_intellifold "${cycle_yaml}" "${cycle_dir}/intellifold" "${pred_min}" "${phase}"
       ;;
     protenix-v2|protenix-mini|protenix-constraint-v0.5)
       run_predict_protenix "${predictor}" "${cycle_yaml}" "${cycle_dir}/${predictor}" "${pred_min}"
@@ -5641,7 +5830,8 @@ start_resident_predictor() {
   python3 - "${config_path}" "${RESIDENT_QUEUE}" "${REPO_ROOT}" \
     "${PREDICTOR}" "${resident_model}" "${PREDICTOR_SEED}" \
     "${resident_samples}" "${BOLTZ_USE_POTENTIALS_DEFAULT}" \
-    "${resident_use_msa}" "$$" \
+    "${resident_use_msa}" "$$" "$( [[ -n "${TARGET_TEMPLATE}" ]] && echo true || echo false )" \
+    "${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}" \
     ${resident_engine_args[@]+"${resident_engine_args[@]}"} <<'PY'
 import json, sys
 from pathlib import Path
@@ -5657,7 +5847,9 @@ payload = {
     "use_potentials": sys.argv[8] == "1",
     "use_msa": sys.argv[9].lower() == "true",
     "owner_pid": int(sys.argv[10]),
-    "engine_args": sys.argv[11:],
+    "use_template": sys.argv[11].lower() == "true",
+    "target_template_manifest": sys.argv[12],
+    "engine_args": sys.argv[13:],
 }
 temporary = path.with_suffix(".json.part")
 temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
@@ -5894,16 +6086,24 @@ run_cycle_wave_predictor_batch() {
       rc=$?
       ;;
     intellifold)
+      local intellifold_template_flags=()
+      local intellifold_template_environment=()
+      if [[ -n "${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}" ]]; then
+        intellifold_template_flags=(--use_template)
+        intellifold_template_environment=("IPROTEINSTUDIO_INTELLIFOLD_TEMPLATE_MANIFEST=${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}")
+      fi
       source "${INTELLIFOLD_VENV}/bin/activate"
       if [[ "${CPU_ONLY}" -eq 1 ]]; then
-        ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
+        env "${intellifold_template_environment[@]}" ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
           --out_dir "${output_dir}" \
           "${INTELLIFOLD_EXTRA_FLAGS[@]}" \
+          "${intellifold_template_flags[@]}" \
           > "${log_path}" 2>&1
       else
-        OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
+        env "${intellifold_template_environment[@]}" OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
           --out_dir "${output_dir}" \
           "${INTELLIFOLD_EXTRA_FLAGS[@]}" \
+          "${intellifold_template_flags[@]}" \
           > "${log_path}" 2>&1
       fi
       rc=$?
@@ -6938,6 +7138,126 @@ audit_design_cardinality() {
 EXPT_ROOT="${BASE_RUN_ROOT}/${RUN_NAME}"
 mkdir -p "${EXPT_ROOT}"
 write_campaign_budget_contract
+if [[ -n "${TARGET_TEMPLATE}" ]]; then
+  _target_template_ext="$(printf '%s' "${TARGET_TEMPLATE##*.}" | tr '[:upper:]' '[:lower:]')"
+  _campaign_target_template="${EXPT_ROOT}/inputs/target_template.${_target_template_ext}"
+  if [[ "${TARGET_TEMPLATE}" != "${_campaign_target_template}" ]]; then
+    if [[ -f "${_campaign_target_template}" ]]; then
+      _staged_digest="$(python3 - "${_campaign_target_template}" <<'PY'
+import hashlib, sys
+print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())
+PY
+)"
+      [[ "${_staged_digest}" == "${TARGET_TEMPLATE_SHA256}" ]] \
+        || die "The resumed campaign's staged target template differs from the requested checksum."
+    else
+      mkdir -p "$(dirname "${_campaign_target_template}")"
+      materialize_immutable_input "${TARGET_TEMPLATE}" "${_campaign_target_template}"
+    fi
+    TARGET_TEMPLATE="${_campaign_target_template}"
+  fi
+  TARGET_TEMPLATE_RUNTIME="${TARGET_TEMPLATE}"
+  TARGET_TEMPLATE_RUNTIME_SHA256="${TARGET_TEMPLATE_SHA256}"
+  if [[ "${PREDICTOR}" == "boltz" ]]; then
+    _boltz_template="${EXPT_ROOT}/inputs/target_template.boltz.cif"
+    _boltz_template_candidate="${_boltz_template}.candidate.$$"
+    "${BOLTZ_VENV}/bin/python" \
+      "${PIPELINE_CODE_ROOT}/scripts/prepare_boltz_template.py" \
+      "${TARGET_TEMPLATE}" "${_boltz_template_candidate}" \
+      || die "Could not normalize the target template for Boltz."
+    if [[ -f "${_boltz_template}" ]]; then
+      cmp -s "${_boltz_template_candidate}" "${_boltz_template}" \
+        || die "The resumed campaign's normalized Boltz template is not reproducible."
+      rm -f "${_boltz_template_candidate}"
+    else
+      mv "${_boltz_template_candidate}" "${_boltz_template}"
+    fi
+    TARGET_TEMPLATE_RUNTIME="${_boltz_template}"
+    TARGET_TEMPLATE_RUNTIME_SHA256="$(python3 - "${TARGET_TEMPLATE_RUNTIME}" <<'PY'
+import hashlib, sys
+print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())
+PY
+)"
+  elif [[ "${PREDICTOR}" == "intellifold" ]]; then
+    _intellifold_template_dir="${EXPT_ROOT}/inputs/intellifold_target_template"
+    _intellifold_template_manifest="${_intellifold_template_dir}/manifest.json"
+    if [[ -f "${_intellifold_template_manifest}" ]]; then
+      python3 - "${_intellifold_template_manifest}" "${TARGET_TEMPLATE_SHA256}" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+manifest = Path(sys.argv[1]).resolve()
+payload = json.loads(manifest.read_text())
+if payload.get("schema") != 1 or payload.get("kind") != "iproteinstudio-intellifold-user-template":
+    raise SystemExit("The resumed campaign has an invalid IntelliFold target-template manifest.")
+if payload.get("source_sha256") != sys.argv[2]:
+    raise SystemExit("The resumed campaign's IntelliFold target template has a different checksum.")
+for key in ("normalized_mmcif", "release_dates"):
+    path = Path(str(payload.get(key, "")))
+    if not path.is_file():
+        raise SystemExit(f"The resumed campaign's IntelliFold template file is missing: {path}")
+normalized = Path(payload["normalized_mmcif"])
+digest = hashlib.sha256(normalized.read_bytes()).hexdigest()
+if digest != payload.get("normalized_mmcif_sha256"):
+    raise SystemExit("The resumed campaign's normalized IntelliFold template checksum changed.")
+release_dates = Path(payload["release_dates"])
+release_digest = hashlib.sha256(release_dates.read_bytes()).hexdigest()
+if release_digest != payload.get("release_dates_sha256"):
+    raise SystemExit("The resumed campaign's IntelliFold release metadata checksum changed.")
+for path in (payload.get("a3m_by_query_chain") or {}).values():
+    if not Path(path).is_file():
+        raise SystemExit(f"The resumed campaign's IntelliFold alignment is missing: {path}")
+PY
+    else
+      _intellifold_prep_python="${INTELLIFOLD_VENV}/bin/python"
+      if ! "${_intellifold_prep_python}" -c 'import gemmi, yaml' >/dev/null 2>&1; then
+        # Upgrade compatibility for pre-template Studio installs. New installs
+        # receive gemmi in IntelliFold's own hash-locked environment.
+        if [[ -x "${BOLTZ_VENV}/bin/python" ]] \
+          && "${BOLTZ_VENV}/bin/python" -c 'import gemmi, yaml' >/dev/null 2>&1; then
+          _intellifold_prep_python="${BOLTZ_VENV}/bin/python"
+        else
+          die "IntelliFold target-template preparation needs gemmi; repair IntelliFold in Setup."
+        fi
+      fi
+      "${_intellifold_prep_python}" \
+        "${PIPELINE_CODE_ROOT}/scripts/prepare_intellifold_template.py" \
+        --source "${TARGET_TEMPLATE}" --yaml "${TEMPLATE_YAML}" \
+        --output "${_intellifold_template_dir}" >/dev/null \
+        || die "Could not prepare the target template for IntelliFold."
+    fi
+    INTELLIFOLD_TARGET_TEMPLATE_MANIFEST="${_intellifold_template_manifest}"
+    TARGET_TEMPLATE_RUNTIME="${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}"
+    TARGET_TEMPLATE_RUNTIME_SHA256="$(python3 - "${TARGET_TEMPLATE_RUNTIME}" <<'PY'
+import hashlib, sys
+print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())
+PY
+)"
+  fi
+  python3 - "${EXPT_ROOT}/target_template_provenance.json" \
+    "${TARGET_TEMPLATE}" "${TARGET_TEMPLATE_SHA256}" "${TARGET_TEMPLATE_MODE}" \
+    "${TARGET_TEMPLATE_THRESHOLD}" "${PREDICTOR}" \
+    "${TARGET_TEMPLATE_RUNTIME}" "${TARGET_TEMPLATE_RUNTIME_SHA256}" <<'PY'
+import json, sys
+from pathlib import Path
+out, source, digest, mode, threshold, predictor, runtime_source, runtime_digest = sys.argv[1:]
+payload = {
+    "schema": 1,
+    "source": source,
+    "sha256": digest,
+    "mode": mode,
+    "threshold_angstrom": float(threshold) if mode == "strong" else None,
+    "design_predictor": predictor,
+    "prediction_input": runtime_source,
+    "prediction_input_sha256": runtime_digest,
+    "prediction_input_normalized": runtime_source != source,
+    "templated_query_chains": "target-only",
+    "binder_chain_templated": False,
+    "independent_complex_checks_templated": False,
+    "binder_alone_checks_templated": False,
+}
+Path(out).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+PY
+fi
 
 PASS_TAG="$(python3 - "$IPTM_THRESHOLD" <<'PY'
 import sys

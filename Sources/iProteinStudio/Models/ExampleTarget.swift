@@ -62,6 +62,10 @@ extension DesignRequest {
     /// Fill in an iterative-design run against this example.
     mutating func apply(_ example: ExampleTarget) {
         designType = .minibinder
+        // A template belongs to one exact target sequence. Never carry a
+        // previously imported structure into a different worked example.
+        targetTemplatePath = ""
+        targetTemplateMode = .guide
         switch example.kind {
         case .protein:
             targetKind = .protein

@@ -42,6 +42,11 @@ struct PipelineSnapshotContractHarness {
         let objectFile = object.appendingPathComponent(relative)
         let firstFile = first.appendingPathComponent(relative)
         let secondFile = second.appendingPathComponent(relative)
+        guard fm.fileExists(atPath: first.appendingPathComponent("scripts/prepare_boltz_template.py").path)
+        else { fail("target-template normalizer was omitted from the campaign snapshot") }
+        guard fm.fileExists(atPath: first.appendingPathComponent("scripts/prepare_intellifold_template.py").path),
+              fm.fileExists(atPath: first.appendingPathComponent("scripts/intellifold_user_template.py").path)
+        else { fail("IntelliFold target-template policy was omitted from the campaign snapshot") }
         let original = try Data(contentsOf: objectFile)
         guard try Data(contentsOf: firstFile) == original,
               try Data(contentsOf: secondFile) == original,

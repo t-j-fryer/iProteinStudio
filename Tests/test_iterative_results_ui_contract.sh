@@ -28,5 +28,11 @@ rg -q 'Automatic scheduling: one resident predictor stays loaded' "${FORM}" \
   || fail "the main run form does not explain automatic model residency"
 rg -q 'Protenix v2 is loaded once per cycle' "${FORM}" \
   || fail "the main run form does not explain Protenix v2's measured exception"
+rg -q 'Guide target fold with PDB/CIF' "${FORM}" \
+  || fail "ordinary target-fold guidance is not visible in the protein form"
+! rg -q 'Keep target coordinates close to the template' "${FORM}" \
+  || fail "unsafe strong target restraint is still exposed"
+rg -q 'Binder chain A is never templated, and independent checks remain untemplated' "${FORM}" \
+  || fail "the form does not disclose the blind validation boundary"
 
 echo "PASS iterative results UI contract"

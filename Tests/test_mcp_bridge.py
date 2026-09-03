@@ -108,6 +108,10 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         projects_resource = json.loads(responses[3]["result"]["contents"][0]["text"])
         self.assertEqual(projects_resource["projects"][0]["id"], "demo")
 
+        guide = catalog.workflow_guide("iterative_design")
+        self.assertEqual(guide["defaults"]["target_template_mode"], "guide")
+        self.assertTrue(any("Never template binder A" in rule for rule in guide["rules"]))
+
     def test_server_rejects_unknown_fields_and_cross_profile_start(self):
         module = importlib.import_module("server")
         server = module.MCPServer("run")
@@ -135,6 +139,50 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         self.fake_predictor.write_text(self.fake_predictor.read_text() + "\n# changed\n")
         with self.assertRaisesRegex(common.StudioError, "changed after preflight"):
             plans.load_plan(plan["id"], plan["sha256"])
+
+    def test_iterative_target_template_plan_is_staged_and_fail_closed(self):
+        runner = self.root / "nanohunter_run.sh"
+        runner.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+        source = self.root / "projects" / "demo" / "inputs"
+        workflow = source / "target.yaml"
+        workflow.write_text("sequences:\n  - protein:\n      id: A\n      sequence:\n  - protein:\n      id: B\n      sequence: ACDEFG\n", encoding="utf-8")
+        structure = source / "target.pdb"
+        structure.write_text("ATOM      1  CA  ALA B   1       0.000   0.000   0.000  1.00  0.00           C\n", encoding="utf-8")
+        arguments = [
+            "--workflow", "protein", "--predictor", "boltz",
+            "--sequence-designer", "solublempnn", "--num-runs", "1",
+            "--num-opt-cycles", "1", "--iptm-threshold", "0.7",
+        ]
+        plan = plans.iterative_plan({
+            "project": "demo", "run_name": "guided", "template_path": str(workflow),
+            "target_template_path": str(structure), "target_template_mode": "guide",
+            "arguments": arguments,
+        })
+        normalized = plan["normalized_request"]
+        staged = self.root / "projects" / "demo" / "guided" / "inputs" / "target_template.pdb"
+        self.assertEqual(normalized["arguments"][normalized["arguments"].index("--target-template") + 1], str(staged))
+        self.assertEqual(normalized["target_template_artifact"]["sha256"], common.file_digest(structure))
+        self.assertNotIn("--target-template-threshold", normalized["arguments"])
+
+        intellifold = plans.iterative_plan({
+            "project": "demo", "run_name": "guided-intellifold", "template_path": str(workflow),
+            "target_template_path": str(structure), "target_template_mode": "guide",
+            "arguments": [value if value != "boltz" else "intellifold" for value in arguments],
+        })
+        self.assertIn("--target-template", intellifold["normalized_request"]["arguments"])
+
+        with self.assertRaisesRegex(common.StudioError, "reproducibly produced broken target geometry"):
+            plans.iterative_plan({
+                "project": "demo", "run_name": "invalid", "template_path": str(workflow),
+                "target_template_path": str(structure), "target_template_mode": "strong",
+                "arguments": [value if value != "boltz" else "protenix-v2" for value in arguments],
+            })
+        with self.assertRaisesRegex(common.StudioError, "strong target restraint is disabled"):
+            plans.iterative_plan({
+                "project": "demo", "run_name": "irrelevant-threshold", "template_path": str(workflow),
+                "target_template_path": str(structure), "target_template_mode": "guide",
+                "target_template_threshold": 2.0, "arguments": arguments,
+            })
 
     def test_two_mcp_jobs_share_one_execution_lock_and_results_are_queryable(self):
         first = plans.prediction_plan(self.prediction_arguments("first"))

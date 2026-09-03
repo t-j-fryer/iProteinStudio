@@ -78,10 +78,14 @@ BOLTZ_TORCH_VERSION="2.13.0"
 LIGANDMPNN_REV="26ec57ac976ade5379920dbd43c7f97a91cf82de"
 ANTIFOLD_REV="789d46786624c01eb44f177ef4c0deeeb6e77469"
 INTELLIFOLD_REV="4e420db7482b4f50dbb86800ff710ee4ec7c7b7b"
+INTELLIFOLD_RUNTIME_VERSION="${INTELLIFOLD_REV}-studio-template1"
 LASERMPNN_REV="5df210fced6764d83f01425d1fc4319a22b70c2a"
 OPENFOLD_REV="eeac37eb82dc2b80cf043eb26105a16d2493d052"
 RFD3_REV="47a42e8f40207e66b994d4863f9b1911f1bc36eb"
 PROTENIX_REV="4c355be4553512f72453ecbfb65e69f4c35d1413" # upstream 2.0.0
+PROTENIX_RUNTIME_VERSION="${PROTENIX_REV}-studio-template1"
+KALIGN_VERSION="3.3.2"
+KALIGN_ARCHIVE_SHA256="c0b357feda32e16041cf286a4e67626a52bbf78c39e2237b485d54fb38ef319a"
 
 # Every engine is opt-in. Only the sequence designers are unconditional.
 WITH_BOLTZ=0
@@ -412,10 +416,11 @@ detect() {
     || state_absent_or_partial antifold "environment or source is incomplete" "${ANTIFOLD_VENV}" "${ANTIFOLD_REPO}"
   if [[ -x "${INTELLIFOLD_VENV}/bin/python" \
      && -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
-     && -f "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl" ]]; then
+     && -f "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl" ]] \
+     && "${INTELLIFOLD_VENV}/bin/python" -c 'import gemmi; assert gemmi.__version__ == "0.7.5"' >/dev/null 2>&1; then
     state intellifold ok "IntelliFold PyTorch/MPS with v2 Flash weights"
   else
-    state_absent_or_partial intellifold "environment, v2 Flash weights, or CCD absent" \
+    state_absent_or_partial intellifold "environment, v2 Flash weights, CCD, or template adapter dependency absent" \
       "${INTELLIFOLD_VENV}" "${INTELLIFOLD_REPO}" "${INTELLIFOLD_MODEL_DIR}"
   fi
   [[ -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" ]] \
@@ -423,6 +428,8 @@ detect() {
     || state_absent_or_partial intellifold_full "optional full-v2 checkpoint absent" \
          "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt"
   if [[ -x "${PROTENIX_VENV}/bin/protenix" \
+     && -x "${PROTENIX_VENV}/bin/kalign" \
+     && "$("${PROTENIX_VENV}/bin/kalign" --version 2>/dev/null | head -1)" == "kalign ${KALIGN_VERSION}" \
      && -f "${PROTENIX_MODEL_DIR}/common/components.cif" \
      && -f "${PROTENIX_MODEL_DIR}/common/components.cif.rdkit_mol.pkl" ]]; then
     state protenix ok "shared native-MPS runtime and chemical data"
@@ -887,6 +894,51 @@ download_verified_artifact() {
     || fail "Could not download or verify ${label}. The partial file was retained for resume."
 }
 
+install_pinned_kalign() {
+  local destination="${PROTENIX_VENV}/bin/kalign"
+  if [[ -x "${destination}" \
+     && "$("${destination}" --version 2>/dev/null | head -1)" == "kalign ${KALIGN_VERSION}" ]]; then
+    return 0
+  fi
+  [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]] \
+    || fail "The managed Kalign build is validated only for Apple-Silicon macOS."
+  [[ -x /usr/bin/clang ]] || fail "Apple's clang compiler is required to install Protenix template support."
+
+  local archive="${NANOHUNTER_ROOT}/cache/sources/kalign-${KALIGN_VERSION}.tar.gz"
+  local stage source
+  mkdir -p "$(dirname "${archive}")" "$(dirname "${destination}")"
+  download_verified_artifact "${PROTENIX_VENV}/bin/python" "${archive}" \
+    "https://github.com/TimoLassmann/kalign/archive/refs/tags/v${KALIGN_VERSION}.tar.gz" \
+    "${KALIGN_ARCHIVE_SHA256}" "Kalign ${KALIGN_VERSION} source" protenix 64 64
+  stage="$(mktemp -d "${TMPDIR:-/tmp}/iproteinstudio-kalign.XXXXXX")" \
+    || fail "Could not create the Kalign build directory."
+  /usr/bin/tar -xzf "${archive}" -C "${stage}" \
+    || { rm -rf "${stage}"; fail "Could not extract the verified Kalign source."; }
+  source="${stage}/kalign-${KALIGN_VERSION}/src"
+  [[ -f "${source}/run_kalign.c" ]] \
+    || { rm -rf "${stage}"; fail "The verified Kalign archive has an unexpected layout."; }
+
+  /usr/bin/clang -O3 -std=c11 \
+    '-DPACKAGE_NAME="kalign"' "-DPACKAGE_VERSION=\"${KALIGN_VERSION}\"" \
+    "${source}/run_kalign.c" "${source}/idata.c" "${source}/tldevel.c" \
+    "${source}/tlmisc.c" "${source}/esl_stopwatch.c" "${source}/tlrng.c" \
+    "${source}/parameters.c" "${source}/alphabet.c" \
+    "${source}/alignment_parameters.c" "${source}/pick_anchor.c" \
+    "${source}/bisectingKmeans.c" "${source}/sequence_distance.c" \
+    "${source}/euclidean_dist.c" "${source}/weave_alignment.c" \
+    "${source}/rwalign.c" "${source}/misc.c" "${source}/bpm.c" \
+    "${source}/aln_task.c" "${source}/aln_mem.c" "${source}/aln_setup.c" \
+    "${source}/aln_run.c" "${source}/aln_controller.c" \
+    "${source}/aln_seqseq.c" "${source}/aln_seqprofile.c" \
+    "${source}/aln_profileprofile.c" -lm -o "${destination}.new" \
+    || { rm -rf "${stage}"; fail "Kalign ${KALIGN_VERSION} compilation failed."; }
+  chmod 755 "${destination}.new"
+  mv -f "${destination}.new" "${destination}"
+  rm -rf "${stage}"
+  [[ "$("${destination}" --version 2>/dev/null | head -1)" == "kalign ${KALIGN_VERSION}" ]] \
+    || fail "Managed Kalign version verification failed."
+}
+
 write_component_receipt() {
   local key="$1" version="$2" python="$3" policy="$4"; shift 4
   [[ -f "${COMPONENT_RECEIPT}" ]] || fail "Bundled component receipt helper is missing."
@@ -905,7 +957,12 @@ begin_versioned_venv() {
   TRANSACTION_REUSED=0
   if [[ -x "${final}/bin/python" && -f "${RECEIPTS_DIR}/${key}.json" ]] \
      && python3 "${COMPONENT_RECEIPT}" verify \
-          --receipt "${RECEIPTS_DIR}/${key}.json" --packages >/dev/null 2>&1; then
+          --receipt "${RECEIPTS_DIR}/${key}.json" --packages >/dev/null 2>&1 \
+     && python3 - "${RECEIPTS_DIR}/${key}.json" "${version}" <<'PY' >/dev/null 2>&1
+import json, sys
+raise SystemExit(0 if json.load(open(sys.argv[1])).get("version") == sys.argv[2] else 1)
+PY
+  then
     TRANSACTION_VENV="${final}"
     TRANSACTION_STAGE=""
     TRANSACTION_REUSED=1
@@ -1225,7 +1282,7 @@ else
   fail "IntelliFold source does not match the validated PyTorch/MPS patch base."
 fi
 INTELLIFOLD_FINAL_VENV="${INTELLIFOLD_VENV}"
-begin_versioned_venv intellifold "${INTELLIFOLD_REV}" "${INTELLIFOLD_FINAL_VENV}" "${INTELLIFOLD_PYTHON_BIN}"
+begin_versioned_venv intellifold "${INTELLIFOLD_RUNTIME_VERSION}" "${INTELLIFOLD_FINAL_VENV}" "${INTELLIFOLD_PYTHON_BIN}"
 INTELLIFOLD_VENV="${TRANSACTION_VENV}"
 if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
   uv_install_locked "${INTELLIFOLD_VENV}/bin/python" "${INTELLIFOLD_LOCK}" \
@@ -1283,7 +1340,7 @@ PYTORCH_ENABLE_MPS_FALLBACK=0 "${INTELLIFOLD_VENV}/bin/python" -c \
   || fail "IntelliFold staged runtime failed its native-MPS import check."
 commit_versioned_venv
 INTELLIFOLD_VENV="${INTELLIFOLD_FINAL_VENV}"
-  write_component_receipt intellifold "${INTELLIFOLD_REV}" "${INTELLIFOLD_VENV}/bin/python" \
+  write_component_receipt intellifold "${INTELLIFOLD_RUNTIME_VERSION}" "${INTELLIFOLD_VENV}/bin/python" \
     "native-mps-no-cpu-fallback" --lock "${INTELLIFOLD_LOCK}" \
     --source "${INTELLIFOLD_REPO}=${INTELLIFOLD_REV}" \
     --artifact "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt=ac405f91c59a1b135dab0fbddd103d032bcb1ea1cb59f162348c0b90d4ab4fa5" \
@@ -1450,7 +1507,7 @@ if [[ "${WITH_PROTENIX_RUNTIME}" -eq 1 ]]; then
   [[ -f "${PROTENIX_LOCK}" ]] || fail "Bundled Protenix dependency lock is missing."
   [[ -f "${VERIFIED_DOWNLOADER}" ]] || fail "Bundled verified downloader is missing."
   PROTENIX_FINAL_VENV="${PROTENIX_VENV}"
-  begin_versioned_venv protenix "${PROTENIX_REV}" "${PROTENIX_FINAL_VENV}" "${PYTHON_BIN}"
+  begin_versioned_venv protenix "${PROTENIX_RUNTIME_VERSION}" "${PROTENIX_FINAL_VENV}" "${PYTHON_BIN}"
   PROTENIX_VENV="${TRANSACTION_VENV}"
   if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
     uv_install_locked "${PROTENIX_VENV}/bin/python" "${PROTENIX_LOCK}" \
@@ -1458,6 +1515,7 @@ if [[ "${WITH_PROTENIX_RUNTIME}" -eq 1 ]]; then
     uv_install_editable "${PROTENIX_VENV}/bin/python" "${PROTENIX_REPO}" \
       || fail "Protenix source install failed."
   fi
+  install_pinned_kalign
 
   # Checkpoints and chemical data live in the managed runtime, never in Git.
   # Every transfer resumes its .part file after a timed read and only becomes
@@ -1523,7 +1581,7 @@ print(f"  Protenix ready on {torch.device('mps')}")
 PY
   commit_versioned_venv
   PROTENIX_VENV="${PROTENIX_FINAL_VENV}"
-  write_component_receipt protenix "${PROTENIX_REV}" "${PROTENIX_VENV}/bin/python" \
+  write_component_receipt protenix "${PROTENIX_RUNTIME_VERSION}" "${PROTENIX_VENV}/bin/python" \
     "native-mps-fp32-no-cpu-fallback" --lock "${PROTENIX_LOCK}" \
     --source "${PROTENIX_REPO}=${PROTENIX_REV}" \
     --artifact "${PROTENIX_COMMON_DIR}/components.cif=bb31ae5cf6c8bc669924313077cb4231ee5ffefd3a20118cd14f3ec89f8bb6a5" \

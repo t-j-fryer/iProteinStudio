@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import importlib.util
+import json
 import os
 from pathlib import Path
 import runpy
@@ -113,6 +114,33 @@ def main() -> None:
         die(f"expected Accelerate {STRICT_ACCELERATE_VERSION}, found {accelerate_version}")
     if torch_version != STRICT_TORCH_VERSION:
         die(f"expected PyTorch {STRICT_TORCH_VERSION}, found {torch_version}")
+
+    # A user-supplied target structure is not an ordinary database template
+    # search result.  Install the narrow, checksummed featurizer override before
+    # upstream builds its dataloader; without it IntelliFold silently rejects an
+    # exact-sequence target as a duplicate hit.
+    os.environ.setdefault(
+        "INTELLIFOLD_CACHE",
+        option(arguments, "--cache", str(root / "models" / "intellifold")),
+    )
+    user_template_path = Path(__file__).resolve().with_name("intellifold_user_template.py")
+    user_template_spec = importlib.util.spec_from_file_location(
+        "iproteinstudio_intellifold_user_template", user_template_path
+    )
+    if user_template_spec is None or user_template_spec.loader is None:
+        die(f"user-template policy module is missing: {user_template_path}")
+    user_template = importlib.util.module_from_spec(user_template_spec)
+    user_template_spec.loader.exec_module(user_template)
+    try:
+        template_payload = user_template.install()
+    except (KeyError, OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        die(str(exc))
+    if template_payload:
+        print(
+            "IPROTEINSTUDIO_TEMPLATE|intellifold|target-only|"
+            f"id={template_payload['template_id']}|binder=none",
+            flush=True,
+        )
 
     # Resolve policy code beside this launcher. Iterative campaigns execute an
     # immutable pipeline snapshot, so consulting a later app-staged copy would

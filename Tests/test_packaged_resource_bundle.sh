@@ -14,6 +14,12 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
   || fail "SwiftPM resource bundle is missing its pipeline sentinel"
 [[ -s "${BUNDLE}/pipeline/scripts/storage_policy.py" ]] \
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
+[[ -s "${BUNDLE}/pipeline/scripts/prepare_boltz_template.py" ]] \
+  || fail "resource bundle is missing the Boltz target-template normalizer"
+[[ -s "${BUNDLE}/pipeline/scripts/prepare_intellifold_template.py" ]] \
+  || fail "resource bundle is missing the IntelliFold target-template adapter"
+[[ -s "${BUNDLE}/pipeline/scripts/intellifold_user_template.py" ]] \
+  || fail "resource bundle is missing the IntelliFold local-template policy"
 [[ -s "${BUNDLE}/pipeline/mcp/server.py" ]] \
   || fail "resource bundle is missing the MCP server"
 [[ -s "${BUNDLE}/pipeline/mcp/remote_server.py" ]] \

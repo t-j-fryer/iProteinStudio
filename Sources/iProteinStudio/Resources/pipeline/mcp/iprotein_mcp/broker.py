@@ -253,6 +253,12 @@ def _execute_iterative(job_id: str, plan: Dict[str, Any]) -> int:
     snapshot = _snapshot_pipeline(campaign)
     template = Path(normalized["template_artifact"]["path"])
     shutil.copy2(template, campaign / "input_template.yaml")
+    target_template = normalized.get("target_template_artifact")
+    if target_template:
+        source = Path(target_template["path"])
+        destination = campaign / "inputs" / f"target_template{source.suffix.lower()}"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
     arguments = list(normalized["arguments"])
     # Foundation's default Date Codable representation is seconds since
     # 2001-01-01, not ISO-8601. Match it so Activity can decode this exact file.

@@ -156,6 +156,10 @@ expect "${SETUP}" 'https://openfold.s3.amazonaws.com/' "OpenFold bypasses the re
 expect "${SETUP}" 'runtime_transaction.py' "versioned environment transactions are absent"
 expect "${SETUP}" 'component_receipt.py' "component receipts are absent"
 expect "${SETUP}" 'shared/protenix-common' "Protenix common data is still duplicated"
+expect "${SETUP}" 'KALIGN_ARCHIVE_SHA256="c0b357feda32e16041cf286a4e67626a52bbf78c39e2237b485d54fb38ef319a"' \
+  "Protenix template alignment dependency is not pinned by checksum"
+expect "${SETUP}" 'install_pinned_kalign' \
+  "Protenix template alignment dependency is not installed by Setup"
 expect "${SETUP}" 'shared/git-objects' "duplicate source checkouts do not share Git objects"
 expect "${SETUP}" 'managed_storage.py' "existing installs have no verified deduplication path"
 if grep -Eq 'curl .*CKPT_URL|CKPT_URL.*curl' "${RFD3_INSTALL}"; then

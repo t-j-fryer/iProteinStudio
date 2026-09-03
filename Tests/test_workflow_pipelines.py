@@ -268,6 +268,36 @@ def main() -> None:
                and '\"use_msas\": True' not in runner_source,
                "iterative runner drifted from the shared OpenFold MSA policy")
 
+        # Execute the runner's real YAML-rewrite program, rather than merely
+        # checking that template-related strings exist. Ordinary input lines
+        # must survive the rewrite and post-check inputs must remain blind.
+        function_source = runner_source[runner_source.index("make_yaml_with_binder_sequence()") :]
+        heredoc_start = function_source.index("<<'PY'\n") + len("<<'PY'\n")
+        heredoc_end = function_source.index("\nPY\n}", heredoc_start)
+        rewrite_program = root / "rewrite_cycle_yaml.py"
+        rewrite_program.write_text(function_source[heredoc_start:heredoc_end])
+        rewrite_input = root / "rewrite-input.yaml"
+        rewrite_output = root / "rewrite-output.yaml"
+        rewrite_input.write_text(
+            "metadata:\n  campaign_note: preserve-me\n"
+            "sequences:\n"
+            "  - protein:\n      id: A\n      sequence: AAAAAA\n      msa: empty\n      template: stale\n"
+            "  - protein:\n      id: B\n      sequence: HIKLMN\n      msa: empty\n      template: stale\n"
+            "version: 1\n"
+        )
+        subprocess.run([
+            sys.executable, str(rewrite_program), str(rewrite_input), str(rewrite_output),
+            "CCCCCC", "", "intellifold", "", "8.0", "0", "none", "",
+            str(ROOT / "Sources/iProteinStudio/Resources/pipeline/examples/nanobody_scaffolds/catalog.tsv"),
+            "", "post", "", "/unused/template.pdb", "guide", "2.0", "deadbeef", "",
+        ], check=True)
+        rewritten = rewrite_output.read_text()
+        expect("campaign_note: preserve-me" in rewritten and "version: 1" in rewritten
+               and "sequence: CCCCCC" in rewritten and "sequence: HIKLMN" in rewritten,
+               "cycle YAML rewrite dropped ordinary campaign fields or protein sequences")
+        expect("template:" not in rewritten,
+               "blind post-check YAML retained a design-time target template")
+
         # Protenix has one process-wide MSA switch. A fully explicit-empty job
         # must force it off; a mixed job must retain the target alignment while
         # representing the empty binder with a query-only A3M. Neither case may
@@ -284,6 +314,68 @@ def main() -> None:
                "Protenix explicit-empty job still permits an MSA-server request")
         expect(no_msa_command[no_msa_command.index("--need_atom_confidence") + 1] == "True",
                "Protenix did not request the token PAE needed for ipSAE")
+        fake_bin = root / "protenix-bin"
+        fake_bin.mkdir()
+        fake_protenix = fake_bin / "protenix"
+        fake_protenix.write_text("#!/bin/sh\n")
+        fake_protenix.chmod(0o755)
+        try:
+            protenix.protenix_command(
+                fake_protenix, root / "single.json", root / "px", "protenix-v2",
+                "42", 1, True, use_template=True,
+            )
+            raise AssertionError("Protenix template command accepted a missing managed Kalign binary")
+        except SystemExit as exc:
+            expect("managed Kalign binary" in str(exc),
+                   "missing Protenix template dependency did not fail actionably")
+        fake_kalign = fake_bin / "kalign"
+        fake_kalign.write_text("#!/bin/sh\n")
+        fake_kalign.chmod(0o755)
+        template_command = protenix.protenix_command(
+            fake_protenix, root / "single.json", root / "px", "protenix-v2",
+            "42", 1, True, use_template=True,
+        )
+        expect(template_command[template_command.index("--kalign_binary_path") + 1]
+               == str(fake_kalign),
+               "Protenix template command did not use its managed Kalign binary")
+
+        # User PDB/CIF templates are converted into Protenix v2's documented
+        # inline-mmCIF JSON form. Binder A receives an explicit empty template,
+        # preventing the upstream preprocessor from searching for or templating it.
+        template_file = root / "target-template.pdb"
+        template_file.write_text("synthetic template bytes\n")
+        template_document = {
+            "target_template": {
+                "path": str(template_file),
+                "sha256": protenix.sha256(template_file),
+                "query_chains": ["B"],
+                "mode": "guide",
+            }
+        }
+        template_proteins = {
+            "A": {"sequence": "ACDEFG", "id": ["A"]},
+            "B": {"sequence": "HIKLMN", "id": ["B"]},
+        }
+        original_structure_chains = protenix._structure_chains
+        original_mmcif_string = protenix._mmcif_string
+        try:
+            protenix._structure_chains = lambda _path: {"X": ("HIKLMN", object())}
+            protenix._mmcif_string = lambda _atoms: "data_template\n#\n"
+            protenix.apply_target_template(template_document, root / "template-cycle.yaml",
+                                           template_proteins, True)
+        finally:
+            protenix._structure_chains = original_structure_chains
+            protenix._mmcif_string = original_mmcif_string
+        expect(Path(template_proteins["A"]["templatesPath"]).read_text() == "[]\n"
+               and json.loads(Path(template_proteins["B"]["templatesPath"]).read_text())[0]["queryIndices"] == list(range(6)),
+               "Protenix target template did not leave binder A empty and map target B")
+        try:
+            protenix.apply_target_template(template_document, root / "unsupported-cycle.yaml",
+                                           {"A": {"sequence": "ACDEFG"}, "B": {"sequence": "HIKLMN"}}, False)
+            raise AssertionError("Protenix Mini silently accepted a user structure template")
+        except SystemExit as exc:
+            expect("Protenix v2 or Boltz" in str(exc),
+                   "unsupported Protenix template failure was not actionable")
 
         mixed_job, mixed_empty, mixed_real = protenix.convert_yaml(mixed_yaml)
         converted = [(mixed_job, mixed_empty, mixed_real)]

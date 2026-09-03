@@ -81,6 +81,46 @@ struct IterativeCommandContractHarness {
         expect(!yaml.contains("pocket+cdr3"), "generic template hard-coded a nanobody CDR mode")
     }
 
+    static func testTargetTemplateModes() throws {
+        let pdb = FileManager.default.temporaryDirectory
+            .appendingPathComponent("target-template-\(UUID().uuidString).pdb")
+        try "END\n".write(to: pdb, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: pdb) }
+
+        var request = proteinRequest()
+        request.epitopeResidues = ""
+        request.targetTemplatePath = pdb.path
+        request.targetTemplateMode = .guide
+        expect(request.isRunnable, "Boltz guide template was rejected")
+        var args = arguments(request)
+        expect(value(after: "--target-template", in: args) == pdb.path,
+               "target template path was not emitted")
+        expect(value(after: "--target-template-mode", in: args) == "guide",
+               "ordinary guide mode was not emitted")
+        expect(!args.contains("--target-template-threshold"),
+               "guide mode emitted an irrelevant force threshold")
+
+        request.targetTemplateMode = .strong
+        request.targetTemplateThreshold = 1.75
+        expect(!request.isRunnable, "unsafe Boltz strong target restraint was accepted")
+        expect(request.targetTemplateCompatibilityError?.contains("broken target geometry") == true,
+               "disabled strong target restraint did not explain its acceptance failure")
+
+        request.designPredictor = .protenixV2
+        request.targetTemplateMode = .guide
+        expect(request.isRunnable, "Protenix v2 guide template was rejected")
+        request.targetTemplateMode = .strong
+        expect(!request.isRunnable, "Protenix v2 accepted Boltz-only strong restraint")
+        request.targetTemplateMode = .guide
+        request.designPredictor = .intellifold
+        expect(request.isRunnable, "IntelliFold v2 guide template was rejected")
+        args = arguments(request)
+        expect(value(after: "--target-template-mode", in: args) == "guide",
+               "IntelliFold guide mode was not emitted")
+        request.targetTemplateMode = .strong
+        expect(!request.isRunnable, "IntelliFold accepted Boltz-only strong restraint")
+    }
+
     static func testProtenixConstraintPocket() throws {
         var request = proteinRequest()
         request.designPredictor = .protenixConstraint
@@ -355,6 +395,7 @@ struct IterativeCommandContractHarness {
 
     static func main() async throws {
         try testBoltzProteinHotspots()
+        try testTargetTemplateModes()
         try testProtenixConstraintPocket()
         try testMultimerTargetMapping()
         testPostChecksAndModels()

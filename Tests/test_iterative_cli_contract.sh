@@ -47,6 +47,10 @@ cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/find_target_m
   "${FIXTURE_ROOT}/scripts/find_target_msa.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/intellifold_predict.py" \
   "${FIXTURE_ROOT}/scripts/intellifold_predict.py"
+cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/intellifold_user_template.py" \
+  "${FIXTURE_ROOT}/scripts/intellifold_user_template.py"
+cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/prepare_intellifold_template.py" \
+  "${FIXTURE_ROOT}/scripts/prepare_intellifold_template.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/protenix_predict.py" \
   "${FIXTURE_ROOT}/scripts/protenix_predict.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/resident_predictor.py" \
@@ -118,6 +122,62 @@ common=(
   --throughput-profile off
   --check-config
 )
+
+cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/examples/acbx/target.pdb" \
+  "${FIXTURE_ROOT}/target_template.pdb"
+
+output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor boltz \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --target-template "${FIXTURE_ROOT}/target_template.pdb" \
+  --target-template-mode guide --post-predictor none --post-mode none)"
+expect_text "${output}" 'target_template=guide:[0-9a-f]{64}' \
+  "guided target template was not checksummed and recorded"
+expect_text "${output}" 'post_checks_template=none' \
+  "independent checks were not explicitly blind to the target template"
+
+set +e
+error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor boltz \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --target-template "${FIXTURE_ROOT}/target_template.pdb" \
+  --target-template-mode strong --post-predictor none --post-mode none 2>&1)"
+status=$?
+set -e
+[[ "${status}" -ne 0 ]] || fail "unsafe strong target-coordinate restraint was accepted"
+expect_text "${error}" 'reproducibly produced broken target geometry' \
+  "disabled strong target restraint did not explain its acceptance failure"
+
+output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor intellifold \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --target-template "${FIXTURE_ROOT}/target_template.pdb" \
+  --target-template-mode guide --post-predictor none --post-mode none)"
+expect_text "${output}" 'target_template=guide:[0-9a-f]{64}' \
+  "IntelliFold guide template was not accepted and checksummed"
+
+set +e
+error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor intellifold \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --target-template "${FIXTURE_ROOT}/target_template.pdb" \
+  --target-template-mode strong --post-predictor none --post-mode none 2>&1)"
+status=$?
+set -e
+[[ "${status}" -ne 0 ]] || fail "IntelliFold silently accepted unsupported strong restraint mode"
+expect_text "${error}" 'reproducibly produced broken target geometry' \
+  "IntelliFold strong-restraint failure was not actionable"
+
+set +e
+error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" "${common[@]}" --predictor boltz \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --target-template-mode guide --post-predictor none --post-mode none 2>&1)"
+status=$?
+set -e
+[[ "${status}" -ne 0 ]] || fail "target-template mode without a template was accepted"
+expect_text "${error}" 'require --target-template' \
+  "orphaned target-template settings did not fail clearly"
 
 output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   bash "${RUNNER}" "${common[@]}" --predictor boltz \

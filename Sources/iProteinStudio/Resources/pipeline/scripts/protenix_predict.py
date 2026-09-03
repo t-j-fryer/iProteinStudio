@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.metadata
+import io
 import json
 import math
 import os
@@ -62,6 +63,162 @@ def scalar_id(value, fallback: str) -> str:
     return str(value or fallback)
 
 
+PROTEIN_3_TO_1 = {
+    "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C",
+    "GLN": "Q", "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I",
+    "LEU": "L", "LYS": "K", "MET": "M", "PHE": "F", "PRO": "P",
+    "SER": "S", "THR": "T", "TRP": "W", "TYR": "Y", "VAL": "V",
+    "MSE": "M",
+}
+
+
+def _global_mapping(query: str, template: str) -> tuple[list[int], list[int], float, float]:
+    """Return a deterministic global-alignment map and its safety metrics."""
+    rows, cols = len(query) + 1, len(template) + 1
+    scores = [[0] * cols for _ in range(rows)]
+    trace = [[0] * cols for _ in range(rows)]  # 0 diagonal, 1 up, 2 left
+    for i in range(1, rows):
+        scores[i][0], trace[i][0] = -2 * i, 1
+    for j in range(1, cols):
+        scores[0][j], trace[0][j] = -2 * j, 2
+    for i in range(1, rows):
+        for j in range(1, cols):
+            choices = (scores[i - 1][j - 1] + (2 if query[i - 1] == template[j - 1] else -1),
+                       scores[i - 1][j] - 2, scores[i][j - 1] - 2)
+            best = max(range(3), key=lambda index: (choices[index], -index))
+            scores[i][j], trace[i][j] = choices[best], best
+    q_indices, t_indices, matches = [], [], 0
+    i, j = len(query), len(template)
+    while i or j:
+        direction = trace[i][j]
+        if i and j and direction == 0:
+            q_indices.append(i - 1)
+            t_indices.append(j - 1)
+            matches += query[i - 1] == template[j - 1]
+            i -= 1
+            j -= 1
+        elif i and (j == 0 or direction == 1):
+            i -= 1
+        else:
+            j -= 1
+    q_indices.reverse()
+    t_indices.reverse()
+    aligned = max(1, len(q_indices))
+    return q_indices, t_indices, matches / aligned, len(q_indices) / max(1, len(query))
+
+
+def _structure_chains(template_path: Path) -> dict[str, tuple[str, object]]:
+    import numpy as np
+    from biotite.structure.io import load_structure
+
+    try:
+        atoms = load_structure(template_path, model=1, extra_fields=["b_factor", "occupancy"])
+    except Exception:
+        atoms = load_structure(template_path, model=1)
+        if "b_factor" not in atoms.get_annotation_categories():
+            atoms.add_annotation("b_factor", float)
+            atoms.b_factor = np.zeros(len(atoms), dtype=float)
+        if "occupancy" not in atoms.get_annotation_categories():
+            atoms.add_annotation("occupancy", float)
+            atoms.occupancy = np.ones(len(atoms), dtype=float)
+    result = {}
+    for chain_id in dict.fromkeys(str(value) for value in atoms.chain_id):
+        chain = atoms[atoms.chain_id == chain_id]
+        residue_keys, sequence, keep = [], [], []
+        seen = set()
+        for atom in chain:
+            key = (int(atom.res_id), str(atom.ins_code), str(atom.res_name))
+            if key not in seen and str(atom.res_name).upper() in PROTEIN_3_TO_1:
+                seen.add(key)
+                residue_keys.append(key)
+                sequence.append(PROTEIN_3_TO_1[str(atom.res_name).upper()])
+        allowed = set(residue_keys)
+        for atom in chain:
+            keep.append((int(atom.res_id), str(atom.ins_code), str(atom.res_name)) in allowed)
+        protein_atoms = chain[np.asarray(keep, dtype=bool)]
+        if sequence and any(str(name) == "CA" for name in protein_atoms.atom_name):
+            result[chain_id] = ("".join(sequence), protein_atoms)
+    if not result:
+        die(f"target template contains no standard protein chains: {template_path}")
+    return result
+
+
+def _mmcif_string(atoms) -> str:
+    from biotite.structure.io.pdbx import CIFFile, set_structure
+    cif = CIFFile()
+    set_structure(cif, atoms)
+    handle = io.StringIO()
+    cif.write(handle)
+    return handle.getvalue()
+
+
+def apply_target_template(document: dict, yaml_path: Path,
+                          proteins: dict[str, dict], template_capable: bool) -> None:
+    metadata = document.get("target_template")
+    if not metadata:
+        return
+    if not template_capable:
+        die("this Protenix checkpoint cannot consume a user PDB/CIF template; use Protenix v2 or Boltz")
+    if not isinstance(metadata, dict) or metadata.get("mode") != "guide":
+        die("Protenix v2 supports target-template guide mode only")
+    template_path = Path(str(metadata.get("path", ""))).expanduser().resolve()
+    if not template_path.is_file() or template_path.suffix.lower() not in {".pdb", ".cif", ".mmcif"}:
+        die(f"target template is missing or has an unsupported format: {template_path}")
+    expected_digest = str(metadata.get("sha256", ""))
+    if not expected_digest or sha256(template_path) != expected_digest:
+        die("target template checksum changed after the campaign was prepared")
+    query_chains = [str(value).upper() for value in metadata.get("query_chains") or []]
+    if not query_chains or "A" in query_chains:
+        die("target_template.query_chains must name target proteins and must exclude binder chain A")
+    if any(chain not in proteins for chain in query_chains):
+        die("target template names a missing or non-protein query chain")
+
+    structure_chains = _structure_chains(template_path)
+    sidecars = yaml_path.parent / ".target_templates"
+    sidecars.mkdir(parents=True, exist_ok=True)
+    empty_path = sidecars / "binder_A_empty.json"
+    empty_path.write_text("[]\n")
+    if "A" in proteins:
+        proteins["A"]["templatesPath"] = str(empty_path.resolve())
+
+    available = set(structure_chains)
+    mapping_receipt = []
+    for query_chain in query_chains:
+        query = proteins[query_chain]["sequence"]
+        candidates = []
+        for structure_chain in sorted(available):
+            sequence, atoms = structure_chains[structure_chain]
+            q_indices, t_indices, identity, coverage = _global_mapping(query, sequence)
+            candidates.append((identity, coverage, len(q_indices), structure_chain,
+                               q_indices, t_indices, atoms))
+        if not candidates:
+            die(f"no unused protein chain remains for target chain {query_chain}")
+        identity, coverage, _length, structure_chain, q_indices, t_indices, atoms = max(candidates)
+        if identity < 0.70 or coverage < 0.70:
+            die(f"target template chain match for {query_chain} is unsafe "
+                f"(best chain {structure_chain}: identity={identity:.3f}, coverage={coverage:.3f}); "
+                "provide the structure of the same target sequence")
+        available.remove(structure_chain)
+        template_json = sidecars / f"{yaml_path.stem}_{query_chain}.json"
+        template_json.write_text(json.dumps([{
+            "mmcif": _mmcif_string(atoms),
+            "queryIndices": q_indices,
+            "templateIndices": t_indices,
+        }]) + "\n")
+        proteins[query_chain]["templatesPath"] = str(template_json.resolve())
+        mapping_receipt.append({
+            "query_chain": query_chain, "template_chain": structure_chain,
+            "query_length": len(query), "template_length": len(structure_chains[structure_chain][0]),
+            "aligned_residues": len(q_indices), "identity": identity, "coverage": coverage,
+            "templates_path": str(template_json.resolve()),
+        })
+    receipt = sidecars / f"{yaml_path.stem}_mapping.json"
+    receipt.write_text(json.dumps({
+        "schema": 1, "source": str(template_path), "sha256": expected_digest,
+        "binder_template": "explicit-empty", "chains": mapping_receipt,
+    }, indent=2, sort_keys=True) + "\n")
+
+
 def _pocket_residues(document: dict, proteins: dict[str, tuple[int, int]]) -> tuple[list[dict], float]:
     metadata = document.get("nanohunter") or {}
     raw_tokens = metadata.get("target_epitope_residues") or []
@@ -95,7 +252,8 @@ def _pocket_residues(document: dict, proteins: dict[str, tuple[int, int]]) -> tu
     return residues, distance
 
 
-def convert_yaml(path: Path, constraint_model: bool = False) -> tuple[dict, list[dict], bool]:
+def convert_yaml(path: Path, constraint_model: bool = False,
+                 template_capable: bool = False) -> tuple[dict, list[dict], bool]:
     try:
         document = yaml.safe_load(path.read_text()) or {}
     except (OSError, yaml.YAMLError) as exc:
@@ -105,6 +263,7 @@ def convert_yaml(path: Path, constraint_model: bool = False) -> tuple[dict, list
     explicit_empty = []
     has_real_msa = False
     proteins: dict[str, tuple[int, int]] = {}
+    protein_entities: dict[str, dict] = {}
     for index, wrapped in enumerate(document.get("sequences") or []):
         if not isinstance(wrapped, dict) or len(wrapped) != 1:
             die(f"{path} contains an unsupported sequence entry")
@@ -134,6 +293,7 @@ def convert_yaml(path: Path, constraint_model: bool = False) -> tuple[dict, list
                 explicit_empty.append(protein)
             entities.append({"proteinChain": protein})
             proteins[chain_id.upper()] = (len(entities), len(protein["sequence"]))
+            protein_entities[chain_id.upper()] = protein
         elif kind == "ligand":
             value = raw.get("smiles")
             if not value and raw.get("ccd"):
@@ -163,6 +323,7 @@ def convert_yaml(path: Path, constraint_model: bool = False) -> tuple[dict, list
 
     if not entities:
         die(f"{path} contains no sequences")
+    apply_target_template(document, path, protein_entities, template_capable)
     job = {"name": path.stem, "sequences": entities, "covalent_bonds": []}
     residues, max_distance = _pocket_residues(document, proteins)
     if residues and not constraint_model:
@@ -205,13 +366,13 @@ def materialize_single_sequence_msas(converted: list[tuple[dict, list[dict], boo
 
 def protenix_command(executable: Path, input_json: Path, output: Path,
                      model_name: str, seeds: str, samples: int,
-                     use_msa: bool) -> list[str]:
+                     use_msa: bool, use_template: bool = False) -> list[str]:
     command = [
         str(executable), "pred", "-i", str(input_json), "-o", str(output),
         "-s", seeds, "-e", str(samples), "-n", model_name,
         "--use_default_params", "False" if model_name == CONSTRAINT_MODEL else "True",
         "--use_msa", str(use_msa),
-        "--use_template", "False", "--use_rna_msa", "False",
+        "--use_template", str(use_template), "--use_rna_msa", "False",
         "--trimul_kernel", "torch", "--triatt_kernel", "torch",
         "--enable_cache", "False", "--enable_fusion", "False",
         # Protenix only writes token_pair_pae and token_asym_id when this is
@@ -220,6 +381,11 @@ def protenix_command(executable: Path, input_json: Path, output: Path,
         "--enable_tf32", "False", "--need_atom_confidence", "True",
         "-d", "fp32",
     ]
+    if use_template:
+        kalign = executable.parent / "kalign"
+        if not kalign.is_file() or not os.access(kalign, os.X_OK):
+            die("Protenix template guidance requires the managed Kalign binary; repair Protenix v2 in Setup")
+        command.extend(["--kalign_binary_path", str(kalign)])
     if model_name == CONSTRAINT_MODEL:
         command.extend(["-c", "10", "-p", "200", "--use_tfg_guidance", "False"])
     return command
@@ -382,7 +548,8 @@ def main() -> None:
     yaml_paths = [source] if source.is_file() else sorted(source.glob("*.yaml"))
     if not yaml_paths:
         die(f"no YAML inputs found at {source}")
-    converted = [convert_yaml(path.resolve(), constraint_model) for path in yaml_paths]
+    template_capable = model_name == "protenix-v2"
+    converted = [convert_yaml(path.resolve(), constraint_model, template_capable) for path in yaml_paths]
     jobs = [item[0] for item in converted]
     names = [job["name"] for job in jobs]
     if len(set(names)) != len(names):
@@ -426,8 +593,13 @@ def main() -> None:
             suffix = "with_msa" if use_msa else "single_sequence"
             group_input = output / f"protenix_input_{suffix}.json"
             group_input.write_text(json.dumps(group, indent=2) + "\n")
+        use_template = any(
+            "templatesPath" in next(iter(entity.values()))
+            for job in group for entity in job["sequences"]
+            if "proteinChain" in entity
+        )
         command = protenix_command(executable, group_input, output, model_name,
-                                   args.seeds, samples, use_msa)
+                                   args.seeds, samples, use_msa, use_template)
         completed = subprocess.run(command, cwd=root, env=env, text=True,
                                    stdout=subprocess.PIPE if constraint_model else None,
                                    stderr=subprocess.STDOUT if constraint_model else None)

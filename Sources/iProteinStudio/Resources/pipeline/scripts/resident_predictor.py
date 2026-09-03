@@ -260,7 +260,29 @@ class IntelliFoldSession:
         cache = Path(self.args.cache).expanduser()
         cache.mkdir(parents=True, exist_ok=True)
         os.environ["INTELLIFOLD_CACHE"] = str(cache)
-        self.upstream.download(cache, self.args.model, use_template=self.args.use_template)
+        template_manifest = str(config.get("target_template_manifest", "")).strip()
+        if self.args.use_template:
+            policy = load_path(
+                "iproteinstudio_resident_intellifold_user_template",
+                Path(__file__).resolve().with_name("intellifold_user_template.py"),
+            )
+            try:
+                payload = policy.install(template_manifest)
+            except (KeyError, OSError, RuntimeError, ValueError) as exc:
+                die(str(exc))
+            if payload is None:
+                die("resident IntelliFold template mode requires a staged user-template manifest")
+            print(
+                "IPROTEINSTUDIO_TEMPLATE|intellifold|target-only|"
+                f"id={payload['template_id']}|binder=none",
+                flush=True,
+            )
+        # A staged user template is self-contained. Passing use_template=True
+        # here asks upstream to download its unrelated full template database.
+        self.upstream.download(
+            cache, self.args.model,
+            use_template=self.args.use_template and not template_manifest,
+        )
         if self.args.model == "v2-flash":
             model_config = self.upstream.get_v2_flash_config(self.args)
             checkpoint = cache / "intellifold_v2_flash.pt"
@@ -373,6 +395,9 @@ class ProtenixSession:
         model_alias = config.get("model", "v2")
         self.model_name = self.adapter.MODEL_NAMES[model_alias]
         self.constraint = self.model_name == self.adapter.CONSTRAINT_MODEL
+        self.use_template = bool(config.get("use_template", False))
+        if self.use_template and self.model_name != "protenix-v2":
+            die("user PDB/CIF templates are supported only by the Protenix v2 checkpoint")
         profile = "protenix_constraint" if self.constraint else "protenix"
         self.model_root = self.root / "models" / profile
         os.environ["PROTENIX_ROOT_DIR"] = str(self.model_root)
@@ -402,7 +427,7 @@ class ProtenixSession:
             enable_cache=False,
             enable_fusion=False,
             enable_tf32=False,
-            use_template=False,
+            use_template=self.use_template,
             use_rna_msa=False,
             use_seeds_in_json=False,
             need_atom_confidence=True,
@@ -413,7 +438,9 @@ class ProtenixSession:
     def predict(self, source: Path, output: Path, expected: int) -> None:
         from runner.inference import infer_predict
         yaml_paths = sorted(source.glob("*.yaml"))
-        converted = [self.adapter.convert_yaml(path.resolve(), self.constraint) for path in yaml_paths]
+        converted = [self.adapter.convert_yaml(
+            path.resolve(), self.constraint, self.model_name == "protenix-v2"
+        ) for path in yaml_paths]
         jobs = [item[0] for item in converted]
         if len(jobs) != expected:
             die(f"Protenix expected {expected} inputs, found {len(jobs)}")

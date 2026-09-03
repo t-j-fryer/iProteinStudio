@@ -20,7 +20,8 @@ enum CommandBuilder {
     /// explicit `--nanobody-cdr-ranges` so the pipeline never falls back to a
     /// length-unaware CDR guess.
     static func arguments(request: DesignRequest, templateYAML: URL, outRoot: URL,
-                          runName: String, cdrRanges: String? = nil, mpnnSeed: Int? = nil) -> [String] {
+                          runName: String, cdrRanges: String? = nil, mpnnSeed: Int? = nil,
+                          targetTemplate: URL? = nil) -> [String] {
         var args: [String] = [
             // Explicit workflow. The runner defaults to nanobody, and every
             // ligand-aware designer (LigandMPNN, LASErMPNN) is rejected outside
@@ -36,6 +37,16 @@ enum CommandBuilder {
             "--num-opt-cycles", String(max(1, request.numCycles)),
             "--iptm-threshold", String(format: "%.2f", request.hitThreshold),
         ]
+
+        if request.hasTargetTemplate {
+            let template = targetTemplate ?? URL(fileURLWithPath: request.targetTemplatePath)
+            args += ["--target-template", template.path,
+                     "--target-template-mode", request.targetTemplateMode.rawValue]
+            if request.targetTemplateMode == .strong {
+                args += ["--target-template-threshold",
+                         String(format: "%.2f", request.targetTemplateThreshold)]
+            }
+        }
 
         // IntelliFold architecture is meaningful only when IntelliFold is
         // actually used. Omitting it elsewhere keeps the recorded command an
@@ -57,8 +68,11 @@ enum CommandBuilder {
                 && !request.ligandContactAtoms.isEmpty
                 && request.ligandContactForce
             let needsPotentialsForEpitope = request.hasEpitopeSteering
+            let needsPotentialsForTemplate = request.hasTargetTemplate
+                && request.targetTemplateMode == .strong
             if request.designPredictor.usesSteeringPotentials
-                || needsPotentialsForPocket || needsPotentialsForEpitope {
+                || needsPotentialsForPocket || needsPotentialsForEpitope
+                || needsPotentialsForTemplate {
                 args += ["--boltz-use-potentials"]
             } else {
                 args += ["--boltz-no-potentials"]

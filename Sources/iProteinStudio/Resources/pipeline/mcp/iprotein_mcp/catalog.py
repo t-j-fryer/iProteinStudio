@@ -339,9 +339,12 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
         },
         "iterative_design": {
             "tool": "iterative_design_plan",
+            "defaults": {"target_template_mode": "guide"},
             "rules": [
                 "Use the MCP plan rather than assembling the runner command; Studio injects the measured resident/cycle-wave scheduler.",
                 "Require the target MSA for design campaigns and use an orthogonal predictor for final checking when requested.",
+                "When the user supplies a trusted target PDB/CIF, pass it as target_template_path. Guide mode works with Boltz-2, Protenix v2, and IntelliFold v2 Flash/full. Do not request strong coordinate restraint; it is disabled after Apple-GPU acceptance failures.",
+                "The target template applies only to target chains during design cycles. Never template binder A or independent complex/binder-alone validation folds.",
             ],
         },
     }

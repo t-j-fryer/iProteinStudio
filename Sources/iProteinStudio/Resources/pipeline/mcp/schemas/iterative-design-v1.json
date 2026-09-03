@@ -7,6 +7,8 @@
     "project": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"},
     "run_name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"},
     "template_path": {"type": "string", "minLength": 1},
+    "target_template_path": {"type": "string", "minLength": 1},
+    "target_template_mode": {"type": "string", "enum": ["guide"], "default": "guide"},
     "arguments": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"type": "string"}},
     "environment_overrides": {
       "type": "object", "additionalProperties": false,

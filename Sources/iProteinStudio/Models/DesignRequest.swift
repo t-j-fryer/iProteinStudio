@@ -102,6 +102,15 @@ enum TargetKind: String, CaseIterable, Codable, Identifiable, Hashable {
     var label: String { self == .protein ? "Protein" : "Ligand (SMILES)" }
 }
 
+/// Structural conditioning applied to the target during design cycles only.
+/// Independent post-prediction is intentionally always blind to this setting.
+enum TargetTemplateMode: String, CaseIterable, Codable, Identifiable, Hashable {
+    case guide
+    case strong
+
+    var id: String { rawValue }
+}
+
 /// Which iterative checkpoints receive an independent re-fold.
 enum PostCheckScope: String, CaseIterable, Codable, Identifiable, Hashable {
     case finalCycle
@@ -149,6 +158,14 @@ struct DesignRequest: Codable, Equatable, Hashable {
     var targetName: String = "target"
     var targetSequence: String = ""            // when targetKind == .protein
     var targetSmiles: String = ""              // when targetKind == .ligand
+    /// Project-owned PDB/mmCIF used to condition target chains during design.
+    /// The launch controller copies it into the immutable campaign before use.
+    var targetTemplatePath: String = ""
+    /// Ordinary template conditioning is the released path. The retained
+    /// strong enum value only decodes older saved forms and is rejected after
+    /// reproducible Apple-GPU geometry failures.
+    var targetTemplateMode: TargetTemplateMode = .guide
+    var targetTemplateThreshold: Double = 2.0
     /// Optional epitope residues on a protein target, e.g. "B55 B57" (or "55 57").
     var epitopeResidues: String = ""
 
@@ -282,6 +299,29 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     var usesBoltzDesignEngine: Bool { designPredictor.runnerValue == Predictor.boltz.runnerValue }
 
+    var hasTargetTemplate: Bool {
+        targetKind == .protein
+            && !targetTemplatePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var targetTemplateCompatibilityError: String? {
+        guard hasTargetTemplate else { return nil }
+        let ext = URL(fileURLWithPath: targetTemplatePath).pathExtension.lowercased()
+        guard ["pdb", "cif", "mmcif"].contains(ext) else {
+            return "The target template must be a PDB, CIF, or mmCIF file."
+        }
+        guard FileManager.default.fileExists(atPath: targetTemplatePath) else {
+            return "The saved target template is missing. Choose the file again."
+        }
+        if targetTemplateMode == .strong {
+            return "Strong target-coordinate restraint is unavailable: acceptance testing on Apple GPU produced broken target geometry. Remove and reselect the template to use Guide mode."
+        } else if !(usesBoltzDesignEngine || designPredictor == .protenixV2
+                    || designPredictor == .intellifold) {
+            return "Target-fold guidance is supported by Boltz-2, Protenix v2, and IntelliFold v2 Flash/full."
+        }
+        return nil
+    }
+
     /// Both Boltz and the dedicated Protenix Constraint checkpoint can guide a
     /// design toward selected target residues, albeit with different trained
     /// restraint mechanisms.
@@ -333,6 +373,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     var hasIncompatibleTargeting: Bool {
         (targetKind == .ligand && designPredictor == .protenixConstraint)
             || (targetKind == .ligand && !ligandContactAtoms.isEmpty && !usesBoltzDesignEngine)
+            || targetTemplateCompatibilityError != nil
     }
 
     /// Key the ligand atom names were generated under. Changing either half
@@ -461,6 +502,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     private enum CodingKeys: String, CodingKey {
         case designType, scaffoldID, scaffoldSequence, cdrs, binderMinLen, binderMaxLen, helixKill
         case targetKind, targetName, targetSequence, targetSmiles, epitopeResidues
+        case targetTemplatePath, targetTemplateMode, targetTemplateThreshold
         case designer, numDesigns, numCycles, hitThreshold, parallelMode, manualParallel
         case designPredictor, postPredictors, intellifoldModel, postOnlyHits, postCheckScope
         case postRunBinderAlone, postFilters
@@ -488,6 +530,9 @@ struct DesignRequest: Codable, Equatable, Hashable {
         targetSequence  = try c.decodeIfPresent(String.self, forKey: .targetSequence) ?? d.targetSequence
         targetSmiles    = try c.decodeIfPresent(String.self, forKey: .targetSmiles) ?? d.targetSmiles
         epitopeResidues = try c.decodeIfPresent(String.self, forKey: .epitopeResidues) ?? d.epitopeResidues
+        targetTemplatePath = try c.decodeIfPresent(String.self, forKey: .targetTemplatePath) ?? d.targetTemplatePath
+        targetTemplateMode = try c.decodeIfPresent(TargetTemplateMode.self, forKey: .targetTemplateMode) ?? d.targetTemplateMode
+        targetTemplateThreshold = try c.decodeIfPresent(Double.self, forKey: .targetTemplateThreshold) ?? d.targetTemplateThreshold
         designer        = try c.decodeIfPresent(SequenceDesigner.self, forKey: .designer) ?? d.designer
         numDesigns      = try c.decodeIfPresent(Int.self, forKey: .numDesigns) ?? d.numDesigns
         numCycles       = try c.decodeIfPresent(Int.self, forKey: .numCycles) ?? d.numCycles

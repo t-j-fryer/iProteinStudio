@@ -45,6 +45,7 @@ RESERVED_ITERATIVE_FLAGS = {
     "--template-yaml", "--run-name", "--out-root", "--max-parallel",
     "--design-scheduler", "--wave-batch-size", "--throughput-profile",
     "--mps-memory-reserve-gb", "--mps-mem-fraction", "--resume",
+    "--target-template", "--target-template-mode", "--target-template-threshold",
 }
 INSTALL_COMPONENTS = {
     "boltz": "--with-boltz",
@@ -285,18 +286,44 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     campaign = destination / run_name
     if campaign.exists():
         raise StudioError(f"Run directory already exists: {campaign}")
+    target_template = None
+    target_template_args: List[str] = []
+    supplied_template = str(arguments.get("target_template_path", "")).strip()
+    if supplied_template:
+        target_template = import_artifact(supplied_template)
+        extension = Path(target_template["path"]).suffix.lower()
+        if extension not in {".pdb", ".cif", ".mmcif"}:
+            raise StudioError("target_template_path must be a PDB, CIF, or mmCIF artifact.")
+        mode = str(arguments.get("target_template_mode", "guide"))
+        if mode == "strong":
+            raise StudioError("Strong target-coordinate restraint is disabled because Apple-GPU acceptance tests reproducibly produced broken target geometry; use guide mode.")
+        if mode != "guide":
+            raise StudioError("target_template_mode must be guide.")
+        if predictor in {"boltz", "protenix-v2", "intellifold"}:
+            pass
+        else:
+            raise StudioError("Target-fold guidance is supported only by Boltz-2, Protenix v2, and IntelliFold v2 Flash/full.")
+        staged = campaign / "inputs" / f"target_template{extension}"
+        target_template_args = ["--target-template", str(staged),
+                                "--target-template-mode", mode]
+        if "target_template_threshold" in arguments:
+            raise StudioError("target_template_threshold is unavailable because strong target restraint is disabled.")
+    elif "target_template_mode" in arguments or "target_template_threshold" in arguments:
+        raise StudioError("target_template_mode/threshold require target_template_path.")
     scheduler = ["--max-parallel", "1", "--mps-memory-reserve-gb", "2", "--mps-mem-fraction", "0.8", "--throughput-profile", "auto"]
     if predictor == "protenix-v2":
         scheduler += ["--design-scheduler", "cycle-wave"]
     else:
         scheduler += ["--design-scheduler", "resident", "--wave-batch-size", "all"]
-    final_args = user_args + ["--template-yaml", str(campaign / "input_template.yaml"), "--run-name", run_name, "--out-root", str(destination)] + scheduler + ["--resume"]
+    final_args = user_args + target_template_args + ["--template-yaml", str(campaign / "input_template.yaml"), "--run-name", run_name, "--out-root", str(destination)] + scheduler + ["--resume"]
     overrides = arguments.get("environment_overrides", {})
     if not isinstance(overrides, dict):
         raise StudioError("environment_overrides must be an object.")
     runner = root / "nanohunter_run.sh"
     preview = ["/usr/bin/caffeinate", "-dimsu", str(runner)] + final_args
-    normalized = {"arguments": final_args, "environment_overrides": overrides, "template_artifact": template, "campaign": str(campaign), "run_name": run_name}
+    normalized = {"arguments": final_args, "environment_overrides": overrides,
+                  "template_artifact": template, "target_template_artifact": target_template,
+                  "campaign": str(campaign), "run_name": run_name}
     return _persist("iterative_design", project, normalized, preview, "apple_gpu_exclusive", _script_provenance([runner]))
 
 

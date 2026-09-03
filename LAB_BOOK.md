@@ -27,6 +27,11 @@ predictions library, a unified in-app structure/metric browser for completed
 Predict, iterative and RFdiffusion3 runs in movable, resizable result windows,
 persistent per-workspace run history and
 a global Activity panel with exact checkpoint Resume for newly recorded iterative campaigns.
+Iterative protein design can optionally guide target chains from a checksummed
+PDB/CIF with Boltz, full Protenix v2, or IntelliFold v2 Flash/full; stronger
+Boltz coordinate restraint is disabled after reproducible Apple-GPU geometry
+failures, while binder and independent validation folds stay untemplated.
+Protenix template support includes a pinned managed Kalign build (Entry 0080).
 Protein multimers now report conservative PAE-derived ipSAE(min) from Boltz,
 IntelliFold or Protenix in saved outputs and the GUI; OpenFold is excluded because
 its current output is PDE rather than PAE.
@@ -162,6 +167,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0080 | 2026-09-03 | [Add fail-closed target templates to iterative design](lab_book/0080-add-iterative-target-templates.md) | Adds full-inference-tested target-fold guidance with Boltz, full Protenix v2, and IntelliFold v2 Flash/full; provisions pinned Kalign for Protenix, disables Boltz's geometry-breaking strong mode, preserves blind validation, and gives GUI/CLI/MCP the same checksummed fail-closed contract. |
 | 0079 | 2026-09-03 | [Test 90-residue whole-surface minibinders against alpha-cobratoxin](lab_book/0079-acbx-90aa-whole-surface-campaign.md) | Runs the requested 100-backbone, ten-surface, no-hotspot 1CTX campaign with two SolubleMPNN sequences and resident Boltz holo/apo validation; records initial structural acceptance and pending results without inventing completion. |
 | 0078 | 2026-09-03 | [Repair the aCbx target and RFdiffusion3 target export](lab_book/0078-repair-acbx-target-and-rfd3-export.md) | Separates exact fixed-backbone preservation from two real visual/scientific faults: an invalid bundled aCbx structure and atom14 side-chain names discarded during MLX export; replaces the target with experimental 1CTX and retains template-free verification. |
 | 0077 | 2026-09-03 | [Add explicit protein-surface origin modes](lab_book/0077-add-explicit-protein-surface-origin-modes.md) | Replaces unsafe protein-COM/empty-hotspot placement with reproducible whole-surface coverage, broad-region positioning without hotspot conditioning, exact epitope hotspots, and hidden manual XYZ across GUI, MLX fixtures and MCP v5. |

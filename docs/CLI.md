@@ -110,7 +110,11 @@ SIGTERM to the worker process group, not just its immediate model process.
   policy and never silently converts an alignment failure to single-sequence.
 - `iterative_design_plan` accepts only an allowlisted scientific argument set.
   Studio supplies output paths, snapshots, `--resume`, memory policy, and the
-  measured resident/cycle-wave scheduler.
+  measured resident/cycle-wave scheduler. Optional `target_template_path`
+  accepts PDB/CIF/mmCIF and `target_template_mode` is `guide`. Guide mode
+  supports Boltz-2, Protenix v2, and IntelliFold v2 Flash/full. The broker
+  stages the imported structure before launch and never templates binder A or
+  independent validation predictions.
 - `rfd3_denovo_plan`, `rfd3_partial_diffusion_plan`, and
   `rfd3_motif_scaffolding_plan` are separate so their incompatible semantics
   cannot be mixed. Partial diffusion constrains `partial_t` to 0.1–15 Å and
@@ -321,6 +325,7 @@ example:
 "$ROOT/nanohunter_run.sh" \
   --workflow protein --predictor boltz --sequence-designer solublempnn \
   --template-yaml my_target.yaml --run-name my_campaign \
+  --target-template known_target_fold.cif --target-template-mode guide \
   --num-runs 20 --num-opt-cycles 5 \
   --iptm-threshold 0.7 \
   --model v2-flash \
@@ -344,6 +349,25 @@ Flags worth knowing:
 | `--post-mode iptm` | checks every passing optimized checkpoint from cycle 01 onward; use `all` instead of `iptm` to disable the threshold gate |
 | `--post-include-cycle00` | advanced CLI diagnostic opt-in for also checking the unoptimized seed; Studio never emits it |
 | `--model v2-flash` | choose `v2-flash` or the larger full `v2` IntelliFold model; omit when IntelliFold is not used |
+| `--target-template PATH` | guide target protein chains from an immutable PDB/CIF copy during design cycles; binder and validation refolds remain untemplated |
+| `--target-template-mode guide` | ordinary template conditioning; supported by Boltz-2, Protenix v2, and IntelliFold v2 Flash/full |
+
+Target templates are deliberately narrower than generic predictor input. Guide
+mode maps only target chains (B/C/...) from the supplied PDB/CIF; chain A, the
+designed binder, receives no template. Boltz's upstream strong coordinate
+potential is intentionally unavailable because two Apple-GPU acceptance runs
+reproducibly generated broken target peptide geometry. Studio
+rejects Protenix Mini/Constraint, ligand campaigns, missing files,
+and incompatible modes instead of silently ignoring the request. OpenFold-3 is
+not part of iterative design. Every accepted template is copied into the
+campaign, checksummed, and recorded in `target_template_provenance.json`.
+For Boltz, Studio also derives and records a normalized mmCIF prediction input;
+this fills missing polymer metadata in atom-only PDBs without changing the
+preserved source artifact. For IntelliFold, Studio deterministically matches
+each target sequence to a template chain, emits the HMMsearch-style A3M and
+normalized mmCIF that upstream requires, and bypasses only the database-search
+duplicate/date filters for that checksummed local template. This explicit path
+does not download IntelliFold's optional PDB template database.
 
 The app always selects `resident` for Boltz 2, IntelliFold v2-flash,
 IntelliFold full v2, Protenix Mini and Protenix Constraint. It selects
