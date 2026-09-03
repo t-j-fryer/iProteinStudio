@@ -30,8 +30,21 @@ def load_state(job_id: str, refresh: bool = True) -> Dict[str, Any]:
     if refresh and state.get("status") in {"queued", "running"} and not process_alive(state.get("pid")):
         state.update({"status": "failed", "finished_at": utc_now(), "error": "The durable worker stopped without recording completion."})
         atomic_json(state_path(job_id), state)
-    log = agent_root() / "jobs" / job_id / "job.log"
-    state["log_tail"] = tail_text(log, 80)
+    directory = agent_root() / "jobs" / job_id
+    worker_tail = tail_text(directory / "job.log", 80)
+    pipeline_tail = tail_text(directory / "pipeline.log", 80)
+    # The durable worker captures child output in pipeline.log. Returning only
+    # job.log made real RFD3 failures look blank to MCP clients and encouraged
+    # them to guess about stale directories, potentials, and unrelated fields.
+    state["log_tail"] = pipeline_tail or worker_tail
+    state["pipeline_log_tail"] = pipeline_tail
+    state["worker_log_tail"] = worker_tail
+    # Older bridge versions persisted only a generic exit message. Preserve the
+    # record on disk, but make even those historical failures actionable when
+    # viewed through the repaired server.
+    if (state.get("status") == "failed" and pipeline_tail
+            and str(state.get("message", "")).startswith("Workflow exited with status")):
+        state["message"] = f"{state['message']} Last output: {pipeline_tail[-1]}"
     process = _DETACHED.get(job_id)
     if process is not None and process.poll() is not None:
         process.wait()
@@ -196,6 +209,7 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
     )
     _update(job_id, child_pid=process.pid)
     log_path = state_path(job_id).parent / "pipeline.log"
+    explicit_failure = None
     with log_path.open("a", encoding="utf-8") as log:
         assert process.stdout is not None
         for line in process.stdout:
@@ -206,8 +220,17 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
             if len(parts) >= 4 and parts[0] in {"PBSTAGE", "RFSTAGE", "NHSTEP"}:
                 _update(job_id, stage=parts[1], message=parts[3])
             elif len(parts) >= 2 and parts[0] in {"PBFAIL", "RFFAIL", "NHFAIL"}:
-                _update(job_id, message="|".join(parts[1:]))
-    return process.wait()
+                explicit_failure = "|".join(parts[1:])
+                _update(job_id, message=explicit_failure)
+    code = process.wait()
+    if code != 0:
+        diagnostic = tail_text(log_path, 80)
+        last_line = diagnostic[-1] if diagnostic else ""
+        message = explicit_failure or f"Workflow command exited with status {code}."
+        if not explicit_failure and last_line:
+            message += f" Last output: {last_line}"
+        _update(job_id, message=message, error="\n".join(diagnostic) if diagnostic else None)
+    return code
 
 
 def _execute_prediction(job_id: str, plan: Dict[str, Any]) -> int:
@@ -275,6 +298,12 @@ def _execute_rfd3(job_id: str, plan: Dict[str, Any]) -> int:
         log.write(preparation.stdout)
         log.write(preparation.stderr)
     if preparation.returncode != 0:
+        diagnostic = (preparation.stderr or preparation.stdout or "").strip()
+        lines = diagnostic.splitlines()
+        message = lines[-1] if lines else f"RFD3 preparation exited with status {preparation.returncode}."
+        if message.startswith("PREPFAIL|"):
+            message = message.split("|", 1)[1]
+        _update(job_id, message=message, error=diagnostic[-16_000:])
         return preparation.returncode
     config = None
     for line in preparation.stdout.splitlines():
@@ -332,7 +361,23 @@ def run_worker(job_id: str) -> int:
             else:
                 raise StudioError(f"Unsupported plan kind: {kind}")
             if load_json(state_path(job_id)).get("status") != "cancelled":
-                _update(job_id, status="completed" if code == 0 else "failed", stage="done" if code == 0 else "failed", message="Completed." if code == 0 else f"Workflow exited with status {code}.", exit_code=code, finished_at=utc_now())
+                current = load_json(state_path(job_id))
+                if code == 0:
+                    message = "Completed."
+                    error = None
+                else:
+                    previous = str(current.get("message") or "")
+                    generic = {
+                        "", "Acquired the shared iProteinStudio execution lock.",
+                        "Validating and preparing the RFD3 campaign.",
+                        "Running the resumable RFD3 campaign.",
+                    }
+                    message = previous if previous not in generic else f"Workflow exited with status {code}."
+                    diagnostic = tail_text(state_path(job_id).parent / "pipeline.log", 80)
+                    error = "\n".join(diagnostic) if diagnostic else current.get("error")
+                _update(job_id, status="completed" if code == 0 else "failed",
+                        stage="done" if code == 0 else "failed", message=message,
+                        error=error, exit_code=code, finished_at=utc_now())
             return code
     except BaseException as exc:
         current = load_json(state_path(job_id))

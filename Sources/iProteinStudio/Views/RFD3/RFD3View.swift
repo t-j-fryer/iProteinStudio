@@ -20,6 +20,7 @@ struct RFD3View: View {
     @StateObject private var inspector = RFD3TargetInspector()
     @StateObject private var intelligence = LigandIntelligence()
     @State private var showAdvanced = false
+    @State private var showManualOrigin = false
     @State private var setupExperience: SetupExperience = .quick
     @State private var showTargetPrep = false
     @State private var proposedConditions: [String: Set<AtomCondition>]?
@@ -332,13 +333,14 @@ struct RFD3View: View {
                     var r = request.wrappedValue
                     r.targetKind = nv
                     r.conditions = [:]
+                    r.surfacePatchResidues = []
                     r.targetContig = ""
                     r.structureTargetSequence = ""
                     r.attachmentAtom = nil
                     r.attachmentLinkerAtom = nil
                     r.ligandIsConjugated = false
                     r.conformerPlan = []
-                    r.originStrategy = nv == .smallMolecule ? .com : .hotspots
+                    r.originStrategy = nv == .smallMolecule ? .com : .surfaceScan
                     r.reconcileSequenceModel()
                     r.reconcileVerification()
                     request.wrappedValue = r
@@ -667,6 +669,7 @@ struct RFD3View: View {
 
     private func invalidateInspectedTarget(clearProteinMetadata: Bool) {
         request.wrappedValue.conditions = [:]
+        request.wrappedValue.surfacePatchResidues = []
         proposedConditions = nil
         intelligence.reset()
         request.wrappedValue.conformerPlan = []
@@ -694,21 +697,23 @@ struct RFD3View: View {
                             .font(.callout).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button {
-                        proposedConditions = inspector.suggestedConditions(
-                            presentationAtomIndices: suggestionPresentationAtoms)
-                    } label: {
-                        Label("Preview suggestions", systemImage: "sparkles")
+                    if request.wrappedValue.targetKind == .smallMolecule
+                        || request.wrappedValue.originStrategy == .hotspots {
+                        Button {
+                            proposedConditions = inspector.suggestedConditions(
+                                presentationAtomIndices: suggestionPresentationAtoms)
+                        } label: {
+                            Label("Preview suggestions", systemImage: "sparkles")
+                        }
+                        .disabled(needsLinkerAnalysisForSuggestions)
                     }
-                    .disabled(needsLinkerAnalysisForSuggestions)
                     Button("Clear") {
                         request.wrappedValue.conditions = [:]
+                        request.wrappedValue.surfacePatchResidues = []
                         proposedConditions = nil
                     }
                 }
-                Text(request.wrappedValue.targetKind == .smallMolecule
-                     ? "Bury controls solvent accessibility and asks for pocket packing. Hotspot asks for a nearby protein contact (typically within 4.5 Å) without requiring enclosure. Ligand donor/acceptor describes the selected ligand atom, not the protein partner."
-                     : "Hotspots steer the binder to one face of your target. Picking none lets it bind anywhere.")
+                Text(conditioningHelp)
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -729,8 +734,12 @@ struct RFD3View: View {
                     suggestionPreview(proposedConditions)
                 }
 
-                siteTable
                 originSection
+                if request.wrappedValue.targetKind == .smallMolecule
+                    || request.wrappedValue.originStrategy == .surfacePatch
+                    || request.wrappedValue.originStrategy == .hotspots {
+                    siteTable
+                }
             }
         }
     }
@@ -739,6 +748,24 @@ struct RFD3View: View {
         request.wrappedValue.targetKind == .smallMolecule
             ? AtomCondition.allCases
             : AtomCondition.proteinCases
+    }
+
+    private var conditioningHelp: String {
+        if request.wrappedValue.targetKind == .smallMolecule {
+            return "Bury controls solvent accessibility and asks for pocket packing. Hotspot asks for a nearby protein contact (typically within 4.5 Å) without requiring enclosure. Ligand donor/acceptor describes the selected ligand atom, not the protein partner."
+        }
+        switch request.wrappedValue.originStrategy {
+        case .surfaceScan:
+            return "Whole surface computes solvent-accessible starting locations and distributes designs across them. It does not add hotspot restraints."
+        case .surfacePatch:
+            return "Select several residues describing a broad region. They locate the starting centre only; RFdiffusion3 is not forced to contact them."
+        case .hotspots:
+            return "Select only residues that define the intended epitope. These are passed to RFdiffusion3 as real contact hotspots."
+        case .explicit:
+            return "Manual XYZ is an expert placement control and adds no hotspot restraints."
+        case .com:
+            return "Target-centre placement is reserved for small molecules and is blocked for fixed protein targets."
+        }
     }
 
     private var siteTable: some View {
@@ -758,10 +785,17 @@ struct RFD3View: View {
                         Text(site.element)
                             .font(.caption).foregroundStyle(.secondary)
                             .frame(width: 40, alignment: .leading)
-                        ForEach(conditionChoices) { condition in
-                            Toggle(condition.label, isOn: binding(for: site.name, condition: condition))
+                        if request.wrappedValue.targetKind == .protein
+                            && request.wrappedValue.originStrategy == .surfacePatch {
+                            Toggle("Region", isOn: surfacePatchBinding(for: site.name))
                                 .toggleStyle(.button).controlSize(.small)
-                                .help(condition.help)
+                                .help("Use this residue to locate the broad surface region. This is not a hotspot restraint.")
+                        } else {
+                            ForEach(conditionChoices) { condition in
+                                Toggle(condition.label, isOn: binding(for: site.name, condition: condition))
+                                    .toggleStyle(.button).controlSize(.small)
+                                    .help(condition.help)
+                            }
                         }
                         Spacer()
                         if !site.suggestionReasons.isEmpty {
@@ -774,7 +808,8 @@ struct RFD3View: View {
                         }
                     }
                     .padding(.vertical, 3).padding(.horizontal, 8)
-                    .background(request.wrappedValue.conditions[site.name]?.isEmpty == false
+                    .background((request.wrappedValue.conditions[site.name]?.isEmpty == false
+                                 || request.wrappedValue.surfacePatchResidues.contains(site.name))
                                 ? Color.accentColor.opacity(0.08) : Color.clear)
                 }
             }
@@ -844,33 +879,65 @@ struct RFD3View: View {
         )
     }
 
+    private func surfacePatchBinding(for site: String) -> Binding<Bool> {
+        Binding(
+            get: { request.wrappedValue.surfacePatchResidues.contains(site) },
+            set: { on in
+                if on { request.wrappedValue.surfacePatchResidues.insert(site) }
+                else { request.wrappedValue.surfacePatchResidues.remove(site) }
+            }
+        )
+    }
+
     private var originSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Divider().padding(.vertical, 4)
-            Text("Centre the design on").font(.headline)
-            Picker("", selection: request.originStrategy) {
-                ForEach(OriginStrategy.allCases) { Text($0.label).tag($0) }
-            }.pickerStyle(.segmented).labelsHidden().frame(width: 420)
-                .accessibilityLabel("Design centre strategy")
+            Text("Where should Studio search?").font(.headline)
+            if request.wrappedValue.targetKind == .protein {
+                Picker("", selection: request.originStrategy) {
+                    ForEach([OriginStrategy.surfaceScan, .surfacePatch, .hotspots]) {
+                        Text($0.label).tag($0)
+                    }
+                }.pickerStyle(.segmented).labelsHidden().frame(width: 480)
+                    .accessibilityLabel("Protein binding-site search strategy")
+            } else {
+                Text("The small-molecule centre of mass is used by default.")
+                    .font(.callout)
+            }
             Text(request.wrappedValue.originStrategy.blurb)
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if request.wrappedValue.originStrategy == .explicit {
-                HStack(spacing: 8) {
-                    ForEach(0..<3, id: \.self) { i in
-                        TextField(["X", "Y", "Z"][i], value: Binding(
-                            get: { request.wrappedValue.originXYZ.indices.contains(i) ? request.wrappedValue.originXYZ[i] : 0 },
-                            set: { nv in
-                                var xyz = request.wrappedValue.originXYZ
-                                while xyz.count < 3 { xyz.append(0) }
-                                xyz[i] = nv
-                                request.wrappedValue.originXYZ = xyz
+            DisclosureGroup("Advanced: manual XYZ centre", isExpanded: $showManualOrigin) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Use manual coordinates", isOn: Binding(
+                        get: { request.wrappedValue.originStrategy == .explicit },
+                        set: { enabled in
+                            request.wrappedValue.originStrategy = enabled
+                                ? .explicit
+                                : (request.wrappedValue.targetKind == .protein ? .surfaceScan : .com)
+                        }
+                    )).toggleStyle(.checkbox)
+                    if request.wrappedValue.originStrategy == .explicit {
+                        HStack(spacing: 8) {
+                            ForEach(0..<3, id: \.self) { i in
+                                TextField(["X", "Y", "Z"][i], value: Binding(
+                                    get: { request.wrappedValue.originXYZ.indices.contains(i) ? request.wrappedValue.originXYZ[i] : 0 },
+                                    set: { nv in
+                                        var xyz = request.wrappedValue.originXYZ
+                                        while xyz.count < 3 { xyz.append(0) }
+                                        xyz[i] = nv
+                                        request.wrappedValue.originXYZ = xyz
+                                    }
+                                ), format: .number)
+                                .textFieldStyle(.roundedBorder).frame(width: 80)
                             }
-                        ), format: .number)
-                        .textFieldStyle(.roundedBorder).frame(width: 80)
+                        }
+                        Text("Expert control. Coordinates are passed exactly and do not imply hotspot conditioning.")
+                            .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
             }
+            .font(.callout)
         }
     }
 
@@ -1288,7 +1355,7 @@ struct RFD3ProgressView: View {
     private let countLabels: [(String, String)] = [
         ("backbones", "Backbones"), ("sequences", "Sequences"),
         ("holo_predictions", "Folds with ligand"), ("top", "Selected"),
-        ("apo_predictions", "Apo folds"), ("rmsd_rows", "Preorganisation"),
+        ("apo_predictions", "Binder-alone folds"), ("rmsd_rows", "Preorganisation"),
     ]
 
     var body: some View {
@@ -1379,7 +1446,7 @@ struct RFD3ProgressView: View {
 private struct RFD3ResultsSummary: View {
     let root: URL
     let finished: Bool
-    @State private var showResults = false
+    @Environment(\.openWindow) private var openWindow
     @State private var items: [StudioResultItem] = []
 
     private var rows: [[String: Any]] {
@@ -1407,11 +1474,13 @@ private struct RFD3ResultsSummary: View {
                 Text(summary).font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
-            Button { showResults = true } label: {
+            Button {
+                openWindow(value: RunResultsWindowRequest(
+                    root: root, workflow: .rfdiffusion3))
+            } label: {
                 Label(finished ? "View Results" : "Browse Live Results", systemImage: "cube.transparent")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(items.isEmpty)
             .accessibilityIdentifier("view-rfd3-results")
         }
         .padding(14)
@@ -1419,9 +1488,6 @@ private struct RFD3ResultsSummary: View {
             finished ? Color.green.opacity(0.09) : Color.accentColor.opacity(0.07)))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("RFdiffusion3 results. \(summary)")
-        .sheet(isPresented: $showResults) {
-            RunResultsView(root: root, workflow: .rfdiffusion3)
-        }
         .task(id: root.path + String(finished)) {
             while !Task.isCancelled {
                 items = RunResultsLoader.load(root: root, workflow: .rfdiffusion3)

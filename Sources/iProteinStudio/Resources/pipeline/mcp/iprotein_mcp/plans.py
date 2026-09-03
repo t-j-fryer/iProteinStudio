@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import re
 import secrets
 from pathlib import Path
@@ -82,6 +83,20 @@ def _bounded_float(value: Any, label: str, minimum: float, maximum: float) -> fl
     if number < minimum or number > maximum:
         raise StudioError(f"{label} must be between {minimum} and {maximum}.")
     return number
+
+
+def _reject_protein_denovo_contig(value: Any) -> None:
+    """Keep adapter grammar out of agent-authored scientific requests."""
+    if value is None or not str(value).strip():
+        return
+    raise StudioError(
+        "Omit `contig` for protein de-novo design. Studio derives the pinned MLX adapter's "
+        "canonical binder-first form from `lengths` and the inspected target chains. "
+        "RFdiffusion1-style `A1-236/0 45-75` is incompatible, and even an apparently valid "
+        "manual contig is rejected so it cannot silently disagree with the normalized target. "
+        "Do not change unrelated potentials, calibration, or length settings to work around "
+        "this error."
+    )
 
 
 def _script_provenance(paths: List[Path]) -> List[Dict[str, Any]]:
@@ -303,8 +318,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
     if expected_mode != "deNovo" and target_kind != "protein":
         raise StudioError("Partial diffusion and motif scaffolding require a protein binder-target complex.")
     defaults = {
-        "component_id": "LG1", "ligand_source": "smiles", "conditions": {},
-        "is_non_loopy": True, "lengths": [65], "num_backbones": 100,
+        "conditions": {}, "is_non_loopy": True, "lengths": [65], "num_backbones": 100,
         "timesteps": 200, "recycles": 2, "batch_size": 4,
         "queues_per_bin": 2, "precision": "bf16", "seed_base": 0,
         "sequences_per_backbone": 4, "sequence_temperature": 0.10,
@@ -315,6 +329,19 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         "boltz_calibrate_n": 12, "preserve_partial_sequence": True,
         "source_binder_chain": "A",
     }
+    if target_kind == "small_molecule":
+        defaults.update({"component_id": "LG1", "ligand_source": "smiles"})
+    else:
+        # Match the GUI's visible, literature-informed starting filters. They
+        # remain editable and are persisted with the plan.
+        defaults["hit_filters"] = {
+            "minimum_iptm": 0.50,
+            "minimum_ipsae_min": 0.50,
+            "maximum_complex_rmsd": 2.5,
+            "minimum_binder_plddt": 0.80,
+            "maximum_binder_rmsd": 2.0,
+            **({"maximum_motif_rmsd": 1.0} if expected_mode == "motifScaffolding" else {}),
+        }
     for key, value in defaults.items():
         request.setdefault(key, value)
     request.setdefault("sequence_model", "solublempnn" if target_kind == "protein" else "lasermpnn")
@@ -336,11 +363,15 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
             raise StudioError("Colon-separated target_sequence parts must match target_chains.")
         request["target_sequence"] = ":".join(sequence_parts)
         if request["sequence_model"] not in {"solublempnn", "proteinmpnn"}:
-            raise StudioError("Protein campaigns require SolubleMPNN or ProteinMPNN.")
+            raise StudioError(
+                "Protein campaigns require SolubleMPNN or ProteinMPNN. Use solublempnn by "
+                "default for soluble protein binders; LASErMPNN and LigandMPNN are for "
+                "small-molecule interfaces."
+            )
         if not request.get("extra_predictors"):
             raise StudioError("Protein campaigns require at least one explicit verification predictor.")
-        if expected_mode == "deNovo" and not str(request.get("contig", "")).strip():
-            raise StudioError("Protein de-novo design requires an explicit binder-plus-target contig.")
+        if expected_mode == "deNovo":
+            _reject_protein_denovo_contig(request.get("contig"))
     else:
         source = request.get("ligand_source", "smiles")
         if source == "structure_file":
@@ -389,6 +420,64 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
     for site, values in conditions.items():
         if not isinstance(values, list) or any(value not in allowed_conditions for value in values):
             raise StudioError(f"Condition site {site} contains an unsupported conditioning class.")
+    if target_kind == "protein" and expected_mode == "deNovo":
+        hotspots = sorted(site for site, values in conditions.items() if "hotspot" in values)
+        mode = request.get("binding_site_mode")
+        if mode is None:
+            if request.get("ori_token") is not None:
+                mode = "manual"
+            elif hotspots or request.get("infer_ori_strategy") == "hotspots":
+                mode = "targeted_epitope"
+            elif request.get("infer_ori_strategy") == "com":
+                raise StudioError(
+                    "Target-centre ORI is unsafe for a fixed protein. Choose surface_scan, "
+                    "surface_patch, targeted_epitope, or manual."
+                )
+            else:
+                mode = "surface_scan"
+        if mode not in {"surface_scan", "surface_patch", "targeted_epitope", "manual"}:
+            raise StudioError(
+                "binding_site_mode must be surface_scan, surface_patch, targeted_epitope, or manual."
+            )
+        patch = request.get("surface_patch_residues", [])
+        if not isinstance(patch, list) or any(not isinstance(value, str) for value in patch):
+            raise StudioError("surface_patch_residues must be an array of residues such as B42.")
+        if mode == "surface_scan":
+            if hotspots or patch or request.get("ori_token") is not None:
+                raise StudioError(
+                    "surface_scan cannot also include hotspots, broad-region residues, or ori_token."
+                )
+            request.pop("infer_ori_strategy", None)
+            request.pop("ori_token", None)
+        elif mode == "surface_patch":
+            if hotspots:
+                raise StudioError(
+                    "surface_patch is positioning only. Remove hotspot conditions or choose targeted_epitope."
+                )
+            if not patch or any(not re.fullmatch(r"[^\d\s]-?\d+", value.strip()) for value in patch):
+                raise StudioError("surface_patch requires target residues such as B42.")
+            if any(value.strip()[0] not in request["target_chains"] for value in patch):
+                raise StudioError("Every broad-region residue must belong to a selected target chain.")
+            request["surface_patch_residues"] = sorted(set(value.strip() for value in patch))
+            request.pop("infer_ori_strategy", None)
+            request.pop("ori_token", None)
+        elif mode == "targeted_epitope":
+            if not hotspots:
+                raise StudioError("targeted_epitope requires at least one explicit hotspot condition.")
+            if patch or request.get("ori_token") is not None:
+                raise StudioError("targeted_epitope cannot also use broad-region residues or ori_token.")
+            request["infer_ori_strategy"] = "hotspots"
+            request.pop("ori_token", None)
+        else:
+            xyz = request.get("ori_token")
+            if (not isinstance(xyz, list) or len(xyz) != 3
+                    or any(not isinstance(value, (int, float)) or not math.isfinite(value)
+                           for value in xyz)):
+                raise StudioError("manual placement requires a finite three-number ori_token.")
+            if hotspots or patch:
+                raise StudioError("manual placement cannot also include hotspots or broad-region residues.")
+            request.pop("infer_ori_strategy", None)
+        request["binding_site_mode"] = mode
     filters = request.get("hit_filters", {})
     if not isinstance(filters, dict):
         raise StudioError("hit_filters must be an object.")
@@ -418,6 +507,8 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         request["motif_sites"] = {}
         request.pop("infer_ori_strategy", None)
         request.pop("ori_token", None)
+        request.pop("binding_site_mode", None)
+        request.pop("surface_patch_residues", None)
     elif expected_mode == "motifScaffolding":
         binder = str(request.get("source_binder_chain", "A")).strip().upper()
         if not re.fullmatch(r"[A-Z]", binder) or binder in request["target_chains"]:
@@ -441,6 +532,8 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         request.pop("partial_t", None)
         request.pop("infer_ori_strategy", None)
         request.pop("ori_token", None)
+        request.pop("binding_site_mode", None)
+        request.pop("surface_patch_residues", None)
     else:
         request.pop("partial_t", None)
         request["motif_sites"] = {}
@@ -453,7 +546,36 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         runner = root / "rfd3_scripts" / "rfd3_protein_campaign.py"
     scripts.append(runner)
     preview = [str(root / "rfd3" / ".venv" / "bin" / "python"), str(prepare), str(campaign / "config" / "studio_request.json"), "&&", "/usr/bin/caffeinate", "-dimsu", str(root / "rfd3" / ".venv" / "bin" / "python"), str(runner), "--config", str(campaign / "config" / "campaign.json")]
-    normalized = {"request": request, "campaign": str(campaign), "target_kind": target_kind}
+    generated = request["num_backbones"] * request["sequences_per_backbone"]
+    normalized = {
+        "request": request,
+        "campaign": str(campaign),
+        "target_kind": target_kind,
+        "operator_guidance": {
+            "start_all_candidates": True,
+            "ranking_stage": "Rank after independent structure prediction, not from RFD3 backbone scores alone.",
+            "binding_site": (
+                "Whole-target surface coverage: Studio will calculate outward solvent-surface ORIs and split the exact backbone quota across them."
+                if request.get("binding_site_mode") == "surface_scan" else
+                "Broad-region placement only: selected residues position the ORI but are not contact hotspots."
+                if request.get("binding_site_mode") == "surface_patch" else
+                "Targeted epitope: the reviewed residues are real RFdiffusion3 hotspot constraints."
+                if request.get("binding_site_mode") == "targeted_epitope" else
+                "Manual expert ORI coordinates."
+                if request.get("binding_site_mode") == "manual" else
+                "Small-molecule or existing-complex placement policy."
+            ),
+            "smoke_test_recommended": request["num_backbones"] > 10,
+            "smoke_test_size": min(5, request["num_backbones"]),
+            "candidate_count": generated,
+            "next_action": (
+                "For a new target/settings combination, first run 1-5 backbones through every requested "
+                "stage. Re-plan the full campaign only after that job completes."
+                if request["num_backbones"] > 10 else
+                "Review this normalized request and then call job_start with both plan identifiers."
+            ),
+        },
+    }
     return _persist(f"rfd3_{expected_mode}", project, normalized, preview, "apple_gpu_exclusive", _script_provenance(scripts))
 
 

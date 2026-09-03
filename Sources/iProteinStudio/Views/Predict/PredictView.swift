@@ -504,7 +504,7 @@ struct PredictView: View {
 /// Live progress for a running batch.
 struct PredictProgressView: View {
     @ObservedObject var controller: PredictionController
-    @State private var showResults = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -543,7 +543,10 @@ struct PredictProgressView: View {
             if let root = controller.outputRoot {
                 HStack {
                     if !controller.isRunning {
-                        Button { showResults = true } label: {
+                        Button {
+                            openWindow(value: RunResultsWindowRequest(
+                                root: root, workflow: .prediction))
+                        } label: {
                             Label("View Results", systemImage: "cube.transparent")
                         }
                         .buttonStyle(.borderedProminent)
@@ -558,10 +561,5 @@ struct PredictProgressView: View {
             Spacer(minLength: 0)
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .sheet(isPresented: $showResults) {
-            if let root = controller.outputRoot {
-                RunResultsView(root: root, workflow: .prediction)
-            }
-        }
     }
 }

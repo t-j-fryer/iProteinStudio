@@ -250,6 +250,10 @@ struct ConformerChoice: Codable, Hashable, Identifiable {
 
 /// How the design is positioned relative to the target.
 enum OriginStrategy: String, CaseIterable, Codable, Identifiable, Hashable {
+    /// Automatically distribute starts over solvent-accessible target patches.
+    case surfaceScan
+    /// Position near a broad user-selected region without conditioning contacts.
+    case surfacePatch
     /// Centre of mass of the target.
     case com
     /// Centred on the selected hotspots — the right choice when aiming at a patch.
@@ -261,18 +265,24 @@ enum OriginStrategy: String, CaseIterable, Codable, Identifiable, Hashable {
 
     var label: String {
         switch self {
+        case .surfaceScan:  return "Whole surface"
+        case .surfacePatch: return "Broad region"
         case .com:      return "Target centre of mass"
-        case .hotspots: return "My selected hotspots"
-        case .explicit: return "Exact coordinates"
+        case .hotspots: return "Exact epitope"
+        case .explicit: return "Manual XYZ"
         }
     }
 
     var blurb: String {
         switch self {
+        case .surfaceScan:
+            return "Studio finds exposed surface patches and spreads the design budget across them. No target residue is conditioned as a hotspot."
+        case .surfacePatch:
+            return "Pick a broad part of the surface. Studio uses it only to place the starting centre; it does not force contacts to those residues."
         case .com:
-            return "Build the binder around the middle of the target. Good default for a small molecule."
+            return "Build around the target centre of mass. This is suitable for a small molecule, not a fixed globular protein."
         case .hotspots:
-            return "Build the binder around the atoms or residues you picked. Good default when aiming at one face of a protein."
+            return "The selected residues both position the binder and become contact hotspots. Use this only when the epitope is intentional."
         case .explicit:
             return "You supply the XYZ the design should be centred on."
         }
@@ -280,6 +290,7 @@ enum OriginStrategy: String, CaseIterable, Codable, Identifiable, Hashable {
 
     var specValue: String? {
         switch self {
+        case .surfaceScan, .surfacePatch: return nil
         case .com:      return "com"
         case .hotspots: return "hotspots"
         case .explicit: return nil
@@ -435,6 +446,9 @@ struct RFD3Request: Codable, Hashable {
     /// Site name -> conditions applied to it.
     var conditions: [String: Set<AtomCondition>] = [:]
     var originStrategy: OriginStrategy = .com
+    /// Residues used only to locate a broad surface region. They are never
+    /// serialized as RFdiffusion3 hotspot conditioning.
+    var surfacePatchResidues: Set<String> = []
     var originXYZ: [Double] = [0, 0, 0]
 
     // --- Design shape ---
@@ -694,8 +708,20 @@ struct RFD3Request: Codable, Hashable {
                 issues.append("Select at least one verification predictor for the protein campaign.")
             }
         }
-        if designMode == .deNovo && originStrategy == .hotspots && !hasAnyHotspot {
-            issues.append("You chose to centre the design on hotspots but have not picked any.")
+        if designMode == .deNovo && targetKind == .protein {
+            if originStrategy == .com {
+                issues.append("Target-centre placement is unsafe for a fixed protein: choose Whole surface, Broad region, or Exact epitope.")
+            }
+            if originStrategy == .hotspots && !hasAnyHotspot {
+                issues.append("Exact epitope needs at least one selected hotspot residue.")
+            }
+            if originStrategy == .surfacePatch && surfacePatchResidues.isEmpty {
+                issues.append("Broad region needs at least one selected target residue.")
+            }
+            if originStrategy == .explicit &&
+                (originXYZ.count != 3 || originXYZ.contains(where: { !$0.isFinite })) {
+                issues.append("Manual XYZ requires three finite coordinates.")
+            }
         }
         if maxLength - minLength > 0 && numBins > (maxLength - minLength + 1) {
             issues.append("More length bins than distinct lengths in the range — reduce the number of bins.")
@@ -707,7 +733,7 @@ struct RFD3Request: Codable, Hashable {
         case designMode, sourceBinderChain, partialT, preservePartialSequence, motifSites
         case targetKind, ligandSource, smiles, componentCode, ligandStructurePath, ligandResidueName
         case targetStructurePath, targetChain, targetContig, structureTargetSequence
-        case conditions, originStrategy, originXYZ
+        case conditions, originStrategy, surfacePatchResidues, originXYZ
         case minLength, maxLength, numBins, numDesigns, explicitLengths, preferStructured
         case timesteps, recycles, batchSize, queuesPerBin, precision, seedBase
         case sequencesPerBackbone, verification
@@ -735,6 +761,7 @@ struct RFD3Request: Codable, Hashable {
         targetContig        = try c.decodeIfPresent(String.self, forKey: .targetContig) ?? d.targetContig
         conditions          = try c.decodeIfPresent([String: Set<AtomCondition>].self, forKey: .conditions) ?? d.conditions
         originStrategy      = try c.decodeIfPresent(OriginStrategy.self, forKey: .originStrategy) ?? d.originStrategy
+        surfacePatchResidues = try c.decodeIfPresent(Set<String>.self, forKey: .surfacePatchResidues) ?? d.surfacePatchResidues
         originXYZ           = try c.decodeIfPresent([Double].self, forKey: .originXYZ) ?? d.originXYZ
         minLength           = try c.decodeIfPresent(Int.self, forKey: .minLength) ?? d.minLength
         maxLength           = try c.decodeIfPresent(Int.self, forKey: .maxLength) ?? d.maxLength
@@ -761,6 +788,14 @@ struct RFD3Request: Codable, Hashable {
             ?? (attachmentAtom != nil || attachmentLinkerAtom != nil)
         searchPDB           = try c.decodeIfPresent(Bool.self, forKey: .searchPDB) ?? d.searchPDB
         verification        = try c.decodeIfPresent(RFD3Verification.self, forKey: .verification) ?? d.verification
+        // Older protein projects used target COM (or an empty hotspot choice)
+        // as the apparent "bind anywhere" default. That does not sample the
+        // surface, so migrate it to the explicit whole-surface strategy.
+        if targetKind == .protein && designMode == .deNovo {
+            if originStrategy == .com || (originStrategy == .hotspots && !hasAnyHotspot) {
+                originStrategy = .surfaceScan
+            }
+        }
         reconcileSequenceModel()
         reconcileVerification()
         reconcileSelectionBudget()

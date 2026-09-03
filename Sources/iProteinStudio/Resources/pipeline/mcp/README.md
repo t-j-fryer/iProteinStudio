@@ -8,8 +8,10 @@ MSA and analysis behaviour remains in the same scripts used by the GUI.
 ## Profiles
 
 - `read`: engine detection, projects, run status and bounded result queries.
-- `run`: immutable preflight plans, content-addressed imports, scientific jobs,
-  cancellation and resume.
+- `run`: all read capabilities plus immutable preflight plans,
+  content-addressed imports, scientific jobs, cancellation and resume. A single
+  run-profile conversation can therefore inspect its outputs without changing
+  servers.
 - `admin`: engine install/repair and checksum-constrained storage maintenance.
   It is not configured by default.
 
@@ -52,6 +54,34 @@ Verify the staged bridge without starting a model:
 ```bash
 /usr/bin/python3 "$NANOHUNTER_ROOT/mcp/studioctl.py" doctor
 ```
+
+## Agent operating contract
+
+Call `workflow_guide` before creating a scientific plan. Its guidance is served
+through MCP itself, so clients that do not load repository instruction files
+still receive Studio's workflow order and defaults. In particular:
+
+- use SolubleMPNN by default for soluble protein binders; LASErMPNN and
+  LigandMPNN are small-molecule-interface models;
+- omit a protein de-novo `contig` and let Studio derive the pinned adapter's
+  canonical binder-first grammar;
+- use `binding_site_mode: surface_scan` when no epitope is known. It creates
+  several solvent-accessible outward ORIs and divides the exact design quota
+  among them. `surface_patch` uses broad region residues only for placement;
+  `targeted_epitope` is the only common mode that emits hotspot conditioning;
+  `manual` accepts expert XYZ coordinates. Never use protein target COM as the
+  no-hotspot fallback;
+- complete a 1–5-backbone end-to-end smoke run before a large campaign;
+- independently predict every candidate before ranking; and
+- diagnose failures from `message`, `error`, `pipeline_log_tail`,
+  `worker_log_tail`, and the stage logs returned by `run_status` rather than
+  requesting arbitrary filesystem access.
+
+`results_query` exposes generated RFdiffusion3 backbone metrics, complex
+predictions, binder-alone predictions and the apo/holo RMSD table as distinct
+datasets. New campaigns persist `predictor` and `prediction_context`; for older
+Studio campaigns, the bridge adds the same labels from Studio-owned dataset and
+predictor output paths without modifying the run on disk.
 
 ## Direct protocol smoke test
 

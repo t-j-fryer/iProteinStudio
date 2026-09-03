@@ -6,12 +6,12 @@ import AppKit
 /// an active job never disappears merely because the user changes tabs.
 struct ActivityCenterView: View {
     @EnvironmentObject var app: AppState
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var run: RunController
     @ObservedObject var rfd3: RFD3Controller
     @ObservedObject var prediction: PredictionController
     @ObservedObject var history: RunHistoryStore
     let projectFilter: Project.ID?
-    @State private var selectedResults: StudioRunRecord?
 
     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
@@ -68,10 +68,6 @@ struct ActivityCenterView: View {
         .frame(width: 500, height: 520, alignment: .topLeading)
         .onAppear { refresh() }
         .onReceive(refreshTimer) { _ in refresh() }
-        .sheet(item: $selectedResults) { record in
-            RunResultsView(root: record.root, workflow: record.workflow,
-                           title: "\(record.name) results")
-        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(projectFilter == nil ? "Global activity centre" : "Workspace run history")
     }
@@ -117,7 +113,11 @@ struct ActivityCenterView: View {
                     .help(hasLiveActivity ? "Stop the active GPU job before resuming this run." : "Continue from completed checkpoints")
             }
             if record.hasViewableResults {
-                Button { selectedResults = record } label: {
+                Button {
+                    openWindow(value: RunResultsWindowRequest(
+                        root: record.root, workflow: record.workflow,
+                        title: "\(record.name) results"))
+                } label: {
                     Label("View", systemImage: "cube.transparent")
                 }
                 .controlSize(.small)

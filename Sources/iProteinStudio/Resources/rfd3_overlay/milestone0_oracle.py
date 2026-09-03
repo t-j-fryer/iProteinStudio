@@ -57,6 +57,8 @@ _pf_mod.AttentionPairBiasPairformerDeepspeed.__init__ = _pf_init
 # ---- force CPU fp32 (clean gold reference; avoids MPS kernel drift) ----------
 import foundry.inference_engines.base as base_mod
 
+from rfd3_weight_set import assert_expected, resolve_weight_set, select_core
+
 
 def _force_cpu(cfg):
     cfg.trainer.accelerator = "cpu"
@@ -107,16 +109,10 @@ def flatten(obj, prefix, arrays, meta):
 class CaptureEngine(RFD3InferenceEngine):
     def _model_forward(self, pipeline_output):
         model = self.trainer.state["model"]
-        core = model
-        if not hasattr(core, "diffusion_module"):
-            for a in ["module", "model", "ema_model", "shadow", "net", "_model"]:
-                if hasattr(core, a) and hasattr(getattr(core, a), "diffusion_module"):
-                    core = getattr(core, a)
-                    break
-        assert hasattr(core, "diffusion_module"), (
-            f"could not find diffusion_module on {type(model).__name__}; "
-            f"attrs={[a for a in dir(model) if not a.startswith('__')][:40]}"
-        )
+        weight_set = resolve_weight_set()
+        core, which = select_core(model, weight_set)
+        assert_expected(which, weight_set)
+        print(f"[oracle] weight_set={weight_set} -> {which} core={type(core).__name__}")
         core = core.to("cpu").eval()
         # kill the explicit bf16 cast inside the pairformer attention (fp32 reference)
         n_bf16_off = 0
@@ -127,6 +123,8 @@ class CaptureEngine(RFD3InferenceEngine):
         print(f"[capture] disabled bf16 in {n_bf16_off} pairformer attentions")
         CAP["model_class"] = type(model).__name__
         CAP["core_class"] = type(core).__name__
+        CAP["weight_set"] = weight_set
+        CAP["which"] = which
         CAP["n_params"] = int(sum(p.numel() for p in core.parameters()))
         CAP["state_dict_keys"] = list(core.state_dict().keys())
 
@@ -261,14 +259,16 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--features-only", action="store_true",
                     help="capture Foundry features for MLX without a redundant CPU diffusion rollout")
+    ap.add_argument("--output-dir", type=Path,
+                    help="fixture directory (default: the managed runtime's oracle directory)")
     args = ap.parse_args()
 
     here = Path(__file__).parent
     ckpt = (here / "checkpoints" / "rfd3_latest.ckpt").resolve()
     assert ckpt.exists(), f"checkpoint missing: {ckpt}"
 
-    outdir = here / "oracle"
-    outdir.mkdir(exist_ok=True)
+    outdir = args.output_dir.resolve() if args.output_dir else here / "oracle"
+    outdir.mkdir(parents=True, exist_ok=True)
     (outdir / "out").mkdir(exist_ok=True)
 
     # input spec: either a full JSON (binder/motif design) or a tiny uncond monomer
@@ -332,6 +332,8 @@ def main():
         "dtype": "float32",
         "model_class": CAP.get("model_class"),
         "core_class": CAP.get("core_class"),
+        "weight_set": CAP.get("weight_set"),
+        "which": CAP.get("which"),
         "n_params": CAP.get("n_params"),
         "ckpt": str(ckpt),
         "state_dict_keys_head": CAP.get("state_dict_keys", [])[:40],

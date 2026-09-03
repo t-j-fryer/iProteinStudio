@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, List
 
 from iprotein_mcp import __version__
 from iprotein_mcp.broker import cancel_job, list_jobs, load_state, resume_job, start_job, wait_job
-from iprotein_mcp.catalog import detect_engines, list_projects, list_runs, query_results, read_resource, run_status
+from iprotein_mcp.catalog import detect_engines, list_projects, list_runs, query_results, read_resource, run_status, workflow_guide
 from iprotein_mcp.common import StudioError, append_audit, import_artifact, validate_schema
 from iprotein_mcp.inspect import inspect_target
 from iprotein_mcp.plans import admin_plan, iterative_plan, load_plan, prediction_plan, rfd3_plan, target_prepare_plan
@@ -28,6 +28,19 @@ EMPTY = {"type": "object", "additionalProperties": False, "properties": {}}
 PROJECT_OPTIONAL = {"type": "object", "additionalProperties": False, "properties": {"project": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 500}}}
 RUN_ID = {"type": "object", "additionalProperties": False, "required": ["run_id"], "properties": {"run_id": {"type": "string"}}}
 JOB_ID = {"type": "object", "additionalProperties": False, "required": ["job_id"], "properties": {"job_id": {"type": "string"}}}
+WORKFLOW_GUIDE = {
+    "type": "object", "additionalProperties": False, "required": ["workflow"],
+    "properties": {"workflow": {"enum": ["prediction", "iterative_design", "rfd3_protein_binder", "rfd3_partial_diffusion", "rfd3_motif_scaffolding"]}},
+}
+
+SERVER_INSTRUCTIONS = (
+    "Before planning scientific work call workflow_guide for that workflow. For protein de-novo binders use "
+    "SolubleMPNN by default, never LASErMPNN/LigandMPNN, and omit contig so Studio derives it. When no epitope "
+    "is known use binding_site_mode=surface_scan; never substitute the fixed protein's centre of mass. Complete a "
+    "1-5-backbone end-to-end smoke run before a new campaign over 10 backbones. Use immutable plan then "
+    "job_start; poll job_wait/job_status. On failure read message, error and pipeline_log_tail before changing "
+    "settings; managed run logs never require arbitrary folder or shell access."
+)
 
 
 def rfd3_schema(mode: str) -> Dict[str, Any]:
@@ -88,22 +101,23 @@ ENGINE_INSTALL = {
 }
 
 TOOLS: Dict[str, Dict[str, Any]] = {
-    "system_detect": tool("Detect the exact managed iProteinStudio engines and installation states. Read-only.", EMPTY),
+    "system_detect": tool("Detect managed engines. Report the returned state exactly; only state=ok is runnable. Read-only.", EMPTY),
+    "workflow_guide": tool("Get Studio's workflow order, scientific defaults, routing rules, smoke-test policy, and common failure traps. Call this before creating a scientific plan.", WORKFLOW_GUIDE),
     "projects_list": tool("List managed iProteinStudio projects. Read-only.", EMPTY),
     "runs_list": tool("List recognized prediction, iterative-design and RFdiffusion3 runs.", PROJECT_OPTIONAL),
     "run_status": tool("Read durable run state, result files and bounded log tails.", RUN_ID),
     "results_query": tool("Read normalized CSV results and optionally summarize one numeric score distribution.", RESULT_QUERY),
     "artifact_import": tool("Copy an explicitly allowed input file into immutable content-addressed Studio storage and return its digest.", ARTIFACT_IMPORT),
-    "target_inspect": tool("Inspect exact protein residues or RFD3-compatible ligand atom names using Studio's validated target helper.", TARGET_INSPECT),
+    "target_inspect": tool("Inspect exact chains, sequence, canonical target contig, and coarse exposed-residue candidates, or RFD3-compatible ligand atoms. Exposure candidates are not a validated epitope.", TARGET_INSPECT),
     "target_prepare_plan": tool("Validate and freeze a target-only structure prediction with an explicit alignment policy.", TARGET_PREPARE),
     "prediction_plan": tool("Validate and freeze a prediction batch without starting GPU work.", schema("prediction-v1.json")),
     "iterative_design_plan": tool("Validate and freeze an iterative-design request; Studio injects its measured scheduling policy.", schema("iterative-design-v1.json")),
-    "rfd3_denovo_plan": tool("Validate and freeze an RFdiffusion3 de-novo campaign.", rfd3_schema("deNovo")),
+    "rfd3_denovo_plan": tool("Validate and freeze an RFD3 campaign. For protein targets use solublempnn by default, never LASErMPNN/LigandMPNN; omit contig so Studio derives binder-first syntax; predict every candidate before ranking.", rfd3_schema("deNovo")),
     "rfd3_partial_diffusion_plan": tool("Validate and freeze protein-complex partial diffusion with partial_t in Angstroms and target coordinates fixed upstream.", rfd3_schema("partialDiffusion")),
     "rfd3_motif_scaffolding_plan": tool("Validate and freeze motif scaffolding with explicit non-empty residue atom selections.", rfd3_schema("motifScaffolding")),
     "job_start": tool("Start an immutable plan after checking its digest and exact installed script provenance. Expensive and mutating.", schema("job-start-v1.json")),
     "jobs_list": tool("List durable agent jobs and their bounded log tails.", JOBS_LIST),
-    "job_status": tool("Read one durable job's status and bounded log tail.", JOB_ID),
+    "job_status": tool("Read durable status plus actionable message, error, and bounded pipeline_log_tail. Diagnose these fields before changing settings or requesting filesystem access.", JOB_ID),
     "job_wait": tool("Wait at most 55 seconds for a job state change, then return its current durable status.", JOB_WAIT),
     "job_cancel": tool("Cancel the complete process group for a queued or running job. Mutating.", JOB_ID),
     "job_resume": tool("Resume a failed or cancelled job using its original immutable plan and durable outputs. Mutating.", JOB_ID),
@@ -113,7 +127,7 @@ TOOLS: Dict[str, Dict[str, Any]] = {
 }
 
 for name, definition in TOOLS.items():
-    read_only = name in {"system_detect", "projects_list", "runs_list", "run_status", "results_query", "jobs_list", "job_status", "job_wait"}
+    read_only = name in {"system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_query", "jobs_list", "job_status", "job_wait"}
     definition["annotations"] = {
         "readOnlyHint": read_only,
         "destructiveHint": name in {"job_start", "job_cancel", "storage_minimise_plan"},
@@ -121,8 +135,8 @@ for name, definition in TOOLS.items():
         "openWorldHint": name in {"target_prepare_plan", "prediction_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "job_resume", "engine_install_plan", "engine_repair_plan"},
     }
 
-READ_TOOLS = ["system_detect", "projects_list", "runs_list", "run_status", "results_query"]
-RUN_TOOLS = ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume"]
+READ_TOOLS = ["system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_query"]
+RUN_TOOLS = READ_TOOLS + ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume"]
 ADMIN_TOOLS = ["system_detect", "engine_install_plan", "engine_repair_plan", "storage_minimise_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume"]
 ADMIN_KINDS = {"engine_install", "engine_repair", "storage_minimise"}
 
@@ -140,6 +154,7 @@ class MCPServer:
             raise StudioError("Tool arguments must be a JSON object.")
         validate_schema(arguments, TOOLS[name]["inputSchema"])
         if name == "system_detect": result = detect_engines()
+        elif name == "workflow_guide": result = workflow_guide(arguments["workflow"])
         elif name == "projects_list": result = {"projects": list_projects()}
         elif name == "runs_list": result = {"runs": list_runs(arguments.get("project"), arguments.get("limit", 100))}
         elif name == "run_status": result = run_status(arguments["run_id"])
@@ -191,7 +206,7 @@ class MCPServer:
             requested = params.get("protocolVersion")
             if isinstance(requested, str) and requested:
                 self.protocol_version = requested
-            return {"protocolVersion": self.protocol_version, "capabilities": {"tools": {"listChanged": False}, "resources": {"subscribe": False, "listChanged": False}, "prompts": {"listChanged": False}}, "serverInfo": {"name": f"iproteinstudio-{self.profile}", "version": __version__}, "instructions": "iProteinStudio is fail-closed: use plan tools before job_start; never infer missing weights, MSAs, motif atoms, or engine availability."}
+            return {"protocolVersion": self.protocol_version, "capabilities": {"tools": {"listChanged": False}, "resources": {"subscribe": False, "listChanged": False}, "prompts": {"listChanged": False}}, "serverInfo": {"name": f"iproteinstudio-{self.profile}", "version": __version__}, "instructions": SERVER_INSTRUCTIONS}
         if method == "ping": return {}
         if method == "tools/list": return {"tools": [{"name": name, **TOOLS[name]} for name in self.allowed]}
         if method == "tools/call":

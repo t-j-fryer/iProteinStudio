@@ -35,7 +35,7 @@ def request(mode: str, campaign: Path, rfd3_root: Path) -> dict:
         "queues_per_bin": 1,
         "timesteps": 20,
         "recycles": 1,
-        "precision": "float32",
+        "precision": "fp32",
         "seed_base": 1,
         "sequences_per_backbone": 1,
         "top_n": 1,

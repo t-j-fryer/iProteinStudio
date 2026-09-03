@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import subprocess
@@ -61,6 +62,8 @@ DEFAULTS = {
     "queues_per_bin": 2,  # 2 concurrent shape queues = 9.6 designs/min
     "precision": "bf16",
 }
+
+MIN_SURFACE_DESIGNS_PER_FIXTURE = 5
 
 # Atom-name macros that InputSelection expands itself -- not literal names.
 ATOM_MACROS = {"ALL", "BKBN", "TIP", "SIDECHAIN", "NONE"}
@@ -271,6 +274,21 @@ def allocate(total: int, n: int) -> list[int]:
     return [base + (1 if i < remainder else 0) for i in range(n)]
 
 
+def allocate_weighted(total: int, weights: list[float]) -> list[int]:
+    """Largest-remainder allocation whose quotas always sum to ``total``."""
+    positive = [max(0.0, float(weight)) for weight in weights]
+    weight_sum = sum(positive)
+    if weight_sum <= 0:
+        raise SystemExit("conformer weights must include at least one positive value")
+    raw = [total * weight / weight_sum for weight in positive]
+    quotas = [int(value) for value in raw]
+    for index in sorted(range(len(raw)), key=lambda i: (raw[i] - quotas[i], -i), reverse=True)[
+        : total - sum(quotas)
+    ]:
+        quotas[index] += 1
+    return quotas
+
+
 # --------------------------------------------------------------------------- #
 # stages
 # --------------------------------------------------------------------------- #
@@ -299,29 +317,120 @@ def parse_conformers(value) -> list[tuple[str, float, str]]:
     return out
 
 
+def parse_origins(value) -> list[dict]:
+    """Read Studio's audited surface-origin plan.
+
+    Each origin becomes an immutable fixture variant. This is deliberately not
+    interpreted as hotspot conditioning: it changes only ``ori_token``.
+    """
+    if not value:
+        return []
+    path = Path(value).expanduser().resolve()
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"could not read surface origin plan {path}: {exc}") from exc
+    origins = raw.get("origins") if isinstance(raw, dict) else None
+    if not isinstance(origins, list) or not origins:
+        raise SystemExit("surface origin plan must contain a non-empty origins array")
+    normalized = []
+    labels = set()
+    for index, entry in enumerate(origins):
+        xyz = entry.get("xyz") if isinstance(entry, dict) else None
+        if (not isinstance(xyz, list) or len(xyz) != 3
+                or any(not isinstance(v, (int, float)) or not math.isfinite(v) for v in xyz)):
+            raise SystemExit(f"surface origin {index + 1} needs three finite xyz values")
+        label = str(entry.get("label") or f"origin-{index + 1:02d}")
+        if label in labels:
+            raise SystemExit(f"duplicate surface origin label: {label}")
+        labels.add(label)
+        normalized.append({**entry, "label": label, "xyz": [float(v) for v in xyz]})
+    return normalized
+
+
 def build_fixtures(spec: dict, run: dict, name: str, lengths: list[int],
                    campaign: Path, env: dict, overwrite: bool,
-                   conformers: list[tuple[str, float, str]] | None = None) -> Path:
-    oracle_dir = ROOT / "oracle"
-    oracle_dir.mkdir(exist_ok=True)
+                   conformers: list[tuple[str, float, str]] | None = None,
+                   origins: list[dict] | None = None) -> Path:
     rfd3_dir = campaign / "rfd3"
     rfd3_dir.mkdir(parents=True, exist_ok=True)
+    # Fixtures are inputs to the MLX sampler and must be immutable campaign
+    # provenance.  A global cache keyed only by display name can silently reuse
+    # a fixture from another target or modality with the same project name.
+    oracle_dir = rfd3_dir / "fixtures"
+    oracle_dir.mkdir(parents=True, exist_ok=True)
 
-    # Without an explicit conformer list this is the original single-input path,
+    if origins and conformers:
+        raise SystemExit("surface origins and ligand conformers cannot be combined in one campaign")
+
+    # Protein surface origins are the same kind of scientific variant as ligand
+    # conformers: each gets immutable fixtures and a deterministic quota.
+    if origins:
+        origin_quotas = allocate(int(run["num_designs"]), len(origins))
+        bins = []
+        index = 0
+        motif_residues = fixed_motif_residue_count(spec.get("contig"))
+        for origin_index, (origin, origin_designs) in enumerate(zip(origins, origin_quotas, strict=True)):
+            if origin_designs <= 0:
+                continue
+            # Avoid a Cartesian explosion of one-design (ORI × length)
+            # fixtures. Give each immutable shape fixture roughly five samples,
+            # and rotate selected lengths across origins for campaign coverage.
+            active_count = max(1, min(
+                len(lengths), origin_designs // MIN_SURFACE_DESIGNS_PER_FIXTURE
+            ))
+            if active_count == 1:
+                selected_lengths = [lengths[origin_index % len(lengths)]]
+            else:
+                step = len(lengths) / active_count
+                indices = [int((origin_index + round(i * step)) % len(lengths))
+                           for i in range(active_count)]
+                selected_lengths = [lengths[i] for i in dict.fromkeys(indices)]
+            quotas = allocate(origin_designs, len(selected_lengths))
+            origin_spec = dict(spec)
+            origin_spec.pop("infer_ori_strategy", None)
+            origin_spec["ori_token"] = origin["xyz"]
+            tag = f"_O{origin_index + 1:02d}" if len(origins) > 1 else ""
+            bins.extend(_bins_for_conformer(
+                origin_spec, run, name, selected_lengths, quotas, spec.get("input"), tag,
+                motif_residues, oracle_dir, rfd3_dir, env, overwrite,
+                start_index=index, origin=origin,
+            ))
+            index += len(selected_lengths)
+        manifest_path = rfd3_dir / "bin_manifest.json"
+        manifest_path.write_text(json.dumps({
+            "design_name": name,
+            "design_mode": "deNovo",
+            "component_id": spec.get("ligand"),
+            "ccd_mirror": env.get("CCD_MIRROR_PATH"),
+            "num_designs": int(run["num_designs"]),
+            "timesteps": run["timesteps"], "n_recycle": run["n_recycle"],
+            "origin_plan": origins,
+            "bins": bins,
+        }, indent=2) + "\n")
+        total = sum(item["quota"] for item in bins)
+        print(f"  wrote {len(bins)} surface-origin bin(s), {total} designs -> {manifest_path}")
+        return manifest_path
+
+    # Without an explicit variant list this is the original single-input path,
     # so existing campaigns behave exactly as before.
     conformers = conformers or [(spec.get("input"), 1.0, "")]
-    total_weight = sum(max(0.0, w) for _, w, _ in conformers) or 1.0
+    conformer_quotas = allocate_weighted(
+        int(run["num_designs"]), [weight for _, weight, _ in conformers]
+    )
 
     motif_residues = fixed_motif_residue_count(spec.get("contig"))
     bins = []
     index = 0
-    for conf_path, weight, label in conformers:
-        share = max(0.0, weight) / total_weight
-        conf_designs = int(round(int(run["num_designs"]) * share))
+    for conformer_index, ((conf_path, _weight, _label), conf_designs) in enumerate(
+        zip(conformers, conformer_quotas, strict=True)
+    ):
         if conf_designs <= 0:
             continue
         quotas = allocate(conf_designs, len(lengths))
-        tag = f"_{label}" if label else ""
+        # A stable numeric suffix prevents duplicate/unsafe user labels from
+        # colliding on one fixture. Human labels remain in the manifest.
+        tag = f"_C{conformer_index + 1:02d}" if len(conformers) > 1 else ""
         bins.extend(_bins_for_conformer(spec, run, name, lengths, quotas, conf_path, tag,
                                         motif_residues, oracle_dir, rfd3_dir, env,
                                         overwrite, start_index=index))
@@ -345,9 +454,14 @@ def build_fixtures(spec: dict, run: dict, name: str, lengths: list[int],
 
 
 def _bins_for_conformer(spec, run, name, lengths, quotas, conf_path, tag, motif_residues,
-                        oracle_dir, rfd3_dir, env, overwrite, start_index):
+                        oracle_dir, rfd3_dir, env, overwrite, start_index, origin=None):
     bins = []
     for k, (length, quota) in enumerate(zip(lengths, quotas, strict=True)):
+        # When there are more (origin × length) combinations than requested
+        # designs, zero-quota variants must not trigger expensive fixtures that
+        # can never yield an output.
+        if quota <= 0:
+            continue
         i = start_index + k
         bin_name = f"{name}{tag}" if len(lengths) == 1 else f"{name}{tag}_L{length}"
         input_json = oracle_dir / f"input_{bin_name}.json"
@@ -362,7 +476,7 @@ def _bins_for_conformer(spec, run, name, lengths, quotas, conf_path, tag, motif_
         input_json.write_text(json.dumps({bin_name: bin_spec}, indent=2) + "\n")
 
         if fixture.exists() and not overwrite:
-            print(f"  L{length}: fixture cached -> {fixture.relative_to(ROOT)}")
+            print(f"  L{length}: fixture cached -> {fixture}")
         else:
             log_path = rfd3_dir / f"fixture_{bin_name}.log"
             cmd = [
@@ -370,19 +484,21 @@ def _bins_for_conformer(spec, run, name, lengths, quotas, conf_path, tag, motif_
                 "--name", bin_name, "--input_json", str(input_json),
                 "--timesteps", str(run["timesteps"]), "--n_recycle", str(run["n_recycle"]),
                 "--seed", str(int(run["seed_base"]) + i), "--features-only",
+                "--output-dir", str(oracle_dir),
             ]
             started = time.time()
             with log_path.open("w") as handle:
                 result = subprocess.run(cmd, cwd=ROOT, env=env, stdout=handle, stderr=subprocess.STDOUT)
             if result.returncode:
                 raise SystemExit(f"fixture build failed for L{length} (exit {result.returncode}); see {log_path}")
-            print(f"  L{length}: fixture built in {time.time() - started:.1f}s -> {fixture.relative_to(ROOT)}")
+            print(f"  L{length}: fixture built in {time.time() - started:.1f}s -> {fixture}")
 
         bins.append({
             "bin_index": i, "length": length, "binder_length": length,
             "total_component_length": total_length, "fixed_motif_residues": motif_residues,
             "quota": quota, "name": bin_name,
             "conformer": str(conf_path) if conf_path else None,
+            "origin": origin,
             "input_json": str(input_json), "fixture": str(fixture),
             "seed": int(run["seed_base"]) + i,
             "design_mode": ("partialDiffusion" if spec.get("partial_t") is not None
@@ -434,6 +550,8 @@ def main() -> None:
     parser.add_argument("--conformers",
                         help="comma-separated path:weight:label -- design across several ligand "
                              "geometries, splitting the design quota by weight")
+    parser.add_argument("--origins", type=Path,
+                        help="Studio surface-origin JSON; each centre gets its own fixture and quota")
     parser.add_argument("--stage", choices=["check", "fixtures", "backbones", "all"], default="all")
     parser.add_argument("--overwrite", action="store_true", help="rebuild fixtures even if cached")
     args = parser.parse_args()
@@ -469,6 +587,10 @@ def main() -> None:
     print(f"campaign : {campaign}")
     print(f"ligand   : {spec.get('ligand') or '(none)'}   ccd mirror: {env['CCD_MIRROR_PATH']}")
     print(f"lengths  : {lengths}  ({run['num_designs']} designs total)")
+    conformers = parse_conformers(args.conformers or run.get("conformers"))
+    origins = parse_origins(args.origins or run.get("origins"))
+    if origins:
+        print(f"surface origins: {len(origins)} explicit centres")
     if args.stage == "check":
         print(json.dumps({name: spec}, indent=2))
         return
@@ -477,14 +599,13 @@ def main() -> None:
     (campaign / "config").mkdir(exist_ok=True)
     (campaign / "config" / "spec.yaml").write_text(args.spec.read_text())
 
-    conformers = parse_conformers(args.conformers or run.get("conformers"))
     if conformers:
         print(f"conformers: {len(conformers)} " +
               ", ".join(f"{(l or Path(p).stem)}={w:.2f}" for p, w, l in conformers))
 
     print("=== stage: fixtures ===")
     manifest_path = build_fixtures(spec, run, name, lengths, campaign, env, args.overwrite,
-                                   conformers=conformers)
+                                   conformers=conformers, origins=origins)
     if args.stage == "fixtures":
         return
 

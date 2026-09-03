@@ -47,6 +47,28 @@ final class RFD3Controller: ObservableObject {
 
     static var isAvailable: Bool { unavailableReason == nil }
 
+    /// Read the safetensors JSON header only (never the ~672 MB tensor body).
+    /// A filename or sidecar is not sufficient: older Studio builds produced a
+    /// shape-compatible raw network at this exact path.
+    private static func hasVerifiedEMAWeights(_ url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        guard let prefix = try? handle.read(upToCount: 8),
+              prefix.count == 8 else { return false }
+        var headerSize: UInt64 = 0
+        for (offset, byte) in prefix.enumerated() {
+            headerSize |= UInt64(byte) << UInt64(offset * 8)
+        }
+        guard headerSize >= 2, headerSize <= 64 * 1024 * 1024,
+              let header = try? handle.read(upToCount: Int(headerSize)),
+              let object = try? JSONSerialization.jsonObject(with: header) as? [String: Any],
+              let metadata = object["__metadata__"] as? [String: String] else {
+            return false
+        }
+        return metadata["weight_set"] == "shadow"
+            && metadata["which"] == "shadow (EMA)"
+    }
+
     /// Why RFD3 cannot run, phrased for the user. `nil` when it can.
     static var unavailableReason: String? {
         let root = AppPaths.rfd3Root
@@ -61,8 +83,12 @@ final class RFD3Controller: ObservableObject {
         if !AppPaths.fm.fileExists(atPath: root.appendingPathComponent(".venv/bin/python").path) {
             return "The RFdiffusion3 Python environment is missing. Re-run setup with RFdiffusion3 selected."
         }
-        if !AppPaths.fm.fileExists(atPath: root.appendingPathComponent("weights/rfd3_core.safetensors").path) {
+        let weights = root.appendingPathComponent("weights/rfd3_core.safetensors")
+        if !AppPaths.fm.fileExists(atPath: weights.path) {
             return "The RFdiffusion3 MLX weights haven't been exported yet. Re-run setup with RFdiffusion3 selected."
+        }
+        guard hasVerifiedEMAWeights(weights) else {
+            return "These RFdiffusion3 MLX weights are not the verified EMA inference weights. Update RFdiffusion3 in Setup before running a campaign."
         }
         return nil
     }
@@ -500,8 +526,30 @@ final class RFD3Controller: ObservableObject {
             : request.verification.allPredictors(for: .protein).map(\.runnerValue)
         payload.intellifold_model = request.verification.intellifoldModel.rawValue
         payload.is_non_loopy = request.preferStructured
-        payload.infer_ori_strategy = request.originStrategy.specValue
-        if request.originStrategy == .explicit { payload.ori_token = request.originXYZ }
+        // Protein binders need an origin outside the fixed target. A target-COM
+        // fallback puts the token inside a globular protein and is therefore
+        // never emitted for that workflow.
+        if request.targetKind == .protein && request.designMode == .deNovo {
+            switch request.originStrategy {
+            case .surfaceScan:
+                payload.binding_site_mode = "surface_scan"
+            case .surfacePatch:
+                payload.binding_site_mode = "surface_patch"
+                payload.surface_patch_residues = request.surfacePatchResidues.sorted()
+            case .hotspots:
+                payload.binding_site_mode = "targeted_epitope"
+                payload.infer_ori_strategy = "hotspots"
+            case .explicit:
+                payload.binding_site_mode = "manual"
+                payload.ori_token = request.originXYZ
+            case .com:
+                // Validation blocks this legacy value before launch.
+                payload.binding_site_mode = "surface_scan"
+            }
+        } else {
+            payload.infer_ori_strategy = request.originStrategy.specValue
+            if request.originStrategy == .explicit { payload.ori_token = request.originXYZ }
+        }
 
         switch request.targetKind {
         case .smallMolecule:
@@ -542,7 +590,18 @@ final class RFD3Controller: ObservableObject {
             }
         }
 
-        payload.conditions = request.conditions.mapValues { $0.map(\.rawValue).sorted() }
+        var effectiveConditions = request.conditions
+        if request.targetKind == .protein && request.designMode == .deNovo
+            && request.originStrategy != .hotspots {
+            // Whole-surface and broad-region placement are intentionally not
+            // epitope conditioning. Preserve UI selections for mode switching,
+            // but do not leak them into the scientific request.
+            effectiveConditions = effectiveConditions.compactMapValues { values in
+                let kept = values.subtracting([.hotspot])
+                return kept.isEmpty ? nil : kept
+            }
+        }
+        payload.conditions = effectiveConditions.mapValues { $0.map(\.rawValue).sorted() }
         return payload
     }
 }
@@ -575,6 +634,8 @@ struct RFD3StudioRequest: Codable {
 
     var conditions: [String: [String]] = [:]
     var is_non_loopy: Bool = true
+    var binding_site_mode: String?
+    var surface_patch_residues: [String] = []
     var infer_ori_strategy: String?
     var ori_token: [Double]?
 

@@ -27,6 +27,21 @@ struct iProteinStudioApp: App {
             }
         }
 
+        WindowGroup("Run Results", for: RunResultsWindowRequest.self) { request in
+            if let request = request.wrappedValue {
+                RunResultsView(root: request.root, workflow: request.workflow,
+                               title: request.title)
+                    .environmentObject(app)
+                    .environmentObject(app.thumbnails)
+                    .environmentObject(app.smilesThumbnails)
+                    .environmentObject(app.predictions)
+            } else {
+                ContentUnavailableView("No run selected", systemImage: "cube.transparent")
+            }
+        }
+        .defaultSize(width: 1060, height: 760)
+        .windowResizability(.contentMinSize)
+
         Settings {
             TabView {
                 UpdateSettingsView(service: updates)

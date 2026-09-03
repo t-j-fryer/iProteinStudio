@@ -197,6 +197,7 @@ OPENFOLD_CHECKPOINT_PATH="${OPENFOLD_MODEL_DIR}/of3_ft3_v1.pt"
 RFD3_ROOT="${NANOHUNTER_ROOT}/rfd3"
 RFD3_CHECKPOINT_PATH="${RFD3_ROOT}/checkpoints/rfd3_latest.ckpt"
 RFD3_WEIGHTS_PATH="${RFD3_ROOT}/weights/rfd3_core.safetensors"
+RFD3_WEIGHTS_SHA="736e6f5e11ec70dea58903deb2290031e366d2b0b2478e63208a2541650a04d6"
 # Staged out of the app bundle next to this script; absent when the script is
 # run standalone, in which case the overlay step is simply skipped.
 STUDIO_RFD3_OVERLAY="${NANOHUNTER_ROOT}/rfd3_overlay"
@@ -348,6 +349,13 @@ check_sha256() {
   [[ "${actual}" == "${expected}" ]]
 }
 
+rfd3_ema_weights_current() {
+  [[ -f "${RFD3_ROOT}/rfd3_weight_set.py" \
+     && -f "${RFD3_WEIGHTS_PATH}" ]] || return 1
+  python3 "${RFD3_ROOT}/rfd3_weight_set.py" \
+    --check-artifact "${RFD3_WEIGHTS_PATH}" >/dev/null 2>&1
+}
+
 # ---------------------------------------------------------------- detection --
 
 constraint_runtime_current() {
@@ -461,12 +469,15 @@ detect() {
     # Installation and `install_rfd3.sh --check` verify both multi-GB hashes.
     # Do not re-read them on every app launch merely to populate the Engines
     # sheet; that makes detection take many seconds on an otherwise ready app.
-    if [[ -f "${RFD3_CHECKPOINT_PATH}" && -f "${RFD3_WEIGHTS_PATH}" ]]; then
+    if [[ -f "${RFD3_CHECKPOINT_PATH}" && -f "${RFD3_WEIGHTS_PATH}" ]] \
+       && rfd3_ema_weights_current; then
       if [[ -f "${RECEIPTS_DIR}/rfd3.json" ]]; then
-        state rfd3 ok "RFdiffusion3 MLX with checkpoint and exported weights"
+        state rfd3 ok "RFdiffusion3 MLX with checkpoint and verified EMA weights"
       else
         state rfd3 update "engine is usable; installation provenance still needs finalizing"
       fi
+    elif [[ -f "${RFD3_CHECKPOINT_PATH}" && -f "${RFD3_WEIGHTS_PATH}" ]]; then
+      state rfd3 update "exported weights are not verified EMA shadow weights; repair RFdiffusion3 before use"
     else
       state rfd3 incomplete "checkpoint or exported MLX weights absent"
     fi
@@ -1629,7 +1640,7 @@ if [[ "${WITH_RFD3}" -eq 1 ]]; then
     cp -f "${STUDIO_RFD3_OVERLAY}"/scripts/*.py "${RFD3_ROOT}/scripts/" 2>/dev/null || true
     cp -f "${VERIFIED_DOWNLOADER}" "${RFD3_ROOT}/scripts/download_verified.py" \
       || fail "Could not stage the verified downloader for RFdiffusion3."
-    for extra in milestone0_oracle.py export_weights.py install_rfd3.sh \
+    for extra in milestone0_oracle.py export_weights.py rfd3_weight_set.py install_rfd3.sh \
                  requirements-rfd3.txt rfd3_env.sh; do
       [[ -f "${STUDIO_RFD3_OVERLAY}/${extra}" ]] && cp -f "${STUDIO_RFD3_OVERLAY}/${extra}" "${RFD3_ROOT}/"
     done
@@ -1658,7 +1669,7 @@ if [[ "${WITH_RFD3}" -eq 1 ]]; then
       "native-mlx-no-cpu-option" \
       --source "${RFD3_ROOT}=${RFD3_REV}" \
       --artifact "${RFD3_CHECKPOINT_PATH}=9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1" \
-      --artifact "${RFD3_WEIGHTS_PATH}=0beb87ff872d946a8af58428ae7c679eb364057bf12df77dba5994f6a0f1271b"
+      --artifact "${RFD3_WEIGHTS_PATH}=${RFD3_WEIGHTS_SHA}"
     state rfd3 ok "RFdiffusion3 MLX"
   else
     fail "No RFdiffusion3 checkout at ${RFD3_ROOT}."

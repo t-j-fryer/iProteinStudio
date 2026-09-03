@@ -70,7 +70,7 @@ def run(cmd: list, log_path: Path, cwd: Path, env: dict) -> None:
 
 
 def design_cmd(cfg: dict, rfd3_root: Path, campaign: Path, stage_name: str) -> list:
-    return [sys.executable, str(rfd3_root / "scripts" / "design_from_yaml.py"),
+    cmd = [sys.executable, str(rfd3_root / "scripts" / "design_from_yaml.py"),
             cfg["design_yaml"],
             "--name", cfg["design_name"],
             "--output", str(campaign),
@@ -83,6 +83,9 @@ def design_cmd(cfg: dict, rfd3_root: Path, campaign: Path, stage_name: str) -> l
             "--n-recycle", str(cfg["rfd3_recycles"]),
             "--seed-base", str(cfg["seed_base"]),
             "--stage", stage_name] + conformer_args(cfg)
+    if cfg.get("origins_file"):
+        cmd += ["--origins", cfg["origins_file"]]
+    return cmd
 
 
 def conformer_args(cfg: dict) -> list:

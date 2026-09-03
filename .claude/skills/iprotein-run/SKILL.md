@@ -30,6 +30,23 @@ show the normalized settings and digest to the user, then call `job_start`.
 that survive the Claude session. The MCP bridge deliberately routes back to the
 same commands described below; it does not replace their scientific behaviour.
 
+Before making a scientific plan, call `workflow_guide` for that workflow and
+follow the returned ordering and defaults. In particular:
+
+- Protein de-novo binders default to `solublempnn`. `proteinmpnn` is an explicit
+  alternative; `lasermpnn` and `ligandmpnn` are only for small-molecule targets.
+- Omit a protein de-novo `contig`; Studio derives the canonical binder-first
+  form from the selected target chains and length bins. Do not translate an
+  RFdiffusion1 contig by memory.
+- Run 1–5 backbones through the complete requested prediction/analysis stack
+  before starting more than 10 backbones for a new target/settings combination.
+- Predict every requested candidate before ranking. Do not pre-filter RFD3
+  backbones using an internal score, and do not reduce a binder hit decision to
+  iPTM alone.
+- On failure, inspect `job_status.message`, `error`, and `pipeline_log_tail`, then
+  `run_status` for stage logs. Managed runs never require asking the user for
+  arbitrary folder access or a manually executed model command.
+
 ## The traps
 
 These have all caused real, silent failures in this project. They do not raise —

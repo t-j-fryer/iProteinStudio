@@ -34,6 +34,7 @@ on success, or ``PREPFAIL|<reason>`` and exit 1.
 from __future__ import annotations
 
 import json
+import math
 import re
 import subprocess
 import sys
@@ -87,6 +88,9 @@ def normalize_protein_target(req: dict, campaign: Path) -> dict[str, str]:
     req["conditions"] = {
         remap_token(site): values for site, values in req.get("conditions", {}).items()
     }
+    req["surface_patch_residues"] = [
+        remap_token(str(site)) for site in req.get("surface_patch_residues", [])
+    ]
     contig = re.sub(
         r"(?<![A-Za-z0-9])([^\d\s])(?=\d)",
         lambda match: chain_map.get(match.group(1), match.group(1)),
@@ -168,9 +172,16 @@ def write_design_yaml(req: dict, campaign: Path, ligand_input: Path | None,
         # again duplicates every ligand atom.
     elif mode == "deNovo":
         emit("input", yaml_quote(req["target_structure"]))
-        # Contig carries the binder range plus the fixed target motif;
-        # design_from_yaml.py converts binder length -> total component length.
-        emit("contig", yaml_quote(req["contig"]))
+        # The complete selected target is fixed and the binder is generated in
+        # front of it.  Derive this from the normalized structure rather than
+        # asking an API client to know Foundry's comma-delimited contig dialect.
+        # A Claude transcript supplied RFdiffusion1-style ``B1-236/0 45-75``;
+        # that survived the cheap atom preflight and then failed in fixtures.
+        # The canonical form here is ``45-75,/0,B1-236``.
+        target_contig = ",/0,".join(req["normalized_chain_ranges"][chain]
+                                     for chain in req["target_chains"])
+        binder_contig = f"{min(req['lengths'])}-{max(req['lengths'])}"
+        emit("contig", yaml_quote(f"{binder_contig},/0,{target_contig}"))
     elif mode == "partialDiffusion":
         emit("input", yaml_quote(req["target_structure"]))
         emit("partial_t", f"{float(req['partial_t']):.6g}")
@@ -354,6 +365,8 @@ def validate_request(req: dict) -> None:
         fail("Unsupported verification predictor(s): " + ", ".join(unknown))
     if sum(predictor.startswith("protenix-") for predictor in selected) > 1:
         fail("Choose either Protenix v2 or Mini, not both; they are one model family.")
+    if req.get("precision") not in {"bf16", "fp32"}:
+        fail("precision must be bf16 or fp32.")
     if "intellifold" in req.get("extra_predictors", []):
         if req.get("intellifold_model") not in {"v2-flash", "v2"}:
             fail("IntelliFold requires model v2-flash or v2.")
@@ -397,6 +410,8 @@ def validate_request(req: dict) -> None:
             if invalid:
                 fail("Motif residues must use the source motif chain and residue number, "
                      f"for example {binder}42; invalid: {', '.join(map(str, invalid))}")
+        if mode == "deNovo":
+            _validate_binding_site_mode(req, chains)
     else:
         if req.get("sequence_model") not in {"lasermpnn", "ligandmpnn"}:
             fail("Small-molecule campaigns require LASErMPNN or LigandMPNN.")
@@ -408,6 +423,85 @@ def validate_request(req: dict) -> None:
         if req.get("ligand_source") == "structure_file" and not Path(
                 req.get("ligand_structure", "")).is_file():
             fail("The ligand structure file does not exist.")
+
+
+def _validate_binding_site_mode(req: dict, chains: list[str]) -> None:
+    """Normalize old requests and prohibit the unsafe protein-COM fallback."""
+    conditions = req.get("conditions") or {}
+    hotspots = sorted(site for site, values in conditions.items() if "hotspot" in values)
+    mode = req.get("binding_site_mode")
+    if mode is None:
+        if req.get("ori_token") is not None:
+            mode = "manual"
+        elif hotspots or req.get("infer_ori_strategy") == "hotspots":
+            mode = "targeted_epitope"
+        elif req.get("infer_ori_strategy") == "com":
+            fail("Target-centre ORI is unsafe for a fixed protein target. Choose surface_scan, surface_patch, targeted_epitope, or manual.")
+        else:
+            mode = "surface_scan"
+    allowed = {"surface_scan", "surface_patch", "targeted_epitope", "manual"}
+    if mode not in allowed:
+        fail("binding_site_mode must be surface_scan, surface_patch, targeted_epitope, or manual.")
+    patch = req.get("surface_patch_residues") or []
+    if not isinstance(patch, list) or any(not isinstance(value, str) for value in patch):
+        fail("surface_patch_residues must be an array of target residue IDs such as B42.")
+    valid_residue = re.compile(r"^[^\d\s]-?\d+$")
+    if mode == "surface_scan":
+        if hotspots or patch or req.get("ori_token") is not None:
+            fail("surface_scan cannot include hotspots, broad-region residues, or a manual ori_token.")
+        req.pop("infer_ori_strategy", None)
+        req.pop("ori_token", None)
+    elif mode == "surface_patch":
+        if hotspots:
+            fail("surface_patch is positioning only; remove hotspot conditions or choose targeted_epitope.")
+        if not patch or any(not valid_residue.fullmatch(value.strip()) for value in patch):
+            fail("surface_patch requires explicit target residues such as B42 in surface_patch_residues.")
+        if any(value.strip()[0] not in chains for value in patch):
+            fail("Every broad-region residue must belong to a selected target chain.")
+        req.pop("infer_ori_strategy", None)
+        req.pop("ori_token", None)
+    elif mode == "targeted_epitope":
+        if not hotspots:
+            fail("targeted_epitope requires at least one explicit hotspot condition.")
+        if patch or req.get("ori_token") is not None:
+            fail("targeted_epitope cannot also use broad-region residues or a manual ori_token.")
+        req["infer_ori_strategy"] = "hotspots"
+        req.pop("ori_token", None)
+    else:
+        xyz = req.get("ori_token")
+        if (not isinstance(xyz, list) or len(xyz) != 3
+                or any(not isinstance(value, (int, float)) or not math.isfinite(value)
+                       for value in xyz)):
+            fail("manual binding-site placement requires a finite three-number ori_token.")
+        if hotspots or patch:
+            fail("manual placement cannot also use hotspot or broad-region selections.")
+        req.pop("infer_ori_strategy", None)
+    req["binding_site_mode"] = mode
+
+
+def prepare_surface_origins(req: dict, campaign: Path) -> Path | None:
+    if req.get("target_kind") != "protein" or req.get("design_mode", "deNovo") != "deNovo":
+        return None
+    mode = req.get("binding_site_mode")
+    if mode not in {"surface_scan", "surface_patch"}:
+        return None
+    try:
+        from surface_origins import plan_surface_patch, plan_surface_scan
+        if mode == "surface_scan":
+            origins = plan_surface_scan(req["target_structure"], req["target_chains"],
+                                        req["num_backbones"])
+        else:
+            origins = plan_surface_patch(req["target_structure"], req["target_chains"],
+                                         req["surface_patch_residues"])
+    except (OSError, ValueError) as exc:
+        fail(f"Could not place protein-surface origins: {exc}")
+    path = campaign / "config" / "surface_origins.json"
+    path.write_text(json.dumps({
+        "binding_site_mode": mode,
+        "target_structure": req["target_structure"],
+        "origins": origins,
+    }, indent=2) + "\n")
+    return path
 
 
 def main() -> None:
@@ -450,6 +544,8 @@ def main() -> None:
         original_target_structure = req["target_structure"]
         target_chain_map = normalize_protein_target(req, campaign)
 
+    origins_file = prepare_surface_origins(req, campaign)
+
     conformers = req.get("conformers") or []
     if conformers:
         missing = [c["path"] for c in conformers if not Path(c["path"]).exists()]
@@ -467,6 +563,7 @@ def main() -> None:
         "design_name": req["design_name"],
         "design_mode": req.get("design_mode", "deNovo"),
         "design_yaml": str(design_yaml),
+        "origins_file": str(origins_file) if origins_file else None,
         "component_id": req.get("component_id"),
         "lengths": req["lengths"],
         "num_backbones": req["num_backbones"],
@@ -506,6 +603,7 @@ def main() -> None:
             config["ccd_mirror"] = req["ccd_mirror"]
     else:
         config["target_kind"] = "protein"
+        config["binding_site_mode"] = req.get("binding_site_mode")
         config["rfd3_root"] = str(rfd3_root)
         config["nanohunter_root"] = req["nanohunter_root"]
         config["target_sequence"] = req.get("target_sequence", "")
@@ -532,10 +630,13 @@ def main() -> None:
     # Cheap, GPU-free validation: design_from_yaml's preflight resolves every
     # selection key and atom name against the input structure. A mistyped atom
     # fails here in a second instead of minutes into Foundry.
+    check_cmd = [sys.executable, str(rfd3_root / "scripts" / "design_from_yaml.py"), str(design_yaml),
+                 "--name", req["design_name"], "--output", str(campaign),
+                 "--lengths", ",".join(map(str, req["lengths"])), "--stage", "check"]
+    if origins_file:
+        check_cmd += ["--origins", str(origins_file)]
     check = subprocess.run(
-        [sys.executable, str(rfd3_root / "scripts" / "design_from_yaml.py"), str(design_yaml),
-         "--name", req["design_name"], "--output", str(campaign),
-         "--lengths", ",".join(map(str, req["lengths"])), "--stage", "check"],
+        check_cmd,
         cwd=rfd3_root, capture_output=True, text=True,
         env={**_env(), "DEBUG": "false", "TOKENIZERS_PARALLELISM": "false",
              **({"CCD_MIRROR_PATH": str(ccd_mirror)} if ccd_mirror else {})},

@@ -50,6 +50,13 @@ not reinvent it, and do not silently diverge from its defaults**.
 See `docs/CLI.md`. Start with `bash "$ROOT/setup_pipeline.sh" --detect` and never
 assume an engine is installed.
 
+For MCP-driven work, call `workflow_guide` before a scientific plan. Protein
+de-novo binders default to SolubleMPNN; LASErMPNN/LigandMPNN are restricted to
+small-molecule interfaces. Omit the protein de-novo contig so Studio derives it,
+complete a 1–5-backbone end-to-end smoke run before a new campaign over 10, and
+diagnose `job_status.error`/`pipeline_log_tail` before changing settings or
+requesting arbitrary filesystem access.
+
 For Codex, Claude Code, or another MCP client, use the shipped client-neutral
 bridge under `$ROOT/mcp/`. Keep the `read`, `run`, and normally disabled `admin`
 profiles separate. Expensive work must go through a preflight plan and

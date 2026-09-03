@@ -74,8 +74,13 @@ def shard_and_predict(nise_lib, yaml_paths: list[Path], work_dir: Path, use_pote
     return results
 
 
-def prediction_row(name: str, pred, manifest_entry: dict, wall_sec: float) -> dict:
-    row = {"name": name, "wall_sec": wall_sec, **manifest_entry}
+def prediction_row(name: str, pred, manifest_entry: dict, wall_sec: float,
+                   prediction_context: str) -> dict:
+    # This runner is Boltz-only. Persist that fact on every row instead of
+    # relying on a later GUI to infer an engine from the directory layout.
+    row = {"name": name, "wall_sec": wall_sec,
+           "predictor": "boltz", "prediction_context": prediction_context,
+           **manifest_entry}
     if pred is None:
         row["ok"] = False
         return row
@@ -136,6 +141,8 @@ def main() -> None:
     parser.add_argument("--use-potentials", action="store_true", default=True)
     parser.add_argument("--no-use-potentials", dest="use_potentials", action="store_false")
     parser.add_argument("--nanohunter-root", type=Path)
+    parser.add_argument("--prediction-context", choices=("complex", "binder_alone"),
+                        help="durable provenance for whether inputs contain the binding partner")
     args = parser.parse_args()
 
     pipeline_root = args.nanohunter_root or default_root()
@@ -143,6 +150,8 @@ def main() -> None:
     nise_lib = studio_runtime
 
     inputs = args.inputs.resolve()
+    prediction_context = args.prediction_context or (
+        "binder_alone" if inputs.name.lower() in {"apo", "monomer"} else "complex")
     manifest_path = inputs / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     yaml_paths = sorted(inputs.glob("*.yaml"))
@@ -168,6 +177,9 @@ def main() -> None:
             expected_names = {path.stem for path in chunk}
             cached_names = {row.get("name") for row in cached}
             if cached_names == expected_names and all(row.get("ok") for row in cached):
+                for row in cached:
+                    row.setdefault("predictor", "boltz")
+                    row.setdefault("prediction_context", prediction_context)
                 all_rows.extend(cached)
                 print(f"chunk {ci}: cached ({len(chunk)} successful designs)")
                 continue
@@ -177,7 +189,8 @@ def main() -> None:
         wall = time.time() - started
         per_design = wall / len(chunk)
         rows = [
-            prediction_row(path.stem, results.get(path.stem), manifest.get(path.stem, {}), per_design)
+            prediction_row(path.stem, results.get(path.stem), manifest.get(path.stem, {}),
+                           per_design, prediction_context)
             for path in chunk
         ]
         manifest_out.write_text(json.dumps(rows, indent=2) + "\n")
@@ -196,6 +209,7 @@ def main() -> None:
     run_manifest = {
         "num_designs": len(all_rows), "num_failures": failures, "parallel": parallel,
         "chunk_size": args.chunk_size, "use_potentials": args.use_potentials, "wall_sec": campaign_wall,
+        "predictor": "boltz", "prediction_context": prediction_context,
     }
     (output / "run_manifest.json").write_text(json.dumps(run_manifest, indent=2) + "\n")
     print(f"completed {len(all_rows)} predictions ({failures} failed) -> {output / 'prediction_metrics.csv'}")

@@ -3,13 +3,30 @@ import Foundation
 // RunResult.swift only needs this enum from the history layer. Keeping the
 // harness focused avoids pulling ObservableObject/AppState into a file-layout
 // contract test.
-enum StudioWorkflow: String {
+enum StudioWorkflow: String, Codable {
     case iterative, rfdiffusion3, prediction
+    var label: String { rawValue }
 }
 
 @main
 struct PredictionResultsContractHarness {
     static func main() throws {
+        if CommandLine.arguments.count == 2 {
+            let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+            let results = RunResultsLoader.load(root: root, workflow: .rfdiffusion3)
+            let backbones = results.filter { $0.stage == .generatedBackbone }.count
+            let complexes = results.filter { $0.subtitle.hasPrefix("Complex with ") }.count
+            let binders = results.filter { $0.subtitle.hasPrefix("Binder alone ·") }.count
+            let sources = Set(results.map(\.scoreSource)).sorted().joined(separator: ", ")
+            print("RFD3_RESULTS|total=\(results.count)|backbones=\(backbones)|complexes=\(complexes)|binders=\(binders)|sources=\(sources)")
+            guard backbones > 0, complexes > 0, binders > 0,
+                  !results.contains(where: { $0.scoreSource == "Prediction" }) else {
+                throw NSError(domain: "PredictionResultsContract", code: 9,
+                              userInfo: [NSLocalizedDescriptionKey:
+                                "Real campaign did not expose backbone, complex, binder-alone and exact engine provenance"])
+            }
+            return
+        }
         let fm = FileManager.default
         let root = fm.temporaryDirectory
             .appendingPathComponent("prediction-results-\(UUID().uuidString)", isDirectory: true)
@@ -113,6 +130,58 @@ struct PredictionResultsContractHarness {
         guard abs(RunResultsLoader.iterativeHitThreshold(root: iterative) - 0.75) < 1e-12 else {
             throw NSError(domain: "PredictionResultsContract", code: 7,
                           userInfo: [NSLocalizedDescriptionKey: "Recorded iterative hit threshold was not restored"])
+        }
+
+        // A completed ligand RFdiffusion3 campaign historically wrote only
+        // the holo path to top100_manifest.json even though apo folds existed.
+        // The browser must recover all three scientific artifacts and the
+        // implicit Boltz provenance from the durable checkpoint tables.
+        let rfd3 = fm.temporaryDirectory
+            .appendingPathComponent("rfd3-results-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fm.removeItem(at: rfd3) }
+        for relative in ["rfd3/backbones", "predictions/holo", "predictions/apo",
+                         "analysis", "config"] {
+            try fm.createDirectory(at: rfd3.appendingPathComponent(relative),
+                                   withIntermediateDirectories: true)
+        }
+        let backbone = rfd3.appendingPathComponent("rfd3/backbones/design_0001.pdb")
+        let holo = rfd3.appendingPathComponent("predictions/holo/design_0001_0.pdb")
+        let apo = rfd3.appendingPathComponent("predictions/apo/design_0001_0.pdb")
+        for structure in [backbone, holo, apo] {
+            try "ATOM\n".write(to: structure, atomically: true, encoding: .utf8)
+        }
+        try "design,backbone_pdb,ca_valid_pct\ndesign_0001,\(backbone.path),100\n"
+            .write(to: rfd3.appendingPathComponent("rfd3/backbone_metrics.csv"),
+                   atomically: true, encoding: .utf8)
+        try "design,name,ok,pdb,complex_plddt,iptm\ndesign_0001,design_0001_0,True,\(holo.path),0.91,0.82\n"
+            .write(to: rfd3.appendingPathComponent("predictions/holo/prediction_metrics.csv"),
+                   atomically: true, encoding: .utf8)
+        try "design,name,ok,pdb,complex_plddt,iptm\ndesign_0001,design_0001_0,True,\(apo.path),0.88,0\n"
+            .write(to: rfd3.appendingPathComponent("predictions/apo/prediction_metrics.csv"),
+                   atomically: true, encoding: .utf8)
+        try "design,name,holo_vs_apo_ca_rmsd\ndesign_0001,design_0001_0,1.25\n"
+            .write(to: rfd3.appendingPathComponent("analysis/rmsd_metrics.csv"),
+                   atomically: true, encoding: .utf8)
+        let ranked: [[String: Any]] = [[
+            "design": "design_0001", "name": "design_0001_0",
+            "sequence": "AAAA", "pdb": holo.path, "iptm": 0.82, "score": 0.9,
+        ]]
+        try JSONSerialization.data(withJSONObject: ranked).write(
+            to: rfd3.appendingPathComponent("analysis/top100_manifest.json"))
+        try JSONSerialization.data(withJSONObject: ["target_kind": "small_molecule"]).write(
+            to: rfd3.appendingPathComponent("config/campaign.json"))
+
+        let rfd3Results = RunResultsLoader.load(root: rfd3, workflow: .rfdiffusion3)
+        guard rfd3Results.count == 3,
+              rfd3Results.contains(where: { $0.stage == .generatedBackbone
+                  && $0.scoreSource == "RFdiffusion3 MLX" }),
+              rfd3Results.contains(where: { $0.subtitle == "Complex with ligand · Boltz-2" }),
+              rfd3Results.contains(where: { $0.subtitle == "Binder alone · Boltz-2"
+                  && $0.metrics.contains { $0.kind == .binderPLDDT && abs($0.value - 0.88) < 1e-12 }
+                  && $0.metrics.contains { $0.kind == .binderRMSD && abs($0.value - 1.25) < 1e-12 } }) else {
+            throw NSError(domain: "PredictionResultsContract", code: 8,
+                          userInfo: [NSLocalizedDescriptionKey:
+                            "RFD3 browser lost backbone/holo/apo artifacts or provenance: \(rfd3Results.map { "\($0.subtitle):\($0.scoreSource):\($0.metrics)" })"])
         }
         print("PASS prediction result discovery contract")
     }

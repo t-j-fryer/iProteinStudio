@@ -68,11 +68,11 @@ def main() -> None:
     lengths = bin_lengths(args.min_length, args.max_length, args.num_bins)
     quotas = allocate_quota(args.num_designs, len(lengths))
 
-    oracle_dir = ROOT / "oracle"
-    oracle_dir.mkdir(exist_ok=True)
     output = args.output.resolve()
     rfd3_dir = output / "rfd3"
     rfd3_dir.mkdir(parents=True, exist_ok=True)
+    oracle_dir = rfd3_dir / "fixtures"
+    oracle_dir.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
     env.update({"DEBUG": "false", "TOKENIZERS_PARALLELISM": "false", "CCD_MIRROR_PATH": ccd_mirror})
@@ -94,6 +94,7 @@ def main() -> None:
                 "--name", name, "--input_json", str(input_json_path),
                 "--timesteps", str(args.timesteps), "--n_recycle", str(args.n_recycle),
                 "--seed", str(args.seed_base + i),
+                "--output-dir", str(oracle_dir),
             ]
             started = time.time()
             log_path = rfd3_dir / f"fixture_{name}.log"

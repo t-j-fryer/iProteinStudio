@@ -44,7 +44,7 @@ for src in "${UPSTREAM}"/mlx_port/*.py; do
     sampler.py) cp "${src}" "${VENDOR}/mlx_port/"; count=$((count + 1)) ;;
   esac
 done
-for extra in milestone0_oracle.py export_weights.py install_rfd3.sh requirements-rfd3.txt rfd3_env.sh; do
+for extra in milestone0_oracle.py export_weights.py rfd3_weight_set.py install_rfd3.sh requirements-rfd3.txt rfd3_env.sh; do
   [[ -f "${UPSTREAM}/${extra}" ]] && cp "${UPSTREAM}/${extra}" "${VENDOR}/" && count=$((count + 1))
 done
 

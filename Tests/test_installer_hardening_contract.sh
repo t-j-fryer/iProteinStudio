@@ -60,9 +60,9 @@ NANOHUNTER_ROOT="${TEST_ROOT}/stale" NANOHUNTER_VENV_PREFIX=Test \
 [[ ! -e "${TEST_ROOT}/stale/.install.lock" ]] \
   || fail "stale installer lock was not released"
 
-# RFdiffusion3 can be scientifically complete even when an old receipt-only
-# failure ended setup. Surface that as a repairable update instead of silently
-# claiming the transactional install finished.
+# A file named like RFdiffusion3 weights is not enough: old Studio builds
+# exported the raw network. Detection (shared by the app and MCP) must reject
+# missing/incorrect EMA provenance before any campaign can claim readiness.
 make_executable "${TEST_ROOT}/rfd3-receipt/rfd3/.venv/bin/python"
 mkdir -p "${TEST_ROOT}/rfd3-receipt/rfd3/checkpoints" \
   "${TEST_ROOT}/rfd3-receipt/rfd3/weights"
@@ -71,8 +71,26 @@ printf 'weights\n' > "${TEST_ROOT}/rfd3-receipt/rfd3/weights/rfd3_core.safetenso
 rfd3_receipt_output="$(NANOHUNTER_ROOT="${TEST_ROOT}/rfd3-receipt" \
   NANOHUNTER_VENV_PREFIX=Test bash "${SETUP}" --detect)"
 printf '%s\n' "${rfd3_receipt_output}" | grep -Fq \
+  'NHSTATE|rfd3|update|exported weights are not verified EMA shadow weights; repair RFdiffusion3 before use' \
+  || fail "unverified RFdiffusion3 weights were reported as usable"
+
+# A verified EMA artifact remains usable when only the final receipt write was
+# interrupted; setup should offer to finalize provenance rather than hide it.
+cp "$(dirname "${SETUP}")/../rfd3_overlay/rfd3_weight_set.py" \
+  "${TEST_ROOT}/rfd3-receipt/rfd3/rfd3_weight_set.py"
+python3 - "${TEST_ROOT}/rfd3-receipt/rfd3/weights/rfd3_core.safetensors" <<'PY'
+import json, pathlib, struct, sys
+path = pathlib.Path(sys.argv[1])
+header = json.dumps({"__metadata__": {
+    "source": "rfd3_latest.ckpt", "weight_set": "shadow", "which": "shadow (EMA)"
+}}, separators=(",", ":")).encode()
+path.write_bytes(struct.pack("<Q", len(header)) + header)
+PY
+rfd3_receipt_output="$(NANOHUNTER_ROOT="${TEST_ROOT}/rfd3-receipt" \
+  NANOHUNTER_VENV_PREFIX=Test bash "${SETUP}" --detect)"
+printf '%s\n' "${rfd3_receipt_output}" | grep -Fq \
   'NHSTATE|rfd3|update|engine is usable; installation provenance still needs finalizing' \
-  || fail "receipt-less but usable RFdiffusion3 was not offered a repair"
+  || fail "receipt-less verified RFdiffusion3 was not offered a repair"
 
 # A failed dependency install leaves only a private, uncommitted transaction
 # stage. A retry must remove that owned stage before creating the replacement,

@@ -45,6 +45,10 @@ def main() -> None:
     run_mpnn = load("run_mpnn_contract", OVERLAY / "run_mpnn.py")
     prepare_inputs = load("prepare_inputs_contract", OVERLAY / "prepare_predictor_inputs.py")
     score = load("score_contract", OVERLAY / "score_and_select.py")
+    ligand_campaign = load("ligand_campaign_contract", OVERLAY / "run_rfd3_nise_campaign.py")
+    boltz_batch = load("boltz_batch_contract", OVERLAY / "run_boltz_affinity.py")
+    design_from_yaml = load("design_from_yaml_contract", OVERLAY / "design_from_yaml.py")
+    backbone_bins = load("backbone_bins_contract", OVERLAY / "run_backbone_bins.py")
     predict = load("predict_contract", RFD3 / "predict_batch.py")
     prepare = load("prepare_contract", RFD3 / "prepare_campaign.py")
     protein_campaign = load("protein_campaign_contract", RFD3 / "rfd3_protein_campaign.py")
@@ -59,6 +63,96 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory(prefix="iproteinstudio-workflow-contract-") as raw:
         root = Path(raw)
+
+        # GUI-prepared small-molecule campaigns already own the durable files
+        # that the standalone runner normally imports.  Both in-place inputs
+        # must survive runner startup, while genuinely external inputs retain
+        # the historical copy behaviour.
+        in_place = root / "campaign" / "config" / "design.yaml"
+        in_place.parent.mkdir(parents=True)
+        in_place.write_text("design: {}\n")
+        ligand_campaign.preserve_config_input(in_place, in_place)
+        expect(in_place.read_text() == "design: {}\n",
+               "small-molecule runner did not preserve an in-place GUI config")
+        external = root / "external.smi"
+        external.write_text("CCO\n")
+        copied = in_place.parent / "ligand.smi"
+        ligand_campaign.preserve_config_input(external, copied)
+        expect(copied.read_text() == "CCO\n",
+               "small-molecule runner stopped importing external provenance inputs")
+        runner_config = in_place.parent / "campaign.json"
+        runner_config.write_text(json.dumps({
+            "campaign_dir": str(in_place.parents[1]),
+            "design_yaml": str(in_place),
+            "smiles_file": str(copied),
+            "run_apo": True,
+        }))
+        called = []
+        original_argv = sys.argv
+        original_validate = ligand_campaign.stage_validate
+        try:
+            sys.argv = ["run_rfd3_nise_campaign.py", "--config", str(runner_config),
+                        "--stage", "validate"]
+            ligand_campaign.stage_validate = (
+                lambda cfg, campaign, logs: called.append((campaign, logs))
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                ligand_campaign.main()
+        finally:
+            sys.argv = original_argv
+            ligand_campaign.stage_validate = original_validate
+        expect(len(called) == 1
+               and json.loads((in_place.parents[1] / "campaign_progress.json").read_text())[
+                   "completed_stages"] == ["validate"],
+               "small-molecule runner main did not start from GUI in-place config inputs")
+
+        provenance_row = boltz_batch.prediction_row(
+            "design_0001", None, {"design": "design_0001"}, 1.0, "binder_alone")
+        expect(provenance_row["predictor"] == "boltz"
+               and provenance_row["prediction_context"] == "binder_alone",
+               "small-molecule verification did not persist engine/context provenance")
+
+        # Two projects can share a display name while targeting different
+        # molecules or modalities. Their Foundry fixtures must remain inside
+        # their campaigns instead of colliding in one name-keyed global cache.
+        fixture_commands = []
+        original_fixture_run = design_from_yaml.subprocess.run
+        try:
+            def fake_fixture_run(command, **_kwargs):
+                fixture_commands.append(command)
+                return SimpleNamespace(returncode=0)
+            design_from_yaml.subprocess.run = fake_fixture_run
+            fixture_campaign = root / "fixture-campaign"
+            manifest_path = design_from_yaml.build_fixtures(
+                {"input": str(external), "ligand": "LIG"},
+                {"num_designs": 1, "timesteps": 20, "n_recycle": 1,
+                 "seed_base": 0},
+                "shared_display_name", [70], fixture_campaign, {}, False,
+            )
+        finally:
+            design_from_yaml.subprocess.run = original_fixture_run
+        fixture_manifest = json.loads(manifest_path.read_text())
+        fixture_path = Path(fixture_manifest["bins"][0]["fixture"])
+        expect(fixture_path.parent == fixture_campaign / "rfd3" / "fixtures"
+               and "--output-dir" in fixture_commands[0]
+               and Path(fixture_commands[0][fixture_commands[0].index("--output-dir") + 1])
+               == fixture_path.parent,
+               "RFD3 fixture cache is still global and vulnerable to cross-modal name collisions")
+        legacy_bins_source = (OVERLAY / "build_length_bins.py").read_text()
+        expect('rfd3_dir / "fixtures"' in legacy_bins_source
+               and '"--output-dir", str(oracle_dir)' in legacy_bins_source,
+               "legacy ligand campaigns still share a global fixture cache")
+        expect(design_from_yaml.allocate_weighted(1, [0.41, 0.38, 0.12, 0.09])
+               == [1, 0, 0, 0]
+               and sum(design_from_yaml.allocate_weighted(8, [0.41, 0.38, 0.12, 0.09])) == 8,
+               "multi-conformer quota allocation can still lose or invent designs")
+        expect(backbone_bins.bin_directory_name(
+                   {"bin_index": 2, "length": 70}, {70}
+               ) == "bin002_L70"
+               and backbone_bins.bin_directory_name(
+                   {"bin_index": 2, "length": 70}, set()
+               ) == "L70",
+               "same-length conformers still share one backbone queue directory")
 
         # Every overlay helper must be callable from a clean source checkout.
         # Root detection belongs after argument parsing; otherwise even --help
@@ -574,6 +668,25 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
             else:
                 raise AssertionError(f"retired campaign checker {retired} passed validation")
 
+        invalid_precision = {
+            "target_kind": "small_molecule", "design_mode": "deNovo",
+            "lengths": [65], "num_backbones": 1, "batch_size": 1,
+            "queues_per_bin": 1, "timesteps": 1,
+            "sequences_per_backbone": 1, "top_n": 1,
+            "sequence_model": "lasermpnn", "component_id": "ABC",
+            "smiles": "CCO", "ligand_source": "smiles",
+            "extra_predictors": [], "precision": "float32",
+        }
+        captured = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(captured):
+                prepare.validate_request(invalid_precision)
+        except SystemExit:
+            expect("precision must be bf16 or fp32" in captured.getvalue(),
+                   "campaign precision failure was not actionable")
+        else:
+            raise AssertionError("an unsupported RFD3 precision reached the runner")
+
             try:
                 protein_campaign.verification_predictors(
                     {"extra_predictors": [retired]})
@@ -660,6 +773,26 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
                [("B", "ALA"), ("C", "GLY")],
                "mmCIF target normalization did not reserve A and retain target order")
 
+        # Agents should never need to assemble Foundry's contig grammar.  The
+        # exact RFdiffusion1-style value seen in the Claude trial reached the
+        # fixtures stage before failing; campaign preparation now derives the
+        # canonical binder-first, comma-delimited form from normalized chains.
+        derived_request = {
+            "design_name": "protein-binder",
+            "target_kind": "protein",
+            "design_mode": "deNovo",
+            "target_structure": str(normalized),
+            "target_chains": ["B", "C"],
+            "normalized_chain_ranges": {"B": "B1-1", "C": "C1-1"},
+            "lengths": [45, 75],
+            "conditions": {},
+        }
+        derived_yaml = prepare.write_design_yaml(
+            derived_request, root / "derived-campaign", None, None
+        ).read_text()
+        expect('contig: "45-75,/0,B1-1,/0,C1-1"' in derived_yaml,
+               "protein de-novo YAML did not derive canonical binder-first contig grammar")
+
         source_ab = root / "source-ab.pdb"
         source_ab.write_text("\n".join([
             pdb_atom(1, "CA", "ALA", "A", 1, 0, 0, 0, "C"),
@@ -670,6 +803,7 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
             "target_structure": str(source_ab), "target_chain": "A,B",
             "target_chains": ["A", "B"], "contig": "A1-1,/0,B1-1",
             "conditions": {"A1": ["hotspot"], "B1": ["hotspot"]},
+            "surface_patch_residues": ["A1", "B1"],
         }
         chain_map = prepare.normalize_protein_target(remap_request, root / "remap-campaign")
         expect(chain_map == {"A": "B", "B": "C"}
@@ -677,6 +811,8 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
                and remap_request["contig"] == "B1-1,/0,C1-1"
                and set(remap_request["conditions"]) == {"B1", "C1"},
                "RFdiffusion3 did not remap supplied A/B chains atomically around reserved binder A")
+        expect(remap_request["surface_patch_residues"] == ["B1", "C1"],
+               "RFdiffusion3 did not remap broad surface-region residues")
 
         complex_source = root / "complex.fasta"
         complex_source.write_text(">complex\nACDEFG:KLMNPQ:RSTVWY\n")

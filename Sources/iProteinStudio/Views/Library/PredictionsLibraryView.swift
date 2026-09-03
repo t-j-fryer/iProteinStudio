@@ -5,11 +5,11 @@ import AppKit
 struct PredictionsLibraryView: View {
     @EnvironmentObject var app: AppState
     @EnvironmentObject var predictions: PredictionStore
+    @Environment(\.openWindow) private var openWindow
     var onClose: () -> Void
 
     @State private var selection = Set<String>()
     @State private var confirmClear = false
-    @State private var selectedRun: StudioRunRecord?
     @State private var renamingPrediction: PredictionRecord?
     @State private var renameText = ""
     @State private var deletingPrediction: PredictionRecord?
@@ -32,7 +32,11 @@ struct PredictionsLibraryView: View {
                     if !predictionRuns.isEmpty {
                         Section("Prediction runs") {
                             ForEach(predictionRuns) { run in
-                                PredictionRunRow(record: run) { selectedRun = run }
+                                PredictionRunRow(record: run) {
+                                    openWindow(value: RunResultsWindowRequest(
+                                        root: run.root, workflow: .prediction,
+                                        title: "\(run.name) results"))
+                                }
                             }
                         }
                     }
@@ -59,10 +63,6 @@ struct PredictionsLibraryView: View {
         }
         .frame(width: 720, height: 560)
         .onAppear { app.history.refresh(projects: app.projects) }
-        .sheet(item: $selectedRun) { run in
-            RunResultsView(root: run.root, workflow: .prediction,
-                           title: "\(run.name) results")
-        }
         .sheet(item: $renamingPrediction) { record in
             NameEditorSheet(
                 title: "Rename Prediction",

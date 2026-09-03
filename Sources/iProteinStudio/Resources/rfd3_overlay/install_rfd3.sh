@@ -7,7 +7,7 @@ CKPT="${ROOT}/checkpoints/rfd3_latest.ckpt"
 WEIGHTS="${ROOT}/weights/rfd3_core.safetensors"
 CKPT_URL="https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt"
 CKPT_SHA="9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1"
-WEIGHTS_SHA="0beb87ff872d946a8af58428ae7c679eb364057bf12df77dba5994f6a0f1271b"
+WEIGHTS_SHA="736e6f5e11ec70dea58903deb2290031e366d2b0b2478e63208a2541650a04d6"
 VERIFIED_DOWNLOADER="${IPROTEINSTUDIO_DOWNLOADER:-${ROOT}/scripts/download_verified.py}"
 UV_BIN="${IPROTEINSTUDIO_UV_BIN:-$(command -v uv 2>/dev/null || true)}"
 PYTHON_SPEC="${IPROTEINSTUDIO_PYTHON_BIN:-3.12}"
@@ -35,6 +35,11 @@ check_sha() {
   }
 }
 
+check_ema_weights() {
+  [[ -x "${VENV}/bin/python" && -f "${ROOT}/rfd3_weight_set.py" ]] || return 1
+  "${VENV}/bin/python" "${ROOT}/rfd3_weight_set.py" --check-artifact "${WEIGHTS}"
+}
+
 if [[ "${CHECK_ONLY}" -eq 0 ]]; then
   [[ -x "${UV_BIN}" ]] || { echo "Studio's pinned uv is missing." >&2; exit 1; }
   [[ -x "${VENV}/bin/python" ]] \
@@ -59,7 +64,9 @@ fi
 
 if [[ -f "${CKPT}" ]]; then
   check_sha "${CKPT}" "${CKPT_SHA}"
-  if [[ "${CHECK_ONLY}" -eq 0 ]] && ! check_sha "${WEIGHTS}" "${WEIGHTS_SHA}" >/dev/null 2>&1; then
+  if [[ "${CHECK_ONLY}" -eq 0 ]] \
+     && { ! check_sha "${WEIGHTS}" "${WEIGHTS_SHA}" >/dev/null 2>&1 \
+          || ! check_ema_weights >/dev/null 2>&1; }; then
     rm -f "${WEIGHTS}"
     env DEBUG=false TOKENIZERS_PARALLELISM=false caffeinate -dimsu \
       "${VENV}/bin/python" "${ROOT}/export_weights.py"
@@ -83,4 +90,6 @@ check_sha "${CKPT}" "${CKPT_SHA}" || exit 1
 echo "Official checkpoint checksum: OK"
 check_sha "${WEIGHTS}" "${WEIGHTS_SHA}" || exit 1
 echo "MLX weight checksum: OK"
+check_ema_weights || exit 1
+echo "MLX weight provenance: EMA shadow"
 echo "RFD3 installation check complete."

@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-09-02_
+_Last updated: 2026-09-03_
 
 | | |
 |---|---|
@@ -24,7 +24,8 @@ with its alignment included, and fluorescein), workspace management, a
 prediction-only tab that reuses every alignment on the machine, nanobody/mini-binder/peptide design form,
 live metrics dashboard, hits gallery, offline py2Dmol structure viewer with visual controls, target prep,
 predictions library, a unified in-app structure/metric browser for completed
-Predict, iterative and RFdiffusion3 runs, persistent per-workspace run history and
+Predict, iterative and RFdiffusion3 runs in movable, resizable result windows,
+persistent per-workspace run history and
 a global Activity panel with exact checkpoint Resume for newly recorded iterative campaigns.
 Protein multimers now report conservative PAE-derived ipSAE(min) from Boltz,
 IntelliFold or Protenix in saved outputs and the GUI; OpenFold is excluded because
@@ -36,6 +37,13 @@ Protein sequence fields share one colon-separated multimer syntax and display th
 resolved chain map. Predict uses A/B/C input order; binder-design workflows reserve
 A and keep targets as B/C/D, with distinct query-validated MSAs per target subunit.
 RFdiffusion3 normalizes selected external PDB/mmCIF chains into that convention.
+Its live and completed result browser retains generated MLX backbones alongside
+complex and binder-alone predictions, with the emitting engine identified.
+Protein de-novo campaigns now use explicit whole-surface, broad-region,
+targeted-epitope, or advanced manual-XYZ placement. An unspecified site maps to
+reproducible solvent-surface coverage, never the fixed protein centre of mass;
+broad-region residues are positioning anchors rather than hidden hotspots
+(Entry 0077).
 
 **Also working:** Ligand Intelligence — chemistry QA, recognition-core vs linker
 separation, conformer ensembles weighed against experimental PDB structures, and a
@@ -59,6 +67,17 @@ Codex and Claude can use the same local least-privilege MCP bridge to inspect
 managed projects, freeze reproducible plans and run resumable workflows without
 an arbitrary shell; immutable runner provenance and one shared agent execution
 lock protect cross-client campaigns (Entry 0069).
+The run profile now includes its own read/result tools, and MCP result queries
+surface generated MLX backbones, complex predictions, binder-alone predictions
+and their engine/context provenance, including bounded compatibility labels for
+older Studio runs (Entry 0075).
+The bridge now serves universal workflow guidance, derives protein de-novo
+contigs inside the pinned MLX adapter boundary, enforces protein/small-molecule
+model routing and returns the real pipeline and RFdiffusion3 stage errors instead
+of inviting agents to guess or request arbitrary folder access (Entry 0071).
+The cross-modal executable audit in Entry 0073 additionally makes ligand
+campaign startup same-file-safe, stores Foundry fixtures with each campaign,
+and separates same-length conformer queues while preserving exact design quotas.
 The app now installs or removes Codex and Claude Desktop access with explicit
 buttons, and an opt-in capability-authenticated loopback gateway provides the
 local half of ChatGPT/phone delegation without silently publishing the Mac
@@ -140,6 +159,13 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0077 | 2026-09-03 | [Add explicit protein-surface origin modes](lab_book/0077-add-explicit-protein-surface-origin-modes.md) | Replaces unsafe protein-COM/empty-hotspot placement with reproducible whole-surface coverage, broad-region positioning without hotspot conditioning, exact epitope hotspots, and hidden manual XYZ across GUI, MLX fixtures and MCP v5. |
+| 0076 | 2026-09-03 | [Enforce RFdiffusion3 EMA weight provenance](lab_book/0076-enforce-rfd3-ema-weight-provenance.md) | Replaces the accidentally pinned raw MLX network with Foundry's verified EMA shadow artifact and makes export, installation, GUI, MCP detection and inference fail closed on provenance. |
+| 0075 | 2026-09-03 | [Package RFdiffusion3 result parity for GUI and MCP](lab_book/0075-package-rfd3-result-parity-for-gui-and-mcp.md) | Builds and verifies the 0.2.0 (13) app bundle, packages MCP v4, and gives run-profile agents complete RFdiffusion3 backbone/complex/binder-alone result discovery with explicit provenance. |
+| 0074 | 2026-09-02 | [Make RFdiffusion3 results complete, live and movable](lab_book/0074-make-rfd3-results-complete-and-movable.md) | Replaces popover-bound result sheets with a real window, restores generated/complex/binder-alone structures from live and completed RFD3 checkpoints, and persists the exact prediction engine and context. |
+| 0073 | 2026-09-02 | [Audit executable workflows across modalities](lab_book/0073-audit-executable-workflows-across-modalities.md) | Exercises the real installed ligand RFD3→LASErMPNN boundary, eliminates cross-target fixture reuse and conformer queue collisions, and records the passing prediction, iterative, partial, motif, results, MCP, installer and Swift contracts plus explicit limits. |
+| 0072 | 2026-09-02 | [Diagnose the small-molecule RFdiffusion3 launch copy failure](lab_book/0072-diagnose-small-molecule-rfd3-launch-copy.md) | Shows that the fluorescein GUI campaign stops before RFdiffusion because the small-molecule runner copies already-in-place config files onto themselves; the protein contig repair is unrelated. |
+| 0071 | 2026-09-02 | [Make agent RFdiffusion3 guidance fail-safe](lab_book/0071-make-agent-rfd3-guidance-fail-safe.md) | Turns the first Claude MCP trial into enforced protein-model routing, server-served workflow guidance, derived MLX contigs, smoke-run policy and actionable managed failure logs. |
 | 0070 | 2026-09-02 | [Add one-click AI clients and a private remote gateway](lab_book/0070-add-one-click-ai-and-private-remote-gateway.md) | Moves Codex and Claude Desktop registration into explicit UI controls and adds a read/run-only authenticated loopback transport for remote clients while keeping public HTTPS exposure a separate user choice. |
 | 0069 | 2026-09-02 | [Add a client-neutral agent bridge](lab_book/0069-add-client-neutral-agent-bridge.md) | Gives Codex and Claude the same least-privilege MCP profiles, immutable plan/start contract, durable serialized workers, bounded results and non-destructive client configuration without exposing an arbitrary shell. |
 | 0068 | 2026-09-02 | [Reuse resident predictors for RFdiffusion3 validation](lab_book/0068-reuse-resident-predictors-for-rfd3-validation.md) | Applies the measured iterative-design scheduling policy to RFdiffusion3 complex and binder-only verification, with one resident MPS model per stage and the faster cycle-wave exception for full Protenix v2. |

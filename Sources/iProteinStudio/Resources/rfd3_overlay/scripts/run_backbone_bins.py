@@ -16,6 +16,7 @@ and records which bin/length each design came from.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import csv
 import json
 import subprocess
@@ -49,6 +50,12 @@ def split_quota(quota: int, n: int) -> list[int]:
     return [base + (1 if i < remainder else 0) for i in range(n)]
 
 
+def bin_directory_name(bin_spec: dict, repeated_lengths: set[int]) -> str:
+    length = int(bin_spec["length"])
+    return (f"bin{int(bin_spec['bin_index']):03d}_L{length}"
+            if length in repeated_lengths else f"L{length}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bin-manifest", type=Path, required=True)
@@ -71,14 +78,23 @@ def main() -> None:
     flat_dir.mkdir(exist_ok=True)
 
     bin_records = []
+    repeated_lengths = {
+        length for length, count in Counter(b["length"] for b in manifest["bins"]).items()
+        if count > 1
+    }
     for b in manifest["bins"]:
         length, quota, name = b["length"], b["quota"], b["name"]
-        bin_dir = output / f"L{length}"
+        # Several ligand conformers commonly share a binder length. They must
+        # not share a done marker, queues, or generated PDBs.
+        bin_dir = output / bin_directory_name(b, repeated_lengths)
         queue_dirs = [bin_dir / f"queue{q}" for q in range(args.queues_per_bin)]
         done_marker = bin_dir / "bin_done.json"
         if done_marker.exists():
             print(f"L{length}: cached ({quota} designs)")
-            bin_records.append(json.loads(done_marker.read_text()))
+            cached = json.loads(done_marker.read_text())
+            if b.get("origin"):
+                cached["origin"] = b["origin"]
+            bin_records.append(cached)
             continue
 
         quotas = split_quota(quota, args.queues_per_bin)
@@ -112,6 +128,7 @@ def main() -> None:
             "bin_index": b["bin_index"], "length": length, "quota": quota,
             "wall_sec": wall, "sec_per_design": wall / quota if quota else 0.0,
             "pdbs": [str(p) for p in pdbs],
+            "origin": b.get("origin"),
         }
         done_marker.write_text(json.dumps(record, indent=2) + "\n")
         bin_records.append(record)
@@ -128,7 +145,15 @@ def main() -> None:
             if link.exists() or link.is_symlink():
                 link.unlink()
             link.symlink_to(Path(pdb).resolve())
-            rows.append({"design": name, "design_index": index, "bin_length": record["length"], "backbone_pdb": str(link), "source_pdb": pdb})
+            origin = record.get("origin") or {}
+            rows.append({
+                "design": name, "design_index": index, "bin_length": record["length"],
+                "backbone_pdb": str(link), "source_pdb": pdb,
+                "origin_label": origin.get("label"),
+                "origin_xyz": origin.get("xyz"),
+                "origin_anchor_residues": origin.get("anchor_residues"),
+                "origin_placement_mode": origin.get("placement_mode"),
+            })
 
     with (output / "backbone_metrics.csv").open("w", newline="") as handle:
         # Merge in the per-design RFD3 metrics from each queue's own results/.

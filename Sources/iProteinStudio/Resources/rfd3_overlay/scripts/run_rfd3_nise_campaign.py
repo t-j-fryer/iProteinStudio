@@ -47,6 +47,21 @@ def count_csv(path: Path) -> int:
     return sum(1 for _ in csv.DictReader(path.open())) if path.exists() else 0
 
 
+def preserve_config_input(source: str | Path, destination: Path) -> None:
+    """Copy an external provenance input, or keep an in-place Studio input.
+
+    The standalone runner historically accepted configs stored outside the
+    campaign and copied their design YAML/SMILES into ``campaign/config``.
+    Studio's GUI preparer already writes those durable files there.  Calling
+    ``copy2`` on that in-place path raises SameFileError before any stage runs.
+    """
+    source_path = Path(source).expanduser().resolve()
+    destination_path = destination.expanduser().resolve()
+    if destination_path.exists() and source_path.samefile(destination_path):
+        return
+    shutil.copy2(source_path, destination_path)
+
+
 def design_cmd(cfg: dict, stage: str, campaign: Path) -> list[str]:
     cmd = [
         sys.executable, str(ROOT / "scripts" / "design_from_yaml.py"), cfg["design_yaml"],
@@ -148,6 +163,7 @@ def prepare_and_predict(cfg: dict, campaign: Path, logs: Path, mode: str) -> Non
         sys.executable, str(ROOT / "scripts" / "run_boltz_affinity.py"),
         "--inputs", str(yaml_dir), "--output", str(campaign / "predictions" / mode),
         "--chunk-size", str(cfg["boltz_chunk_size"]),
+        "--prediction-context", "complex" if mode == "holo" else "binder_alone",
     ]
     # Steering potentials roughly double Boltz's time; both directions are passed
     # explicitly so the recorded command says which was used.
@@ -226,8 +242,8 @@ def main() -> None:
     logs.mkdir(exist_ok=True)
     (campaign / "config").mkdir(exist_ok=True)
     (campaign / "config" / "resolved_campaign.json").write_text(json.dumps(cfg, indent=2) + "\n")
-    shutil.copy2(cfg["design_yaml"], campaign / "config" / "design.yaml")
-    shutil.copy2(cfg["smiles_file"], campaign / "config" / "ligand.smi")
+    preserve_config_input(cfg["design_yaml"], campaign / "config" / "design.yaml")
+    preserve_config_input(cfg["smiles_file"], campaign / "config" / "ligand.smi")
 
     dispatch = {
         "validate": stage_validate, "fixtures": stage_fixtures, "backbones": stage_backbones,

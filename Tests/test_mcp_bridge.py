@@ -99,8 +99,10 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         )
         responses = [json.loads(line) for line in completed.stdout.splitlines()]
         self.assertEqual(responses[0]["result"]["serverInfo"]["name"], "iproteinstudio-read")
+        self.assertIn("Before planning scientific work call workflow_guide", responses[0]["result"]["instructions"])
         names = {tool["name"] for tool in responses[1]["result"]["tools"]}
         self.assertIn("results_query", names)
+        self.assertIn("workflow_guide", names)
         self.assertNotIn("job_start", names)
         self.assertEqual(responses[2]["result"]["structuredContent"]["projects"][0]["id"], "demo")
         projects_resource = json.loads(responses[3]["result"]["contents"][0]["text"])
@@ -156,6 +158,13 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         retry_job = broker.start_job(retry_plan["id"], retry_plan["sha256"])
         failed = self.wait_terminal(retry_job["id"])
         self.assertEqual(failed["status"], "failed", failed)
+        self.assertIn("status 3", failed["message"])
+        self.assertTrue(failed["pipeline_log_tail"], failed)
+        self.assertIn("PBSTAGE|predict", failed["error"])
+        saved = json.loads(broker.state_path(retry_job["id"]).read_text())
+        saved["message"] = "Workflow exited with status 3."
+        broker.state_path(retry_job["id"]).write_text(json.dumps(saved))
+        self.assertIn("PBSTAGE|predict", broker.load_state(retry_job["id"])["message"])
         (self.root / "retry-ready").write_text("ready\n")
         resumed = broker.resume_job(retry_job["id"])
         self.assertIn(resumed["status"], {"queued", "running"})
@@ -197,6 +206,87 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
             plans.rfd3_plan({"project": "demo", "request": {**base, "design_mode": "motifScaffolding", "motif_sites": {}}}, "motifScaffolding")
         motif = plans.rfd3_plan({"project": "demo", "request": {**base, "design_mode": "motifScaffolding", "motif_sites": {"A19": "CG,CE1,CZ"}}}, "motifScaffolding")
         self.assertEqual(motif["normalized_request"]["request"]["motif_sites"], {"A19": "CG,CE1,CZ"})
+
+        denovo = {key: value for key, value in base.items() if key not in {"source_binder_chain"}}
+        denovo.pop("lengths")
+        simple = plans.rfd3_plan({"project": "demo", "request": {**denovo, "design_mode": "deNovo"}}, "deNovo")
+        request = simple["normalized_request"]["request"]
+        self.assertNotIn("contig", request)
+        self.assertNotIn("component_id", request)
+        self.assertEqual(request["sequence_model"], "solublempnn")
+        self.assertEqual(request["binding_site_mode"], "surface_scan")
+        self.assertEqual(request["hit_filters"]["minimum_ipsae_min"], 0.50)
+        with self.assertRaisesRegex(common.StudioError, "Omit `contig`"):
+            plans.rfd3_plan({"project": "demo", "request": {**denovo, "design_mode": "deNovo", "contig": "B1-236/0 45-75"}}, "deNovo")
+        with self.assertRaisesRegex(common.StudioError, "silently disagree"):
+            plans.rfd3_plan({"project": "demo", "request": {**denovo, "design_mode": "deNovo", "contig": "45-75,/0,B1-236"}}, "deNovo")
+
+        targeted = plans.rfd3_plan({"project": "demo", "request": {
+            **denovo, "design_mode": "deNovo",
+            "conditions": {"B3": ["hotspot"]},
+        }}, "deNovo")["normalized_request"]["request"]
+        self.assertEqual(targeted["binding_site_mode"], "targeted_epitope")
+        self.assertEqual(targeted["infer_ori_strategy"], "hotspots")
+        patch = plans.rfd3_plan({"project": "demo", "request": {
+            **denovo, "design_mode": "deNovo", "binding_site_mode": "surface_patch",
+            "surface_patch_residues": ["B4", "B3", "B4"],
+        }}, "deNovo")["normalized_request"]["request"]
+        self.assertEqual(patch["surface_patch_residues"], ["B3", "B4"])
+        self.assertNotIn("infer_ori_strategy", patch)
+        with self.assertRaisesRegex(common.StudioError, "Target-centre ORI is unsafe"):
+            plans.rfd3_plan({"project": "demo", "request": {
+                **denovo, "design_mode": "deNovo", "infer_ori_strategy": "com",
+            }}, "deNovo")
+
+    def test_workflow_guide_prevents_transcript_routing_mistakes(self):
+        guide = catalog.workflow_guide("rfd3_protein_binder")
+        self.assertEqual(guide["defaults"]["sequence_model"], "solublempnn")
+        self.assertEqual(guide["defaults"]["binding_site_mode"], "surface_scan")
+        self.assertIn("Never use LASErMPNN", guide["rules"][1])
+        self.assertIn("1-5 backbone", guide["long_campaign_rule"])
+        self.assertTrue(any("Do not rank on iPTM alone" in rule for rule in guide["rules"]))
+
+    def test_run_profile_can_read_complete_rfd3_results_with_legacy_provenance(self):
+        run = self.root / "projects" / "demo" / "rfd3_runs" / "rfd3-results"
+        (run / "config").mkdir(parents=True)
+        (run / "analysis").mkdir()
+        (run / "rfd3").mkdir()
+        (run / "predictions" / "holo").mkdir(parents=True)
+        (run / "predictions" / "apo").mkdir(parents=True)
+        (run / "config" / "campaign.json").write_text("{}\n")
+        (run / "analysis" / "top100.csv").write_text(
+            "name,pdb,score\nexample,predictions/holo/boltz_results/example.pdb,0.91\n"
+        )
+        (run / "rfd3" / "backbone_metrics.csv").write_text(
+            "design,backbone_pdb,ca_valid_pct\ndesign_0001,rfd3/backbones/design_0001.pdb,100\n"
+        )
+        (run / "predictions" / "holo" / "prediction_metrics.csv").write_text(
+            "name,pdb,iptm\nexample,predictions/holo/boltz_results/example.pdb,0.80\n"
+        )
+        (run / "predictions" / "apo" / "prediction_metrics.csv").write_text(
+            "name,pdb,complex_plddt\nexample,predictions/apo/boltz_results/example.pdb,0.88\n"
+        )
+
+        run_id = "demo/rfd3_runs/rfd3-results"
+        record = catalog.run_status(run_id)
+        self.assertIn("rfd3/backbone_metrics.csv", record["result_files"])
+        self.assertIn("predictions/apo/prediction_metrics.csv", record["result_files"])
+
+        ranked = catalog.query_results(run_id, "analysis/top100.csv", None, False, 10)
+        self.assertEqual(ranked["rows"][0]["predictor"], "boltz")
+        self.assertEqual(ranked["rows"][0]["prediction_context"], "complex")
+        apo = catalog.query_results(run_id, "predictions/apo/prediction_metrics.csv", None, False, 10)
+        self.assertEqual(apo["rows"][0]["predictor"], "boltz")
+        self.assertEqual(apo["rows"][0]["prediction_context"], "binder_alone")
+        backbones = catalog.query_results(run_id, "rfd3/backbone_metrics.csv", None, False, 10)
+        self.assertEqual(backbones["rows"][0]["predictor"], "rfd3-mlx")
+        self.assertEqual(backbones["rows"][0]["prediction_context"], "generated_backbone")
+
+        module = importlib.import_module("server")
+        run_tools = {tool["name"] for tool in module.MCPServer("run").dispatch({"method": "tools/list"})["tools"]}
+        self.assertIn("system_detect", run_tools)
+        self.assertIn("runs_list", run_tools)
+        self.assertIn("results_query", run_tools)
 
     def test_target_preparation_and_inspection_keep_explicit_msa_and_artifacts(self):
         target_plan = plans.target_prepare_plan({"project": "demo", "name": "target", "predictors": ["boltz"], "sequences": [{"id": "B", "sequence": "ACDEFG"}]})

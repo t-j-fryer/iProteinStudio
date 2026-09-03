@@ -125,7 +125,9 @@ def main() -> None:
         writer.writerows(scored)
 
     top = scored[: args.top_n]
-    top_fields = ["design", "seq_index", "sequence", "backbone_pdb", "score", "ligand_plddt", "pbind", "name", "pdb"]
+    top_fields = ["design", "seq_index", "sequence", "backbone_pdb", "score",
+                  "ligand_plddt", "pbind", "name", "pdb", "predictor",
+                  "prediction_context"]
     with (output / "top100.csv").open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=top_fields)
         writer.writeheader()

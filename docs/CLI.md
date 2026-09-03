@@ -62,13 +62,24 @@ machine-specific path is part of shipped source.
 
 Long tool calls do not hold an MCP request open. A workflow uses:
 
-1. `prediction_plan`, `target_prepare_plan`, `iterative_design_plan`, or one of
+1. Call `workflow_guide` for the intended workflow. This returns Studio's
+   model-routing rules, defaults, smoke-test policy and common scientific traps
+   inside the protocol, so the advice is identical in Codex, Claude Code and
+   desktop clients.
+2. Call `prediction_plan`, `target_prepare_plan`, `iterative_design_plan`, or one of
    the three mode-specific RFD3 plan tools.
-2. Review the normalized request, exact command preview, input/script hashes and
+3. Review the normalized request, exact command preview, input/script hashes and
    output location.
-3. Pass both returned `plan_id` and `plan_sha256` to `job_start`.
-4. Poll with `job_status` or the bounded `job_wait`; use `job_resume` after an
+4. Pass both returned `plan_id` and `plan_sha256` to `job_start`.
+5. Poll with `job_status` or the bounded `job_wait`; use `job_resume` after an
    interruption.
+
+For any new target/settings combination, first complete a 1–5-backbone
+end-to-end smoke campaign with the same sequence designer and predictors. A
+failed job returns the actionable message plus `pipeline_log_tail` and
+`worker_log_tail`; `run_status` also returns the newest RFdiffusion3 stage logs.
+Read those fields before changing scientific parameters, and do not ask the user
+for arbitrary folder access to diagnose a managed run.
 
 Plans are immutable. `job_start` recalculates the plan digest and verifies every
 recorded runner before launching. If an app update changed a script after
@@ -105,6 +116,11 @@ SIGTERM to the worker process group, not just its immediate model process.
   cannot be mixed. Partial diffusion constrains `partial_t` to 0.1–15 Å and
   removes de-novo origin overrides. Motif scaffolding requires a non-empty atom
   selection for every source motif residue.
+- Protein de-novo campaigns default to SolubleMPNN, not LASErMPNN or
+  LigandMPNN. Clients should omit `contig`; Studio derives the pinned adapter's
+  binder-first comma-delimited form from the binder-length bin and normalized
+  target chains. Every candidate is sequence-designed and independently
+  predicted before ranking; RFdiffusion3 internal scores are not a prefilter.
 - `results_query` reads only recognized result tables, can select hits, and
   returns a bounded numeric distribution without inventing missing metrics.
 
@@ -442,6 +458,15 @@ example based on the bundled 1YCR coordinates. Partial diffusion uses
 `partial_t` as coordinate-noise standard deviation in Å. Motif scaffolding
 requires an explicit atom list for every unindexed motif residue; Studio does
 not rely on Foundry's broader default atom mask.
+
+Protein de-novo placement has four explicit modes. `surface_scan` is the
+default when no binding site is known: Studio calculates solvent-accessible
+patches, places outward `ori_token` centres, and divides the exact backbone
+quota across immutable per-ORI fixtures. `surface_patch` calculates one outward
+centre from broad user-selected residues but does not turn those residues into
+hotspots. `targeted_epitope` uses reviewed residues as real Foundry hotspots.
+`manual` exposes exact XYZ coordinates as a collapsed expert control. A fixed
+protein's centre of mass is never used as the unspecified-site fallback.
 
 ```bash
 cd "$ROOT/rfd3"

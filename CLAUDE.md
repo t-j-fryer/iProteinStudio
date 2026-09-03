@@ -112,6 +112,13 @@ serialization, script-provenance checks, content-addressed imports and the same
 resident/cycle-wave scheduling policy as the app. Configuration and tool details
 are in `docs/CLI.md#ai-agents-model-context-protocol`.
 
+Call `workflow_guide` before creating a scientific plan. Its returned defaults
+and failure rules override plausible-sounding guesses: protein de-novo binders
+default to SolubleMPNN (never LASErMPNN/LigandMPNN), Studio derives their contig,
+and a new campaign over 10 backbones follows a 1–5-backbone end-to-end smoke run.
+On failure, read `job_status.message`, `error`, and `pipeline_log_tail`; do not ask
+for arbitrary folder access or tell the user to rerun a managed command manually.
+
 ## Scope note
 
 NISE (Neural Iterative Selection–Expansion) is deliberately **out of scope** for this

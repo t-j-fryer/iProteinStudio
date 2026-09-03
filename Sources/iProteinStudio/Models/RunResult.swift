@@ -1,5 +1,22 @@
 import Foundation
 
+/// Stable value passed to SwiftUI's results WindowGroup. Results belong in a
+/// normal, movable macOS window rather than a sheet attached to whichever
+/// popover happened to launch them.
+struct RunResultsWindowRequest: Codable, Hashable {
+    let rootPath: String
+    let workflow: StudioWorkflow
+    let title: String
+
+    init(root: URL, workflow: StudioWorkflow, title: String? = nil) {
+        self.rootPath = root.path
+        self.workflow = workflow
+        self.title = title ?? "\(workflow.label) results"
+    }
+
+    var root: URL { URL(fileURLWithPath: rootPath, isDirectory: true) }
+}
+
 enum StudioResultStage: String, Hashable {
     case prediction
     case startingStructure
@@ -358,15 +375,27 @@ enum RunResultsLoader {
 
     // MARK: RFdiffusion3 live and ranked designs
 
+    private enum RFD3PredictionContext: String {
+        case complex
+        case binderAlone
+
+        var label: String {
+            switch self {
+            case .complex: return "Complex"
+            case .binderAlone: return "Binder alone"
+            }
+        }
+    }
+
     private static func rfd3Results(root: URL) -> [StudioResultItem] {
+        let backbones = liveRFD3Backbones(root: root)
         let ranked = rankedRFD3Results(root: root)
-        if !ranked.isEmpty { return ranked }
+        if !ranked.isEmpty { return backbones + ranked }
 
         // Prediction rows are append-only checkpoints. Prefer them as soon as
         // structures exist, but fall back to raw generated backbones while the
         // predictor stage has not started yet.
         let predicted = liveRFD3Predictions(root: root)
-        let backbones = liveRFD3Backbones(root: root)
         return backbones + predicted
     }
 
@@ -376,11 +405,19 @@ enum RunResultsLoader {
               let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
         else { return [] }
 
+        let holoRows = CSVTable.rows(at: root.appendingPathComponent("predictions/holo/prediction_metrics.csv"))
+        let monomerRows = CSVTable.rows(at: root.appendingPathComponent("predictions/monomer/prediction_metrics.csv"))
+        let apoRows = CSVTable.rows(at: root.appendingPathComponent("predictions/apo/prediction_metrics.csv"))
+        let rmsdRows = CSVTable.rows(at: root.appendingPathComponent("analysis/rmsd_metrics.csv"))
+        let complexLabel = rfd3ComplexLabel(root: root)
         var results: [StudioResultItem] = []
         for (rankIndex, raw) in rows.enumerated() {
             let row = stringRow(raw)
             let name = nonempty(row["name"]) ?? nonempty(row["design"]) ?? "Design \(rankIndex + 1)"
             let sequence = nonempty(row["sequence"])
+            let matchingHolo = matchingPredictionRows(for: row, in: holoRows)
+            let matchingBinder = matchingPredictionRows(for: row, in: monomerRows + apoRows)
+            let matchingRMSD = matchingPredictionRows(for: row, in: rmsdRows).first ?? [:]
             var structures: [(String, String)] = []
             if let map = raw["structures"] as? [String: String] {
                 structures = map.sorted { $0.key < $1.key }
@@ -389,27 +426,81 @@ enum RunResultsLoader {
                       let map = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
                 structures = map.sorted { $0.key < $1.key }
             } else if let path = nonempty(row["pdb"]) ?? nonempty(row["structure"]) {
-                structures = [("Prediction", path)]
+                structures = [(nonempty(row["predictor"]) ?? "boltz", path)]
             }
 
-            for (predictorKey, path) in structures {
+            for (savedPredictorKey, path) in structures {
                 guard let structure = resolvedURL(path, relativeTo: root),
                       fm.fileExists(atPath: structure.path) else { continue }
+                let predictorKey = nonempty(savedPredictorKey) ?? nonempty(row["predictor"]) ?? "boltz"
+                let predictorRow = matchingHolo.first {
+                    (nonempty($0["predictor"]) ?? predictorKey).lowercased() == predictorKey.lowercased()
+                } ?? [:]
                 var metricRow = row
+                matchingRMSD.forEach { metricRow[$0.key] = $0.value }
+                predictorRow.forEach { metricRow[$0.key] = $0.value }
                 if let value = row["iptm_\(predictorKey)"] { metricRow["iptm"] = value }
                 if let value = row["ipsae_min_\(predictorKey)"] { metricRow["ipsae_min"] = value }
+                addPredictorAggregate(raw: raw, key: "complex_rmsd_by_predictor",
+                                      predictor: predictorKey, to: "maximum_complex_rmsd", row: &metricRow)
+                addPredictorAggregate(raw: raw, key: "binder_backbone_rmsd_by_predictor",
+                                      predictor: predictorKey, to: "maximum_binder_backbone_rmsd", row: &metricRow)
                 if let values = dictionaryOfDoubles(raw["motif_rmsd_by_predictor"]),
                    let value = values[predictorKey] {
                     metricRow["motif_prediction_rmsd"] = String(value)
                 }
                 let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
+                let predictor = friendlyPredictor(predictorKey)
                 results.append(StudioResultItem(
-                    id: "\(rankIndex)|\(predictorKey)|\(structure.path)",
-                    title: "#\(rankIndex + 1) · \(name)",
-                    subtitle: friendlyPredictor(predictorKey), structureURL: structure,
+                    id: "ranked|complex|\(rankIndex)|\(predictorKey)|\(structure.path)",
+                    title: "#\(rankIndex + 1) · \(name) · complex",
+                    subtitle: "\(complexLabel) · \(predictor)", structureURL: structure,
                     sequence: sequence, metrics: collectMetrics(row: metricRow, documents: documents),
                     confidenceURL: documents.first, stage: .rankedDesign,
-                    scoreSource: friendlyPredictor(predictorKey),
+                    scoreSource: predictor,
+                    isHit: boolean(row["is_hit"]),
+                    failedFilters: splitFilters(row["failed_filters"]),
+                    motifMapping: dictionaryOfStrings(raw["diffused_index_map"])
+                        ?? dictionaryOfStrings(row["diffused_index_map"]) ?? [:],
+                    motifResidueRMSDs: predictorDictionaryOfDoubles(
+                        raw["motif_rmsd_by_residue"], predictor: predictorKey)
+                        ?? predictorDictionaryOfDoubles(
+                            row["motif_rmsd_by_residue"], predictor: predictorKey) ?? [:]
+                ))
+            }
+
+            for binderRow in matchingBinder where predictionSucceeded(binderRow) {
+                guard let path = nonempty(binderRow["structure"]) ?? nonempty(binderRow["pdb"]),
+                      let structure = resolvedURL(path, relativeTo: root),
+                      fm.fileExists(atPath: structure.path) else { continue }
+                let predictorKey = nonempty(binderRow["predictor"]) ?? nonempty(row["predictor"]) ?? "boltz"
+                let predictor = friendlyPredictor(predictorKey)
+                var metricRow = row
+                matchingRMSD.forEach { metricRow[$0.key] = $0.value }
+                binderRow.forEach { metricRow[$0.key] = $0.value }
+                if let confidence = nonempty(binderRow["plddt"])
+                    ?? nonempty(binderRow["complex_plddt"])
+                    ?? nonempty(binderRow["protein_plddt"])
+                    ?? nonempty(binderRow["mean_plddt"]) {
+                    metricRow["minimum_binder_plddt"] = confidence
+                }
+                addPredictorAggregate(raw: raw, key: "binder_rmsd_by_predictor",
+                                      predictor: predictorKey, to: "maximum_binder_rmsd", row: &metricRow)
+                if metricRow["maximum_binder_rmsd"] == nil,
+                   let value = nonempty(matchingRMSD["holo_vs_apo_ca_rmsd"]) {
+                    metricRow["maximum_binder_rmsd"] = value
+                }
+                let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
+                let metrics = collectMetrics(row: metricRow, documents: documents).filter {
+                    [.binderPLDDT, .binderRMSD, .motifPredictionRMSD].contains($0.kind)
+                }
+                results.append(StudioResultItem(
+                    id: "ranked|binder|\(rankIndex)|\(predictorKey)|\(structure.path)",
+                    title: "#\(rankIndex + 1) · \(name) · binder alone",
+                    subtitle: "Binder alone · \(predictor)", structureURL: structure,
+                    sequence: sequence, metrics: metrics,
+                    confidenceURL: documents.first, stage: .rankedDesign,
+                    scoreSource: predictor,
                     isHit: boolean(row["is_hit"]),
                     failedFilters: splitFilters(row["failed_filters"]),
                     motifMapping: dictionaryOfStrings(raw["diffused_index_map"])
@@ -425,7 +516,14 @@ enum RunResultsLoader {
     }
 
     private static func liveRFD3Predictions(root: URL) -> [StudioResultItem] {
-        let rows = CSVTable.rows(at: root.appendingPathComponent("predictions/holo/prediction_metrics.csv"))
+        liveRFD3Predictions(root: root, directory: "holo", context: .complex)
+            + liveRFD3Predictions(root: root, directory: "monomer", context: .binderAlone)
+            + liveRFD3Predictions(root: root, directory: "apo", context: .binderAlone)
+    }
+
+    private static func liveRFD3Predictions(root: URL, directory: String,
+                                            context: RFD3PredictionContext) -> [StudioResultItem] {
+        let rows = CSVTable.rows(at: root.appendingPathComponent("predictions/\(directory)/prediction_metrics.csv"))
         guard !rows.isEmpty else { return [] }
         let sequenceRows = CSVTable.rows(at: root.appendingPathComponent("mpnn/sequences.csv"))
         let sequences = Dictionary(uniqueKeysWithValues: sequenceRows.compactMap { row -> (String, [String: String])? in
@@ -439,8 +537,7 @@ enum RunResultsLoader {
         })
 
         return rows.compactMap { row in
-            let succeeded = row["exit_code"] == "0" || row["ok"]?.lowercased() == "true"
-            guard succeeded,
+            guard predictionSucceeded(row),
                   let path = nonempty(row["structure"]) ?? nonempty(row["pdb"]),
                   let structure = resolvedURL(path, relativeTo: root),
                   fm.fileExists(atPath: structure.path) else { return nil }
@@ -452,20 +549,61 @@ enum RunResultsLoader {
             var metricRow = backbone
             source?.forEach { metricRow[$0.key] = $0.value }
             row.forEach { metricRow[$0.key] = $0.value }
-            let predictorKey = nonempty(row["predictor"]) ?? "Prediction"
+            let predictorKey = nonempty(row["predictor"]) ?? "boltz"
             let predictor = friendlyPredictor(predictorKey)
+            if context == .binderAlone,
+               let confidence = nonempty(row["plddt"])
+                ?? nonempty(row["complex_plddt"])
+                ?? nonempty(row["protein_plddt"])
+                ?? nonempty(row["mean_plddt"]) {
+                metricRow["minimum_binder_plddt"] = confidence
+            }
             let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
+            var metrics = collectMetrics(row: metricRow, documents: documents)
+            if context == .binderAlone {
+                metrics = metrics.filter { [.binderPLDDT, .binderRMSD].contains($0.kind) }
+            }
             return StudioResultItem(
-                id: "live|\(predictorKey)|\(design)|\(structure.path)",
-                title: design, subtitle: "Verification arriving · \(predictor)",
+                id: "live|\(context.rawValue)|\(predictorKey)|\(design)|\(structure.path)",
+                title: "\(design) · \(context == .complex ? "complex" : "binder alone")",
+                subtitle: "\(context == .complex ? rfd3ComplexLabel(root: root) : context.label) · \(predictor)",
                 structureURL: structure, sequence: source.flatMap { nonempty($0["sequence"]) },
-                metrics: collectMetrics(row: metricRow, documents: documents),
+                metrics: metrics,
                 confidenceURL: documents.first, stage: .verificationPrediction,
                 scoreSource: predictor,
                 motifMapping: dictionaryOfStrings(backbone["diffused_index_map"]) ?? [:],
                 motifResidueRMSDs: dictionaryOfDoubles(backbone["motif_insertion_rmsd_by_token"]) ?? [:]
             )
         }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
+    private static func predictionSucceeded(_ row: [String: String]) -> Bool {
+        row["exit_code"] == "0" || row["ok"]?.lowercased() == "true"
+    }
+
+    private static func matchingPredictionRows(for selected: [String: String],
+                                               in candidates: [[String: String]]) -> [[String: String]] {
+        if let name = nonempty(selected["name"]) {
+            let exact = candidates.filter {
+                nonempty($0["name"]) == name || nonempty($0["design"]) == name
+            }
+            if !exact.isEmpty { return exact }
+        }
+        guard let design = nonempty(selected["design"]) else { return [] }
+        return candidates.filter { nonempty($0["design"]) == design }
+    }
+
+    private static func addPredictorAggregate(raw: [String: Any], key: String,
+                                              predictor: String, to outputKey: String,
+                                              row: inout [String: String]) {
+        if let values = dictionaryOfDoubles(raw[key]), let value = values[predictor] {
+            row[outputKey] = String(value)
+        }
+    }
+
+    private static func rfd3ComplexLabel(root: URL) -> String {
+        let kind = jsonObject(at: root.appendingPathComponent("config/campaign.json"))?["target_kind"] as? String
+        return kind == "small_molecule" ? "Complex with ligand" : "Complex with target"
     }
 
     private static func liveRFD3Backbones(root: URL) -> [StudioResultItem] {

@@ -204,7 +204,7 @@ def process_alive(pid: Any) -> bool:
 
 def tail_text(path: Path, lines: int = 80, max_bytes: int = 128_000) -> List[str]:
     if not path.is_file():
-        return ""
+        return []
     with path.open("rb") as handle:
         size = path.stat().st_size
         handle.seek(max(0, size - max_bytes))

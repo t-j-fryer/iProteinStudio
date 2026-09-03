@@ -16,10 +16,12 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "mlx_port"))
+sys.path.insert(0, str(ROOT))
 
 import rfd3_mlx as rfd3  # noqa: E402
 from sampler import Sampler  # noqa: E402
 from featurizer import DENSE  # noqa: E402
+from rfd3_weight_set import assert_ema_artifact  # noqa: E402
 
 
 AA3 = [
@@ -383,7 +385,9 @@ def main() -> None:
     backbone_dir.mkdir(parents=True, exist_ok=True)
     result_dir.mkdir(parents=True, exist_ok=True)
 
-    weights = mx.load(str(ROOT / "weights" / "rfd3_core.safetensors"))
+    weights_path = ROOT / "weights" / "rfd3_core.safetensors"
+    weights_metadata = assert_ema_artifact(weights_path)
+    weights = mx.load(str(weights_path))
     if args.precision == "bf16":
         weights = rfd3.to_bf16(weights)
     elif args.precision == "int8":
@@ -391,7 +395,9 @@ def main() -> None:
 
     manifest = {
         "fixture": str(fixture.path),
-        "weights": str(ROOT / "weights" / "rfd3_core.safetensors"),
+        "weights": str(weights_path),
+        "weight_set": weights_metadata["weight_set"],
+        "weight_provenance": weights_metadata["which"],
         "num_designs": args.num_designs,
         "steps": args.steps,
         "recycle": args.recycle,
