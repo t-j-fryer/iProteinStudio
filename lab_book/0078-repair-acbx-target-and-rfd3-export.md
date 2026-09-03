@@ -90,6 +90,20 @@ Design 0005 gave the most consistent sequence-level foldability signal (binder
 pLDDT 0.900/0.915; best apo-vs-bound RMSD 0.681 Angstrom), but still did not
 recover the designed toxin-binding pose.
 
+The unexpectedly large target-aligned pose RMSD was independently audited.
+Every Boltz complex contained the correct 65-residue chain-A binder and exact
+71-residue chain-B toxin sequence; all 71 target C-alpha correspondence keys
+were present, and recomputation reproduced the saved values. Boltz retained all
+five toxin disulfides at 1.84--2.17 Angstrom and predicted the toxin at
+1.978--3.603 Angstrom C-alpha RMSD from the fixed 1CTX target. After global
+target alignment the binder centre-of-mass displacement was 9.984--29.502
+Angstrom (median 14.345 Angstrom). Restricting scoring to binder residues that
+formed the designed interface still gave median 18.296 Angstrom RMSD. Aligning
+only the designed toxin epitope, rather than all three flexible toxin fingers,
+gave median whole-binder/interface RMSDs of 22.380/17.969 Angstrom. Thus chain
+swapping, residue mismatch, broken disulfides, global target flexibility and
+distal-binder leverage do not explain the failed pose recovery.
+
 The source-level cysteine atom14 regression, four aCbx integrity tests, four
 surface-origin tests, four weight-provenance tests, three resident-predictor
 tests, worked-example Foundry preflight, RFdiffusion3 result/ORI UI contract and
