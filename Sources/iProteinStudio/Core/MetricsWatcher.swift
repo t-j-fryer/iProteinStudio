@@ -54,17 +54,18 @@ final class MetricsWatcher: ObservableObject {
 
             // --- design ---
             let csv = runDir.appendingPathComponent("metrics_per_cycle.csv")
-            if let text = try? String(contentsOf: csv, encoding: .utf8) {
-                for line in dataLines(text) {
-                    let c = line.components(separatedBy: ",")
-                    guard c.count >= 6, let iptm = Double(c[1]) else { continue }
-                    let cycle = Int(c[0]) ?? 0
-                    if insert(.design, designPredictor, runNum, cycle) {
-                        designPoints.append(DesignPoint(stage: .design, predictor: designPredictor, run: runNum, cycle: cycle,
-                            iptm: iptm, ipsaeMinimum: ipsaeMinimum(at: c[3]),
-                            plddt: Double(c[2]) ?? .nan, sequence: c[5], structurePath: c[4]))
-                        addedDesign = true
-                    }
+            for row in CSVTable.rows(at: csv) {
+                guard let iptm = Double(row["iptm"] ?? "") else { continue }
+                let cycle = Int(row["cycle"] ?? "") ?? 0
+                let confidencePath = row["confidence_json"] ?? ""
+                let structurePath = resolvedPath(row["structure_path"] ?? "", root: root)
+                if insert(.design, designPredictor, runNum, cycle) {
+                    designPoints.append(DesignPoint(stage: .design, predictor: designPredictor, run: runNum, cycle: cycle,
+                        iptm: iptm,
+                        ipsaeMinimum: double(row["ipsae_min"]) ?? ipsaeMinimum(at: confidencePath, root: root),
+                        plddt: Double(row["complex_plddt"] ?? "") ?? .nan,
+                        sequence: row["binder_sequence"] ?? "", structurePath: structurePath))
+                    addedDesign = true
                 }
             }
 
@@ -74,17 +75,25 @@ final class MetricsWatcher: ObservableObject {
                 let predictor = String(postRoot.lastPathComponent.dropFirst("post_".count))
                 let cycleDirs = (try? fm.contentsOfDirectory(at: postRoot, includingPropertiesForKeys: nil)) ?? []
                 for cycleDir in cycleDirs where cycleDir.lastPathComponent.hasPrefix("cycle_") {
-                    let row = cycleDir.appendingPathComponent("post_metrics_row.csv")
-                    guard let text = try? String(contentsOf: row, encoding: .utf8) else { continue }
-                    for line in dataLines(text) {
-                        let c = line.components(separatedBy: ",")
-                        // run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json
-                        guard c.count >= 6, let iptm = Double(c[2]) else { continue }
-                        let cycle = Int(c[1]) ?? 0
-                        if insert(.validation, predictor, runNum, cycle) {
-                            validationPoints.append(DesignPoint(stage: .validation, predictor: predictor, run: runNum, cycle: cycle,
-                                iptm: iptm, ipsaeMinimum: c.count > 6 ? ipsaeMinimum(at: c[6]) : nil,
-                                plddt: Double(c[3]) ?? .nan, sequence: c[4], structurePath: c[5]))
+                    let checkpoint = cycleDir.appendingPathComponent("post_metrics_row.csv")
+                    for row in CSVTable.rows(at: checkpoint) {
+                        guard let iptm = Double(row["iptm"] ?? "") else { continue }
+                        let cycle = Int(row["cycle"] ?? "") ?? 0
+                        let recordedPredictor = nonempty(row["predictor"]) ?? predictor
+                        let confidencePath = row["confidence_json"] ?? ""
+                        if insert(.validation, recordedPredictor, runNum, cycle) {
+                            validationPoints.append(DesignPoint(
+                                stage: .validation, predictor: recordedPredictor,
+                                run: Int(row["run"] ?? "") ?? runNum, cycle: cycle,
+                                iptm: iptm,
+                                ipsaeMinimum: double(row["ipsae_min"])
+                                    ?? ipsaeMinimum(at: confidencePath, root: root),
+                                plddt: Double(row["complex_plddt"] ?? "") ?? .nan,
+                                sequence: row["binder_sequence"] ?? "",
+                                structurePath: resolvedPath(row["structure_path"] ?? "", root: root),
+                                savedHitVerdict: boolean(row["is_hit"]),
+                                failedFilters: splitFilters(row["failed_filters"])
+                            ))
                             addedVal = true
                         }
                     }
@@ -102,20 +111,41 @@ final class MetricsWatcher: ObservableObject {
         return seen.insert(key).inserted
     }
 
-    private func dataLines(_ text: String) -> [String] {
-        var lines = text.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
-        if !lines.isEmpty { lines.removeFirst() } // header
-        return lines
+    private func double(_ text: String?) -> Double? {
+        guard let text, let value = Double(text), value.isFinite else { return nil }
+        return value
     }
 
-    private func ipsaeMinimum(at path: String) -> Double? {
+    private func ipsaeMinimum(at path: String, root: URL) -> Double? {
         guard !path.isEmpty,
-              let data = FileManager.default.contents(atPath: path),
+              let url = RunResultsLoader.resolvedURL(path, relativeTo: root),
+              let data = FileManager.default.contents(atPath: url.path),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return nil }
         if let number = object["ipsae_min"] as? NSNumber { return number.doubleValue }
         if let text = object["ipsae_min"] as? String { return Double(text) }
         return nil
+    }
+
+    private func resolvedPath(_ path: String, root: URL) -> String {
+        RunResultsLoader.resolvedURL(path, relativeTo: root)?.path ?? path
+    }
+
+    private func nonempty(_ text: String?) -> String? {
+        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        return text
+    }
+
+    private func boolean(_ text: String?) -> Bool? {
+        guard let value = nonempty(text)?.lowercased() else { return nil }
+        if ["true", "1", "yes"].contains(value) { return true }
+        if ["false", "0", "no"].contains(value) { return false }
+        return nil
+    }
+
+    private func splitFilters(_ text: String?) -> [String] {
+        guard let text = nonempty(text) else { return [] }
+        return text.split(separator: ";").map(String.init)
     }
 
     private func recordedDesignPredictor(at root: URL) -> String? {

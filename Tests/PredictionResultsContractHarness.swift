@@ -11,15 +11,44 @@ enum StudioWorkflow: String, Codable {
 @main
 struct PredictionResultsContractHarness {
     static func main() throws {
+        if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "iterative" {
+            let root = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
+            let results = RunResultsLoader.load(root: root, workflow: .iterative)
+            let groups = RunResultsLoader.groups(from: results)
+            let hits = groups.filter { $0.isHit == true }
+            let completeComparisons = groups.filter { group in
+                let roles = Set(group.items.map(\.artifactRole))
+                return roles.contains(.designedComplex)
+                    && roles.contains(.complexReprediction)
+                    && roles.contains(.binderAlone)
+            }
+            print("ITERATIVE_RESULTS|groups=\(groups.count)|artifacts=\(results.count)|hits=\(hits.count)|complete_comparisons=\(completeComparisons.count)")
+            guard hits.count == 1,
+                  hits.first?.id == "iterative|12|5",
+                  completeComparisons.count > 0 else {
+                throw NSError(domain: "PredictionResultsContract", code: 10,
+                              userInfo: [NSLocalizedDescriptionKey:
+                                "Moved iterative campaign did not preserve the saved hit and related structure groups"])
+            }
+            return
+        }
         if CommandLine.arguments.count == 2 {
             let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
             let results = RunResultsLoader.load(root: root, workflow: .rfdiffusion3)
             let backbones = results.filter { $0.stage == .generatedBackbone }.count
             let complexes = results.filter { $0.subtitle.hasPrefix("Complex with ") }.count
             let binders = results.filter { $0.subtitle.hasPrefix("Binder alone ·") }.count
+            let groups = RunResultsLoader.groups(from: results)
+            let compared = groups.filter { group in
+                let roles = Set(group.items.map(\.artifactRole))
+                return roles.contains(.generatedBackbone)
+                    && roles.contains(.complexReprediction)
+                    && roles.contains(.binderAlone)
+            }.count
             let sources = Set(results.map(\.scoreSource)).sorted().joined(separator: ", ")
-            print("RFD3_RESULTS|total=\(results.count)|backbones=\(backbones)|complexes=\(complexes)|binders=\(binders)|sources=\(sources)")
+            print("RFD3_RESULTS|groups=\(groups.count)|total=\(results.count)|backbones=\(backbones)|complexes=\(complexes)|binders=\(binders)|complete_comparisons=\(compared)|sources=\(sources)")
             guard backbones > 0, complexes > 0, binders > 0,
+                  compared > 0,
                   !results.contains(where: { $0.scoreSource == "Prediction" }) else {
                 throw NSError(domain: "PredictionResultsContract", code: 9,
                               userInfo: [NSLocalizedDescriptionKey:
@@ -99,19 +128,24 @@ struct PredictionResultsContractHarness {
         let startRoot = iterative.appendingPathComponent("run_001/cycle_00", isDirectory: true)
         let designRoot = iterative.appendingPathComponent("run_001/cycle_01", isDirectory: true)
         let postRoot = iterative.appendingPathComponent("run_001/post_intellifold/cycle_01", isDirectory: true)
+        let binderRoot = postRoot.appendingPathComponent("binder_alone", isDirectory: true)
         try fm.createDirectory(at: startRoot, withIntermediateDirectories: true)
         try fm.createDirectory(at: designRoot, withIntermediateDirectories: true)
         try fm.createDirectory(at: postRoot, withIntermediateDirectories: true)
+        try fm.createDirectory(at: binderRoot, withIntermediateDirectories: true)
         let startStructure = startRoot.appendingPathComponent("model.cif")
         let designStructure = designRoot.appendingPathComponent("model.cif")
         let postStructure = postRoot.appendingPathComponent("model.cif")
+        let binderStructure = binderRoot.appendingPathComponent("model.cif")
         try "data_start\n".write(to: startStructure, atomically: true, encoding: .utf8)
         try "data_design\n".write(to: designStructure, atomically: true, encoding: .utf8)
         try "data_post\n".write(to: postStructure, atomically: true, encoding: .utf8)
+        try "data_binder\n".write(to: binderStructure, atomically: true, encoding: .utf8)
         try "cycle,iptm,complex_plddt,confidence_json,structure_path,binder_sequence\n0,0.40,0.50,,\(startStructure.path),AAAA\n1,0.81,0.77,,\(designStructure.path),AAAA\n"
             .write(to: iterative.appendingPathComponent("run_001/metrics_per_cycle.csv"),
                    atomically: true, encoding: .utf8)
-        try "run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json\n1,1,0.74,0.72,AAAA,\(postStructure.path),\n"
+        let movedPrefix = "/a/different/mac/\(iterative.lastPathComponent)"
+        try "run,cycle,predictor,iptm,ipsae_min,complex_plddt,binder_plddt,complex_rmsd,binder_backbone_rmsd,binder_rmsd,binder_sequence,structure_path,confidence_json,binder_structure_path,binder_confidence_json,is_hit,failed_filters\n1,1,intellifold,0.84,0.71,0.82,0.91,1.40,0.70,1.20,AAAA,\(movedPrefix)/run_001/post_intellifold/cycle_01/model.cif,,\(movedPrefix)/run_001/post_intellifold/cycle_01/binder_alone/model.cif,,True,\n"
             .write(to: postRoot.appendingPathComponent("post_metrics_row.csv"),
                    atomically: true, encoding: .utf8)
         let manifest = ["arguments": ["--predictor", "protenix-v2", "--iptm-threshold", "0.75"]]
@@ -119,13 +153,22 @@ struct PredictionResultsContractHarness {
             to: iterative.appendingPathComponent("studio_run.json"))
 
         let partial = RunResultsLoader.load(root: iterative, workflow: .iterative)
-        guard partial.count == 3,
+        guard partial.count == 4,
               partial.filter({ $0.stage == .startingStructure }).count == 1,
               partial.contains(where: { $0.stage == .design && $0.scoreSource == "Protenix v2" }),
-              partial.contains(where: { $0.stage == .postPrediction && $0.scoreSource == "IntelliFold PyTorch" }) else {
+              partial.contains(where: { $0.artifactRole == .complexReprediction && $0.scoreSource == "IntelliFold PyTorch" }),
+              partial.contains(where: { $0.artifactRole == .binderAlone && $0.structureURL == binderStructure }) else {
             throw NSError(domain: "PredictionResultsContract", code: 6,
                           userInfo: [NSLocalizedDescriptionKey:
                             "Interrupted iterative checkpoints lost result or score provenance: \(partial.map { "\($0.stage.rawValue):\($0.scoreSource)" })"])
+        }
+        let grouped = RunResultsLoader.groups(from: partial)
+        guard grouped.count == 2,
+              grouped.first(where: { $0.id == "iterative|1|1" })?.items.count == 3,
+              grouped.first(where: { $0.id == "iterative|1|1" })?.isHit == true else {
+            throw NSError(domain: "PredictionResultsContract", code: 8,
+                          userInfo: [NSLocalizedDescriptionKey:
+                            "Related iterative structures were not grouped under the saved hit verdict"])
         }
         guard abs(RunResultsLoader.iterativeHitThreshold(root: iterative) - 0.75) < 1e-12 else {
             throw NSError(domain: "PredictionResultsContract", code: 7,

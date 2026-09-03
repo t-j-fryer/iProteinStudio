@@ -1,5 +1,13 @@
 import Foundation
 
+// RunResult.swift supplies the shared header-aware CSV reader used by the live
+// metrics watcher. The production workflow enum lives in RunHistoryStore; this
+// narrow harness defines only the surface needed by the loader.
+enum StudioWorkflow: String, Codable {
+    case iterative, rfdiffusion3, prediction
+    var label: String { rawValue }
+}
+
 enum IntelliFoldModel: String, CaseIterable, Codable, Identifiable {
     case v2flash = "v2-flash"
     case v2
@@ -379,7 +387,8 @@ struct IterativeCommandContractHarness {
             let directory = root.appendingPathComponent("run_001/post_\(predictor)/cycle_05",
                                                         isDirectory: true)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let csv = "run,cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json\n1,5,0.80,0.75,AAAA,/tmp/model.cif,/tmp/confidence.json\n"
+            let verdict = predictor == "intellifold" ? "True" : "False"
+            let csv = "run,cycle,predictor,iptm,ipsae_min,complex_plddt,binder_plddt,complex_rmsd,binder_backbone_rmsd,binder_rmsd,binder_sequence,structure_path,confidence_json,binder_structure_path,binder_confidence_json,is_hit,failed_filters\n1,5,\(predictor),0.80,0.72,0.75,0.88,1.2,0.7,1.1,AAAA,/tmp/model.cif,/tmp/confidence.json,/tmp/binder.cif,/tmp/binder-confidence.json,\(verdict),\(verdict == "True" ? "" : "maximum_complex_rmsd")\n"
             try csv.write(to: directory.appendingPathComponent("post_metrics_row.csv"),
                           atomically: true, encoding: .utf8)
         }
@@ -389,6 +398,8 @@ struct IterativeCommandContractHarness {
             expect(watcher.validationPoints.count == 2, "one of two checker results was discarded")
             expect(Set(watcher.validationPoints.map(\.predictor)) == Set(["intellifold", "openfold-3-mlx"]),
                    "checker identity was not retained")
+            expect(watcher.validationPoints.filter { $0.isHit(threshold: 0.70) }.count == 1,
+                   "live dashboard did not use the saved multi-filter verdict")
             watcher.stop()
         }
     }

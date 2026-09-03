@@ -52,13 +52,24 @@ struct LiveDashboardView: View {
 
             switch tab {
             case .overview:   overviewTab
-            case .structures: StructuresGridView(metrics: metrics, threshold: threshold)
-            case .hits:       HitsGalleryView(designHits: designHits, validationHits: validationHits, threshold: threshold)
+            case .structures: durableResults(hitsOnly: false)
+            case .hits:       durableResults(hitsOnly: true)
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onReceive(run.$phase) { _ in if case .finished = run.phase { metrics.refresh() } }
+    }
+
+    @ViewBuilder
+    private func durableResults(hitsOnly: Bool) -> some View {
+        if let root = run.campaignRoot {
+            LiveGroupedRunResultsPane(root: root, workflow: .iterative, hitsOnly: hitsOnly)
+        } else {
+            EmptyHint(text: hitsOnly ? "No saved hits yet" : "No structures yet",
+                      detail: "Durable design results appear here once the campaign writes its first checkpoint.",
+                      systemImage: hitsOnly ? "checkmark.seal" : "square.grid.3x3")
+        }
     }
 
     private var overviewTab: some View {
@@ -135,7 +146,7 @@ struct LiveDashboardView: View {
             StatTile(title: "Optimized designs", value: "\(designPoints.count)", systemImage: "square.stack.3d.up", tint: .blue)
                 .help("Cycle 00 is excluded; \(startingStructures.count) starting structure\(startingStructures.count == 1 ? "" : "s") saved separately.")
             StatTile(title: "Design hits · \(designScoreSource)", value: "\(designHits.count)", systemImage: "trophy", tint: .green)
-            StatTile(title: "Pass ≥1 check", value: "\(confirmedDesignCount)", systemImage: "checkmark.seal", tint: .teal)
+            StatTile(title: "Pass all saved filters", value: "\(confirmedDesignCount)", systemImage: "checkmark.seal", tint: .teal)
             StatTile(title: "Best iPTM · \(designScoreSource)", value: bestIPTM > 0 ? String(format: "%.3f", bestIPTM) : "—", systemImage: "star", tint: .yellow)
         }
     }

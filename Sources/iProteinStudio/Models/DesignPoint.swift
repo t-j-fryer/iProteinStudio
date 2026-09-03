@@ -19,10 +19,31 @@ struct DesignPoint: Identifiable, Hashable {
     let plddt: Double
     let sequence: String
     let structurePath: String
+    /// Durable multi-metric verdict emitted by independent validation. Nil for
+    /// design-stage rows that use the interactive iPTM threshold instead.
+    let savedHitVerdict: Bool?
+    let failedFilters: [String]
+
+    init(stage: DesignStage, predictor: String, run: Int, cycle: Int,
+         iptm: Double, ipsaeMinimum: Double?, plddt: Double, sequence: String,
+         structurePath: String, savedHitVerdict: Bool? = nil,
+         failedFilters: [String] = []) {
+        self.stage = stage
+        self.predictor = predictor
+        self.run = run
+        self.cycle = cycle
+        self.iptm = iptm
+        self.ipsaeMinimum = ipsaeMinimum
+        self.plddt = plddt
+        self.sequence = sequence
+        self.structurePath = structurePath
+        self.savedHitVerdict = savedHitVerdict
+        self.failedFilters = failedFilters
+    }
 
     var id: String { "\(stage.rawValue)-\(predictor)-\(run)-\(cycle)" }
 
-    func isHit(threshold: Double) -> Bool { iptm >= threshold }
+    func isHit(threshold: Double) -> Bool { savedHitVerdict ?? (iptm >= threshold) }
     var isStartingStructure: Bool { stage == .design && cycle == 0 }
     var isOptimizedDesign: Bool { stage == .design && cycle > 0 }
     var stageLabel: String { isStartingStructure ? "Starting structure" : stage.label }

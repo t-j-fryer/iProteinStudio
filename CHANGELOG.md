@@ -2,6 +2,18 @@
 
 ## 0.2.0 — updater foundation
 
+- Groups each iterative-design or RFdiffusion3 result with its generated/design
+  structure, independent complex reprediction and binder-alone fold, showing the
+  corresponding scores together in Browse Results and the live Structures/Hits
+  tabs.
+- Fixes the live iterative Hits parser silently dropping current post-check rows,
+  and uses the saved multi-metric verdict consistently across summaries and hit
+  galleries.
+- Keeps moved/shared campaign folders browseable by resolving durable artifacts
+  relative to the campaign while preserving their original recorded provenance.
+- Adds optional checksummed target-fold guidance to iterative design for Boltz,
+  Protenix v2 and IntelliFold v2 Flash/full. Independent validation and binder
+  folding remain untemplated.
 - Adds separate RFdiffusion3 de-novo, partial-diffusion and motif-scaffolding
   workflows, including bundled p53–MDM2 examples.
 - Adds a live RFdiffusion3 results dashboard: accepted backbones and verification

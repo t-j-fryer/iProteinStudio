@@ -39,6 +39,8 @@ struct RunResultsView: View {
         items.first { $0.id == selectedID } ?? items.first
     }
 
+    private var groups: [StudioResultGroup] { RunResultsLoader.groups(from: items) }
+
     private var iterativeHitSummary: String? {
         guard workflow == .iterative, !items.isEmpty else { return nil }
         let threshold = RunResultsLoader.iterativeHitThreshold(root: root)
@@ -47,7 +49,9 @@ struct RunResultsView: View {
             return item.metrics.first { $0.kind == .iptm }.map { $0.value >= threshold } ?? false
         }
         let design = items.filter { $0.stage == .design && passes($0) }.count
-        let checked = items.filter { $0.stage == .postPrediction && passes($0) }.count
+        let checked = items.filter {
+            $0.artifactRole == .complexReprediction && passes($0)
+        }.count
         let hasSavedVerdicts = items.contains { $0.stage == .postPrediction && $0.isHit != nil }
         if hasSavedVerdicts {
             return "\(design) design-stage hit\(design == 1 ? "" : "s") at iPTM ≥ \(String(format: "%.2f", threshold)) · \(checked) independent check\(checked == 1 ? "" : "s") passed every saved filter"
@@ -70,7 +74,7 @@ struct RunResultsView: View {
         guard workflow == .iterative, !items.isEmpty else { return nil }
         let designs = items.filter { $0.stage == .design }.count
         let starts = items.filter { $0.stage == .startingStructure }.count
-        let checks = items.filter { $0.stage == .postPrediction }.count
+        let checks = items.filter { $0.artifactRole == .complexReprediction }.count
         return "\(designs) optimized design\(designs == 1 ? "" : "s") · \(starts) cycle-00 start\(starts == 1 ? "" : "s") · \(checks) independent check\(checks == 1 ? "" : "s")"
     }
 
@@ -78,7 +82,7 @@ struct RunResultsView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            if workflow == .rfdiffusion3 {
+            if workflow != .prediction {
                 Picker("Results section", selection: $section) {
                     ForEach(ResultsSection.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -87,21 +91,26 @@ struct RunResultsView: View {
                 .padding(.horizontal, 14).padding(.vertical, 10)
                 Divider()
                 switch section {
-                case .overview: rfd3Overview
-                case .structures: resultsBrowser(items)
-                case .hits: resultsBrowser(items.filter { $0.isHit == true }, hitsOnly: true)
+                case .overview: resultsOverview
+                case .structures: GroupedRunResultsBrowser(items: items)
+                case .hits: GroupedRunResultsBrowser(items: items, hitsOnly: true)
                 }
             } else {
-                resultsBrowser(items)
+                GroupedRunResultsBrowser(items: items)
             }
         }
         .frame(minWidth: 920, idealWidth: 1060, minHeight: 650, idealHeight: 760)
         .accessibilityIdentifier("run-results-browser")
         .task(id: root.path) {
-            guard workflow == .rfdiffusion3 else { return }
+            guard workflow != .prediction else { return }
             while !Task.isCancelled {
                 refresh()
-                if FileManager.default.fileExists(atPath: root.appendingPathComponent("analysis/hit_summary.json").path) {
+                if workflow == .rfdiffusion3,
+                   FileManager.default.fileExists(atPath: root.appendingPathComponent("analysis/hit_summary.json").path) {
+                    break
+                }
+                if workflow == .iterative,
+                   FileManager.default.fileExists(atPath: root.appendingPathComponent("summary_post_boltz.csv").path) {
                     break
                 }
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
@@ -175,12 +184,12 @@ struct RunResultsView: View {
 
     private var availableMetrics: [StudioResultMetric.Kind] {
         StudioResultMetric.Kind.allCases.filter { kind in
-            items.contains { item in item.metrics.contains { $0.kind == kind } }
+            groups.contains { $0.metric(kind) != nil }
         }
     }
 
     private func distributionValues(for kind: StudioResultMetric.Kind) -> [Double] {
-        items.compactMap { item in item.metrics.first { $0.kind == kind }?.value }
+        groups.compactMap { $0.metric(kind)?.value }
     }
 
     /// A campaign can move from backbone-only metrics to predictor metrics
@@ -194,22 +203,21 @@ struct RunResultsView: View {
         return Self.preferredDistributionMetric(in: items)
     }
 
-    private var rfd3Overview: some View {
+    private var resultsOverview: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 12) {
-                    SummaryCard(value: items.count, label: "viewable structures")
-                    SummaryCard(value: items.filter { $0.stage == .generatedBackbone }.count,
-                                label: "generated backbones")
-                    SummaryCard(value: items.filter { $0.stage == .verificationPrediction || $0.stage == .rankedDesign }.count,
-                                label: "verification structures")
-                    SummaryCard(value: items.filter { $0.isHit == true }.count, label: "saved hits")
+                    SummaryCard(value: groups.count, label: "designs")
+                    SummaryCard(value: items.count, label: "related structures")
+                    SummaryCard(value: items.filter { $0.artifactRole == .complexReprediction }.count,
+                                label: "complex repredictions")
+                    SummaryCard(value: groups.filter { $0.isHit == true }.count, label: "saved hits")
                 }
 
                 if availableMetrics.isEmpty || effectiveDistributionMetric == nil {
                     ContentUnavailableView(
                         "Waiting for scored structures", systemImage: "chart.bar",
-                        description: Text("The dashboard refreshes automatically as RFdiffusion3, sequence design and verification checkpoints arrive.")
+                        description: Text("The dashboard refreshes automatically as design and verification checkpoints arrive.")
                     )
                     .frame(minHeight: 360)
                 } else if let metric = effectiveDistributionMetric {
@@ -240,7 +248,7 @@ struct RunResultsView: View {
                     Button { section = .hits } label: {
                         Label("Browse Hits", systemImage: "checkmark.seal")
                     }
-                    .disabled(!items.contains { $0.isHit == true })
+                    .disabled(!groups.contains { $0.isHit == true })
                     Spacer()
                     Text("Updates automatically while the campaign is running")
                         .font(.caption).foregroundStyle(.secondary)

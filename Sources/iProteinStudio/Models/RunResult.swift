@@ -39,6 +39,40 @@ enum StudioResultStage: String, Hashable {
     }
 }
 
+/// Scientific role of a file inside one design. Keeping this separate from the
+/// workflow stage lets the UI compare the generated/design structure, the
+/// independently refolded complex and the binder-alone fold without flattening
+/// them into unrelated rows.
+enum StudioResultArtifactRole: String, Hashable {
+    case prediction
+    case startingStructure
+    case designedComplex
+    case generatedBackbone
+    case complexReprediction
+    case binderAlone
+
+    var label: String {
+        switch self {
+        case .prediction: return "Prediction"
+        case .startingStructure: return "Starting structure"
+        case .designedComplex: return "Design structure"
+        case .generatedBackbone: return "Generated backbone"
+        case .complexReprediction: return "Complex reprediction"
+        case .binderAlone: return "Binder alone"
+        }
+    }
+
+    var sortOrder: Int {
+        switch self {
+        case .startingStructure: return 0
+        case .designedComplex, .generatedBackbone: return 1
+        case .complexReprediction: return 2
+        case .binderAlone: return 3
+        case .prediction: return 4
+        }
+    }
+}
+
 /// A structure and its most useful engine-emitted confidence summaries.
 /// Values stay numeric here so every workflow uses the same formatting in the UI.
 struct StudioResultItem: Identifiable, Hashable {
@@ -53,6 +87,12 @@ struct StudioResultItem: Identifiable, Hashable {
     /// The engine that emitted `metrics`; never inferred from the engine that
     /// happened to create an earlier structure in the workflow.
     let scoreSource: String
+    /// Stable design identity shared by all structures that should be compared
+    /// together. This is run+cycle for iterative design and source-backbone ID
+    /// for RFdiffusion3.
+    let groupID: String
+    let groupTitle: String
+    let artifactRole: StudioResultArtifactRole
     /// Explicit workflow verdict read from disk. Nil means that workflow did
     /// not apply a multi-metric filter; it must never be inferred silently.
     let isHit: Bool?
@@ -70,7 +110,9 @@ struct StudioResultItem: Identifiable, Hashable {
          sequence: String?, metrics: [StudioResultMetric], confidenceURL: URL?,
          stage: StudioResultStage, scoreSource: String, isHit: Bool? = nil,
          failedFilters: [String] = [], motifMapping: [String: String] = [:],
-         motifResidueRMSDs: [String: Double] = [:]) {
+         motifResidueRMSDs: [String: Double] = [:], groupID: String? = nil,
+         groupTitle: String? = nil,
+         artifactRole: StudioResultArtifactRole = .prediction) {
         self.id = id
         self.title = title
         self.subtitle = subtitle
@@ -80,6 +122,9 @@ struct StudioResultItem: Identifiable, Hashable {
         self.confidenceURL = confidenceURL
         self.stage = stage
         self.scoreSource = scoreSource
+        self.groupID = groupID ?? id
+        self.groupTitle = groupTitle ?? title
+        self.artifactRole = artifactRole
         self.isHit = isHit
         self.failedFilters = failedFilters
         self.motifMapping = motifMapping
@@ -91,6 +136,57 @@ struct StudioResultItem: Identifiable, Hashable {
             ?? metrics.first { $0.kind == .ipsaeMinimum }
             ?? metrics.first { $0.kind == .plddt }
             ?? metrics.first
+    }
+}
+
+/// One scientific design and every durable structure generated to assess it.
+/// The saved multi-filter verdict is deliberately aggregated here so every
+/// results surface uses exactly the same definition of a hit.
+struct StudioResultGroup: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let items: [StudioResultItem]
+
+    var sortedItems: [StudioResultItem] {
+        items.sorted {
+            if $0.artifactRole.sortOrder != $1.artifactRole.sortOrder {
+                return $0.artifactRole.sortOrder < $1.artifactRole.sortOrder
+            }
+            return $0.title.localizedStandardCompare($1.title) == .orderedAscending
+        }
+    }
+
+    var isHit: Bool? {
+        let verdicts = items.compactMap(\.isHit)
+        guard !verdicts.isEmpty else { return nil }
+        return verdicts.contains(true)
+    }
+
+    var failedFilters: [String] {
+        Array(Set(items.flatMap(\.failedFilters))).sorted()
+    }
+
+    var sequence: String? {
+        items.compactMap(\.sequence).first { !$0.isEmpty }
+    }
+
+    /// Use each metric once per design. Prefer the independently predicted
+    /// complex, then the generated/design structure, and use binder-alone only
+    /// for metrics that exist nowhere else.
+    func metric(_ kind: StudioResultMetric.Kind) -> StudioResultMetric? {
+        let preferred = sortedItems.sorted {
+            metricPriority($0.artifactRole) < metricPriority($1.artifactRole)
+        }
+        return preferred.compactMap { item in item.metrics.first { $0.kind == kind } }.first
+    }
+
+    private func metricPriority(_ role: StudioResultArtifactRole) -> Int {
+        switch role {
+        case .complexReprediction: return 0
+        case .designedComplex, .generatedBackbone: return 1
+        case .binderAlone: return 2
+        case .startingStructure, .prediction: return 3
+        }
     }
 }
 
@@ -221,6 +317,12 @@ enum RunResultsLoader {
         }
     }
 
+    static func groups(from items: [StudioResultItem]) -> [StudioResultGroup] {
+        Dictionary(grouping: items, by: \.groupID).map { id, members in
+            StudioResultGroup(id: id, title: members.first?.groupTitle ?? id, items: members)
+        }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
     // MARK: Prediction batches
 
     private static func predictionResults(root: URL) -> [StudioResultItem] {
@@ -250,7 +352,7 @@ enum RunResultsLoader {
                     subtitle: predictor, structureURL: structure,
                     sequence: job.flatMap { sequences[$0] }, metrics: metrics,
                     confidenceURL: documents.first, stage: .prediction,
-                    scoreSource: predictor
+                    scoreSource: predictor, artifactRole: .prediction
                 )
             }
         }
@@ -276,10 +378,10 @@ enum RunResultsLoader {
     private static func iterativeResults(root: URL) -> [StudioResultItem] {
         let rows = iterativeRows(root: root)
         let recordedDesignPredictor = iterativeDesignPredictor(root: root)
-        return rows.compactMap { row in
+        return rows.flatMap { row -> [StudioResultItem] in
             guard let path = row["structure_path"],
                   let structure = resolvedURL(path, relativeTo: root),
-                  fm.fileExists(atPath: structure.path) else { return nil }
+                  fm.fileExists(atPath: structure.path) else { return [] }
             let isPost = row["stage"]?.lowercased() == "post"
             let predictorKey = nonempty(row["predictor"]) ?? (isPost ? nil : recordedDesignPredictor) ?? "Unknown engine"
             let predictor = friendlyPredictor(predictorKey)
@@ -290,17 +392,49 @@ enum RunResultsLoader {
                 : (cycle == 0 ? .startingStructure : .design)
             let confidence = row["confidence_json"].flatMap { resolvedURL($0, relativeTo: root) }
             let documents = confidence.map { [$0] } ?? confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
-            return StudioResultItem(
+            let groupID = "iterative|\(run)|\(cycle)"
+            let groupTitle = String(format: "Run %02d · cycle %02d", run, cycle)
+            let role: StudioResultArtifactRole = isPost
+                ? .complexReprediction
+                : (cycle == 0 ? .startingStructure : .designedComplex)
+            var results = [StudioResultItem(
                 id: "\(resultStage.rawValue)|\(predictor)|\(run)|\(cycle)|\(structure.path)",
-                title: String(format: "Run %02d · cycle %02d", run, cycle),
+                title: role.label,
                 subtitle: "\(resultStage.label) · \(predictor)",
                 structureURL: structure, sequence: nonempty(row["binder_sequence"]),
                 metrics: collectMetrics(row: row, documents: documents),
                 confidenceURL: documents.first, stage: resultStage,
                 scoreSource: predictor,
                 isHit: boolean(row["is_hit"]),
-                failedFilters: splitFilters(row["failed_filters"])
-            )
+                failedFilters: splitFilters(row["failed_filters"]),
+                groupID: groupID, groupTitle: groupTitle, artifactRole: role
+            )]
+
+            if isPost, let binderPath = nonempty(row["binder_structure_path"]),
+               let binderStructure = resolvedURL(binderPath, relativeTo: root),
+               fm.fileExists(atPath: binderStructure.path) {
+                let binderConfidence = row["binder_confidence_json"].flatMap {
+                    resolvedURL($0, relativeTo: root)
+                }
+                let binderDocuments = binderConfidence.map { [$0] }
+                    ?? confidenceDocuments(near: binderStructure,
+                                           within: binderStructure.deletingLastPathComponent())
+                let binderMetrics = collectMetrics(row: row, documents: binderDocuments).filter {
+                    [.binderPLDDT, .binderRMSD].contains($0.kind)
+                }
+                results.append(StudioResultItem(
+                    id: "binderAlone|\(predictor)|\(run)|\(cycle)|\(binderStructure.path)",
+                    title: StudioResultArtifactRole.binderAlone.label,
+                    subtitle: "Independent binder fold · \(predictor)",
+                    structureURL: binderStructure, sequence: nonempty(row["binder_sequence"]),
+                    metrics: binderMetrics, confidenceURL: binderDocuments.first,
+                    stage: .postPrediction, scoreSource: predictor,
+                    isHit: boolean(row["is_hit"]),
+                    failedFilters: splitFilters(row["failed_filters"]),
+                    groupID: groupID, groupTitle: groupTitle, artifactRole: .binderAlone
+                ))
+            }
+            return results
         }
     }
 
@@ -414,6 +548,10 @@ enum RunResultsLoader {
         for (rankIndex, raw) in rows.enumerated() {
             let row = stringRow(raw)
             let name = nonempty(row["name"]) ?? nonempty(row["design"]) ?? "Design \(rankIndex + 1)"
+            let sourceDesign = nonempty(row["design"]) ?? name.replacingOccurrences(
+                of: #"_[0-9]+$"#, with: "", options: .regularExpression)
+            let groupID = "rfd3|\(sourceDesign)"
+            let groupTitle = sourceDesign
             let sequence = nonempty(row["sequence"])
             let matchingHolo = matchingPredictionRows(for: row, in: holoRows)
             let matchingBinder = matchingPredictionRows(for: row, in: monomerRows + apoRows)
@@ -465,7 +603,9 @@ enum RunResultsLoader {
                     motifResidueRMSDs: predictorDictionaryOfDoubles(
                         raw["motif_rmsd_by_residue"], predictor: predictorKey)
                         ?? predictorDictionaryOfDoubles(
-                            row["motif_rmsd_by_residue"], predictor: predictorKey) ?? [:]
+                            row["motif_rmsd_by_residue"], predictor: predictorKey) ?? [:],
+                    groupID: groupID, groupTitle: groupTitle,
+                    artifactRole: .complexReprediction
                 ))
             }
 
@@ -508,7 +648,9 @@ enum RunResultsLoader {
                     motifResidueRMSDs: predictorDictionaryOfDoubles(
                         raw["motif_rmsd_by_residue"], predictor: predictorKey)
                         ?? predictorDictionaryOfDoubles(
-                            row["motif_rmsd_by_residue"], predictor: predictorKey) ?? [:]
+                            row["motif_rmsd_by_residue"], predictor: predictorKey) ?? [:],
+                    groupID: groupID, groupTitle: groupTitle,
+                    artifactRole: .binderAlone
                 ))
             }
         }
@@ -572,7 +714,9 @@ enum RunResultsLoader {
                 confidenceURL: documents.first, stage: .verificationPrediction,
                 scoreSource: predictor,
                 motifMapping: dictionaryOfStrings(backbone["diffused_index_map"]) ?? [:],
-                motifResidueRMSDs: dictionaryOfDoubles(backbone["motif_insertion_rmsd_by_token"]) ?? [:]
+                motifResidueRMSDs: dictionaryOfDoubles(backbone["motif_insertion_rmsd_by_token"]) ?? [:],
+                groupID: "rfd3|\(backboneName)", groupTitle: backboneName,
+                artifactRole: context == .complex ? .complexReprediction : .binderAlone
             )
         }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
@@ -619,7 +763,9 @@ enum RunResultsLoader {
                 metrics: collectMetrics(row: row, documents: []), confidenceURL: nil,
                 stage: .generatedBackbone, scoreSource: "RFdiffusion3 MLX",
                 motifMapping: dictionaryOfStrings(row["diffused_index_map"]) ?? [:],
-                motifResidueRMSDs: dictionaryOfDoubles(row["motif_insertion_rmsd_by_token"]) ?? [:]
+                motifResidueRMSDs: dictionaryOfDoubles(row["motif_insertion_rmsd_by_token"]) ?? [:],
+                groupID: "rfd3|\(design)", groupTitle: design,
+                artifactRole: .generatedBackbone
             )
         }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
@@ -812,10 +958,25 @@ enum RunResultsLoader {
         }
     }
 
-    private static func resolvedURL(_ path: String, relativeTo root: URL) -> URL? {
+    static func resolvedURL(_ path: String, relativeTo root: URL) -> URL? {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        return trimmed.hasPrefix("/") ? URL(fileURLWithPath: trimmed) : root.appendingPathComponent(trimmed)
+        guard trimmed.hasPrefix("/") else { return root.appendingPathComponent(trimmed) }
+        let original = URL(fileURLWithPath: trimmed)
+        if fm.fileExists(atPath: original.path) { return original }
+
+        // Campaign CSVs retain their original absolute provenance. If a user
+        // moves or shares the self-contained run, recover the suffix below the
+        // campaign basename without modifying the recorded evidence.
+        let components = original.pathComponents
+        if let runRootIndex = components.lastIndex(of: root.lastPathComponent),
+           runRootIndex + 1 < components.count {
+            let relocated = components[(runRootIndex + 1)...].reduce(root) {
+                $0.appendingPathComponent($1)
+            }
+            if fm.fileExists(atPath: relocated.path) { return relocated }
+        }
+        return original
     }
 
     private static func jsonObject(at url: URL) -> [String: Any]? {
@@ -909,7 +1070,7 @@ enum RunResultsLoader {
 
 /// Minimal RFC 4180 reader. RFdiffusion3 stores JSON maps in quoted CSV cells,
 /// so splitting on commas would silently attach structures to the wrong design.
-private enum CSVTable {
+enum CSVTable {
     static func rows(at url: URL) -> [[String: String]] {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         let records = parse(text)

@@ -25,6 +25,10 @@ prediction-only tab that reuses every alignment on the machine, nanobody/mini-bi
 live metrics dashboard, hits gallery, offline py2Dmol structure viewer with visual controls, target prep,
 predictions library, a unified in-app structure/metric browser for completed
 Predict, iterative and RFdiffusion3 runs in movable, resizable result windows,
+persistent design-level result groups that compare generated/design,
+complex-reprediction and binder-alone structures with their scores, and one
+saved multi-filter hit definition shared by Browse Results and live Hits
+(Entry 0081),
 persistent per-workspace run history and
 a global Activity panel with exact checkpoint Resume for newly recorded iterative campaigns.
 Iterative protein design can optionally guide target chains from a checksummed
@@ -167,6 +171,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0081 | 2026-09-03 | [Group related design results and restore saved hits](lab_book/0081-group-related-design-results.md) | Fixes the current post-check CSV parser that silently dropped all live validation rows, groups design/complex/binder-alone artifacts with scores in every results surface, restores the supplied M1 campaign's saved run-12/cycle-5 hit, and makes moved campaign folders browseable without rewriting provenance. |
 | 0080 | 2026-09-03 | [Add fail-closed target templates to iterative design](lab_book/0080-add-iterative-target-templates.md) | Adds full-inference-tested target-fold guidance with Boltz, full Protenix v2, and IntelliFold v2 Flash/full; provisions pinned Kalign for Protenix, disables Boltz's geometry-breaking strong mode, preserves blind validation, and gives GUI/CLI/MCP the same checksummed fail-closed contract. |
 | 0079 | 2026-09-03 | [Test 90-residue whole-surface minibinders against alpha-cobratoxin](lab_book/0079-acbx-90aa-whole-surface-campaign.md) | Runs the requested 100-backbone, ten-surface, no-hotspot 1CTX campaign with two SolubleMPNN sequences and resident Boltz holo/apo validation; records initial structural acceptance and pending results without inventing completion. |
 | 0078 | 2026-09-03 | [Repair the aCbx target and RFdiffusion3 target export](lab_book/0078-repair-acbx-target-and-rfd3-export.md) | Separates exact fixed-backbone preservation from two real visual/scientific faults: an invalid bundled aCbx structure and atom14 side-chain names discarded during MLX export; replaces the target with experimental 1CTX and retains template-free verification. |
