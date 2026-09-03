@@ -79,6 +79,17 @@ all ten binder-only predictions. The complex stage took 213 seconds and the apo
 stage 105 seconds. These are measured workflow timings on the machine in the
 header, not general performance claims.
 
+The five raw aCbx binders were compact (radius of gyration 10.686--11.784
+Angstrom), had 100% valid adjacent C-alpha geometry and median secondary-
+structure assignment of 66.2% alpha helix, 7.7% beta strand and 27.7% coil.
+Each placed 11--15 binder residues within 5 Angstrom of 7--9 target residues.
+Two were not production-quality at the raw interface: design 0001 contained one
+1.873-Angstrom inter-chain heavy-atom contact, while design 0003 contained four
+contacts below 2 Angstrom, including a severe 1.202-Angstrom O--NH2 overlap.
+Design 0005 gave the most consistent sequence-level foldability signal (binder
+pLDDT 0.900/0.915; best apo-vs-bound RMSD 0.681 Angstrom), but still did not
+recover the designed toxin-binding pose.
+
 The source-level cysteine atom14 regression, four aCbx integrity tests, four
 surface-origin tests, four weight-provenance tests, three resident-predictor
 tests, worked-example Foundry preflight, RFdiffusion3 result/ORI UI contract and
