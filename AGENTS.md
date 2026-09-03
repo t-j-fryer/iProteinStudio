@@ -55,7 +55,10 @@ de-novo binders default to SolubleMPNN; LASErMPNN/LigandMPNN are restricted to
 small-molecule interfaces. Omit the protein de-novo contig so Studio derives it,
 complete a 1–5-backbone end-to-end smoke run before a new campaign over 10, and
 diagnose `job_status.error`/`pipeline_log_tail` before changing settings or
-requesting arbitrary filesystem access.
+requesting arbitrary filesystem access. Review completed work with
+`results_overview` before `results_query`: iterative designs are grouped by
+run/cycle and RFdiffusion3 designs by backbone/MPNN derivative; a saved hit
+belongs to the independently checked cycle or derivative.
 
 For Codex, Claude Code, or another MCP client, use the shipped client-neutral
 bridge under `$ROOT/mcp/`. Keep the `read`, `run`, and normally disabled `admin`

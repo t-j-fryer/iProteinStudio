@@ -73,6 +73,9 @@ Long tool calls do not hold an MCP request open. A workflow uses:
 4. Pass both returned `plan_id` and `plan_sha256` to `job_start`.
 5. Poll with `job_status` or the bounded `job_wait`; use `job_resume` after an
    interruption.
+6. Call `results_overview` to recover scientific parentage and saved verdicts,
+   then use `results_query` only when raw table columns or a numeric
+   distribution are needed.
 
 For any new target/settings combination, first complete a 1–5-backbone
 end-to-end smoke campaign with the same sequence designer and predictors. A
@@ -125,8 +128,16 @@ SIGTERM to the worker process group, not just its immediate model process.
   binder-first comma-delimited form from the binder-length bin and normalized
   target chains. Every candidate is sequence-designed and independently
   predicted before ranking; RFdiffusion3 internal scores are not a prefilter.
-- `results_query` reads only recognized result tables, can select hits, and
-  returns a bounded numeric distribution without inventing missing metrics.
+- `results_overview` mirrors the native result hierarchy. Iterative results are
+  run → ordered cycle → design/complex-reprediction/binder-alone artifacts;
+  its trajectory contains only design-stage cycles and records the GUI's
+  target-chain Cα alignment contract. RFdiffusion3 results are generated
+  backbone → MPNN derivative → complex/binder-alone validation. Saved hits
+  belong to checked cycles or derivatives, never automatically to the parent.
+  Returned structure paths are verified relative to the managed run.
+- `results_query` follows the overview when an agent needs a recognized raw
+  table, hit-only rows, or a bounded numeric distribution. It does not invent
+  missing metrics.
 
 There is deliberately no arbitrary shell, Python, executable, environment,
 RFD3-YAML, file deletion, or raw engine-argument tool. External inputs are

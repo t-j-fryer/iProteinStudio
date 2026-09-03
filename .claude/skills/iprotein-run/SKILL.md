@@ -1,6 +1,6 @@
 ---
 name: iprotein-run
-description: Run iProteinStudio's pipelines from the command line — fold a batch of sequences, run an iterative binder-design campaign, or drive an RFdiffusion3 campaign. Use when asked to predict structures, design binders, generate backbones, install or check engines, or reproduce something the app did. Covers Boltz-2, IntelliFold (PyTorch and JAX/MPS), AlphaFold 3, OpenFold-3, RFdiffusion3, and the MPNN/AntiFold/LASErMPNN designers on Apple Silicon.
+description: Run iProteinStudio's typed MCP workflows — fold sequences, run iterative binder design, or drive RFdiffusion3 de-novo, partial-diffusion, and motif-scaffolding campaigns. Use when asked to predict structures, design binders, generate backbones, inspect results, install or check engines, or reproduce something the app did. Covers the currently supported Apple-Silicon predictors and MPNN designers without bypassing Studio's immutable plans, provenance checks, or resident scheduling.
 ---
 
 # Running iProteinStudio from the command line
@@ -43,9 +43,19 @@ follow the returned ordering and defaults. In particular:
 - Predict every requested candidate before ranking. Do not pre-filter RFD3
   backbones using an internal score, and do not reduce a binder hit decision to
   iPTM alone.
+- When no protein epitope is known, omit hotspot conditions and either omit
+  `binding_site_mode` or set it to `surface_scan`. Studio computes multiple
+  solvent-accessible outward ORIs and divides the exact requested backbone
+  quota across them. Never substitute target COM. Use `surface_patch` only for
+  broad positioning without hotspot conditioning, `targeted_epitope` only for
+  reviewed hotspot residues, and `manual` only for expert XYZ placement.
 - On failure, inspect `job_status.message`, `error`, and `pipeline_log_tail`, then
   `run_status` for stage logs. Managed runs never require asking the user for
   arbitrary folder access or a manually executed model command.
+- After output appears, call `results_overview` before `results_query`. Keep
+  iterative run → cycle → design/complex/binder artifacts together. Keep RFD3
+  backbone → MPNN derivative → complex/binder validation together. A saved hit
+  belongs to the independently checked cycle or derivative, not its parent.
 
 ## The traps
 
@@ -88,8 +98,6 @@ token count — the largest measured speed-up available. Setting them undoes it.
 |---|---|
 | Boltz-2 | default; fastest; the only affinity head; also generates alignments |
 | IntelliFold (PyTorch) | independent second opinion; fast batched, slow unbatched |
-| IntelliFold (JAX/MPS) | same weights, ~1.24× faster, ~2× memory, slightly different numbers |
-| AlphaFold 3 | strong orthogonal check; no affinity head; weights are the user's to obtain |
 | OpenFold-3 | independent check with Apple GPU kernels |
 
 Design loops optimise against whichever engine drives them, so that engine's own
@@ -97,10 +105,12 @@ confidence is self-scored. Always check hits with a *different* one.
 
 ## Long runs
 
-Anything multi-hour goes under `caffeinate -dimsu`, and RFdiffusion3 campaigns
-launch detached with `launch_rfd3_nise_campaign.py` so they survive the shell.
-Poll with `status_rfd3_nise_campaign.py`. Do not start a second GPU job while one
-is running, and do not benchmark against a live campaign.
+Do not wrap or launch MCP work manually. `job_start` creates a durable worker,
+uses the shared execution lock, and routes RFD3 and iterative validation through
+the same measured resident/cycle-wave scheduling as the app. Poll with
+`job_wait`/`job_status`; use `job_cancel` or exact-plan `job_resume`. Do not start
+a GUI campaign while an agent job is active, and do not benchmark against any
+live GPU campaign.
 
 ## Recording work
 

@@ -21,7 +21,7 @@
         "motif_sites": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
         "conditions": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
         "is_non_loopy": {"type": "boolean"},
-        "binding_site_mode": {"enum": ["surface_scan", "surface_patch", "targeted_epitope", "manual"], "description": "Protein de-novo placement. surface_scan is the safe default when no epitope is known; surface_patch positions near a broad region without hotspot conditioning; targeted_epitope requires explicit hotspot conditions; manual requires ori_token."},
+        "binding_site_mode": {"enum": ["surface_scan", "surface_patch", "targeted_epitope", "manual"], "description": "Optional for protein de-novo placement. If omitted with no hotspot/ORI, Studio resolves to surface_scan: multiple solvent-accessible outward ORIs with the exact design quota divided among them, never target COM. surface_patch positions near a broad region without hotspot conditioning; targeted_epitope requires explicit hotspot conditions; manual requires ori_token."},
         "surface_patch_residues": {"type": "array", "items": {"type": "string"}, "description": "Broad target region used only to calculate an outward ORI. These residues are never converted to hotspots."},
         "infer_ori_strategy": {"type": "string", "description": "Legacy/expert Foundry control. Do not use target COM for a fixed protein."},
         "ori_token": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}},

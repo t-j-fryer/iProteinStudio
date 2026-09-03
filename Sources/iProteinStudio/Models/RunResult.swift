@@ -88,10 +88,15 @@ struct StudioResultItem: Identifiable, Hashable {
     /// happened to create an earlier structure in the workflow.
     let scoreSource: String
     /// Stable design identity shared by all structures that should be compared
-    /// together. This is run+cycle for iterative design and source-backbone ID
+    /// together. This is the run for iterative design and source-backbone ID
     /// for RFdiffusion3.
     let groupID: String
     let groupTitle: String
+    /// Optional identity below the top-level scientific object. RFdiffusion3
+    /// uses one variant per MPNN sequence; iterative design uses one variant
+    /// per cycle. Complex and binder-alone checks share this identity.
+    let variantID: String?
+    let variantTitle: String?
     let artifactRole: StudioResultArtifactRole
     /// Explicit workflow verdict read from disk. Nil means that workflow did
     /// not apply a multi-metric filter; it must never be inferred silently.
@@ -112,6 +117,7 @@ struct StudioResultItem: Identifiable, Hashable {
          failedFilters: [String] = [], motifMapping: [String: String] = [:],
          motifResidueRMSDs: [String: Double] = [:], groupID: String? = nil,
          groupTitle: String? = nil,
+         variantID: String? = nil, variantTitle: String? = nil,
          artifactRole: StudioResultArtifactRole = .prediction) {
         self.id = id
         self.title = title
@@ -124,6 +130,8 @@ struct StudioResultItem: Identifiable, Hashable {
         self.scoreSource = scoreSource
         self.groupID = groupID ?? id
         self.groupTitle = groupTitle ?? title
+        self.variantID = variantID
+        self.variantTitle = variantTitle
         self.artifactRole = artifactRole
         self.isHit = isHit
         self.failedFilters = failedFilters
@@ -139,10 +147,10 @@ struct StudioResultItem: Identifiable, Hashable {
     }
 }
 
-/// One scientific design and every durable structure generated to assess it.
-/// The saved multi-filter verdict is deliberately aggregated here so every
-/// results surface uses exactly the same definition of a hit.
-struct StudioResultGroup: Identifiable, Hashable {
+/// One MPNN derivative or iterative-design cycle within a top-level result.
+/// This is the unit that receives an independent verdict and contributes one
+/// value to score distributions.
+struct StudioResultVariant: Identifiable, Hashable {
     let id: String
     let title: String
     let items: [StudioResultItem]
@@ -170,17 +178,82 @@ struct StudioResultGroup: Identifiable, Hashable {
         items.compactMap(\.sequence).first { !$0.isEmpty }
     }
 
+    func metric(_ kind: StudioResultMetric.Kind) -> StudioResultMetric? {
+        sortedItems.sorted {
+            StudioResultGroup.metricPriority($0.artifactRole)
+                < StudioResultGroup.metricPriority($1.artifactRole)
+        }.compactMap { item in item.metrics.first { $0.kind == kind } }.first
+    }
+}
+
+/// One scientific design and every durable structure generated to assess it.
+/// The saved multi-filter verdict is deliberately aggregated here so every
+/// results surface uses exactly the same definition of a hit.
+struct StudioResultGroup: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let items: [StudioResultItem]
+
+    var sortedItems: [StudioResultItem] {
+        items.sorted {
+            if $0.artifactRole.sortOrder != $1.artifactRole.sortOrder {
+                return $0.artifactRole.sortOrder < $1.artifactRole.sortOrder
+            }
+            return $0.title.localizedStandardCompare($1.title) == .orderedAscending
+        }
+    }
+
+    var primaryItems: [StudioResultItem] {
+        sortedItems.filter { $0.variantID == nil }
+    }
+
+    var variants: [StudioResultVariant] {
+        Dictionary(grouping: items.filter { $0.variantID != nil }) {
+            $0.variantID!
+        }.map { id, members in
+            StudioResultVariant(id: id,
+                                title: members.first?.variantTitle ?? id,
+                                items: members)
+        }.sorted { $0.id.localizedStandardCompare($1.id) == .orderedAscending }
+    }
+
+    /// Exactly one design-stage complex per iterative cycle, ordered from the
+    /// starting structure through the final cycle. Independent checks are not
+    /// mixed into the optimization trajectory.
+    var iterativeTrajectoryItems: [StudioResultItem] {
+        guard id.hasPrefix("iterative|") else { return [] }
+        return variants.compactMap { variant in
+            variant.sortedItems.first {
+                $0.artifactRole == .startingStructure || $0.artifactRole == .designedComplex
+            }
+        }
+    }
+
+    var isHit: Bool? {
+        let verdicts = items.compactMap(\.isHit)
+        guard !verdicts.isEmpty else { return nil }
+        return verdicts.contains(true)
+    }
+
+    var failedFilters: [String] {
+        Array(Set(items.flatMap(\.failedFilters))).sorted()
+    }
+
+    var sequence: String? {
+        items.compactMap(\.sequence).first { !$0.isEmpty }
+    }
+
     /// Use each metric once per design. Prefer the independently predicted
     /// complex, then the generated/design structure, and use binder-alone only
     /// for metrics that exist nowhere else.
     func metric(_ kind: StudioResultMetric.Kind) -> StudioResultMetric? {
         let preferred = sortedItems.sorted {
-            metricPriority($0.artifactRole) < metricPriority($1.artifactRole)
+            Self.metricPriority($0.artifactRole) < Self.metricPriority($1.artifactRole)
         }
         return preferred.compactMap { item in item.metrics.first { $0.kind == kind } }.first
     }
 
-    private func metricPriority(_ role: StudioResultArtifactRole) -> Int {
+    fileprivate static func metricPriority(_ role: StudioResultArtifactRole) -> Int {
         switch role {
         case .complexReprediction: return 0
         case .designedComplex, .generatedBackbone: return 1
@@ -392,8 +465,12 @@ enum RunResultsLoader {
                 : (cycle == 0 ? .startingStructure : .design)
             let confidence = row["confidence_json"].flatMap { resolvedURL($0, relativeTo: root) }
             let documents = confidence.map { [$0] } ?? confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
-            let groupID = "iterative|\(run)|\(cycle)"
-            let groupTitle = String(format: "Run %02d · cycle %02d", run, cycle)
+            let groupID = "iterative|\(run)"
+            let groupTitle = String(format: "Run %02d", run)
+            let variantID = "cycle|\(cycle)"
+            let variantTitle = cycle == 0
+                ? "Starting structure"
+                : String(format: "Cycle %02d", cycle)
             let role: StudioResultArtifactRole = isPost
                 ? .complexReprediction
                 : (cycle == 0 ? .startingStructure : .designedComplex)
@@ -407,7 +484,9 @@ enum RunResultsLoader {
                 scoreSource: predictor,
                 isHit: boolean(row["is_hit"]),
                 failedFilters: splitFilters(row["failed_filters"]),
-                groupID: groupID, groupTitle: groupTitle, artifactRole: role
+                groupID: groupID, groupTitle: groupTitle,
+                variantID: variantID, variantTitle: variantTitle,
+                artifactRole: role
             )]
 
             if isPost, let binderPath = nonempty(row["binder_structure_path"]),
@@ -431,7 +510,9 @@ enum RunResultsLoader {
                     stage: .postPrediction, scoreSource: predictor,
                     isHit: boolean(row["is_hit"]),
                     failedFilters: splitFilters(row["failed_filters"]),
-                    groupID: groupID, groupTitle: groupTitle, artifactRole: .binderAlone
+                    groupID: groupID, groupTitle: groupTitle,
+                    variantID: variantID, variantTitle: variantTitle,
+                    artifactRole: .binderAlone
                 ))
             }
             return results
@@ -543,15 +624,20 @@ enum RunResultsLoader {
         let monomerRows = CSVTable.rows(at: root.appendingPathComponent("predictions/monomer/prediction_metrics.csv"))
         let apoRows = CSVTable.rows(at: root.appendingPathComponent("predictions/apo/prediction_metrics.csv"))
         let rmsdRows = CSVTable.rows(at: root.appendingPathComponent("analysis/rmsd_metrics.csv"))
+        let sequenceRows = CSVTable.rows(at: root.appendingPathComponent("mpnn/sequences.csv"))
+        let sequenceByDerivative = rfd3SequencesByDerivative(sequenceRows)
         let complexLabel = rfd3ComplexLabel(root: root)
         var results: [StudioResultItem] = []
         for (rankIndex, raw) in rows.enumerated() {
             let row = stringRow(raw)
             let name = nonempty(row["name"]) ?? nonempty(row["design"]) ?? "Design \(rankIndex + 1)"
-            let sourceDesign = nonempty(row["design"]) ?? name.replacingOccurrences(
-                of: #"_[0-9]+$"#, with: "", options: .regularExpression)
+            let derivativeID = name
+            let sourceDesign = rfd3BackboneIdentity(
+                selected: row, derivativeID: derivativeID,
+                sequenceByDerivative: sequenceByDerivative)
             let groupID = "rfd3|\(sourceDesign)"
             let groupTitle = sourceDesign
+            let variantTitle = rfd3VariantTitle(derivativeID, backbone: sourceDesign)
             let sequence = nonempty(row["sequence"])
             let matchingHolo = matchingPredictionRows(for: row, in: holoRows)
             let matchingBinder = matchingPredictionRows(for: row, in: monomerRows + apoRows)
@@ -605,6 +691,7 @@ enum RunResultsLoader {
                         ?? predictorDictionaryOfDoubles(
                             row["motif_rmsd_by_residue"], predictor: predictorKey) ?? [:],
                     groupID: groupID, groupTitle: groupTitle,
+                    variantID: derivativeID, variantTitle: variantTitle,
                     artifactRole: .complexReprediction
                 ))
             }
@@ -650,6 +737,7 @@ enum RunResultsLoader {
                         ?? predictorDictionaryOfDoubles(
                             row["motif_rmsd_by_residue"], predictor: predictorKey) ?? [:],
                     groupID: groupID, groupTitle: groupTitle,
+                    variantID: derivativeID, variantTitle: variantTitle,
                     artifactRole: .binderAlone
                 ))
             }
@@ -668,11 +756,7 @@ enum RunResultsLoader {
         let rows = CSVTable.rows(at: root.appendingPathComponent("predictions/\(directory)/prediction_metrics.csv"))
         guard !rows.isEmpty else { return [] }
         let sequenceRows = CSVTable.rows(at: root.appendingPathComponent("mpnn/sequences.csv"))
-        let sequences = Dictionary(uniqueKeysWithValues: sequenceRows.compactMap { row -> (String, [String: String])? in
-            guard let design = nonempty(row["design"]) else { return nil }
-            let index = nonempty(row["seq_index"])
-            return (index.map { "\(design)_\($0)" } ?? design, row)
-        })
+        let sequences = rfd3SequencesByDerivative(sequenceRows)
         let backboneRows = rfd3BackboneRows(root: root)
         let backboneByDesign = Dictionary(uniqueKeysWithValues: backboneRows.compactMap { row -> (String, [String: String])? in
             nonempty(row["design"]).map { ($0, row) }
@@ -685,8 +769,9 @@ enum RunResultsLoader {
                   fm.fileExists(atPath: structure.path) else { return nil }
             let design = nonempty(row["design"]) ?? nonempty(row["name"]) ?? structure.deletingPathExtension().lastPathComponent
             let source = sequences[design]
-            let backboneName = source.flatMap { nonempty($0["design"]) } ?? design.replacingOccurrences(
-                of: #"_[0-9]+$"#, with: "", options: .regularExpression)
+            let backboneName = rfd3BackboneIdentity(
+                selected: source ?? row, derivativeID: design,
+                sequenceByDerivative: sequences)
             let backbone = backboneByDesign[backboneName] ?? [:]
             var metricRow = backbone
             source?.forEach { metricRow[$0.key] = $0.value }
@@ -716,6 +801,8 @@ enum RunResultsLoader {
                 motifMapping: dictionaryOfStrings(backbone["diffused_index_map"]) ?? [:],
                 motifResidueRMSDs: dictionaryOfDoubles(backbone["motif_insertion_rmsd_by_token"]) ?? [:],
                 groupID: "rfd3|\(backboneName)", groupTitle: backboneName,
+                variantID: design,
+                variantTitle: rfd3VariantTitle(design, backbone: backboneName),
                 artifactRole: context == .complex ? .complexReprediction : .binderAlone
             )
         }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
@@ -748,6 +835,53 @@ enum RunResultsLoader {
     private static func rfd3ComplexLabel(root: URL) -> String {
         let kind = jsonObject(at: root.appendingPathComponent("config/campaign.json"))?["target_kind"] as? String
         return kind == "small_molecule" ? "Complex with ligand" : "Complex with target"
+    }
+
+    /// MPNN tables have used both a source-backbone `design` value plus a
+    /// `seq_index`, and an already suffixed derivative identity. Normalize
+    /// both without assuming the schema of one particular campaign version.
+    private static func rfd3SequencesByDerivative(
+        _ rows: [[String: String]]
+    ) -> [String: [String: String]] {
+        rows.reduce(into: [:]) { result, row in
+            guard let design = nonempty(row["design"]) else { return }
+            let derivative: String
+            if let index = nonempty(row["seq_index"]),
+               !design.hasSuffix("_\(index)") {
+                derivative = "\(design)_\(index)"
+            } else {
+                derivative = design
+            }
+            result[derivative] = row
+        }
+    }
+
+    /// The source PDB is the durable backbone identity. Prefer it over
+    /// manifest `design`, which newer pipelines legitimately use for the MPNN
+    /// derivative (for example design_0002_1 rather than design_0002).
+    private static func rfd3BackboneIdentity(
+        selected: [String: String], derivativeID: String,
+        sequenceByDerivative: [String: [String: String]]
+    ) -> String {
+        let source = sequenceByDerivative[derivativeID] ?? selected
+        if let path = nonempty(source["backbone_pdb"]) ?? nonempty(selected["backbone_pdb"]) {
+            return URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+        }
+        if let design = nonempty(source["design"]), design != derivativeID {
+            return design
+        }
+        return derivativeID.replacingOccurrences(
+            of: #"_[0-9]+$"#, with: "", options: .regularExpression)
+    }
+
+    private static func rfd3VariantTitle(_ derivativeID: String,
+                                         backbone: String) -> String {
+        let prefix = backbone + "_"
+        if derivativeID.hasPrefix(prefix) {
+            let suffix = String(derivativeID.dropFirst(prefix.count))
+            if !suffix.isEmpty { return "MPNN sequence \(suffix)" }
+        }
+        return derivativeID
     }
 
     private static func liveRFD3Backbones(root: URL) -> [StudioResultItem] {

@@ -25,10 +25,18 @@ prediction-only tab that reuses every alignment on the machine, nanobody/mini-bi
 live metrics dashboard, hits gallery, offline py2Dmol structure viewer with visual controls, target prep,
 predictions library, a unified in-app structure/metric browser for completed
 Predict, iterative and RFdiffusion3 runs in movable, resizable result windows,
-persistent design-level result groups that compare generated/design,
-complex-reprediction and binder-alone structures with their scores, and one
-saved multi-filter hit definition shared by Browse Results and live Hits
-(Entry 0081),
+persistent hierarchical result groups: RFdiffusion3 backbones contain their
+MPNN derivatives and iterative runs contain their cycles; every child keeps its
+design/complex/binder-alone structures and scores together. Compact cards use
+control-free previews and one spacious selected py2Dmol viewer (Entry 0082).
+Iterative run viewers additionally offer a target-fitted cycle trajectory with
+labelled scrubbing, autoplay and playback-speed controls (Entry 0083).
+The shipped client-neutral MCP bridge is now v6: its read/run profiles expose
+the same run→cycle and backbone→MPNN-derivative result hierarchy through
+`results_overview`, keep hit verdicts on checked children, and instruct every
+client to use outward whole-surface ORI coverage when a protein epitope is
+omitted (Entry 0084).
+One saved multi-filter hit definition is shared by Browse Results and live Hits,
 persistent per-workspace run history and
 a global Activity panel with exact checkpoint Resume for newly recorded iterative campaigns.
 Iterative protein design can optionally guide target chains from a checksummed
@@ -171,6 +179,9 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0084 | 2026-09-03 | [Keep MCP result and surface-origin behavior in parity](lab_book/0084-keep-mcp-results-and-origins-in-parity.md) | Ships MCP v6 with app-equivalent iterative/RFD3 result hierarchy, run-relative artifacts, child-level verdicts, target-aligned trajectory metadata, and an enforced no-epitope whole-surface ORI contract for Codex, Claude and remote clients. |
+| 0083 | 2026-09-03 | [Play target-aligned iterative cycle trajectories](lab_book/0083-play-iterative-cycle-trajectories.md) | Adds an iterative-only trajectory choice containing cycle-00 through the final design stage, rigidly fits every frame on matching target Cα atoms, exposes labelled py2Dmol scrubbing/autoplay/speed controls, and validates the complete WebKit path against the supplied campaign. |
+| 0082 | 2026-09-03 | [Nest derivatives and cycles in clean result groups](lab_book/0082-nest-result-derivatives.md) | Corrects newer RFD3 manifest identity drift by deriving the parent from `backbone_pdb`, nests MPNN derivatives beneath each backbone and cycles beneath each iterative run, counts score distributions per child, and replaces cramped control-heavy comparison viewers with clean previews plus one large interactive viewer. |
 | 0081 | 2026-09-03 | [Group related design results and restore saved hits](lab_book/0081-group-related-design-results.md) | Fixes the current post-check CSV parser that silently dropped all live validation rows, groups design/complex/binder-alone artifacts with scores in every results surface, restores the supplied M1 campaign's saved run-12/cycle-5 hit, and makes moved campaign folders browseable without rewriting provenance. |
 | 0080 | 2026-09-03 | [Add fail-closed target templates to iterative design](lab_book/0080-add-iterative-target-templates.md) | Adds full-inference-tested target-fold guidance with Boltz, full Protenix v2, and IntelliFold v2 Flash/full; provisions pinned Kalign for Protenix, disables Boltz's geometry-breaking strong mode, preserves blind validation, and gives GUI/CLI/MCP the same checksummed fail-closed contract. |
 | 0079 | 2026-09-03 | [Test 90-residue whole-surface minibinders against alpha-cobratoxin](lab_book/0079-acbx-90aa-whole-surface-campaign.md) | Runs the requested 100-backbone, ten-surface, no-hotspot 1CTX campaign with two SolubleMPNN sequences and resident Boltz holo/apo validation; records initial structural acceptance and pending results without inventing completion. |

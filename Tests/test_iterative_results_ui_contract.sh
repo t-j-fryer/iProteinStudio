@@ -27,8 +27,18 @@ rg -q 'optimized design' "${RESULTS}" \
   || fail "results still label cycle-00 structures as designs"
 rg -q 'LiveGroupedRunResultsPane' "${LIVE}" \
   || fail "live Structures/Hits tabs do not share the durable grouped browser"
-rg -q 'Structures and scores' "${GROUPED}" \
-  || fail "grouped browser does not compare related structures and scores"
+rg -q 'StudioResultVariantSection' "${GROUPED}" \
+  || fail "grouped browser does not nest iterative cycles and RFD3 derivatives"
+rg -q 'StructurePreview' "${GROUPED}" \
+  || fail "compact comparison cards still use the control-heavy structure viewer"
+rg -q 'SelectedResultViewer' "${GROUPED}" \
+  || fail "grouped browser has no spacious interactive structure viewer"
+rg -q 'StructureTrajectoryViewer' "${GROUPED}" \
+  || fail "iterative result runs have no selectable cycle trajectory"
+rg -q 'target-aligned on chains B onward' "${GROUPED}" \
+  || fail "trajectory UI does not disclose its alignment reference"
+rg -q 'alignFrameTargetToReference' "${ROOT}/Sources/iProteinStudio/Resources/web/py2dmol/studio-adapter.js" \
+  || fail "py2Dmol adapter does not target-align iterative trajectory frames"
 rg -q 'artifactRole' "${GROUPED}" \
   || fail "grouped browser is not organised by scientific artifact role"
 rg -q 'CSVTable.rows' "${WATCHER}" \

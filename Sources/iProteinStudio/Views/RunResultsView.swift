@@ -78,6 +78,13 @@ struct RunResultsView: View {
         return "\(designs) optimized design\(designs == 1 ? "" : "s") · \(starts) cycle-00 start\(starts == 1 ? "" : "s") · \(checks) independent check\(checks == 1 ? "" : "s")"
     }
 
+    private var savedHitUnitCount: Int {
+        let variants = groups.flatMap(\.variants)
+        return variants.isEmpty
+            ? groups.filter { $0.isHit == true }.count
+            : variants.filter { $0.isHit == true }.count
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -99,7 +106,7 @@ struct RunResultsView: View {
                 GroupedRunResultsBrowser(items: items)
             }
         }
-        .frame(minWidth: 920, idealWidth: 1060, minHeight: 650, idealHeight: 760)
+        .frame(minWidth: 1080, idealWidth: 1280, minHeight: 700, idealHeight: 820)
         .accessibilityIdentifier("run-results-browser")
         .task(id: root.path) {
             guard workflow != .prediction else { return }
@@ -184,12 +191,17 @@ struct RunResultsView: View {
 
     private var availableMetrics: [StudioResultMetric.Kind] {
         StudioResultMetric.Kind.allCases.filter { kind in
-            groups.contains { $0.metric(kind) != nil }
+            !distributionValues(for: kind).isEmpty
         }
     }
 
     private func distributionValues(for kind: StudioResultMetric.Kind) -> [Double] {
-        groups.compactMap { $0.metric(kind)?.value }
+        groups.flatMap { group -> [Double] in
+            if group.variants.isEmpty {
+                return group.metric(kind).map { [$0.value] } ?? []
+            }
+            return group.variants.compactMap { $0.metric(kind)?.value }
+        }
     }
 
     /// A campaign can move from backbone-only metrics to predictor metrics
@@ -207,11 +219,12 @@ struct RunResultsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 12) {
-                    SummaryCard(value: groups.count, label: "designs")
+                    SummaryCard(value: groups.count,
+                                label: workflow == .rfdiffusion3 ? "backbones" : "runs")
+                    SummaryCard(value: groups.flatMap(\.variants).count,
+                                label: workflow == .rfdiffusion3 ? "MPNN derivatives" : "cycles")
                     SummaryCard(value: items.count, label: "related structures")
-                    SummaryCard(value: items.filter { $0.artifactRole == .complexReprediction }.count,
-                                label: "complex repredictions")
-                    SummaryCard(value: groups.filter { $0.isHit == true }.count, label: "saved hits")
+                    SummaryCard(value: savedHitUnitCount, label: "saved hits")
                 }
 
                 if availableMetrics.isEmpty || effectiveDistributionMetric == nil {

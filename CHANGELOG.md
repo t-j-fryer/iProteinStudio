@@ -2,6 +2,23 @@
 
 ## 0.2.0 — updater foundation
 
+- Adds a target-aligned iterative-design trajectory to Structures: cycle 00
+  through the final design cycle can be scrubbed, autoplayed and speed-adjusted
+  using py2Dmol's frame controls. Independent validation folds are excluded
+  from the optimization trajectory.
+- Organizes RFdiffusion3 results as generated backbone → MPNN sequence
+  derivative → paired complex/binder-alone validation, and iterative results as
+  run → cycle → design/complex/binder artifacts.
+- Makes no-epitope protein RFdiffusion3 design use reproducible whole-surface
+  scanning with multiple solvent-accessible outward origins. It never silently
+  falls back to the fixed target's centre of mass or invents hotspots.
+- Requires the verified RFdiffusion3 EMA checkpoint provenance across managed
+  installation, GUI and MCP runs.
+- Updates the client-neutral MCP bridge to v6. `results_overview` now exposes
+  the app-equivalent result hierarchy, saved child-level hit verdicts and
+  iterative trajectory frames before agents query raw score tables. MCP's
+  schema and workflow guidance also enforce whole-surface scanning whenever a
+  protein epitope is omitted.
 - Groups each iterative-design or RFdiffusion3 result with its generated/design
   structure, independent complex reprediction and binder-alone fold, showing the
   corresponding scores together in Browse Results and the live Structures/Hits

@@ -77,11 +77,23 @@ still receive Studio's workflow order and defaults. In particular:
   `worker_log_tail`, and the stage logs returned by `run_status` rather than
   requesting arbitrary filesystem access.
 
-`results_query` exposes generated RFdiffusion3 backbone metrics, complex
-predictions, binder-alone predictions and the apo/holo RMSD table as distinct
-datasets. New campaigns persist `predictor` and `prediction_context`; for older
-Studio campaigns, the bridge adds the same labels from Studio-owned dataset and
-predictor output paths without modifying the run on disk.
+Call `results_overview` before reading individual score tables. It exposes the
+same scientific organization as the app:
+
+- iterative design: run → ordered cycle → design structure, independently
+  repredicted complex and binder-alone fold. Its `trajectory.frames` contains
+  only design-stage cycles; the app rigidly aligns them to cycle 00 using
+  matching target-chain Cα atoms on chains B onward;
+- RFdiffusion3: generated MLX backbone → MPNN sequence derivative → complex
+  and binder-alone validation. A generated backbone is not itself a validated
+  hit, and one derivative's verdict does not silently promote its siblings.
+
+Then use `results_query` for a named raw table or numeric distribution. New
+campaigns persist `predictor` and `prediction_context`; for older Studio
+campaigns, the bridge adds bounded labels from Studio-owned dataset and
+predictor paths without modifying the run on disk. Artifact paths returned by
+the overview are verified run-relative paths, including relocated/self-contained
+campaign folders; raw obsolete absolute paths are not exposed.
 
 ## Direct protocol smoke test
 

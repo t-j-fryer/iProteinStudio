@@ -118,6 +118,10 @@ default to SolubleMPNN (never LASErMPNN/LigandMPNN), Studio derives their contig
 and a new campaign over 10 backbones follows a 1–5-backbone end-to-end smoke run.
 On failure, read `job_status.message`, `error`, and `pipeline_log_tail`; do not ask
 for arbitrary folder access or tell the user to rerun a managed command manually.
+For completed work, call `results_overview` before `results_query`. The overview
+keeps iterative cycles and RFdiffusion3 sequence derivatives attached to their
+design/complex/binder-alone structures and saved verdicts; do not flatten them
+into unrelated predictions or promote a parent from an unchecked artifact.
 
 ## Scope note
 

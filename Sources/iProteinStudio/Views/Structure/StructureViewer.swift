@@ -13,9 +13,39 @@ struct StructureViewer: View {
     }
 }
 
+/// A control-free structure preview for comparison grids. The full py2Dmol
+/// controls remain available in the large selected viewer; hiding the fixed
+/// 190-point panel here prevents it from covering most of a compact card.
+struct StructurePreview: View {
+    let structurePath: String?
+
+    var body: some View {
+        Py2DmolViewer(structurePath: structurePath, selection: nil, showsControls: false)
+    }
+}
+
+struct StructureTrajectoryFrame: Identifiable, Hashable {
+    let id: String
+    let label: String
+    let structurePath: String
+}
+
+/// Multi-frame result viewer. The browser supplies complete design-stage
+/// complexes; the WebKit adapter aligns target chains B onward onto frame zero
+/// before exposing py2Dmol's scrubber, playback and speed controls.
+struct StructureTrajectoryViewer: View {
+    let frames: [StructureTrajectoryFrame]
+
+    var body: some View {
+        Py2DmolViewer(structurePath: nil, trajectoryFrames: frames,
+                      selection: nil, showsControls: true)
+    }
+}
+
 /// WebKit bridge for the vendored py2Dmol canvas renderer.
 struct Py2DmolViewer: NSViewRepresentable {
     let structurePath: String?
+    var trajectoryFrames: [StructureTrajectoryFrame] = []
     var selection: Binding<[String]>?
     var showsControls: Bool
 
@@ -40,7 +70,9 @@ struct Py2DmolViewer: NSViewRepresentable {
 
     func updateNSView(_ web: WKWebView, context: Context) {
         context.coordinator.selection = selection
-        context.coordinator.apply(structurePath: structurePath, showsControls: showsControls)
+        context.coordinator.apply(structurePath: structurePath,
+                                  trajectoryFrames: trajectoryFrames,
+                                  showsControls: showsControls)
     }
 
     static func dismantleNSView(_ web: WKWebView, coordinator: Coordinator) {
@@ -52,8 +84,9 @@ struct Py2DmolViewer: NSViewRepresentable {
         var selection: Binding<[String]>?
         weak var web: WKWebView?
         private var ready = false
-        private var loadedPath: String?
+        private var loadedIdentity: String?
         private var pendingPath: String?
+        private var pendingTrajectory: [StructureTrajectoryFrame] = []
         private var pendingControls = true
         private var lastPushed = Set<String>()
 
@@ -63,17 +96,45 @@ struct Py2DmolViewer: NSViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             ready = true
-            apply(structurePath: pendingPath, showsControls: pendingControls, force: true)
+            apply(structurePath: pendingPath, trajectoryFrames: pendingTrajectory,
+                  showsControls: pendingControls, force: true)
         }
 
-        func apply(structurePath: String?, showsControls: Bool, force: Bool = false) {
+        func apply(structurePath: String?,
+                   trajectoryFrames: [StructureTrajectoryFrame] = [],
+                   showsControls: Bool, force: Bool = false) {
             pendingPath = structurePath
+            pendingTrajectory = trajectoryFrames
             pendingControls = showsControls
             guard ready, let web else { return }
 
-            if let path = structurePath, force || path != loadedPath,
+            let trajectoryIdentity = trajectoryFrames.map {
+                "\($0.id)|\($0.structurePath)"
+            }.joined(separator: "||")
+            if trajectoryFrames.count > 1,
+               force || trajectoryIdentity != loadedIdentity {
+                let payload: [[String: String]] = trajectoryFrames.compactMap { frame in
+                    guard let data = FileManager.default.contents(atPath: frame.structurePath),
+                          !data.isEmpty else { return nil }
+                    return [
+                        "encoded": data.base64EncodedString(),
+                        "format": frame.structurePath.lowercased().hasSuffix(".pdb") ? "pdb" : "cif",
+                        "name": frame.label,
+                    ]
+                }
+                if payload.count == trajectoryFrames.count,
+                   let data = try? JSONSerialization.data(withJSONObject: payload),
+                   let json = String(data: data, encoding: .utf8) {
+                    loadedIdentity = trajectoryIdentity
+                    lastPushed = []
+                    let script = "studioLoadTrajectoryB64(\(json),"
+                        + "\(showsControls ? "true" : "false"))"
+                    web.evaluateJavaScript(script, completionHandler: nil)
+                }
+            } else if let path = structurePath,
+                      force || path != loadedIdentity,
                let data = FileManager.default.contents(atPath: path), !data.isEmpty {
-                loadedPath = path
+                loadedIdentity = path
                 lastPushed = []
                 let encoded = data.base64EncodedString()
                 let format = path.lowercased().hasSuffix(".pdb") ? "pdb" : "cif"

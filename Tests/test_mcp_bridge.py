@@ -102,6 +102,7 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         self.assertIn("Before planning scientific work call workflow_guide", responses[0]["result"]["instructions"])
         names = {tool["name"] for tool in responses[1]["result"]["tools"]}
         self.assertIn("results_query", names)
+        self.assertIn("results_overview", names)
         self.assertIn("workflow_guide", names)
         self.assertNotIn("job_start", names)
         self.assertEqual(responses[2]["result"]["structuredContent"]["projects"][0]["id"], "demo")
@@ -299,21 +300,31 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         (run / "config").mkdir(parents=True)
         (run / "analysis").mkdir()
         (run / "rfd3").mkdir()
+        (run / "mpnn").mkdir()
         (run / "predictions" / "holo").mkdir(parents=True)
         (run / "predictions" / "apo").mkdir(parents=True)
         (run / "config" / "campaign.json").write_text("{}\n")
         (run / "analysis" / "top100.csv").write_text(
-            "name,pdb,score\nexample,predictions/holo/boltz_results/example.pdb,0.91\n"
+            "name,pdb,score,is_hit\ndesign_0001_0,predictions/holo/boltz_results/example.pdb,0.91,True\n"
         )
         (run / "rfd3" / "backbone_metrics.csv").write_text(
             "design,backbone_pdb,ca_valid_pct\ndesign_0001,rfd3/backbones/design_0001.pdb,100\n"
         )
         (run / "predictions" / "holo" / "prediction_metrics.csv").write_text(
-            "name,pdb,iptm\nexample,predictions/holo/boltz_results/example.pdb,0.80\n"
+            "name,pdb,iptm\ndesign_0001_0,predictions/holo/boltz_results/example.pdb,0.80\n"
         )
         (run / "predictions" / "apo" / "prediction_metrics.csv").write_text(
-            "name,pdb,complex_plddt\nexample,predictions/apo/boltz_results/example.pdb,0.88\n"
+            "name,pdb,complex_plddt\ndesign_0001_0,predictions/apo/boltz_results/example.pdb,0.88\n"
         )
+        (run / "mpnn" / "sequences.csv").write_text(
+            "design,seq_index,sequence,backbone_pdb\ndesign_0001,0,AAAA,rfd3/backbones/design_0001.pdb\n"
+        )
+        (run / "rfd3" / "backbones").mkdir()
+        (run / "rfd3" / "backbones" / "design_0001.pdb").write_text("ATOM\n")
+        (run / "predictions" / "holo" / "boltz_results").mkdir()
+        (run / "predictions" / "holo" / "boltz_results" / "example.pdb").write_text("ATOM\n")
+        (run / "predictions" / "apo" / "boltz_results").mkdir()
+        (run / "predictions" / "apo" / "boltz_results" / "example.pdb").write_text("ATOM\n")
 
         run_id = "demo/rfd3_runs/rfd3-results"
         record = catalog.run_status(run_id)
@@ -330,11 +341,70 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         self.assertEqual(backbones["rows"][0]["predictor"], "rfd3-mlx")
         self.assertEqual(backbones["rows"][0]["prediction_context"], "generated_backbone")
 
+        overview = catalog.results_overview(run_id)
+        self.assertEqual(overview["organization"], "RFdiffusion3 backbone -> MPNN derivative -> complex/binder-alone validation")
+        self.assertEqual(len(overview["groups"]), 1)
+        self.assertEqual(overview["groups"][0]["id"], "rfd3|design_0001")
+        derivative = overview["groups"][0]["variants"][0]
+        self.assertEqual(derivative["id"], "design_0001_0")
+        self.assertEqual({item["role"] for item in derivative["artifacts"]}, {"complex_reprediction", "binder_alone"})
+        self.assertTrue(derivative["is_hit"])
+
         module = importlib.import_module("server")
         run_tools = {tool["name"] for tool in module.MCPServer("run").dispatch({"method": "tools/list"})["tools"]}
         self.assertIn("system_detect", run_tools)
         self.assertIn("runs_list", run_tools)
         self.assertIn("results_query", run_tools)
+        self.assertIn("results_overview", run_tools)
+
+    def test_iterative_overview_keeps_cycles_artifacts_and_trajectory_together(self):
+        run = self.root / "projects" / "demo" / "iterative_runs" / "organized"
+        (run / "run_001" / "cycle_00").mkdir(parents=True)
+        (run / "run_001" / "cycle_01").mkdir()
+        post = run / "run_001" / "post_boltz" / "cycle_01"
+        (post / "binder_alone").mkdir(parents=True)
+        (run / "studio_run.json").write_text(json.dumps({"arguments": ["--predictor", "protenix-v2"]}))
+        for relative in (
+            "run_001/cycle_00/model.cif", "run_001/cycle_01/model.cif",
+            "run_001/post_boltz/cycle_01/complex.cif",
+            "run_001/post_boltz/cycle_01/binder_alone/binder.cif",
+        ):
+            (run / relative).write_text("data_test\n")
+        (run / "run_001" / "metrics_per_cycle.csv").write_text(
+            "cycle,iptm,complex_plddt,structure_path,binder_sequence\n"
+            "0,0.2,0.5,run_001/cycle_00/model.cif,AAAA\n"
+            "1,0.7,0.8,run_001/cycle_01/model.cif,AAAA\n"
+        )
+        (post / "post_metrics_row.csv").write_text(
+            "run,cycle,predictor,iptm,ipsae_min,binder_plddt,complex_rmsd,binder_rmsd,structure_path,binder_structure_path,is_hit,failed_filters\n"
+            "1,1,boltz,0.8,0.7,0.9,1.2,1.0,run_001/post_boltz/cycle_01/complex.cif,run_001/post_boltz/cycle_01/binder_alone/binder.cif,True,\n"
+        )
+
+        overview = catalog.results_overview("demo/iterative_runs/organized")
+        self.assertEqual(overview["workflow"], "iterative")
+        self.assertEqual(len(overview["groups"]), 1)
+        group = overview["groups"][0]
+        self.assertEqual([item["id"] for item in group["variants"]], ["cycle|0", "cycle|1"])
+        self.assertEqual([item["id"] for item in group["trajectory"]["frames"]], ["cycle|0", "cycle|1"])
+        self.assertEqual(group["trajectory"]["alignment"], "matching target-chain C-alpha atoms (chains B onward)")
+        cycle_one = group["variants"][1]
+        self.assertEqual({item["role"] for item in cycle_one["artifacts"]}, {
+            "designed_complex", "complex_reprediction", "binder_alone"
+        })
+        self.assertTrue(cycle_one["is_hit"])
+        status = catalog.run_status("demo/iterative_runs/organized")
+        self.assertNotIn("comparison_scores_long.csv", status["result_files"])
+
+        (run / "comparison_scores_long.csv").write_text(
+            "stage,predictor,run,cycle,iptm,structure_path\n"
+            "design,protenix-v2,1,0,0.2,run_001/cycle_00/model.cif\n"
+        )
+        status = catalog.run_status("demo/iterative_runs/organized")
+        self.assertIn("comparison_scores_long.csv", status["result_files"])
+        queried = catalog.query_results(
+            "demo/iterative_runs/organized", "comparison_scores_long.csv", "iptm", False, 10
+        )
+        self.assertEqual(queried["distribution"]["count"], 1)
 
     def test_target_preparation_and_inspection_keep_explicit_msa_and_artifacts(self):
         target_plan = plans.target_prepare_plan({"project": "demo", "name": "target", "predictors": ["boltz"], "sequences": [{"id": "B", "sequence": "ACDEFG"}]})

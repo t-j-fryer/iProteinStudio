@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, List
 
 from iprotein_mcp import __version__
 from iprotein_mcp.broker import cancel_job, list_jobs, load_state, resume_job, start_job, wait_job
-from iprotein_mcp.catalog import detect_engines, list_projects, list_runs, query_results, read_resource, run_status, workflow_guide
+from iprotein_mcp.catalog import detect_engines, list_projects, list_runs, query_results, read_resource, results_overview, run_status, workflow_guide
 from iprotein_mcp.common import StudioError, append_audit, import_artifact, validate_schema
 from iprotein_mcp.inspect import inspect_target
 from iprotein_mcp.plans import admin_plan, iterative_plan, load_plan, prediction_plan, rfd3_plan, target_prepare_plan
@@ -39,7 +39,10 @@ SERVER_INSTRUCTIONS = (
     "is known use binding_site_mode=surface_scan; never substitute the fixed protein's centre of mass. Complete a "
     "1-5-backbone end-to-end smoke run before a new campaign over 10 backbones. Use immutable plan then "
     "job_start; poll job_wait/job_status. On failure read message, error and pipeline_log_tail before changing "
-    "settings; managed run logs never require arbitrary folder or shell access."
+    "settings; managed run logs never require arbitrary folder or shell access. After results exist, call "
+    "results_overview before results_query: iterative results are run→cycle→artifacts and RFdiffusion3 results "
+    "are backbone→MPNN derivative→complex/binder-alone validation. A hit belongs to the checked cycle or "
+    "derivative, not automatically to its parent."
 )
 
 
@@ -63,6 +66,16 @@ RESULT_QUERY = {
         "metric": {"type": "string"},
         "hit_only": {"type": "boolean", "default": False},
         "limit": {"type": "integer", "minimum": 1, "maximum": 500, "default": 100},
+    },
+}
+RESULT_OVERVIEW = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["run_id"],
+    "properties": {
+        "run_id": {"type": "string"},
+        "hit_only": {"type": "boolean", "default": False},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 100},
     },
 }
 ARTIFACT_IMPORT = {
@@ -106,13 +119,14 @@ TOOLS: Dict[str, Dict[str, Any]] = {
     "projects_list": tool("List managed iProteinStudio projects. Read-only.", EMPTY),
     "runs_list": tool("List recognized prediction, iterative-design and RFdiffusion3 runs.", PROJECT_OPTIONAL),
     "run_status": tool("Read durable run state, result files and bounded log tails.", RUN_ID),
-    "results_query": tool("Read normalized CSV results and optionally summarize one numeric score distribution.", RESULT_QUERY),
+    "results_overview": tool("Read the app-equivalent scientific hierarchy before interpreting results: iterative run→cycle→design/complex/binder artifacts (plus target-aligned trajectory frames), or RFdiffusion3 backbone→MPNN derivative→complex/binder validation. Hit verdicts remain attached to checked variants.", RESULT_OVERVIEW),
+    "results_query": tool("After results_overview, read one normalized CSV dataset and optionally summarize a numeric score distribution.", RESULT_QUERY),
     "artifact_import": tool("Copy an explicitly allowed input file into immutable content-addressed Studio storage and return its digest.", ARTIFACT_IMPORT),
     "target_inspect": tool("Inspect exact chains, sequence, canonical target contig, and coarse exposed-residue candidates, or RFD3-compatible ligand atoms. Exposure candidates are not a validated epitope.", TARGET_INSPECT),
     "target_prepare_plan": tool("Validate and freeze a target-only structure prediction with an explicit alignment policy.", TARGET_PREPARE),
     "prediction_plan": tool("Validate and freeze a prediction batch without starting GPU work.", schema("prediction-v1.json")),
     "iterative_design_plan": tool("Validate and freeze an iterative-design request; Studio injects its measured scheduling policy.", schema("iterative-design-v1.json")),
-    "rfd3_denovo_plan": tool("Validate and freeze an RFD3 campaign. For protein targets use solublempnn by default, never LASErMPNN/LigandMPNN; omit contig so Studio derives binder-first syntax; predict every candidate before ranking.", rfd3_schema("deNovo")),
+    "rfd3_denovo_plan": tool("Validate and freeze an RFD3 campaign. With no protein epitope, omit hotspots and binding_site_mode resolves to whole-surface scanning with multiple outward solvent ORIs—never target COM. Use solublempnn by default, omit contig, and predict every candidate before ranking.", rfd3_schema("deNovo")),
     "rfd3_partial_diffusion_plan": tool("Validate and freeze protein-complex partial diffusion with partial_t in Angstroms and target coordinates fixed upstream.", rfd3_schema("partialDiffusion")),
     "rfd3_motif_scaffolding_plan": tool("Validate and freeze motif scaffolding with explicit non-empty residue atom selections.", rfd3_schema("motifScaffolding")),
     "job_start": tool("Start an immutable plan after checking its digest and exact installed script provenance. Expensive and mutating.", schema("job-start-v1.json")),
@@ -127,7 +141,7 @@ TOOLS: Dict[str, Dict[str, Any]] = {
 }
 
 for name, definition in TOOLS.items():
-    read_only = name in {"system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_query", "jobs_list", "job_status", "job_wait"}
+    read_only = name in {"system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query", "jobs_list", "job_status", "job_wait"}
     definition["annotations"] = {
         "readOnlyHint": read_only,
         "destructiveHint": name in {"job_start", "job_cancel", "storage_minimise_plan"},
@@ -135,7 +149,7 @@ for name, definition in TOOLS.items():
         "openWorldHint": name in {"target_prepare_plan", "prediction_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "job_resume", "engine_install_plan", "engine_repair_plan"},
     }
 
-READ_TOOLS = ["system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_query"]
+READ_TOOLS = ["system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query"]
 RUN_TOOLS = READ_TOOLS + ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume"]
 ADMIN_TOOLS = ["system_detect", "engine_install_plan", "engine_repair_plan", "storage_minimise_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume"]
 ADMIN_KINDS = {"engine_install", "engine_repair", "storage_minimise"}
@@ -158,6 +172,7 @@ class MCPServer:
         elif name == "projects_list": result = {"projects": list_projects()}
         elif name == "runs_list": result = {"runs": list_runs(arguments.get("project"), arguments.get("limit", 100))}
         elif name == "run_status": result = run_status(arguments["run_id"])
+        elif name == "results_overview": result = results_overview(arguments["run_id"], bool(arguments.get("hit_only", False)), int(arguments.get("limit", 100)))
         elif name == "results_query": result = query_results(arguments["run_id"], arguments.get("dataset"), arguments.get("metric"), bool(arguments.get("hit_only", False)), int(arguments.get("limit", 100)))
         elif name == "artifact_import": result = import_artifact(arguments["path"])
         elif name == "target_inspect": result = inspect_target(arguments)
@@ -224,7 +239,7 @@ class MCPServer:
         if method == "resources/list":
             return {"resources": [{"uri": "iprotein://capabilities", "name": "Capabilities", "mimeType": "application/json"}, {"uri": "iprotein://engines", "name": "Installed engines", "mimeType": "application/json"}, {"uri": "iprotein://projects", "name": "Projects", "mimeType": "application/json"}]}
         if method == "resources/templates/list":
-            return {"resourceTemplates": [{"uriTemplate": "iprotein://runs/{run_id}/status", "name": "Run status", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/manifest", "name": "Run manifest", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/metrics", "name": "Run metrics", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/artifacts", "name": "Run artifacts", "mimeType": "application/json"}]}
+            return {"resourceTemplates": [{"uriTemplate": "iprotein://runs/{run_id}/status", "name": "Run status", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/manifest", "name": "Run manifest", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/overview", "name": "Grouped run results", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/metrics", "name": "Run metrics", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/artifacts", "name": "Run artifacts", "mimeType": "application/json"}]}
         if method == "resources/read":
             uri = params.get("uri", "")
             value = read_resource(uri)

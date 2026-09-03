@@ -15,17 +15,22 @@ struct PredictionResultsContractHarness {
             let root = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
             let results = RunResultsLoader.load(root: root, workflow: .iterative)
             let groups = RunResultsLoader.groups(from: results)
-            let hits = groups.filter { $0.isHit == true }
-            let completeComparisons = groups.filter { group in
-                let roles = Set(group.items.map(\.artifactRole))
+            let variants = groups.flatMap(\.variants)
+            let hits = variants.filter { $0.isHit == true }
+            let completeComparisons = variants.filter { variant in
+                let roles = Set(variant.items.map(\.artifactRole))
                 return roles.contains(.designedComplex)
                     && roles.contains(.complexReprediction)
                     && roles.contains(.binderAlone)
             }
-            print("ITERATIVE_RESULTS|groups=\(groups.count)|artifacts=\(results.count)|hits=\(hits.count)|complete_comparisons=\(completeComparisons.count)")
+            let trajectories = groups.filter { $0.iterativeTrajectoryItems.count > 1 }
+            print("ITERATIVE_RESULTS|runs=\(groups.count)|cycles=\(variants.count)|artifacts=\(results.count)|hits=\(hits.count)|complete_comparisons=\(completeComparisons.count)|trajectories=\(trajectories.count)")
             guard hits.count == 1,
-                  hits.first?.id == "iterative|12|5",
-                  completeComparisons.count > 0 else {
+                  groups.first(where: { $0.id == "iterative|12" })?.variants
+                    .contains(where: { $0.id == "cycle|5" && $0.isHit == true }) == true,
+                  completeComparisons.count > 0,
+                  trajectories.count == groups.count,
+                  trajectories.allSatisfy({ $0.iterativeTrajectoryItems.count == 6 }) else {
                 throw NSError(domain: "PredictionResultsContract", code: 10,
                               userInfo: [NSLocalizedDescriptionKey:
                                 "Moved iterative campaign did not preserve the saved hit and related structure groups"])
@@ -39,16 +44,19 @@ struct PredictionResultsContractHarness {
             let complexes = results.filter { $0.subtitle.hasPrefix("Complex with ") }.count
             let binders = results.filter { $0.subtitle.hasPrefix("Binder alone ·") }.count
             let groups = RunResultsLoader.groups(from: results)
-            let compared = groups.filter { group in
-                let roles = Set(group.items.map(\.artifactRole))
-                return roles.contains(.generatedBackbone)
-                    && roles.contains(.complexReprediction)
+            let variants = groups.flatMap(\.variants)
+            let compared = variants.filter { variant in
+                let roles = Set(variant.items.map(\.artifactRole))
+                return roles.contains(.complexReprediction)
                     && roles.contains(.binderAlone)
             }.count
+            let correctlyNested = groups.filter { !$0.variants.isEmpty }.allSatisfy { group in
+                group.primaryItems.contains { $0.artifactRole == .generatedBackbone }
+            }
             let sources = Set(results.map(\.scoreSource)).sorted().joined(separator: ", ")
-            print("RFD3_RESULTS|groups=\(groups.count)|total=\(results.count)|backbones=\(backbones)|complexes=\(complexes)|binders=\(binders)|complete_comparisons=\(compared)|sources=\(sources)")
+            print("RFD3_RESULTS|backbone_groups=\(groups.count)|derivatives=\(variants.count)|total=\(results.count)|backbones=\(backbones)|complexes=\(complexes)|binders=\(binders)|complete_comparisons=\(compared)|sources=\(sources)")
             guard backbones > 0, complexes > 0, binders > 0,
-                  compared > 0,
+                  compared > 0, correctlyNested,
                   !results.contains(where: { $0.scoreSource == "Prediction" }) else {
                 throw NSError(domain: "PredictionResultsContract", code: 9,
                               userInfo: [NSLocalizedDescriptionKey:
@@ -163,9 +171,11 @@ struct PredictionResultsContractHarness {
                             "Interrupted iterative checkpoints lost result or score provenance: \(partial.map { "\($0.stage.rawValue):\($0.scoreSource)" })"])
         }
         let grouped = RunResultsLoader.groups(from: partial)
-        guard grouped.count == 2,
-              grouped.first(where: { $0.id == "iterative|1|1" })?.items.count == 3,
-              grouped.first(where: { $0.id == "iterative|1|1" })?.isHit == true else {
+        guard grouped.count == 1,
+              grouped.first?.variants.count == 2,
+              grouped.first?.iterativeTrajectoryItems.map(\.variantID) == ["cycle|0", "cycle|1"],
+              grouped.first?.variants.first(where: { $0.id == "cycle|1" })?.items.count == 3,
+              grouped.first?.variants.first(where: { $0.id == "cycle|1" })?.isHit == true else {
             throw NSError(domain: "PredictionResultsContract", code: 8,
                           userInfo: [NSLocalizedDescriptionKey:
                             "Related iterative structures were not grouped under the saved hit verdict"])
@@ -182,7 +192,7 @@ struct PredictionResultsContractHarness {
         let rfd3 = fm.temporaryDirectory
             .appendingPathComponent("rfd3-results-\(UUID().uuidString)", isDirectory: true)
         defer { try? fm.removeItem(at: rfd3) }
-        for relative in ["rfd3/backbones", "predictions/holo", "predictions/apo",
+        for relative in ["rfd3/backbones", "mpnn", "predictions/holo", "predictions/apo",
                          "analysis", "config"] {
             try fm.createDirectory(at: rfd3.appendingPathComponent(relative),
                                    withIntermediateDirectories: true)
@@ -196,18 +206,22 @@ struct PredictionResultsContractHarness {
         try "design,backbone_pdb,ca_valid_pct\ndesign_0001,\(backbone.path),100\n"
             .write(to: rfd3.appendingPathComponent("rfd3/backbone_metrics.csv"),
                    atomically: true, encoding: .utf8)
-        try "design,name,ok,pdb,complex_plddt,iptm\ndesign_0001,design_0001_0,True,\(holo.path),0.91,0.82\n"
+        try "design,name,ok,pdb,complex_plddt,iptm\ndesign_0001_0,design_0001_0,True,\(holo.path),0.91,0.82\n"
             .write(to: rfd3.appendingPathComponent("predictions/holo/prediction_metrics.csv"),
                    atomically: true, encoding: .utf8)
-        try "design,name,ok,pdb,complex_plddt,iptm\ndesign_0001,design_0001_0,True,\(apo.path),0.88,0\n"
+        try "design,name,ok,pdb,complex_plddt,iptm\ndesign_0001_0,design_0001_0,True,\(apo.path),0.88,0\n"
             .write(to: rfd3.appendingPathComponent("predictions/apo/prediction_metrics.csv"),
                    atomically: true, encoding: .utf8)
-        try "design,name,holo_vs_apo_ca_rmsd\ndesign_0001,design_0001_0,1.25\n"
+        try "design,name,holo_vs_apo_ca_rmsd\ndesign_0001_0,design_0001_0,1.25\n"
             .write(to: rfd3.appendingPathComponent("analysis/rmsd_metrics.csv"),
                    atomically: true, encoding: .utf8)
+        try "design,seq_index,sequence,backbone_pdb\ndesign_0001,0,AAAA,\(backbone.path)\n"
+            .write(to: rfd3.appendingPathComponent("mpnn/sequences.csv"),
+                   atomically: true, encoding: .utf8)
         let ranked: [[String: Any]] = [[
-            "design": "design_0001", "name": "design_0001_0",
-            "sequence": "AAAA", "pdb": holo.path, "iptm": 0.82, "score": 0.9,
+            "design": "design_0001_0", "name": "design_0001_0",
+            "backbone_pdb": backbone.path, "sequence": "AAAA",
+            "pdb": holo.path, "iptm": 0.82, "score": 0.9,
         ]]
         try JSONSerialization.data(withJSONObject: ranked).write(
             to: rfd3.appendingPathComponent("analysis/top100_manifest.json"))
@@ -215,7 +229,13 @@ struct PredictionResultsContractHarness {
             to: rfd3.appendingPathComponent("config/campaign.json"))
 
         let rfd3Results = RunResultsLoader.load(root: rfd3, workflow: .rfdiffusion3)
+        let rfd3Groups = RunResultsLoader.groups(from: rfd3Results)
         guard rfd3Results.count == 3,
+              rfd3Groups.count == 1,
+              rfd3Groups.first?.id == "rfd3|design_0001",
+              rfd3Groups.first?.primaryItems.count == 1,
+              rfd3Groups.first?.variants.first?.id == "design_0001_0",
+              rfd3Groups.first?.variants.first?.items.count == 2,
               rfd3Results.contains(where: { $0.stage == .generatedBackbone
                   && $0.scoreSource == "RFdiffusion3 MLX" }),
               rfd3Results.contains(where: { $0.subtitle == "Complex with ligand · Boltz-2" }),
