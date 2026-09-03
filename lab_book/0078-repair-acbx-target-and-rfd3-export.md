@@ -4,7 +4,7 @@ title: Repair the aCbx target and RFdiffusion3 target export
 date: 2026-09-03
 author: gpt-5-codex
 type: bugfix
-status: in-progress
+status: complete
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory, macOS 26.x
 tags: [rfd3, mlx, acbx, target-structure, disulfide, boltz, mcp]
 ---
@@ -47,7 +47,8 @@ template. This followed the EMA and surface-placement repairs in
   aCbx campaign through immutable MCP plan `plan-b402e93db0002574`, SolubleMPNN,
   resident Boltz complex prediction and resident Boltz binder-alone prediction.
 - Started the requested matched 100-backbone mNeonGreen campaign as immutable
-  MCP plan `plan-eb1ed631a657c25e`; final results are still pending.
+  MCP plan `plan-eb1ed631a657c25e`. It was cancelled at the user's request after
+  ten backbone checkpoints; no completed campaign statistics are claimed.
 
 ## Results
 
@@ -82,6 +83,11 @@ The source-level cysteine atom14 regression, four aCbx integrity tests, four
 surface-origin tests, four weight-provenance tests, three resident-predictor
 tests, worked-example Foundry preflight, RFdiffusion3 result/ORI UI contract and
 both debug and release Swift builds passed.
+
+The cancelled mNeonGreen run reached ten backbone checkpoints. An examined raw
+output retained all 1,876 target atoms, including the complete residue-specific
+side-chain inventory. The job stopped before sequence design or prediction, so
+it provides exporter acceptance only and no enrichment result.
 
 ## Decision and rationale
 
@@ -124,8 +130,9 @@ RCSB file used for the mechanical chain extraction was `/private/tmp/1CTX.pdb`.
   not an enrichment benchmark. It produced no strict pose-recovery hit.
 - Only one of the calculated surface locations is used when the smoke quota is
   five; this is not whole-target coverage by itself.
-- The full 100-backbone mNeonGreen campaign is running and its final complex,
-  apo and hit distributions are not yet recorded here.
+- The matched 100-backbone mNeonGreen campaign was cancelled at ten backbones
+  before MPNN or prediction. Its final complex, apo and hit distributions do
+  not exist; its checkpoints remain resumable.
 - The corrected app has not been run on the user's M1 MacBook. The malformed
   bundled asset and atom-name ordering were platform-independent, but M1 runtime
   acceptance remains separate.
@@ -137,7 +144,6 @@ RCSB file used for the mechanical chain extraction was `/private/tmp/1CTX.pdb`.
 
 ## Next
 
-Complete the running mNeonGreen campaign, compare it with the old-weight/old-
-export campaign using the saved filters, update this entry, then build/package
-the final app. Run the same aCbx example on the M1 MacBook before calling the
-cross-generation acceptance complete.
+Run the same aCbx example on the M1 MacBook before calling cross-generation
+acceptance complete. Resume the mNeonGreen plan only if a full matched
+old-weight/new-weight enrichment comparison is still wanted.
