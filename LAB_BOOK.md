@@ -162,6 +162,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0079 | 2026-09-03 | [Test 90-residue whole-surface minibinders against alpha-cobratoxin](lab_book/0079-acbx-90aa-whole-surface-campaign.md) | Runs the requested 100-backbone, ten-surface, no-hotspot 1CTX campaign with two SolubleMPNN sequences and resident Boltz holo/apo validation; records initial structural acceptance and pending results without inventing completion. |
 | 0078 | 2026-09-03 | [Repair the aCbx target and RFdiffusion3 target export](lab_book/0078-repair-acbx-target-and-rfd3-export.md) | Separates exact fixed-backbone preservation from two real visual/scientific faults: an invalid bundled aCbx structure and atom14 side-chain names discarded during MLX export; replaces the target with experimental 1CTX and retains template-free verification. |
 | 0077 | 2026-09-03 | [Add explicit protein-surface origin modes](lab_book/0077-add-explicit-protein-surface-origin-modes.md) | Replaces unsafe protein-COM/empty-hotspot placement with reproducible whole-surface coverage, broad-region positioning without hotspot conditioning, exact epitope hotspots, and hidden manual XYZ across GUI, MLX fixtures and MCP v5. |
 | 0076 | 2026-09-03 | [Enforce RFdiffusion3 EMA weight provenance](lab_book/0076-enforce-rfd3-ema-weight-provenance.md) | Replaces the accidentally pinned raw MLX network with Foundry's verified EMA shadow artifact and makes export, installation, GUI, MCP detection and inference fail closed on provenance. |
