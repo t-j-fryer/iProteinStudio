@@ -27,14 +27,14 @@ struct RFD3View: View {
 
     private var request: Binding<RFD3Request> {
         Binding(
-            get: { app.selectedProject?.rfd3 ?? project.rfd3 },
-            set: { nv in app.updateSelected { $0.rfd3 = nv } }
+            get: { app.projects.first(where: { $0.id == project.id })?.rfd3 ?? project.rfd3 },
+            set: { nv in app.updateProject(id: project.id) { $0.rfd3 = nv } }
         )
     }
 
     var body: some View {
         Group {
-            if controller.isRunning || controller.campaignRoot != nil {
+            if controller.projectSlug == project.slug && (controller.isRunning || controller.campaignRoot != nil) {
                 RFD3ProgressView(controller: controller)
             } else if let reason = RFD3Controller.unavailableReason {
                 unavailable(reason)
@@ -294,6 +294,7 @@ struct RFD3View: View {
                 GridRow {
                     Text("Temperature").font(.callout)
                     Slider(value: request.sequenceTemperature, in: 0.05...1.0, step: 0.05).frame(width: 200)
+                    .accessibilityLabel("Sequence sampling temperature")
                     Text(String(format: "%.2f", request.wrappedValue.sequenceTemperature))
                         .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
                 }
@@ -301,6 +302,7 @@ struct RFD3View: View {
                     GridRow {
                         Text("Binding site").font(.callout)
                         Slider(value: request.firstShellTemperature, in: 0.1...2.0, step: 0.1).frame(width: 200)
+                        .accessibilityLabel("First shell sampling temperature")
                         Text(String(format: "%.2f", request.wrappedValue.firstShellTemperature))
                             .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
                     }
@@ -1121,6 +1123,11 @@ struct RFD3View: View {
         let isLigand = kind == .smallMolecule
         let folds = request.wrappedValue.totalDesignedSequences
         return VStack(alignment: .leading, spacing: 12) {
+            if isLigand {
+                LigandNessoOptionsView(options: request.nesso,
+                    explanation: "Screen all MPNN sequences before folding. Advance the top sequences across all backbones to one chosen predictor. This selects the NESSO screening route; the standard Boltz affinity ranking, second opinions and apo checks below apply only when screening is off.")
+            }
+            if !isLigand || !request.wrappedValue.nesso.enabled {
             Text(isLigand
                  ? "Designed sequences are folded back with the ligand present and ranked. Every fold here is a real cost — this stage dominates the run."
                  : "Designed sequences are folded back with the target present and ranked. Studio generates the target's MSA once, on the first prediction, and reuses it for the rest of the campaign.")
@@ -1214,6 +1221,7 @@ struct RFD3View: View {
                 .font(.caption)
                 .foregroundStyle(totalFolds > 1000 ? .orange : .secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -1290,7 +1298,7 @@ struct RFD3View: View {
     private var startBar: some View {
         let r = request.wrappedValue
         let issues = r.validationIssues
-        let anotherWorkflowIsRunning = app.run.isRunning || app.prediction.isRunning
+        let anotherWorkflowIsRunning = app.run.isRunning || app.prediction.isRunning || app.nise.isRunning
         let missingComponents = r.requiredComponents.filter {
             installer.components[$0] != nil && !installer.isUsable($0)
         }
@@ -1307,7 +1315,7 @@ struct RFD3View: View {
             }
             HStack {
                 if anotherWorkflowIsRunning {
-                    Label("Finish or stop the active \(app.prediction.isRunning ? "prediction" : "iterative design") run before starting RFdiffusion3.",
+                    Label("Finish or stop the active \(app.nise.isRunning ? "NISE" : (app.prediction.isRunning ? "prediction" : "Protein Hunter")) run before starting RFdiffusion3.",
                           systemImage: "hourglass")
                         .font(.callout).foregroundStyle(.secondary)
                 } else if !r.isRunnable {
@@ -1316,7 +1324,7 @@ struct RFD3View: View {
                 }
                 Spacer()
                 Button {
-                    controller.start(project: app.selectedProject ?? project, request: r)
+                    controller.start(project: app.projects.first(where: { $0.id == project.id }) ?? project, request: r)
                 } label: {
                     Label("Start RFdiffusion3 Run", systemImage: "play.fill").frame(minWidth: 220)
                 }
@@ -1490,7 +1498,7 @@ private struct RFD3ResultsSummary: View {
         .accessibilityLabel("RFdiffusion3 results. \(summary)")
         .task(id: root.path + String(finished)) {
             while !Task.isCancelled {
-                items = RunResultsLoader.load(root: root, workflow: .rfdiffusion3)
+                items = await ResultsRepository.shared.load(root: root, workflow: .rfdiffusion3)
                 if finished { break }
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
             }

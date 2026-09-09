@@ -24,7 +24,7 @@ if len(sys.argv) < 5:
 while len(sys.argv) < 7:
     sys.argv.append("")
 
-import json, sys
+import json, shutil, sys
 from pathlib import Path
 
 template, binder_seq, query_name, out_json, target_msa_path, binder_msa_path = sys.argv[1:7]
@@ -91,6 +91,25 @@ def chain_id_of(item):
         return cids
     return ""
 
+def openfold_msa_path(raw_path: str, chain_id: str) -> str:
+    """Return a private raw-MSA path whose basename OpenFold actually parses."""
+    source = Path(raw_path).expanduser()
+    if not source.exists():
+        raise SystemExit(f"OpenFold MSA does not exist: {source}")
+    if source.is_dir() or source.suffix.lower() == ".npz":
+        return str(source)
+    suffix = source.suffix.lower()
+    if suffix not in {".a3m", ".sto"}:
+        raise SystemExit(f"OpenFold does not support MSA file type {source.suffix}: {source}")
+    # OpenFold's public query schema accepts arbitrary file names, but its raw
+    # parser silently filters on configured database stems. Give each chain a
+    # private, lossless copy in the recognised colabfold_main slot.
+    safe_chain = "".join(c if c.isalnum() or c in "._-" else "_" for c in chain_id) or "chain"
+    normalized = Path(out_json).parent / "_openfold_msas" / safe_chain / f"colabfold_main{suffix}"
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, normalized)
+    return str(normalized)
+
 entries = parse_yaml_sequences(template)
 out_chains = []
 need_server = False
@@ -127,7 +146,7 @@ for e in entries:
         }
         if kind in {"protein", "rna"}:
             if usable(msa):
-                row["main_msa_file_paths"] = [msa]
+                row["main_msa_file_paths"] = [openfold_msa_path(msa, cid)]
                 has_real_msa = True
             elif not msa_was_explicit:
                 need_server = True

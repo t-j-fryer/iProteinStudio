@@ -80,3 +80,18 @@ in `Sources/iProteinStudio/Resources/pipeline/setup_pipeline.sh` and
 The ability to download an artifact does not grant additional rights to it.
 Users remain responsible for the upstream licence, model licence, acceptable-use
 conditions and external-service terms applicable to the components they choose.
+
+
+## NESSO native-MPS adaptation (optional engine)
+
+- Project: <https://github.com/recursionpharma/nesso>
+- Source revision: `6c72f66720d9d3447fd73c515cda963e39128b1f`
+- Role: experimental sequence–small-molecule affinity screening in NISE
+- Licence: Apache-2.0
+
+The version-guarded adaptation from iProteinHunter-beta and exact upstream
+licence are shipped under `pipeline/scripts/nise/nesso_assets/`. Installed NESSO
+retains the upstream package's additional licence notices. NESSO v1.0.0 and
+ESM-2 weights are downloaded separately into the managed component directory;
+no model weights are distributed with Studio. Pins and provenance are recorded
+in the bundled `nesso_assets/protocol.json` and the NISE `UPSTREAM.json`.

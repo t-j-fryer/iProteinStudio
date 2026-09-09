@@ -210,6 +210,7 @@ struct LigandTargetingView: View {
                 HStack {
                     Text("Contact distance").font(.callout)
                     Slider(value: $request.ligandContactDistance, in: 3...10, step: 0.5).frame(width: 180)
+                    .accessibilityLabel("Ligand contact distance in angstroms")
                     Text(String(format: "%.1f Å", request.ligandContactDistance))
                         .font(.callout.monospacedDigit())
                 }

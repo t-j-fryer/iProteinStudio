@@ -57,7 +57,16 @@ final class PredictionStore: ObservableObject {
     static let currentResultDirectoryName = "shared-prediction-v1"
 
     static func currentResultDir(for id: String) -> URL {
-        dir(for: id).appendingPathComponent(currentResultDirectoryName, isDirectory: true)
+        let root = dir(for: id)
+        if let data = try? Data(contentsOf: root.appendingPathComponent("current-result.json")),
+           let saved = try? JSONDecoder().decode([String: String].self, from: data),
+           let name = saved["directory"], name.hasPrefix("prediction-"), !name.contains("/"), !name.contains("..") {
+            return root.appendingPathComponent(name, isDirectory: true)
+        }
+        if FileManager.default.fileExists(atPath: root.appendingPathComponent("current-result.json").path) {
+            return root.appendingPathComponent("unavailable-current-result", isDirectory: true)
+        }
+        return root.appendingPathComponent(currentResultDirectoryName, isDirectory: true)
     }
 
     /// First structure file under a prediction dir (prefers model_0 / sample-0).
@@ -71,8 +80,10 @@ final class PredictionStore: ObservableObject {
     }
 
     func cifPath(for record: PredictionRecord) -> String? {
-        Self.findModelCIF(in: Self.currentResultDir(for: record.id))?.path
-            ?? Self.findModelCIF(in: Self.dir(for: record.id))?.path
+        let root = Self.dir(for: record.id)
+        let current = Self.findModelCIF(in: Self.currentResultDir(for: record.id))?.path
+        if FileManager.default.fileExists(atPath: root.appendingPathComponent("current-result.json").path) { return current }
+        return current ?? Self.findModelCIF(in: root)?.path
     }
 
     // MARK: mutations

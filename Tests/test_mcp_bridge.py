@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -79,7 +80,7 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             state = broker.load_state(job_id)
-            if state["status"] in broker.TERMINAL:
+            if state["status"] in broker.TERMINAL and not common.process_alive(state.get("pid")):
                 return state
             time.sleep(0.05)
         self.fail(f"job {job_id} did not finish")
@@ -144,6 +145,9 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
     def test_iterative_target_template_plan_is_staged_and_fail_closed(self):
         runner = self.root / "nanohunter_run.sh"
         runner.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+        helper = self.root / "scripts" / "secondary_structure_control.py"
+        helper.parent.mkdir(parents=True, exist_ok=True)
+        helper.write_text("# seed helper fixture\n", encoding="utf-8")
         source = self.root / "projects" / "demo" / "inputs"
         workflow = source / "target.yaml"
         workflow.write_text("sequences:\n  - protein:\n      id: A\n      sequence:\n  - protein:\n      id: B\n      sequence: ACDEFG\n", encoding="utf-8")
@@ -153,6 +157,8 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
             "--workflow", "protein", "--predictor", "boltz",
             "--sequence-designer", "solublempnn", "--num-runs", "1",
             "--num-opt-cycles", "1", "--iptm-threshold", "0.7",
+            "--predictor-seed", "42", "--predictor-samples", "1",
+            "--negative-helix-constant", "0.45",
         ]
         plan = plans.iterative_plan({
             "project": "demo", "run_name": "guided", "template_path": str(workflow),
@@ -160,10 +166,19 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
             "arguments": arguments,
         })
         normalized = plan["normalized_request"]
+        self.assertIn(str(helper), [item["path"] for item in plan["provenance"]])
+        plans.load_plan(plan["id"], plan["sha256"])
+        helper.write_text("# modified helper fixture\n", encoding="utf-8")
+        with self.assertRaisesRegex(common.StudioError, "changed after preflight"):
+            plans.load_plan(plan["id"], plan["sha256"])
         staged = self.root / "projects" / "demo" / "guided" / "inputs" / "target_template.pdb"
         self.assertEqual(normalized["arguments"][normalized["arguments"].index("--target-template") + 1], str(staged))
         self.assertEqual(normalized["target_template_artifact"]["sha256"], common.file_digest(structure))
         self.assertNotIn("--target-template-threshold", normalized["arguments"])
+        self.assertEqual(
+            normalized["arguments"][normalized["arguments"].index("--predictor-seed") + 1],
+            "42",
+        )
 
         intellifold = plans.iterative_plan({
             "project": "demo", "run_name": "guided-intellifold", "template_path": str(workflow),
@@ -171,6 +186,14 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
             "arguments": [value if value != "boltz" else "intellifold" for value in arguments],
         })
         self.assertIn("--target-template", intellifold["normalized_request"]["arguments"])
+
+        openfold = plans.iterative_plan({
+            "project": "demo", "run_name": "openfold-scheduler", "template_path": str(workflow),
+            "arguments": [value if value != "boltz" else "openfold-3-mlx" for value in arguments],
+        })
+        openfold_args = openfold["normalized_request"]["arguments"]
+        self.assertEqual(openfold_args[openfold_args.index("--design-scheduler") + 1], "run")
+        self.assertNotIn("--wave-batch-size", openfold_args)
 
         with self.assertRaisesRegex(common.StudioError, "reproducibly produced broken target geometry"):
             plans.iterative_plan({
@@ -184,6 +207,56 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
                 "target_template_path": str(structure), "target_template_mode": "guide",
                 "target_template_threshold": 2.0, "arguments": arguments,
             })
+        with self.assertRaisesRegex(common.StudioError, "negative-helix-constant must be between 0.0 and 1.0"):
+            plans.iterative_plan({
+                "project": "demo", "run_name": "invalid-beta", "template_path": str(workflow),
+                "arguments": [
+                    "1.2" if value == "0.45" else value for value in arguments
+                ],
+            })
+
+    def test_only_initialization_helix_strength_is_accepted(self):
+        base = ["--workflow", "protein", "--predictor", "boltz", "--sequence-designer", "solublempnn",
+                "--num-runs", "10", "--num-opt-cycles", "5", "--iptm-threshold", "0.7"]
+        for strength in ("0", "0.5", "1"):
+            args = base + ["--negative-helix-constant", strength]
+            self.assertEqual(plans._normalize_iterative_arguments(args)[0], args)
+        for strength in ("NaN", "inf", "-0.1", "1.01"):
+            with self.assertRaises(common.StudioError):
+                plans._normalize_iterative_arguments(base + ["--negative-helix-constant", strength])
+        for flag in ("--secondary-bias", "--secondary-bias-scope", "--beta-strength", "--anti-helix-strength",
+                     "--beta-pattern-strength", "--turn-strength", "--loopkill", "--seed-sampling-order",
+                     "--initialization-max-attempts", "--initialization-min-coil-length",
+                     "--initialization-confidence-threshold", "--mpnn-bias-aa-cycle1", "--mpnn-bias-aa-other"):
+            with self.subTest(flag=flag), self.assertRaisesRegex(common.StudioError, "Unsupported"):
+                plans._normalize_iterative_arguments(base + [flag, "0.5"])
+
+    def test_monomer_benchmark_controls_are_validated(self):
+        base = ["--workflow", "protein", "--predictor", "boltz", "--sequence-designer", "solublempnn",
+                "--num-runs", "1", "--num-opt-cycles", "5", "--iptm-threshold", "0.7"]
+        controls = ["--binder-percent-x", "50", "--negative-helix-constant", "0.5"]
+        self.assertEqual(plans._normalize_iterative_arguments(base + controls)[0], base + controls)
+        for value in ("NaN", "101"):
+            with self.assertRaises(common.StudioError):
+                plans._normalize_iterative_arguments(base + ["--binder-percent-x", value])
+        (self.root / "nanohunter_run.sh").write_text("#!/bin/bash\nexit 0\n")
+        for name in ("secondary_structure_control.py", "initialization_refinement.py", "initialization_assessment.py"):
+            path = self.root / "scripts" / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_text("# fixture\n")
+        (self.root / "projects/demo/inputs/monomer.yaml").write_text("version: 1\nsequences: []\n")
+        template = self.root / "projects/demo/inputs/monomer.yaml"
+        request = {"project": "demo", "run_name": "baseline-benchmark", "template_path": str(template),
+                   "monomer_control_benchmark": True, "arguments": base + ["--random-binder"] + controls}
+        with patch.object(plans.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "ok", "")) as check:
+            plan = plans.iterative_plan(request)
+        self.assertIn("check-template", check.call_args.args[0])
+        args = plan["normalized_request"]["arguments"]
+        self.assertEqual(args[args.index("--design-scheduler") + 1], "run")
+        self.assertNotIn("initialization_refinement", plan["normalized_request"])
+        self.assertIn("monomer_control_benchmark", plan["normalized_request"])
+        with self.assertRaises(common.StudioError):
+            plans.iterative_plan({**request, "monomer_control_benchmark": "yes"})
 
     def test_two_mcp_jobs_share_one_execution_lock_and_results_are_queryable(self):
         first = plans.prediction_plan(self.prediction_arguments("first"))
@@ -233,7 +306,8 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         self.assertEqual(running["status"], "running", running)
         pid = running["pid"]
         cancelled = broker.cancel_job(slow_job["id"])
-        self.assertEqual(cancelled["status"], "cancelled")
+        self.assertIn(cancelled["status"], {"stopping", "cancelled"})
+        self.assertEqual(self.wait_terminal(slow_job["id"])["status"], "cancelled")
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline and common.process_alive(pid):
             broker.load_state(slow_job["id"], refresh=False)
@@ -380,6 +454,9 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
             "1,1,boltz,0.8,0.7,0.9,1.2,1.0,run_001/post_boltz/cycle_01/complex.cif,run_001/post_boltz/cycle_01/binder_alone/binder.cif,True,\n"
         )
 
+        geometry = run / "run_001/cycle_01/pred_min/geometry_report.json"
+        geometry.parent.mkdir()
+        geometry.write_text(json.dumps({"policy": "record_only", "violation_count": 1, "error_count": 0}))
         overview = catalog.results_overview("demo/iterative_runs/organized")
         self.assertEqual(overview["workflow"], "iterative")
         self.assertEqual(len(overview["groups"]), 1)
@@ -392,6 +469,8 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
             "designed_complex", "complex_reprediction", "binder_alone"
         })
         self.assertTrue(cycle_one["is_hit"])
+        self.assertEqual(cycle_one["geometry_diagnostics"]["violation_count"], 1)
+        self.assertEqual(cycle_one["geometry_diagnostics"]["policy"], "record_only")
         status = catalog.run_status("demo/iterative_runs/organized")
         self.assertNotIn("comparison_scores_long.csv", status["result_files"])
 

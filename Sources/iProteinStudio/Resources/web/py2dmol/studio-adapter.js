@@ -12,6 +12,28 @@
   const frameCounter = document.getElementById("frameCounter");
   let suppressSelectionMessage = false;
   let trajectoryLabels = [];
+  const playButton = document.getElementById("playButton");
+  function syncPlaybackName() {
+    if (!playButton) return;
+    const playing = Boolean(renderer && renderer.isPlaying);
+    playButton.setAttribute("aria-label", playing ? "Pause trajectory" : "Play trajectory");
+    playButton.setAttribute("aria-pressed", String(playing));
+  }
+  if (playButton) {
+    new MutationObserver(syncPlaybackName).observe(playButton, {childList:true, subtree:true});
+    playButton.addEventListener("click", () => queueMicrotask(syncPlaybackName));
+  }
+  window.studioSetReducedMotion = function (enabled) {
+    if (!enabled || !renderer) return;
+    renderer.autoRotate = false;
+    renderer.autoplay = false;
+    if (renderer.rotationCheckbox) renderer.rotationCheckbox.checked = false;
+    if (renderer.isPlaying) renderer.togglePlay();
+    syncPlaybackName();
+  };
+  const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+  motionPreference.addEventListener("change", event => window.studioSetReducedMotion(event.matches));
+  window.studioSetReducedMotion(motionPreference.matches);
 
   function report(message) {
     status.textContent = message || "";
@@ -188,6 +210,7 @@
     const index = Math.max(0, Math.min(trajectoryLabels.length - 1,
       Number.parseInt(frameSlider.value || "0", 10)));
     const expected = `${trajectoryLabels[index]} · ${index + 1} / ${trajectoryLabels.length}`;
+    frameSlider.setAttribute("aria-valuetext", expected);
     if (frameCounter.textContent !== expected) frameCounter.textContent = expected;
   }
 
@@ -267,7 +290,7 @@
 
       suppressSelectionMessage = true;
       clearRenderer();
-      const objectName = "Iterative design trajectory";
+      const objectName = "Protein Hunter trajectory";
       renderer.addObject(objectName);
       for (const frame of frames) renderer.addFrame(frame, objectName);
       renderer.selectionEnabled = false;

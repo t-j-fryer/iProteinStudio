@@ -6,6 +6,7 @@ import AppKit
 /// an active job never disappears merely because the user changes tabs.
 struct ActivityCenterView: View {
     @EnvironmentObject var app: AppState
+    @ObservedObject private var jobs = JobCenter.shared
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var run: RunController
     @ObservedObject var rfd3: RFD3Controller
@@ -32,20 +33,17 @@ struct ActivityCenterView: View {
                     .accessibilityLabel("Refresh activity")
             }
 
-            if projectFilter == nil, hasLiveActivity {
+            if let error = jobs.operationError ?? jobs.error {
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+            if !visibleJobs.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Running now").font(.headline)
-                    if run.isRunning {
-                        liveRow(title: "Iterative design", message: "Design campaign is running",
-                                image: "arrow.triangle.2.circlepath", stop: run.cancel)
-                    }
-                    if rfd3.isRunning {
-                        liveRow(title: "RFdiffusion3", message: rfd3.currentMessage,
-                                image: "sparkles", stop: rfd3.cancel)
-                    }
-                    if prediction.isRunning {
-                        liveRow(title: "Prediction", message: prediction.currentMessage,
-                                image: "cube.transparent", stop: prediction.cancel)
+                    Text("Active and queued work").font(.headline)
+                    ForEach(visibleJobs) { job in
+                        liveRow(title: job.project, message: job.message ?? job.status,
+                                image: "waveform.path", stop: { jobs.cancel(job) })
+                            .disabled(job.status == "stopping")
                     }
                 }
                 Divider()
@@ -72,9 +70,14 @@ struct ActivityCenterView: View {
         .accessibilityLabel(projectFilter == nil ? "Global activity centre" : "Workspace run history")
     }
 
-    private var hasLiveActivity: Bool { run.isRunning || rfd3.isRunning || prediction.isRunning }
+    private var visibleJobs: [ManagedJob] {
+        jobs.active.filter { job in
+            projectFilter == nil || app.projects.first(where: { $0.slug == job.project })?.id == projectFilter
+        }
+    }
+    private var hasLiveActivity: Bool { run.isRunning || rfd3.isRunning || prediction.isRunning || app.nise.isRunning || !jobs.active.isEmpty }
 
-    private func refresh() { history.refresh(projects: app.projects) }
+    private func refresh() { Task { await jobs.refresh(); history.refresh(projects: app.projects) } }
 
     private func liveRow(title: String, message: String, image: String,
                          stop: @escaping () -> Void) -> some View {
@@ -107,10 +110,11 @@ struct ActivityCenterView: View {
             }
             Spacer()
             if record.isResumable {
-                Button("Resume") { resume(record) }
+                Button(isEngineBatch(record) ? "Resume batch" : "Resume") { resume(record) }
                     .controlSize(.small)
                     .disabled(hasLiveActivity)
-                    .help(hasLiveActivity ? "Stop the active GPU job before resuming this run." : "Continue from completed checkpoints")
+                    .help(hasLiveActivity ? "Stop the active GPU job before resuming this run."
+                          : (isEngineBatch(record) ? "Continue the saved engine batch; completed engines are reused." : "Continue from completed checkpoints"))
             }
             if record.hasViewableResults {
                 Button {
@@ -139,9 +143,24 @@ struct ActivityCenterView: View {
         .accessibilityLabel("\(record.workflow.label), \(record.name), \(record.state.label), \(record.detail)")
     }
 
+    private func isEngineBatch(_ record: StudioRunRecord) -> Bool {
+        jobs.jobs.contains { $0.id == record.managedJobID && $0.kind == "desktop_iterative_batch" }
+    }
+
     private func resume(_ record: StudioRunRecord) {
         app.selectedProjectID = record.projectID
-        app.run.resume(record)
+        if isEngineBatch(record) {
+            app.updateSelected { $0.preferredMode = .iterative }
+            app.run.resume(record)
+        } else if record.workflow == .nise, let id = record.managedJobID {
+            app.updateSelected { $0.preferredMode = .nise }
+            app.nise.reattach(root: record.root, jobID: id, resume: true)
+        } else if let id = record.managedJobID, let job = jobs.jobs.first(where: { $0.id == id }) {
+            jobs.resume(job)
+        } else {
+            app.run.resume(record)
+            if let root = app.run.campaignRoot { app.metrics.start(root: root) }
+        }
         refresh()
     }
 

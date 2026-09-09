@@ -91,7 +91,7 @@ class PredictorSafetyTests(unittest.TestCase):
         self.assertIn("managed_assets", wrapper)
         self.assertNotIn("urlretrieve", wrapper)
 
-    def test_all_two_pytorch_launchers_gate_output_geometry(self):
+    def test_predictor_launchers_record_output_geometry(self):
         boltz = (SCRIPTS / "boltz_mps.py").read_text()
         intellifold = (SCRIPTS / "intellifold_predict.py").read_text()
         resident = (SCRIPTS / "resident_predictor.py").read_text()

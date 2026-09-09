@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RESULTS="$ROOT/Sources/iProteinStudio/Views/RunResultsView.swift"
-MODEL="$ROOT/Sources/iProteinStudio/Models/RunResult.swift"
+MODEL="$ROOT/Sources/iProteinStudio/Core/Results/RunResultsLoader.swift"
 RFD3="$ROOT/Sources/iProteinStudio/Views/RFD3/RFD3View.swift"
 GENERATOR="$ROOT/Sources/iProteinStudio/Resources/rfd3_overlay/scripts/generate_backbones.py"
 BINS="$ROOT/Sources/iProteinStudio/Resources/rfd3_overlay/scripts/run_backbone_bins.py"

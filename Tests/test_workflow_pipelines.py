@@ -257,10 +257,12 @@ def main() -> None:
             "mixed", str(mixed_json), "", "", "42",
         ], check=True, capture_output=True, text=True)
         mixed_payload = json.loads(mixed_json.read_text())["queries"]["mixed"]
+        mixed_msa = Path(mixed_payload["chains"][1]["main_msa_file_paths"][0])
         expect(built.stdout.strip() == "false" and mixed_payload["use_msas"],
                "OpenFold mixed-chain policy did not retain the real alignment")
         expect("main_msa_file_paths" not in mixed_payload["chains"][0]
-               and mixed_payload["chains"][1]["main_msa_file_paths"] == [str(cached)],
+               and mixed_msa.name == "colabfold_main.a3m"
+               and mixed_msa.read_bytes() == cached.read_bytes(),
                "OpenFold mixed-chain MSA policy crossed chain boundaries")
 
         runner_source = (ROOT / "Sources/iProteinStudio/Resources/pipeline/nanohunter_run.sh").read_text()

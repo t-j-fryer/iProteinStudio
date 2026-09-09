@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "target": {
+    "name": "alpha-cobratoxin",
+    "sequence": "IRCFITPDITSKDCPNGHVCYTKTWCDAFCSIRGKRVDLGCAATCPTVKTGVDIQCCSTDNCNPFPTRKRP",
+    "msa_sha256": "377a3af41f6816683c9b06241fafd2e0c2bc6b0129c2f4a78387ad36f75f34cf",
+    "managed_template_sha256": "7de02245f5893ef68c5c0b13309d63be29e8e48cdc34ec8630ba4f574c321628"
+  },
+  "campaign": {
+    "smoke_trajectories": 10,
+    "design_cycles": 5,
+    "binder_length": 90,
+    "binder_seed": 155160,
+    "mpnn_seed": 300160,
+    "predictor_seed": 42,
+    "predictor_samples": 1,
+    "hit_threshold": 0.7
+  },
+  "controls": {
+    "reference_output": "secondary_structure_priors_v1",
+    "reference_arms": [
+      "natural",
+      "antihelix_seed_and_cycles",
+      "beta_seed_and_cycles"
+    ],
+    "matched_seeds": true,
+    "scientific_runner_and_helper_must_match": true
+  },
+  "arms": {
+    "mixed_a050_sustained": {
+      "mode": "mixed",
+      "scope": "seed-and-cycles",
+      "anti_helix_strength": 0.5,
+      "beta_strength": 0.5,
+      "beta_pattern_strength": 0.5,
+      "turn_strength": 0.5,
+      "temperature_cycle1": 0.3,
+      "temperature_other": 0.1
+    }
+  },
+  "round": "confirmation01",
+  "initialization": {
+    "binder_percent_x": 50,
+    "binder_structure": null
+  },
+  "hypothesis": "The unchanged mixed0.50 sustained sequence prior can achieve mean PSEA sheet>=0.25 and helix<0.40 over cycles01-05 in the expanded10trajectory cohort, preserving X45/90 seed initialization.",
+  "decision_rule": {
+    "statistical_unit": "trajectory; average cycles01-05 within each trajectory, then mean all10 trajectories without selecting structures",
+    "sheet_mean_at_least": 0.25,
+    "helix_mean_below": 0.4,
+    "require_complete_audited_trajectories": 10,
+    "report_quality": [
+      "binder_plddt",
+      "complex_plddt",
+      "iptm",
+      "ipsae_min",
+      "ca_distance_outliers",
+      "sequence_diversity"
+    ],
+    "on_miss": "Do not select a passing subset; assess paired outcomes and predeclare a new parameter round.",
+    "on_pass": "Report achieved benchmark with trajectory dispersion, baseline comparisons and quality tradeoffs; no default promotion."
+  },
+  "selection_basis": {
+    "pilot": "secondary_structure_mixed_v1",
+    "arm": "mixed_a050_sustained",
+    "pilot_trajectories": 1,
+    "pilot_sheet_mean": 0.6711111111111111,
+    "pilot_helix_mean": 0,
+    "overlap": "run001 repeats the pilot seed; other9 mixed trajectories are unobserved. This is expansion, not an independent-seed replication."
+  },
+  "required_pilot_audit": "Validation/output/secondary_structure_mixed_v1/analysis/audit.json"
+}

@@ -213,6 +213,12 @@ MOTIF_FIXED_POSITIONS=""
 MOTIF_SOURCE_SEQ=""
 MOTIF_GAP_BETWEEN=8
 MOTIF_HELPER="${PIPELINE_CODE_ROOT}/motif_scaffolding_helper.py"
+SECONDARY_STRUCTURE_HELPER="${PIPELINE_CODE_ROOT}/scripts/secondary_structure_control.py"
+INITIALIZATION_REFINEMENT_HELPER="${PIPELINE_CODE_ROOT}/scripts/initialization_refinement.py"
+INITIALIZATION_MAX_ATTEMPTS=0
+INITIALIZATION_MIN_COIL_LENGTH=""
+INITIALIZATION_CONFIDENCE_THRESHOLD=""
+INITIALIZATION_PYTHON=""
 
 PARTIAL_REDESIGN=0
 PARTIAL_REDESIGN_RANGES=""
@@ -223,6 +229,19 @@ PARTIAL_BINDER_LEN=0
 HELIX_KILL=0
 NEGATIVE_HELIX_CONSTANT="0.5"
 LOOP_KILL="0"
+SECONDARY_BIAS="none"
+SECONDARY_BIAS_SET=0
+SECONDARY_BIAS_SCOPE="seed-only"
+SECONDARY_BIAS_SCOPE_SET=0
+SEED_SAMPLING_ORDER="mask-first"
+ANTI_HELIX_STRENGTH="0.5"
+ANTI_HELIX_STRENGTH_SET=0
+BETA_STRENGTH="0.5"
+BETA_PATTERN_STRENGTH="0.5"
+TURN_STRENGTH="0.5"
+BETA_STRENGTH_SET=0
+BETA_PATTERN_STRENGTH_SET=0
+TURN_STRENGTH_SET=0
 UNK_PATCH_MODE="auto"
 
 LIGAND_TEMP_DEFAULT="0.10"
@@ -393,16 +412,14 @@ Binder:
   --partial-redesign-ranges STR    comma-separated 1-based ranges, e.g. "25-50,70-75"
 
 Design controls:
-  --helix-kill
-  --negative-helix-constant X      0..1 helix-kill strength (default: ${NEGATIVE_HELIX_CONSTANT})
-  --loopkill X                     0..1 loop-kill strength (default: ${LOOP_KILL})
+                                  sample-then-mask requires beta/mixed with seed-only scope
+  --helix-kill                     enable initialization helix kill (default strength 0.5)
+  --negative-helix-constant X      0..1 initialization-only helix-kill strength; 0 disables
   --unk-patch-mode MODE            auto | ala | ala_gly | ala_gly_ser
   --ligand-temp-cycle1 T           default: ${LIGAND_TEMP_CYCLE01}
   --ligand-temp-cycle01 T          alias of --ligand-temp-cycle1
   --ligand-temp-other T            default: ${LIGAND_TEMP_DEFAULT}
   --ligand-temp T                  alias of --ligand-temp-other
-  --mpnn-bias-aa-cycle1 STR        passed to LigandMPNN --bias_AA for cycle_00->01 redesign
-  --mpnn-bias-aa-other STR         passed to LigandMPNN --bias_AA for later redesign cycles
   --nanobody-cdrs STR              CDR regions to redesign, e.g. "CDR3" or "CDR1 CDR2 CDR3".
                                    Restricts AntiFold sampling AND the MPNN designers
                                    (proteinmpnn/solublempnn/ligandmpnn/abmpnn) to these CDRs.
@@ -780,15 +797,13 @@ while [[ $# -gt 0 ]]; do
     --partial-redesign) PARTIAL_REDESIGN=1; shift 1 ;;
     --partial-redesign-ranges) PARTIAL_REDESIGN_RANGES="$2"; shift 2 ;;
 
+    --secondary-bias|--secondary-bias-scope|--initialization-max-attempts|--initialization-min-coil-length|--initialization-confidence-threshold|--seed-sampling-order|--anti-helix-strength|--beta-strength|--beta-pattern-strength|--turn-strength|--loopkill|--mpnn-bias-aa-cycle1|--mpnn-bias-aa-other) die "Retired secondary-structure control: $1. Use --negative-helix-constant 0..1 (initialization only)." ;;
     --helix-kill) HELIX_KILL=1; shift 1 ;;
-    --negative-helix-constant) NEGATIVE_HELIX_CONSTANT="$2"; shift 2 ;;
-    --loopkill) LOOP_KILL="$2"; shift 2 ;;
+    --negative-helix-constant) NEGATIVE_HELIX_CONSTANT="$2"; ANTI_HELIX_STRENGTH="$2"; ANTI_HELIX_STRENGTH_SET=1; shift 2 ;;
     --unk-patch-mode) UNK_PATCH_MODE="$2"; shift 2 ;;
 
     --ligand-temp-cycle1|--ligand-temp-cycle01) LIGAND_TEMP_CYCLE01="$2"; shift 2 ;;
     --ligand-temp-other|--ligand-temp) LIGAND_TEMP_DEFAULT="$2"; shift 2 ;;
-    --mpnn-bias-aa-cycle1) LIGAND_BIAS_AA_CYCLE01="$2"; shift 2 ;;
-    --mpnn-bias-aa-other) LIGAND_BIAS_AA_DEFAULT="$2"; shift 2 ;;
     --nanobody-cdrs|--cdrs|--antifold-regions) ANTIFOLD_REGIONS="$2"; shift 2 ;;
     --nanobody-seed-mode) NANOBODY_SEED_MODE="$2"; shift 2 ;;
     --nanobody-native-seed) NANOBODY_SEED_MODE="native"; shift 1 ;;
@@ -1206,6 +1221,82 @@ if [[ "${PREDICTOR_SAMPLES}" != "auto" && ! "${PREDICTOR_SAMPLES}" =~ ^[1-9][0-9
   die "--predictor-samples must be auto or a positive integer."
 fi
 
+# Preserve both historical spellings while giving new campaigns one explicit,
+# auditable secondary-structure mode. The compatibility flag can augment beta
+# into mixed, but an explicit `none` is never silently overridden.
+if [[ "${HELIX_KILL}" -eq 1 ]]; then
+  if [[ "${SECONDARY_BIAS_SET}" -eq 0 ]]; then
+    SECONDARY_BIAS="antihelix"
+  elif [[ "${SECONDARY_BIAS}" == "beta" ]]; then
+    SECONDARY_BIAS="mixed"
+  elif [[ "${SECONDARY_BIAS}" == "none" ]]; then
+    die "--helix-kill conflicts with --secondary-bias none. Remove one of them."
+  fi
+fi
+if [[ "${ANTI_HELIX_STRENGTH_SET}" -eq 1 && "${SECONDARY_BIAS_SET}" -eq 0 && "${HELIX_KILL}" -eq 0 ]]; then
+  SECONDARY_BIAS="antihelix"
+fi
+if [[ "${SECONDARY_BIAS_SET}" -eq 0 && "$((BETA_STRENGTH_SET + BETA_PATTERN_STRENGTH_SET + TURN_STRENGTH_SET))" -gt 0 ]]; then
+  [[ "${SECONDARY_BIAS}" == "none" ]] && SECONDARY_BIAS="beta"
+fi
+SECONDARY_BIAS="$(printf '%s' "${SECONDARY_BIAS}" | tr '[:upper:]_' '[:lower:]-')"
+case "${SECONDARY_BIAS}" in
+  none|antihelix|beta|mixed) : ;;
+  *) die "--secondary-bias must be none, antihelix, beta, or mixed." ;;
+esac
+SECONDARY_BIAS_SCOPE="$(printf '%s' "${SECONDARY_BIAS_SCOPE}" | tr '[:upper:]_' '[:lower:]-')"
+case "${SECONDARY_BIAS_SCOPE}" in
+  seed-only|seed-and-cycles) : ;;
+  *) die "--secondary-bias-scope must be seed-only or seed-and-cycles." ;;
+esac
+case "${SEED_SAMPLING_ORDER}" in
+  mask-first|sample-then-mask) : ;;
+  *) die "--seed-sampling-order must be mask-first or sample-then-mask." ;;
+esac
+if [[ "${SEED_SAMPLING_ORDER}" == "sample-then-mask" ]]; then
+  [[ "${SECONDARY_BIAS}" == "beta" || "${SECONDARY_BIAS}" == "mixed" ]] \
+    || die "--seed-sampling-order sample-then-mask requires --secondary-bias beta or mixed."
+  [[ "${SECONDARY_BIAS_SCOPE}" == "seed-only" ]] \
+    || die "--seed-sampling-order sample-then-mask requires --secondary-bias-scope seed-only."
+fi
+
+if [[ "${SECONDARY_BIAS_SET}" -eq 1 ]]; then
+  if [[ "${SECONDARY_BIAS}" == "none" && "$((ANTI_HELIX_STRENGTH_SET + BETA_STRENGTH_SET + BETA_PATTERN_STRENGTH_SET + TURN_STRENGTH_SET))" -gt 0 ]]; then
+    die "Strength flags conflict with --secondary-bias none. Remove the strengths or choose an active mode."
+  fi
+  if [[ "${SECONDARY_BIAS}" == "antihelix" && "$((BETA_STRENGTH_SET + BETA_PATTERN_STRENGTH_SET + TURN_STRENGTH_SET))" -gt 0 ]]; then
+    die "Beta/turn strengths require --secondary-bias beta or mixed."
+  fi
+  if [[ "${SECONDARY_BIAS}" == "beta" && "${ANTI_HELIX_STRENGTH_SET}" -eq 1 ]]; then
+    die "--anti-helix-strength with beta mode requires --secondary-bias mixed."
+  fi
+fi
+case "${SECONDARY_BIAS}" in
+  antihelix|mixed) HELIX_KILL=1 ;;
+  *) HELIX_KILL=0 ;;
+esac
+NEGATIVE_HELIX_CONSTANT="${ANTI_HELIX_STRENGTH}"
+if [[ "${SECONDARY_BIAS}" != "none" ]]; then
+  [[ "${WORKFLOW}" == "protein" ]] || die "Secondary-structure priors are only available for de-novo protein/peptide binders."
+  [[ "${SCAFFOLD_FROM_TEMPLATE}" -eq 0 && "${MOTIF_SCAFFOLDING}" -eq 0 && "${PARTIAL_REDESIGN}" -eq 0 ]] \
+    || die "Secondary-structure priors require --random-binder and cannot be combined with scaffold, motif, or partial-redesign initialization."
+  [[ "${SECONDARY_BIAS_SCOPE}" == "seed-only" || "${SEQUENCE_DESIGNER}" != "lasermpnn" ]] \
+    || die "Secondary-structure priors require ProteinMPNN, SolubleMPNN, or LigandMPNN; LASErMPNN has no position-specific bias-map interface."
+fi
+python3 - "${ANTI_HELIX_STRENGTH}" "${BETA_STRENGTH}" "${BETA_PATTERN_STRENGTH}" "${TURN_STRENGTH}" <<'PY'
+import sys
+for raw, name in zip(sys.argv[1:], (
+    "--anti-helix-strength", "--beta-strength",
+    "--beta-pattern-strength", "--turn-strength",
+)):
+    try:
+        value = float(raw)
+    except Exception:
+        raise SystemExit(f"{name} must be numeric")
+    if not 0.0 <= value <= 1.0:
+        raise SystemExit(f"{name} must be between 0 and 1")
+PY
+
 python3 - "$N_RUNS" "$N_CYCLES" "$IPTM_THRESHOLD" "$POST_IPTM_THRESHOLD" "$MEM_SAFETY" "$LIGAND_TEMP_DEFAULT" "$LIGAND_TEMP_CYCLE01" "$NEGATIVE_HELIX_CONSTANT" "$LOOP_KILL" "$ANTIFOLD_SEED" "$ANTIFOLD_NUM_SEQ_PER_TARGET" "$ANTIFOLD_BATCH_SIZE" "$ANTIFOLD_NUM_THREADS" "$NANOBODY_SEED_MAX_ATTEMPTS" "$NANOBODY_CHARGE_MIN" "$NANOBODY_CHARGE_MAX" "$NANOBODY_HYDRO_MAX" "$NANOBODY_SEED_PERCENT_X" "$BOLTZ_CONTACT_DISTANCE" "$NANOBODY_SCAFFOLD_MSA_MAX_SEQS" "$FILTER_MIN_IPTM" "$FILTER_MIN_IPSAE" "$FILTER_MAX_COMPLEX_RMSD" "$FILTER_MIN_BINDER_PLDDT" "$FILTER_MAX_BINDER_RMSD" <<'PY'
 import sys
 for idx, name, minimum in (
@@ -1510,6 +1601,33 @@ require_predictor_venv() {
 }
 
 require_predictor_venv "${PREDICTOR}"
+if [[ "${INITIALIZATION_MAX_ATTEMPTS}" != "0" ]]; then
+  [[ "${WORKFLOW}" == "protein" && "${SCAFFOLD_FROM_TEMPLATE}" -eq 0 && "${MOTIF_SCAFFOLDING}" -eq 0 && "${PARTIAL_REDESIGN}" -eq 0 ]] \
+    || die "Initialization refinement requires a randomly initialized monomer."
+  [[ "${DESIGN_SCHEDULER}" == "run" ]] \
+    || die "Initialization refinement currently requires the explicitly recorded run scheduler; resident/cycle-wave retries are not implemented."
+  [[ -n "${BINDER_RANDOM_SEED}" ]] || die "Initialization refinement requires --binder-random-seed for reproducible attempts."
+  [[ "${SECONDARY_BIAS}" == "none" || "${SECONDARY_BIAS_SCOPE_SET}" -eq 1 ]] \
+    || die "Initialization refinement requires an explicit --secondary-bias-scope; choose seed-only to confine preferences to initialization."
+  [[ -z "${TARGET_TEMPLATE}" && -z "${INITIAL_STRUCTURE}" ]] \
+    || die "Initialization refinement does not accept templates or imported structures."
+  [[ -z "${TARGET_EPITOPE_RESIDUES}" ]] || die "Monomer initialization refinement does not accept target restraints."
+  case "${PREDICTOR}" in
+    boltz|intellifold|protenix-v2|protenix-mini) : ;;
+    *) die "No monomer initialization assessment adapter for ${PREDICTOR}." ;;
+  esac
+  # Coordinate analysis has an explicit dependency on the managed, pinned
+  # Biotite environment. This never changes the requested prediction engine.
+  INITIALIZATION_PYTHON="${PROTENIX_VENV}/bin/python"
+  [[ -x "${INITIALIZATION_PYTHON}" ]] || die "Initialization assessment requires the managed Protenix environment (Biotite). Install it in Setup."
+  "${INITIALIZATION_PYTHON}" "${INITIALIZATION_REFINEMENT_HELPER}" check \
+    --input-yaml "${TEMPLATE_YAML}" --max-attempts "${INITIALIZATION_MAX_ATTEMPTS}" \
+    --min-uncertain-coil-length "${INITIALIZATION_MIN_COIL_LENGTH}" \
+    --confidence-threshold "${INITIALIZATION_CONFIDENCE_THRESHOLD}" --minimum-length "${BINDER_MIN_LEN}" \
+    || die "Monomer initialization refinement preflight failed."
+elif [[ -n "${INITIALIZATION_MIN_COIL_LENGTH}" || -n "${INITIALIZATION_CONFIDENCE_THRESHOLD}" ]]; then
+  die "Initialization criteria require --initialization-max-attempts."
+fi
 for _pp in "${POST_PREDICTORS[@]:-}"; do
   [[ -n "${_pp}" ]] && require_predictor_venv "${_pp}"
 done
@@ -1520,6 +1638,8 @@ if sequence_designer_uses_ligandmpnn; then
   [[ -x "${LIGAND_VENV}/bin/python" ]] || die "LigandMPNN venv not found: ${LIGAND_VENV}"
   [[ -f "${LIGANDMPNN_REPO}/run.py" ]] || die "LigandMPNN run.py not found: ${LIGANDMPNN_REPO}/run.py"
 fi
+[[ -f "${SECONDARY_STRUCTURE_HELPER}" ]] \
+  || die "Secondary-structure control helper not found: ${SECONDARY_STRUCTURE_HELPER}"
 if [[ "${SEQUENCE_DESIGNER}" == "antifold" ]]; then
   [[ -x "${ANTIFOLD_VENV}/bin/python" ]] || die "AntiFold venv not found: ${ANTIFOLD_VENV}"
   [[ -f "${ANTIFOLD_REPO}/antifold/main.py" ]] || die "AntiFold main.py not found: ${ANTIFOLD_REPO}/antifold/main.py"
@@ -1731,7 +1851,7 @@ if [[ "${CHECK_CONFIG_ONLY}" -eq 1 ]]; then
   [[ "${INTELLIFOLD_IN_USE}" -eq 0 ]] || _check_intellifold_model="${INTELLIFOLD_MODEL}"
   _check_target_template="none"
   [[ -z "${TARGET_TEMPLATE}" ]] || _check_target_template="${TARGET_TEMPLATE_MODE}:${TARGET_TEMPLATE_SHA256}"
-  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} post=${_check_post_names} post_mode=${POST_MODE} hit_threshold=${IPTM_THRESHOLD} intellifold_model=${_check_intellifold_model} contact_mode=${BOLTZ_CONTACT_MODE} predictor_seed=${PREDICTOR_SEED} predictor_samples=${PREDICTOR_SAMPLES} num_runs=${N_RUNS} optimization_cycles=${N_CYCLES} expected_optimized_designs=$((N_RUNS * N_CYCLES)) template=${TEMPLATE_YAML} target_template=${_check_target_template} post_checks_template=none scheduler=${DESIGN_SCHEDULER}"
+  echo "CHECK_CONFIG_OK workflow=${WORKFLOW} predictor=${PREDICTOR} sequence_designer=${SEQUENCE_DESIGNER} post=${_check_post_names} post_mode=${POST_MODE} hit_threshold=${IPTM_THRESHOLD} intellifold_model=${_check_intellifold_model} contact_mode=${BOLTZ_CONTACT_MODE} predictor_seed=${PREDICTOR_SEED} predictor_samples=${PREDICTOR_SAMPLES} num_runs=${N_RUNS} optimization_cycles=${N_CYCLES} expected_optimized_designs=$((N_RUNS * N_CYCLES)) template=${TEMPLATE_YAML} target_template=${_check_target_template} post_checks_template=none scheduler=${DESIGN_SCHEDULER} secondary_bias=${SECONDARY_BIAS} secondary_bias_scope=${SECONDARY_BIAS_SCOPE} seed_sampling_order=${SEED_SAMPLING_ORDER} anti_helix_strength=${ANTI_HELIX_STRENGTH} beta_strength=${BETA_STRENGTH} beta_pattern_strength=${BETA_PATTERN_STRENGTH} turn_strength=${TURN_STRENGTH}"
   exit 0
 fi
 
@@ -1902,66 +2022,25 @@ generate_random_binder_seq() {
   local loop_kill="${6:-0}"
   local predictor="${7:-}"
   local random_seed="${8:-}"
-  python3 - "$min_len" "$max_len" "$percent_x" "$helix_kill" "$neg_helix_constant" "$loop_kill" "$predictor" "$random_seed" <<'PY'
-import sys, random
-min_len, max_len, pct_x, helix_kill, neg_helix_constant, loop_kill, predictor, random_seed = sys.argv[1:9]
-min_len = int(min_len); max_len = int(max_len)
-pct_x = float(pct_x); helix_kill = int(helix_kill)
-neg_helix_constant = max(0.0, min(1.0, float(neg_helix_constant)))
-loop_kill = max(0.0, min(1.0, float(loop_kill)))
-if max_len < min_len:
-    raise SystemExit("binder-max-len must be >= binder-min-len")
-seed = int(random_seed) if random_seed else None
-rng = random.Random(seed)
-# Unsupported X positions receive deterministic predictor-compatible spikes,
-# but spike draws must not perturb the paired latent sequence used by models
-# that accept X/UNK.
-spike_rng = random.Random(None if seed is None else seed + 1_000_000_007)
-L = rng.randint(min_len, max_len)
-p_x = max(0.0, min(1.0, pct_x / 100.0))
-n_x = max(0, min(L, int(round(L * p_x))))
-AA_POOL = list("ADEFGHIKLMNPQRSTVWY")
-HELIX_PRONE = set("AEKLMQ")
-# Tuned so 0.5 reproduces approximately previous defaults:
-# - global helix-prone downweight ~0.55
-# - local i-4 helix suppression ~0.15
-base_helix_penalty = max(0.10, 1.0 - 0.90 * neg_helix_constant)
-local_helix_penalty = max(0.02, 1.0 - 1.70 * neg_helix_constant)
-ser_boost = 1.0 + 1.0 * neg_helix_constant
-proline_scale = max(0.0, 1.0 - loop_kill)
-
-base_weights = []
-for aa in AA_POOL:
-    w = 1.0
-    if helix_kill and aa in HELIX_PRONE:
-        w *= base_helix_penalty
-    if helix_kill and aa == "S":
-        w *= ser_boost
-    if aa == "P":
-        w *= proline_scale
-    base_weights.append(w)
-seq = [None] * L
-idx = list(range(L)); rng.shuffle(idx)
-x_positions = set(idx[:n_x])
-of3_spike_pool = list("ANGHFSY")
-for i in range(L):
-    if i in x_positions:
-        if predictor == "openfold-3-mlx":
-            seq[i] = spike_rng.choice(of3_spike_pool)
-        else:
-            seq[i] = "X"
-        continue
-    if not helix_kill:
-        seq[i] = rng.choices(AA_POOL, weights=base_weights, k=1)[0]
-        continue
-    w = base_weights[:]
-    if i >= 4 and seq[i-4] in HELIX_PRONE:
-        for j, aa in enumerate(AA_POOL):
-            if aa in HELIX_PRONE:
-                w[j] *= local_helix_penalty
-    seq[i] = rng.choices(AA_POOL, weights=w, k=1)[0]
-print("".join(seq))
-PY
+  local plan_path="${9:-}"
+  local effective_mode="${SECONDARY_BIAS}"
+  if [[ "${helix_kill}" -eq 1 && "${effective_mode}" == "none" ]]; then
+    effective_mode="antihelix"
+  fi
+  local command=(
+    python3 "${SECONDARY_STRUCTURE_HELPER}" seed
+    --min-length "${min_len}"
+    --max-length "${max_len}"
+    --percent-x "${percent_x}"
+    --predictor "${predictor}"
+    --secondary-bias "${effective_mode}"
+    --secondary-bias-scope "${SECONDARY_BIAS_SCOPE}"
+    --seed-sampling-order "${SEED_SAMPLING_ORDER}"
+    --anti-helix-strength "${neg_helix_constant}"
+  )
+  [[ -z "${random_seed}" ]] || command+=(--seed "${random_seed}")
+  [[ -z "${plan_path}" ]] || command+=(--plan "${plan_path}")
+  "${command[@]}"
 }
 
 generate_partial_redesign_seed_seq() {
@@ -4655,9 +4734,9 @@ run_intellifold_predict_monitored() {
 
   source "${INTELLIFOLD_VENV}/bin/activate"
   if [[ "${CPU_ONLY}" -eq 1 ]]; then
-    env "${template_environment[@]}" ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" "${template_flags[@]}" >"${predict_log}" 2>&1 &
+    env ${template_environment[@]+"${template_environment[@]}"} ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" ${template_flags[@]+"${template_flags[@]}"} >"${predict_log}" 2>&1 &
   else
-    env "${template_environment[@]}" OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" "${template_flags[@]}" >"${predict_log}" 2>&1 &
+    env ${template_environment[@]+"${template_environment[@]}"} OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" ${template_flags[@]+"${template_flags[@]}"} >"${predict_log}" 2>&1 &
   fi
   local pid=$!
 
@@ -4767,9 +4846,9 @@ run_predict_intellifold() {
   source "${INTELLIFOLD_VENV}/bin/activate"
   set +e
   if [[ "${CPU_ONLY}" -eq 1 ]]; then
-    env "${template_environment[@]}" ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" "${template_flags[@]}" >"${predict_log}" 2>&1
+    env ${template_environment[@]+"${template_environment[@]}"} ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" ${template_flags[@]+"${template_flags[@]}"} >"${predict_log}" 2>&1
   else
-    env "${template_environment[@]}" OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" "${template_flags[@]}" >"${predict_log}" 2>&1
+    env ${template_environment[@]+"${template_environment[@]}"} OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" ${template_flags[@]+"${template_flags[@]}"} >"${predict_log}" 2>&1
   fi
   rc=$?
   set -e
@@ -5074,6 +5153,14 @@ run_predictor_calibration_once() {
   esac
 }
 
+record_prediction_geometry() {
+  local pred_min="$1"
+  local structure="${pred_min}/model_0.cif"
+  [[ -f "${structure}" ]] || structure="${pred_min}/model_0.pdb"
+  python3 "${PIPELINE_CODE_ROOT}/scripts/validate_prediction_geometry.py" "${structure}" \
+    --report "${pred_min}/geometry_report.json" >&2
+}
+
 run_predictor_once() {
   local predictor="$1"
   local cycle_yaml="$2"
@@ -5107,6 +5194,9 @@ run_predictor_once() {
       die "Unsupported predictor: ${predictor}"
       ;;
   esac
+  local prediction_rc=$?
+  [[ "${prediction_rc}" -eq 0 ]] || return "${prediction_rc}"
+  record_prediction_geometry "${pred_min}" || return $?
 }
 
 import_initial_cycle_structure() {
@@ -5229,6 +5319,20 @@ PY
     die "Internal error: both fixed_residues and redesigned_residues were provided to LigandMPNN."
   fi
 
+  local secondary_plan secondary_bias_json
+  local secondary_bias_flags=()
+  secondary_plan="$(dirname "${cycle_dir}")/secondary_structure_plan.json"
+  if [[ "${SECONDARY_BIAS}" != "none" && "${SECONDARY_BIAS_SCOPE}" == "seed-and-cycles" ]]; then
+    [[ -s "${secondary_plan}" ]] \
+      || die "Secondary-structure plan is missing for ${cycle_dir}: ${secondary_plan}"
+    secondary_bias_json="${ligand_out}/secondary_structure_bias.json"
+    python3 "${SECONDARY_STRUCTURE_HELPER}" mpnn-bias \
+      --plan "${secondary_plan}" \
+      --chain "${ANTIFOLD_NANOBODY_CHAIN}" \
+      --output "${secondary_bias_json}"
+    secondary_bias_flags=(--bias_AA_per_residue "${secondary_bias_json}")
+  fi
+
   source "${LIGAND_VENV}/bin/activate"
   pushd "${LIGANDMPNN_REPO}" >/dev/null
   # LigandMPNN can fail on macOS CPU when OpenMP shared memory is unavailable.
@@ -5242,6 +5346,7 @@ PY
       --bias_AA "${bias_aa}" \
       ${fixed_flags[@]+"${fixed_flags[@]}"} \
       ${redesigned_flags[@]+"${redesigned_flags[@]}"} \
+      ${secondary_bias_flags[@]+"${secondary_bias_flags[@]}"} \
       "${LIGANDMPNN_MODEL_FLAGS[@]}" \
       "${LIGANDMPNN_EXTRA_FLAGS[@]}" \
       > "${ligand_out}/ligandmpnn.log" 2>&1
@@ -5254,6 +5359,7 @@ PY
       --omit_AA "${omit_aa}" \
       ${fixed_flags[@]+"${fixed_flags[@]}"} \
       ${redesigned_flags[@]+"${redesigned_flags[@]}"} \
+      ${secondary_bias_flags[@]+"${secondary_bias_flags[@]}"} \
       "${LIGANDMPNN_MODEL_FLAGS[@]}" \
       "${LIGANDMPNN_EXTRA_FLAGS[@]}" \
       > "${ligand_out}/ligandmpnn.log" 2>&1
@@ -5676,7 +5782,8 @@ initialize_cycle_wave_designs() {
         fi
         current_seq="$(generate_random_binder_seq \
           "${BINDER_MIN_LEN}" "${BINDER_MAX_LEN}" "${BINDER_PERCENT_X}" \
-          "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${PREDICTOR}" "${seed_value}")"
+          "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${PREDICTOR}" "${seed_value}" \
+          "${run_root}/secondary_structure_plan.json")"
       fi
       [[ -n "${current_seq}" ]] || die "Cycle-wave protein initialization produced an empty sequence for ${run_tag}."
       printf '%s\n' "${current_seq}" > "${run_root}/state_current_seq.txt"
@@ -6094,16 +6201,16 @@ run_cycle_wave_predictor_batch() {
       fi
       source "${INTELLIFOLD_VENV}/bin/activate"
       if [[ "${CPU_ONLY}" -eq 1 ]]; then
-        env "${intellifold_template_environment[@]}" ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
+        env ${intellifold_template_environment[@]+"${intellifold_template_environment[@]}"} ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
           --out_dir "${output_dir}" \
           "${INTELLIFOLD_EXTRA_FLAGS[@]}" \
-          "${intellifold_template_flags[@]}" \
+          ${intellifold_template_flags[@]+"${intellifold_template_flags[@]}"} \
           > "${log_path}" 2>&1
       else
-        env "${intellifold_template_environment[@]}" OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
+        env ${intellifold_template_environment[@]+"${intellifold_template_environment[@]}"} OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
           --out_dir "${output_dir}" \
           "${INTELLIFOLD_EXTRA_FLAGS[@]}" \
-          "${intellifold_template_flags[@]}" \
+          ${intellifold_template_flags[@]+"${intellifold_template_flags[@]}"} \
           > "${log_path}" 2>&1
       fi
       rc=$?
@@ -6216,6 +6323,7 @@ run_cycle_wave_predictor_batch() {
     else
       materialize_output_reference "${struct}" "${pred_min}/model_0.pdb"
     fi
+    record_prediction_geometry "${pred_min}" || return $?
     iptm="nan"
     plddt="nan"
     if [[ -f "${pred_min}/confidence.json" ]]; then
@@ -6601,6 +6709,89 @@ run_designs_cycle_wave() {
   echo "${DESIGN_SCHEDULER},${wave_batch_size},$(cat "${wave_root}/campaign_start_epoch.txt"),${campaign_end},$(calc_duration "$(cat "${wave_root}/campaign_start_epoch.txt")" "${campaign_end}")" >> "${wave_root}/campaign_timing.csv"
 }
 
+initialization_action() {
+  local run_root="$1" action="$2"
+  shift 2
+  "${INITIALIZATION_PYTHON}" "${INITIALIZATION_REFINEMENT_HELPER}" "${action}" \
+    --root "${run_root}/initialization_refinement" "$@"
+}
+
+configure_initialization_refinement() {
+  local run_root="$1" sequence="$2" request_file
+  request_file="$(mktemp "${run_root}/.initialization-request.XXXXXX")"
+  "${INITIALIZATION_PYTHON}" - "${run_root}/secondary_structure_plan.json" "${sequence}" "${request_file}" \
+    "${INITIALIZATION_MAX_ATTEMPTS}" "${INITIALIZATION_MIN_COIL_LENGTH}" "${INITIALIZATION_CONFIDENCE_THRESHOLD}" \
+    "${PREDICTOR}" "${PREDICTOR_SEED}" "${PREDICTOR_SAMPLES}" "${INTELLIFOLD_MODEL}" \
+    "${BOLTZ_USE_POTENTIALS_DEFAULT}" "${TEMPLATE_YAML}" "${PIPELINE_CODE_ROOT}" \
+    "${BOLTZ_EXTRA_CLI_STRING}" "${INTELLIFOLD_EXTRA_CLI_STRING}" <<'PY'
+import biotite, hashlib, json, sys
+from pathlib import Path
+plan, sequence, output, budget, length, confidence, predictor, seed, samples, model, potentials, template, root, boltz_extra, intellifold_extra = sys.argv[1:]
+root = Path(root)
+sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+scripts = ['nanohunter_run.sh', 'scripts/initialization_refinement.py',
+           'scripts/initialization_assessment.py', 'scripts/secondary_structure_control.py']
+config = dict(schema=1, sequence=sequence, plan=json.loads(Path(plan).read_text()), predictor=predictor,
+              policy=dict(max_attempts=int(budget), min_uncertain_coil_length=int(length), confidence_threshold=float(confidence)),
+              prediction_settings=dict(seed=seed, samples=samples, intellifold_model=model,
+                                       boltz_potentials=potentials, scheduler='run',
+                                       boltz_extra_cli=boltz_extra, intellifold_extra_cli=intellifold_extra),
+              assessment_runtime=dict(environment='managed-protenix', biotite_version=biotite.__version__),
+              template_sha256=sha(Path(template)), code_sha256={p:sha(root/p) for p in scripts})
+Path(output).write_text(json.dumps(config, sort_keys=True, allow_nan=False))
+PY
+  initialization_action "${run_root}" configure --config "${request_file}" >/dev/null \
+    || { rm -f "${request_file}"; return 1; }
+  rm -f "${request_file}"
+}
+
+run_initialization_refinement() {
+  local run_root="$1" original_structure="$2" original_confidence="$3" original_yaml="$4"
+  local state index sequence work_dir input_yaml result structure confidence ignored_iptm ignored_plddt
+  while :; do
+    state="$(initialization_action "${run_root}" status --field state)" || return 1
+    index="$(initialization_action "${run_root}" status --field index)" || return 1
+    sequence="$(initialization_action "${run_root}" status --field sequence)" || return 1
+    echo ">>> Initialization attempt ${index}: ${state}" >&2
+    case "${state}" in
+      awaiting_prediction)
+        if [[ "${index}" -eq 0 ]]; then
+          structure="${original_structure}"; confidence="${original_confidence}"; input_yaml="${original_yaml}"
+        else
+          work_dir="${run_root}/initialization_refinement/work_$(printf '%06d' "${index}")"
+          mkdir -p "${work_dir}"
+          input_yaml="${work_dir}/input.yaml"
+          make_yaml_with_binder_sequence "${TEMPLATE_YAML}" "${input_yaml}" "${sequence}" "" "${PREDICTOR}" "" "design" >&2 || return 1
+          result="$(run_predictor_once "${PREDICTOR}" "${input_yaml}" "${sequence}" "initialization_${index}" "${work_dir}" "" "design")" || return 1
+          result="$(normalize_predictor_result_line "${result}")" || return 1
+          IFS='|' read -r structure confidence ignored_iptm ignored_plddt <<< "${result}"
+        fi
+        initialization_action "${run_root}" prediction --structure "${structure}" \
+          --confidence "${confidence}" --input-yaml "${input_yaml}" >/dev/null || return 1
+        ;;
+      awaiting_assessment)
+        initialization_action "${run_root}" assess >/dev/null || return 1
+        ;;
+      needs_refinement)
+        initialization_action "${run_root}" propose >/dev/null || return 1
+        ;;
+      acceptable)
+        initialization_action "${run_root}" select >/dev/null || return 1
+        ;;
+      accepted)
+        structure="$(initialization_action "${run_root}" status --field structure)" || return 1
+        printf '%s|%s\n' "${sequence}" "${structure}"
+        return 0
+        ;;
+      budget_exhausted)
+        echo "ERROR: Initialization budget exhausted for ${run_root}; normal cycling was not entered. See initialization_refinement/attempt_$(printf '%06d' "${index}")/assessment/decision.json." >&2
+        return 1
+        ;;
+      *) echo "ERROR: Unknown initialization state: ${state}" >&2; return 1 ;;
+    esac
+  done
+}
+
 run_one_design() {
   local run_index="$1"
   local target_msa_path="$2"
@@ -6747,9 +6938,14 @@ PY
       fi
     fi
   else
-    current_seq="$(generate_random_binder_seq "${BINDER_MIN_LEN}" "${BINDER_MAX_LEN}" "${BINDER_PERCENT_X}" "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${PREDICTOR}" "${binder_seed}")"
+    current_seq="$(generate_random_binder_seq "${BINDER_MIN_LEN}" "${BINDER_MAX_LEN}" "${BINDER_PERCENT_X}" "${HELIX_KILL}" "${NEGATIVE_HELIX_CONSTANT}" "${LOOP_KILL}" "${PREDICTOR}" "${binder_seed}" "${run_root}/secondary_structure_plan.json")"
   fi
   echo "$current_seq" > "$state_seq"
+
+  if [[ "${INITIALIZATION_MAX_ATTEMPTS}" != "0" ]]; then
+    configure_initialization_refinement "${run_root}" "${current_seq}" \
+      || die "Cannot configure initialization refinement for ${run_tag}."
+  fi
 
   if [[ "${RESUME}" -eq 1 ]]; then
     local resume_last
@@ -6849,6 +7045,15 @@ PY
 
     export_cif "$run_tag" "$cycle" "${cycle_dir}/pred_min" "$iptm"
 
+    local selected_initialization_structure=""
+    if [[ "${cycle}" -eq 0 && "${INITIALIZATION_MAX_ATTEMPTS}" != "0" ]]; then
+      local initialization_handoff
+      initialization_handoff="$(run_initialization_refinement "${run_root}" "${struct}" "${conf}" "${cycle_yaml}")" \
+        || die "Initialization refinement did not accept a starting point for ${run_tag}."
+      IFS='|' read -r current_seq selected_initialization_structure <<< "${initialization_handoff}"
+      echo "$current_seq" > "$state_seq"
+    fi
+
     if (( cycle < N_CYCLES )); then
       # Resume: if the next cycle's YAML exists it already records the sequence
       # this redesign produced. Adopting it keeps a resumed trajectory identical
@@ -6871,6 +7076,9 @@ PY
         redesign_struct="${cycle_dir}/pred_min/model_0.pdb"
       else
         die "Missing model_0.cif/model_0.pdb in ${cycle_dir}/pred_min"
+      fi
+      if [[ -n "${selected_initialization_structure}" ]]; then
+        redesign_struct="${selected_initialization_structure}"
       fi
       local redesign_redesigned_residues="${partial_redesigned_residues}"
       if [[ -z "${redesign_redesigned_residues}" ]]; then
@@ -7103,7 +7311,8 @@ write_campaign_budget_contract() {
     case "${PREDICTOR}" in protenix-v2|protenix-mini) effective_samples=5 ;; esac
   fi
   python3 - "${N_RUNS}" "${N_CYCLES}" "${DESIGN_SCHEDULER}" \
-    "${PREDICTOR}" "${PREDICTOR_SAMPLES}" "${effective_samples}" > "${temporary}" <<'PY'
+    "${PREDICTOR}" "${PREDICTOR_SAMPLES}" "${effective_samples}" \
+    "${INITIALIZATION_MAX_ATTEMPTS}" > "${temporary}" <<'PY'
 import json, sys
 trajectories, cycles = map(int, sys.argv[1:3])
 json.dump({
@@ -7118,6 +7327,12 @@ json.dump({
     "predictor": sys.argv[4],
     "predictor_samples_requested": sys.argv[5],
     "predictor_samples_effective": int(sys.argv[6]),
+    "initialization_refinement": {
+        "enabled": int(sys.argv[7]) > 0,
+        "max_attempts_per_trajectory_including_original": int(sys.argv[7]) or 1,
+        "max_additional_initialization_predictions": trajectories * max(0, int(sys.argv[7]) - 1),
+        "refinement_attempts_count_as_designs": False,
+    },
 }, sys.stdout, indent=2, sort_keys=True)
 print()
 PY
@@ -7874,6 +8089,13 @@ else
   echo "MPNN bias other cycles  : ${LIGAND_BIAS_AA_DEFAULT:-none}"
 fi
 echo "Loop-kill constant      : ${LOOP_KILL}"
+echo "Secondary bias          : ${SECONDARY_BIAS} (experimental sequence prior)"
+echo "Secondary bias scope    : ${SECONDARY_BIAS_SCOPE}"
+echo "Seed sampling order     : ${SEED_SAMPLING_ORDER}"
+echo "Anti-helix strength     : ${ANTI_HELIX_STRENGTH}"
+echo "Beta residue strength   : ${BETA_STRENGTH}"
+echo "Beta pattern strength   : ${BETA_PATTERN_STRENGTH}"
+echo "Localized turn strength : ${TURN_STRENGTH}"
 if [[ "${PREDICTOR}" == "boltz" ]]; then
   echo "Boltz design potentials : ${BOLTZ_USE_POTENTIALS_DEFAULT} (mode=${BOLTZ_USE_POTENTIALS_MODE})"
   if [[ -n "${TARGET_EPITOPE_RESIDUES}" ]]; then

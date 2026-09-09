@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "name": "helix_strength_all_engines_v1",
+  "scope": "unconditioned monomer; no binding target or ligand",
+  "campaign": {
+    "length": 90,
+    "trajectories": 10,
+    "pilot_trajectories": 1,
+    "optimization_cycles": 5,
+    "predictor_seed": 42,
+    "predictor_samples": 1,
+    "sequence_designer": "solublempnn",
+    "binder_seed": 906000,
+    "mpnn_seed": 1906000,
+    "scheduler": "run",
+    "msa": "empty"
+  },
+  "methods": {
+    "primary_endpoint": "within-trajectory mean P-SEA H/S/C fractions over cycles 01\u201305, then equal weight across trajectories",
+    "secondary_endpoints": [
+      "cycle-05 fractions",
+      "per-residue pLDDT",
+      "long uncertain coil runs",
+      "initialization acceptance and exhaustion",
+      "attempt count",
+      "wall time including initialization"
+    ],
+    "missing_data": "report all ten declared trajectories, including exhaustion; conditional fold metrics explicitly label n; do not replace failed seeds",
+    "paired_contrasts": "each arm vs its declared reference, paired by global trajectory index",
+    "design": "Three strengths within each of seven installed predictor variants. Native engine defaults fixed within each engine; no cross-engine speed claim. OpenFold keeps its existing X-spike substitution policy.",
+    "pilot": "trajectory 1 is the operational smoke and remains in the final n=10; continue the remaining 9 only after integrity audit"
+  },
+  "arms": {
+    "boltz_h0": {
+      "predictor": "boltz",
+      "model": null,
+      "strength": 0,
+      "reference": null
+    },
+    "boltz_h0p5": {
+      "predictor": "boltz",
+      "model": null,
+      "strength": 0.5,
+      "reference": "boltz_h0"
+    },
+    "boltz_h1": {
+      "predictor": "boltz",
+      "model": null,
+      "strength": 1,
+      "reference": "boltz_h0"
+    },
+    "intellifold_flash_h0": {
+      "predictor": "intellifold",
+      "model": "v2-flash",
+      "strength": 0,
+      "reference": null
+    },
+    "intellifold_flash_h0p5": {
+      "predictor": "intellifold",
+      "model": "v2-flash",
+      "strength": 0.5,
+      "reference": "intellifold_flash_h0"
+    },
+    "intellifold_flash_h1": {
+      "predictor": "intellifold",
+      "model": "v2-flash",
+      "strength": 1,
+      "reference": "intellifold_flash_h0"
+    },
+    "intellifold_full_h0": {
+      "predictor": "intellifold",
+      "model": "v2",
+      "strength": 0,
+      "reference": null
+    },
+    "intellifold_full_h0p5": {
+      "predictor": "intellifold",
+      "model": "v2",
+      "strength": 0.5,
+      "reference": "intellifold_full_h0"
+    },
+    "intellifold_full_h1": {
+      "predictor": "intellifold",
+      "model": "v2",
+      "strength": 1,
+      "reference": "intellifold_full_h0"
+    },
+    "protenix_v2_h0": {
+      "predictor": "protenix-v2",
+      "model": null,
+      "strength": 0,
+      "reference": null
+    },
+    "protenix_v2_h0p5": {
+      "predictor": "protenix-v2",
+      "model": null,
+      "strength": 0.5,
+      "reference": "protenix_v2_h0"
+    },
+    "protenix_v2_h1": {
+      "predictor": "protenix-v2",
+      "model": null,
+      "strength": 1,
+      "reference": "protenix_v2_h0"
+    },
+    "protenix_mini_h0": {
+      "predictor": "protenix-mini",
+      "model": null,
+      "strength": 0,
+      "reference": null
+    },
+    "protenix_mini_h0p5": {
+      "predictor": "protenix-mini",
+      "model": null,
+      "strength": 0.5,
+      "reference": "protenix_mini_h0"
+    },
+    "protenix_mini_h1": {
+      "predictor": "protenix-mini",
+      "model": null,
+      "strength": 1,
+      "reference": "protenix_mini_h0"
+    },
+    "protenix_constraint_h0": {
+      "predictor": "protenix-constraint-v0.5",
+      "model": null,
+      "strength": 0,
+      "reference": null
+    },
+    "protenix_constraint_h0p5": {
+      "predictor": "protenix-constraint-v0.5",
+      "model": null,
+      "strength": 0.5,
+      "reference": "protenix_constraint_h0"
+    },
+    "protenix_constraint_h1": {
+      "predictor": "protenix-constraint-v0.5",
+      "model": null,
+      "strength": 1,
+      "reference": "protenix_constraint_h0"
+    },
+    "openfold3_h0": {
+      "predictor": "openfold-3-mlx",
+      "model": null,
+      "strength": 0,
+      "reference": null
+    },
+    "openfold3_h0p5": {
+      "predictor": "openfold-3-mlx",
+      "model": null,
+      "strength": 0.5,
+      "reference": "openfold3_h0"
+    },
+    "openfold3_h1": {
+      "predictor": "openfold-3-mlx",
+      "model": null,
+      "strength": 1,
+      "reference": "openfold3_h0"
+    }
+  }
+}

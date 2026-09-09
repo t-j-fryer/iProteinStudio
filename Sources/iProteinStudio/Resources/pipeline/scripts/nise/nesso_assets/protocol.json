@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "experiment_id": "nesso_macos",
+  "upstream": {
+    "repository": "https://github.com/recursionpharma/nesso.git",
+    "commit": "6c72f66720d9d3447fd73c515cda963e39128b1f",
+    "license_sha256": "0e3af7f367f197d0ec2ca9c52937edf5442b764a8bf19efdfa71dcd6937d7be5",
+    "main_py_sha256": "2f7e9c9aad48767611f207c8369bf3d7b8635b8c19a0328f79acb59513b1422c",
+    "nesso1_py_sha256": "279ce81038665773610d0eae98c9414ec299a2be3e24731f261e65abb33fd6be",
+    "model_revision": "v1.0.0"
+  },
+  "runtime": {
+    "mps_fallback": "0",
+    "use_kernels": false,
+    "num_workers": 1,
+    "seed": 42
+  },
+  "profiles": {
+    "parity": {
+      "precision": "32-true",
+      "recycling_steps": 1,
+      "refine_protein_inference": true
+    },
+    "default": {
+      "precision": "32-true",
+      "recycling_steps": 5,
+      "refine_protein_inference": true
+    }
+  },
+  "assets": {
+    "nesso_hf_commit": "1896c84c7186c506c7efd79051480809d51098bf",
+    "checkpoint_sha256": "9928a8a824d147d665e76656804af1cd91c86731516d0b561f9fd1c91ee45622",
+    "ccd_sha256": "7ed0ccd3903f19627926a5e41a5c0b5309c127a071cb9498dcae96926799ffd8",
+    "hparams_sha256": "06aa0c44fcd44eaa2c5c2473bfcf0d9a3af892d867e5279859bb22eb0f6e2d72",
+    "esm_repository": "facebook/esm2_t33_650M_UR50D",
+    "esm_commit": "08e4846e537177426273712802403f7ba8261b6c",
+    "esm_weights_sha256": "a08adabb949fa67ad3c14b509d04fd60368b35007b0095e3358f81200c4f4db0",
+    "esm_files": {
+      "model.safetensors": "a08adabb949fa67ad3c14b509d04fd60368b35007b0095e3358f81200c4f4db0",
+      "tokenizer_config.json": "7e9161ecdb548ec45a41cbc6b24aa4476fdd418461f491c4207baa99419a29ad",
+      "special_tokens_map.json": "3aedcd4211c0d43aec4e607ff60a63255f3174ead795e997350f09a5f8cd9ee1",
+      "config.json": "539095c22efc52a09d6147074ba4ca119f76a890df5901213b2b55f7d2f96b2b",
+      "vocab.txt": "0b82cc0a7c7cf9e567b1e5892d793285b9fbae822c964ca48696f7db44598e03"
+    }
+  },
+  "source_postimages": {
+    "nesso/main.py": "8ed7553d8f59167697fbc971244a7571917b31d94cd3db489b9eb533d4e280b7",
+    "nesso/model/models/nesso1.py": "aa582238337593931b9965b08bd92c8261019f1f2f1b156e6b11c303f8acc2cd"
+  }
+}

@@ -63,6 +63,13 @@ still receive Studio's workflow order and defaults. In particular:
 
 - use SolubleMPNN by default for soluble protein binders; LASErMPNN and
   LigandMPNN are small-molecule-interface models;
+- secondary-structure control is initialization-only `--negative-helix-constant 0..1`;
+  zero disables it and subsequent MPNN cycles use normal sampling. Retired beta,
+  mixed, sustained, inspection, loop-kill and global composition-bias flags fail
+  preflight. Historical results remain readable.
+- `monomer_control_benchmark: true` validates an unconditioned monomer with empty
+  MSA and pins the recorded run scheduler across arms.
+
 - omit a protein de-novo `contig` and let Studio derive the pinned adapter's
   canonical binder-first grammar;
 - use `binding_site_mode: surface_scan` when no epitope is known. It creates
@@ -147,3 +154,59 @@ For diagnosis:
 /usr/bin/python3 "$NANOHUNTER_ROOT/mcp/remote_gateway.py" stop
 /usr/bin/python3 "$NANOHUNTER_ROOT/mcp/remote_gateway.py" rotate-token
 ```
+
+
+MCP v9 adds `workflow_guide(workflow="nise")` and the run-profile `nise_plan`
+tool (`nise-v1.json`). Native and MCP submissions use the same ligand NISE
+contract, campaign-owned code snapshot and durable broker. Results preserve
+trajectory/candidate/holo/apo parentage. Protein Hunter keeps the historical
+`iterative` workflow identity. Cross-cycle structure/affinity residency remains
+experimental for ligand throughput; no alternative model or missing-affinity
+fallback is allowed.
+
+
+MCP v10 extends `nise-v1.json` compatibly with separate Phase-0 funnel budgets,
+`beam` (parents advanced per trajectory), and optional `nesso_screen` /
+`nesso_top_k`. The shortlist is per trajectory across its sampled parents;
+NESSO never generates initial backbones or replaces the Boltz search score.
+Missing new fields retain v9 behavior. Plans fingerprint the optional installed
+NESSO assets, code and screening protocol; resume reuses the saved scores and
+shortlist. Read `docs/NISE.md` for the stage diagram and budget examples.
+
+Iterative cycle overviews include `geometry_diagnostics` when available: a
+verified report path, `record_only` policy and violation/error counts. Bond-distance
+violations do not stop cycling or alter hit verdicts. The referenced
+`pred_min/geometry_report.json` records atom pairs, residues, distances, thresholds
+and the structure checksum; unusable coordinates still fail. Historical runs
+retain their original policy and may have no geometry report.
+
+MCP v12 adds `backbone_method` (`protein-hunter` or experimental `rfdiffusion3`)
+and `rfd3_num_bins` to the NISE request, with 100 starts by default. Initial
+RFdiffusion3 backbones and Boltz prediction budgets are reported separately;
+the same job digest, code/model provenance and execution lease apply.
+
+MCP v15 adds optional NISE `hotspot_atoms`, `exposed_atoms`, `hotspot_distance`,
+`exposure_min_fraction`, `ligand_atom_signature` and `ligand_atoms_generated_for`.
+Selected names must come from `scripts/nise/ligand_atoms.py` run in the installed
+Boltz environment. Its signature binds the original SMILES, standardized chemical
+state and installed mapper. Defaults preserve no user-selected atom requirements.
+The shared contract rejects stale/conflicting selections; the campaign validates
+the actual molecule and checkpoints structural checks before advancement.
+
+
+MCP v16 extends ligand NISE with independent `phase0_nesso_screen`,
+`phase0_nesso_refine_top_k` (default 1 per lineage) and
+`phase0_nesso_expand_top_k` (default 20 total, maximum one per original lineage).
+The initial gate remains unscreened. `phase0_gate_seqs` separates gate sampling
+from refinement sampling; omitted values retain the old shared count. Advanced
+`phase0_sc_ca`, `nise_sc_ca`, `nise_sc_lig` and `nise_ligand_sc_from_cycle` controls
+retain the prior cutoffs. Either NESSO switch requires its pinned installation.
+No NESSO pLDDT is fabricated: screening ranks P(bind) + (1 - entropy_crop_pl), rejecting entropy outside (0.000001, 1]; Boltz
+still supplies the structural and affinity objective. See `docs/NISE.md`.
+
+MCP v18 records the `nesso-pbind-placement-v2` ranking policy in NESSO selection
+receipts, including the pocket-cropped protein-ligand entropy field, validity guard and
+combined score. Both initial and optimisation shortlists use it. Reports retain
+invalid-placement rejections and historical probability-only score provenance.
+
+Native Protein Hunter and RFdiffusion3 ligand campaigns can opt into a broker-owned NESSO shortlist and chosen structural verifier. Protein Hunter screens completed optimized cycles; RFdiffusion3 screens MPNN derivatives before folding. These options are not yet part of the public iterative/RFdiffusion MCP schemas. The results catalog includes `nesso_verification/nesso_screening.csv`.

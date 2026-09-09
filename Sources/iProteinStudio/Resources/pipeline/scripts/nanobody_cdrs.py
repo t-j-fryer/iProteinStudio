@@ -5,14 +5,13 @@ Resolves 1-based CDR1/CDR2/CDR3 sequence ranges for a nanobody binder chain,
 so any inverse-folding designer (AntiFold or the MPNN family incl. AbMPNN) can
 be restricted to CDR-only design.
 
-Resolution order (most trusted first):
+Resolution order (explicit settings take precedence):
   1. Explicit ranges supplied by the user  (e.g. "CDR1:26-33,CDR2:51-57,CDR3:97-110")
   2. Exact sequence match in examples/nanobody_scaffolds/catalog.tsv
   3. Alignment-transfer heuristic: globally align the query to the most similar
-     catalogued VHH and transfer that scaffold's curated CDR boundaries through
-     the alignment. VHH frameworks are highly conserved, so boundary transfer is
-     accurate for framework-similar scaffolds. Reports the reference used and the
-     sequence identity so callers can judge confidence.
+     catalogued VHH and transfer that scaffold's recorded CDR boundaries through
+     the alignment. Reports the reference used and sequence identity. Transferred
+     boundaries are heuristic, not independently validated antibody numbering.
 
 Depends only on the Python standard library, so it runs under any interpreter
 NanoHunter uses (no numpy / biopython / ANARCI required).
@@ -270,6 +269,7 @@ def load_catalog(path):
                     "id": row.get("scaffold_id") or row.get("display_name") or "?",
                     "seq": seq,
                     "ranges": ranges,
+                    "cdr_provenance": (row.get("cdr_provenance") or "").strip(),
                 }
             )
     return entries
@@ -384,7 +384,7 @@ def resolve_cdrs(sequence, explicit=None, catalog_path=DEFAULT_CATALOG,
     if exclude_ids:
         catalog = [e for e in catalog if e["id"] not in exclude_ids]
 
-    # 1. exact catalog match provides a trusted baseline
+    # 1. Exact catalog match uses recorded boundaries and their provenance.
     ranges = {}
     method = "heuristic-align"
     detail = ""
@@ -393,6 +393,8 @@ def resolve_cdrs(sequence, explicit=None, catalog_path=DEFAULT_CATALOG,
             ranges = dict(entry["ranges"])
             method = "catalog"
             detail = f"exact match to catalog scaffold '{entry['id']}'"
+            if entry["cdr_provenance"]:
+                detail += "; " + entry["cdr_provenance"]
             break
 
     # 2/3. heuristic alignment transfer for anything not exactly catalogued

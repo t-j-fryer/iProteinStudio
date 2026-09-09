@@ -219,6 +219,30 @@ bash "$ROOT/setup_pipeline.sh" --minimize-storage
 AlphaFold 3 and `intellifold-jax` are retired. Setup and run entry points reject
 their old flags explicitly; IntelliFold's supported backend is PyTorch/Metal.
 
+### Apple compiler setup errors
+
+Setup compiles, links and runs a small Apple-Silicon C++ program before downloading
+Python, packages or models. It uses `xcrun` to select matching Apple compilers and
+the macOS SDK, and passes that SDK's libc++ headers to dependency builds. The log
+records these paths. Read-only detection and storage maintenance do not require
+the compiler check.
+
+A `fatal error: 'cmath' file not found` during the ProDy build means its compiler
+could not find the C++ standard-library headers; it is not a model-weight error.
+Update Studio and retry Setup from **Engines**. Existing verified downloads are
+reused. A failed staged sequence-designer environment is rebuilt before it is
+activated; completed NESSO/ESM assets do not need to be deleted.
+
+If the new compiler check still fails, install available **Command Line Tools
+for Xcode** updates in **System Settings → General → Software Update**, then retry.
+On a Mac that has never installed these tools, open Terminal and run
+`xcode-select --install`, then follow Apple's installer. If no update is offered,
+keep the setup log: its selected SDK/compiler paths and compiler output are needed
+to diagnose an incomplete or incorrectly selected developer-tools installation.
+Studio does not change the Mac's global Xcode selection.
+
+### Engine installation details
+
 `--with-boltz` installs structure prediction without the optional affinity
 checkpoint. `--with-intellifold` installs v2 Flash without full v2.
 `--with-protenix-v2` and `--with-protenix-mini` independently add those
@@ -312,6 +336,12 @@ has no homologues, so an alignment costs a server round trip and adds nothing.
 
 Results land as `predictions.csv`, `run_summary.json` and per-engine folders.
 
+Predict also accepts an optional `template` object with `path`, `chains` (query
+protein IDs) and `mode: "guide"`. Boltz-2, IntelliFold and Protenix v2 support it.
+The native picker is available in Quick and Advanced views. See
+[structure templates in Predict](PREDICTION_TEMPLATES.md) for chain selection,
+engine limits, saved artifacts and recovery.
+
 Every alignment on the machine is indexed by the sequence it describes, so a
 target aligned once during a design campaign is never aligned again. A Protenix
 prediction uses upstream `protenix msa` on a cache miss; other selections use
@@ -326,11 +356,21 @@ New GUI batches are stored under
 
 ## Iterative design
 
+The native Protein Hunter form supports a [design-engine checklist](PROTEIN_HUNTER_ENGINES.md).
+Its trajectory count applies to **each** selected engine. Studio saves separate
+single-engine campaigns and queues them as one resumable batch. The individual
+CLI commands below retain one `--predictor` each.
+
 The design tabs drive `nanohunter_run.sh`. The app prints the exact command it
 used into both the live log and the campaign's durable `studio.log`. It also
 writes `studio_run.json` beside the output; Activity uses that exact manifest
-for Resume rather than rebuilding settings from the current form. A minimal
-example:
+for Resume rather than rebuilding settings from the current form. New version-2
+manifests keep applicable form settings under `request` and the full restoration
+state under `savedFormState`. Nanobody scaffold/CDR settings and retired beta
+controls therefore do not appear in a minibinder's applicable request. The
+`metadataNote` explains this distinction; recorded arguments, environment and
+pipeline snapshot define actual execution. Older version-1 manifests still load,
+and historical run files are not rewritten by this update. A minimal example:
 
 ```bash
 "$ROOT/nanohunter_run.sh" \
@@ -362,6 +402,86 @@ Flags worth knowing:
 | `--model v2-flash` | choose `v2-flash` or the larger full `v2` IntelliFold model; omit when IntelliFold is not used |
 | `--target-template PATH` | guide target protein chains from an immutable PDB/CIF copy during design cycles; binder and validation refolds remain untemplated |
 | `--target-template-mode guide` | ordinary template conditioning; supported by Boltz-2, Protenix v2, and IntelliFold v2 Flash/full |
+| `--negative-helix-constant 0..1` | initialization-only helix-kill strength; 0 disables it, 0.5 is moderate, 1 is maximum |
+| `--helix-kill` | legacy enable flag, using strength 0.5 unless specified |
+
+Helix kill downweights helix-favoring composition and i→i+4 recurrence only in
+the initial sequence. Later MPNN cycles use normal sampling. The original sampler,
+mask policy and seed receipts are preserved; predicted secondary structure is
+measured from coordinates. Beta/mixed priors, sustained bias, inspection refinement,
+loop-kill and global MPNN composition-bias flags are retired and rejected. Historical
+run outputs and journals remain readable. Saved app configurations using retired
+controls require the explicit migration action shown in the form.
+
+MCP monomer tests use `monomer_control_benchmark: true`, an unconditioned chain A
+with empty MSA, and the recorded run scheduler. Calibration and model defaults
+remain engine-specific; compare strengths within each engine.
+
+### Experimental Protenix Constraint pocket proposals
+
+Install the separate component above, select target residues in the same chain
+notation used by the GUI, and choose the dedicated design engine:
+
+```yaml
+nanohunter:
+  target_epitope_residues: [B34, B35]
+  protenix_pocket_max_distance: 8.0
+sequences:
+  - protein: {id: A, sequence: GGGGGGGGGG, msa: empty}
+  - protein: {id: B, sequence: HIKLMNPQRSTVWY, msa: target.a3m}
+version: 1
+```
+
+```bash
+"$ROOT/nanohunter_run.sh" \
+  --workflow protein --predictor protenix-constraint-v0.5 \
+  --sequence-designer solublempnn --template-yaml constraint_target.yaml \
+  --run-name constraint_campaign --num-runs 20 --num-opt-cycles 5 \
+  --target-msa-mode auto --target-msa-generator auto --require-target-msa \
+  --post-predictor boltz --post-mode final-iptm --resume
+```
+
+This route is protein-only and proposal-only. The adapter strict-loads the
+official v0.5 constraint checkpoint with ESM disabled, asserts native MPS, and
+uses the validated upstream 10 recycle × 200 sampling-step profile. The 8 Å
+value is a learned protein-token-centre (Cα) pocket prior, not the nearest-heavy-
+atom cutoff used to describe a physical contact. It is not interchangeable with
+Studio's 6 Å Boltz contact setting. The initial paired acceptance produced only
+weak alternative-pocket steering, so the engine remains explicitly experimental
+and cannot be selected as a post-predictor. Re-fold final designs with an
+independent unconstrained engine and inspect the resulting interface geometry.
+
+The managed patch also recognizes the exactly absent substructure channel used
+by pocket-only jobs. Upstream otherwise expands that zero feature into N²
+Transformer tokens and N⁴ attention memory. Studio evaluates the single
+checkpoint-defined zero-token value and broadcasts it; nonzero substructure
+constraints retain the upstream path. The official checkpoint's explicit and
+shortcut paths agree within 1e-6 on native-MPS validation cases. Setup hashes
+this patch into the install receipt and marks older runtimes as needing repair;
+valid weights are kept.
+
+To target specific atoms of a small molecule, get the names Boltz will use —
+**they change when the affinity head is on**, because it standardises the SMILES
+first:
+
+```bash
+"$ROOT/venvs/NanoHunter_boltz/bin/python" "$ROOT/rfd3_scripts/boltz_ligand_atoms.py" \
+  'O=C(NCCO)c1ccc…' 1        # 1 = affinity head on
+```
+
+then write them into the template as a `pocket` constraint and run with
+`--boltz-use-potentials` — without potentials a forced constraint barely steers.
+
+Protein hotspot residues use the same high-level `nanohunter.target_epitope_residues`
+field for every binder type. `boltz_contact_mode: auto` resolves to a pocket plus
+CDR3-centre contact for nanobodies, and to the generic binder-pocket restraint
+for mini-binders and peptides when Boltz is selected. Protenix Constraint v0.5
+maps the same residues to its separate learned pocket prior. Other engines design
+against the full target: Studio keeps entered hotspots visible but dormant, and
+the CLI rejects any request that would silently claim to apply an unsupported
+restraint.
+
+---
 
 Target templates are deliberately narrower than generic predictor input. Guide
 mode maps only target chains (B/C/...) from the supplied PDB/CIF; chain A, the
@@ -625,3 +745,62 @@ shares physical blocks until changed. Resume therefore uses the exact code
 snapshot that started the campaign and fails loudly if it is missing, instead
 of silently adopting a later app update. Detailed output retention and sampling
 provenance are specified in [Output storage and retention](OUTPUT_STORAGE.md).
+
+
+### Native app job lifecycle
+
+Native iterative, prediction, target preparation, calibration and RFdiffusion3
+workflows now register with the same durable worker used by MCP. The private
+`_desktop-submit` CLI adapter is an implementation boundary, not an additional
+MCP tool or a replacement for MCP preflight plans. Saved native settings and
+script/input provenance are checked before execution; existing scientific argv,
+MSA policy and scheduler choices are preserved.
+
+`job_status` can return `stopping`: Stop has been requested but children have not
+yet exited. Resume is available after failure/cancellation, once the old worker
+has exited. New workers keep a copied bridge in their job directory. Jobs already
+running under an older worker must be stopped through their original client;
+new cancellation semantics cannot safely be retrofitted to a live worker.
+
+The native Activity view reads this registry across workspaces. Runtime staging
+and maintenance use its execution lock. See [Architecture](../ARCHITECTURE.md)
+and [Testing](TESTING.md) for recovery, archive and acceptance boundaries.
+
+
+## Ligand NISE
+
+The GUI's NISE tab and `nise_plan` MCP tool share a versioned ligand request,
+immutable code snapshot, checkpointed execution and the existing shared job
+broker. The prior iterative tab is now labeled Protein Hunter; its CLI and
+saved `iterative` identity are unchanged. Read [NISE](NISE.md) for the source
+audit, scientific defaults, optional final apo analysis and residency limits.
+
+Call `workflow_guide` with `workflow=nise`, then `system_detect`, before planning.
+The run profile exposes `nise_plan`; the read and admin profiles do not.
+
+```bash
+python3 "$ROOT/mcp/studioctl.py" plan-nise request.json
+python3 "$ROOT/mcp/studioctl.py" start PLAN_ID PLAN_SHA256
+python3 "$ROOT/mcp/studioctl.py" job-status JOB_ID
+```
+
+`request.json` contains `project` and `request` (with at least `smiles`). Optional
+fields are `num_starts`, `trajectories`, `nise_seqs`, `max_cycles`, `patience`,
+`binder_min_len`, `binder_max_len`, `seed`, `preorganisation`, `top_x` and
+`scheduler`. `cycle-wave` reuses models within each wave; `resident` retains the
+separate structure and affinity models across later MPNN-generated inputs and
+is experimental for this ligand workload. A missing requested checkpoint or
+affinity score fails. Use `results_overview` before `results_query`; do not
+interpret self-consistency as a binding hit. Resume uses the original plan.
+
+### Prediction geometry diagnostics
+
+Backbone C–N and Cα–Cα distance violations are recorded without rejecting a
+prediction or stopping optimization. Each iterative cycle (including cycle00
+and the final cycle) writes `pred_min/geometry_report.json` with the coordinate
+SHA256, affected residues, measured distances and diagnostic thresholds.
+`policy: record_only` applies equally to all installed iterative predictors.
+Unreadable, empty or non-finite coordinates still fail as unusable inputs.
+MCP `results_overview` exposes the report path and violation/error counts on each
+cycle. A geometry warning does not change the saved hit verdict. Inspect final
+violations when reviewing results; they are not evidence of experimental folding.

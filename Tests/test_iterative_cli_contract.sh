@@ -10,7 +10,7 @@ trap 'rm -rf "${FIXTURE_ROOT}"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 expect_text() {
   local text="$1" pattern="$2" message="$3"
-  printf '%s\n' "${text}" | rg -q -- "${pattern}" || fail "${message}: ${text}"
+  printf '%s\n' "${text}" | rg -- "${pattern}" >/dev/null || fail "${message}: ${text}"
 }
 make_executable() {
   local path="$1"
@@ -55,6 +55,8 @@ cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/protenix_pred
   "${FIXTURE_ROOT}/scripts/protenix_predict.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/resident_predictor.py" \
   "${FIXTURE_ROOT}/scripts/resident_predictor.py"
+cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/secondary_structure_control.py" \
+  "${FIXTURE_ROOT}/scripts/secondary_structure_control.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/storage_policy.py" \
   "${FIXTURE_ROOT}/scripts/storage_policy.py"
 mkdir -p "${FIXTURE_ROOT}/models/protenix_constraint/checkpoint"
@@ -197,6 +199,24 @@ expect_text "${output}" 'predictor_samples=1' "predictor sample count was not re
 expect_text "${output}" 'num_runs=37' "runner ignored the GUI trajectory budget"
 expect_text "${output}" 'optimization_cycles=7' "runner ignored the GUI cycle budget"
 expect_text "${output}" 'expected_optimized_designs=259' "runner counted cycle 00 as a design"
+expect_text "${output}" 'seed_sampling_order=mask-first' "default seed sampling order changed"
+
+for strength in 0 0.5 1; do
+  output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+    bash "${RUNNER}" "${common[@]}" --predictor boltz \
+    --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+    --negative-helix-constant "$strength" --post-predictor none --post-mode none)"
+  expect_text "$output" "anti_helix_strength=$strength" "helix strength changed"
+  expect_text "$output" 'secondary_bias_scope=seed-only' "helix bias escaped initialization"
+done
+for flag in --secondary-bias --secondary-bias-scope --beta-strength --beta-pattern-strength --turn-strength --anti-helix-strength --seed-sampling-order --initialization-max-attempts --initialization-min-coil-length --initialization-confidence-threshold --loopkill --mpnn-bias-aa-cycle1 --mpnn-bias-aa-other; do
+  set +e
+  error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test bash "${RUNNER}" "${common[@]}" "$flag" 0.5 2>&1)"
+  status=$?
+  set -e
+  [[ "$status" -ne 0 ]] || fail "retired control accepted: $flag"
+  expect_text "$error" 'Retired secondary-structure control' "retirement was not actionable"
+done
 
 # The scientific policy layer is campaign-owned. Prove that a run can resolve
 # every helper from its immutable snapshot even when the mutable managed copy is

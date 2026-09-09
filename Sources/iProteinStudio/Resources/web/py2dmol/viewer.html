@@ -225,22 +225,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif
 <div id="mainContainer">
     <div id="viewerWrapper">
         <div id="canvasContainer">
-            <canvas id="canvas"></canvas>
+            <canvas id="canvas" role="img" aria-label="Molecular structure. The selected result's sequence, scores and provenance are available in the result details."></canvas>
             <div class="resize-handle"></div>
         </div>
         <div id="controlsContainer">
-            <button id="playButton" class="controlButton">▶</button>
-            <input type="range" id="frameSlider" min="0" max="0" value="0">
+            <button id="playButton" class="controlButton" aria-label="Play trajectory" aria-pressed="false">▶</button>
+            <input type="range" id="frameSlider" min="0" max="0" value="0" aria-label="Trajectory cycle" aria-describedby="frameCounter">
             <span id="frameCounter">0 / 0</span>
             <button id="speedButton" class="controlButton" title="Cycle playback speed">1x</button>
             <button id="overlayButton" class="controlButton btn btn-secondary" title="Overlay all frames" style="font-weight: 400;">⧉</button>
         </div>
     </div>
     <div id="paeContainer">
-        <canvas id="paeCanvas" width="300" height="300" style="cursor: crosshair;"></canvas>
+        <canvas id="paeCanvas" width="300" height="300" style="cursor: crosshair;" role="img" aria-label="Predicted aligned error heatmap"></canvas>
     </div>
     <div id="scatterContainer" class="scatter-container" style="display: none; position: relative;">
-        <canvas id="scatterCanvas" style="cursor: pointer;"></canvas>
+        <canvas id="scatterCanvas" style="cursor: pointer;" role="img" aria-label="Structure score scatter plot"></canvas>
         <div class="resize-handle" aria-label="Resize scatter plot"></div>
     </div>
     <div id="rightPanelContainer">

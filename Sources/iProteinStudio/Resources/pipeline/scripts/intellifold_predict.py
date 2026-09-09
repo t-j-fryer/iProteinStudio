@@ -89,7 +89,7 @@ def verify_outputs(arguments: list[str]) -> None:
         die("managed prediction-geometry validator is missing")
     completed = subprocess.run([sys.executable, str(validator), str(output)])
     if completed.returncode:
-        die("prediction produced invalid protein geometry; see the diagnostic above")
+        die("prediction coordinates are unusable; see geometry_report.json")
     receipt = compact_detailed_confidence(output)
     if receipt["failures"]:
         print("WARNING: IntelliFold detailed-confidence compaction retained the original "
@@ -137,8 +137,8 @@ def main() -> None:
         die(str(exc))
     if template_payload:
         print(
-            "IPROTEINSTUDIO_TEMPLATE|intellifold|target-only|"
-            f"id={template_payload['template_id']}|binder=none",
+            "IPROTEINSTUDIO_TEMPLATE|intellifold|selected-chains|"
+            f"id={template_payload['template_id']}|binder={template_payload.get('binder_template', 'none')}",
             flush=True,
         )
 

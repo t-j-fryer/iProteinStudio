@@ -16,11 +16,12 @@ struct PredictView: View {
     @State private var warnings: [String] = []
     @State private var parseError: String?
     @State private var isParsing = false
+    @State private var templateImportError: String?
     @State private var setupExperience: SetupExperience = .quick
 
     private var request: Binding<PredictionRequest> {
-        Binding(get: { app.selectedProject?.prediction ?? project.prediction },
-                set: { nv in app.updateSelected { $0.prediction = nv } })
+        Binding(get: { app.projects.first(where: { $0.id == project.id })?.prediction ?? project.prediction },
+                set: { nv in app.updateProject(id: project.id) { $0.prediction = nv } })
     }
 
     private var outputDir: URL {
@@ -32,7 +33,7 @@ struct PredictView: View {
     }
 
     var body: some View {
-        if controller.isRunning || controller.outputRoot != nil {
+        if controller.projectSlug == project.slug && (controller.isRunning || controller.outputRoot != nil) {
             PredictProgressView(controller: controller)
         } else {
             form
@@ -54,6 +55,7 @@ struct PredictView: View {
                 if setupExperience == .advanced {
                     Card(title: "3 · Alignments", systemImage: "square.stack.3d.down.right") { msaSection }
                 }
+                Card(title: "Structure template (optional)", systemImage: "cube.transparent") { templateSection }
                 Card(title: "4 · Engines", systemImage: "cpu") { engineSection }
                 if setupExperience == .advanced {
                     Card(title: "5 · Sampling & throughput", systemImage: "gauge.with.dots.needle.67percent") { throughputSection }
@@ -216,6 +218,61 @@ struct PredictView: View {
             Text("Changing this needs the sequences read again.")
                 .font(.caption2).foregroundStyle(.tertiary)
         }
+    }
+
+    private var templateSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Guide selected protein chains toward an experimental or trusted predicted structure, using the same Guide mode as Protein Hunter.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Button(request.wrappedValue.hasTemplate ? "Replace structure…" : "Choose PDB / CIF…") { importTemplate() }
+                    .accessibilityIdentifier("predict-template-import")
+                if request.wrappedValue.hasTemplate {
+                    Text(URL(fileURLWithPath: request.wrappedValue.templatePath).lastPathComponent)
+                        .font(.caption.monospaced()).lineLimit(1).truncationMode(.middle)
+                    Button("Remove") { request.wrappedValue.templatePath = ""; request.wrappedValue.templateChainIDs = [] }
+                }
+            }
+            if request.wrappedValue.hasTemplate {
+                if !request.wrappedValue.jobsAreCurrent {
+                    Text("Read & assign chains above, then choose which protein chains to guide.").font(.caption)
+                } else {
+                    Text("Protein chains to guide in every fold").font(.callout.weight(.medium))
+                    ForEach(request.wrappedValue.commonProteinChainIDs, id: \.self) { id in
+                        Toggle("Chain \(id)", isOn: Binding(
+                            get: { request.wrappedValue.templateChainIDs.contains(id) },
+                            set: { selected in
+                                request.wrappedValue.templateChainIDs.removeAll { $0 == id }
+                                if selected { request.wrappedValue.templateChainIDs.append(id) }
+                            }))
+                        .toggleStyle(.checkbox).accessibilityIdentifier("predict-template-chain-\(id)")
+                    }
+                }
+                Text("The structure is matched to these chains by sequence. Unselected chains remain untemplated. For a binder–target complex, select the target chains; for a monomer, select its chain. The same template is used for every fold in this batch.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Text("Supported by Boltz-2, IntelliFold v2 Flash/full and Protenix v2. Template-guided results are conditioned predictions, not independent validation of the supplied structure. Alignments remain a separate choice.")
+                .font(.caption2).foregroundStyle(.secondary)
+            if let templateImportError { Text(templateImportError).foregroundStyle(.orange) }
+        }
+    }
+
+    private func importTemplate() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = ["pdb", "cif", "mmcif"].compactMap { UTType(filenameExtension: $0) }
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let source = panel.url else { return }
+        let accessed = source.startAccessingSecurityScopedResource()
+        defer { if accessed { source.stopAccessingSecurityScopedResource() } }
+        do {
+            let directory = AppPaths.projectDir(project).appendingPathComponent("prediction_templates/\(UUID().uuidString)", isDirectory: true)
+            try AppPaths.fm.createDirectory(at: directory, withIntermediateDirectories: true)
+            let destination = directory.appendingPathComponent(source.lastPathComponent)
+            try AppPaths.fm.copyItem(at: source, to: destination)
+            request.wrappedValue.templatePath = destination.path
+            request.wrappedValue.templateChainIDs = []
+            templateImportError = nil
+        } catch { templateImportError = error.localizedDescription }
     }
 
     // MARK: Alignments
@@ -442,7 +499,7 @@ struct PredictView: View {
     private var startBar: some View {
         let r = request.wrappedValue
         let issues = r.validationIssues
-        let anotherWorkflowIsRunning = app.run.isRunning || app.rfd3.isRunning
+        let anotherWorkflowIsRunning = app.run.isRunning || app.rfd3.isRunning || app.nise.isRunning
         let missingComponents = r.requiredComponents.filter {
             installer.components[$0] != nil && !installer.isUsable($0)
         }
@@ -459,7 +516,7 @@ struct PredictView: View {
             }
             HStack {
                 if anotherWorkflowIsRunning {
-                    Label("Finish or stop the active \(app.rfd3.isRunning ? "RFdiffusion3" : "iterative design") run before starting prediction.",
+                    Label("Finish or stop the active \(app.nise.isRunning ? "NISE" : (app.rfd3.isRunning ? "RFdiffusion3" : "Protein Hunter")) run before starting prediction.",
                           systemImage: "hourglass")
                         .font(.callout).foregroundStyle(.secondary)
                 } else if r.jobs.isEmpty {

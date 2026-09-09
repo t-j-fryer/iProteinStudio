@@ -1,0 +1,232 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project",
+    "request"
+  ],
+  "properties": {
+    "project": {
+      "type": "string"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "smiles"
+      ],
+      "properties": {
+        "smiles": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "scheduler": {
+          "enum": [
+            "cycle-wave",
+            "resident"
+          ]
+        },
+        "preorganisation": {
+          "type": "boolean"
+        },
+        "num_starts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "default": 100,
+          "description": "Total independent initial backbone attempts across all lengths."
+        },
+        "trajectories": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 6
+        },
+        "nise_seqs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096,
+          "default": 64,
+          "description": "Sequences sampled per retained parent per optimization cycle."
+        },
+        "max_cycles": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 30
+        },
+        "patience": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 5
+        },
+        "binder_min_len": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 250,
+          "default": 65
+        },
+        "binder_max_len": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 250,
+          "default": 150
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647,
+          "default": 0
+        },
+        "top_x": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64,
+          "default": 8
+        },
+        "phase0_refine_cycles": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20,
+          "default": 2
+        },
+        "phase0_seqs1": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024,
+          "default": 3
+        },
+        "phase0_seqs2": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024,
+          "default": 5
+        },
+        "beam": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64,
+          "default": 1,
+          "description": "Maximum Boltz-passing sequences advanced per trajectory per cycle."
+        },
+        "nesso_top_k": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096,
+          "default": 16,
+          "description": "NESSO shortlist sent to Boltz per trajectory per cycle, pooled across its parents."
+        },
+        "nesso_screen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Experimental NESSO prescreen of optimization sequences before Boltz; never used for initial backbone generation."
+        },
+        "backbone_method": {
+          "enum": [
+            "protein-hunter",
+            "rfdiffusion3"
+          ],
+          "default": "protein-hunter",
+          "description": "Generator for initial backbones; later NISE refinement and optimisation are shared."
+        },
+        "rfd3_num_bins": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 5,
+          "description": "Evenly spaced RFdiffusion3 binder lengths; capped by starts and distinct lengths. One group uses midpoint."
+        },
+        "hotspot_atoms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]{1,2}[1-9][0-9]{0,2}$",
+            "maxLength": 4
+          },
+          "uniqueItems": true,
+          "maxItems": 256,
+          "default": []
+        },
+        "exposed_atoms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]{1,2}[1-9][0-9]{0,2}$",
+            "maxLength": 4
+          },
+          "uniqueItems": true,
+          "maxItems": 256,
+          "default": []
+        },
+        "hotspot_distance": {
+          "type": "number",
+          "minimum": 3,
+          "maximum": 10,
+          "default": 6.0
+        },
+        "exposure_min_fraction": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1,
+          "default": 0.5
+        },
+        "ligand_atom_signature": {
+          "type": "string",
+          "description": "SHA-256 signature from the NISE ligand resolver; required for selected atoms."
+        },
+        "ligand_atoms_generated_for": {
+          "type": "string",
+          "description": "Exact original SMILES for which atom selections were resolved."
+        },
+        "phase0_nesso_screen": {
+          "type": "boolean",
+          "default": false
+        },
+        "phase0_nesso_refine_top_k": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "phase0_nesso_expand_top_k": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "phase0_gate_seqs": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "phase0_sc_ca": {
+          "type": "number",
+          "default": 2.0,
+          "minimum": 0.1,
+          "maximum": 10
+        },
+        "nise_sc_ca": {
+          "type": "number",
+          "default": 2.5,
+          "minimum": 0.1,
+          "maximum": 10
+        },
+        "nise_sc_lig": {
+          "type": "number",
+          "default": 2.5,
+          "minimum": 0.1,
+          "maximum": 10
+        },
+        "nise_ligand_sc_from_cycle": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 1001
+        }
+      }
+    }
+  }
+}

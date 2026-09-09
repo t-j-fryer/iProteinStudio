@@ -18,6 +18,8 @@ final class PredictionController: ObservableObject {
 
     private var runner: ProcessRunner?
     private var configURL: URL?
+    private let job = ManagedJobSession()
+    private(set) var projectSlug = ""
 
     var isRunning: Bool { if case .running = phase { return true }; return false }
 
@@ -135,17 +137,30 @@ final class PredictionController: ObservableObject {
             phase = .failed("The macOS Python runtime is unavailable. Re-run Setup."); return
         }
         AppPaths.stageRFD3Scripts()
-        try? AppPaths.fm.createDirectory(at: outputDir, withIntermediateDirectories: true)
         let runDir = uniqueRunDirectory(in: outputDir)
-        try? AppPaths.fm.createDirectory(at: runDir, withIntermediateDirectories: true)
+        do { try AppPaths.fm.createDirectory(at: runDir, withIntermediateDirectories: true) }
+        catch { phase = .failed("Could not create the prediction folder: \(error.localizedDescription)"); return }
+        projectSlug = outputDir.deletingLastPathComponent().lastPathComponent
         outputRoot = runDir
 
-        let config = Self.config(request: request, outputDir: runDir)
+        var config = Self.config(request: request, outputDir: runDir)
+        if let template = config.template {
+            do {
+                let source = URL(fileURLWithPath: template.path)
+                let directory = runDir.appendingPathComponent("templates", isDirectory: true)
+                try AppPaths.fm.createDirectory(at: directory, withIntermediateDirectories: true)
+                let destination = directory.appendingPathComponent("source.\(source.pathExtension.lowercased())")
+                try AppPaths.fm.copyItem(at: source, to: destination)
+                config.template?.path = destination.path
+            } catch {
+                phase = .failed("Could not preserve the template for this run: \(error.localizedDescription)"); return
+            }
+        }
         let configURL = runDir.appendingPathComponent("prediction_config.json")
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(config).write(to: configURL)
+            try encoder.encode(config).write(to: configURL, options: .atomic)
         } catch {
             phase = .failed("Could not write the settings: \(error.localizedDescription)"); return
         }
@@ -169,18 +184,35 @@ final class PredictionController: ObservableObject {
     }
 
     private func launch(_ configURL: URL) {
-        let python = URL(fileURLWithPath: "/usr/bin/python3")
-        let runner = ProcessRunner()
-        self.runner = runner
-        // caffeinate: a large batch is a long job, and a sleeping Mac loses it.
-        runner.launch(
-            executable: URL(fileURLWithPath: "/usr/bin/caffeinate"),
-            arguments: ["-dimsu", python.path, AppPaths.predictBatchScript.path,
-                        "--config", configURL.path],
-            environment: CommandBuilder.environment(),
-            workingDir: AppPaths.support,
-            onLine: { [weak self] line in self?.handle(line) },
-            onExit: { [weak self] code in self?.finish(code) })
+        let root = configURL.deletingLastPathComponent()
+        if let id = BrokerClient.savedJobID(at: root) {
+            job.attach(id: id, resume: true, update: receive, failure: { [weak self] in self?.phase = .failed($0) })
+        } else {
+            job.submit(project: projectSlug, workflow: "prediction", output: root,
+                       update: receive, failure: { [weak self] in self?.phase = .failed($0) })
+        }
+    }
+
+    func reattach(root: URL, jobID: String) {
+        guard !isRunning else { return }
+        outputRoot = root
+        configURL = root.appendingPathComponent("prediction_config.json")
+        projectSlug = root.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent
+        phase = .running
+        job.attach(id: jobID, update: receive, failure: { [weak self] in self?.phase = .failed($0) })
+    }
+
+    private func receive(_ state: ManagedJob) {
+        currentMessage = state.message ?? state.status
+        log = state.pipeline_log_tail ?? log
+        if state.isActive { phase = .running }
+        else if state.status == "completed" { phase = .finished; progress = 1 }
+        else if state.status == "cancelled" { phase = .cancelled }
+        else { phase = .failed(currentMessage + " Saved outputs were kept. Retry resumes from the recorded settings.") }
+        if let line = log.last(where: { $0.hasPrefix("PBSTAGE|") }) {
+            let parts = line.components(separatedBy: "|")
+            if parts.count >= 3 { progress = (Double(parts[2]) ?? 0) / 100 }
+        }
     }
 
     private func uniqueRunDirectory(in root: URL) -> URL {
@@ -197,14 +229,17 @@ final class PredictionController: ObservableObject {
     }
 
     func cancel() {
-        runner?.cancel()
-        phase = .cancelled
-        currentMessage = "Cancelled."
+        guard isRunning else { return }
+        currentMessage = "Stopping; waiting for worker processes to exit…"
+        job.cancel()
     }
 
     static func config(request: PredictionRequest, outputDir: URL) -> PredictionConfig {
         var config = PredictionConfig()
         let boltzSelected = request.includesBoltz
+        if request.hasTemplate {
+            config.template = PredictionConfig.Template(path: request.templatePath, chains: request.templateChainIDs)
+        }
         config.root = AppPaths.support.path
         config.output = outputDir.path
         config.predictors = request.effectivePredictors.map(\.runnerValue)
@@ -248,39 +283,17 @@ final class PredictionController: ObservableObject {
             allow_server: allowServer)
     }
 
-    private func handle(_ line: String) {
-        let parts = line.components(separatedBy: "|")
-        if line.hasPrefix("PBSTAGE|"), parts.count >= 4 {
-            progress = (Double(parts[2]) ?? 0) / 100.0
-            currentMessage = parts[3]
-            log.append(parts[3])
-        } else if line.hasPrefix("PBINFO|"), parts.count >= 2 {
-            let message = parts.dropFirst().joined(separator: "|")
-            if message.contains("came from the cache") { cacheHits = message }
-            log.append(message)
-        } else if line.hasPrefix("PBFAIL|"), parts.count >= 2 {
-            phase = .failed(parts.dropFirst().joined(separator: "|"))
-        } else if !line.isEmpty {
-            log.append(line)
-        }
-        if log.count > 400 { log.removeFirst(log.count - 400) }
-    }
-
-    private func finish(_ code: Int32) {
-        if case .failed = phase { return }
-        if case .cancelled = phase { return }
-        if code == 0 {
-            phase = .finished; progress = 1.0
-            if currentMessage.isEmpty { currentMessage = "Finished." }
-        } else {
-            phase = .failed("Prediction exited with code \(code). See the log below.")
-        }
-    }
 }
 
 /// The on-disk settings `predict_batch.py` reads. Written next to the results so
 /// a batch can be re-run from a terminal without the app.
 struct PredictionConfig: Codable {
+    struct Template: Codable {
+        var path: String
+        var chains: [String]
+        var mode: String = "guide"
+    }
+    var template: Template?
     struct Chain: Codable {
         var id: String
         var kind: String

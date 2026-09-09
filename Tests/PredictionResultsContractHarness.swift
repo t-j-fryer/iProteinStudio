@@ -4,13 +4,63 @@ import Foundation
 // harness focused avoids pulling ObservableObject/AppState into a file-layout
 // contract test.
 enum StudioWorkflow: String, Codable {
-    case iterative, rfdiffusion3, prediction
+    case iterative, nise, rfdiffusion3, prediction
     var label: String { rawValue }
 }
 
 @main
 struct PredictionResultsContractHarness {
     static func main() throws {
+        let csvRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: csvRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: csvRoot) }
+        let malformed = csvRoot.appendingPathComponent("partial.csv")
+        try "iptm,iptm\n0.8,0.9\n".write(to: malformed, atomically: true, encoding: .utf8)
+        guard CSVTable.rows(at: malformed).isEmpty else { fatalError("duplicate CSV headers were accepted") }
+        try "iptm,name\n0.8,complete\n0.9,\"unfinished".write(to: malformed, atomically: true, encoding: .utf8)
+        guard CSVTable.rows(at: malformed).count == 1 else { fatalError("partial quoted CSV row was accepted") }
+
+        let shortlist = csvRoot.appendingPathComponent("nesso_verification")
+        try FileManager.default.createDirectory(at: shortlist, withIntermediateDirectories: true)
+        try "data_fixture".write(to: shortlist.appendingPathComponent("fold.cif"), atomically: true, encoding: .utf8)
+        let screenRow: [String: Any] = ["candidate": "run_001_cycle_02", "structure": "fold.cif", "predictor": "intellifold", "intellifold_model": "v2",
+            "sequence": "ACDE", "nesso": ["affinity_probability_binary": 0.8, "entropy_crop_pl": 0.2, "screening_score": 1.6],
+            "structure_scores": ["iptm": 0.6]]
+        try JSONSerialization.data(withJSONObject: [screenRow]).write(to: shortlist.appendingPathComponent("results.json"))
+        for workflow in [StudioWorkflow.iterative, .rfdiffusion3] {
+            let items = RunResultsLoader.load(root: csvRoot, workflow: workflow)
+            precondition(items.count == 1 && items[0].isHit == nil)
+            precondition(items[0].metrics.contains { $0.kind == .nessoInterfaceEntropy && $0.value == 0.2 })
+            precondition(items[0].metrics.contains { $0.kind == .iptm && $0.value == 0.6 })
+            precondition(!items[0].metrics.contains { $0.kind == .ligandPLDDT })
+        }
+
+        let nise = csvRoot.appendingPathComponent("nise")
+        try FileManager.default.createDirectory(at: nise.appendingPathComponent("candidates"), withIntermediateDirectories: true)
+        try "fixture".write(to: nise.appendingPathComponent("holo.pdb"), atomically: true, encoding: .utf8)
+        try "fixture".write(to: nise.appendingPathComponent("apo.pdb"), atomically: true, encoding: .utf8)
+        for name in ["c01_t0_n0_s0", "c01_t0_n0_s1"] {
+            var row: [String: Any] = ["name": name, "pdb": "holo.pdb", "sequence": "ACDE", "trajectory": 0,
+                                     "cycle": 1, "nesso": ["affinity_probability_binary": 0.73, "affinity_pred_value": -0.8], "passed": true, "pbind": 0.9, "ligand_plddt": 95.0]
+            if name.hasSuffix("s1") {
+                row["nesso"] = ["affinity_probability_binary": 0.73, "affinity_pred_value": -0.8,
+                                "entropy_pl": 0.2, "screening_score": 1.53]
+            }
+            try JSONSerialization.data(withJSONObject: row).write(to: nise.appendingPathComponent("candidates/\(name).json"))
+        }
+        let analysis: [String: Any] = ["ranked": [["name": "c01_t0_n0_s0", "apo_pdb": "apo.pdb", "preorg_rmsd": 0.75, "combined_score": 2.2]]]
+        try JSONSerialization.data(withJSONObject: analysis).write(to: nise.appendingPathComponent("preorg.json"))
+        let niseItems = RunResultsLoader.load(root: nise, workflow: .nise)
+        let niseGroups = RunResultsLoader.groups(from: niseItems)
+        precondition(niseItems.count == 3 && niseGroups.count == 1 && niseGroups[0].variants.count == 2)
+        precondition(niseItems.allSatisfy { $0.isHit == nil })
+        precondition(niseItems.contains { $0.metrics.contains { $0.kind == .nessoBindingProbability && $0.value == 0.73 } })
+        precondition(niseItems.filter { $0.metrics.contains { $0.kind == .nessoScreeningScore && $0.value == 1.53 } }.count == 1)
+        precondition(niseItems.filter { $0.metrics.contains { $0.kind == .nessoPlacementEntropy && $0.value == 0.2 } }.count == 1)
+
+        precondition(niseItems.first(where: { $0.artifactRole == .binderAlone })?.metrics.contains(where: { $0.kind == .pocketPreorgRMSD }) == true)
+        precondition(niseItems.first(where: { $0.artifactRole == .designedComplex })?.metrics.contains(where: { $0.kind == .ligandPLDDT }) == true)
+
         if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "iterative" {
             let root = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
             let results = RunResultsLoader.load(root: root, workflow: .iterative)

@@ -14,6 +14,7 @@ struct Project: Identifiable, Codable, Hashable {
     var rfd3: RFD3Request = RFD3Request()
     /// Prediction-only batches for this project.
     var prediction: PredictionRequest = PredictionRequest()
+    var nise: NISERequest = NISERequest()
     /// The workflow this workspace reopens to. This is presentation state, not
     /// a restriction: every workspace always offers all workflows.
     var preferredMode: WorkspaceMode = .iterative
@@ -27,7 +28,7 @@ struct Project: Identifiable, Codable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, createdAt, request, rfd3, prediction, preferredMode, slug
+        case id, name, createdAt, request, rfd3, prediction, nise, preferredMode, slug
     }
 
     /// Resilient decoding so schema changes never drop saved projects.
@@ -39,6 +40,7 @@ struct Project: Identifiable, Codable, Hashable {
         request = try c.decodeIfPresent(DesignRequest.self, forKey: .request) ?? DesignRequest()
         rfd3 = try c.decodeIfPresent(RFD3Request.self, forKey: .rfd3) ?? RFD3Request()
         prediction = try c.decodeIfPresent(PredictionRequest.self, forKey: .prediction) ?? PredictionRequest()
+        nise = try c.decodeIfPresent(NISERequest.self, forKey: .nise) ?? NISERequest()
         preferredMode = try c.decodeIfPresent(WorkspaceMode.self, forKey: .preferredMode) ?? .iterative
         slug = try c.decodeIfPresent(String.self, forKey: .slug) ?? Project.slugify(name)
     }
@@ -62,6 +64,7 @@ struct Project: Identifiable, Codable, Hashable {
 
         if iterativeConfigured, !modes.contains(.iterative) { modes.append(.iterative) }
         if rfd3Configured, !modes.contains(.rfdiffusion) { modes.append(.rfdiffusion) }
+        if !nise.smiles.isEmpty, !modes.contains(.nise) { modes.append(.nise) }
         if predictionConfigured, !modes.contains(.predict) { modes.append(.predict) }
         return modes.map(\.label).joined(separator: " · ")
     }

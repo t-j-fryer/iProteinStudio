@@ -10,12 +10,21 @@ Built for people who want to design binders without touching a terminal.
 
 ## What it does
 
-**Iterative design** — paste a target sequence or SMILES, pick a validated
+**Protein Hunter** — paste a target sequence or SMILES, pick a validated
 nanobody scaffold or a de-novo binder size, choose your design engine, and watch
 iPTM climb per cycle. Designs that pass your hit threshold are re-folded with an
 independent model, because a design engine scoring its own designs is marking its
 own homework. Protein interfaces also report conservative `ipSAE(min)` whenever
-the selected predictor emits PAE (Boltz, IntelliFold, or Protenix).
+the selected predictor emits PAE (Boltz, IntelliFold, or Protenix). Choose multiple [design engines](docs/PROTEIN_HUNTER_ENGINES.md) to run the full trajectory budget with each.
+
+**NISE** — search for small-molecule binding pockets with LASErMPNN and Boltz
+structure/affinity scoring. Independent trajectories expand and select sequences;
+an optional final apo/holo analysis compares pocket preorganisation. The
+fluorescein example, resumable checkpoints and experimental cross-cycle model
+reuse are described in [NISE](docs/NISE.md). Separate backbone/optimisation
+budgets, per-trajectory advancement and optional experimental NESSO sequence
+screening are available in the NISE tab. Initial backbones can use Protein Hunter
+X-token hallucination or experimental RFdiffusion3, with 100 starts by default. NESSO is an optional Engines download.
 
 **RFdiffusion3** — generate binders de novo, locally explore an existing bound
 structure with partial diffusion, or scaffold explicit functional motif atoms
@@ -32,7 +41,7 @@ with its own. Alignments are per chain, so a de-novo binder can be folded from i
 single sequence while its target gets a deep MSA — and every alignment this
 machine has ever made is reused rather than re-fetched. Multimers retain the
 directional and pairwise ipSAE values behind the displayed `ipSAE(min)` summary;
-OpenFold is left blank because its current detailed output is PDE rather than PAE.
+OpenFold is left blank because its current detailed output is PDE rather than PAE. Optional [structure templates](docs/PREDICTION_TEMPLATES.md) guide selected protein chains with Boltz-2, IntelliFold or Protenix v2.
 
 Across all protein inputs, a colon separates subunits: `SEQUENCE_A:SEQUENCE_B`.
 Studio immediately shows the detected chain map. Plain prediction assigns A, B,
@@ -90,6 +99,14 @@ the evidence and retirement boundary are recorded in [Lab Book 0029](lab_book/00
 - macOS 14+ on Apple Silicon
 - Xcode Command Line Tools (`xcode-select --install`)
 - Internet access for first-run setup (downloads are several GB)
+
+Click a workspace's name, icon or row space to switch to it. Its saved workflow
+and settings open immediately; running jobs continue in Activity. Use the
+workspace's **…** menu to rename, reveal or archive it.
+
+If setup fails while building a package with a missing `cmath` header, see
+[setup troubleshooting](docs/CLI.md#apple-compiler-setup-errors). Setup checks
+Apple's compiler and SDK before starting downloads.
 
 ## Unsigned beta installation
 
@@ -205,3 +222,11 @@ record what it did in the Lab Book, including what it did not test.
 Alpha. Builds and runs. Complete protein RFdiffusion3 and nanobody routes have
 local Apple-GPU acceptance evidence, but the app is not signed or notarised; see
 the Known gaps list at the top of [LAB_BOOK.md](LAB_BOOK.md).
+
+## Contributing and validation
+
+Start with [Architecture](ARCHITECTURE.md) and [Testing](docs/TESTING.md). Run
+`python3 Tests/run.py` for the deterministic contracts; its report distinguishes
+executed checks from GUI, scientific and release acceptance.
+
+Optional small-molecule sequence screening in Protein Hunter and RFdiffusion3 is described in [NESSO screening](docs/NESSO_SCREENING.md).

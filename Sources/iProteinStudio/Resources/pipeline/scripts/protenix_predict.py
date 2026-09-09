@@ -168,7 +168,8 @@ def apply_target_template(document: dict, yaml_path: Path,
     if not expected_digest or sha256(template_path) != expected_digest:
         die("target template checksum changed after the campaign was prepared")
     query_chains = [str(value).upper() for value in metadata.get("query_chains") or []]
-    if not query_chains or "A" in query_chains:
+    prediction_scope = metadata.get("scope") == "prediction"
+    if not query_chains or ("A" in query_chains and not prediction_scope):
         die("target_template.query_chains must name target proteins and must exclude binder chain A")
     if any(chain not in proteins for chain in query_chains):
         die("target template names a missing or non-protein query chain")
@@ -178,13 +179,21 @@ def apply_target_template(document: dict, yaml_path: Path,
     sidecars.mkdir(parents=True, exist_ok=True)
     empty_path = sidecars / "binder_A_empty.json"
     empty_path.write_text("[]\n")
-    if "A" in proteins:
-        proteins["A"]["templatesPath"] = str(empty_path.resolve())
+    for chain, protein in proteins.items():
+        if (prediction_scope and chain not in query_chains) or (not prediction_scope and chain == "A"):
+            protein["templatesPath"] = str(empty_path.resolve())
 
     available = set(structure_chains)
     mapping_receipt = []
+    by_sequence = {}
     for query_chain in query_chains:
         query = proteins[query_chain]["sequence"]
+        if prediction_scope and query in by_sequence:
+            reused = by_sequence[query]
+            proteins[query_chain]["templatesPath"] = reused["templates_path"]
+            mapping_receipt.append({**reused, "query_chain": query_chain,
+                                    "shared_entity_template": True})
+            continue
         candidates = []
         for structure_chain in sorted(available):
             sequence, atoms = structure_chains[structure_chain]
@@ -212,10 +221,11 @@ def apply_target_template(document: dict, yaml_path: Path,
             "aligned_residues": len(q_indices), "identity": identity, "coverage": coverage,
             "templates_path": str(template_json.resolve()),
         })
+        by_sequence[query] = mapping_receipt[-1]
     receipt = sidecars / f"{yaml_path.stem}_mapping.json"
     receipt.write_text(json.dumps({
         "schema": 1, "source": str(template_path), "sha256": expected_digest,
-        "binder_template": "explicit-empty", "chains": mapping_receipt,
+        "binder_template": "selected" if "A" in query_chains else "explicit-empty", "chains": mapping_receipt,
     }, indent=2, sort_keys=True) + "\n")
 
 

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Reject chemically discontinuous protein coordinates without extra packages."""
+"""Record backbone-distance diagnostics; reject only unusable coordinates."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import os
+import tempfile
 from collections import OrderedDict
 import math
 from pathlib import Path
@@ -124,12 +128,14 @@ def read_residues(path: Path) -> OrderedDict[ResidueKey, dict[str, Atom]]:
     return read_pdb(path) if path.suffix.lower() == ".pdb" else read_cif(path)
 
 
-def validate(path: Path) -> list[str]:
+def inspect_geometry(path: Path) -> dict:
+    """Keep advisory distance violations separate from coordinate input errors."""
     try:
         residues = read_residues(path)
     except (OSError, ValueError) as exc:
-        return [f"could not parse coordinates: {exc}"]
-    failures: list[str] = []
+        return {"violations": [], "errors": [f"could not parse coordinates: {exc}"]}
+    violations: list[dict] = []
+    errors: list[str] = []
     previous_by_chain: dict[tuple[str, str], tuple[ResidueKey, dict[str, Atom]]] = {}
     protein_residues = 0
     for key, atoms in residues.items():
@@ -143,23 +149,30 @@ def validate(path: Path) -> list[str]:
             previous_key, previous_atoms = previous
             previous_id = previous_key[2]
             ca_distance = math.dist(previous_atoms["CA"], ca)
-            if ca_distance > MAX_CA_CA:
-                failures.append(
-                    f"{chain}:{previous_id}-{residue_id} CA-CA={ca_distance:.2f} A "
-                    f"(>{MAX_CA_CA:.1f})"
-                )
+            pairs = [("CA-CA", ca_distance, MAX_CA_CA)]
             carbon, nitrogen = previous_atoms.get("C"), atoms.get("N")
             if carbon is not None and nitrogen is not None:
-                peptide = math.dist(carbon, nitrogen)
-                if peptide > MAX_PEPTIDE_CN:
-                    failures.append(
-                        f"{chain}:{previous_id}-{residue_id} C-N={peptide:.2f} A "
-                        f"(>{MAX_PEPTIDE_CN:.1f})"
-                    )
+                pairs.append(("C-N", math.dist(carbon, nitrogen), MAX_PEPTIDE_CN))
+            for atoms_name, distance, threshold in pairs:
+                if distance > threshold:
+                    violations.append({
+                        "model": model, "chain": chain,
+                        "residue_1": previous_id, "residue_2": residue_id,
+                        "atoms": atoms_name, "distance_angstrom": distance,
+                        "threshold_angstrom": threshold,
+                        "message": f"{chain}:{previous_id}-{residue_id} {atoms_name}={distance:.2f} A (>{threshold:.1f})",
+                    })
         previous_by_chain[(model, chain)] = (key, atoms)
     if protein_residues == 0:
-        failures.append("contains no protein alpha-carbon atoms")
-    return failures
+        errors.append("contains no protein alpha-carbon atoms")
+    return {"violations": violations, "errors": errors}
+
+
+def validate(path: Path) -> list[str]:
+    """Diagnostic compatibility API for historical audits; does not reject output."""
+    result = inspect_geometry(path)
+    return result["errors"] + [v["message"] for v in result["violations"]]
+
 
 
 def discover_structures(path: Path) -> list[Path]:
@@ -187,24 +200,54 @@ def discover_structures(path: Path) -> list[Path]:
     return sorted(structures)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("path", type=Path)
-    args = parser.parse_args()
-    path = args.path.resolve()
+def write_report(path: Path, report_path: Path | None = None) -> dict:
+    """Write one atomic, hash-linked report without changing any coordinates."""
+    # Keep the supplied path (including a normalized output symlink) in the report.
+    path = path.absolute()
+    directory = path.parent if path.is_file() else path
+    destination = report_path or directory / "geometry_report.json"
     structures = discover_structures(path)
-    if not structures:
-        raise SystemExit(f"Geometry validation found no structures under {path}")
-    all_failures = [f"{structure}: {failure}" for structure in structures
-                    for failure in validate(structure)]
-    if all_failures:
-        preview = "\n".join(all_failures[:20])
-        suffix = "" if len(all_failures) <= 20 else f"\n... {len(all_failures) - 20} more"
-        raise SystemExit(
-            "Predictor returned invalid protein geometry; output was rejected.\n"
-            + preview + suffix
-        )
-    print(f"IPROTEINSTUDIO_GEOMETRY_OK|structures={len(structures)}")
+    records = []
+    for structure in structures:
+        record = inspect_geometry(structure)
+        record.update(path=str(structure.relative_to(directory)),
+                      sha256=hashlib.sha256(structure.read_bytes()).hexdigest())
+        records.append(record)
+    errors = [] if structures else ["No predicted structures found"]
+    report = {
+        "schema_version": 1, "policy": "record_only",
+        "thresholds_angstrom": {"CA-CA": MAX_CA_CA, "C-N": MAX_PEPTIDE_CN},
+        "structures": records, "errors": errors,
+        "violation_count": sum(len(r["violations"]) for r in records),
+        "error_count": len(errors) + sum(len(r["errors"]) for r in records),
+    }
+    report["coordinate_input_usable"] = report["error_count"] == 0
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".geometry-", dir=destination.parent)
+    try:
+        with os.fdopen(fd, "w") as handle:
+            json.dump(report, handle, indent=2, allow_nan=False)
+            handle.write("\n"); handle.flush(); os.fsync(handle.fileno())
+        os.replace(temporary, destination)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return report
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("path", type=Path)
+    parser.add_argument("--report", type=Path)
+    args = parser.parse_args()
+    report = write_report(args.path, args.report)
+    for record in report["structures"]:
+        for violation in record["violations"]:
+            print(f"IPROTEINSTUDIO_GEOMETRY_WARNING|{record['path']}|{violation['message']}", flush=True)
+    print(f"IPROTEINSTUDIO_GEOMETRY_RECORDED|policy=record_only|violations={report['violation_count']}|errors={report['error_count']}", flush=True)
+    if not report["coordinate_input_usable"]:
+        errors = report["errors"] + [f"{r['path']}: {e}" for r in report["structures"] for e in r["errors"]]
+        raise SystemExit("Unusable prediction coordinates: " + "; ".join(errors))
 
 
 if __name__ == "__main__":

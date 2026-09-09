@@ -4,6 +4,7 @@ import Foundation
 /// is only its remembered starting point and never restricts its contents.
 enum WorkspaceMode: String, CaseIterable, Codable, Identifiable, Hashable {
     case iterative
+    case nise
     case rfdiffusion
     case predict
 
@@ -11,7 +12,8 @@ enum WorkspaceMode: String, CaseIterable, Codable, Identifiable, Hashable {
 
     var label: String {
         switch self {
-        case .iterative:   return "Iterative design"
+        case .iterative:   return "Protein Hunter"
+        case .nise: return "NISE"
         case .rfdiffusion: return "RFdiffusion3"
         case .predict:     return "Predict"
         }
@@ -20,6 +22,7 @@ enum WorkspaceMode: String, CaseIterable, Codable, Identifiable, Hashable {
     var systemImage: String {
         switch self {
         case .iterative:   return "arrow.triangle.2.circlepath"
+        case .nise: return "atom"
         case .rfdiffusion: return "sparkles"
         case .predict:     return "cube.transparent"
         }
@@ -28,6 +31,7 @@ enum WorkspaceMode: String, CaseIterable, Codable, Identifiable, Hashable {
     var defaultWorkspaceName: String {
         switch self {
         case .iterative:   return "Untitled Workspace"
+        case .nise: return "Untitled NISE"
         case .rfdiffusion: return "Untitled RFdiffusion3"
         case .predict:     return "Untitled Prediction"
         }

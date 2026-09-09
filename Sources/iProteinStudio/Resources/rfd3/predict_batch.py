@@ -72,6 +72,14 @@ def die(message: str) -> None:
     sys.exit(1)
 
 
+def template_contract(root):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("studio_prediction_templates", root / "scripts/prediction_templates.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def validate_config(cfg: dict, jobs: list) -> list[str]:
     supported = set(SCHEDULE)
     predictors = cfg.get("predictors") or ["boltz"]
@@ -519,6 +527,10 @@ def run_directory_batch(predictor: str, yamls: list, out_dir: Path, root: Path,
                # IntelliFold only: host BLAS/OpenMP contends with MPS submission.
                "OMP_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1", "KMP_USE_SHM": "0",
                "PYTORCH_ENABLE_MPS_FALLBACK": "0"}
+        env.pop("IPROTEINSTUDIO_INTELLIFOLD_TEMPLATE_MANIFEST", None)
+        if cfg.get("template") is not None:
+            manifest = Path(yamls[0]).parent.parent / "intellifold_manifest.json"
+            env["IPROTEINSTUDIO_INTELLIFOLD_TEMPLATE_MANIFEST"] = str(manifest)
         seed = int(cfg.get("seed", 42))
         num_seeds = int(cfg.get("num_seeds", 1))
         seeds = ",".join(str(seed + offset) for offset in range(num_seeds))
@@ -529,6 +541,8 @@ def run_directory_batch(predictor: str, yamls: list, out_dir: Path, root: Path,
                    "--seed", seeds, "--num_diffusion_samples", str(samples),
                    "--override", "--model", cfg.get("intellifold_model", "v2-flash"),
                    "--cache", str(root / "models" / "intellifold")]
+        if cfg.get("template") is not None:
+            command += ["--use_template"]
     else:
         venv = root / "venvs" / "NanoHunter_protenix"
         model = "v2" if predictor == "protenix-v2" else "mini"
@@ -619,6 +633,24 @@ def main() -> None:
         die("No sequences to fold.")
     predictors = validate_config(cfg, jobs)
 
+    if cfg.get("template") is None and (output / "template_request.json").exists():
+        die("Cannot remove the template from an existing guided run; start a new run.")
+    if cfg.get("template") is not None:
+        templates = template_contract(root)
+        try:
+            templates.validate(cfg)
+            frozen = output / "template_request.json"
+            identity = dict(config_sha256=templates.sha256(args.config),
+                            template_sha256=templates.sha256(cfg['template']['path']))
+            if frozen.exists() and json.loads(frozen.read_text()) != identity:
+                die("Prediction settings or template changed; start a new run.")
+            if not frozen.exists():
+                if any(output.rglob("chunk_complete.json")):
+                    die("Cannot add a template to an existing untemplated run; start a new run.")
+                templates.atomic(frozen, identity)
+        except ValueError as exc:
+            die(str(exc))
+
     if "boltz" in predictors and int(cfg.get("num_seeds", 1)) > 1:
         info("Boltz uses one model seed per fold; the requested seed count applies to the other "
              "engines. Use diffusion samples for additional Boltz structures.")
@@ -647,6 +679,22 @@ def main() -> None:
             die("Protenix v2 supports at most 2,560 tokens; too large: "
                 + ", ".join(oversized[:5]))
 
+    template_inputs = {}
+    if cfg.get("template") is not None:
+        for engine in predictors:
+            prepared_dir = output / "template_inputs" / engine
+            runtime = {"boltz": "NanoHunter_boltz", "intellifold": "NanoHunter_intellifold", "protenix-v2": "NanoHunter_protenix"}[engine]
+            command = [str(root / "venvs" / runtime / "bin/python"), str(root / "scripts/prediction_templates.py"),
+                       "--config", str(args.config.resolve()), "--engine", engine,
+                       "--inputs", str(yaml_dir), "--output", str(prepared_dir)]
+            stage("template", 34, f"Preparing {engine} structure guidance")
+            log = output / "logs" / f"{engine}_template.log"
+            with log.open('a') as stream:
+                result = subprocess.run(command, env=env, stdout=stream, stderr=subprocess.STDOUT)
+            if result.returncode:
+                die(f"Template preparation failed; see {log}: " + "\n".join(log.read_text(errors='replace').splitlines()[-10:]))
+            template_inputs[engine] = [{**item, "yaml": prepared_dir / "inputs" / (item['name'] + '.yaml')} for item in prepared]
+
     started = time.time()
     results = []
     total_units = len(prepared) * len(predictors)
@@ -660,7 +708,7 @@ def main() -> None:
 
         # Group by token bucket: a batch of one shape compiles once and reuses it.
         groups: dict = {}
-        for item in prepared:
+        for item in template_inputs.get(predictor, prepared):
             groups.setdefault(item["bucket"], []).append(item)
         info(f"{predictor}: {len(prepared)} fold(s) in {len(groups)} shape group(s), "
              f"{processes} process(es) x {batch} input(s) each")
@@ -754,7 +802,7 @@ def main() -> None:
         writer.writerows(results)
 
     failures = sum(1 for r in results if r["exit_code"])
-    summary = {"jobs": len(prepared), "predictors": predictors, "results": len(results),
+    summary = {"template": cfg.get("template"), "jobs": len(prepared), "predictors": predictors, "results": len(results),
                "failures": failures, "wall_sec": round(time.time() - started, 1),
                "seed": int(cfg.get("seed", 42)),
                "num_seeds": int(cfg.get("num_seeds", 1)),

@@ -53,10 +53,9 @@ final class TargetPredictor: ObservableObject {
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var log: [String] = []
 
-    private var runner: ProcessRunner?
+    private let job = ManagedJobSession()
+    private var cacheDirectory: URL?
     private var done = false
-    /// The shared runner emits this after every requested structure exists.
-    private var successMarker: String?
     private var resultDir: URL?
 
     var cifPath: String? { if case .done(let p) = phase { return p } else { return nil } }
@@ -114,10 +113,10 @@ final class TargetPredictor: ObservableObject {
         let id = cacheKey(targetKind: targetKind, sequence: sequence, smiles: smiles,
                           engine: engine, model: model)
         let workDir = PredictionStore.dir(for: id)
-        let outDir = PredictionStore.currentResultDir(for: id)
-        if force { try? FileManager.default.removeItem(at: outDir) }
-        try? FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+        let outDir = workDir.appendingPathComponent("prediction-\(UUID().uuidString)")
+        do { try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true) }
+        catch { phase = .failed("Could not create the prediction folder: \(error.localizedDescription)"); return }
+        cacheDirectory = workDir
         AppPaths.stageRFD3Scripts()
 
         var config = PredictionConfig()
@@ -145,11 +144,11 @@ final class TargetPredictor: ObservableObject {
         }
         config.jobs = [PredictionConfig.Job(name: "target", chains: chains)]
 
-        let configURL = workDir.appendingPathComponent("target_prediction_config.json")
+        let configURL = outDir.appendingPathComponent("prediction_config.json")
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(config).write(to: configURL)
+            try encoder.encode(config).write(to: configURL, options: .atomic)
         } catch {
             phase = .failed("Could not write target prediction settings: \(error.localizedDescription)")
             return
@@ -161,64 +160,44 @@ final class TargetPredictor: ObservableObject {
             return
         }
         start()
-        successMarker = "PBDONE|ok"
         appendLog("Using the shared MSA cache; a missing alignment will be generated once and saved.")
-        run(executable: URL(fileURLWithPath: "/usr/bin/caffeinate"),
-            args: ["-dimsu", python.path, AppPaths.predictBatchScript.path,
-                   "--config", configURL.path],
-            env: CommandBuilder.environment(), outDir: outDir)
+        resultDir = outDir
+        job.submit(project: "target-library", workflow: "target_prepare", output: outDir,
+                   update: { [weak self] state in
+            guard let self else { return }
+            self.log = state.pipeline_log_tail ?? self.log
+            if state.isActive { self.phase = .running }
+            else if state.status == "completed" {
+                if !self.succeed(), self.phase == .running { self.phase = .failed("The job finished without a target structure.") }
+            } else if state.status == "cancelled" { self.phase = .idle }
+            else { self.phase = .failed(state.message ?? "The target prediction failed. Previous cached structures were kept.") }
+        }, failure: { [weak self] in self?.phase = .failed($0) })
     }
 
     func cancel() {
-        done = true          // stop finish()/marker paths from overriding
-        phase = .idle
-        runner?.cancel()
+        guard isRunning else { return }
+        appendLog("Stopping; waiting for worker processes to exit…")
+        job.cancel()
     }
 
-    // MARK: shared
-
-    private func start() { log = []; phase = .running; done = false; successMarker = nil }
-
-    private func run(executable: URL, args: [String], env: [String: String], outDir: URL) {
-        resultDir = outDir
-        let runner = ProcessRunner()
-        self.runner = runner
-        runner.launch(executable: executable, arguments: args, environment: env,
-                      workingDir: outDir.deletingLastPathComponent(),
-                      onLine: { [weak self] l in self?.handleLine(l) },
-                      onExit: { [weak self] code in self?.finish(code: code) })
-    }
-
-    private func handleLine(_ line: String) {
-        appendLog(line)
-        if let marker = successMarker, !done, line.contains(marker) {
-            // Structure is written by the time this logs; complete now and stop
-            // the process (it may otherwise hang on teardown).
-            if succeed() { runner?.cancel() }
-        }
-    }
+    private func start() { log = []; phase = .running; done = false }
 
     /// Try to complete from produced output. Returns true if a structure was found.
     @discardableResult
     private func succeed() -> Bool {
         guard !done, let outDir = resultDir else { return false }
         guard let cif = PredictionStore.findModelCIF(in: outDir) else { return false }
+        if let cacheDirectory {
+            do {
+                try JSONEncoder().encode(["directory": outDir.lastPathComponent])
+                    .write(to: cacheDirectory.appendingPathComponent("current-result.json"), options: .atomic)
+            } catch { phase = .failed("The structure finished but its library record could not be saved: \(error.localizedDescription)"); return false }
+        }
         done = true
         phase = .done(cif.path)
         appendLog("✓ predicted structure ready")
         return true
     }
-
-    private func finish(code: Int32) {
-        guard !done else { return }   // already completed via success marker
-        if code == 0 {
-            if !succeed() { phase = .failed("Prediction finished but no structure file was found.") }
-        } else {
-            // Non-zero exit: still salvage output if the marker-based path wrote one.
-            if !succeed() { phase = .failed("Prediction exited with code \(code). See the log.") }
-        }
-    }
-
 
     private func appendLog(_ s: String) {
         log.append(s); if log.count > 300 { log.removeFirst(log.count - 300) }

@@ -559,6 +559,7 @@ def main() -> None:
     design_yaml = write_design_yaml(req, campaign, ligand_input, selection_key)
 
     config = {
+        "nesso": req.get("nesso"),
         "campaign_dir": str(campaign),
         "design_name": req["design_name"],
         "design_mode": req.get("design_mode", "deNovo"),

@@ -106,7 +106,7 @@ def validate_output(arguments: list[str]) -> None:
     validator = root / "scripts" / "validate_prediction_geometry.py"
     completed = subprocess.run([sys.executable, str(validator), output_value])
     if completed.returncode:
-        die("prediction produced invalid protein geometry; see the diagnostic above")
+        die("prediction coordinates are unusable; see geometry_report.json")
 
 
 def main() -> None:

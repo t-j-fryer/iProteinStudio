@@ -76,6 +76,7 @@ the Validation Lab Book and the project Lab Book before a setting is promoted.
 
 ## Scope
 
-NISE stays in NanoHunter. RFdiffusion3 against DNA/RNA is out of scope — the
-nucleic-acid checkpoint is not obtainable. Do not wire either in without being
-asked.
+Ligand NISE is exposed through its dedicated Studio tab and versioned upstream
+port; see `docs/NISE.md`. Protein/cross-reactive NISE remains upstream.
+RFdiffusion3 against DNA/RNA is out of scope — the nucleic-acid checkpoint is
+not obtainable. Do not wire those additional modes in without being asked.

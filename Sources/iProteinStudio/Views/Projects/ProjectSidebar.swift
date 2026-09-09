@@ -47,6 +47,7 @@ struct ProjectSidebar: View {
                 ForEach(app.projects) { project in
                     ProjectRow(
                         project: project,
+                        select: { app.selectedProjectID = project.id },
                         rename: { beginRename(project) },
                         reveal: {
                             NSWorkspace.shared.activateFileViewerSelecting([AppPaths.projectDir(project)])
@@ -54,6 +55,15 @@ struct ProjectSidebar: View {
                         delete: { deleting = project }
                     )
                     .tag(project.id)
+                }
+            }
+            if !app.archivedProjects.isEmpty {
+                Section("Archived workspaces") {
+                    ForEach(app.archivedProjects) { project in
+                        Button { app.restoreProject(project) } label: {
+                            Label("Restore \(project.name)", systemImage: "archivebox")
+                        }
+                    }
                 }
             }
         }
@@ -86,7 +96,7 @@ struct ProjectSidebar: View {
         .sheet(isPresented: $showingNew) {
             NameEditorSheet(
                 title: "New Workspace",
-                prompt: "A workspace can contain predictions, iterative design, and RFdiffusion3 runs for the same piece of work.",
+                prompt: "A workspace can contain predictions, Protein Hunter, and RFdiffusion3 runs for the same piece of work.",
                 placeholder: "e.g. Cobratoxin binders",
                 name: $newName,
                 actionLabel: "Create"
@@ -114,7 +124,7 @@ struct ProjectSidebar: View {
             }
         }
         .confirmationDialog(
-            deleting.map { "Delete \($0.name)?" } ?? "Delete workspace?",
+            deleting.map { "Archive \($0.name)?" } ?? "Archive workspace?",
             isPresented: Binding(
                 get: { deleting != nil },
                 set: { if !$0 { deleting = nil } }
@@ -122,14 +132,14 @@ struct ProjectSidebar: View {
             titleVisibility: .visible
         ) {
             if let project = deleting {
-                Button("Delete Workspace and Results", role: .destructive) {
+                Button("Archive Workspace") {
                     app.deleteProject(project)
                     deleting = nil
                 }
             }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: {
-            Text("This removes the workspace and its saved runs from this Mac. It cannot be undone.")
+            Text("Saved runs and settings are kept on this Mac. Restore the workspace from Archived workspaces in the sidebar to use it again.")
         }
     }
 
@@ -163,6 +173,7 @@ private struct LibraryRow: View {
 struct ProjectRow: View {
     @EnvironmentObject var smilesThumbnails: SmilesThumbnailStore
     let project: Project
+    let select: () -> Void
     let rename: () -> Void
     let reveal: () -> Void
     let delete: () -> Void
@@ -175,27 +186,37 @@ struct ProjectRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if let smiles = ligandSmiles {
-                SmilesThumbnail(store: smilesThumbnails, smiles: smiles, cornerRadius: 5)
-                    .frame(width: 30, height: 30)
-            } else {
-                Image(systemName: project.preferredMode.systemImage)
-                    .foregroundStyle(.tint)
-                    .frame(width: 30)
+            Button(action: select) {
+                HStack(spacing: 8) {
+                    if let smiles = ligandSmiles {
+                        SmilesThumbnail(store: smilesThumbnails, smiles: smiles, cornerRadius: 5)
+                            .frame(width: 30, height: 30)
+                    } else {
+                        Image(systemName: project.preferredMode.systemImage)
+                            .foregroundStyle(.tint)
+                            .frame(width: 30)
+                    }
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(project.name).lineLimit(1)
+                        Text(project.workflowSummary)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 2)
+                }
+                .padding(.vertical, 2)
+                .contentShape(Rectangle())
             }
-            VStack(alignment: .leading, spacing: 1) {
-                Text(project.name).lineLimit(1)
-                Text(project.workflowSummary)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 2)
+            .buttonStyle(.plain)
+            .help("Open \(project.name)")
+            .accessibilityLabel("Open workspace \(project.name)")
+            .accessibilityIdentifier("workspace-select-\(project.id)")
             Menu {
                 Button("Rename…", action: rename)
                 Button("Reveal in Finder", action: reveal)
                 Divider()
-                Button("Delete…", role: .destructive, action: delete)
+                Button("Archive…", action: delete)
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .foregroundStyle(.secondary)
@@ -208,11 +229,10 @@ struct ProjectRow: View {
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
-        .onTapGesture(count: 2, perform: rename)
         .contextMenu {
             Button("Rename…", action: rename)
             Button("Reveal in Finder", action: reveal)
-            Button("Delete…", role: .destructive, action: delete)
+            Button("Archive…", action: delete)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(project.name), \(project.workflowSummary)")

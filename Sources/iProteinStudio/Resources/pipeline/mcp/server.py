@@ -14,6 +14,7 @@ from iprotein_mcp.broker import cancel_job, list_jobs, load_state, resume_job, s
 from iprotein_mcp.catalog import detect_engines, list_projects, list_runs, query_results, read_resource, results_overview, run_status, workflow_guide
 from iprotein_mcp.common import StudioError, append_audit, import_artifact, validate_schema
 from iprotein_mcp.inspect import inspect_target
+from iprotein_mcp.nise import nise_plan
 from iprotein_mcp.plans import admin_plan, iterative_plan, load_plan, prediction_plan, rfd3_plan, target_prepare_plan
 
 
@@ -30,7 +31,7 @@ RUN_ID = {"type": "object", "additionalProperties": False, "required": ["run_id"
 JOB_ID = {"type": "object", "additionalProperties": False, "required": ["job_id"], "properties": {"job_id": {"type": "string"}}}
 WORKFLOW_GUIDE = {
     "type": "object", "additionalProperties": False, "required": ["workflow"],
-    "properties": {"workflow": {"enum": ["prediction", "iterative_design", "rfd3_protein_binder", "rfd3_partial_diffusion", "rfd3_motif_scaffolding"]}},
+    "properties": {"workflow": {"enum": ["nise", "prediction", "iterative_design", "rfd3_protein_binder", "rfd3_partial_diffusion", "rfd3_motif_scaffolding"]}},
 }
 
 SERVER_INSTRUCTIONS = (
@@ -124,8 +125,9 @@ TOOLS: Dict[str, Dict[str, Any]] = {
     "artifact_import": tool("Copy an explicitly allowed input file into immutable content-addressed Studio storage and return its digest.", ARTIFACT_IMPORT),
     "target_inspect": tool("Inspect exact chains, sequence, canonical target contig, and coarse exposed-residue candidates, or RFD3-compatible ligand atoms. Exposure candidates are not a validated epitope.", TARGET_INSPECT),
     "target_prepare_plan": tool("Validate and freeze a target-only structure prediction with an explicit alignment policy.", TARGET_PREPARE),
+    "nise_plan": tool("Freeze a ligand NISE search using LASErMPNN and Boltz structure/affinity scoring. Cross-cycle residency is experimental; apo preorganisation is a final shortlist analysis.", schema("nise-v1.json")),
     "prediction_plan": tool("Validate and freeze a prediction batch without starting GPU work.", schema("prediction-v1.json")),
-    "iterative_design_plan": tool("Validate and freeze an iterative-design request; Studio injects its measured scheduling policy.", schema("iterative-design-v1.json")),
+    "iterative_design_plan": tool("Validate and freeze an iterative-design request; Studio injects its measured scheduling policy. Experimental antihelix/beta/mixed sequence priors are accepted as explicit runner arguments and must be evaluated from predicted coordinates.", schema("iterative-design-v1.json")),
     "rfd3_denovo_plan": tool("Validate and freeze an RFD3 campaign. With no protein epitope, omit hotspots and binding_site_mode resolves to whole-surface scanning with multiple outward solvent ORIs—never target COM. Use solublempnn by default, omit contig, and predict every candidate before ranking.", rfd3_schema("deNovo")),
     "rfd3_partial_diffusion_plan": tool("Validate and freeze protein-complex partial diffusion with partial_t in Angstroms and target coordinates fixed upstream.", rfd3_schema("partialDiffusion")),
     "rfd3_motif_scaffolding_plan": tool("Validate and freeze motif scaffolding with explicit non-empty residue atom selections.", rfd3_schema("motifScaffolding")),
@@ -146,11 +148,11 @@ for name, definition in TOOLS.items():
         "readOnlyHint": read_only,
         "destructiveHint": name in {"job_start", "job_cancel", "storage_minimise_plan"},
         "idempotentHint": read_only or name in {"job_start", "job_cancel"},
-        "openWorldHint": name in {"target_prepare_plan", "prediction_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "job_resume", "engine_install_plan", "engine_repair_plan"},
+        "openWorldHint": name in {"target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "job_resume", "engine_install_plan", "engine_repair_plan"},
     }
 
 READ_TOOLS = ["system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query"]
-RUN_TOOLS = READ_TOOLS + ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume"]
+RUN_TOOLS = READ_TOOLS + ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume"]
 ADMIN_TOOLS = ["system_detect", "engine_install_plan", "engine_repair_plan", "storage_minimise_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume"]
 ADMIN_KINDS = {"engine_install", "engine_repair", "storage_minimise"}
 
@@ -177,6 +179,7 @@ class MCPServer:
         elif name == "artifact_import": result = import_artifact(arguments["path"])
         elif name == "target_inspect": result = inspect_target(arguments)
         elif name == "target_prepare_plan": result = target_prepare_plan(arguments)
+        elif name == "nise_plan": result = nise_plan(arguments)
         elif name == "prediction_plan": result = prediction_plan(arguments)
         elif name == "iterative_design_plan": result = iterative_plan(arguments)
         elif name == "rfd3_denovo_plan": result = rfd3_plan(arguments, "deNovo")

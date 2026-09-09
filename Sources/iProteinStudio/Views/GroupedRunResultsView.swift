@@ -39,7 +39,7 @@ struct GroupedRunResultsBrowser: View {
                     if let selectedGroup {
                         StudioResultGroupDetail(group: selectedGroup, hitsOnly: hitsOnly)
                             .id(selectedGroup.id + (hitsOnly ? "|hits" : "|all"))
-                            .frame(minWidth: 720, maxWidth: .infinity, maxHeight: .infinity)
+                            .frame(minWidth: 460, maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
             }
@@ -70,14 +70,16 @@ struct LiveGroupedRunResultsPane: View {
         self.root = root
         self.workflow = workflow
         self.hitsOnly = hitsOnly
-        _items = State(initialValue: RunResultsLoader.load(root: root, workflow: workflow))
+        _items = State(initialValue: [])
     }
 
     var body: some View {
         GroupedRunResultsBrowser(items: items, hitsOnly: hitsOnly)
             .task(id: root.path) {
                 while !Task.isCancelled {
-                    items = RunResultsLoader.load(root: root, workflow: workflow)
+                    let loaded = await ResultsRepository.shared.load(root: root, workflow: workflow)
+                    guard !Task.isCancelled else { return }
+                    items = loaded
                     try? await Task.sleep(nanoseconds: 2_000_000_000)
                 }
             }

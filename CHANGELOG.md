@@ -1,7 +1,90 @@
 # iProteinStudio release notes
 
+Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
+
 ## 0.2.0 — updater foundation
 
+- Adds a nanobody scaffold checklist with equal or custom trajectory budgets per
+  scaffold, repeated for each selected design engine. Adds the 128-residue 3EAK
+  NbBCII10-FGLA VHH with the requested purification-tail removal and recorded CDR
+  boundary provenance. Each engine–scaffold campaign has independent resume checkpoints.
+
+- Adds optional NESSO screening of completed Protein Hunter ligand campaigns
+  and RFdiffusion3 MPNN sequences, with a top-X shortlist and chosen structural
+  verifier, durable checkpoints and separate score/result reporting.
+
+- Corrects NESSO ranking to P(bind) + (1 − pocket-cropped protein–ligand
+  placement entropy), following the upstream interface-confidence guidance. Rejects missing, invalid and near-zero placement entropy
+  before shortlisting; records score components, rejection reasons and policy
+  provenance in reports and displays the combined score in results.
+
+- Adds independent initial-stage NESSO screening: per-lineage refinement shortlists,
+  an unchanged unscreened structural gate, and a total expansion shortlist capped
+  at one candidate per original lineage. Adds advanced stage-specific counts and
+  RMSD controls, calculated budgets and resumable screening reports.
+- Separates applicable Protein Hunter run settings from inactive UI restoration
+  state in new manifests, while preserving older manifest loading.
+
+- Adds NISE hotspot/exposed-atom selection with verified Boltz affinity labels,
+  matching chemical states across engines, RFdiffusion3 atom translation and
+  conditioning, and audited per-atom contact/SASA requirements before advancement.
+  Fixes the missing initial contact helper and ligand RMSD sensitivity to row order.
+
+- Makes workspace names single-click navigation buttons; Rename stays in the
+  actions menu. Resets temporary detail-view state when changing workspaces.
+- Configures matching Apple compilers and macOS SDK/libc++ headers for package
+  builds, with a compile/link/run preflight before downloads and actionable
+  Command Line Tools errors. Checks ProDy's native extension before activating
+  the sequence-designer runtime.
+
+- Adds OpenFold-3 and separate IntelliFold v2 Flash/Full design choices in
+  Protein Hunter. Both checkpoints can run in one batch with full per-engine
+  budgets, explicit saved model flags and independent checking-model controls.
+
+- Changes Protein Hunter's design engine selector to a checklist, with the full
+  trajectory budget per engine, per-campaign independent checking and separate
+  results. Saves all engine campaigns before queueing; Stop/Resume operates on
+  the durable batch and completed engines have verified artifact receipts.
+
+- Adds optional structure templates to Predict, with explicit protein-chain
+  selection and Guide mode for Boltz-2, IntelliFold and Protenix v2. Preserves
+  run-owned inputs, checksummed preparation and directory batching.
+
+- Adds a NISE initial-backbone selector: existing Protein Hunter hallucination
+  or experimental RFdiffusion3, with shared downstream refinement/optimisation,
+  visible length groups, audited diffusion batches and separate work budgets.
+- Clarifies that installing NESSO also installs its ESM-2 650M dependency, and
+  reuses exact checksum-verified ESM assets from existing Hugging Face caches.
+
+- Separates NISE's initial backbone funnel from optimisation, adds typed budgets
+  and explicit sequences-to-advance controls. The default is now 100 starts,
+  matching the original fluorescein starting population.
+- Adds optional experimental NESSO screening with a per-trajectory shortlist
+  before Boltz, durable scores and rejection records, and an isolated optional
+  engine install. Screening accuracy and throughput remain unvalidated in Studio.
+
+- Adds a dedicated small-molecule NISE tab with the fluorescein example, atomic
+  sequence/prediction checkpoints, optional final apo preorganisation, shared
+  native/MCP jobs and trajectory/candidate results. Cross-cycle Boltz structure
+  and affinity residency is available experimentally; no ligand speedup is claimed.
+- Renames the existing iterative-design tab to Protein Hunter while preserving
+  its saved workflow identity and previous campaigns.
+
+- Adds recoverable workspace saving and reversible Archive/Restore.
+- Routes native workflows through the durable shared job service, with queued
+  status, confirmed stopping, restart reattachment and saved-input verification.
+- Keeps dashboards attached to their originating workspace and saved thresholds.
+- Adds named controls, reduced-motion support and previewable support reports.
+- Moves live result/history loading off the UI thread and adds a documented
+  contract runner, core test target, CI and reviewed upstream vendoring.
+
+- Adds explicit experimental secondary-structure sequence priors to iterative
+  de-novo design: natural, anti-helix, β-oriented, and combined modes.
+- Separates cycle-00-only sequence bias from sustained MPNN-cycle bias, allowing
+  matched-seed comparisons with identical starting sequences and strand/turn
+  plans.
+- Saves each β-oriented strand/turn plan with the trajectory, including
+  solvent-friendly strand edges, alternating faces, and localized turn bias.
 - Adds a target-aligned iterative-design trajectory to Structures: cycle 00
   through the final design cycle can be scrubbed, autoplayed and speed-adjusted
   using py2Dmol's frame controls. Independent validation folds are excluded
@@ -14,7 +97,7 @@
   falls back to the fixed target's centre of mass or invents hotspots.
 - Requires the verified RFdiffusion3 EMA checkpoint provenance across managed
   installation, GUI and MCP runs.
-- Updates the client-neutral MCP bridge to v6. `results_overview` now exposes
+- Updates the client-neutral MCP bridge to v8. `results_overview` now exposes
   the app-equivalent result hierarchy, saved child-level hit verdicts and
   iterative trajectory frames before agents query raw score tables. MCP's
   schema and workflow guidance also enforce whole-surface scanning whenever a

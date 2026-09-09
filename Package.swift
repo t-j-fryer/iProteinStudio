@@ -10,9 +10,13 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.2"),
     ],
     targets: [
+        .target(name: "StudioCore", path: "Sources/StudioCore"),
+        .testTarget(name: "StudioCoreTests", dependencies: ["StudioCore"],
+                    path: "Tests/StudioCoreTests"),
         .executableTarget(
             name: "iProteinStudio",
             dependencies: [
+                "StudioCore",
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/iProteinStudio",

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -396,11 +397,6 @@ def main() -> None:
 
     weights_path = ROOT / "weights" / "rfd3_core.safetensors"
     weights_metadata = assert_ema_artifact(weights_path)
-    weights = mx.load(str(weights_path))
-    if args.precision == "bf16":
-        weights = rfd3.to_bf16(weights)
-    elif args.precision == "int8":
-        weights = rfd3.quantize_weights(weights, 8)
 
     manifest = {
         "fixture": str(fixture.path),
@@ -420,13 +416,19 @@ def main() -> None:
         "target_protein_tokens": int(fixture.target_protein_tokens.size),
         "ligand_tokens": int(fixture.ligand_tokens.size),
     }
+    batch_state = None
+    if os.environ.get("STUDIO_RFD3_AUDIT_RESUME") == "1":
+        from rfd3_resume import BatchState, sha256
+        if args.overwrite:
+            raise RuntimeError("Audited RFdiffusion3 generation cannot overwrite completed work")
+        batch_state = BatchState(output, {**manifest, "fixture_sha256": sha256(fixture.path)})
     (output / "run_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
     rejected_path = output / "rejected_samples.csv"
     rejected: list[dict] = []
     accepted_rows: list[dict] = []
     if not args.overwrite:
-        if rejected_path.exists():
+        if batch_state is None and rejected_path.exists():
             rejected = list(csv.DictReader(rejected_path.open()))
         # Only a contiguous prefix is resumable. A gap means outputs were
         # manually edited and silently renumbering later designs would destroy
@@ -450,6 +452,8 @@ def main() -> None:
                 + ", ".join(path.name for path in later[:5])
             )
 
+    if batch_state is not None:
+        rejected = batch_state.saved["rejected"]
     design_index = len(accepted_rows)
     used_seeds = [int(row["sample_seed"]) for row in accepted_rows if row.get("sample_seed") is not None]
     used_seeds += [int(row["seed"]) for row in rejected if row.get("seed") not in (None, "")]
@@ -457,6 +461,16 @@ def main() -> None:
     if design_index:
         print(f"resuming after {design_index} accepted and {len(rejected)} rejected sample(s)",
               flush=True)
+    if batch_state is not None:
+        attempted = batch_state.saved["attempted"]
+    # No checkpoint reload on a fully audited replay. During generation each
+    # queue loads once and retains the weights across its native batches.
+    if design_index < args.num_designs:
+        weights = mx.load(str(weights_path))
+        if args.precision == "bf16":
+            weights = rfd3.to_bf16(weights)
+        elif args.precision == "int8":
+            weights = rfd3.quantize_weights(weights, 8)
     maximum_attempts = args.num_designs * args.max_attempts_per_design
     while design_index < args.num_designs:
         if attempted >= maximum_attempts:
@@ -527,6 +541,8 @@ def main() -> None:
         # Rejection history is part of the resume cursor, not a final report.
         # Persist it after every batch so a crash cannot recycle an old seed.
         write_csv(rejected, rejected_path)
+        if batch_state is not None:
+            batch_state.commit(design_index, attempted, rejected)
 
     rows = [json.loads(path.read_text()) for path in
             sorted(result_dir.glob("design_*.json"))[:args.num_designs]]

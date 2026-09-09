@@ -4,8 +4,8 @@
 IntelliFold accepts template-search A3M files, not structure paths.  This
 adapter deterministically matches each target query chain to one structure
 chain, writes a normalized mmCIF under a content-addressed identifier, and
-emits one exact HMMsearch-style A3M per query chain.  Binder chain A is never
-included.
+emits one exact HMMsearch-style A3M per query chain. Design callers exclude
+binder chain A; Predict callers explicitly select their query chains.
 """
 
 from __future__ import annotations
@@ -98,7 +98,7 @@ def align(query: str, template: str) -> tuple[str, int, int, float, float]:
     return "".join(aligned), mapped, matches, identity, coverage
 
 
-def query_chains(yaml_path: Path) -> dict[str, str]:
+def query_chains(yaml_path: Path, selected: list[str] | None = None) -> dict[str, str]:
     try:
         document = yaml.safe_load(yaml_path.read_text()) or {}
     except Exception as exc:
@@ -113,12 +113,14 @@ def query_chains(yaml_path: Path) -> dict[str, str]:
         sequence = clean_sequence(protein.get("sequence"))
         for raw_id in ids:
             chain_id = str(raw_id or "").strip()
-            if chain_id and chain_id != "A":
+            if chain_id and ((chain_id in selected) if selected is not None else chain_id != "A"):
                 if not sequence:
                     die(f"target chain {chain_id} has no protein sequence")
                 result[chain_id] = sequence
+    if selected is not None and set(result) != set(selected):
+        die("selected template chains must all be protein chains in the input")
     if not result:
-        die("design YAML has no target protein chain (binder A is intentionally excluded)")
+        die("no protein chains selected for template guidance (design defaults exclude binder A)")
     return result
 
 
@@ -175,7 +177,7 @@ def normalize(structure: gemmi.Structure, destination: Path) -> None:
     os.replace(temporary, destination)
 
 
-def prepare(source: Path, yaml_path: Path, output: Path) -> Path:
+def prepare(source: Path, yaml_path: Path, output: Path, selected: list[str] | None = None) -> Path:
     source = source.expanduser().resolve()
     yaml_path = yaml_path.expanduser().resolve()
     output = output.expanduser().resolve()
@@ -207,7 +209,7 @@ def prepare(source: Path, yaml_path: Path, output: Path) -> Path:
     bundle_by_sequence: dict[str, dict[str, object]] = {}
     pairs = output / "pairs"
     pairs.mkdir(parents=True, exist_ok=True)
-    for pair_index, (chain_id, query) in enumerate(query_chains(yaml_path).items()):
+    for pair_index, (chain_id, query) in enumerate(query_chains(yaml_path, selected).items()):
         reused = bundle_by_sequence.get(query)
         if reused is not None:
             a3m_by_chain[chain_id] = str(reused["a3m"])
@@ -275,7 +277,7 @@ def prepare(source: Path, yaml_path: Path, output: Path) -> Path:
         "release_dates_sha256": sha256(release_dates),
         "a3m_by_query_chain": a3m_by_chain,
         "msa_by_query_chain": msa_by_chain,
-        "binder_template": "none",
+        "binder_template": "selected" if selected and "A" in selected else "none",
         "mappings": mappings,
     }
     manifest.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")

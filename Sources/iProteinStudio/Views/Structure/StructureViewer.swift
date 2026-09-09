@@ -44,6 +44,7 @@ struct StructureTrajectoryViewer: View {
 
 /// WebKit bridge for the vendored py2Dmol canvas renderer.
 struct Py2DmolViewer: NSViewRepresentable {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let structurePath: String?
     var trajectoryFrames: [StructureTrajectoryFrame] = []
     var selection: Binding<[String]>?
@@ -69,6 +70,7 @@ struct Py2DmolViewer: NSViewRepresentable {
     }
 
     func updateNSView(_ web: WKWebView, context: Context) {
+        web.evaluateJavaScript("window.studioSetReducedMotion && studioSetReducedMotion(\(reduceMotion ? "true" : "false"))", completionHandler: nil)
         context.coordinator.selection = selection
         context.coordinator.apply(structurePath: structurePath,
                                   trajectoryFrames: trajectoryFrames,

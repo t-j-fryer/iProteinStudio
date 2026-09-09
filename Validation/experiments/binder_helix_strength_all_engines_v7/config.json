@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "name": "binder_helix_strength_all_engines_v7",
+  "scope": "target-conditioned protein minibinder design; target supplied at prepare time",
+  "campaign": {
+    "length": 90,
+    "trajectories": 10,
+    "pilot_trajectories": 1,
+    "optimization_cycles": 5,
+    "predictor_seed": 42,
+    "predictor_samples": 1,
+    "sequence_designer": "solublempnn",
+    "binder_seed": 907000,
+    "mpnn_seed": 1907000,
+    "msa": "required-user-supplied",
+    "hit_threshold": 0.7
+  },
+  "methods": {
+    "primary_endpoint": "within-trajectory mean binder-chain P-SEA H/S/C fractions over cycles 01-05, then equal weight across trajectories",
+    "binding_endpoints": [
+      "within-trajectory mean and cycle-05 iPTM",
+      "within-trajectory mean and cycle-05 ipSAE(min) when emitted",
+      "cycle-05 hit-threshold count"
+    ],
+    "secondary_endpoints": [
+      "binder-chain per-residue pLDDT",
+      "geometry violations per cycle and whether they persist to cycle05",
+      "wall time including initialization"
+    ],
+    "missing_data": "Report all ten declared trajectories; no geometric exclusion or replacement seeds. Other failures retain their seeds and are excluded from explicitly conditional fold metrics.",
+    "paired_contrasts": "strength 1 vs strength 0 within each predictor variant, paired by global trajectory index",
+    "design": "Two initialization-only helix-kill strengths within each of seven installed predictor variants. The exact target sequence and exact query-matched MSA are frozen at prepare time. Native engine defaults and the Studio-selected measured scheduler are fixed within each predictor variant; no cross-engine speed claim.",
+    "pilot": "trajectory 1 is the operational smoke and remains in the final n=10; every arm must pass its audit before trajectories 2-10 start",
+    "optional_metrics": "complex_plddt and ipSAE(min) are recorded when emitted by an engine and otherwise remain null; their absence does not fail a trajectory"
+  },
+  "arms": {
+    "boltz_h0": {"predictor": "boltz", "model": null, "strength": 0, "reference": null},
+    "boltz_h1": {"predictor": "boltz", "model": null, "strength": 1, "reference": "boltz_h0"},
+    "intellifold_flash_h0": {"predictor": "intellifold", "model": "v2-flash", "strength": 0, "reference": null},
+    "intellifold_flash_h1": {"predictor": "intellifold", "model": "v2-flash", "strength": 1, "reference": "intellifold_flash_h0"},
+    "intellifold_full_h0": {"predictor": "intellifold", "model": "v2", "strength": 0, "reference": null},
+    "intellifold_full_h1": {"predictor": "intellifold", "model": "v2", "strength": 1, "reference": "intellifold_full_h0"},
+    "protenix_v2_h0": {"predictor": "protenix-v2", "model": null, "strength": 0, "reference": null},
+    "protenix_v2_h1": {"predictor": "protenix-v2", "model": null, "strength": 1, "reference": "protenix_v2_h0"},
+    "protenix_mini_h0": {"predictor": "protenix-mini", "model": null, "strength": 0, "reference": null},
+    "protenix_mini_h1": {"predictor": "protenix-mini", "model": null, "strength": 1, "reference": "protenix_mini_h0"},
+    "protenix_constraint_h0": {"predictor": "protenix-constraint-v0.5", "model": null, "strength": 0, "reference": null},
+    "protenix_constraint_h1": {"predictor": "protenix-constraint-v0.5", "model": null, "strength": 1, "reference": "protenix_constraint_h0"},
+    "openfold3_h0": {"predictor": "openfold-3-mlx", "model": null, "strength": 0, "reference": null},
+    "openfold3_h1": {"predictor": "openfold-3-mlx", "model": null, "strength": 1, "reference": "openfold3_h0"}
+  },
+  "geometry_policy": {
+    "mode": "record_only",
+    "scope": "all cycles including initialization and final",
+    "exclude_violations_from_endpoints": false,
+    "unusable_coordinates": "fail loudly",
+    "thresholds_angstrom": {"CA-CA": 4.5, "C-N": 2.2}
+  },
+  "restart": {
+    "previous_output": "Validation/output/binder_helix_strength_all_engines_v6",
+    "reason": "V6 reached OpenFold3 with its corrected run scheduler, then failed because OpenFold silently filtered the supplied target A3M's arbitrary basename. It also exposed that the controller gated full arms independently rather than requiring the complete pilot matrix. V7 adds lossless per-chain OpenFold MSA basename adaptation and a global fourteen-arm pilot gate while preserving all scientific settings.",
+    "reuse_previous_outputs": false
+  }
+}

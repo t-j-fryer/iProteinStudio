@@ -5,6 +5,7 @@ import json
 import math
 import re
 import secrets
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -32,7 +33,8 @@ BOOLEAN_ITERATIVE_FLAGS = {
 }
 VALUE_ITERATIVE_FLAGS = {
     "--workflow", "--predictor", "--sequence-designer", "--num-runs",
-    "--num-opt-cycles", "--iptm-threshold", "--model", "--post-predictor",
+    "--num-opt-cycles", "--iptm-threshold", "--predictor-seed", "--predictor-samples",
+    "--model", "--post-predictor",
     "--post-mode", "--post-iptm-threshold", "--filter-min-iptm",
     "--filter-min-ipsae", "--filter-max-complex-rmsd",
     "--filter-min-binder-plddt", "--filter-max-binder-rmsd", "--mpnn-seed",
@@ -40,6 +42,11 @@ VALUE_ITERATIVE_FLAGS = {
     "--ligand-temp-other", "--target-msa-mode", "--target-msa-generator",
     "--nanobody-cdrs", "--nanobody-cdr-ranges", "--binder-min-len",
     "--binder-max-len", "--binder-random-seed", "--negative-helix-constant",
+
+
+
+
+    "--binder-percent-x",
 }
 RESERVED_ITERATIVE_FLAGS = {
     "--template-yaml", "--run-name", "--out-root", "--max-parallel",
@@ -209,9 +216,26 @@ def _prediction_plan(arguments: Dict[str, Any], kind: str, output_folder: str, p
         },
         "jobs": normalized_jobs,
     }
+    template_inputs = []
+    if request.get("template") is not None:
+        import importlib.util
+        metadata = copy.deepcopy(request["template"])
+        if not isinstance(metadata, dict) or not isinstance(metadata.get("path"), str):
+            raise StudioError("Template settings require a structure path and protein chains.")
+        artifact = import_artifact(metadata["path"])
+        metadata["path"] = artifact["path"]
+        config["template"] = metadata
+        helper = root / "scripts/prediction_templates.py"
+        spec = importlib.util.spec_from_file_location("studio_prediction_templates", helper)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        try:
+            module.validate(config)
+        except ValueError as exc:
+            raise StudioError(str(exc)) from exc
+        template_inputs = [Path(metadata["path"])] + sorted((root / "scripts").glob("*.py"))
     script = root / "rfd3_scripts" / "predict_batch.py"
     preview = ["/usr/bin/caffeinate", "-dimsu", "/usr/bin/python3", str(script), "--config", str(output / "prediction_config.json")]
-    return _persist(kind, project, {"config": config, "output": str(output)}, preview, "apple_gpu_exclusive", _script_provenance([script]))
+    return _persist(kind, project, {"config": config, "output": str(output)}, preview, "apple_gpu_exclusive", _script_provenance([script] + template_inputs))
 
 
 def prediction_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -245,6 +269,7 @@ def _normalize_iterative_arguments(values: Any) -> Tuple[List[str], str]:
         raise StudioError("arguments must be a non-empty array of command argument strings.")
     normalized: List[str] = []
     seen = set()
+    option_values: Dict[str, str] = {}
     index = 0
     predictor = None
     while index < len(values):
@@ -260,13 +285,45 @@ def _normalize_iterative_arguments(values: Any) -> Tuple[List[str], str]:
             continue
         if flag not in VALUE_ITERATIVE_FLAGS or index + 1 >= len(values):
             raise StudioError(f"Unsupported or valueless iterative argument: {flag}")
+        if flag in seen:
+            raise StudioError(f"Duplicate iterative argument: {flag}")
         value = values[index + 1]
         if value.startswith("--") or "\x00" in value or len(value) > 20_000:
             raise StudioError(f"Invalid value for {flag}.")
         if flag == "--predictor":
             predictor = value
+        if flag == "--secondary-bias" and value not in {"none", "antihelix", "beta", "mixed"}:
+            raise StudioError("--secondary-bias must be none, antihelix, beta, or mixed.")
+        if flag == "--secondary-bias-scope" and value not in {"seed-only", "seed-and-cycles"}:
+            raise StudioError("--secondary-bias-scope must be seed-only or seed-and-cycles.")
+        if flag == "--seed-sampling-order" and value not in {"mask-first", "sample-then-mask"}:
+            raise StudioError("--seed-sampling-order must be mask-first or sample-then-mask.")
+        if flag == "--predictor-seed" and (not value.isdigit() or int(value) < 0):
+            raise StudioError("--predictor-seed must be a non-negative integer.")
+        if flag == "--predictor-samples" and value != "auto" and (not value.isdigit() or int(value) < 1):
+            raise StudioError("--predictor-samples must be auto or a positive integer.")
+        if flag == "--negative-helix-constant":
+            _bounded_float(value, flag, 0.0, 1.0)
+            if not math.isfinite(float(value)):
+                raise StudioError(f"{flag} must be finite.")
+        if flag in {"--binder-percent-x", "--loopkill"}:
+            number = _bounded_float(value, flag, 0.0, 100.0 if flag == "--binder-percent-x" else 1.0)
+            if not math.isfinite(number):
+                raise StudioError(f"{flag} must be finite.")
+        if flag in {"--mpnn-bias-aa-cycle1", "--mpnn-bias-aa-other"}:
+            seen_amino_acids = set()
+            for item in value.split(","):
+                try:
+                    aa, bias = item.split(":")
+                    number = float(bias)
+                except ValueError as exc:
+                    raise StudioError(f"{flag} requires comma-separated AA:finite-number entries.") from exc
+                if aa not in "ACDEFGHIKLMNPQRSTVWY" or len(aa) != 1 or aa in seen_amino_acids or not math.isfinite(number):
+                    raise StudioError(f"{flag} requires distinct standard amino acids and finite biases.")
+                seen_amino_acids.add(aa)
         normalized.extend([flag, value])
         seen.add(flag)
+        option_values[flag] = value
         index += 2
     required = {"--workflow", "--predictor", "--sequence-designer", "--num-runs", "--num-opt-cycles", "--iptm-threshold"}
     missing = sorted(required - seen)
@@ -311,7 +368,39 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     elif "target_template_mode" in arguments or "target_template_threshold" in arguments:
         raise StudioError("target_template_mode/threshold require target_template_path.")
     scheduler = ["--max-parallel", "1", "--mps-memory-reserve-gb", "2", "--mps-mem-fraction", "0.8", "--throughput-profile", "auto"]
-    if predictor == "protenix-v2":
+    refinement = "--initialization-max-attempts" in user_args
+    monomer_benchmark = arguments.get("monomer_control_benchmark", False)
+    if type(monomer_benchmark) is not bool:
+        raise StudioError("monomer_control_benchmark must be boolean.")
+    if refinement or monomer_benchmark:
+        if supplied_template:
+            raise StudioError("Initialization refinement and monomer benchmarks accept unconditioned monomers only.")
+        if monomer_benchmark and ("--random-binder" not in user_args or
+                                 user_args[user_args.index("--workflow") + 1] != "protein"):
+            raise StudioError("A monomer control benchmark requires --workflow protein --random-binder.")
+        checker = root / "scripts" / "initialization_refinement.py"
+        interpreter = root / "venvs" / "NanoHunter_protenix" / "bin" / "python"
+        check = [str(interpreter), str(checker), "check" if refinement else "check-template", "--input-yaml", template["path"]]
+        check += ["--minimum-length", user_args[user_args.index("--binder-min-len") + 1]
+                  if "--binder-min-len" in user_args else "65"]
+        for flag, option in (("--initialization-max-attempts", "--max-attempts"),
+                             ("--initialization-min-coil-length", "--min-uncertain-coil-length"),
+                             ("--initialization-confidence-threshold", "--confidence-threshold")):
+            if refinement:
+                check += [option, user_args[user_args.index(flag) + 1]]
+        try:
+            result = subprocess.run(check, capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise StudioError("Initialization assessment requires the managed Protenix/Biotite environment and refinement helpers.") from exc
+        if result.returncode:
+            raise StudioError("Monomer initialization preflight failed: " + result.stderr[-3000:])
+        scheduler += ["--design-scheduler", "run"]
+    elif predictor == "openfold-3-mlx":
+        # OpenFold3 has no validated resident worker. Keep its established
+        # per-trajectory execution policy instead of allowing preflight to
+        # create a plan that the runner must reject at launch.
+        scheduler += ["--design-scheduler", "run"]
+    elif predictor == "protenix-v2":
         scheduler += ["--design-scheduler", "cycle-wave"]
     else:
         scheduler += ["--design-scheduler", "resident", "--wave-batch-size", "all"]
@@ -324,7 +413,23 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     normalized = {"arguments": final_args, "environment_overrides": overrides,
                   "template_artifact": template, "target_template_artifact": target_template,
                   "campaign": str(campaign), "run_name": run_name}
-    return _persist("iterative_design", project, normalized, preview, "apple_gpu_exclusive", _script_provenance([runner]))
+    if monomer_benchmark:
+        normalized["monomer_control_benchmark"] = {"scope": "unconditioned-monomer",
+            "scheduler": "run", "reason": "hold scheduler constant across monomer controls"}
+    if refinement:
+        normalized["initialization_refinement"] = {"scope": "unconditioned-monomer",
+            "scheduler": "run", "scientific_status": "experimental-unvalidated-criteria",
+            "assessment_environment": "managed-protenix", "max_attempts_includes_original": True}
+    scripts = [runner]
+    prior_mode = user_args[user_args.index("--secondary-bias") + 1] if "--secondary-bias" in user_args else "none"
+    prior_flags = {"--helix-kill", "--anti-helix-strength", "--negative-helix-constant",
+                   "--beta-strength", "--beta-pattern-strength", "--turn-strength"}
+    if monomer_benchmark or refinement or prior_mode != "none" or prior_flags.intersection(user_args):
+        scripts.append(root / "scripts" / "secondary_structure_control.py")
+    if refinement or monomer_benchmark:
+        scripts += [root / "scripts" / "initialization_refinement.py",
+                    root / "scripts" / "initialization_assessment.py"]
+    return _persist("iterative_design", project, normalized, preview, "apple_gpu_exclusive", _script_provenance(scripts))
 
 
 def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:

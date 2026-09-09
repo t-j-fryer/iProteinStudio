@@ -1,0 +1,53 @@
+{
+  "nise_run.py": {
+    "repository": "NanoHunter",
+    "path": "scripts/nise/nise_run.py",
+    "revision": "434b8fff6d7d220db57ccafb4b0bd3883dbfe18e",
+    "source_sha256": "d7f72d9ab0d095c611f3cb1de3aa0d4bd68a6654491628bf2f4358cd83d27e3f",
+    "adaptation": "Studio default 100 starts; optional managed RFdiffusion3 initial-lineage hook; downstream upstream refinement and optimisation retained. Optional Studio per-atom geometry requirements filter candidates before advancement; upstream default self-consistency and ranking retained. Optional Studio NESSO screening hooks after initial refinement/expansion sampling; gate remains unscreened. Separate gate sampling and exposed parent-consistency thresholds retain prior defaults."
+  },
+  "nise_lib.py": {
+    "repository": "NanoHunter",
+    "path": "scripts/nise/nise_lib.py",
+    "revision": "434b8fff6d7d220db57ccafb4b0bd3883dbfe18e",
+    "source_sha256": "573956afdaacfaf9e2ac08385b6514e5161eeef5bb101abe212c14a9a86ba28a",
+    "adaptation": "Use shipped strict Boltz affinity atom resolver; match ligand RMSD by name/element rather than PDB row order. Original contact spread algorithm and MMFF conformer retained."
+  },
+  "preorg.py": {
+    "repository": "iProteinHunter-beta",
+    "path": "scripts/nise_beta/preorg.py",
+    "revision": "0f372533ec7b02e23819c1512c6033aed9265356",
+    "source_sha256": "d66058e9abd5213e318db99f003b68fde1638856ae506ac86f93db6aec96bb2a"
+  },
+  "metrics.py": {
+    "repository": "iProteinHunter-beta",
+    "path": "scripts/nise_beta/metrics.py",
+    "revision": "0f372533ec7b02e23819c1512c6033aed9265356",
+    "source_sha256": "9ed07238113364904de4286a771338ab9e9879ed6985742002791cb88c3007a6"
+  },
+  "LICENSE": {
+    "repository": "NanoHunter",
+    "path": "LICENSE",
+    "revision": "434b8fff6d7d220db57ccafb4b0bd3883dbfe18e",
+    "source_sha256": "d81228961ff5c67d7aec054be83700b4bc702eb145d1c68e279a6f8944ae7f07"
+  },
+  "nesso_assets/nesso_mps.patch": {
+    "repository": "iProteinHunter-beta",
+    "path": "experiments/nesso_macos/configs/nesso_mps.patch",
+    "revision": "0f372533ec7b02e23819c1512c6033aed9265356",
+    "source_sha256": "a4031c837d3309a4b695e58e8052dc5513eed34ec6dc951779f8902079a22183"
+  },
+  "nesso_assets/requirements.lock": {
+    "repository": "iProteinHunter-beta",
+    "path": "experiments/nesso_macos/configs/requirements.lock",
+    "revision": "0f372533ec7b02e23819c1512c6033aed9265356",
+    "source_sha256": "fa7d455ffe31a985558fb79f77973b047ae93e30fb6de442745d29f9d4558cec"
+  },
+  "nesso_assets/protocol.json": {
+    "repository": "iProteinHunter-beta",
+    "path": "experiments/nesso_macos/configs/protocol_v1.json",
+    "revision": "0f372533ec7b02e23819c1512c6033aed9265356",
+    "source_sha256": "69522ffad156bf27a60959c81a90501c493bb55243c4d0d9be1069bc4e486626",
+    "adaptation": "Portable managed paths; explicit ESM asset hashes; MPS reference settings unchanged."
+  }
+}

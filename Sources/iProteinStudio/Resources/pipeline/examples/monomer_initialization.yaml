@@ -1,0 +1,9 @@
+# Unconditioned monomer input for --workflow protein --random-binder.
+# The runner replaces this placeholder with the recorded sampled initialization.
+# Length, seed, sequence preferences and refinement criteria are explicit run options.
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: X
+      msa: empty

@@ -1,0 +1,152 @@
+diff --git a/nesso/main.py b/nesso/main.py
+index c29a46e..644c1e9 100644
+--- a/nesso/main.py
++++ b/nesso/main.py
+@@ -241,6 +241,7 @@ def run_esm(
+     esm_out: Path,
+     model_name: str,
+     hf_cache: Path | None,
++    device: torch.device,
+ ) -> None:
+     esm_out.mkdir(parents=True, exist_ok=True)
+     missing = {
+@@ -250,7 +251,6 @@ def run_esm(
+     }
+     if not missing:
+         return
+-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+     model, tokenizer = setup_esm_model(model_name, device, cache_dir=hf_cache)
+     for mid, seq in tqdm(sorted(missing.items()), desc="ESM"):
+         emb = extract_esm_embedding(seq, model, tokenizer)
+@@ -375,7 +375,7 @@ def cli() -> None:
+ )
+ @click.option(
+     "--accelerator",
+-    type=click.Choice(["gpu", "cpu", "auto"]),
++    type=click.Choice(["gpu", "mps", "cpu", "auto"]),
+     default="auto",
+     help="The accelerator to use for prediction. Default is auto.",
+ )
+@@ -494,6 +494,36 @@ def predict(
+     )
+     torch.set_float32_matmul_precision("highest")
+ 
++    fallback = os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK", "0")
++    if accelerator == "mps":
++        if devices != 1:
++            raise click.ClickException("MPS validation requires exactly one device")
++        if not torch.backends.mps.is_built():
++            raise click.ClickException("this PyTorch build has no MPS support")
++        if fallback != "0" or "PYTORCH_ENABLE_MPS_FALLBACK" not in os.environ:
++            raise click.ClickException(
++                "native-MPS validation requires PYTORCH_ENABLE_MPS_FALLBACK=0"
++            )
++        if not torch.backends.mps.is_available():
++            raise click.ClickException("explicit MPS accelerator is unavailable")
++        if not no_kernels:
++            raise click.ClickException("native-MPS validation requires --no_kernels")
++        preprocessing_device = torch.device("mps")
++    elif accelerator == "gpu":
++        if not torch.cuda.is_available():
++            raise click.ClickException("explicit CUDA accelerator is unavailable")
++        preprocessing_device = torch.device("cuda")
++    elif accelerator == "cpu":
++        preprocessing_device = torch.device("cpu")
++    else:
++        preprocessing_device = torch.device(
++            "cuda" if torch.cuda.is_available()
++            else "mps" if torch.backends.mps.is_available()
++            else "cpu"
++        )
++    click.echo(f"NESSO_ESM_DEVICE={preprocessing_device.type}")
++    click.echo(f"NESSO_MPS_FALLBACK={fallback}")
++
+     cache = get_cache_path() if cache is None else cache.expanduser().resolve()
+ 
+     # Avoid overriding user-configured HuggingFace cache locations.
+@@ -572,7 +602,13 @@ def predict(
+                 os.symlink(Path(src).resolve(), dst)
+             except Exception:
+                 pass
+-    run_esm(seq_by_msa, paths.esm_dir, DEFAULT_ESM2_MODEL, cache / "huggingface")
++    run_esm(
++        seq_by_msa,
++        paths.esm_dir,
++        DEFAULT_ESM2_MODEL,
++        cache / "huggingface",
++        preprocessing_device,
++    )
+ 
+     # 4. Filter records
+     records = filter_records(manifest.records, paths.predictions_dir, override=override)
+@@ -600,6 +636,10 @@ def predict(
+     # 6. Apply no_kernels if requested
+     if no_kernels:
+         model_module.use_kernels = False
++    if accelerator == "mps" and model_module.use_kernels:
++        raise click.ClickException("MPS run retained CUDA-only kernels")
++    click.echo(f"NESSO_USE_KERNELS={model_module.use_kernels}")
++    click.echo(f"NESSO_REQUESTED_ACCELERATOR={accelerator}")
+ 
+     model_module.predict_args.update(
+         {
+@@ -646,9 +686,22 @@ def predict(
+         enable_progress_bar=True,
+         callbacks=[writer],
+     )
++    if accelerator == "mps" and trainer.strategy.root_device.type != "mps":
++        raise click.ClickException(
++            f"Lightning selected {trainer.strategy.root_device}, not MPS"
++        )
++    click.echo(f"NESSO_TRAINER_ROOT_DEVICE={trainer.strategy.root_device}")
++    click.echo(f"NESSO_PRECISION={precision_to_use}")
+ 
+     click.echo("Running predictions...")
+     trainer.predict(model_module, datamodule=datamodule, return_predictions=False)
++    if accelerator == "mps":
++        if getattr(model_module, "_nesso_predict_device", None) != "mps":
++            raise click.ClickException("model did not execute prediction on MPS")
++        torch.mps.synchronize()
++        click.echo(f"NESSO_MPS_CURRENT_BYTES={torch.mps.current_allocated_memory()}")
++        if hasattr(torch.mps, "driver_allocated_memory"):
++            click.echo(f"NESSO_MPS_DRIVER_BYTES={torch.mps.driver_allocated_memory()}")
+     click.echo(f"Done! Predictions saved to {paths.predictions_dir}")
+ 
+     total_failed = len(invalid_schemas) + len(failed_preprocessing) + writer.failed
+diff --git a/nesso/model/models/nesso1.py b/nesso/model/models/nesso1.py
+index c52a441..4746877 100644
+--- a/nesso/model/models/nesso1.py
++++ b/nesso/model/models/nesso1.py
+@@ -1,6 +1,5 @@
+ """Nesso1: fast binding affinity model — inference only."""
+ 
+-import gc
+ import json
+ from pathlib import Path
+ from typing import Any, Optional
+@@ -336,6 +335,11 @@ class Nesso1(LightningModule):
+ 
+         return dict_out
+ 
++    def on_predict_start(self) -> None:
++        device = next(self.parameters()).device
++        self._nesso_predict_device = device.type
++        print(f"NESSO_MODEL_DEVICE={device}")
++
+     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> dict:
+         try:
+             if batch.get("exception"):
+@@ -427,11 +430,8 @@ class Nesso1(LightningModule):
+             return pred_dict
+ 
+         except RuntimeError as e:
+-            if "out of memory" in str(e):
+-                print("WARNING: ran out of memory, skipping batch")
+-                torch.cuda.empty_cache()
+-                gc.collect()
+-                return {"exception": True}
++            if "out of memory" in str(e).lower():
++                raise RuntimeError("Nesso prediction stopped on out-of-memory") from e
+             raise
+ 
+     def configure_optimizers(self):  # type: ignore[override]

@@ -3,12 +3,14 @@ import Combine
 
 enum StudioWorkflow: String, Codable, CaseIterable {
     case iterative
+    case nise
     case rfdiffusion3
     case prediction
 
     var label: String {
         switch self {
-        case .iterative: return "Iterative design"
+        case .iterative: return "Protein Hunter"
+        case .nise: return "NISE"
         case .rfdiffusion3: return "RFdiffusion3"
         case .prediction: return "Prediction"
         }
@@ -17,6 +19,7 @@ enum StudioWorkflow: String, Codable, CaseIterable {
     var systemImage: String {
         switch self {
         case .iterative: return "arrow.triangle.2.circlepath"
+        case .nise: return "atom"
         case .rfdiffusion3: return "sparkles"
         case .prediction: return "cube.transparent"
         }
@@ -55,7 +58,7 @@ enum StudioRunState: String, Codable {
 /// It is intentionally independent of AppState's schema so a run can be resumed
 /// even if the project form has since changed.
 struct StudioRunManifest: Codable {
-    var version = 1
+    var version = 2
     var projectID: UUID
     var projectName: String
     var workflow: StudioWorkflow = .iterative
@@ -73,6 +76,112 @@ struct StudioRunManifest: Codable {
     /// Campaign-owned immutable policy/script snapshot. Optional so manifests
     /// written by older versions remain decodable.
     var pipelineSnapshot: String? = nil
+    var request: DesignRequest? = nil
+    var engineBatchRoot: String? = nil
+}
+
+
+// Keep form restoration separate from the settings relevant to this run. Older
+// manifests embedded the entire form under `request`; decode those unchanged.
+extension StudioRunManifest {
+    private enum CodingKeys: String, CodingKey {
+        case version, projectID, projectName, runName, createdAt, updatedAt, state, arguments, environmentOverrides, requestedTrajectories, optimizationCycles, expectedOptimizedDesigns, pipelineSnapshot, engineBatchRoot
+        case workflow, request, savedFormState, metadataNote
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(Int.self, forKey: .version)
+        projectID = try c.decode(UUID.self, forKey: .projectID)
+        projectName = try c.decode(String.self, forKey: .projectName)
+        runName = try c.decode(String.self, forKey: .runName)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        state = try c.decode(StudioRunState.self, forKey: .state)
+        arguments = try c.decode([String].self, forKey: .arguments)
+        environmentOverrides = try c.decodeIfPresent([String: String].self, forKey: .environmentOverrides)
+        requestedTrajectories = try c.decodeIfPresent(Int.self, forKey: .requestedTrajectories)
+        optimizationCycles = try c.decodeIfPresent(Int.self, forKey: .optimizationCycles)
+        expectedOptimizedDesigns = try c.decodeIfPresent(Int.self, forKey: .expectedOptimizedDesigns)
+        pipelineSnapshot = try c.decodeIfPresent(String.self, forKey: .pipelineSnapshot)
+        engineBatchRoot = try c.decodeIfPresent(String.self, forKey: .engineBatchRoot)
+        workflow = try c.decodeIfPresent(StudioWorkflow.self, forKey: .workflow) ?? .iterative
+        request = try c.decodeIfPresent(DesignRequest.self, forKey: .savedFormState)
+            ?? c.decodeIfPresent(DesignRequest.self, forKey: .request)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(2, forKey: .version)
+        try c.encode(projectID, forKey: .projectID)
+        try c.encode(projectName, forKey: .projectName)
+        try c.encode(runName, forKey: .runName)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(updatedAt, forKey: .updatedAt)
+        try c.encode(state, forKey: .state)
+        try c.encode(arguments, forKey: .arguments)
+        try c.encodeIfPresent(environmentOverrides, forKey: .environmentOverrides)
+        try c.encodeIfPresent(requestedTrajectories, forKey: .requestedTrajectories)
+        try c.encodeIfPresent(optimizationCycles, forKey: .optimizationCycles)
+        try c.encodeIfPresent(expectedOptimizedDesigns, forKey: .expectedOptimizedDesigns)
+        try c.encodeIfPresent(pipelineSnapshot, forKey: .pipelineSnapshot)
+        try c.encodeIfPresent(engineBatchRoot, forKey: .engineBatchRoot)
+        try c.encode(workflow, forKey: .workflow)
+        try c.encode("request contains applicable form settings; arguments, environmentOverrides and the saved pipeline define execution. savedFormState restores the UI and includes inactive settings.", forKey: .metadataNote)
+        if let request {
+            try c.encode(request, forKey: .savedFormState)
+            var values = try JSONDecoder().decode([String: RunMetadataValue].self, from: JSONEncoder().encode(request))
+            var inactive: Set<String> = ["secondaryStructureBias", "secondaryStructureBiasScope",
+                "betaBiasStrength", "betaPatternStrength", "turnLocalizationStrength"]
+            if request.designType != .nanobody {
+                inactive.formUnion(["scaffoldID", "scaffoldSequence", "scaffoldSelections", "equalScaffoldBudgets", "cdrs"])
+            } else {
+                inactive.formUnion(["binderMinLen", "binderMaxLen", "helixKill"])
+            }
+            if !request.usesIntelliFold { inactive.insert("intellifoldModel") }
+            if !request.hasTargetTemplate {
+                inactive.formUnion(["targetTemplatePath", "targetTemplateMode", "targetTemplateThreshold"])
+            }
+            if request.targetKind == .protein {
+                inactive.formUnion(values.keys.filter { $0.hasPrefix("ligand") })
+                inactive.insert("targetSmiles")
+            } else {
+                inactive.formUnion(["targetSequence", "epitopeResidues"])
+            }
+            if request.effectivePostPredictors.isEmpty {
+                inactive.formUnion(values.keys.filter { $0.hasPrefix("post") && $0 != "postPredictors" })
+            }
+            if request.targetKind != .ligand || !request.nesso.enabled { inactive.insert("nesso") }
+            for key in inactive { values.removeValue(forKey: key) }
+            try c.encode(values, forKey: .request)
+        }
+    }
+}
+
+/// Lossless JSON value used only to project already-typed request metadata.
+private indirect enum RunMetadataValue: Codable {
+    case null, bool(Bool), number(Double), string(String)
+    case array([RunMetadataValue]), object([String: RunMetadataValue])
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if c.decodeNil() { self = .null }
+        else if let v = try? c.decode(Bool.self) { self = .bool(v) }
+        else if let v = try? c.decode(Double.self) { self = .number(v) }
+        else if let v = try? c.decode(String.self) { self = .string(v) }
+        else if let v = try? c.decode([RunMetadataValue].self) { self = .array(v) }
+        else { self = .object(try c.decode([String: RunMetadataValue].self)) }
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .null: try c.encodeNil()
+        case .bool(let v): try c.encode(v)
+        case .number(let v): try c.encode(v)
+        case .string(let v): try c.encode(v)
+        case .array(let v): try c.encode(v)
+        case .object(let v): try c.encode(v)
+        }
+    }
 }
 
 struct StudioRunRecord: Identifiable, Hashable {
@@ -86,10 +195,11 @@ struct StudioRunRecord: Identifiable, Hashable {
     var state: StudioRunState
     var detail: String
     var manifestURL: URL?
+    var managedJobID: String? = nil
     var hasViewableResults: Bool
 
     var isResumable: Bool {
-        workflow == .iterative && manifestURL != nil
+        (managedJobID != nil || (workflow == .iterative && manifestURL != nil))
             && (state == .interrupted || state == .failed || state == .stopped)
     }
 }
@@ -101,24 +211,69 @@ struct StudioRunRecord: Identifiable, Hashable {
 final class RunHistoryStore: ObservableObject {
     @Published private(set) var runs: [StudioRunRecord] = []
 
+    private var refreshTask: Task<Void, Never>?
+    private var generation = 0
+
     func refresh(projects: [Project]) {
-        var found: [StudioRunRecord] = []
-        for project in projects {
-            let root = AppPaths.projectDir(project)
-            found += iterativeRuns(project: project, root: root)
-            found += predictionRuns(project: project, root: root)
-            found += rfd3Runs(project: project, root: root)
+        generation += 1
+        let expected = generation
+        refreshTask?.cancel()
+        let jobs = JobCenter.shared.jobs
+        refreshTask = Task {
+            let found = await Task.detached(priority: .utility) {
+                RunHistoryLoader().load(projects: projects, jobs: jobs)
+            }.value
+            guard !Task.isCancelled, expected == generation else { return }
+            runs = found
         }
-        runs = found.sorted { $0.date > $1.date }
     }
 
     func runs(for project: Project) -> [StudioRunRecord] {
         runs.filter { $0.projectID == project.id }
     }
+}
+
+/// Filesystem discovery runs away from the UI actor; controllers publish only
+/// completed snapshots, so tab changes cannot apply an obsolete scan.
+private struct RunHistoryLoader {
+    func load(projects: [Project], jobs: [ManagedJob]) -> [StudioRunRecord] {
+        var found: [StudioRunRecord] = []
+        for project in projects {
+            let root = AppPaths.projects.appendingPathComponent(project.slug)
+            found += iterativeRuns(project: project, root: root)
+            found += predictionRuns(project: project, root: root)
+            found += rfd3Runs(project: project, root: root)
+            found += niseRuns(project: project, root: root)
+        }
+        return found.map { item in
+            var item = item
+            if let job = jobs.first(where: {
+                $0.output?.standardizedFileURL == item.root.standardizedFileURL
+                    || ($0.child_outputs ?? []).contains(item.root.path)
+            }) {
+                // A completed engine stays completed if a later engine fails.
+                if job.child_outputs?.contains(item.root.path) == true && item.state == .completed { return item }
+                item.managedJobID = job.id
+                if job.child_outputs?.contains(item.root.path) == true && job.active_output != item.root.path {
+                    item.state = job.isActive ? .running : .interrupted
+                    item.detail = job.isActive ? "Queued in this engine batch" : "Not started; resume the engine batch to continue"
+                    return item
+                }
+                item.detail = job.message ?? item.detail
+                switch job.status {
+                case "queued", "running", "stopping": item.state = .running
+                case "completed": item.state = .completed
+                case "cancelled": item.state = .stopped
+                default: item.state = .failed
+                }
+            } else { item.managedJobID = BrokerClient.savedJobID(at: item.root) }
+            return item
+        }.sorted { $0.date > $1.date }
+    }
 
     private func iterativeRuns(project: Project, root: URL) -> [StudioRunRecord] {
         let ignored = Set(["predictions", "prediction_runs", "prediction_input", "rfd3",
-                           "rfd3_runs", "target_prep", "ligand", "rfd3_assets", "config"])
+                           "rfd3_runs", "nise_runs", "target_prep", "ligand", "rfd3_assets", "config"])
         let children = directories(in: root).filter { !ignored.contains($0.lastPathComponent) }
         return children.compactMap { candidate in
             let manifestURL = candidate.appendingPathComponent("studio_run.json")
@@ -143,8 +298,9 @@ final class RunHistoryStore: ObservableObject {
             } else {
                 state = .interrupted
             }
-            let detail = runDirs.isEmpty ? "Campaign settings saved"
-                : "\(exitCodes.filter { $0 == 0 }.count) of \(runDirs.count) design units completed"
+            let engineLabel = manifest?.request?.designEngineSummary
+            let detail = (engineLabel.map { $0 + " · " } ?? "") + (runDirs.isEmpty ? "Campaign settings saved"
+                : "\(exitCodes.filter { $0 == 0 }.count) of \(runDirs.count) design units completed")
             let recordedResults = csvRowCount(candidate.appendingPathComponent("comparison_scores_long.csv"))
                 + csvRowCount(candidate.appendingPathComponent("summary_all_runs.csv"))
                 + runDirs.reduce(0) { partial, directory in
@@ -164,6 +320,20 @@ final class RunHistoryStore: ObservableObject {
                                    detail: detail,
                                    manifestURL: manifest == nil ? nil : manifestURL,
                                    hasViewableResults: recordedResults > 0)
+        }
+    }
+
+    private func niseRuns(project: Project, root: URL) -> [StudioRunRecord] {
+        directories(in: root.appendingPathComponent("nise_runs")).compactMap { candidate in
+            let config = candidate.appendingPathComponent("nise_config.json")
+            guard AppPaths.fm.fileExists(atPath: config.path) else { return nil }
+            let summary = json(at: candidate.appendingPathComponent("summary.json"))
+            let completed = summary?["status"] as? String == "completed"
+            let count = (try? AppPaths.fm.contentsOfDirectory(atPath: candidate.appendingPathComponent("candidates").path))?.filter { $0.hasSuffix(".json") }.count ?? 0
+            return StudioRunRecord(projectID: project.id, projectName: project.name,
+                                   workflow: .nise, name: candidate.lastPathComponent,
+                                   root: candidate, date: fileDate(candidate), state: completed ? .completed : .interrupted,
+                                   detail: "\(count) evaluated candidates", manifestURL: config, hasViewableResults: count > 0)
         }
     }
 

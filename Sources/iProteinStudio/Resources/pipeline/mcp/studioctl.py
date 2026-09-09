@@ -39,9 +39,11 @@ def main() -> int:
     results.add_argument("--limit", type=int, default=100)
     imported = sub.add_parser("import")
     imported.add_argument("path")
-    for name in ("plan-prediction", "plan-target", "plan-iterative", "plan-rfd3-denovo", "plan-rfd3-partial", "plan-rfd3-motif"):
+    for name in ("plan-nise", "plan-prediction", "plan-target", "plan-iterative", "plan-rfd3-denovo", "plan-rfd3-partial", "plan-rfd3-motif"):
         command = sub.add_parser(name)
         command.add_argument("request_json")
+    desktop = sub.add_parser("_desktop-submit")
+    desktop.add_argument("request_json")
     start = sub.add_parser("start")
     start.add_argument("plan_id")
     start.add_argument("plan_sha256")
@@ -90,11 +92,20 @@ def main() -> int:
             with open(args.request_json, encoding="utf-8") as handle:
                 request = json.load(handle)
             tool_names = {
+                "plan-nise": "nise_plan",
                 "plan-prediction": "prediction_plan", "plan-target": "target_prepare_plan",
                 "plan-iterative": "iterative_design_plan", "plan-rfd3-denovo": "rfd3_denovo_plan",
                 "plan-rfd3-partial": "rfd3_partial_diffusion_plan", "plan-rfd3-motif": "rfd3_motif_scaffolding_plan",
             }
             emit(MCPServer("run").tool_call(tool_names[args.command], request))
+        elif args.command == "_desktop-submit":
+            from iprotein_mcp.desktop import desktop_plan
+            from iprotein_mcp.common import atomic_json
+            request = json.loads(Path(args.request_json).read_text())
+            plan = desktop_plan(request)
+            state = start_job(plan["id"], plan["sha256"])
+            atomic_json(Path(request["output"]) / "studio_job.json", {"id": state["id"], "plan_id": plan["id"], "sha256": plan["sha256"]})
+            emit(state)
         elif args.command == "start":
             emit(start_job(args.plan_id, args.plan_sha256))
         elif args.command == "wait":

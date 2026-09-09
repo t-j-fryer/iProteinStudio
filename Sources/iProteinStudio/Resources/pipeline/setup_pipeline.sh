@@ -51,6 +51,7 @@ if [[ "${IPROTEINSTUDIO_SETUP_CAFFEINATED:-0}" != "1" ]] \
 fi
 
 NANOHUNTER_ROOT="${NANOHUNTER_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+NESSO_SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_PREFIX="${NANOHUNTER_VENV_PREFIX:-NanoHunter}"
 PYTHON_311_VERSION="3.11.13"
 PYTHON_310_VERSION="3.10.18"
@@ -58,6 +59,7 @@ PYTHON_312_VERSION="3.12.11"
 PYTHON_BIN=""
 ANTIFOLD_PYTHON_BIN=""
 INTELLIFOLD_PYTHON_BIN=""
+NESSO_PYTHON_BIN=""
 UV_VERSION="0.11.32"
 UV_SHA256="ed336d0ba49db8ef89b2b41fffa372ce63bd032f22a56f001c265891aec32829"
 TOOLCHAIN_DIR="${NANOHUNTER_ROOT}/toolchains"
@@ -100,6 +102,7 @@ WITH_PROTENIX_CONSTRAINT=0
 WITH_OPENFOLD3=0
 WITH_RFD3=0
 WITH_LASERMPNN=0
+WITH_NESSO=0
 MATERIALISE=0
 REPAIR_VENVS=0
 MINIMIZE_STORAGE=0
@@ -126,6 +129,7 @@ Components (combine as needed):
                                native MPS, design-only, no CPU fallback)
   --with-openfold3             OpenFold-3/MLX
   --with-lasermpnn             LASErMPNN ligand sequence design
+  --with-nesso                 Experimental NESSO-1 sequence-affinity screening
   --with-rfd3                  RFdiffusion3/MLX (also selects Boltz)
   --all                        Install every supported component
 
@@ -165,7 +169,8 @@ while [[ $# -gt 0 ]]; do
                             WITH_INTELLIFOLD=1; WITH_INTELLIFOLD_FULL=1
                             WITH_OPENFOLD3=1; WITH_PROTENIX_RUNTIME=1
                             WITH_PROTENIX_V2=1; WITH_PROTENIX_MINI=1; WITH_PROTENIX_CONSTRAINT=1
-                            WITH_LASERMPNN=1; WITH_RFD3=1; shift ;;
+                            WITH_LASERMPNN=1; WITH_RFD3=1; WITH_NESSO=1; shift ;;
+    --with-nesso)           WITH_NESSO=1; shift ;;
     --with-lasermpnn)       WITH_LASERMPNN=1; shift ;;
     --link-rfd3)            LINK_RFD3="$2"; shift 2 ;;
     --detect)               DETECT_ONLY=1; shift ;;
@@ -228,7 +233,7 @@ RECEIPTS_DIR="${NANOHUNTER_ROOT}/receipts"
 
 step()  { echo "NHSTEP|$1|$2|$3"; }
 state() { echo "NHSTATE|$1|$2|$3"; }
-fail()  { echo "NHFAIL|$1"; exit 1; }
+fail()  { printf '\nNHFAIL|%s\n' "$1"; exit 1; }
 
 state_absent_or_partial() {
   local key="$1" detail="$2"; shift 2
@@ -341,7 +346,7 @@ uv_install_editable() {
 
 assert_runtime_idle() {
   if command -v pgrep >/dev/null 2>&1 \
-     && pgrep -f "${NANOHUNTER_ROOT}/venvs/" >/dev/null 2>&1; then
+     && pgrep -f "${NANOHUNTER_ROOT}/(venvs/|components/nesso/)" >/dev/null 2>&1; then
     fail "A Studio prediction or design process is using the managed runtime. Let it finish before installing or updating engines."
   fi
 }
@@ -391,6 +396,8 @@ PY
 }
 
 detect() {
+  /usr/bin/python3 "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_nesso.py" --root "${NANOHUNTER_ROOT}" --detect
+
   if [[ -x "${BOLTZ_VENV}/bin/python" \
      && -f "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt" \
      && -d "${BOLTZ_MODEL_DIR}/mols" ]]; then
@@ -1075,6 +1082,13 @@ esac
 
 mkdir -p "${NANOHUNTER_ROOT}"/{venvs,src,examples,models,output,numba_cache}
 
+step toolchain 1 "Checking Apple's compiler and macOS SDK"
+# Resolve Apple's matched SDK/compiler before downloading Python or models.
+# The managed Python source builds also need the SDK's libc++ headers.
+source "${NESSO_SCRIPT_ROOT}/scripts/apple_build_tools.sh" \
+  || fail "The compiler setup helper is missing. Reopen the updated app and retry Setup."
+configure_apple_build_tools || fail "Apple's C++ build tools are incomplete or unusable. Install or update Command Line Tools for Xcode in System Settings > General > Software Update, then retry Setup. For a first installation, run xcode-select --install in Terminal. See the setup log for the compiler error."
+
 step python 2 "Preparing exact managed Python environments"
 command -v git >/dev/null 2>&1 || fail "git not found. Install Xcode Command Line Tools: xcode-select --install"
 ensure_python "${PYTHON_311_VERSION}" PYTHON_BIN
@@ -1084,6 +1098,18 @@ fi
 if [[ "${WITH_INTELLIFOLD}" -eq 1 || "${WITH_PROTENIX_CONSTRAINT}" -eq 1 \
    || "${WITH_RFD3}" -eq 1 ]]; then
   ensure_python "${PYTHON_312_VERSION}" INTELLIFOLD_PYTHON_BIN
+fi
+
+if [[ "${WITH_NESSO}" -eq 1 ]]; then
+  ensure_python "3.12.10" NESSO_PYTHON_BIN
+fi
+
+# ---- Experimental NESSO-1 (isolated runtime) ----
+if [[ "${WITH_NESSO}" -eq 1 ]]; then
+  step nesso 4 "Installing NESSO-1 and ESM for experimental sequence screening"
+  "${NESSO_PYTHON_BIN}" "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_nesso.py" \
+    --root "${NANOHUNTER_ROOT}" --python "${NESSO_PYTHON_BIN}" --uv "${UV_BIN}" \
+    || fail "NESSO installation failed; partial files are retained for resume."
 fi
 
 # ---- Boltz-2 ----
@@ -1220,7 +1246,7 @@ download_verified_artifact "${LIGAND_VENV}/bin/python" \
   "https://zenodo.org/records/8164693/files/abmpnn.pt?download=1" \
   "fd41b40ee0f51974d73e1acb754cd8acaa36b3327543d5d28bcf4aa4e07b4a1b" \
   "AbMPNN checkpoint" mpnn 41 44
-"${LIGAND_VENV}/bin/python" -c 'import torch, numpy' >/dev/null \
+"${LIGAND_VENV}/bin/python" -c 'import torch, numpy, prody; import prody.proteins.ccealign' >/dev/null \
   || fail "Sequence-designer staged runtime failed its import check."
 commit_versioned_venv
 LIGAND_VENV="${LIGAND_FINAL_VENV}"

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import StudioCore
 
 /// Drives setup: stages vendored assets, then runs `setup_pipeline.sh`, parsing
 /// its `NHSTEP` / `NHSTATE` / `NHDONE` / `NHFAIL` markers into friendly progress
@@ -10,6 +11,7 @@ import Combine
 /// letting a novice start a campaign that fails twenty minutes in.
 @MainActor
 final class PipelineInstaller: ObservableObject {
+    private var executionLease: ExecutionLease?
     struct Step: Identifiable {
         let id = UUID()
         let key: String
@@ -78,13 +80,15 @@ final class PipelineInstaller: ObservableObject {
 
         let runner = ProcessRunner()
         self.runner = runner
+        do { executionLease = try ExecutionLease(directory: AppPaths.support.appendingPathComponent("agent")) }
+        catch { failure = error.localizedDescription; return }
         runner.launch(
             executable: URL(fileURLWithPath: "/bin/bash"),
             arguments: [AppPaths.setupScript.path, "--repair-venvs"],
             environment: CommandBuilder.environment(),
             workingDir: AppPaths.pipeline,
             onLine: { [weak self] line in self?.handle(line, quiet: true) },
-            onExit: { [weak self] _ in self?.detectComponents() }
+            onExit: { [weak self] _ in self?.executionLease = nil; self?.detectComponents() }
         )
     }
 
@@ -149,6 +153,8 @@ final class PipelineInstaller: ObservableObject {
             components[component] = ComponentState(availability: .missing, detail: "")
             return
         }
+        do { executionLease = try ExecutionLease(directory: AppPaths.support.appendingPathComponent("agent")) }
+        catch { failure = error.localizedDescription; return }
         isRemoving = true
         failure = nil
         currentMessage = "Removing \(component.label)…"
@@ -160,6 +166,7 @@ final class PipelineInstaller: ObservableObject {
             }
             let removalFailures = failures
             await MainActor.run {
+                self.executionLease = nil
                 self.isRemoving = false
                 if removalFailures.isEmpty {
                     self.components[component] = ComponentState(availability: .missing, detail: "removed")
@@ -187,6 +194,8 @@ final class PipelineInstaller: ObservableObject {
         case .antifold:
             relative = ["venvs/NanoHunter_antifold", "src/AntiFold",
                         "components/antifold", "receipts/antifold.json"]
+        case .nesso:
+            relative = ["components/nesso"]
         case .lasermpnn:
             relative = ["venvs/NanoHunter_lasermpnn", "src/LASErMPNN",
                         "components/lasermpnn", "receipts/lasermpnn.json"]
@@ -246,8 +255,8 @@ final class PipelineInstaller: ObservableObject {
             do {
                 try process.run()
                 process.waitUntilExit()
-                if process.terminationStatus == 0 { return true }
-            } catch { return false }
+                if process.terminationStatus != 1 { return true }
+            } catch { return true }
         }
         return false
     }
@@ -336,6 +345,8 @@ final class PipelineInstaller: ObservableObject {
             AppPaths.support.appendingPathComponent("cache/pip", isDirectory: true),
             AppPaths.support.appendingPathComponent("numba_cache", isDirectory: true),
         ]
+        do { executionLease = try ExecutionLease(directory: AppPaths.support.appendingPathComponent("agent")) }
+        catch { failure = error.localizedDescription; return }
         isRemoving = true
         currentMessage = "Clearing Studio-owned caches…"
         Task.detached(priority: .utility) {
@@ -346,6 +357,7 @@ final class PipelineInstaller: ObservableObject {
             }
             let removalErrors = errors
             await MainActor.run {
+                self.executionLease = nil
                 self.isRemoving = false
                 if removalErrors.isEmpty {
                     self.currentMessage = "Studio-owned caches cleared. Engines, checkpoints and results were kept."
@@ -418,6 +430,8 @@ final class PipelineInstaller: ObservableObject {
 
     private func launch(extraArguments: [String], startMessage: String) {
         guard !isInstalling, !isRemoving else { return }
+        do { executionLease = try ExecutionLease(directory: AppPaths.support.appendingPathComponent("agent")) }
+        catch { failure = error.localizedDescription; return }
         isInstalling = true
         finished = false
         failure = nil
@@ -427,7 +441,7 @@ final class PipelineInstaller: ObservableObject {
         cancelRequested = false
 
         // Stage vendored scripts/examples into the managed pipeline dir.
-        do { try AppPaths.stagePipelineAssets() }
+        do { try AppPaths.stagePipelineAssets(leaseHeld: true) }
         catch {
             fail(error.localizedDescription)
             return
@@ -491,6 +505,7 @@ final class PipelineInstaller: ObservableObject {
     }
 
     private func exit(_ code: Int32) {
+        executionLease = nil
         isInstalling = false
         installed = AppPaths.isPipelineInstalled
         if cancelRequested {
@@ -509,6 +524,7 @@ final class PipelineInstaller: ObservableObject {
     }
 
     private func fail(_ msg: String) {
+        executionLease = nil
         isInstalling = false
         failure = msg
         currentMessage = "Setup failed."

@@ -148,11 +148,9 @@ enum CommandBuilder {
             // Cycle-0 length/composition must be reproducible from the durable
             // manifest, not drawn from process-global randomness.
             if let mpnnSeed { args += ["--binder-random-seed", String(mpnnSeed)] }
-            // Helix suppression (de-novo only): bias the seed away from helices.
-            if request.helixKill > 0.01 {
-                args += ["--helix-kill",
-                         "--negative-helix-constant", String(format: "%.2f", min(1.0, request.helixKill))]
-            }
+            // Helix kill shapes initialization only; later MPNN cycles are ordinary.
+            args += ["--negative-helix-constant", String(format: "%.2f", request.helixKill)]
+
         }
 
         args += schedulingArguments(request: request)

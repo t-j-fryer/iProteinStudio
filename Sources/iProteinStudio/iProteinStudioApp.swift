@@ -12,7 +12,7 @@ struct iProteinStudioApp: App {
                 .environmentObject(app.thumbnails)
                 .environmentObject(app.smilesThumbnails)
                 .environmentObject(app.predictions)
-                .frame(minWidth: 1080, minHeight: 720)
+                .frame(minWidth: 820, minHeight: 600)
         }
         .windowStyle(.titleBar)
         .commands {

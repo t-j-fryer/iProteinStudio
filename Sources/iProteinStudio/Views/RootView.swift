@@ -7,8 +7,27 @@ struct RootView: View {
     @EnvironmentObject var app: AppState
 
     var body: some View {
-        RouterView(installer: app.installer)
+        Group {
+            if app.storageAvailable {
+                RouterView(installer: app.installer)
+            } else {
+                ContentUnavailableView {
+                    Label("Workspace recovery needed", systemImage: "externaldrive.badge.exclamationmark")
+                } description: {
+                    Text(app.storageMessage ?? "Your saved files have been kept. Editing is paused until the workspace index can be read.")
+                } actions: {
+                    Button("Try Reading Again") { app.reloadSavedWorkspaces() }
+                    Button("Reveal Saved Files") { NSWorkspace.shared.activateFileViewerSelecting([AppPaths.support]) }
+                }
+            }
+        }
             .modifier(ApplicationLocationNotice())
+            .alert("Saved work needs attention", isPresented: Binding(
+                get: { app.storageMessage != nil && app.storageAvailable },
+                set: { if !$0 { app.storageMessage = nil } }
+            )) {
+                Button("OK") { app.storageMessage = nil }
+            } message: { Text(app.storageMessage ?? "") }
     }
 }
 
@@ -47,6 +66,7 @@ struct WorkspaceView: View {
                 ProjectDetailView(project: project, run: run, metrics: app.metrics,
                                   rfd3: app.rfd3, prediction: app.prediction,
                                   installer: installer)
+                    .id(project.id)
             } else {
                 EmptyWorkspace()
             }
@@ -54,7 +74,7 @@ struct WorkspaceView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showActivity.toggle() } label: {
-                    Label("Activity", systemImage: app.run.isRunning || app.rfd3.isRunning || app.prediction.isRunning
+                    Label("Activity", systemImage: app.run.isRunning || app.rfd3.isRunning || app.prediction.isRunning || app.nise.isRunning
                           ? "waveform.path" : "clock.arrow.circlepath")
                 }
                 .help("See running work, previous results, and resumable campaigns")
@@ -122,8 +142,8 @@ struct ProjectDetailView: View {
 
     private var mode: Binding<WorkspaceMode> {
         Binding(
-            get: { app.selectedProject?.preferredMode ?? project.preferredMode },
-            set: { newMode in app.updateSelected { $0.preferredMode = newMode } }
+            get: { app.projects.first(where: { $0.id == project.id })?.preferredMode ?? project.preferredMode },
+            set: { newMode in app.updateProject(id: project.id) { $0.preferredMode = newMode } }
         )
     }
 
@@ -131,6 +151,7 @@ struct ProjectDetailView: View {
         if run.isRunning { return .iterative }
         if rfd3.isRunning { return .rfdiffusion }
         if prediction.isRunning { return .predict }
+        if app.nise.isRunning { return .nise }
         return nil
     }
 
@@ -204,7 +225,7 @@ struct ProjectDetailView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(maxWidth: 420)
+                .frame(maxWidth: 540)
                 .accessibilityLabel("Workflow")
                 .accessibilityIdentifier("project-mode-picker")
 
@@ -223,6 +244,9 @@ struct ProjectDetailView: View {
             .padding(.horizontal, 16)
             .padding(.top, 12)
 
+            if let notice = app.runtimeNotice {
+                Label(notice, systemImage: "clock").font(.caption).padding(.top, 8)
+            }
             if let activeMode {
                 Label("\(activeMode.label) is running. You can inspect every tab; starting another run is paused.",
                       systemImage: "waveform.path")
@@ -236,13 +260,16 @@ struct ProjectDetailView: View {
             Group {
                 switch mode.wrappedValue {
                 case .iterative:
-                    if run.isRunning || run.campaignRoot != nil {
-                        LiveDashboardView(project: project, run: run, metrics: metrics)
+                    if run.projectID == project.id, let context = run.projectContext,
+                       run.isRunning || run.campaignRoot != nil {
+                        LiveDashboardView(project: context, run: run, metrics: metrics)
                     } else {
                         DesignFormView(project: project, installer: installer)
                     }
                 case .rfdiffusion:
                     RFD3View(project: project, controller: rfd3, installer: installer)
+                case .nise:
+                    NISEView(project: project, controller: app.nise, installer: installer)
                 case .predict:
                     PredictView(project: project, controller: prediction, installer: installer)
                 }
@@ -262,7 +289,7 @@ struct EmptyWorkspace: View {
                 .font(.system(size: 52))
                 .foregroundStyle(.tint)
             Text("Start some work").font(.title2.bold())
-            Text("Create a workspace for predictions, iterative design, or RFdiffusion3.")
+            Text("Create a workspace for predictions, Protein Hunter, NISE, or RFdiffusion3.")
                 .foregroundStyle(.secondary)
             HStack(spacing: 10) {
                 Button { app.addProject(name: "", preferredMode: .predict) } label: {

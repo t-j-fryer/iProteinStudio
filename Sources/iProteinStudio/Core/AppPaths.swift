@@ -1,6 +1,7 @@
 import Foundation
 import CryptoKit
 import Darwin
+import StudioCore
 
 /// Central owner of on-disk locations and vendored resource access.
 ///
@@ -489,7 +490,9 @@ enum AppPaths {
     }
 
     /// Copy vendored scripts/examples into the managed pipeline dir (idempotent).
-    static func stagePipelineAssets() throws {
+    static func stagePipelineAssets(leaseHeld: Bool = false) throws {
+        let lease = leaseHeld ? nil : try ExecutionLease(directory: support.appendingPathComponent("agent"))
+        defer { withExtendedLifetime(lease) {} }
         guard let src = bundledPipeline else {
             throw NHError.message("Bundled pipeline assets are missing from the app.")
         }
@@ -505,8 +508,8 @@ enum AppPaths {
                 try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: p)
             }
         }
-        stageRFD3Scripts()
-        stageRFD3Overlay()
+        stageRFD3Scripts(leaseHeld: true)
+        stageRFD3Overlay(leaseHeld: true)
         stageExamples()
         stageScaffoldMSAs()
     }
@@ -576,7 +579,11 @@ enum AppPaths {
     /// installed months ago, without reinstalling anything. Version-stamped so
     /// the copy only happens when the bundle actually differs.
     @discardableResult
-    static func stageRFD3Overlay(force: Bool = false) -> Bool {
+    static func stageRFD3Overlay(force: Bool = false, leaseHeld: Bool = false) -> Bool {
+        let lease: ExecutionLease?
+        do { lease = leaseHeld ? nil : try ExecutionLease(directory: support.appendingPathComponent("agent")) }
+        catch { return false }
+        defer { withExtendedLifetime(lease) {} }
         guard let src = bundledRFD3Overlay else { return false }
         let stampFile = src.appendingPathComponent("OVERLAY_VERSION")
         let bundled = (try? String(contentsOf: stampFile, encoding: .utf8)) ?? ""
@@ -674,7 +681,11 @@ enum AppPaths {
 
     /// Stage the RFdiffusion3 helpers. Kept separate from the pipeline assets
     /// because they are Studio's own code, not vendored from NanoHunter.
-    static func stageRFD3Scripts() {
+    static func stageRFD3Scripts(leaseHeld: Bool = false) {
+        let lease: ExecutionLease?
+        do { lease = leaseHeld ? nil : try ExecutionLease(directory: support.appendingPathComponent("agent")) }
+        catch { return }
+        defer { withExtendedLifetime(lease) {} }
         guard let src = bundledRFD3Scripts,
               let items = try? fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
         else { return }

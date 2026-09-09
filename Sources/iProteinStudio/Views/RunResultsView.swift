@@ -27,12 +27,8 @@ struct RunResultsView: View {
         self.root = root
         self.workflow = workflow
         self.title = title ?? "\(workflow.label) results"
-        let loaded = RunResultsLoader.load(root: root, workflow: workflow)
-        _items = State(initialValue: loaded)
-        _selectedID = State(initialValue: loaded.first?.id)
-        if let preferred = Self.preferredDistributionMetric(in: loaded) {
-            _selectedMetric = State(initialValue: preferred)
-        }
+        _items = State(initialValue: [])
+        _selectedID = State(initialValue: nil)
     }
 
     private var selection: StudioResultItem? {
@@ -106,12 +102,12 @@ struct RunResultsView: View {
                 GroupedRunResultsBrowser(items: items)
             }
         }
-        .frame(minWidth: 1080, idealWidth: 1280, minHeight: 700, idealHeight: 820)
+        .frame(minWidth: 760, idealWidth: 1100, minHeight: 560, idealHeight: 780)
         .accessibilityIdentifier("run-results-browser")
         .task(id: root.path) {
-            guard workflow != .prediction else { return }
             while !Task.isCancelled {
-                refresh()
+                await refresh()
+                if workflow == .prediction { break }
                 if workflow == .rfdiffusion3,
                    FileManager.default.fileExists(atPath: root.appendingPathComponent("analysis/hit_summary.json").path) {
                     break
@@ -141,7 +137,7 @@ struct RunResultsView: View {
             }
             Spacer()
             if workflow == .rfdiffusion3 {
-                Button { refresh() } label: {
+                Button { Task { await refresh() } } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
             }
@@ -220,9 +216,9 @@ struct RunResultsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 12) {
                     SummaryCard(value: groups.count,
-                                label: workflow == .rfdiffusion3 ? "backbones" : "runs")
+                                label: workflow == .rfdiffusion3 ? "backbones" : (workflow == .nise ? "search groups" : "runs"))
                     SummaryCard(value: groups.flatMap(\.variants).count,
-                                label: workflow == .rfdiffusion3 ? "MPNN derivatives" : "cycles")
+                                label: workflow == .rfdiffusion3 ? "MPNN derivatives" : (workflow == .nise ? "candidates" : "cycles"))
                     SummaryCard(value: items.count, label: "related structures")
                     SummaryCard(value: savedHitUnitCount, label: "saved hits")
                 }
@@ -271,8 +267,9 @@ struct RunResultsView: View {
         }
     }
 
-    private func refresh() {
-        let loaded = RunResultsLoader.load(root: root, workflow: workflow)
+    private func refresh() async {
+        let loaded = await ResultsRepository.shared.load(root: root, workflow: workflow)
+        guard !Task.isCancelled else { return }
         items = loaded
         if !loaded.contains(where: { $0.id == selectedID }) { selectedID = loaded.first?.id }
         if !availableMetrics.contains(selectedMetric),
@@ -592,6 +589,9 @@ private struct MetricTile: View {
 
     private var tint: Color {
         switch metric.kind {
+        case .ligandPLDDT: return .blue
+        case .ligandRMSD, .pocketPreorgRMSD: return .orange
+        case .preorgScore: return .purple
         case .plddt, .ptm, .binderPLDDT: return .blue
         case .iptm, .meanIPTM, .minimumIPTM: return .green
         case .ipsaeMinimum: return .teal
@@ -600,6 +600,7 @@ private struct MetricTile: View {
              .motifInsertionRMSD, .motifPredictionRMSD, .motifMaximumDrift: return .orange
         case .pocketFractionWithinCutoff: return .indigo
         case .bindingProbability: return .purple
+        case .nessoBindingProbability, .nessoAffinity, .nessoPlacementEntropy, .nessoInterfaceEntropy, .nessoScreeningScore: return .indigo
         case .backboneCAValidity: return .cyan
         case .rankingScore: return .secondary
         }

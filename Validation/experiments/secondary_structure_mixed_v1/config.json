@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "target": {
+    "name": "alpha-cobratoxin",
+    "sequence": "IRCFITPDITSKDCPNGHVCYTKTWCDAFCSIRGKRVDLGCAATCPTVKTGVDIQCCSTDNCNPFPTRKRP",
+    "msa_sha256": "377a3af41f6816683c9b06241fafd2e0c2bc6b0129c2f4a78387ad36f75f34cf",
+    "managed_template_sha256": "7de02245f5893ef68c5c0b13309d63be29e8e48cdc34ec8630ba4f574c321628"
+  },
+  "campaign": {
+    "smoke_trajectories": 1,
+    "design_cycles": 5,
+    "binder_length": 90,
+    "binder_seed": 155160,
+    "mpnn_seed": 300160,
+    "predictor_seed": 42,
+    "predictor_samples": 1,
+    "hit_threshold": 0.7
+  },
+  "controls": {
+    "anti_helix_strength": 0.5,
+    "beta_strength": 0.5,
+    "beta_pattern_strength": 0.5,
+    "turn_strength": 0.5
+  },
+  "arms": {
+    "mixed_a025_seed_only": {
+      "mode": "mixed",
+      "scope": "seed-only",
+      "anti_helix_strength": 0.25
+    },
+    "mixed_a025_sustained": {
+      "mode": "mixed",
+      "scope": "seed-and-cycles",
+      "anti_helix_strength": 0.25
+    },
+    "mixed_a050_seed_only": {
+      "mode": "mixed",
+      "scope": "seed-only",
+      "anti_helix_strength": 0.5
+    },
+    "mixed_a050_sustained": {
+      "mode": "mixed",
+      "scope": "seed-and-cycles",
+      "anti_helix_strength": 0.5
+    }
+  },
+  "purpose": "Four-trajectory pilot of existing mixed priors; each strength has an identical-start scope control. No inferential power or default promotion."
+}

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "question": "Can distinct Boltz structure and affinity models survive an MPNN gap, followed by an isolated apo session and audited replay?",
+  "scope": "Bounded lifecycle/artifact acceptance, not a speed comparison or search-efficacy campaign",
+  "source_candidate": "c09_t4_n0_s23 from the original fluorescein trajectory table",
+  "ligand": "fluorescein hydroxyethylamide",
+  "seed": 17,
+  "scheduler": "resident",
+  "model_calls": {"holo": 2, "lasermpnn_sequences": 1, "apo": 1},
+  "expected": {"holo_sessions": 1, "distinct_holo_model_loads": 2, "apo_sessions": 1, "replay_new_sessions": 0},
+  "artifacts": ["manifest.json", "plan.json", "snapshot/", "sessions/", "holo-parent/", "mpnn/", "holo-child/", "preorganisation/", "preorg.json", "audit.json"],
+  "promotion": "No throughput default may be promoted from this smoke; a paired full-campaign benchmark, fault tests and memory soak remain necessary"
+}

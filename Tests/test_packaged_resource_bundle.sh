@@ -14,16 +14,38 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
   || fail "SwiftPM resource bundle is missing its pipeline sentinel"
 [[ -s "${BUNDLE}/pipeline/scripts/storage_policy.py" ]] \
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
+[[ -s "${BUNDLE}/pipeline/examples/nanobody_scaffolds/sources/3eak_provenance.json" ]] \
+  || fail "resource bundle is missing the 3EAK scaffold provenance"
+rg -q '^3eak_nbbcii10_fgla' "${BUNDLE}/pipeline/examples/nanobody_scaffolds/catalog.tsv" \
+  || fail "resource bundle is missing the 3EAK scaffold catalog entry"
 [[ -s "${BUNDLE}/pipeline/scripts/prepare_boltz_template.py" ]] \
   || fail "resource bundle is missing the Boltz target-template normalizer"
+[[ -s "${BUNDLE}/pipeline/scripts/apple_build_tools.sh" ]] \
+  || fail "resource bundle is missing the Apple compiler preflight"
+[[ -s "${BUNDLE}/pipeline/scripts/prediction_templates.py" ]] \
+  || fail "resource bundle is missing the Predict template adapter"
 [[ -s "${BUNDLE}/pipeline/scripts/prepare_intellifold_template.py" ]] \
   || fail "resource bundle is missing the IntelliFold target-template adapter"
 [[ -s "${BUNDLE}/pipeline/scripts/intellifold_user_template.py" ]] \
   || fail "resource bundle is missing the IntelliFold local-template policy"
+[[ -s "${BUNDLE}/pipeline/scripts/secondary_structure_control.py" ]] \
+  || fail "resource bundle is missing the iterative secondary-structure prior helper"
+[[ -s "${BUNDLE}/pipeline/scripts/nise/campaign.py" ]] \
+  || fail "resource bundle is missing the ligand NISE campaign"
+[[ -s "${BUNDLE}/pipeline/mcp/schemas/nise-v1.json" ]] \
+  || fail "resource bundle is missing the ligand NISE request schema"
+[[ -s "${BUNDLE}/pipeline/scripts/nise/rfd3_initial.py" ]] \
+  || fail "resource bundle is missing the NISE RFdiffusion3 adapter"
+[[ -s "${BUNDLE}/rfd3_overlay/scripts/rfd3_resume.py" ]] \
+  || fail "resource bundle is missing the audited RFdiffusion3 batch helper"
+for resource in ligand_atoms.py atom_geometry.py nesso_worker.py nesso_screen.py nesso_contract.py setup_nesso.py ligand_screening.py \
+                nesso_assets/protocol.json nesso_assets/requirements.lock nesso_assets/nesso_mps.patch nesso_assets/LICENSE; do
+  [[ -s "${BUNDLE}/pipeline/scripts/nise/${resource}" ]] || fail "missing NESSO resource: ${resource}"
+done
 [[ -s "${BUNDLE}/pipeline/mcp/server.py" ]] \
   || fail "resource bundle is missing the MCP server"
-[[ "$(tr -d '[:space:]' < "${BUNDLE}/pipeline/mcp/MCP_VERSION")" == "6" ]] \
-  || fail "resource bundle does not contain MCP result/origin contract v6"
+[[ "$(tr -d '[:space:]' < "${BUNDLE}/pipeline/mcp/MCP_VERSION")" == "18" ]] \
+  || fail "resource bundle does not contain MCP contract v18 (including cropped NESSO screening and verification)"
 [[ -s "${BUNDLE}/pipeline/mcp/remote_server.py" ]] \
   || fail "resource bundle is missing the authenticated remote MCP transport"
 [[ -s "${BUNDLE}/pipeline/mcp/remote_gateway.py" ]] \

@@ -1,0 +1,121 @@
+{
+  "schema": 1,
+  "upstream_revision": "434b8fff6d7d220db57ccafb4b0bd3883dbfe18e",
+  "baseline_description": "Studio working-tree baseline; includes local changes, not a pristine upstream checkout.",
+  "files": {
+    "nanohunter_run.sh": {
+      "policy": "manual-merge",
+      "studio_sha256": "e1e3eda3b97401bb348ee5f6565eb4fda9945a4c85765b01ba74a3a90bf52fb6"
+    },
+    "motif_scaffolding_helper.py": {
+      "policy": "review",
+      "studio_sha256": "8715ec0da1f4e64600b52e4ad8898721ccdeae672b9aab84ed878c2ea957f46d"
+    },
+    "scripts/nanobody_cdrs.py": {
+      "policy": "review",
+      "studio_sha256": "b5f65015f801c5e89082d1359f9514fd55a8fbd5d8d618c4335de0c88e5967e8"
+    },
+    "scripts/sample_antifold_positions.py": {
+      "policy": "review",
+      "studio_sha256": "0b1094a5b59297e106f0022f174accb9d6f7c45b820fb102d3083a3b8a0f2357"
+    },
+    "scripts/compute_throughput_profile.py": {
+      "policy": "review",
+      "studio_sha256": "0c44b03b1ae8acd095b0ebca712b433e7b2ea8c4a119bbd43d99edfd1b399349"
+    },
+    "scripts/merge_openfold_queries.py": {
+      "policy": "review",
+      "studio_sha256": "f676cb9a1963ebc7f299e8c203da6a090faf8e35d230e22e95b708aa9957ebf5"
+    },
+    "scripts/rewrite_a3m_query.py": {
+      "policy": "review",
+      "studio_sha256": "4f9374dc129ffaa7ae5643baa8cd5d323a5ed703917d7c928741dcbf54a8d5d5"
+    },
+    "scripts/lasermpnn_prepare_input.py": {
+      "policy": "review",
+      "studio_sha256": "eb776c61ecb5e2ee9ba8f1b58a6e07154d71d067c778cbc6e0acbdc067aff494"
+    },
+    "scripts/patch_intellifold_mps.py": {
+      "policy": "review",
+      "studio_sha256": "929de3fb865b7e1c2fd29bfc175e5d84c87795859d694d0f0d4f11b9cc4e3707"
+    },
+    "scripts/calibrate_device_throughput.py": {
+      "policy": "review",
+      "studio_sha256": "1dbd6c5bc3568eb9f9d75dd2e0aadfb03911086de94798be741b0dc880ea8fdb"
+    },
+    "scripts/openfold_query_json.py": {
+      "policy": "review",
+      "studio_sha256": "0d6eaf3a87d1cc749932d67833b648acaeee59f08256e007d8341396eb3faad6"
+    },
+    "scripts/openfold_runner_yaml.py": {
+      "policy": "review",
+      "studio_sha256": "8291e0022b856ecc654fb6aea879c75dca0b01921a2c6bc21766cee3adfaed57"
+    },
+    "examples/NanoHunter_nanobody.yaml": {
+      "policy": "review",
+      "studio_sha256": "fac3a3297a8639490d4c26da90e8b8935c112c96d7d7a53ac607f9751b4d5f37"
+    },
+    "examples/aCbx_bind.yaml": {
+      "policy": "review",
+      "studio_sha256": "7de02245f5893ef68c5c0b13309d63be29e8e48cdc34ec8630ba4f574c321628"
+    },
+    "examples/nanobody_scaffolds/catalog.tsv": {
+      "policy": "review",
+      "studio_sha256": "296ecd0f8e4d638e759d752646718d7ce5839364ecb416f41e09fd92a65b9326"
+    },
+    "examples/nanobody_scaffolds/7eow_caplacizumab.yaml": {
+      "policy": "review",
+      "studio_sha256": "fb4fded4acd539c8023b4ef91c1a1a628902014da25b2b4647beaf9a890a2fd5"
+    },
+    "examples/nanobody_scaffolds/7xl0_vobarilizumab.yaml": {
+      "policy": "review",
+      "studio_sha256": "fac3a3297a8639490d4c26da90e8b8935c112c96d7d7a53ac607f9751b4d5f37"
+    },
+    "examples/nanobody_scaffolds/8coh_gefurulimab.yaml": {
+      "policy": "review",
+      "studio_sha256": "8a319cb761f2348b32252af0c93931a34cbd2755195044024d26e62371d65982"
+    },
+    "examples/nanobody_scaffolds/8z8v_ozoralizumab_alb8.yaml": {
+      "policy": "review",
+      "studio_sha256": "1f1c4c167604182c0836c6fdec410b8cc5f927b068afdd0895d3e00f0ee50449"
+    },
+    "examples/nanobody_scaffolds/gontivimab.yaml": {
+      "policy": "review",
+      "studio_sha256": "ba5423f09cff0fc06c6e40d4c6d301fcf8f8acdb6dd3b2e37a03d4a1261cb7f4"
+    },
+    "examples/nanobody_scaffolds/isecarosmab.yaml": {
+      "policy": "review",
+      "studio_sha256": "6be518403448218227a098be991d72efd04a3320355a2da71cf78f0d497eec46"
+    },
+    "examples/nanobody_scaffolds/sonelokimab.yaml": {
+      "policy": "review",
+      "studio_sha256": "4165f794acb5a541a87d2d7a240255e3ce8fd7062b4d08b670aa7f6cf51c0199"
+    },
+    "scripts/prepare_intellifold_template.py": {
+      "policy": "review",
+      "studio_sha256": "287aaf0fadcd7d21fee274c26204bf07b65bea6efa90235b14d63c34f912fec9"
+    },
+    "scripts/protenix_predict.py": {
+      "policy": "review",
+      "studio_sha256": "52440c6315a6f3c1d0440ea3bca723c9f8181e4daa721c9405cb8ed85878a4ed"
+    },
+    "scripts/intellifold_predict.py": {
+      "policy": "review",
+      "studio_sha256": "731c6f71df0948e9e1294212202f23f0141ea028523e90dec79494dde4716666"
+    }
+  },
+  "studio_owned": [
+    "setup_pipeline.sh",
+    "mcp/",
+    "scripts/secondary_structure_control.py",
+    "scripts/initialization_refinement.py",
+    "scripts/initialization_assessment.py",
+    "examples/monomer_initialization.yaml",
+    "locks/",
+    "scripts/nise/",
+    "scripts/prediction_templates.py"
+  ],
+  "port_provenance": {
+    "scripts/nise/": "scripts/nise/UPSTREAM.json"
+  }
+}

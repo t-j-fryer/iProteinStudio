@@ -110,6 +110,20 @@ struct PredictionRequest: Codable, Hashable {
     var maxParallel: Int = 0
     var batchSize: Int = 0
 
+    /// Imported workspace-owned structure, copied again into each prediction run.
+    var templatePath: String = ""
+    var templateChainIDs: [String] = []
+
+    var hasTemplate: Bool { !templatePath.isEmpty }
+    var commonProteinChainIDs: [String] {
+        guard let first = jobs.first else { return [] }
+        return first.chains.filter { chain in
+            chain.kind == "protein" && jobs.allSatisfy { job in
+                job.chains.contains { $0.id == chain.id && $0.kind == "protein" }
+            }
+        }.map(\.id)
+    }
+
     var jobs: [FoldJob] = []
     /// Fingerprint of the inputs and policies used to build `jobs`. Without it,
     /// editing the form after pressing Read could silently fold the old batch.
@@ -196,6 +210,27 @@ struct PredictionRequest: Codable, Hashable {
 
     var validationIssues: [String] {
         var issues: [String] = []
+        if hasTemplate {
+            if !["pdb", "cif", "mmcif"].contains(URL(fileURLWithPath: templatePath).pathExtension.lowercased())
+                || !FileManager.default.fileExists(atPath: templatePath) {
+                issues.append("Choose an existing PDB, CIF or mmCIF template file.")
+            }
+            if effectivePredictors.contains(where: { !["boltz", "intellifold", "protenix-v2"].contains($0.runnerValue) }) {
+                issues.append("Template guidance supports Boltz-2, IntelliFold and Protenix v2. Deselect other engines or remove the template.")
+            }
+            if templateChainIDs.isEmpty || !Set(templateChainIDs).isSubset(of: Set(commonProteinChainIDs)) {
+                issues.append("Read the sequences and select protein chains to guide that exist in every fold.")
+            }
+            for job in jobs {
+                let groups = Dictionary(grouping: job.chains.filter { $0.kind == "protein" }, by: \.sequence)
+                if groups.values.contains(where: { chains in
+                    Set(chains.map { templateChainIDs.contains($0.id) }).count > 1
+                }) {
+                    issues.append("Identical copies of a protein share template features. Select all copies or leave all unselected.")
+                    break
+                }
+            }
+        }
         if !jobs.isEmpty && !jobsAreCurrent {
             issues.append("The sequences or folding setup changed. Read sequences again before starting.")
         }
@@ -232,6 +267,7 @@ struct PredictionRequest: Codable, Hashable {
     private enum CodingKeys: String, CodingKey {
         case pastedSequences, sequenceFile, pairing, partnerSequence, partnerSmiles
         case binderMSA, partnerMSA, predictors, intellifoldModel, useBoltzPotentials, runAffinityHead
+        case templatePath, templateChainIDs
         case offlineOnly, numberOfSeeds, diffusionSamples, maxParallel, batchSize, jobs, parsedInputSignature
     }
 
@@ -240,6 +276,8 @@ struct PredictionRequest: Codable, Hashable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = PredictionRequest()
+        templatePath = try c.decodeIfPresent(String.self, forKey: .templatePath) ?? d.templatePath
+        templateChainIDs = try c.decodeIfPresent([String].self, forKey: .templateChainIDs) ?? d.templateChainIDs
         pastedSequences   = try c.decodeIfPresent(String.self, forKey: .pastedSequences) ?? d.pastedSequences
         sequenceFile      = try c.decodeIfPresent(String.self, forKey: .sequenceFile) ?? d.sequenceFile
         pairing           = try c.decodeIfPresent(PairingMode.self, forKey: .pairing) ?? d.pairing

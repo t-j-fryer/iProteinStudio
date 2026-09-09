@@ -4,7 +4,7 @@ import Foundation
 // metrics watcher. The production workflow enum lives in RunHistoryStore; this
 // narrow harness defines only the surface needed by the loader.
 enum StudioWorkflow: String, Codable {
-    case iterative, rfdiffusion3, prediction
+    case iterative, nise, rfdiffusion3, prediction
     var label: String { rawValue }
 }
 
@@ -255,6 +255,31 @@ struct IterativeCommandContractHarness {
         expect(value(after: "--lasermpnn-seed", in: arguments(request)) == "1234", "LASErMPNN seed routing failed")
     }
 
+    static func testSecondaryStructureControls() throws {
+        var request = proteinRequest()
+        request.epitopeResidues = ""
+        for strength in [0.0, 0.5, 1.0] {
+            request.helixKill = strength
+            let args = arguments(request)
+            expect(value(after: "--negative-helix-constant", in: args) == String(format: "%.2f", strength),
+                   "initialization helix strength was not emitted")
+            expect(!args.contains("--secondary-bias") && !args.contains("--secondary-bias-scope"),
+                   "retired controls were emitted")
+        }
+        request.helixKill = .nan
+        expect(!request.secondaryStructureControlsValid, "NaN helix strength accepted")
+        request.helixKill = 0.5
+        request.secondaryStructureBias = .beta
+        expect(!request.isRunnable, "retired saved beta configuration was silently changed")
+        request.secondaryStructureBias = .antihelix
+        request.secondaryStructureBiasScope = .seedAndCycles
+        expect(!request.isRunnable, "saved sustained bias was silently changed")
+        request.secondaryStructureBiasScope = .seedOnly
+        expect(request.secondaryStructureCompatibilityError == nil, "initialization-only setting rejected")
+        let restored = try JSONDecoder().decode(DesignRequest.self, from: JSONEncoder().encode(request))
+        expect(restored.helixKill == 0.5, "helix strength did not survive saving")
+    }
+
     static func testOptimizedSchedulerPolicy() throws {
         var request = proteinRequest()
         request.epitopeResidues = ""
@@ -296,6 +321,94 @@ struct IterativeCommandContractHarness {
                "saved Compatibility project was not migrated to optimized scheduling")
         expect(value(after: "--design-scheduler", in: arguments(migrated)) == "resident",
                "migrated saved project did not launch a resident worker")
+    }
+
+    static func testExplicitDesignCheckpoints() throws {
+        var request = proteinRequest()
+        request.epitopeResidues = ""
+        request.numDesigns = 12
+        request.designEngines = [.intellifoldFlash, .intellifoldFull, .openfold3]
+        request.postPredictors = [.intellifold, .boltz]
+        request.intellifoldModel = .v2
+        expect(DesignEngine.choices.contains(.openfold3), "OpenFold-3 was omitted from design choices")
+        expect(request.totalTrajectories == 36, "two IntelliFold checkpoints collapsed into one campaign")
+        expect(request.requiredComponents.contains(.intellifoldFull) && request.requiredComponents.contains(.intellifold)
+               && request.requiredComponents.contains(.openfold3), "explicit checkpoint dependencies were missing")
+        expect(request.usesFullIntelliFold, "full model did not suppress the Flash-based time estimate")
+        for engine in request.selectedDesignEngines {
+            let child = request.forDesignEngine(engine)
+            let args = arguments(child)
+            expect(value(after: "--num-runs", in: args) == "12", "checkpoint did not receive the full budget")
+            expect(value(after: "--predictor", in: args) == engine.predictor.runnerValue, "checkpoint backend changed")
+            expect(value(after: "--design-scheduler", in: args) == "resident", "checkpoint lost resident scheduling")
+            if let model = engine.model {
+                expect(value(after: "--model", in: args) == model.rawValue, "wrong IntelliFold checkpoint selected")
+                expect(!child.effectivePostPredictors.contains(.intellifold), "Flash/Full were treated as independent checkers")
+            } else {
+                expect(value(after: "--model", in: args) == "v2", "independent checker model was changed by design selection")
+            }
+        }
+        let restored = try JSONDecoder().decode(DesignRequest.self, from: JSONEncoder().encode(request))
+        expect(restored.selectedDesignEngines == request.selectedDesignEngines, "Flash/Full selections did not survive saving")
+        request.setDesignEngine(.intellifoldFull, selected: false)
+        expect(request.selectedDesignEngines == [.intellifoldFlash, .openfold3], "removing Full removed Flash or changed the checkpoint")
+        request = proteinRequest()
+        request.designPredictor = .intellifold
+        request.intellifoldModel = .v2
+        let old = try JSONDecoder().decode(DesignRequest.self, from: JSONEncoder().encode(request))
+        expect(old.selectedDesignEngines == [.intellifoldFull], "legacy full-v2 workspace silently migrated to Flash")
+        request.designPredictors = [.boltz, .intellifold]
+        expect(request.selectedDesignEngines == [.boltz, .intellifoldFull], "build-25 checklist lost its full-v2 choice")
+        request.designEngines = [.intellifoldFlash]
+        request.postPredictors = []
+        expect(!request.usesFullIntelliFold && !request.requiredComponents.contains(.intellifoldFull),
+               "a stale checking model overrode explicit Flash selection")
+    }
+
+    static func testDesignEngineChecklist() throws {
+        var request = proteinRequest()
+        request.epitopeResidues = ""
+        request.numDesigns = 12
+        request.numCycles = 5
+        let legacy = try JSONDecoder().decode(DesignRequest.self, from: JSONEncoder().encode(request))
+        expect(legacy.selectedDesignPredictors == [.boltz], "legacy single-engine selection changed")
+        request.designPredictors = [.boltz, .intellifold, .protenixV2]
+        request.postPredictors = [.boltz, .intellifold]
+        expect(request.isRunnable, "valid engine checklist was rejected")
+        expect(request.totalTrajectories == 36 && request.expectedOptimizedDesigns == 180,
+               "trajectory budget was divided between engines")
+        expect(request.expectedStartingStructures == 36, "starting structure total omitted an engine")
+        expect(request.requiredComponents.contains(.protenixV2) && request.requiredComponents.contains(.intellifold),
+               "installation requirements omitted selected engines")
+        var expectedSeconds = 0.0
+        for engine in request.selectedDesignPredictors {
+            let child = request.forDesignEngine(engine)
+            let args = arguments(child)
+            expect(child.selectedDesignPredictors == [engine], "child retained the parent checklist")
+            expect(value(after: "--num-runs", in: args) == "12", "an engine received a partial trajectory budget")
+            expect(value(after: "--num-opt-cycles", in: args) == "5", "cycle settings changed per engine")
+            expect(value(after: "--predictor", in: args) == engine.runnerValue, "engine routing was wrong")
+            expect(value(after: "--design-scheduler", in: args) == (engine == .protenixV2 ? "cycle-wave" : "resident"),
+                   "engine batch changed the measured scheduling policy")
+            expect(!child.effectivePostPredictors.contains { $0.independenceIdentity == engine.independenceIdentity },
+                   "design engine was counted as its own independent checker")
+            expectedSeconds += child.estimatedPredictionSeconds
+        }
+        expect(request.estimatedPredictionSeconds == expectedSeconds, "estimate did not sum all engine campaigns")
+        let restored = try JSONDecoder().decode(DesignRequest.self, from: JSONEncoder().encode(request))
+        expect(restored.selectedDesignPredictors == request.selectedDesignPredictors, "checklist did not persist")
+        request.designPredictors = []
+        expect(!request.isRunnable && request.totalTrajectories == 0, "empty checklist silently fell back to one engine")
+        request.designPredictors = [.boltz, .boltz]
+        expect(request.totalTrajectories == 12, "duplicate saved engine multiplied the budget")
+        request.designPredictors = [.boltz, .alphafold3]
+        expect(!request.isRunnable, "retired selected engine was silently dropped")
+        request.designPredictors = [.boltz, .intellifold]
+        request.targetKind = .ligand
+        request.targetSmiles = "CCOC"
+        request.ligandContactAtoms = ["C1"]
+        request.ligandAtomsGeneratedFor = request.ligandAtomKey
+        expect(!request.isRunnable, "incompatible targeting was checked only for the first engine")
     }
 
     static func testRequestedTrajectoryBudgetIsExact() {
@@ -392,9 +505,13 @@ struct IterativeCommandContractHarness {
             try csv.write(to: directory.appendingPathComponent("post_metrics_row.csv"),
                           atomically: true, encoding: .utf8)
         }
-        await MainActor.run {
+        let watcher = await MainActor.run {
             let watcher = MetricsWatcher()
             watcher.start(root: root, interval: 3600)
+            return watcher
+        }
+        await watcher.waitForRefresh()
+        await MainActor.run {
             expect(watcher.validationPoints.count == 2, "one of two checker results was discarded")
             expect(Set(watcher.validationPoints.map(\.predictor)) == Set(["intellifold", "openfold-3-mlx"]),
                    "checker identity was not retained")
@@ -404,7 +521,34 @@ struct IterativeCommandContractHarness {
         }
     }
 
+    static func testLigandNessoOptions() throws {
+        var request = DesignRequest()
+        request.designEngines = nil
+        request.designPredictors = nil
+        request.targetKind = .ligand
+        request.targetSmiles = "CCO"
+        request.nesso.enabled = true
+        request.nesso.predictor = .intellifold
+        request.nesso.intellifoldModel = .v2
+        expect(request.requiredComponents.contains(.nesso), "ligand screen needs NESSO")
+        expect(request.requiredComponents.contains(.intellifoldFull), "shortlist full IntelliFold needs exact weights")
+        let restored = try JSONDecoder().decode(DesignRequest.self, from: JSONEncoder().encode(request))
+        expect(restored.nesso == request.nesso, "NESSO options must round-trip")
+        request.targetKind = .protein
+        expect(!request.requiredComponents.contains(.nesso), "protein target leaves NESSO dormant")
+        var rfd = RFD3Request()
+        rfd.targetKind = .smallMolecule
+        rfd.nesso = restored.nesso
+        expect(rfd.requiredComponents.contains(.nesso) && rfd.requiredComponents.contains(.intellifoldFull), "RFD3 uses shared shortlist dependencies")
+        expect(!rfd.requiredComponents.contains(.boltz), "NESSO/IntelliFold route does not require Boltz")
+        rfd.nesso.topK = 0
+        expect(rfd.validationIssues.contains { $0.contains("advance from NESSO") }, "invalid shortlist blocks run")
+        let old = try JSONDecoder().decode(DesignRequest.self, from: Data("{}".utf8))
+        expect(!old.nesso.enabled, "old projects must not opt in silently")
+    }
+
     static func main() async throws {
+        try testLigandNessoOptions()
         try testBoltzProteinHotspots()
         try testTargetTemplateModes()
         try testProtenixConstraintPocket()
@@ -412,7 +556,10 @@ struct IterativeCommandContractHarness {
         testPostChecksAndModels()
         testCanonicalCheckers()
         testDesignerSeeds()
+        try testSecondaryStructureControls()
         try testOptimizedSchedulerPolicy()
+        try testExplicitDesignCheckpoints()
+        try testDesignEngineChecklist()
         testRequestedTrajectoryBudgetIsExact()
         testExplicitResumeContract()
         try testDormantHotspotsAreNotPassed()

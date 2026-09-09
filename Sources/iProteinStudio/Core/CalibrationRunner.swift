@@ -15,7 +15,7 @@ final class CalibrationRunner: ObservableObject {
     @Published private(set) var suggestedParallel: Int?
     @Published private(set) var log: [String] = []
 
-    private var runner: ProcessRunner?
+    private let job = ManagedJobSession()
     private var csvURL: URL?
     var isRunning: Bool { phase == .running }
 
@@ -25,9 +25,9 @@ final class CalibrationRunner: ObservableObject {
             phase = .failed("Fill in the target and design settings first."); return
         }
 
-        let dir = projectDir.appendingPathComponent("_calibration_run", isDirectory: true)
-        try? FileManager.default.removeItem(at: dir)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dir = projectDir.appendingPathComponent("calibration-\(UUID().uuidString)", isDirectory: true)
+        do { try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true) }
+        catch { phase = .failed(error.localizedDescription); return }
         let runName = "calibration"
         let templateURL = dir.appendingPathComponent("calibration_template.yaml")
         do { try TemplateWriter.write(request, to: templateURL) }
@@ -43,15 +43,27 @@ final class CalibrationRunner: ObservableObject {
         phase = .running; metrics = []; suggestedParallel = nil; log = []
         appendLog("Calibrating at max: longest binder + target, Boltz (heaviest model)…")
 
-        let runner = ProcessRunner()
-        self.runner = runner
-        runner.launch(executable: AppPaths.runnerScript, arguments: args,
-                      environment: CommandBuilder.environment(), workingDir: AppPaths.pipeline,
-                      onLine: { [weak self] line in self?.handle(line) },
-                      onExit: { [weak self] code in self?.finish(code) })
+        let output = dir.appendingPathComponent(runName)
+        do {
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            let snapshot = try AppPaths.createPipelineSnapshot(in: output)
+            let manifest = StudioRunManifest(projectID: UUID(), projectName: projectDir.lastPathComponent,
+                runName: runName, arguments: args, pipelineSnapshot: snapshot.path, request: request)
+            try JSONEncoder().encode(manifest).write(to: output.appendingPathComponent("studio_run.json"), options: .atomic)
+            job.submit(project: projectDir.lastPathComponent, workflow: "iterative", output: output,
+                       update: { [weak self] state in
+                guard let self else { return }
+                self.log = []
+                for line in state.pipeline_log_tail ?? [] { self.handle(line) }
+                if state.isActive { self.phase = .running }
+                else if state.status == "completed" { self.finish(0) }
+                else if state.status == "cancelled" { self.phase = .idle }
+                else { self.phase = .failed(state.message ?? "Calibration failed. Saved measurements were kept.") }
+            }, failure: { [weak self] in self?.phase = .failed($0) })
+        } catch { phase = .failed("Could not save the calibration launch record: \(error.localizedDescription)") }
     }
 
-    func cancel() { runner?.cancel(); phase = .idle }
+    func cancel() { job.cancel() }
 
     private func handle(_ line: String) {
         appendLog(line)

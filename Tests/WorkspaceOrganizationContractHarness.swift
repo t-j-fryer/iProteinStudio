@@ -9,7 +9,7 @@ struct WorkspaceOrganizationContractHarness {
     }
 
     static func main() throws {
-        expect(WorkspaceMode.allCases == [.iterative, .rfdiffusion, .predict],
+        expect(WorkspaceMode.allCases == [.iterative, .nise, .rfdiffusion, .predict],
                "workspace workflow order changed")
         expect(WorkspaceMode.predict.defaultWorkspaceName == "Untitled Prediction",
                "freeform prediction no longer has a truthful default name")

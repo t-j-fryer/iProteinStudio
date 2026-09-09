@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "target": {
+    "name": "alpha-cobratoxin",
+    "sequence": "IRCFITPDITSKDCPNGHVCYTKTWCDAFCSIRGKRVDLGCAATCPTVKTGVDIQCCSTDNCNPFPTRKRP",
+    "msa_sha256": "377a3af41f6816683c9b06241fafd2e0c2bc6b0129c2f4a78387ad36f75f34cf",
+    "managed_template_sha256": "7de02245f5893ef68c5c0b13309d63be29e8e48cdc34ec8630ba4f574c321628"
+  },
+  "campaign": {
+    "smoke_trajectories": 1,
+    "full_trajectories": 10,
+    "design_cycles": 5,
+    "binder_length": 90,
+    "binder_seed": 155160,
+    "mpnn_seed": 300160,
+    "predictor_seed": 42,
+    "predictor_samples": 1,
+    "hit_threshold": 0.7
+  },
+  "controls": {
+    "anti_helix_strength": 0.5,
+    "beta_strength": 1.0,
+    "beta_pattern_strength": 1.0,
+    "turn_strength": 0.5
+  },
+  "arms": {
+    "beta_seed_only": {
+      "mode": "beta",
+      "scope": "seed-only",
+      "anti_helix_strength": 0.5,
+      "beta_strength": 1.0,
+      "beta_pattern_strength": 1.0,
+      "turn_strength": 0.5
+    },
+    "mixed_seed_only": {
+      "mode": "mixed",
+      "scope": "seed-only",
+      "anti_helix_strength": 0.5,
+      "beta_strength": 1.0,
+      "beta_pattern_strength": 1.0,
+      "turn_strength": 0.5
+    }
+  },
+  "initialization": {
+    "binder_percent_x": 50,
+    "binder_structure": null,
+    "sampling_order": "sample-then-mask",
+    "sampling_algorithm": "complete-sequence-independent-mask-v1"
+  },
+  "hypothesis": "Stronger patterned beta sampling of a complete sequence before a shared independent 50% X mask can increase predicted binder sheet content; compare with and without existing helix-kill seed weights. Later MPNN remains unbiased.",
+  "decision_rule": {
+    "statistical_unit": "trajectory: average cycles01-05, then all10 trajectories per arm",
+    "sheet_mean_at_least": 0.25,
+    "helix_mean_below": 0.4,
+    "require_complete_audited_trajectories": 10,
+    "primary_contrast": "mixed seed-only minus beta seed-only; paired trajectory seeds",
+    "secondary_contrasts": "Historical natural/beta0.5 controls are descriptive because sampler order and strength changed",
+    "smoke_gate": "operational completeness and exact sequence/mask, not structural efficacy",
+    "on_miss": "Report all outcomes without selecting a passing subset or changing this campaign."
+  },
+  "notes": [
+    "90aa binder, bundled unchanged target/MSA, resident Boltz2 and SolubleMPNN, same seeds as earlier comparison.",
+    "Full trajectory001 repeats the smoke seed; smoke is not an additional independent replicate.",
+    "No post-predictions, no supplied binder structure, no MPNN prior, no default promotion.",
+    "New order is opt-in; old mask-first replay behavior retained.",
+    "Beta mode ignores its saved anti_helix_strength default0.5: effective anti pressure is zero; MCP forbids an anti flag in beta mode."
+  ]
+}

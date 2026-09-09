@@ -25,7 +25,7 @@ struct LiveDashboardView: View {
         return (r.targetKind == .ligand && !s.isEmpty) ? s : nil
     }
 
-    private var threshold: Double { app.selectedProject?.request.hitThreshold ?? 0.7 }
+    private var threshold: Double { run.hitThreshold }
     private var designPoints: [DesignPoint] { metrics.designPoints.filter(\.isOptimizedDesign) }
     private var startingStructures: [DesignPoint] { metrics.designPoints.filter(\.isStartingStructure) }
     private var designHits: [DesignPoint] { designPoints.filter { $0.isHit(threshold: threshold) } }
@@ -124,6 +124,7 @@ struct LiveDashboardView: View {
                 if run.isRunning {
                     Button(role: .destructive) { run.cancel() } label: { Label("Stop", systemImage: "stop.fill") }
                         .buttonStyle(.borderedProminent)
+                        .disabled(run.isStopping)
                 } else {
                     Button { metrics.stop(); run.reset() } label: { Label("New Run", systemImage: "arrow.uturn.backward") }
                 }
@@ -133,7 +134,7 @@ struct LiveDashboardView: View {
 
     @ViewBuilder private var statusLabel: some View {
         switch run.phase {
-        case .running:      Label("Running…", systemImage: "circle.fill").foregroundStyle(.green).font(.subheadline)
+        case .running:      Label(run.currentMessage.isEmpty ? "Running…" : run.currentMessage, systemImage: "circle.fill").foregroundStyle(.green).font(.subheadline)
         case .finished:     Label("Finished", systemImage: "checkmark.circle.fill").foregroundStyle(.blue).font(.subheadline)
         case .failed(_):    Label("Needs attention", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.subheadline)
         case .cancelled:    Label("Stopped", systemImage: "stop.circle").foregroundStyle(.secondary).font(.subheadline)

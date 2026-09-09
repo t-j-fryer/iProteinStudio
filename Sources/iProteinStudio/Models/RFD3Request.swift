@@ -486,6 +486,7 @@ struct RFD3Request: Codable, Hashable {
     /// decodes side-chain rotamers alongside the sequence.
     var firstShellTemperature: Double = 1.00
     var verification = RFD3Verification()
+    var nesso = LigandNessoOptions()
 
     init() {}
 
@@ -535,6 +536,9 @@ struct RFD3Request: Codable, Hashable {
         var result: [InstallComponent] = [.rfd3]
         if !(designMode == .partialDiffusion && preservePartialSequence) {
             result.append(sequenceModel.component)
+        }
+        if targetKind == .smallMolecule && nesso.enabled {
+            return Array(Set(result + nesso.requiredComponents)).sorted { $0.rawValue < $1.rawValue }
         }
         for predictor in verification.allPredictors(for: targetKind)
             where !result.contains(predictor.component) {
@@ -602,6 +606,7 @@ struct RFD3Request: Codable, Hashable {
     /// Blocking problems, phrased for someone who has not read the RFD3 docs.
     var validationIssues: [String] {
         var issues: [String] = []
+        if targetKind == .smallMolecule, let error = nesso.validationError { issues.append(error) }
         if minLength < 1 || maxLength < minLength { issues.append("Choose a valid binder-length range.") }
         if numDesigns < 1 { issues.append("Generate at least one backbone.") }
         if numBins < 1 { issues.append("Use at least one length bin.") }
@@ -609,7 +614,7 @@ struct RFD3Request: Codable, Hashable {
             issues.append("Sampling counts must be positive (recycles may be zero).")
         }
         if sequencesPerBackbone < 1 { issues.append("Design at least one sequence per backbone.") }
-        if verification.topN < 1 || verification.topN > totalDesignedSequences {
+        if !(targetKind == .smallMolecule && nesso.enabled) && (verification.topN < 1 || verification.topN > totalDesignedSequences) {
             issues.append("Keep at most \(totalDesignedSequences) designs—the campaign only creates that many sequences.")
         }
         if !explicitLengths.isEmpty && explicitLengths.contains(where: { $0 < 1 }) {
@@ -736,7 +741,7 @@ struct RFD3Request: Codable, Hashable {
         case conditions, originStrategy, surfacePatchResidues, originXYZ
         case minLength, maxLength, numBins, numDesigns, explicitLengths, preferStructured
         case timesteps, recycles, batchSize, queuesPerBin, precision, seedBase
-        case sequencesPerBackbone, verification
+        case sequencesPerBackbone, verification, nesso
         case targetSequence, sequenceModel, sequenceTemperature, firstShellTemperature
         case conformerPlan, ligandIsConjugated, attachmentAtom, attachmentLinkerAtom, searchPDB
     }
@@ -745,6 +750,7 @@ struct RFD3Request: Codable, Hashable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = RFD3Request()
+        nesso = try c.decodeIfPresent(LigandNessoOptions.self, forKey: .nesso) ?? d.nesso
         designMode          = try c.decodeIfPresent(RFD3DesignMode.self, forKey: .designMode) ?? d.designMode
         sourceBinderChain   = try c.decodeIfPresent(String.self, forKey: .sourceBinderChain) ?? d.sourceBinderChain
         partialT            = try c.decodeIfPresent(Double.self, forKey: .partialT) ?? d.partialT

@@ -225,6 +225,8 @@ struct ComponentsView: View {
                     set: { on in
                         if on { selection.insert(component) } else { selection.remove(component) }
                     })).toggleStyle(.checkbox).labelsHidden()
+                    .accessibilityLabel("Install \(component.label)")
+                    .accessibilityHint(component.whatItGivesYou)
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {

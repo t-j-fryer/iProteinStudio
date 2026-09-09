@@ -24,6 +24,9 @@ final class BoltzLigandAtoms: ObservableObject {
     /// so a click on the 2D structure becomes the right name.
     @Published var namesByInputIndex: [String] = []
     @Published var standardized = false
+    @Published var displaySmiles = ""
+    @Published var signature = ""
+    @Published var chemicalStateChanged = false
     @Published var isResolving = false
     @Published var error: String?
     /// The SMILES + affinity setting these names were generated for.
@@ -42,11 +45,12 @@ final class BoltzLigandAtoms: ObservableObject {
         runner = nil
         atoms = []; namesByInputIndex = []; error = nil; generatedFor = ""; standardized = false
         isResolving = false
+        displaySmiles = ""; signature = ""; chemicalStateChanged = false
     }
 
     /// Must run in the Boltz environment: the standardisation step has to be the
     /// one Boltz itself will apply, not a lookalike.
-    func resolve(smiles: String, affinityHead: Bool) {
+    func resolve(smiles: String, affinityHead: Bool, nise: Bool = false) {
         guard !isResolving else { return }
         let trimmed = smiles.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { reset(); return }
@@ -56,9 +60,9 @@ final class BoltzLigandAtoms: ObservableObject {
             error = "Boltz isn't installed, so ligand atom names can't be resolved."
             return
         }
-        AppPaths.stageRFD3Scripts()
+        if !nise { AppPaths.stageRFD3Scripts() }
 
-        let key = "\(trimmed)|\(affinityHead ? 1 : 0)"
+        let key = "\(trimmed)|\(affinityHead ? 1 : 0)" + (nise ? "|nise" : "")
         reset()
         let runID = UUID()
         resolutionID = runID
@@ -69,7 +73,8 @@ final class BoltzLigandAtoms: ObservableObject {
         self.runner = runner
         runner.launch(
             executable: boltz,
-            arguments: [AppPaths.boltzLigandAtomsScript.path, trimmed, affinityHead ? "1" : "0"],
+            arguments: [(nise ? AppPaths.pipeline.appendingPathComponent("scripts/nise/ligand_atoms.py") : AppPaths.boltzLigandAtomsScript).path,
+                        trimmed, affinityHead ? "1" : "0"],
             environment: CommandBuilder.environment(),
             workingDir: AppPaths.support,
             onLine: { [weak self] line in
@@ -95,6 +100,9 @@ final class BoltzLigandAtoms: ObservableObject {
             }
             namesByInputIndex = payload["input_order_names"] as? [String] ?? []
             standardized = payload["standardized"] as? Bool ?? false
+            displaySmiles = payload["display_smiles"] as? String ?? ""
+            signature = payload["signature"] as? String ?? ""
+            chemicalStateChanged = payload["chemical_state_changed"] as? Bool ?? false
             generatedFor = key
             return
         }

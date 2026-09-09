@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SDK="/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk"
+SDK="${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}"
 CACHE="${TMPDIR:-/tmp}/iproteinstudio-process-runner-module-cache"
 BINARY="${TMPDIR:-/tmp}/iproteinstudio-process-runner-contract"
 mkdir -p "${CACHE}"

@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "selection_count": 50,
+  "selection": "50 evenly spaced ranks including endpoints, after deduplicating sequences and sorting original combined score; original trajectory.csv, all sequence-designed phases, exclude initialization cycle00",
+  "seed": 17,
+  "msa": "empty (single sequence); no templates",
+  "ligand": "fluorescein hydroxyethylamide; Boltz-affinity-standardized chemical state shared by both models",
+  "boltz": {"model": "boltz2", "recycling_steps": 3, "sampling_steps": 200, "diffusion_samples": 1, "affinity": true, "use_potentials": true, "pocket_restraint": false},
+  "nesso": {"model": "NESSO-1 v1.0.0-mps-1", "recycling_steps": 5, "refine_protein_inference": true, "precision": "float32", "include_fresh_esm_embeddings": true},
+  "pilot": {"selection_indices": [0, 24, 49], "engine_order": ["boltz", "nesso"]},
+  "full": {"engine_order": ["nesso", "boltz"], "passes": 1, "warmup_requests_per_new_session": 1},
+  "comparison": "native production scoring protocols, not a matched-FLOP or diffusion-step comparison; settings fixed within each model and candidate sequence/seed/ligand identical",
+  "timing": "wall time around resident request to complete receipt; include preprocessing, ESM for NESSO, prediction, affinity and normal output/geometry validation; exclude process startup, first warmup, experiment integrity hashing; no parallel model workers",
+  "ranking": "NESSO P(bind)+(1-entropy_crop_pl), invalid or <=1e-6 entropy excluded; Boltz P(bind)+ligand_pLDDT/100",
+  "limits": "one ligand, related designs, score-range-stratified sample, one timing pass, fixed model order; exploratory agreement, not experimental affinity validation"
+}

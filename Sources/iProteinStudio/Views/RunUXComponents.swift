@@ -115,6 +115,8 @@ struct ActionableErrorCard: View {
     var output: URL?
     var log: [String] = []
     @State private var showDetails = false
+    @State private var showSupport = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -134,9 +136,10 @@ struct ActionableErrorCard: View {
                 }
                 if !log.isEmpty {
                     Button(showDetails ? "Hide technical log" : "Show technical log") {
-                        withAnimation { showDetails.toggle() }
+                        withAnimation(reduceMotion ? nil : .default) { showDetails.toggle() }
                     }
                 }
+                Button("Export support report…") { showSupport = true }
             }
             if showDetails, !log.isEmpty {
                 ScrollView {
@@ -156,6 +159,7 @@ struct ActionableErrorCard: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.orange.opacity(0.25)))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(title). \(message)")
+        .sheet(isPresented: $showSupport) { SupportReportView(message: message, log: log) }
     }
 }
 

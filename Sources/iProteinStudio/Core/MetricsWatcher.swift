@@ -14,9 +14,9 @@ final class MetricsWatcher: ObservableObject {
     @Published private(set) var validationPoints: [DesignPoint] = []
 
     private var timer: Timer?
-    private var seen = Set<String>()
     private var root: URL?
-    private var designPredictor = "unknown"
+    private var scanTask: Task<Void, Never>?
+    private var generation = UUID()
 
     /// Distinct design-run numbers seen so far, ascending.
     var runNumbers: [Int] { Array(Set(designPoints.map(\.run))).sorted() }
@@ -27,15 +27,14 @@ final class MetricsWatcher: ObservableObject {
         self.root = root
         self.designPoints = []
         self.validationPoints = []
-        self.seen = []
-        self.designPredictor = recordedDesignPredictor(at: root) ?? "unknown"
         scan()
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.scan() }
         }
     }
 
-    func stop() { timer?.invalidate(); timer = nil }
+    func stop() { timer?.invalidate(); timer = nil; scanTask?.cancel(); scanTask = nil; generation = UUID() }
+    func waitForRefresh() async { await scanTask?.value }
     func refresh() { scan() }
 
     /// Design points for a given run, ordered by cycle.
@@ -44,7 +43,38 @@ final class MetricsWatcher: ObservableObject {
     }
 
     private func scan() {
-        guard let root else { return }
+        guard let root, scanTask == nil else { return }
+        let generation = self.generation
+        scanTask = Task {
+            let snapshot = await Task.detached(priority: .utility) {
+                let reader = MetricsScan()
+                reader.scan(root: root)
+                return (reader.designPoints, reader.validationPoints)
+            }.value
+            guard !Task.isCancelled, generation == self.generation else { return }
+            // Keep already observed checkpoints through a partial file write,
+            // while allowing a completed row to replace an earlier observation.
+            func merged(_ old: [DesignPoint], _ new: [DesignPoint]) -> [DesignPoint] {
+                var byKey: [String: DesignPoint] = [:]
+                for point in old + new {
+                    byKey["\(point.stage.rawValue)|\(point.predictor)|\(point.run)|\(point.cycle)"] = point
+                }
+                return byKey.values.sorted { ($0.run, $0.cycle, $0.predictor) < ($1.run, $1.cycle, $1.predictor) }
+            }
+            designPoints = merged(designPoints, snapshot.0)
+            validationPoints = merged(validationPoints, snapshot.1)
+            scanTask = nil
+        }
+    }
+}
+
+private final class MetricsScan {
+    var designPoints: [DesignPoint] = []
+    var validationPoints: [DesignPoint] = []
+    private var seen = Set<String>()
+    private var designPredictor = "unknown"
+    func scan(root: URL) {
+        designPredictor = recordedDesignPredictor(at: root) ?? "unknown"
         let fm = FileManager.default
         guard let runDirs = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return }
         var addedDesign = false, addedVal = false

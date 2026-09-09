@@ -10,6 +10,8 @@ from .common import StudioError, csv_rows, load_json, process_alive, project_roo
 
 
 KNOWN_RESULTS = (
+    "nesso_verification/nesso_screening.csv",
+    "trajectory.csv",
     "predictions.csv",
     "comparison_scores_long.csv",
     "summary_all_runs.csv",
@@ -47,6 +49,8 @@ def _result_context(dataset: str, row: Dict[str, str]) -> Optional[str]:
     explicit = str(row.get("prediction_context", "")).strip()
     if explicit:
         return explicit
+    if dataset == "trajectory.csv":
+        return "design_complex"
     if dataset == "rfd3/backbone_metrics.csv":
         return "generated_backbone"
     if dataset == "analysis/rmsd_metrics.csv":
@@ -67,6 +71,8 @@ def _result_predictor(dataset: str, row: Dict[str, str]) -> Optional[str]:
     explicit = str(row.get("predictor", "")).strip()
     if explicit:
         return explicit
+    if dataset == "trajectory.csv":
+        return "boltz"
     if dataset == "rfd3/backbone_metrics.csv":
         return "rfd3-mlx"
     evidence = " ".join(str(value) for value in row.values()).lower()
@@ -131,6 +137,8 @@ def detect_engines() -> Dict[str, Any]:
 
 
 def classify_run(path: Path) -> Optional[str]:
+    if (path / "nise_config.json").is_file():
+        return "nise"
     if (path / "prediction_config.json").exists() or (path / "predictions.csv").exists():
         return "prediction"
     if (path / "config" / "campaign.json").exists() or (path / "campaign_progress.json").exists():
@@ -143,7 +151,7 @@ def classify_run(path: Path) -> Optional[str]:
 def run_record(path: Path, project: str) -> Dict[str, Any]:
     workflow = classify_run(path) or "unknown"
     manifest = {}
-    for relative in ("studio_run.json", "run_summary.json", "campaign_progress.json"):
+    for relative in ("studio_run.json", "run_summary.json", "campaign_progress.json", "summary.json", "progress.json"):
         candidate = path / relative
         if candidate.is_file():
             try:
@@ -457,6 +465,16 @@ def _iterative_overview(root: Path, limit: int) -> Dict[str, Any]:
                 "is_hit": _verdict(verdicts), "failed_filters": failed,
                 "artifacts": artifacts,
             }
+            report_path = root / f"run_{run_number:03d}/cycle_{cycle:02d}/pred_min/geometry_report.json"
+            report_reference = _run_artifact_reference(root, report_path)
+            if report_reference:
+                report = load_json(root / report_reference)
+                variant["geometry_diagnostics"] = {
+                    "path": report_reference,
+                    "policy": report.get("policy"),
+                    "violation_count": report.get("violation_count"),
+                    "error_count": report.get("error_count"),
+                }
             variants.append(variant)
             design = next((item for item in artifacts if item["role"] in {
                 "starting_structure", "designed_complex"
@@ -608,6 +626,38 @@ def _rfd3_overview(root: Path, limit: int) -> Dict[str, Any]:
     }
 
 
+def _nise_overview(root, limit):
+    groups = {}
+    count = 0
+    checks = {r["name"]: r for r in load_json(root / "preorg.json").get("ranked", [])} if (root / "preorg.json").is_file() else {}
+    truncated = False
+    for path in sorted((root / "candidates").glob("*.json")):
+        if count >= max(1, min(limit, 500)):
+            truncated = True
+            break
+        row = load_json(path)
+        structure = _run_artifact_reference(root, row.get("pdb"))
+        if structure is None:
+            continue
+        tid = row.get("trajectory")
+        key = f"trajectory-{tid}" if tid is not None else "broad-search"
+        group = groups.setdefault(key, {"id": key, "title": f"Trajectory {tid + 1}" if tid is not None else "Broad search", "variants": [], "is_hit": None})
+        artifacts = [{"role": "designed_complex", "path": structure, "predictor": "boltz"}]
+        check = checks.get(row["name"])
+        if check:
+            apo = _run_artifact_reference(root, check.get("apo_pdb"))
+            if apo:
+                artifacts.append({"role": "binder_alone", "path": apo, "predictor": "boltz", "metrics": {k: v for k, v in check.items() if k not in {"apo_pdb", "holo_pdb"}}})
+        group["variants"].append({"id": row["name"], "cycle": row["cycle"], "is_hit": None,
+            "passed_self_consistency": row["passed"], "sequence": row["sequence"],
+            "nesso_screening_scores": row.get("nesso"),
+            "metrics": {k: row.get(k) for k in ("ligand_plddt", "pbind", "score", "ca_rmsd", "ligand_rmsd")}, "artifacts": artifacts})
+        count += 1
+    return {"organization": "trajectory → cycle/candidate → holo/apo artifacts", "groups": list(groups.values()),
+            "candidate_limit": limit, "returned_candidates": count, "truncated": truncated,
+            "note": "Self-consistency is a search filter, not an independently validated binding hit. Preorganisation reranks only the final apo-tested shortlist."}
+
+
 def results_overview(run_id: str, hit_only: bool = False, limit: int = 100) -> Dict[str, Any]:
     """Return the same scientific hierarchy presented by the native app.
 
@@ -617,7 +667,9 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100) -> D
     """
     root = resolve_run(run_id)
     workflow = classify_run(root)
-    if workflow == "iterative":
+    if workflow == "nise":
+        result = _nise_overview(root, limit)
+    elif workflow == "iterative":
         result = _iterative_overview(root, limit)
     elif workflow == "rfdiffusion3":
         result = _rfd3_overview(root, limit)
@@ -635,7 +687,7 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100) -> D
         "workflow": workflow,
         **result,
         "groups": groups,
-        "truncated": len(groups) >= limit,
+        "truncated": result.get("truncated", len(groups) >= limit),
         "next_step": (
             "Use results_query with one of run_status.result_files for raw rows and score distributions. "
             "Treat derivative/cycle verdicts as authoritative; never promote a parent merely because one artifact looks plausible."
@@ -649,6 +701,19 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
     This deliberately lives in the MCP server rather than only in a Codex or
     Claude skill: desktop clients receive the same scientific routing rules.
     """
+    if workflow == "nise":
+        return {"workflow": "nise", "tool": "nise_plan", "designer": "lasermpnn", "predictor": "boltz",
+                "objective": "ligand_pLDDT/100 + affinity_probability_binary; missing affinity fails",
+                "order": ["system_detect", "nise_plan", "job_start with plan digest", "job_status", "results_overview", "results_query"],
+                "scope": "Small molecules only. Apo preorganisation is an optional final shortlist analysis.",
+                "stages": {"initial_backbones": ["backbone_method", "rfd3_num_bins", "num_starts", "binder_min_len", "binder_max_len", "phase0_refine_cycles", "phase0_seqs1", "phase0_gate_seqs", "phase0_seqs2", "phase0_sc_ca", "phase0_nesso_screen", "phase0_nesso_refine_top_k", "phase0_nesso_expand_top_k"],
+                           "optimization": ["trajectories", "nise_seqs", "beam", "max_cycles", "patience", "nesso_screen", "nesso_top_k", "nise_sc_ca", "nise_sc_lig", "nise_ligand_sc_from_cycle"]},
+                "initial_generator": "Choose protein-hunter (default X-token hallucination) or rfdiffusion3 (experimental). Total starts default to 100. RFdiffusion3 shares starts across length groups, then uses the same NISE funnel; it never substitutes hallucination on failure.",
+                "advancement": "nise_seqs is sampled per parent; beam is the maximum Boltz-passing sequences advanced per trajectory. Trajectories never pool candidates.",
+                "nesso": "Independent optional initial and optimization screens. Initial refinement folds phase0_nesso_refine_top_k per lineage (default 1); the gate remains unscreened; expansion scores all derivatives, selects max one per original lineage and folds phase0_nesso_expand_top_k total (default 20). Boltz still performs all atom/structural checks and final ranking; NESSO exposes no ligand pLDDT. nesso_top_k is a per-trajectory shortlist, pooled across that trajectory's parents. Rank by NESSO P(bind) + (1 - entropy_crop_pl), with deterministic name ties. Require finite pocket-cropped protein-ligand entropy in (0.000001, 1]; reject invalid placements before shortlist caps. Full entropy is diagnostic only. All scores and rejections are saved; no fallback. Accuracy for designed binders is unvalidated.",
+                "scheduling": "One exclusive GPU owner; within-cycle model reuse by default; cross-cycle resident structure and affinity models are experimental pending ligand throughput validation.",
+                "resume": "Replay audited sequence/prediction operations from Phase 0; never resample completed sequences.",
+                "smoke": "Use a bounded trial before a large campaign. Keep raw outputs and record validation in both Lab Books."}
     common = {
         "execution_contract": [
             "Call system_detect; never infer installation state from tool availability.",
@@ -726,9 +791,10 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
             "defaults": {"target_template_mode": "guide"},
             "rules": [
                 "Use the MCP plan rather than assembling the runner command; Studio injects the measured resident/cycle-wave scheduler.",
-                "Require the target MSA for design campaigns and use an orthogonal predictor for final checking when requested.",
+                "Require target MSAs when target protein chains are present, and use an orthogonal predictor for final checking when requested. Unconditioned monomer initialization has no target MSA.",
                 "When the user supplies a trusted target PDB/CIF, pass it as target_template_path. Guide mode works with Boltz-2, Protenix v2, and IntelliFold v2 Flash/full. Do not request strong coordinate restraint; it is disabled after Apple-GPU acceptance failures.",
                 "The target template applies only to target chains during design cycles. Never template binder A or independent complex/binder-alone validation folds.",
+                "Secondary-structure control is initialization-only helix kill: --negative-helix-constant accepts a finite strength from 0 to 1, with 0 disabled. Later MPNN cycles use normal sampling. Beta, mixed, sustained, loop-kill and inspection controls are retired.",
                 "Review results as run -> ordered cycles. Each cycle keeps its design structure, independent complex reprediction, binder-alone fold, scores, and saved filter verdict together.",
                 "The GUI trajectory contains only cycle design-stage structures, ordered from cycle 00, and rigidly aligns later frames to matching target-chain C-alpha atoms (chains B onward). Do not mix validation folds into that optimization trajectory.",
             ],

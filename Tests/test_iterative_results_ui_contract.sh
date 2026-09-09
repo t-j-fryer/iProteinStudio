@@ -47,7 +47,7 @@ rg -q 'savedHitVerdict: boolean' "${WATCHER}" \
   || fail "live Hits tab is not using the saved multi-filter verdict"
 ! rg -q 'selection: \$request\.speedMode|SpeedMode\.allCases|accessibilityLabel\("Scheduling mode"\)' "${FORM}" \
   || fail "iterative scheduling is still exposed as an Advanced form preference"
-rg -q 'Automatic scheduling: one resident predictor stays loaded' "${FORM}" \
+rg -q 'one resident predictor loaded across their campaign' "${FORM}" \
   || fail "the main run form does not explain automatic model residency"
 rg -q 'Protenix v2 is loaded once per cycle' "${FORM}" \
   || fail "the main run form does not explain Protenix v2's measured exception"

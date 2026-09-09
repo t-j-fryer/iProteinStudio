@@ -102,6 +102,57 @@ enum TargetKind: String, CaseIterable, Codable, Identifiable, Hashable {
     var label: String { self == .protein ? "Protein" : "Ligand (SMILES)" }
 }
 
+/// Experimental sequence priors for de-novo binders. These affect cycle-0
+/// sampling and ProteinMPNN-family redesign logits; they do not guarantee the
+/// secondary structure produced by a structure predictor.
+enum SecondaryStructureBias: String, CaseIterable, Codable, Identifiable, Hashable {
+    case none
+    case antihelix
+    case beta
+    case mixed
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .none:      return "Natural diversity"
+        case .antihelix: return "Reduce α-helix"
+        case .beta:      return "Encourage β-rich"
+        case .mixed:     return "β-rich + reduce α-helix"
+        }
+    }
+    var blurb: String {
+        switch self {
+        case .none:
+            return "No secondary-structure sequence prior."
+        case .antihelix:
+            return "Downweights helix-prone residue patterns without assuming that coil is β-sheet."
+        case .beta:
+            return "Uses short strand blocks, noisy alternating faces, solvent-friendly edges, and localized turns."
+        case .mixed:
+            return "Combines the β-oriented grammar with moderate α-helix suppression."
+        }
+    }
+}
+
+enum SecondaryStructureBiasScope: String, CaseIterable, Codable, Identifiable, Hashable {
+    case seedOnly
+    case seedAndCycles
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .seedOnly:      return "Starting sequence only"
+        case .seedAndCycles: return "Starting sequence + MPNN cycles"
+        }
+    }
+    var cliValue: String {
+        switch self {
+        case .seedOnly:      return "seed-only"
+        case .seedAndCycles: return "seed-and-cycles"
+        }
+    }
+}
+
 /// Structural conditioning applied to the target during design cycles only.
 /// Independent post-prediction is intentionally always blind to this setting.
 enum TargetTemplateMode: String, CaseIterable, Codable, Identifiable, Hashable {
@@ -137,6 +188,14 @@ struct CDRSelection: Codable, Equatable, Hashable {
     }
 }
 
+/// A frozen framework selection; catalog updates cannot alter saved sequences.
+struct NanobodyScaffoldAllocation: Codable, Hashable, Identifiable {
+    var id: String
+    var name: String
+    var sequence: String
+    var trajectories: Int
+}
+
 /// Everything the user specifies for a design campaign.
 struct DesignRequest: Codable, Equatable, Hashable {
     var designType: DesignType = .nanobody
@@ -144,14 +203,80 @@ struct DesignRequest: Codable, Equatable, Hashable {
     // Nanobody (scaffold) fields
     var scaffoldID: String = "7xl0_vobarilizumab"
     var scaffoldSequence: String = ""
+    /// nil retains the historical single-scaffold request; [] is deliberately invalid.
+    var scaffoldSelections: [NanobodyScaffoldAllocation]? = nil
+    var equalScaffoldBudgets = true
+
+    var allocatedScaffolds: [NanobodyScaffoldAllocation] {
+        var selected = scaffoldSelections ?? [.init(id: scaffoldID, name: scaffoldID,
+                                                   sequence: scaffoldSequence, trajectories: numDesigns)]
+        if equalScaffoldBudgets && !selected.isEmpty {
+            for i in selected.indices {
+                selected[i].trajectories = numDesigns / selected.count + (i < numDesigns % selected.count ? 1 : 0)
+            }
+        }
+        return selected
+    }
+
+    mutating func setEqualScaffoldBudgets(_ equal: Bool) {
+        scaffoldSelections = allocatedScaffolds
+        equalScaffoldBudgets = equal
+    }
+
+    mutating func setScaffold(id: String, name: String, sequence: String, selected: Bool) {
+        var values = allocatedScaffolds
+        if selected && !values.contains(where: { $0.id == id }) {
+            values.append(.init(id: id, name: name, sequence: sequence,
+                                trajectories: max(1, numDesigns / (values.count + 1))))
+        } else if !selected { values.removeAll { $0.id == id } }
+        scaffoldSelections = values
+        if equalScaffoldBudgets { numDesigns = max(numDesigns, values.count) }
+        else { numDesigns = values.reduce(0) { $0 + $1.trajectories } }
+    }
+
+    mutating func setScaffoldBudget(id: String, trajectories: Int) {
+        var values = allocatedScaffolds
+        guard let index = values.firstIndex(where: { $0.id == id }) else { return }
+        values[index].trajectories = trajectories
+        scaffoldSelections = values
+        equalScaffoldBudgets = false
+        numDesigns = values.reduce(0) { $0 + $1.trajectories }
+    }
+
+    func forScaffold(_ scaffold: NanobodyScaffoldAllocation) -> DesignRequest {
+        var child = self
+        child.scaffoldSelections = nil
+        child.equalScaffoldBudgets = true
+        child.scaffoldID = scaffold.id
+        child.scaffoldSequence = scaffold.sequence
+        child.numDesigns = scaffold.trajectories
+        return child
+    }
+
+    /// Engine-major order keeps each engine's scaffold campaigns adjacent.
+    var campaignRequests: [(label: String, request: DesignRequest)] {
+        selectedDesignEngines.flatMap { engine in
+            let child = forDesignEngine(engine)
+            if designType == .nanobody {
+                return allocatedScaffolds.map { (label: "\(engine.label) · \($0.name)", request: child.forScaffold($0)) }
+            }
+            return [(label: engine.label, request: child)]
+        }
+    }
     var cdrs = CDRSelection()
 
     // De-novo (mini-binder / peptide) length range
     var binderMinLen: Int = 60
     var binderMaxLen: Int = 120
-    /// Helix-kill strength for de-novo binders (0 = off, 1 = max). Biases the
-    /// cycle-0 seed away from helix-prone residues. Ignored for nanobodies.
+    /// Legacy fields are retained to identify saved experimental configurations.
+    /// The only active control is initialization-only `helixKill`, which
+    /// retains its saved-project key as the anti-helix strength.
+    var secondaryStructureBias: SecondaryStructureBias = .none
+    var secondaryStructureBiasScope: SecondaryStructureBiasScope = .seedOnly
     var helixKill: Double = 0
+    var betaBiasStrength: Double = 0.5
+    var betaPatternStrength: Double = 0.5
+    var turnLocalizationStrength: Double = 0.5
 
     // Target
     var targetKind: TargetKind = .protein
@@ -210,13 +335,67 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Structure predictor that drives the design loop. Boltz-2 is 3.4x cheaper
     /// per proposal than the slowest alternative and needs only one process.
     var designPredictor: Predictor = .boltz
+    /// nil preserves historical single-engine requests; an empty checklist is invalid.
+    var designPredictors: [Predictor]? = nil
+
+    /// Explicit checkpoint choices. nil reads the previous backend/model fields.
+    var designEngines: [DesignEngine]? = nil
+
+    var selectedDesignEngines: [DesignEngine] {
+        let stored = designEngines ?? (designPredictors ?? [designPredictor]).map {
+            DesignEngine(predictor: $0, model: intellifoldModel)
+        }
+        return stored.reduce(into: []) { result, engine in
+            if !result.contains(engine) { result.append(engine) }
+        }
+    }
+    /// Backend union for independent-check eligibility and shared settings.
+    var selectedDesignPredictors: [Predictor] {
+        selectedDesignEngines.map(\.predictor).reduce(into: []) {
+            if !$0.contains($1) { $0.append($1) }
+        }
+    }
+    var designEngineSummary: String { selectedDesignEngines.map(\.label).joined(separator: ", ") }
+    var totalTrajectories: Int {
+        if designType == .nanobody && allocatedScaffolds.isEmpty { return 0 }
+        return max(0, numDesigns) * selectedDesignEngines.count
+    }
+
+    /// Every engine receives the same user settings and its own explicit checkpoint.
+    func forDesignEngine(_ engine: DesignEngine) -> DesignRequest {
+        var child = self
+        child.designEngines = nil
+        child.designPredictors = nil
+        child.designPredictor = engine.predictor
+        if let model = engine.model { child.intellifoldModel = model }
+        return child
+    }
+
+    /// Compatibility for callers that still specify a backend plus shared model.
+    func forDesignEngine(_ predictor: Predictor) -> DesignRequest {
+        forDesignEngine(DesignEngine(predictor: predictor, model: intellifoldModel))
+    }
+
+    mutating func setDesignEngine(_ engine: DesignEngine, selected: Bool) {
+        var engines = selectedDesignEngines.filter { $0 != engine }
+        if selected { engines.append(engine) }
+        designEngines = DesignEngine.choices.filter { engines.contains($0) }
+            + engines.filter { !DesignEngine.choices.contains($0) }
+        if let first = designEngines?.first { designPredictor = first.predictor }
+        reconcilePredictors()
+    }
+
+    var usesFullIntelliFold: Bool {
+        selectedDesignEngines.contains(.intellifoldFull)
+            || (intellifoldModel == .v2 && effectivePostPredictors.contains(.intellifold))
+    }
     /// Orthogonal predictors that re-fold final designs after the loop. This is the
     /// number that should drive selection: the design predictor's own iPTM is
     /// self-scored, because the loop optimises against it.
     var postPredictors: [Predictor] = [.intellifold]
-    /// Shared architecture choice whenever an IntelliFold engine is selected.
-    /// Optional so projects saved before this control existed still decode;
-    /// nil has the validated v2-flash meaning.
+    /// Architecture for independent IntelliFold checks. Individual campaign
+    /// records also use this field for their runner's explicit --model flag.
+    /// Older workspaces used it for design as well; nil retains v2-flash.
     var intellifoldModel: IntelliFoldModel? = .v2flash
     /// Only hits at or above `hitThreshold` are post-predicted, which is what
     /// keeps an orthogonal check affordable.
@@ -232,6 +411,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Saved, tunable verdict thresholds. The post-predictor remains the score
     /// source; the design engine's self-score is never substituted here.
     var postFilters = RFD3HitFilters()
+    var nesso = LigandNessoOptions()
     /// GUI campaigns always use the measured engine-specific scheduler policy.
     /// The stored field remains solely so older project JSON continues to
     /// decode; decoding migrates historical Compatibility values to Optimized.
@@ -334,18 +514,18 @@ struct DesignRequest: Codable, Equatable, Hashable {
         return postPredictors.compactMap { raw in
             let predictor = raw.checkingVariant
             guard predictor.isAvailable, predictor.canPostCheck,
-                  predictor.independenceIdentity != designPredictor.independenceIdentity,
+                  selectedDesignPredictors.contains(where: { $0.independenceIdentity != predictor.independenceIdentity }),
                   seen.insert(predictor.independenceIdentity).inserted else { return nil }
             return predictor
         }
     }
 
     var usesIntelliFold: Bool {
-        ([designPredictor] + effectivePostPredictors).contains { $0 == .intellifold }
+        (selectedDesignPredictors + effectivePostPredictors).contains { $0 == .intellifold }
     }
 
     var usesBoltzAnywhere: Bool {
-        usesBoltzDesignEngine || effectivePostPredictors.contains { $0.runnerValue == Predictor.boltz.runnerValue }
+        selectedDesignPredictors.contains { $0.runnerValue == Predictor.boltz.runnerValue } || effectivePostPredictors.contains { $0.runnerValue == Predictor.boltz.runnerValue }
     }
 
     var epitopeTokenResult: (tokens: [String], invalid: [String]) {
@@ -390,9 +570,17 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     /// Every backend this run needs installed before it can start.
     var requiredComponents: [InstallComponent] {
+        if designEngines != nil || designPredictors != nil {
+            return selectedDesignEngines.flatMap { forDesignEngine($0).requiredComponents }
+                .reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
+        }
         var set: [InstallComponent] = [designPredictor.component]
         for p in effectivePostPredictors where !set.contains(p.component) { set.append(p.component) }
+        if usesIntelliFold && intellifoldModel == .v2 { set.append(.intellifoldFull) }
         if !set.contains(designer.component) { set.append(designer.component) }
+        if targetKind == .ligand {
+            for component in nesso.requiredComponents where !set.contains(component) { set.append(component) }
+        }
         return set
     }
 
@@ -403,6 +591,9 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// post-check, but excludes MSA generation and inverse folding; the UI names
     /// both qualifications instead of presenting it as a strict bound.
     var estimatedPredictionSeconds: Double {
+        if designEngines != nil || designPredictors != nil {
+            return selectedDesignEngines.reduce(0) { $0 + forDesignEngine($1).estimatedPredictionSeconds }
+        }
         // The runner predicts cycle_00 before the requested optimisation
         // cycles, so five optimisation cycles means six folds per design.
         let cyclesIncludingSeed = max(0, numCycles) + 1
@@ -424,26 +615,72 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// One independent trajectory yields one optimized structure per design
     /// cycle. Cycle 00 is a starting structure and is never counted as a design.
     var expectedOptimizedDesigns: Int {
-        max(1, numDesigns) * max(0, numCycles)
+        totalTrajectories * max(0, numCycles)
     }
 
-    var expectedStartingStructures: Int { max(1, numDesigns) }
+    var expectedStartingStructures: Int { totalTrajectories }
 
-    var isRunnable: Bool {
-        let targetOK = targetKind == .protein ? targetSequenceError == nil : !targetSmiles.isEmpty
-        guard targetOK, designPredictor.isAvailable,
-              !hasInvalidEpitopeResidues, !hasIncompatibleTargeting else { return false }
-        if targetKind == .ligand && ligandIsConjugated &&
-            (ligandAttachmentAtom == nil || ligandAttachmentLinkerAtom == nil) {
-            return false
-        }
-        switch designType {
-        case .nanobody:
-            return !scaffoldSequence.isEmpty && !cdrs.isEmpty
-        case .minibinder, .peptide:
-            return binderMinLen >= 1 && binderMaxLen >= binderMinLen
-        }
+    var secondaryStructureControlsValid: Bool {
+        [helixKill]
+            .allSatisfy { (0.0...1.0).contains($0) }
     }
+
+    var secondaryStructureCompatibilityError: String? {
+        if secondaryStructureBias == .beta || secondaryStructureBias == .mixed ||
+            (secondaryStructureBias != .none && secondaryStructureBiasScope == .seedAndCycles) {
+            return "This saved configuration uses retired secondary-structure controls. Choose initialization-only helix kill to continue."
+        }
+        return nil
+    }
+
+    var validationIssues: [DesignValidationIssue] {
+        if designEngines != nil || designPredictors != nil {
+            guard !selectedDesignPredictors.isEmpty else {
+                return [.init(field: "models", message: "Select at least one design engine.")]
+            }
+            return selectedDesignEngines.flatMap { engine in
+                forDesignEngine(engine).validationIssues.map {
+                    DesignValidationIssue(field: $0.field, message: "\(engine.label): \($0.message)")
+                }
+            }
+        }
+        var issues: [DesignValidationIssue] = []
+        func add(_ field: String, _ message: String) { issues.append(.init(field: field, message: message)) }
+        if targetKind == .protein, let error = targetSequenceError { add("target", error) }
+        if targetKind == .ligand && targetSmiles.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            add("target", "Add a ligand SMILES to continue.")
+        }
+        if targetKind == .ligand, let error = nesso.validationError { add("nesso", error) }
+        if numDesigns < 1 || numCycles < 1 { add("run", "Choose at least one trajectory per engine and one optimization cycle.") }
+        if !designPredictor.isAvailable { add("models", "\(designPredictor.label) is retired after failing Apple-GPU quality control. Choose a supported design engine.") }
+        if hasInvalidEpitopeResidues { add("target", "Fix the hotspot residue list before starting.") }
+        if hasIncompatibleTargeting {
+            add("target", targetTemplateCompatibilityError ?? "The selected targeting restraint is incompatible with this engine. Review the target and model settings.")
+        }
+        if targetKind == .ligand && ligandIsConjugated && (ligandAttachmentAtom == nil || ligandAttachmentLinkerAtom == nil) {
+            add("target", "Choose both ends of the core-to-linker bond, or mark the molecule as free.")
+        }
+        if ligandAtomsStale { add("target", "Reload the ligand atoms; the saved names were generated for different settings.") }
+        if designType == .nanobody {
+            let allocations = allocatedScaffolds
+            if allocations.isEmpty { add("binder", "Select at least one nanobody scaffold.") }
+            if Set(allocations.map(\.id)).count != allocations.count { add("binder", "Each scaffold may be selected only once.") }
+            if allocations.contains(where: { $0.id.isEmpty || $0.sequence.isEmpty || !Set($0.sequence).isSubset(of: Set("ACDEFGHIKLMNPQRSTVWY")) }) {
+                add("binder", "Every selected scaffold needs its saved amino-acid sequence.")
+            }
+            if allocations.contains(where: { $0.trajectories < 1 || $0.trajectories > 10_000 }) || allocations.reduce(0, { $0 + $1.trajectories }) != numDesigns {
+                add("binder", "Allocate at least one trajectory to every selected scaffold; allocations must match the total.")
+            }
+            if cdrs.isEmpty { add("binder", "Select at least one CDR to design.") }
+        } else {
+            if binderMinLen < 1 || binderMaxLen < binderMinLen { add("binder", "Set a positive binder length with the maximum at least as large as the minimum.") }
+            if !secondaryStructureControlsValid { add("binder", "Secondary-structure strengths must be between 0 and 100%.") }
+            if let error = secondaryStructureCompatibilityError { add("binder", error) }
+        }
+        return issues
+    }
+
+    var isRunnable: Bool { validationIssues.isEmpty }
 
     /// Clamp the designer to a valid choice for the current type/target.
     mutating func reconcileDesigner() {
@@ -454,6 +691,11 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// saved but dormant under non-Boltz drivers; atom-specific ligand pockets
     /// remain a hard Boltz requirement because they define the ligand campaign.
     mutating func reconcilePredictors() {
+        if designEngines != nil || designPredictors != nil {
+            // Keep selected checkers even when the checklist is temporarily empty.
+            if !selectedDesignPredictors.isEmpty { postPredictors = effectivePostPredictors }
+            return
+        }
         if targetKind == .ligand && !ligandContactAtoms.isEmpty && !usesBoltzDesignEngine {
             let previousDesign = designPredictor.checkingVariant
             designPredictor = ligandContactForce ? .boltzPotentials : .boltz
@@ -468,6 +710,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// validation. The former driver becomes a checker when it is a different
     /// backend; a Boltz/potentials variant change remains the same backend.
     mutating func selectDesignPredictor(_ newPredictor: Predictor) {
+        designEngines = nil
+        designPredictors = nil
         let previous = designPredictor.checkingVariant
         designPredictor = newPredictor
         if previous.canPostCheck && previous.independenceIdentity != newPredictor.independenceIdentity {
@@ -500,12 +744,14 @@ struct DesignRequest: Codable, Equatable, Hashable {
     init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case designType, scaffoldID, scaffoldSequence, cdrs, binderMinLen, binderMaxLen, helixKill
+        case designType, scaffoldID, scaffoldSequence, scaffoldSelections, equalScaffoldBudgets, cdrs, binderMinLen, binderMaxLen, helixKill
+        case secondaryStructureBias, secondaryStructureBiasScope
+        case betaBiasStrength, betaPatternStrength, turnLocalizationStrength
         case targetKind, targetName, targetSequence, targetSmiles, epitopeResidues
         case targetTemplatePath, targetTemplateMode, targetTemplateThreshold
         case designer, numDesigns, numCycles, hitThreshold, parallelMode, manualParallel
-        case designPredictor, postPredictors, intellifoldModel, postOnlyHits, postCheckScope
-        case postRunBinderAlone, postFilters
+        case designPredictor, designPredictors, designEngines, postPredictors, intellifoldModel, postOnlyHits, postCheckScope
+        case postRunBinderAlone, postFilters, nesso
         case speedMode, resumeIfPossible
         case mpnnTempCycle1, mpnnTempLater, lasermpnnSeqTemp, lasermpnnFirstShellTemp
         case ligandContactAtoms, ligandContactDistance, ligandContactForce
@@ -518,13 +764,25 @@ struct DesignRequest: Codable, Equatable, Hashable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = DesignRequest()
+        nesso = try c.decodeIfPresent(LigandNessoOptions.self, forKey: .nesso) ?? d.nesso
         designType      = try c.decodeIfPresent(DesignType.self, forKey: .designType) ?? d.designType
         scaffoldID      = try c.decodeIfPresent(String.self, forKey: .scaffoldID) ?? d.scaffoldID
         scaffoldSequence = try c.decodeIfPresent(String.self, forKey: .scaffoldSequence) ?? d.scaffoldSequence
+        scaffoldSelections = try c.decodeIfPresent([NanobodyScaffoldAllocation].self, forKey: .scaffoldSelections)
+        equalScaffoldBudgets = try c.decodeIfPresent(Bool.self, forKey: .equalScaffoldBudgets) ?? true
         cdrs            = try c.decodeIfPresent(CDRSelection.self, forKey: .cdrs) ?? d.cdrs
         binderMinLen    = try c.decodeIfPresent(Int.self, forKey: .binderMinLen) ?? d.binderMinLen
         binderMaxLen    = try c.decodeIfPresent(Int.self, forKey: .binderMaxLen) ?? d.binderMaxLen
         helixKill       = try c.decodeIfPresent(Double.self, forKey: .helixKill) ?? d.helixKill
+        secondaryStructureBias = try c.decodeIfPresent(SecondaryStructureBias.self,
+                                                        forKey: .secondaryStructureBias)
+            ?? (helixKill > 0.01 ? .antihelix : d.secondaryStructureBias)
+        secondaryStructureBiasScope = try c.decodeIfPresent(SecondaryStructureBiasScope.self,
+                                                             forKey: .secondaryStructureBiasScope)
+            ?? d.secondaryStructureBiasScope
+        betaBiasStrength = try c.decodeIfPresent(Double.self, forKey: .betaBiasStrength) ?? d.betaBiasStrength
+        betaPatternStrength = try c.decodeIfPresent(Double.self, forKey: .betaPatternStrength) ?? d.betaPatternStrength
+        turnLocalizationStrength = try c.decodeIfPresent(Double.self, forKey: .turnLocalizationStrength) ?? d.turnLocalizationStrength
         targetKind      = try c.decodeIfPresent(TargetKind.self, forKey: .targetKind) ?? d.targetKind
         targetName      = try c.decodeIfPresent(String.self, forKey: .targetName) ?? d.targetName
         targetSequence  = try c.decodeIfPresent(String.self, forKey: .targetSequence) ?? d.targetSequence
@@ -540,6 +798,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
         parallelMode    = try c.decodeIfPresent(ParallelMode.self, forKey: .parallelMode) ?? d.parallelMode
         manualParallel  = try c.decodeIfPresent(Int.self, forKey: .manualParallel) ?? d.manualParallel
         designPredictor = try c.decodeIfPresent(Predictor.self, forKey: .designPredictor) ?? d.designPredictor
+        designPredictors = try c.decodeIfPresent([Predictor].self, forKey: .designPredictors)
+        designEngines = try c.decodeIfPresent([DesignEngine].self, forKey: .designEngines)
         postPredictors  = try c.decodeIfPresent([Predictor].self, forKey: .postPredictors) ?? d.postPredictors
         intellifoldModel = try c.decodeIfPresent(IntelliFoldModel.self, forKey: .intellifoldModel) ?? d.intellifoldModel
         postOnlyHits    = try c.decodeIfPresent(Bool.self, forKey: .postOnlyHits) ?? d.postOnlyHits
@@ -569,4 +829,11 @@ struct DesignRequest: Codable, Equatable, Hashable {
         reconcileDesigner()
         reconcilePredictors()
     }
+}
+
+/// A validation reason and the form section that can resolve it.
+struct DesignValidationIssue: Identifiable, Equatable {
+    let field: String
+    let message: String
+    var id: String { field + "|" + message }
 }

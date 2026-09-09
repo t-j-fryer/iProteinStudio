@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-STAGES = ("validate", "fixtures", "backbones", "mpnn", "predict-holo", "score", "predict-apo", "rmsd")
+STAGES = ("validate", "fixtures", "backbones", "mpnn", "predict-holo", "score", "predict-apo", "rmsd", "nesso")
 
 
 def run(cmd: list[str], log_path: Path) -> None:
@@ -219,6 +219,16 @@ def stage_rmsd(cfg: dict, campaign: Path, logs: Path) -> None:
     run([sys.executable, str(ROOT / "scripts" / "compute_rmsd.py"), "--campaign", str(campaign)], logs / "rmsd.log")
 
 
+def stage_nesso(cfg: dict, campaign: Path, logs: Path) -> None:
+    print("RFSTAGE|nesso-verification|0|Screening MPNN sequences with NESSO and folding the shortlist", flush=True)
+    config = campaign / "nesso_verification/config.json"
+    saved = json.loads(config.read_text())
+    if saved["options"] != cfg["nesso"] or saved["smiles"] != read_smiles(Path(cfg["smiles_file"])):
+        raise RuntimeError("NESSO settings differ from the broker-preflighted ligand campaign.")
+    run([sys.executable, str(campaign / "nesso_verification/runtime/scripts/nise/ligand_screening.py"),
+         "--config", str(config)], logs / "nesso_verification.log")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -247,13 +257,17 @@ def main() -> None:
 
     dispatch = {
         "validate": stage_validate, "fixtures": stage_fixtures, "backbones": stage_backbones,
-        "mpnn": stage_mpnn,
+        "mpnn": stage_mpnn, "nesso": stage_nesso,
         "predict-holo": lambda c, p, l: prepare_and_predict(c, p, l, "holo"),
         "score": stage_score,
         "predict-apo": lambda c, p, l: prepare_and_predict(c, p, l, "apo"),
         "rmsd": stage_rmsd,
     }
-    stages = list(STAGES) if args.stage == "all" else [args.stage]
+    screening = bool((cfg.get("nesso") or {}).get("enabled"))
+    active_stages = ["validate", "fixtures", "backbones", "mpnn", "nesso"] if screening else [s for s in STAGES if s != "nesso"]
+    if args.stage != "all" and args.stage not in active_stages:
+        raise SystemExit("That stage does not belong to the selected verification route.")
+    stages = active_stages if args.stage == "all" else [args.stage]
     if not cfg.get("run_apo", True):
         stages = [s for s in stages if s not in ("predict-apo", "rmsd")]
     start = time.time()
@@ -265,7 +279,7 @@ def main() -> None:
                          if name in STAGES]
         except (OSError, json.JSONDecodeError):
             completed = []
-        stages = [name for name in stages if name not in completed]
+        stages = [name for name in stages if name not in completed or name == "nesso"]
         if completed:
             print("resuming after completed stages: " + ", ".join(completed), flush=True)
     for stage in stages:
@@ -275,7 +289,8 @@ def main() -> None:
             "updated_epoch": time.time(), "wall_sec": time.time() - start,
         }, indent=2) + "\n")
         dispatch[stage](cfg, campaign, logs)
-        completed.append(stage)
+        if stage not in completed:
+            completed.append(stage)
         progress_file.write_text(json.dumps({
             "completed_stages": completed, "current_stage": None,
             "updated_epoch": time.time(), "wall_sec": time.time() - start,

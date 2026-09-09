@@ -7,6 +7,7 @@ struct DesignFormView: View {
     @EnvironmentObject var app: AppState
     let project: Project
     @ObservedObject var installer: PipelineInstaller
+    @State private var validationDestination: String?
     @State private var showAdvanced = false
     @State private var setupExperience: SetupExperience = .quick
     @State private var showTargetPrep = false
@@ -17,8 +18,8 @@ struct DesignFormView: View {
 
     private var request: Binding<DesignRequest> {
         Binding(
-            get: { app.selectedProject?.request ?? project.request },
-            set: { nv in app.updateSelected { $0.request = nv } }
+            get: { app.projects.first(where: { $0.id == project.id })?.request ?? project.request },
+            set: { nv in app.updateProject(id: project.id) { $0.request = nv } }
         )
     }
 
@@ -26,6 +27,7 @@ struct DesignFormView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            ScrollViewReader { proxy in
             ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
@@ -53,6 +55,7 @@ struct DesignFormView: View {
                     Text(type.blurb).font(.caption).foregroundStyle(.secondary)
                 }
 
+                Color.clear.frame(height: 0).id("target")
                 Card(title: "1 · Your target", systemImage: "target") {
                     Picker("", selection: Binding(
                         get: { request.wrappedValue.targetKind },
@@ -124,6 +127,9 @@ struct DesignFormView: View {
                             Label("Use residue numbers such as 32 55, or target-chain residues such as B32 C55.",
                                   systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption).foregroundStyle(.orange)
+                        } else if request.wrappedValue.selectedDesignPredictors.count > 1 {
+                            Text("Epitope guidance depends on each selected engine; see Prediction & checking below.")
+                                .font(.caption).foregroundStyle(.secondary)
                         } else if request.wrappedValue.hasEpitopeSteering {
                             Label(request.wrappedValue.designPredictor == .protenixConstraint
                                   ? "Protenix Constraint will condition the proposal on its trained 8 Å token-centre pocket prior (the upstream and validated default). This is not a heavy-atom contact; the initial paired test found weak pocket steering, so it does not prove that the binder reached this epitope or that it binds."
@@ -168,9 +174,10 @@ struct DesignFormView: View {
                     }
                 }
 
+                Color.clear.frame(height: 0).id("binder")
                 if type.usesScaffold {
-                    Card(title: "2 · Nanobody scaffold", systemImage: "cube") {
-                        Text("Choose a validated VHH framework. CDR loops are redesigned; the framework stays fixed.")
+                    Card(title: "2 · Nanobody scaffolds & budget", systemImage: "cube") {
+                        Text("Select the VHH frameworks to explore. CDR loops are redesigned within each selected framework.")
                             .font(.callout).foregroundStyle(.secondary)
                         ScaffoldPicker(request: request)
                     }
@@ -189,7 +196,8 @@ struct DesignFormView: View {
                     Card(title: "2 · Binder size & fold", systemImage: "ruler") {
                         BinderSizePicker(request: request)
                         Divider().padding(.vertical, 4)
-                        HelixKillControl(value: request.helixKill)
+                        SecondaryStructureControl(request: request,
+                                                  advanced: setupExperience == .advanced)
                     }
                     if setupExperience == .advanced {
                         Card(title: "3 · Designer", systemImage: "slider.horizontal.3") {
@@ -202,17 +210,9 @@ struct DesignFormView: View {
                     }
                 }
 
-                if setupExperience == .advanced {
-                    Card(title: "4 · Prediction & checking", systemImage: "checkmark.seal") {
-                        PredictorPicker(request: request, installer: installer)
-                    }
-                } else {
-                    Card(title: "4 · Current models", systemImage: "checkmark.seal") {
-                        Label(quickModelSummary, systemImage: "cpu")
-                            .font(.callout)
-                        Text("Switch to Advanced to change the designer, checking models, temperatures, or diagnostics.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
+                Color.clear.frame(height: 0).id("models")
+                Card(title: "4 · Prediction & checking", systemImage: "checkmark.seal") {
+                    PredictorPicker(request: request, installer: installer)
                 }
 
                 Card(title: "5 · Run settings", systemImage: "gauge.with.dots.needle.67percent") {
@@ -225,6 +225,10 @@ struct DesignFormView: View {
                 }
             }
             .padding(28).frame(maxWidth: 820, alignment: .leading).frame(maxWidth: .infinity)
+            }
+            .onChange(of: validationDestination) { _, field in
+                if let field { proxy.scrollTo(field, anchor: .top); validationDestination = nil }
+            }
             }
             Divider()
             startBar.padding(.horizontal, 28).padding(.vertical, 14)
@@ -279,7 +283,7 @@ struct DesignFormView: View {
         let checks = r.effectivePostPredictors.isEmpty
             ? "no extra checker"
             : r.effectivePostPredictors.map(\.label).joined(separator: ", ")
-        return "\(r.designer.label) designs; \(r.designPredictor.label) guides each cycle; \(checks)."
+        return "\(r.designer.label) designs; \(r.designEngineSummary) guide each cycle; \(checks)."
     }
 
     private var header: some View {
@@ -290,30 +294,34 @@ struct DesignFormView: View {
     }
 
     private var startBar: some View {
-        let anotherWorkflowIsRunning = app.rfd3.isRunning || app.prediction.isRunning
+        let anotherWorkflowIsRunning = app.rfd3.isRunning || app.prediction.isRunning || app.nise.isRunning
         let missingComponents = request.wrappedValue.requiredComponents.filter {
-            installer.components[$0] != nil && !installer.isUsable($0)
+            !installer.isUsable($0)
         }
         return HStack(spacing: 12) {
             let r = request.wrappedValue
             if anotherWorkflowIsRunning {
-                Label("Finish or stop the active \(app.rfd3.isRunning ? "RFdiffusion3" : "prediction") run before starting iterative design.",
+                Label("Finish or stop the active \(app.nise.isRunning ? "NISE" : (app.rfd3.isRunning ? "RFdiffusion3" : "prediction")) run before starting Protein Hunter.",
                       systemImage: "hourglass")
                     .font(.callout).foregroundStyle(.secondary)
             } else if !r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty {
                 Label(missingReason(r, missingComponents: missingComponents), systemImage: "info.circle")
                     .font(.callout).foregroundStyle(.secondary)
             }
+            if let issue = r.validationIssues.first {
+                Button("Review field") { validationDestination = issue.field }
+                    .accessibilityLabel("Review \(issue.field): \(issue.message)")
+            }
             Spacer()
             Button {
                 app.metrics.stop()
-                app.run.start(project: app.selectedProject ?? project)
+                app.run.start(project: app.projects.first(where: { $0.id == project.id }) ?? project)
                 if let root = app.run.campaignRoot { app.metrics.start(root: root) }
             } label: {
                 Label("Start Design Run", systemImage: "play.fill").frame(minWidth: 200)
             }
             .buttonStyle(.borderedProminent).controlSize(.large)
-            .accessibilityLabel("Start iterative design run")
+            .accessibilityLabel("Start Protein Hunter run")
             .accessibilityIdentifier("start-iterative-run")
             .disabled(!r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty || anotherWorkflowIsRunning)
         }
@@ -321,32 +329,11 @@ struct DesignFormView: View {
     }
 
     private func missingReason(_ r: DesignRequest, missingComponents: [InstallComponent] = []) -> String {
-        if r.targetKind == .protein && r.targetSequence.isEmpty { return "Add a target sequence to continue." }
-        if r.targetKind == .ligand && r.targetSmiles.trimmingCharacters(in: .whitespaces).isEmpty { return "Add a ligand SMILES to continue." }
-        if r.targetKind == .ligand && r.ligandIsConjugated &&
-            (r.ligandAttachmentAtom == nil || r.ligandAttachmentLinkerAtom == nil) {
-            return "Choose both ends of the core-to-linker bond, or mark the molecule as free."
-        }
-        if r.designType == .nanobody && r.scaffoldSequence.isEmpty { return "Pick a nanobody scaffold." }
-        if r.designType == .nanobody && r.cdrs.isEmpty { return "Select at least one CDR to design." }
-        if !r.designPredictor.isAvailable {
-            return "(r.designPredictor.label) is retired after failing Apple-GPU quality control. Choose a supported design engine."
-        }
-        if r.hasInvalidEpitopeResidues { return "Fix the hotspot residue list before starting." }
-        if r.hasIncompatibleTargeting {
-            if let templateError = r.targetTemplateCompatibilityError { return templateError }
-            return r.designPredictor == .protenixConstraint
-                ? "Protenix Constraint v0.5 currently supports protein epitopes, not ligand campaigns."
-                : "The selected ligand targeting restraint requires Boltz as the design engine."
-        }
-        if r.ligandAtomsStale {
-            return "Reload the ligand atoms — the saved names were generated for different settings."
-        }
-        if !missingComponents.isEmpty {
-            return "Install \(missingComponents.map(\.label).joined(separator: ", ")) in Setup before starting."
-        }
-        return ""
+        if let issue = r.validationIssues.first { return issue.message }
+        if !missingComponents.isEmpty { return "Install \(missingComponents.map(\.label).joined(separator: ", ")) in Engines before starting." }
+        return "Review the highlighted settings before starting."
     }
+
 }
 
 // MARK: - Building blocks
@@ -384,20 +371,93 @@ struct SequenceEditor: View {
 struct ScaffoldPicker: View {
     @EnvironmentObject var app: AppState
     @Binding var request: DesignRequest
-    var body: some View {
-        Picker("Scaffold", selection: Binding(
-            get: { request.scaffoldID },
-            set: { id in
-                request.scaffoldID = id
-                if let s = app.scaffolds.first(where: { $0.id == id }) { request.scaffoldSequence = s.sequence }
-            }
-        )) {
-            ForEach(app.scaffolds) { Text($0.displayName).tag($0.id) }
+    private var rows: [NanobodyScaffoldAllocation] {
+        let selected = request.allocatedScaffolds
+        let catalog = app.scaffolds.map { scaffold in
+            selected.first(where: { $0.id == scaffold.id }) ?? .init(id: scaffold.id,
+                name: scaffold.displayName, sequence: scaffold.sequence, trajectories: 0)
         }
-        .pickerStyle(.menu)
-        .accessibilityLabel("Nanobody scaffold")
-        if let s = app.scaffolds.first(where: { $0.id == request.scaffoldID }) {
-            Text(s.recommendedUse).font(.caption).foregroundStyle(.secondary)
+        return catalog + selected.filter { item in !catalog.contains { $0.id == item.id } }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Total trajectories per engine")
+                if request.equalScaffoldBudgets {
+                    EditableIntStepper(value: $request.numDesigns,
+                        in: max(1, request.allocatedScaffolds.count)...(10_000 * max(1, request.allocatedScaffolds.count)),
+                        accessibilityLabel: "Total trajectories across nanobody scaffolds per engine")
+                } else {
+                    Text("\(request.numDesigns)").monospacedDigit()
+                    Text("sum of scaffold budgets").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Toggle("Split trajectories equally", isOn: Binding(
+                get: { request.equalScaffoldBudgets },
+                set: { request.setEqualScaffoldBudgets($0) }))
+            Text(request.equalScaffoldBudgets
+                 ? "The total is shared across selected scaffolds. Any remainder goes to the first selected scaffolds. Selecting more scaffolds raises the total if needed to give each at least one trajectory."
+                 : "Edit each scaffold’s budget below. The total updates automatically; changing the selection preserves the other custom budgets.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Button("Select all") {
+                    for scaffold in app.scaffolds {
+                        request.setScaffold(id: scaffold.id, name: scaffold.displayName,
+                                            sequence: scaffold.sequence, selected: true)
+                    }
+                }
+                Button("Clear selection") {
+                    request.scaffoldSelections = []
+                    if !request.equalScaffoldBudgets { request.numDesigns = 0 }
+                }
+                Spacer()
+                Text("\(request.allocatedScaffolds.count) selected").font(.caption)
+            }
+            ForEach(rows) { scaffold in
+                let selected = request.allocatedScaffolds.contains { $0.id == scaffold.id }
+                HStack(alignment: .top) {
+                    Toggle(isOn: Binding(get: { selected }, set: {
+                        request.setScaffold(id: scaffold.id, name: scaffold.name,
+                                            sequence: scaffold.sequence, selected: $0)
+                    })) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(app.scaffolds.first { $0.id == scaffold.id }?.displayName ?? scaffold.name)
+                            if let catalog = app.scaffolds.first(where: { $0.id == scaffold.id }) {
+                                Text(catalog.recommendedUse).font(.caption).foregroundStyle(.secondary)
+                                if selected && catalog.sequence != scaffold.sequence {
+                                    Text("Using the framework sequence saved in this workspace.").font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }.toggleStyle(.checkbox)
+                    Spacer()
+                    if selected {
+                        if request.equalScaffoldBudgets {
+                            Text("\(scaffold.trajectories) trajectories").monospacedDigit().font(.callout)
+                        } else {
+                            EditableIntStepper(value: Binding(get: {
+                                request.allocatedScaffolds.first { $0.id == scaffold.id }?.trajectories ?? 1
+                            }, set: { request.setScaffoldBudget(id: scaffold.id, trajectories: $0) }),
+                            in: 1...10_000, suffix: "trajectories",
+                            accessibilityLabel: "Trajectories for \(scaffold.name)")
+                        }
+                    }
+                }
+            }
+            Text("For example: 70 trajectories across seven selected scaffolds gives 10 each. Each selected engine receives this same allocation, with separate results for every engine and scaffold.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .onAppear {
+            if request.scaffoldSelections == nil {
+                var selected = request.allocatedScaffolds
+                for i in selected.indices {
+                    if let catalog = app.scaffolds.first(where: { $0.id == selected[i].id }) {
+                        selected[i].name = catalog.displayName
+                    }
+                }
+                request.scaffoldSelections = selected
+            }
         }
     }
 }
@@ -423,38 +483,41 @@ struct BinderSizePicker: View {
     }
 }
 
-/// Helix-suppression ("helix-kill") slider for de-novo binders, with
-/// effect-size guidance from DSSP of past runs (dTF155–160, chain A, final
-/// cycle, mean helix fraction): Boltz ~53%→33% and IntelliFold ~16%→7% from
-/// off to max helix-kill.
-struct HelixKillControl: View {
-    @Binding var value: Double
-    private var boltzHelix: Int { Int((53.0 - 20.0 * value).rounded()) }   // 53% → 33%
-    private var ifoldHelix: Int { Int((16.0 - 9.0 * value).rounded()) }    // 16% → 7%
+/// Sequence-level priors for de-novo fold exploration. The UI never describes
+/// these as a structural guarantee: the resulting fold must be assessed from
+/// predicted coordinates.
+struct SecondaryStructureControl: View {
+    @Binding var request: DesignRequest
+    let advanced: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Helix suppression").font(.headline)
-                Spacer()
-                Text(value < 0.01 ? "Off" : String(format: "%.0f%%", value * 100))
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-            }
-            Slider(value: $value, in: 0...1, step: 0.05) {
-                Text("Helix suppression")
-            } minimumValueLabel: { Text("Off").font(.caption2) }
-              maximumValueLabel: { Text("Max").font(.caption2) }
-            Text(annotation).font(.caption).foregroundStyle(.secondary)
+            Text("Helix-kill strength").font(.headline)
+            strengthRow("Strength", value: $request.helixKill)
+            Text("Reduces helix-favoring patterns in the starting sequence. Zero disables it. Later optimization cycles use normal MPNN sampling.")
+                .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if let error = request.secondaryStructureCompatibilityError {
+                Text(error).font(.caption).foregroundStyle(.orange)
+                Button("Use initialization-only helix kill") {
+                    request.secondaryStructureBias = .none
+                    request.secondaryStructureBiasScope = .seedOnly
+                }
+            }
         }
     }
 
-    private var annotation: String {
-        if value < 0.01 {
-            return "Off — de-novo binders can come out quite helical (mean ≈ 53% helix by Boltz, ≈ 16% by IntelliFold)."
+    @ViewBuilder
+    private func strengthRow(_ label: String, value: Binding<Double>) -> some View {
+        HStack(spacing: 10) {
+            Text(label).frame(width: 150, alignment: .leading)
+            Slider(value: value, in: 0...1, step: 0.05)
+                .accessibilityLabel(label)
+                .accessibilityValue(String(format: "%.0f percent", value.wrappedValue * 100))
+            Text(String(format: "%.0f%%", value.wrappedValue * 100))
+                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                .frame(width: 40, alignment: .trailing)
         }
-        return "Biases the starting design away from α-helices, so cycles favour sheet & loop. "
-             + "Expected helix ≈ \(boltzHelix)% (Boltz) · \(ifoldHelix)% (IntelliFold); at Max ≈ 33% / 7%."
     }
 }
 
@@ -516,12 +579,14 @@ struct MPNNTemperatureControl: View {
                 GridRow {
                     Text("First cycle").font(.callout)
                     Slider(value: $request.mpnnTempCycle1, in: 0.05...1.0, step: 0.05).frame(width: 200)
+                    .accessibilityLabel("First redesign sampling temperature")
                     Text(String(format: "%.2f", request.mpnnTempCycle1))
                         .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
                 }
                 GridRow {
                     Text("Later cycles").font(.callout)
                     Slider(value: $request.mpnnTempLater, in: 0.05...1.0, step: 0.05).frame(width: 200)
+                    .accessibilityLabel("Later redesign sampling temperature")
                     Text(String(format: "%.2f", request.mpnnTempLater))
                         .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
                 }
@@ -536,12 +601,14 @@ struct MPNNTemperatureControl: View {
                     GridRow {
                         Text("LASErMPNN sequence").font(.callout)
                         Slider(value: $request.lasermpnnSeqTemp, in: 0.05...1.0, step: 0.05).frame(width: 200)
+                        .accessibilityLabel("Sequence sampling temperature")
                         Text(String(format: "%.2f", request.lasermpnnSeqTemp))
                             .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
                     }
                     GridRow {
                         Text("Binding site").font(.callout)
                         Slider(value: $request.lasermpnnFirstShellTemp, in: 0.1...2.0, step: 0.1).frame(width: 200)
+                        .accessibilityLabel("First shell sampling temperature")
                         Text(String(format: "%.2f", request.lasermpnnFirstShellTemp))
                             .font(.callout.monospacedDigit()).frame(width: 44, alignment: .trailing)
                     }
@@ -568,12 +635,16 @@ struct PredictorPicker: View {
     private var checkChoices: [Predictor] {
         // Everything that can re-fold, minus whichever engine did the designing —
         // a predictor cannot independently check its own work.
-        Predictor.iterativeCheckChoices.filter {
-            $0.independenceIdentity != request.designPredictor.independenceIdentity
+        Predictor.iterativeCheckChoices.filter { checker in
+            request.selectedDesignPredictors.contains { $0.independenceIdentity != checker.independenceIdentity }
         }
     }
 
-    private var designChoices: [Predictor] {
+    private var designChoices: [DesignEngine] {
+        DesignEngine.choices + request.selectedDesignEngines.filter { !DesignEngine.choices.contains($0) }
+    }
+
+    private var allowedDesignChoices: [Predictor] {
         if request.hasTargetTemplate {
             if request.targetTemplateMode == .strong {
                 return [.boltz, .boltzPotentials]
@@ -596,43 +667,56 @@ struct PredictorPicker: View {
         VStack(alignment: .leading, spacing: 16) {
             // --- Design predictor ---
             VStack(alignment: .leading, spacing: 8) {
-                Text("Design engine").font(.headline)
-                Text("Folds each design as it is optimised. Every extra second here is paid on every design of every cycle.")
+                Text("Design engines").font(.headline)
+                Text("Each selected engine runs these settings for \(request.numDesigns) trajectories. Engines run in checklist order with separate results. Nanobody budgets are shared across the selected scaffolds.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                if !request.designPredictor.isAvailable {
-                    Label("This saved engine is retired. Choose a supported engine to make the campaign runnable.",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                ForEach(designChoices) { p in
+                    Toggle(isOn: Binding(
+                        get: { request.selectedDesignEngines.contains(p) },
+                        set: { request.setDesignEngine(p, selected: $0) }
+                    )) {
+                        HStack(spacing: 6) {
+                            Text(p.label)
+                            if !allowedDesignChoices.contains(p.predictor) {
+                                Text("incompatible with targeting settings").font(.caption2).foregroundStyle(.orange)
+                            } else if !installer.isUsable(p.component) {
+                                Text("not installed").font(.caption2).foregroundStyle(.orange)
+                            }
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                    .accessibilityIdentifier("design-engine-\(p.rawValue)")
+                    .disabled((!allowedDesignChoices.contains(p.predictor) || !installer.isUsable(p.component))
+                              && !request.selectedDesignEngines.contains(p))
+                    .help(p.caveat.isEmpty ? p.blurb : p.caveat)
                 }
-                Picker("Design engine", selection: Binding(
-                    get: { request.designPredictor },
-                    set: { request.selectDesignPredictor($0) }
-                )) {
-                    ForEach(designChoices) { p in
-                        Text(p.label).tag(p)
+                if request.selectedDesignPredictors.isEmpty {
+                    Label("Select at least one design engine.", systemImage: "exclamationmark.circle")
+                        .font(.caption).foregroundStyle(.orange)
+                }
+                if request.hasEnteredEpitopeResidues {
+                    ForEach(request.selectedDesignEngines) { p in
+                        Text(p.supportsEpitopePocket
+                             ? "\(p.label) applies its supported epitope guidance."
+                             : "\(p.label) folds the full target; the saved epitope hotspots are not applied.")
+                            .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
-                .pickerStyle(.menu).labelsHidden()
-                if request.hasEnteredEpitopeResidues {
-                    Text(request.designPredictor == .protenixConstraint
-                         ? "Protenix Constraint applies the selected residues as its upstream 8 Å token-centre pocket prior—not a heavy-atom cutoff. Independently refold final sequences without the constraint."
-                         : (request.usesBoltzDesignEngine
-                            ? "Boltz applies the selected epitope hotspots using steering potentials."
-                            : "\(request.designPredictor.label) designs against the full target complex; the saved epitope hotspots are not applied. Epitope guidance is available with Boltz or Protenix Constraint v0.5."))
-                        .font(.caption2).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                predictorNote(request.designPredictor, isDesign: true)
             }
 
             Divider()
 
+            if request.targetKind == .ligand {
+                LigandNessoOptionsView(options: $request.nesso,
+                    explanation: "After each engine campaign finishes, rank all optimized cycle designs with NESSO and fold its top sequences. Cycle 00 starting structures are excluded. The shortlist limit applies separately to each engine campaign.")
+                Divider()
+            }
+
             // --- Orthogonal checking ---
             VStack(alignment: .leading, spacing: 8) {
                 Text("Check hits with").font(.headline)
-                Text("Independently re-folds your best designs with a different model. This is the score to trust — the design engine's own confidence is self-scored, because the loop optimises against it.")
+                Text("Applies to every engine campaign. Each campaign excludes its own design model from this list; that model can still check campaigns designed by other engines.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -662,6 +746,16 @@ struct PredictorPicker: View {
                     .help(p.caveat.isEmpty ? p.blurb : p.caveat)
                 }
 
+                if request.selectedDesignEngines.count > 1 {
+                    ForEach(request.selectedDesignEngines) { engine in
+                        let checks = request.forDesignEngine(engine).effectivePostPredictors
+                        Text("\(engine.label) designs: " + (checks.isEmpty
+                             ? "no independent checker selected"
+                             : "checked with " + checks.map(\.label).joined(separator: ", ")))
+                            .font(.caption2)
+                            .foregroundStyle(checks.isEmpty ? Color.orange : Color.secondary)
+                    }
+                }
                 if request.effectivePostPredictors.isEmpty {
                     Label("Without an independent check you only have the design engine's own opinion of its designs.",
                           systemImage: "exclamationmark.triangle.fill")
@@ -708,17 +802,21 @@ struct PredictorPicker: View {
                     }
                 }
 
-                if usesIntelliFold {
-                    Picker("IntelliFold model", selection: Binding(
+                if request.effectivePostPredictors.contains(.intellifold) {
+                    Picker("IntelliFold checking model", selection: Binding(
                         get: { request.intellifoldModel ?? .v2flash },
-                        set: { request.intellifoldModel = $0 }
+                        set: {
+                            // Freeze design choices before changing the independent checker.
+                            request.designEngines = request.selectedDesignEngines
+                            request.intellifoldModel = $0
+                        }
                     )) {
                         ForEach(IntelliFoldModel.allCases) { model in
                             Text(model.label).tag(model)
                         }
                     }
                     .pickerStyle(.menu)
-                    Text("Applied to every selected IntelliFold engine. v2-flash is the smaller validated default; v2 is the full model.")
+                    Text("Applies to independent IntelliFold checks. Design Flash and Full checkpoints are selected separately above and do not check each other independently.")
                         .font(.caption2).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -784,7 +882,11 @@ struct PredictorPicker: View {
     /// Prediction-only planning number: assumes every eligible checkpoint is checked,
     /// while explicitly excluding MSA generation and inverse folding.
     private var estimate: some View {
-        let fullV2Selected = request.intellifoldModel == .v2 && usesIntelliFold
+        if request.targetKind == .ligand && request.nesso.enabled {
+            return AnyView(Label("No total time estimate: NESSO campaign screening has not been benchmarked on this Mac.", systemImage: "clock")
+                .font(.callout).foregroundStyle(.secondary))
+        }
+        let fullV2Selected = request.usesFullIntelliFold
         if fullV2Selected {
             return AnyView(Label {
                 Text("No time estimate: full IntelliFold v2 has not been benchmarked on this Mac yet.")
@@ -816,9 +918,14 @@ struct RunSettings: View {
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
             GridRow {
-                Text("Independent trajectories")
-                EditableIntStepper(value: $request.numDesigns, in: 1...96,
-                                   accessibilityLabel: "Independent trajectories")
+                Text("Trajectories per engine")
+                if request.designType == .nanobody {
+                    Text("\(request.numDesigns) across \(request.allocatedScaffolds.count) scaffolds")
+                        .monospacedDigit()
+                } else {
+                    EditableIntStepper(value: $request.numDesigns, in: 1...96,
+                                       accessibilityLabel: "Trajectories per design engine")
+                }
             }
             GridRow {
                 Text("Optimization cycles")
@@ -829,17 +936,16 @@ struct RunSettings: View {
                 Text("Hit threshold (iPTM)")
                 HStack {
                     Slider(value: $request.hitThreshold, in: 0.3...0.95, step: 0.01).frame(width: 220)
+                    .accessibilityLabel("Minimum interface confidence for a hit")
                     Text(String(format: "%.2f", request.hitThreshold)).monospacedDigit()
                 }
             }
         }
-        Text("This produces \(request.expectedOptimizedDesigns) optimized design structures across cycles 01–\(String(format: "%02d", request.numCycles)), plus \(request.expectedStartingStructures) unoptimized cycle-00 starting structure\(request.expectedStartingStructures == 1 ? "" : "s").")
+        Text("\(request.selectedDesignEngines.count) engine(s) × \(request.numDesigns) trajectories each = \(request.totalTrajectories) total trajectories. This produces \(request.expectedOptimizedDesigns) optimized design structures across cycles 01–\(String(format: "%02d", request.numCycles)), plus \(request.expectedStartingStructures) unoptimized cycle-00 starting structure\(request.expectedStartingStructures == 1 ? "" : "s").")
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
-        Label(request.designPredictor == .protenixV2
-              ? "Automatic scheduling: Protenix v2 is loaded once per cycle, its fastest validated policy."
-              : "Automatic scheduling: one resident predictor stays loaded across the complete campaign.",
+        Label("Automatic scheduling: Protenix v2 is loaded once per cycle; other engines keep one resident predictor loaded across their campaign.",
               systemImage: "bolt.fill")
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -872,9 +978,7 @@ struct AdvancedSettings: View {
             // --- Automatic scheduling ---
             VStack(alignment: .leading, spacing: 6) {
                 Text("Automatic scheduling").font(.headline)
-                Label(request.designPredictor == .protenixV2
-                      ? "Protenix v2 uses one directory wave per cycle; this was faster than keeping that checkpoint resident under sustained Apple-GPU work."
-                      : "One model-owning worker serves every design cycle. Sequence redesigns run between prediction waves, and completed cycles remain independently resumable.",
+                Label("Each engine uses its existing policy: Protenix v2 uses directory waves per cycle; other engines retain a resident worker across their campaign.",
                       systemImage: "bolt.fill")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -926,7 +1030,7 @@ struct AdvancedSettings: View {
             Divider()
             DisclosureGroup("What settings will actually be used") {
                 VStack(alignment: .leading, spacing: 10) {
-                    ForEach(([request.designPredictor] + request.effectivePostPredictors)
+                    ForEach((request.selectedDesignPredictors + request.effectivePostPredictors)
                         .reduce(into: [Predictor]()) { acc, p in if !acc.contains(p) { acc.append(p) } }) { p in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(p.label).font(.caption.weight(.medium))
@@ -946,7 +1050,7 @@ struct AdvancedSettings: View {
             .font(.callout)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Design engine: \(request.designPredictor.label) · Checked with: "
+                Text("Design engines: \(request.designEngineSummary) · Checked with: "
                      + (request.effectivePostPredictors.isEmpty
                         ? "nothing"
                         : request.effectivePostPredictors.map(\.label).joined(separator: ", ")))

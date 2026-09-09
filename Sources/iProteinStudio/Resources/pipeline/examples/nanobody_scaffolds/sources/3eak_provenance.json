@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "source_filename": "rcsb_pdb_3EAK.fasta",
+  "source_sha256": "3aa2ba595045d243f80f8d6ec853a65e3ce44a63d84a76f9e00237b5efdd2419",
+  "source_header": ">3EAK_1|Chains A, B|NbBCII10-FGLA|Camelus dromedarius (9838)",
+  "original_length": 137,
+  "retained_length": 128,
+  "removed_c_terminal_tail": "RGRHHHHHH",
+  "transformation_authorization": "User explicitly selected VHH domain only, removing RGRHHHHHH.",
+  "sequence_sha256": "cd82e1a37f2b55d7391ad05b8b46c3b5c6c260993c61ff1e4d478575a4919622",
+  "cdr_resolution_before_catalog_insertion": {
+    "method": "heuristic-align",
+    "detail": "boundaries transferred from '7eow_caplacizumab' (77% identity)",
+    "length": 128,
+    "chain": "A",
+    "ranges": {
+      "CDR1": [
+        27,
+        37
+      ],
+      "CDR2": [
+        55,
+        62
+      ],
+      "CDR3": [
+        100,
+        117
+      ]
+    },
+    "selected": [
+      "CDR1",
+      "CDR2",
+      "CDR3"
+    ],
+    "residues": "A27 A28 A29 A30 A31 A32 A33 A34 A35 A36 A37 A55 A56 A57 A58 A59 A60 A61 A62 A100 A101 A102 A103 A104 A105 A106 A107 A108 A109 A110 A111 A112 A113 A114 A115 A116 A117"
+  },
+  "independent_numbering_validated": false,
+  "msa": "Not bundled. Existing masked-CDR pipeline generates and persistently caches a full alignment on first use, failing if generation fails."
+}

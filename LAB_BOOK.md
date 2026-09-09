@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-09-03_
+_Last updated: 2026-09-09_
 
 | | |
 |---|---|
@@ -19,7 +19,16 @@ _Last updated: 2026-09-03_
 | **Repo** | Public — `github.com/t-j-fryer/iProteinStudio` (renamed from NanoHunterStudio) |
 | **Runtime** | `~/.iproteinstudio` — **not** Application Support: a space in the path breaks every Python console-script shebang |
 
-**Working:** setup wizard with per-engine choice, worked examples (α-cobratoxin
+**Working:** NISE now offers Protein Hunter hallucination or experimental
+RFdiffusion3 initial backbones, with 100 starts by default (Entry 0103).
+NESSO installs its required ESM-2 650M assets automatically and can reuse exact
+verified cache files. NISE separates initial backbone generation from optimisation,
+with typed budgets, explicit sequences-to-advance and optional experimental
+NESSO sequence screening before Boltz (Entry 0102). Its worker and screening contracts have fixture coverage. The resident 50-design
+fluorescein benchmark (Entry 0118) found NESSO 6.16× faster but weak Boltz rank
+agreement; full NISE screening-campaign acceptance remains pending.
+
+Setup wizard with per-engine choice, worked examples (α-cobratoxin
 with its alignment included, and fluorescein), workspace management, a
 prediction-only tab that reuses every alignment on the machine, nanobody/mini-binder/peptide design form,
 live metrics dashboard, hits gallery, offline py2Dmol structure viewer with visual controls, target prep,
@@ -31,11 +40,30 @@ design/complex/binder-alone structures and scores together. Compact cards use
 control-free previews and one spacious selected py2Dmol viewer (Entry 0082).
 Iterative run viewers additionally offer a target-fitted cycle trajectory with
 labelled scrubbing, autoplay and playback-speed controls (Entry 0083).
-The shipped client-neutral MCP bridge is now v6: its read/run profiles expose
+The shipped client-neutral MCP bridge is now v10 (including NISE/NESSO): its read/run profiles expose
 the same run→cycle and backbone→MPNN-derivative result hierarchy through
 `results_overview`, keep hit verdicts on checked children, and instruct every
 client to use outward whole-surface ORI coverage when a protein epitope is
 omitted (Entry 0084).
+Iterative de-novo design now offers explicit natural, anti-helix, β-oriented,
+and mixed sequence priors. β-oriented trajectories save a deterministic
+strand/turn plan and can apply it either to cycle 00 only or to cycle 00 plus
+every MPNN redesign, enabling matched-scope experiments. The controls remain
+labelled experimental until predicted-coordinate validation is completed
+(Entry 0085).
+Unconditioned monomers can now opt into bounded initialization refinement through
+the shared CLI/MCP runner. Separate assessment, regional resampling and scheduler
+handoff preserve originals and explicit exhaustion, with synthetic lifecycle and
+integration coverage. This path currently uses the per-run scheduler and has no
+new GUI controls or measured real-model effectiveness (Entry 0095).
+A paired 90-residue Boltz-2 monomer screen now covers 22 declared control
+conditions with ten trajectories of five cycles each and β-only inspection.
+The 22-condition monomer screen is complete: 214/220 trajectories completed
+five cycles, with five budget exhaustions and one geometry rejection retained.
+Full output inspection reproduces coordinate assignments and initialization
+decisions. Proline suppression strongly favors helices; no sheet-enrichment
+advantage over baseline is resolved by the paired intervals. No control is
+promoted (Entry 0100).
 One saved multi-filter hit definition is shared by Browse Results and live Hits,
 persistent per-workspace run history and
 a global Activity panel with exact checkpoint Resume for newly recorded iterative campaigns.
@@ -136,6 +164,16 @@ outside the source checkout before handoff.
 
 **Known gaps, in priority order:**
 
+The source findings from [0087](lab_book/0087-review-repository-product-reliability.md)
+are addressed by the implementation in
+[0088](lab_book/0088-implement-product-reliability.md): recoverable workspace
+saving/archive, shared durable native/MCP jobs, saved dashboard context,
+accessibility controls, asynchronous result loading and an explicit test runner.
+The app builds and fixture suites pass apart from the unavailable XCTest module
+in this Command Line Tools installation. Full GUI/VoiceOver, crash/relaunch and
+release acceptance remain outstanding; the implementation is not a certification
+of those behaviours.
+
 1. Exact-manifest Resume is implemented, but still needs a deliberate
    interrupt/relaunch/resume acceptance run from GUI controls. Complete RFD3 and
    nanobody routes were exercised through their production entry points rather
@@ -150,7 +188,7 @@ outside the source checkout before handoff.
    [0002](lab_book/0002-inherited-speed-lessons.md) §7.
 5. No app icon. Sparkle self-update, size-aware engine consent, signed-release automation and a trusted unsigned-beta route are implemented, but Developer ID signing/notarisation and an old-to-new update acceptance on a second Mac remain blocked on Apple distribution credentials. The unsigned path still needs its first second-Mac Gatekeeper/install test and a real beta-to-beta Sparkle acceptance test.
 
-**Deliberately out of scope:** NISE (experimental, stays in NanoHunter); RFdiffusion3
+**Deliberately out of scope:** protein/cross-reactive NISE; RFdiffusion3
 against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
 [0001](lab_book/0001-repository-genesis-and-audit.md) Finding 4).
 
@@ -179,6 +217,42 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0118 | 2026-09-09 | [Compare resident NESSO and Boltz2](lab_book/0118-resident-nesso-boltz-fluorescein.md) | 50 paired designs: NESSO 6.16× faster, weak Boltz rank agreement (ρ = 0.106); original design batch resumed. |
+| 0119 | 2026-09-09 | [Add nanobody scaffold selection and budgets](lab_book/0119-nanobody-scaffold-budgets.md) | Equal/custom per-scaffold allocations across engines; add tail-trimmed 3EAK with explicit CDR provenance. |
+| 0120 | 2026-09-09 | [Sync accumulated Studio changes to GitHub](lab_book/0120-sync-studio-to-github.md) | Publish the coherent build-32 source tree, tests and validation harnesses; generated artifacts stay separate. |
+| 0117 | 2026-09-09 | [Estimate active IntelliFold Full run](lab_book/0117-estimate-active-intellifold-full-run.md) | Current 50 × 5 campaign: about 17 hours left for Full at observed pace; OpenFold3 follows. |
+| 0116 | 2026-09-09 | [Add overview design timing](lab_book/0116-add-overview-design-timing.md) | Both completed overviews show audited elapsed seconds per optimized design, with overlapping resident timers counted once. |
+| 0115 | 2026-09-09 | [Share cropped-interface NESSO screening](lab_book/0115-share-cropped-nesso-screening.md) | Corrects entropy to entropy_crop_pl; optional post-campaign Protein Hunter and pre-fold RFD3 top-X verification with shared resident workers and audited resume. |
+| 0114 | 2026-09-09 | [Rank NESSO by binding and placement confidence](lab_book/0114-nesso-placement-confidence-ranking.md) | Both screens use P(bind) + (1 − entropy_pl); invalid/near-zero placements are excluded and the policy/components are audited. |
+| 0113 | 2026-09-09 | [Add initial NESSO screening and clear run metadata](lab_book/0113-initial-nesso-screening-and-run-metadata.md) | Independent initial/optimisation screens, original-lineage caps and advanced stage controls; applicable run settings separated from inactive restoration state. |
+| 0112 | 2026-09-08 | [Audit inactive settings in a minibinder manifest](lab_book/0112-audit-minibinder-inactive-settings.md) | Confirms all 50 trajectories and 250 MPNN logs used full-chain minibinder design; scaffold/CDR and beta fields were inactive saved state. |
+| 0111 | 2026-09-08 | [Verify NISE atom identity and add linker exposure requirements](lab_book/0111-nise-atom-identity-and-linker-exposure.md) | Shared chemical state, exact Boltz mapping, separate NESSO names, RFdiffusion3 conditioning/translation and audited contact/SASA gates; real-model efficacy pending. |
+| 0110 | 2026-09-08 | [Fix workspace clicks and Apple compiler setup](lab_book/0110-workspace-clicks-and-apple-compiler-setup.md) | Explicit single-click switching and workspace-bound edits; configures SDK/C++ headers before downloads, reproduces ProDy build locally, M1 retry pending. |
+| 0109 | 2026-09-08 | [Expose OpenFold-3 and explicit IntelliFold design checkpoints](lab_book/0109-explicit-protein-hunter-checkpoints.md) | Adds independent Flash/Full design selections and OpenFold-3, explicit checkpoint routing, preserved legacy model choices and per-engine budgets; software fixtures tested. |
+| 0108 | 2026-09-08 | [Add a Protein Hunter design-engine checklist](lab_book/0108-protein-hunter-engine-checklist.md) | Applies the full trajectory count to each selected engine, with separate campaigns, per-engine checks and durable batch Stop/Resume; worker fixtures tested, neural acceptance pending. |
+| 0107 | 2026-09-08 | [Add structure templates to Predict](lab_book/0107-predict-structure-templates.md) | Adds explicit query-chain Guide templates for Boltz, IntelliFold and Protenix v2, preserving batch scheduling and checksummed recovery; software fixtures tested, neural acceptance pending. |
+| 0106 | 2026-09-08 | [Complete binding helix-control analysis](lab_book/0106-package-complete-binding-helix-analysis.md) | Replays all 840 aCbx complexes and packages the exact monomer-style 26-file report/gallery/figure/data contract without changing raw outputs. |
+| 0105 | 2026-09-07 | [Target-agnostic binding helix benchmark](lab_book/0105-add-target-agnostic-binding-helix-benchmark.md) | Completes and audits the fail-closed 0-vs-1, seven-engine binding benchmark: 140/140 aCbx trajectories and 840 structures, with reusable exact FASTA/MSA input. |
+| 0104 | 2026-09-07 | [Complete helix-strength analysis](lab_book/0104-analyse-complete-helix-strength-benchmark.md) | All210 trajectories and1,050 cycles audited; engine-specific structural shifts, geometry recovery, five exportable figure sets. |
+| 0103 | 2026-09-06 | [Select the NISE backbone generator](lab_book/0103-select-nise-backbone-generator.md) | Adds optional RFdiffusion3 initial backbones, a 100-start default, audited diffusion batches and ESM dependency/cache reuse clarification; model fixtures tested, full neural acceptance pending. |
+| 0102 | 2026-09-06 | [Separate NISE stages and add NESSO](lab_book/0102-separate-nise-stages-and-add-nesso.md) | Makes backbone and optimisation budgets explicit, exposes per-trajectory advancement, and adds optional experimental NESSO shortlisting with durable scores, isolated installation and model reuse. |
+| 0100 | 2026-09-06 | [Complete monomer output inspection](lab_book/0100-inspect-complete-monomer-benchmark.md) | All 220 outcomes audited, 1,070 optimized structures; all controls analysed, inspection attrition separated from refinement effects, no default promotion. |
+| 0098 | 2026-09-05 | [Package the NISE app and DMG](lab_book/0098-package-nise-app-and-dmg.md) | Refreshes the local app and unsigned-beta artifacts as 0.2.0 build 18, with NISE and Protein Hunter branding; records package verification and release limits. |
+| 0099 | 2026-09-06 | [Monomer geometry rejection and continuation](lab_book/0099-diagnose-and-continue-monomer-screen.md) | Retained one invalid initialization and completed unchanged remaining controls; full results in 0100. |
+| 0097 | 2026-09-05 | [Monomer core interim analysis](lab_book/0097-analyze-monomer-core-controls.md) | Five core conditions complete at n=10 each; mixed gains sheet and coil versus β-only; inspection changes 2/10 starts; expanded screen continues. |
+| 0096 | 2026-09-05 | [Monomer secondary-structure benchmark](lab_book/0096-monomer-secondary-structure-benchmark.md) | Completed paired 22-condition Boltz-2 monomer screen, ten declared trajectories per condition, β-only inspection; full results in 0100. |
+| 0095 | 2026-09-05 | [Monomer initialization refinement](lab_book/0095-monomer-initialization-refinement.md) | Separate assessment, regional resampling, durable attempts and explicit scheduler handoff; CLI/MCP monomer path, 14 lifecycle and 6 integration tests, no real-model efficacy claim. |
+| 0095 | 2026-09-05 | [Integrate ligand NISE and rebrand Protein Hunter](lab_book/0095-integrate-ligand-nise.md) | Ports the fluorescein search and optional apo funnel into a dedicated tab, durable jobs and grouped results; distinguishes Boltz structure/affinity residency and records bounded acceptance without promoting a ligand speed claim. |
+| 0094 | 2026-09-05 | [Bounded assessment journal](lab_book/0094-bounded-assessment-journal.md) | Preserves supplied attempts and eligibility/exhaustion decisions; 28 local tests pass; no adaptive generation or cycling integration. |
+| 0093 | 2026-09-05 | [Coil localization and screening tools](lab_book/0093-coil-localization-and-screening-tools.md) | Long internal coil dominates the difference but confidence recovers; analysis/reference-bin tools have20 passing tests; adaptive optimization remains unimplemented. |
+| 0092 | 2026-09-05 | [Sequence-first beta results](lab_book/0092-sequence-first-beta-results.md) | Both10-trajectory arms completed; mixed19.4% sheet/33.9% helix versus beta11.4%/54.1%; neither meets joint target, with lower mixed confidence. |
+| 0091 | 2026-09-05 | [Sequence-first beta mask comparison](lab_book/0091-sequence-first-beta-mask-comparison.md) | Complete sequences before50% masking; both10-trajectory campaigns completed and audited; analysis in0092. |
+| 0090 | 2026-09-04 | [Beta-control mechanism and mixed pilot](lab_book/0090-beta-control-mechanism-and-mixed-pilot.md) | Diagnoses missing sheet topology and temperature-amplified/conflicting priors; proposes backbone-based control and submits four bounded mixed-prior pilot trajectories. |
+| 0089 | 2026-09-04 | [Secondary-structure comparison results](lab_book/0089-secondary-structure-comparison-results.md) | Audits all 300 outputs; sustained anti-helix reduces helices predominantly toward coil, while sustained beta enrichment remains unproven. |
+| 0088 | 2026-09-04 | [Implement workspace recovery, durable native jobs and product boundaries](lab_book/0088-implement-product-reliability.md) | Adds recoverable archive/storage, shared native/MCP lifecycle, scoped dashboards, accessibility/recovery controls, background result loading, explicit tests and reviewed vendoring; records XCTest and GUI acceptance limits. |
+| 0087 | 2026-09-04 | [Evaluate repository structure, usability, accessibility and reliability](lab_book/0087-review-repository-product-reliability.md) | Prioritizes persistence/deletion safety, shared GUI/MCP job ownership, correct workspace context, accessibility and dependable test discovery; records passing fixture contracts and untested GUI behaviour. |
+| 0086 | 2026-09-04 | [Review repository handoff and active secondary-prior jobs](lab_book/0086-review-secondary-prior-handoff.md) | Confirms one running and four queued existing jobs, preserves the uncommitted feature, and records missing final-analysis endpoints without claiming a scientific effect. |
+| 0085 | 2026-09-04 | [Add explicit iterative secondary-structure sequence priors](lab_book/0085-add-iterative-secondary-structure-priors.md) | Replaces a misleading helix-only control with auditable anti-helix, β-oriented and mixed priors, persists deterministic strand/turn plans across MPNN cycles, and keeps the feature experimental pending predicted-coordinate validation. |
 | 0084 | 2026-09-03 | [Keep MCP result and surface-origin behavior in parity](lab_book/0084-keep-mcp-results-and-origins-in-parity.md) | Ships MCP v6 with app-equivalent iterative/RFD3 result hierarchy, run-relative artifacts, child-level verdicts, target-aligned trajectory metadata, and an enforced no-epitope whole-surface ORI contract for Codex, Claude and remote clients. |
 | 0083 | 2026-09-03 | [Play target-aligned iterative cycle trajectories](lab_book/0083-play-iterative-cycle-trajectories.md) | Adds an iterative-only trajectory choice containing cycle-00 through the final design stage, rigidly fits every frame on matching target Cα atoms, exposes labelled py2Dmol scrubbing/autoplay/speed controls, and validates the complete WebKit path against the supplied campaign. |
 | 0082 | 2026-09-03 | [Nest derivatives and cycles in clean result groups](lab_book/0082-nest-result-derivatives.md) | Corrects newer RFD3 manifest identity drift by deriving the parent from `backbone_pdb`, nests MPNN derivatives beneath each backbone and cycles beneath each iterative run, counts score distributions per child, and replaces cramped control-heavy comparison viewers with clean previews plus one large interactive viewer. |
@@ -274,3 +348,7 @@ Fill in every section, add a row to the table above (newest first), and update
 **Current status** if the work changed it. Sections that do not apply get `n/a` and a
 reason rather than being deleted — a missing section is indistinguishable from a
 forgotten one.
+
+- [0101 — Simplify helix control and benchmark installed predictors](lab_book/0101-simplify-helix-control-and-cross-engine-benchmark.md) (2026-09-06, in progress).
+
+- [0103 — Record geometry without rejection](lab_book/0103-record-geometry-without-rejection.md): requested advisory policy, MCP reports and full paired benchmark restart.

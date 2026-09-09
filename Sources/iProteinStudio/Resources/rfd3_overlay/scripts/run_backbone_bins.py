@@ -19,6 +19,7 @@ import argparse
 from collections import Counter
 import csv
 import json
+import os
 import subprocess
 import sys
 import time
@@ -89,7 +90,7 @@ def main() -> None:
         bin_dir = output / bin_directory_name(b, repeated_lengths)
         queue_dirs = [bin_dir / f"queue{q}" for q in range(args.queues_per_bin)]
         done_marker = bin_dir / "bin_done.json"
-        if done_marker.exists():
+        if done_marker.exists() and os.environ.get("STUDIO_RFD3_AUDIT_RESUME") != "1":
             print(f"L{length}: cached ({quota} designs)")
             cached = json.loads(done_marker.read_text())
             if b.get("origin"):

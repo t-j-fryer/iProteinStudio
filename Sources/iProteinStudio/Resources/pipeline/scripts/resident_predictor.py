@@ -100,7 +100,33 @@ def validate_geometry(root: Path, output: Path) -> None:
         die("managed prediction-geometry validator is missing")
     completed = subprocess.run([sys.executable, str(validator), str(output)])
     if completed.returncode:
-        die("predictor returned invalid protein geometry")
+        die("prediction coordinates are unusable; see geometry_report.json")
+
+
+class BoltzCheckpointCache:
+    """Keep structure/affinity identities distinct even though both use Boltz2."""
+    def __init__(self, structure_path, structure_model, affinity_path, loader, allow_affinity=False):
+        self.structure_path = Path(structure_path).resolve()
+        self.structure_model = structure_model
+        self.affinity_path = Path(affinity_path).resolve()
+        self.loader = loader
+        self.allow_affinity = allow_affinity
+        self.affinity_model = None
+        self.load_count = 1
+
+    def load(self, requested, *args, **kwargs):
+        path = Path(requested).resolve()
+        if path == self.structure_path:
+            return self.structure_model
+        if not self.allow_affinity or path != self.affinity_path:
+            die(f"unexpected checkpoint in resident Boltz session: {path.name}")
+        if not path.is_file():
+            die("requested Boltz affinity checkpoint is missing")
+        if self.affinity_model is None:
+            self.affinity_model = self.loader(requested, *args, **kwargs)
+            self.affinity_model.eval()
+            self.load_count += 1
+        return self.affinity_model
 
 
 class BoltzSession:
@@ -158,9 +184,19 @@ class BoltzSession:
         self.model.eval()
         self._original_loader = boltz_main.Boltz2.load_from_checkpoint
 
-        model = self.model
+        # Boltz's affinity head uses the same class with a DIFFERENT checkpoint.
+        # Never return the structure model for that request. Ligand NISE opts in
+        # to a separately cached affinity model; existing protein sessions keep
+        # their one-checkpoint contract.
+        self.checkpoints = BoltzCheckpointCache(
+            checkpoint, self.model,
+            option(self.arguments, "--affinity_checkpoint", str(cache / "boltz2_aff.ckpt")),
+            self._original_loader, allow_affinity=bool(config.get("allow_affinity")))
+        self.model_load_count = 1
 
-        def resident_loader(_class, *_args, **_kwargs):
+        def resident_loader(_class, requested, *args, **kwargs):
+            model = self.checkpoints.load(requested, *args, **kwargs)
+            self.model_load_count = self.checkpoints.load_count
             return model
 
         boltz_main.Boltz2.load_from_checkpoint = classmethod(resident_loader)
