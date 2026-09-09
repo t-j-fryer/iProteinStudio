@@ -4,7 +4,7 @@ title: Sync accumulated Studio changes to GitHub
 date: 2026-09-09
 author: Codex
 type: implementation
-status: blocked
+status: complete
 machine: local Apple Silicon Mac; Command Line Tools selected
 tags: [repository, release, tests]
 ---
@@ -43,8 +43,10 @@ The push was rejected by automatic approval review before execution: the review
 considered the accumulated source and validation payload insufficiently authorized
 for an unverified destination. A subsequent read-only GitHub query confirmed
 `t-j-fryer/iProteinStudio` is public and the authenticated user has ADMIN access.
-The broad public-payload approval issue remains; no push or alternate upload was
-attempted after the rejection. Explicit user approval is required to proceed.
+The user then explicitly approved publishing commits `14097e3` and `5905399` and
+the described 350-file public payload. The ordinary push succeeded, advancing
+GitHub main from `37cc954` to `5905399`. This follow-up records that approval and
+completion; it contains no additional implementation changes.
 
 The staged whitespace check identifies existing blank-line/trailing-space issues
 in newly tracked historical files, including required blank context-line markers
@@ -79,6 +81,6 @@ running; any such failure must remain explicit.
 
 ## Next
 
-Obtain approval to publish the reviewed 350-file source update and this audit
-record to public `t-j-fryer/iProteinStudio` main, then push and verify the remote
-commit. Generated output, model weights and release archives remain excluded.
+Review GitHub Actions results separately; remote CI success is not implied by a
+successful push. Generated output, model weights and release archives remain
+excluded. A GitHub binary release/appcast update is a separate operation.
