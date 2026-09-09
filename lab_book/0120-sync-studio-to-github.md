@@ -4,7 +4,7 @@ title: Sync accumulated Studio changes to GitHub
 date: 2026-09-09
 author: Codex
 type: implementation
-status: in-progress
+status: blocked
 machine: local Apple Silicon Mac; Command Line Tools selected
 tags: [repository, release, tests]
 ---
@@ -35,7 +35,16 @@ and scaffold/batch contract checks passed in entry 0119. The current fast suite'
 Python and shell checks passed. `swift test` cannot compile XCTest on this host:
 `no such module 'XCTest'`. Only Command Line Tools are installed; no full Xcode
 application is present. The separate executable Swift contracts remain available.
-The final suite summary and GitHub synchronization results will be recorded below.
+Final suite result: 31 of 32 commands passed, including all executable Swift
+contracts; only `swift test` failed for the missing XCTest module. The source
+commit is `14097e35994945280cd85cd9ea969698a96f45c0` (350 files).
+
+The push was rejected by automatic approval review before execution: the review
+considered the accumulated source and validation payload insufficiently authorized
+for an unverified destination. A subsequent read-only GitHub query confirmed
+`t-j-fryer/iProteinStudio` is public and the authenticated user has ADMIN access.
+The broad public-payload approval issue remains; no push or alternate upload was
+attempted after the rejection. Explicit user approval is required to proceed.
 
 The staged whitespace check identifies existing blank-line/trailing-space issues
 in newly tracked historical files, including required blank context-line markers
@@ -70,4 +79,6 @@ running; any such failure must remain explicit.
 
 ## Next
 
-Finish tests, commit the reviewed source files, push and verify the remote commit.
+Obtain approval to publish the reviewed 350-file source update and this audit
+record to public `t-j-fryer/iProteinStudio` main, then push and verify the remote
+commit. Generated output, model weights and release archives remain excluded.
