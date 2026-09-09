@@ -11,7 +11,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 FAST_PYTHON = [
     "test_apple_build_tools.py", "test_install_download_recovery.py",
-    "test_iterative_engine_batch.py",
+    "test_iterative_engine_batch.py", "test_resident_prediction_resume.py",
     "test_nanobody_scaffold_catalog.py",
     "test_nise_contract.py", "test_rfd3_batch_resume.py",
     "test_nesso_screen.py",

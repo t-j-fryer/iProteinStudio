@@ -191,6 +191,9 @@ def discover_structures(path: Path) -> list[Path]:
     for pattern in ("*.cif", "*.pdb"):
         for candidate in path.rglob(pattern):
             relative_parts = candidate.relative_to(path).parts
+            if ".prediction_resume" in relative_parts:
+                # Interrupted items are retained for audit, not predictions.
+                continue
             if "_inputs" in relative_parts:
                 input_index = relative_parts.index("_inputs")
                 if (input_index + 1 >= len(relative_parts)

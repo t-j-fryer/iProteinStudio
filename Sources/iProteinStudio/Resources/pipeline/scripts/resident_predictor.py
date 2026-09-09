@@ -266,7 +266,7 @@ class IntelliFoldSession:
             sampling_steps=int(option(self.arguments, "--sampling_steps", "200")),
             buckets=self.upstream.parse_buckets(option(self.arguments, "--buckets", "256,512,768,1024,1280,1536,2048,2560,3072,3584,4096,4608,5120")),
             output_format=option(self.arguments, "--output_format", "mmcif"),
-            override=True,
+            override=False,
             use_msa_server=flag(self.arguments, "--use_msa_server"),
             msa_server_url=option(self.arguments, "--msa_server_url", "https://api.colabfold.com"),
             msa_pairing_strategy=option(self.arguments, "--msa_pairing_strategy", "greedy"),
@@ -276,6 +276,8 @@ class IntelliFoldSession:
             return_similar_seq=False,
             model=option(self.arguments, "--model", config.get("model", "v2-flash")),
         )
+        if self.args.num_workers != 0:
+            die("resumable resident IntelliFold requires --num_workers 0 for deterministic input features")
         from accelerate import DistributedDataParallelKwargs, InitProcessGroupKwargs
         from datetime import timedelta
         from accelerate.utils import set_seed
@@ -338,6 +340,28 @@ class IntelliFoldSession:
         self.model = self.accelerator.prepare(model)
         self.model.eval()
         self.model_load_count = 1
+        # Hash once per model load, not once per design. A new worker must prove
+        # it has the same weights, code and settings before reusing any output.
+        from prediction_resume import digest, input_identity, tree_identity
+        settings = {key: value for key, value in vars(self.args).items()
+                    if key not in {"data", "out_dir", "cache"}}
+        scripts = Path(__file__).resolve().parent
+        self.resume_identity = {
+            "engine": "intellifold", "settings": settings,
+            "feature_rng_policy": "reset-first-seed-before-each-record-v1",
+            "checkpoint_sha256": digest(checkpoint),
+            "ccd_sha256": digest(cache / "ccd_v2.pkl"),
+            "upstream_python": tree_identity(runner_path.parent, "*.py"),
+            "runtime_python": tree_identity(scripts, "*.py"),
+            "packages": {name: importlib.metadata.version(name)
+                         for name in ("torch", "accelerate", "numpy", "intellifold")},
+            "execution_environment": {name: os.environ.get(name) for name in (
+                "NANOHUNTER_INTELLIFOLD_MPS_CLEANUP", "PYTORCH_ENABLE_MPS_FALLBACK",
+                "PYTORCH_MPS_FAST_MATH", "PYTORCH_MPS_PREFER_METAL",
+                "USE_DEEPSPEED_EVO_ATTENTION", "LAYERNORM_TYPE",
+            )},
+            "template": input_identity(Path(template_manifest)) if template_manifest else None,
+        }
 
     def predict(self, source: Path, output: Path, expected: int) -> None:
         import torch.nn.functional as functional
@@ -351,22 +375,57 @@ class IntelliFoldSession:
         data = self.upstream.check_inputs(source)
         if len(data) != expected:
             die(f"IntelliFold expected {expected} validated inputs, found {len(data)}")
-        ccd = Path(args.cache) / "ccd_v2.pkl"
-        self.upstream.process_inputs(
-            args,
-            data=data,
-            out_dir=out_dir,
-            ccd_path=ccd,
-            use_msa_server=args.use_msa_server,
-            msa_server_url=args.msa_server_url,
-            msa_pairing_strategy=args.msa_pairing_strategy,
-            max_msa_seqs=16384,
-            use_pairing=not args.no_pairing,
-            use_template=args.use_template,
+        from prediction_resume import PredictionLedger, RecordSeedDataset, input_identity
+        from ipsae_score import annotate_intellifold
+        from storage_policy import compact_detailed_confidence
+        yaml_paths = {path.stem: path for path in sorted(source.glob("*.yaml"))}
+        identities = {name: input_identity(path) for name, path in yaml_paths.items()}
+        ledger = PredictionLedger(
+            output, out_dir / "predictions", self.resume_identity, identities,
+            self.seeds, args.num_diffusion_samples,
+            "pdb" if args.output_format == "pdb" else "cif",
         )
+        def check_inputs_unchanged(current=None):
+            names = [current] if current else list(yaml_paths)
+            if any(input_identity(yaml_paths[name]) != identities[name] for name in names):
+                die("YAML, MSA or template changed during prediction; item was not committed")
+            template = str(self.config.get("target_template_manifest", "")).strip()
+            if template and input_identity(Path(template)) != self.resume_identity["template"]:
+                die("User template changed during prediction; item was not committed")
+
+        reused = sum(ledger.complete(name) for name in identities)
+        completed = reused
+        def report():
+            print(f"IPROTEINSTUDIO_PREDICTION_PROGRESS|intellifold|completed={completed}|"
+                  f"total={expected}|reused={reused}", flush=True)
+            callback = getattr(self, "report_progress", None)
+            if callback:
+                callback(completed, expected, reused)
+        report()
         processed_dir = out_dir / "processed"
+        ledger.prepare_features(processed_dir, lambda: self.upstream.process_inputs(
+            args, data=data, out_dir=out_dir, ccd_path=Path(args.cache) / "ccd_v2.pkl",
+            use_msa_server=args.use_msa_server, msa_server_url=args.msa_server_url,
+            msa_pairing_strategy=args.msa_pairing_strategy, max_msa_seqs=16384,
+            use_pairing=not args.no_pairing, use_template=args.use_template,
+        ))
+        check_inputs_unchanged()
+        manifest = self.upstream.Manifest.load(processed_dir / "manifest.json")
+        records = [record for record in manifest.records if record.id in identities]
+        if len(records) != expected or {record.id for record in records} != set(identities):
+            die("Processed manifest does not match requested prediction IDs")
+        # Completed records never reach inference, including when the shell
+        # was interrupted before materializing the batch into trajectory folders.
+        manifest = self.upstream.Manifest(records=[record for record in records
+                                                  if not ledger.complete(record.id)])
+        if not manifest.records:
+            # Accelerate 1.1.1's empty DataLoaderShard yields None. A fully
+            # reused request has no loader work and must never enter that path.
+            self.accelerator.wait_for_everyone()
+            validate_geometry(self.root, output)
+            return
         processed = self.upstream.BoltzProcessedInput(
-            manifest=self.upstream.Manifest.load(processed_dir / "manifest.json"),
+            manifest=manifest,
             targets_dir=processed_dir / "structures",
             msa_dir=processed_dir / "msa",
             template_dir=(processed_dir / "templates") if args.use_template else None,
@@ -380,10 +439,18 @@ class IntelliFoldSession:
             template_dir=processed.template_dir if args.use_template else None,
             constraints_dir=processed.constraints_dir,
         )
+        # Preserve upstream's batching/collation/pinning settings. Seed inside
+        # dataset access because Accelerate prefetches before yielding a record.
+        loader = self.torch.utils.data.DataLoader(
+            RecordSeedDataset(loader.dataset, self.seeds[0], set_seed),
+            batch_size=loader.batch_size, num_workers=loader.num_workers,
+            collate_fn=loader.collate_fn, pin_memory=loader.pin_memory,
+            drop_last=loader.drop_last, shuffle=False,
+        )
         loader = self.accelerator.prepare(loader)
-        completed = 0
         for input_features in loader:
             record = input_features.pop("record")[0]
+            ledger.prepare(record.id)
             structure = input_features.pop("structure")
             input_features["msa"] = functional.one_hot(input_features["msa"].long(), num_classes=32).float()
             ref_keys = [key for key in input_features if "ref_" in key]
@@ -404,19 +471,19 @@ class IntelliFoldSession:
                 self.upstream.predict_and_save(
                     args, self.model, input_features, record, structure, out_dir, seed
                 )
+            leaf = out_dir / "predictions" / record.id
+            annotate_intellifold(leaf)
+            compact_detailed_confidence(leaf)
+            check_inputs_unchanged(record.id)
+            ledger.commit(record.id)
             completed += 1
+            report()
             del input_features, original_refs
             gc.collect()
         self.accelerator.wait_for_everyone()
         if completed != expected:
             die(f"IntelliFold expected {expected} completed jobs, found {completed}")
-        adapter = load_path(
-            "iproteinstudio_intellifold_adapter",
-            self.root / "scripts" / "intellifold_predict.py",
-        )
-        adapter.verify_outputs([
-            str(source), "--out_dir", str(output), *self.arguments,
-        ])
+        check_inputs_unchanged()
         validate_geometry(self.root, output)
 
 
@@ -587,6 +654,12 @@ def serve(config_path: Path) -> None:
                 die(f"request expected {expected} YAML files, found {len(paths)}")
             output.mkdir(parents=True, exist_ok=True)
             before = allocated_mps_bytes(session.torch)
+            def report_progress(completed, total, reused):
+                atomic_json(queue / f"progress_{request['request_id']}.json", {
+                    "request_id": request["request_id"], "completed": completed,
+                    "total": total, "reused": reused, "epoch": time.time(),
+                })
+            session.report_progress = report_progress
             session.predict(source, output, expected)
             after_digest, after_paths = input_digest(source)
             if after_digest != actual_digest or len(after_paths) != expected:

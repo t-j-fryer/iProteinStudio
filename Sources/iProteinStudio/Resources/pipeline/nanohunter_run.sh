@@ -6069,7 +6069,7 @@ payload={"schema": 1, "request_id": sys.argv[2], "input_dir": str(source),
 path.parent.mkdir(parents=True, exist_ok=True)
 tmp=path.with_suffix(".json.part"); tmp.write_text(json.dumps(payload, indent=2, sort_keys=True)+"\n"); tmp.replace(path)
 PY
-  local tick=0
+  local tick=0 progress_line="" last_progress=""
   while [[ ! -s "${response_path}" ]]; do
     if ! kill -0 "${RESIDENT_PID}" 2>/dev/null; then
       tail -n 200 "${RESIDENT_LOG}" >&2 || true
@@ -6077,6 +6077,18 @@ PY
     fi
     sleep 0.25
     tick=$((tick + 1))
+    if (( tick % 40 == 0 )) && [[ -s "${RESIDENT_QUEUE}/progress_${request_id}.json" ]]; then
+      progress_line="$(python3 - "${RESIDENT_QUEUE}/progress_${request_id}.json" <<'PY'
+import json, sys
+x=json.load(open(sys.argv[1]))
+print(f"{x['completed']}/{x['total']} predictions complete ({x['reused']} reused)")
+PY
+)"
+      if [[ "${progress_line}" != "${last_progress}" ]]; then
+        echo ">>> Resident ${PREDICTOR} ${request_id}: ${progress_line}" >&2
+        last_progress="${progress_line}"
+      fi
+    fi
     if (( tick % 240 == 0 )); then
       echo ">>> Resident ${PREDICTOR} ${request_id} still running (elapsed=$((tick / 4))s)" >&2
     fi
@@ -6116,6 +6128,15 @@ run_cycle_wave_predictor_batch() {
   output_dir="${batch_root}/${PREDICTOR}"
   log_path="${batch_root}/predict.log"
   mkdir -p "${yaml_input_dir}" "${output_dir}"
+
+  # Rebuild only our disposable input links. Otherwise previously materialized
+  # trajectories remain in the folder and violate the resumed request's count.
+  local old_input
+  for old_input in "${yaml_input_dir}"/*.yaml; do
+    [[ -e "${old_input}" || -L "${old_input}" ]] || continue
+    [[ -L "${old_input}" ]] || die "Unexpected non-link cycle-wave input: ${old_input}"
+    rm -- "${old_input}"
+  done
 
   # Only fold runs that do not already have a prediction for this cycle. On a
   # resume this can empty the batch entirely, in which case the predictor (and

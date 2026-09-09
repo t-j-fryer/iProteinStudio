@@ -508,6 +508,30 @@ pass `--design-scheduler run` explicitly to reproduce or diagnose the historical
 per-trajectory route, while an existing campaign Resume reuses its recorded
 command unchanged.
 
+Starting with build 35, resident IntelliFold Full and Flash checkpoint each
+prediction within a cycle-wave batch. Resume verifies the input YAML, local
+MSAs/templates, processed features, weights, runtime and settings, then reuses
+completed predictions even if the batch was interrupted before copying results
+into trajectory folders. A prediction is complete only after all requested
+seeds and samples have usable coordinates and confidence files, with annotation
+and lossless compression finished. Only the unfinished prediction is retried;
+its partial files are retained under `.prediction_resume/interrupted`. Live logs
+show completed/total predictions and how many were reused.
+
+Receipts live in the predictor output's `.prediction_resume/state.json`. Changed
+or missing completed files cause an explicit error; they are never silently
+overwritten. IntelliFold uses the existing `num_workers=0` default and now resets
+feature sampling to the first requested seed before each record, as recorded in
+the receipt. This makes feature RNG independent of which earlier records were
+reused. Diffusion seeds, recycling, samples and sampling steps remain as requested.
+The feature RNG boundary differs from older builds, so old unreceipted outputs
+are not automatically adopted by the new worker.
+
+Existing campaigns retain their frozen runtime when resumed. Updating Studio
+does **not** retrofit this fix into an already-started campaign. This per-item
+receipt applies to resident IntelliFold; it does not add equivalent partial-batch
+receipts to the other predictors or IntelliFold's non-resident modes.
+
 For target proteins, Studio's prediction, target-preparation, RFdiffusion3, and
 iterative-design workflows all reuse an A3M only when its first record exactly
 matches the requested sequence and it contains at least two records. They search

@@ -21,6 +21,8 @@ _Last updated: 2026-09-09_
 
 **Installer:** Build 34 adds a checksum-verified AbMPNN fallback and continues independent components after installation failures. Partial setup reports unfinished components for retry; completed engines remain available (Entry 0124).
 
+**Resume:** Build 35 adds verified per-prediction checkpoints to resident IntelliFold Full/Flash and live completed/reused counts. Software interruption fixtures pass; existing campaigns retain their older frozen runtime (Entry 0127).
+
 **Working:** NISE now offers Protein Hunter hallucination or experimental
 RFdiffusion3 initial backbones, with 100 starts by default (Entry 0103).
 NESSO installs its required ESM-2 650M assets automatically and can reuse exact
@@ -223,6 +225,9 @@ Newest first.
 | 0119 | 2026-09-09 | [Add nanobody scaffold selection and budgets](lab_book/0119-nanobody-scaffold-budgets.md) | Equal/custom per-scaffold allocations across engines; add tail-trimmed 3EAK with explicit CDR provenance. |
 | 0120 | 2026-09-09 | [Sync accumulated Studio changes to GitHub](lab_book/0120-sync-studio-to-github.md) | Publish the coherent build-32 source tree, tests and validation harnesses; generated artifacts stay separate. |
 | 0121 | 2026-09-09 | [Guide Apple tools installation in the app](lab_book/0121-guide-apple-tools-installation.md) | Native Apple installer and Software Update actions; preserve reviewed setup choices and recheck the compiler on retry. |
+| 0127 | 2026-09-09 | [Checkpoint resident IntelliFold predictions](lab_book/0127-checkpoint-resident-intellifold-predictions.md) | Per-item verified resume and live progress; hard-interruption fixtures; existing frozen runs remain unchanged |
+| 0126 | 2026-09-09 | [Inspect live IntelliFold cycle 01 progress](lab_book/0126-inspect-live-intellifold-cycle01-progress.md) | Active resident worker; 48/50 predictions at 4.2 min each; resumed unfinished batch repeated 34 completed predictions |
+| 0125 | 2026-09-09 | [Confirm the completed AbMPNN timeout log](lab_book/0125-confirm-completed-abmpnn-timeout-log.md) | Longer copy of the earlier attempt confirms 20 zero-byte AbMPNN retries and a final read timeout; build 34 was not exercised |
 | 0124 | 2026-09-09 | [Isolate installation failures and add the verified AbMPNN fallback](lab_book/0124-isolate-install-failures-and-add-abmpnn-fallback.md) | Pinned equivalent checkpoint, component-level continuation, partial result and narrow retry; build 34 |
 | 0123 | 2026-09-09 | [Check Zenodo status and verify an AbMPNN alternative](lab_book/0123-check-zenodo-status-and-abmpnn-alternative.md) | Wider access failures; Mosaic's re-serialized checkpoint has 472 exactly matching tensors and metadata, with a distinct pinned file checksum. |
 | 0122 | 2026-09-09 | [Investigate AbMPNN download connectivity](lab_book/0122-investigate-abmpnn-download.md) | Supplied log retries from 0 B; independent Zenodo checks return a gateway timeout or stall. Existing verified downloads are retained. |

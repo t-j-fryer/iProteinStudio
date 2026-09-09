@@ -14,6 +14,10 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
   || fail "SwiftPM resource bundle is missing its pipeline sentinel"
 [[ -s "${BUNDLE}/pipeline/scripts/storage_policy.py" ]] \
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
+for resource in prediction_resume.py resident_predictor.py validate_prediction_geometry.py; do
+  cmp -s "${BUNDLE}/pipeline/scripts/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/${resource}" \
+    || fail "prediction resume resource is missing or differs from source: ${resource}"
+done
 [[ -s "${BUNDLE}/pipeline/examples/nanobody_scaffolds/sources/3eak_provenance.json" ]] \
   || fail "resource bundle is missing the 3EAK scaffold provenance"
 rg -q '^3eak_nbbcii10_fgla' "${BUNDLE}/pipeline/examples/nanobody_scaffolds/catalog.tsv" \
