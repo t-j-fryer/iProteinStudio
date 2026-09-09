@@ -40,6 +40,11 @@ final class PipelineInstaller: ObservableObject {
     @Published var installed = AppPaths.isPipelineInstalled
     @Published var components: [InstallComponent: ComponentState] = [:]
     @Published var latestLogURL: URL?
+    @Published private(set) var needsAppleBuildTools = false
+    @Published private(set) var isRequestingAppleBuildTools = false
+    @Published private(set) var appleBuildToolsMessage: String?
+    private var appleBuildToolsRunner: ProcessRunner?
+    private var retrySetupArguments: [String]?
     @Published private(set) var safeCacheBytes: Int64 = 0
     /// The practical default installation: the folding engine, nanobody
     /// designer, independent checker, Protenix v2/Mini, and unconditional MPNN
@@ -429,7 +434,7 @@ final class PipelineInstaller: ObservableObject {
     }
 
     private func launch(extraArguments: [String], startMessage: String) {
-        guard !isInstalling, !isRemoving else { return }
+        guard !isInstalling, !isRemoving, !isRequestingAppleBuildTools else { return }
         do { executionLease = try ExecutionLease(directory: AppPaths.support.appendingPathComponent("agent")) }
         catch { failure = error.localizedDescription; return }
         isInstalling = true
@@ -439,6 +444,9 @@ final class PipelineInstaller: ObservableObject {
         steps = []
         currentMessage = startMessage
         cancelRequested = false
+        retrySetupArguments = extraArguments
+        needsAppleBuildTools = false
+        appleBuildToolsMessage = nil
 
         // Stage vendored scripts/examples into the managed pipeline dir.
         do { try AppPaths.stagePipelineAssets(leaseHeld: true) }
@@ -474,6 +482,40 @@ final class PipelineInstaller: ObservableObject {
         currentMessage = "Cancelling setup safely…"
     }
 
+    /// Only requests Apple's own GUI. A successful request does not mean that
+    /// the tools are installed, so Setup stays paused until an explicit retry.
+    func requestAppleBuildTools() {
+        guard needsAppleBuildTools, !isInstalling, !isRemoving, !isRequestingAppleBuildTools else { return }
+        isRequestingAppleBuildTools = true
+        appleBuildToolsMessage = "Opening Apple's installer…"
+        let requestRunner = ProcessRunner()
+        appleBuildToolsRunner = requestRunner
+        let log = AppPaths.installerLogs.appendingPathComponent("apple-tools-\(UUID().uuidString).log")
+        latestLogURL = log
+        requestRunner.launch(
+            executable: URL(fileURLWithPath: "/usr/bin/xcode-select"),
+            arguments: ["--install"],
+            environment: ProcessInfo.processInfo.environment,
+            logURL: log,
+            onLine: { _ in },
+            onExit: { [weak self] code in
+                guard let self else { return }
+                self.isRequestingAppleBuildTools = false
+                self.appleBuildToolsRunner = nil
+                self.appleBuildToolsMessage = code == 0
+                    ? "Complete the installation in Apple's window, then choose Retry Setup here. Opening that window does not mean installation has finished."
+                    : "macOS could not open a new installer. If the tools are already installed, use Open Software Update to update them, then retry setup. Show log has Apple's response."
+            }
+        )
+    }
+
+    func retryAfterAppleBuildTools() {
+        guard needsAppleBuildTools, let arguments = retrySetupArguments else { return }
+        // Retain the reviewed engine selection; reacquire the execution lease
+        // and run the full compile/link/run preflight before any downloads.
+        launch(extraArguments: arguments, startMessage: "Checking Apple tools before resuming setup…")
+    }
+
     // MARK: Output parsing
 
     private func handle(_ line: String, quiet: Bool = false) {
@@ -499,6 +541,9 @@ final class PipelineInstaller: ObservableObject {
             guard !quiet else { return }
             progress = 1.0
             currentMessage = "Setup complete."
+        } else if line == "NHREQUIRES|apple-build-tools" {
+            guard !quiet else { return }
+            needsAppleBuildTools = true
         } else if line.hasPrefix("NHFAIL|") {
             failure = line.replacingOccurrences(of: "NHFAIL|", with: "")
         }

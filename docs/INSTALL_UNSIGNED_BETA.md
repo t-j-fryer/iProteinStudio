@@ -41,6 +41,29 @@ often large downloads. The Engines screen states their purpose and approximate
 disk use, and nothing is installed until the user confirms it. Projects, results
 and engines are stored under `~/.iproteinstudio` rather than inside the app.
 
+### Apple tools needed before setup
+
+Some engine dependencies compile native code, so setup needs Apple's **Command
+Line Tools for Xcode**. The full Xcode application is not required.
+
+Build 33 and later check the tools before downloading engines. If they are absent
+or the compiler fails its check, Setup and Engines show these actions:
+
+1. **Install Apple Tools** opens Apple's installation window directly. Complete
+   that window, including Apple's license/authorization prompts.
+2. If macOS reports that the tools are already installed, choose **Open Software
+   Update** and install the applicable update. You can also open **System Settings
+   → General → Software Update** yourself.
+3. After Apple finishes, return to Studio and choose **Retry Setup**. The reviewed
+   engine selection is retained, and the compiler is checked again before any
+   engine downloads. Opening Apple's installer alone does not complete setup.
+
+Terminal is not needed for this flow. Older app builds that only show the Terminal
+instruction need an updated app to offer these buttons. Apple documents its tools
+installer in [Installing the command-line tools](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools).
+If retry still fails, use **Show log** to inspect the error; SDK selection or other
+compiler problems may require additional diagnosis.
+
 Remote MSA generation sends the submitted protein sequence to an external
 alignment service. Review the `PRIVACY.md` included in the DMG before using
 confidential sequences.

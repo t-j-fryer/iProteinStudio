@@ -31,6 +31,8 @@ private struct InnerSetup: View {
 
                 if installer.isInstalling {
                     installingView
+                } else if installer.needsAppleBuildTools {
+                    AppleBuildToolsHelpView(installer: installer)
                 } else if let failure = installer.failure {
                     failureView(failure)
                 } else {
@@ -88,7 +90,7 @@ private struct InnerSetup: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
 
-            Text("The default standalone install downloads many gigabytes and can take a while on first run.")
+            Text("Setup checks Apple's Command Line Tools before downloading engines. If they are missing, Studio will offer to open Apple's installer. The full Xcode app is not required. The default standalone install downloads many gigabytes and can take a while on first run.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

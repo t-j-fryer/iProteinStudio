@@ -2,6 +2,12 @@
 # Sourced by setup_pipeline.sh. Keep detection/maintenance paths compiler-free.
 configure_apple_build_tools() {
   local sdk cc cxx probe_dir
+  # This query is passive. Avoid xcrun triggering Apple's installer before the
+  # app can explain the prerequisite and offer its explicit Install button.
+  if ! xcode-select --print-path >/dev/null 2>&1; then
+    echo "Apple Command Line Tools have not been selected or installed." >&2
+    return 1
+  fi
   sdk="$(xcrun --sdk macosx --show-sdk-path)" || return 1
   cc="$(xcrun --sdk macosx --find clang)" || return 1
   cxx="$(xcrun --sdk macosx --find clang++)" || return 1

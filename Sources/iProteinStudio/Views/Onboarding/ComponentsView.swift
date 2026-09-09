@@ -23,6 +23,9 @@ struct ComponentsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
+                if installer.needsAppleBuildTools && !installer.isInstalling {
+                    AppleBuildToolsHelpView(installer: installer)
+                }
                 if installer.isInstalling { progress } else { list }
             }
             .padding(28).frame(maxWidth: 720, alignment: .leading).frame(maxWidth: .infinity)
@@ -164,7 +167,7 @@ struct ComponentsView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(selection.isEmpty || installer.isRemoving)
             }
-            if let failure = installer.failure {
+            if let failure = installer.failure, !installer.needsAppleBuildTools {
                 Label(failure, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout).foregroundStyle(.orange)
                     .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)

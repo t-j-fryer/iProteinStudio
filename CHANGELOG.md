@@ -4,6 +4,10 @@ Initialization-only helix-kill strength is now the sole secondary-structure cont
 
 ## 0.2.0 — updater foundation
 
+- Adds in-app Apple Command Line Tools installation guidance to Setup and Engines.
+  Open Apple's installer or Software Update directly, then retry the saved engine
+  selection after the compiler check succeeds; Terminal and full Xcode are not required.
+
 - Adds a nanobody scaffold checklist with equal or custom trajectory budgets per
   scaffold, repeated for each selected design engine. Adds the 128-residue 3EAK
   NbBCII10-FGLA VHH with the requested purification-tail removal and recorded CDR

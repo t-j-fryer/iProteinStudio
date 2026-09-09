@@ -33,6 +33,7 @@
 #   NHSTEP|<key>|<0-100 pct>|<human message>
 #   NHSTATE|<component>|<ok|missing|skipped>|<detail>
 #   NHDONE|ok
+#   NHREQUIRES|apple-build-tools
 #   NHFAIL|<message>
 set -uo pipefail
 
@@ -1087,7 +1088,10 @@ step toolchain 1 "Checking Apple's compiler and macOS SDK"
 # The managed Python source builds also need the SDK's libc++ headers.
 source "${NESSO_SCRIPT_ROOT}/scripts/apple_build_tools.sh" \
   || fail "The compiler setup helper is missing. Reopen the updated app and retry Setup."
-configure_apple_build_tools || fail "Apple's C++ build tools are incomplete or unusable. Install or update Command Line Tools for Xcode in System Settings > General > Software Update, then retry Setup. For a first installation, run xcode-select --install in Terminal. See the setup log for the compiler error."
+if ! configure_apple_build_tools; then
+  echo "NHREQUIRES|apple-build-tools"
+  fail "Apple's C++ build tools are missing or need an update. In Studio, choose Install Apple Tools to open Apple's installer, or Open Software Update if they are already installed. When Apple finishes, choose Retry Setup. The full Xcode app is not required. See the setup log for details."
+fi
 
 step python 2 "Preparing exact managed Python environments"
 command -v git >/dev/null 2>&1 || fail "git not found. Install Xcode Command Line Tools: xcode-select --install"

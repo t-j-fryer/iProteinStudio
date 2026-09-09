@@ -88,6 +88,14 @@ search with beam two and screening, checking first-cycle/later-cycle sampling
 and exact replay. These are fixture tests; they do not validate NESSO ranking
 accuracy or establish a throughput improvement.
 
+`test_apple_build_tools.py` executes the real C++ compile/link/run probe, missing
+tool and compiler-failure fixtures, and recovery after tools become available.
+`test_apple_build_tools_ui.sh` runs the real native installer controller with a
+mock process boundary: it checks explicit Apple installer requests, failed
+requests, preserved engine arguments on retry, and execution-lease release while
+waiting. These checks do not open Apple's installer or establish fresh-Mac GUI
+acceptance.
+
 NISE atom identity tests need the **installed Boltz environment**, including its
 actual parser and the installed ALA molecular dictionary. They execute Boltz
 input parsing, per-atom solvent-accessibility calculations, failure filtering,

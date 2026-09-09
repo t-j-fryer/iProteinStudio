@@ -77,7 +77,11 @@ if [[ "$*" == *"--find clang++" ]]; then echo "$BROKEN_CXX"; else exec /usr/bin/
                                 env=self.env, text=True, capture_output=True)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("NHFAIL|Apple's C++ build tools", result.stdout)
+        self.assertIn("NHREQUIRES|apple-build-tools", result.stdout)
         self.assertIn("Software Update", result.stdout)
+        self.assertIn("Install Apple Tools", result.stdout)
+        failure = next(line for line in result.stdout.splitlines() if line.startswith("NHFAIL|"))
+        self.assertNotIn("Terminal", failure)
         self.assertNotIn("NHSTEP|python|", result.stdout)
         self.assertFalse((self.root / "support/toolchains").exists())
         self.assertFalse((self.root / "support/.install.lock").exists())
@@ -85,6 +89,26 @@ if [[ "$*" == *"--find clang++" ]]; then echo "$BROKEN_CXX"; else exec /usr/bin/
                                   env=self.env, text=True, capture_output=True)
         self.assertEqual(detected.returncode, 0, detected.stdout + detected.stderr)
         self.assertNotIn("test: no developer tools", detected.stderr)
+
+    def test_missing_tools_do_not_open_apple_installer_implicitly(self):
+        self.script("xcode-select", '''
+[[ "$*" == "--print-path" ]] || { echo unexpected-installer-request >&2; exit 99; }
+exit 2
+''')
+        self.script("xcrun", 'touch "$TMPDIR/unexpected-xcrun"\nexit 99\n')
+        result = self.configure()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("have not been selected or installed", result.stderr)
+        self.assertNotIn("unexpected-installer-request", result.stderr)
+        self.assertFalse((self.root / "unexpected-xcrun").exists())
+
+    def test_retry_rechecks_tools_and_runs_real_compiler(self):
+        select = self.script("xcode-select", 'exit 2\n')
+        self.assertNotEqual(self.configure().returncode, 0)
+        select.unlink()
+        result = self.configure()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("compile/link/run check passed", result.stdout)
 
 
 if __name__ == "__main__":
