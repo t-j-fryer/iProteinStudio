@@ -41,6 +41,38 @@ often large downloads. The Engines screen states their purpose and approximate
 disk use, and nothing is installed until the user confirms it. Projects, results
 and engines are stored under `~/.iproteinstudio` rather than inside the app.
 
+### Interrupted downloads and partial setup
+
+Build 34 and later continue installing independent components when one component
+fails. The completion card names unfinished components and offers **Retry
+unfinished components** and **Show setup log**. Verified files stay on disk;
+interrupted transfers resume. A failed checksum is discarded. A retry repeats only
+unfinished components from the reviewed selection, not successful engines.
+
+Core ProteinMPNN, SolubleMPNN and LigandMPNN install independently of AbMPNN.
+AbMPNN is selected by default, but can be deselected or retried separately in
+**Engines**. If Zenodo is unavailable, Studio automatically tries the approved,
+revision-pinned Mosaic copy. Its serialization differs, so Studio checks its own
+pinned SHA-256; all tensors and checkpoint metadata were checked for exact equality
+with the original (Lab Book 0123). Each installation records which source and
+checksum it used. TLS and checksum verification are never disabled.
+
+Boltz affinity, IntelliFold full v2, and Protenix v2/Mini checkpoint downloads are
+also isolated from their shared runtimes. A failed extra does not invalidate its
+completed base runtime. Requested engines with missing dependencies remain
+unavailable; Studio never silently substitutes another model. A completed predictor
+can still be used in **Predict** if core sequence-design setup failed. After
+reopening Studio, **Engines** detects missing components and lets you install them.
+
+Failures of prerequisites needed by all components, such as missing Apple build
+tools or the shared managed-Python bootstrap, still need repair before setup can
+proceed. If no approved download source is reachable, retry after connectivity
+recovers; the app cannot manufacture missing model files.
+
+Mosaic's source attribution and CC-BY-4.0 notice:
+<https://github.com/escalante-bio/mosaic/blob/70fec525423f5f87156a1a957b4a4048f9f8e676/src/mosaic/proteinmpnn/NOTICE>.
+Studio distributes installer code and checksums, not model weights.
+
 ### Apple tools needed before setup
 
 Some engine dependencies compile native code, so setup needs Apple's **Command

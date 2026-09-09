@@ -89,6 +89,38 @@ enum CommandBuilder {
         ProcessRunner.calls.last!.line("NHDONE|ok")
         ProcessRunner.calls.last!.exit(0)
         precondition(installer.finished && !installer.needsAppleBuildTools)
+        installer.optionalSelection = [.boltz, .abmpnn]
+        installer.install()
+        let partial = ProcessRunner.calls.last!
+        partial.line("NHSTATE|mpnn|ok|Core ready")
+        partial.line("NHCOMPONENTFAIL|abmpnn|Both approved hosts unavailable")
+        partial.line("NHCOMPONENTFAIL|abmpnn|Generic incomplete message")
+        partial.line("NHSTATE|boltz|ok|Boltz ready")
+        partial.line("NHSTATE|intellifold|skipped|not requested")
+        precondition(installer.isUsable(.intellifold))
+        partial.line("NHDONE|partial|abmpnn")
+        partial.exit(2)
+        precondition(installer.completedWithIssues && installer.installed && !installer.finished)
+        precondition(installer.failure == nil && installer.isUsable(.boltz) && installer.isUsable(.mpnn))
+        precondition(!installer.isUsable(.abmpnn))
+        precondition(installer.failedComponents[.abmpnn] == "Both approved hosts unavailable")
+        installer.retryIncompleteComponents()
+        let retry = ProcessRunner.calls.last!
+        precondition(retry.arguments.suffix(2) == ["--retry-components", "abmpnn"])
+        precondition(!installer.completedWithIssues && installer.failedComponents.isEmpty)
+        retry.line("NHSTATE|abmpnn|ok|Verified")
+        retry.line("NHDONE|ok")
+        retry.exit(0)
+        precondition(installer.finished && installer.isUsable(.abmpnn))
+        let external = AppPaths.support.deletingLastPathComponent().appendingPathComponent("external-abmpnn-\(UUID().uuidString)")
+        try AppPaths.fm.createDirectory(at: external.appendingPathComponent("model_params"), withIntermediateDirectories: true)
+        defer { try? AppPaths.fm.removeItem(at: external) }
+        try Data("fixture".utf8).write(to: external.appendingPathComponent("model_params/abmpnn.pt"))
+        try AppPaths.fm.createDirectory(at: AppPaths.support.appendingPathComponent("src"), withIntermediateDirectories: true)
+        try AppPaths.fm.createSymbolicLink(at: AppPaths.support.appendingPathComponent("src/LigandMPNN"), withDestinationURL: external)
+        precondition(!installer.hasManagedFiles(.abmpnn)) // never delete through a shared source directory
+        print("PASS linked original AbMPNN weights are excluded from removal")
+        print("PASS partial installation reporting, unavailable failed engine, narrow retry and recovery")
         print("PASS native Apple tools prerequisite, request/failure/retry, selection retention and lease release")
     }
 }

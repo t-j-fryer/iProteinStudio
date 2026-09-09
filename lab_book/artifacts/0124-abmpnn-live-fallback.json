@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "url": "https://raw.githubusercontent.com/escalante-bio/mosaic/70fec525423f5f87156a1a957b4a4048f9f8e676/src/mosaic/proteinmpnn/weights/abmpnn.pt",
+  "sha256": "5dca8d551747cffee33ee319724a47cd2e9d9b45132de13d84b511e3381aa125",
+  "source": "Mosaic equivalent serialization",
+  "cached": false,
+  "notice": "https://github.com/escalante-bio/mosaic/blob/70fec525423f5f87156a1a957b4a4048f9f8e676/src/mosaic/proteinmpnn/NOTICE",
+  "bytes": 20060943
+}

@@ -11,6 +11,7 @@ swiftc -emit-library -static -emit-module -module-name StudioCore \
 
 swiftc -I "${FIXTURE}" -L "${FIXTURE}" -lStudioCore \
   "${ROOT}/Sources/iProteinStudio/Core/AppPaths.swift" \
+  "${ROOT}/Sources/iProteinStudio/Core/InstalledRuntime.swift" \
   "${ROOT}/Tests/PipelineSnapshotContractHarness.swift" \
   -o "${FIXTURE}/snapshot-contract"
 

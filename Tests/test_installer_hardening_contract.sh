@@ -149,7 +149,7 @@ if grep -Eq 'local model_dir="\$1"[^$]*\$\{model_dir\}' "${SETUP}"; then
 fi
 expect "${COMPONENT_RECEIPT}" 'package_inventory_method' \
   "pip-less runtimes cannot record a durable package inventory"
-expect "${COMPONENTS_VIEW}" 'ProteinMPNN · SolubleMPNN · LigandMPNN · AbMPNN' \
+expect "${COMPONENTS_VIEW}" 'ProteinMPNN · SolubleMPNN · LigandMPNN' \
   "Engines hides which sequence designers are installed as the core suite"
 expect "${SETUP}" 'download_intellifold' "IntelliFold bypasses the resumable downloader"
 expect "${SETUP}" 'https://openfold.s3.amazonaws.com/' "OpenFold bypasses the resumable downloader"

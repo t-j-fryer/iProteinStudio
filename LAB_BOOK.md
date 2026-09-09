@@ -19,6 +19,8 @@ _Last updated: 2026-09-09_
 | **Repo** | Public — `github.com/t-j-fryer/iProteinStudio` (renamed from NanoHunterStudio) |
 | **Runtime** | `~/.iproteinstudio` — **not** Application Support: a space in the path breaks every Python console-script shebang |
 
+**Installer:** Build 34 adds a checksum-verified AbMPNN fallback and continues independent components after installation failures. Partial setup reports unfinished components for retry; completed engines remain available (Entry 0124).
+
 **Working:** NISE now offers Protein Hunter hallucination or experimental
 RFdiffusion3 initial backbones, with 100 starts by default (Entry 0103).
 NESSO installs its required ESM-2 650M assets automatically and can reuse exact
@@ -221,6 +223,9 @@ Newest first.
 | 0119 | 2026-09-09 | [Add nanobody scaffold selection and budgets](lab_book/0119-nanobody-scaffold-budgets.md) | Equal/custom per-scaffold allocations across engines; add tail-trimmed 3EAK with explicit CDR provenance. |
 | 0120 | 2026-09-09 | [Sync accumulated Studio changes to GitHub](lab_book/0120-sync-studio-to-github.md) | Publish the coherent build-32 source tree, tests and validation harnesses; generated artifacts stay separate. |
 | 0121 | 2026-09-09 | [Guide Apple tools installation in the app](lab_book/0121-guide-apple-tools-installation.md) | Native Apple installer and Software Update actions; preserve reviewed setup choices and recheck the compiler on retry. |
+| 0124 | 2026-09-09 | [Isolate installation failures and add the verified AbMPNN fallback](lab_book/0124-isolate-install-failures-and-add-abmpnn-fallback.md) | Pinned equivalent checkpoint, component-level continuation, partial result and narrow retry; build 34 |
+| 0123 | 2026-09-09 | [Check Zenodo status and verify an AbMPNN alternative](lab_book/0123-check-zenodo-status-and-abmpnn-alternative.md) | Wider access failures; Mosaic's re-serialized checkpoint has 472 exactly matching tensors and metadata, with a distinct pinned file checksum. |
+| 0122 | 2026-09-09 | [Investigate AbMPNN download connectivity](lab_book/0122-investigate-abmpnn-download.md) | Supplied log retries from 0 B; independent Zenodo checks return a gateway timeout or stall. Existing verified downloads are retained. |
 | 0117 | 2026-09-09 | [Estimate active IntelliFold Full run](lab_book/0117-estimate-active-intellifold-full-run.md) | Current 50 × 5 campaign: about 17 hours left for Full at observed pace; OpenFold3 follows. |
 | 0116 | 2026-09-09 | [Add overview design timing](lab_book/0116-add-overview-design-timing.md) | Both completed overviews show audited elapsed seconds per optimized design, with overlapping resident timers counted once. |
 | 0115 | 2026-09-09 | [Share cropped-interface NESSO screening](lab_book/0115-share-cropped-nesso-screening.md) | Corrects entropy to entropy_crop_pl; optional post-campaign Protein Hunter and pre-fold RFD3 top-X verification with shared resident workers and audited resume. |

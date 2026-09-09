@@ -4,7 +4,7 @@ import Foundation
 /// markers emitted by `setup_pipeline.sh`.
 enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     case boltz, boltzAffinity = "boltz_affinity"
-    case mpnn, antifold, lasermpnn, nesso
+    case mpnn, abmpnn, antifold, lasermpnn, nesso
     case intellifold, intellifoldFull = "intellifold_full"
     case protenix, protenixV2 = "protenix_v2", protenixMini = "protenix_mini"
     case openfold3, alphafold3
@@ -15,7 +15,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     /// AlphaFold 3 and IntelliFold JAX remain decodable so old projects and
     /// run manifests still open, but they are not installable components.
     static var allCases: [InstallComponent] {
-        [.boltz, .boltzAffinity, .mpnn, .antifold, .lasermpnn, .nesso,
+        [.boltz, .boltzAffinity, .mpnn, .abmpnn, .antifold, .lasermpnn, .nesso,
          .intellifold, .intellifoldFull, .protenix, .protenixV2,
          .protenixMini, .protenixConstraint, .openfold3, .rfd3]
     }
@@ -30,6 +30,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .boltz:          return "Boltz-2"
         case .boltzAffinity:  return "Boltz-2 binding-affinity checkpoint"
+        case .abmpnn:         return "AbMPNN antibody checkpoint"
         case .mpnn:           return "Core sequence designers"
         case .antifold:       return "AntiFold"
         case .lasermpnn:      return "LASErMPNN"
@@ -55,6 +56,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Flag that asks `setup_pipeline.sh` to install this component.
     var installFlag: String? {
         switch self {
+        case .abmpnn:         return "--with-abmpnn"
         case .mpnn:           return nil          // always installed
         case .boltz:          return "--with-boltz"
         case .boltzAffinity:  return "--with-boltz-affinity"
@@ -76,6 +78,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Roughly how much disk this costs, so the choice is informed.
     var approximateSize: String {
         switch self {
+        case .abmpnn:         return "~20 MB"
         case .mpnn:           return "~500 MB"
         case .boltz:          return "~6 GB"
         case .boltzAffinity:  return "~2.1 GB"
@@ -100,6 +103,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     var estimatedInstalledBytes: Int64 {
         let gib: Int64 = 1_073_741_824
         switch self {
+        case .abmpnn:              return 25_000_000
         case .mpnn:                return gib / 2
         case .boltz:               return 6 * gib
         case .boltzAffinity:       return 2 * gib + gib / 10
@@ -121,7 +125,8 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     /// What stops working without it, in the user's terms.
     var whatItGivesYou: String {
         switch self {
-        case .mpnn:           return "ProteinMPNN, SolubleMPNN, LigandMPNN and AbMPNN. Installed automatically because every design workflow needs this suite."
+        case .abmpnn:         return "Antibody-specific sequence design. Selected by default; a failed download can be retried independently without blocking the core designers."
+        case .mpnn:           return "ProteinMPNN, SolubleMPNN and LigandMPNN. Installed automatically for sequence design."
         case .boltz:          return "The default folding engine and an MSA generator. Includes structure prediction, not the optional affinity head."
         case .boltzAffinity:  return "Adds Boltz's small-molecule binding-affinity head; it is not used for protein binders."
         case .antifold:       return "Nanobody CDR design."
@@ -147,6 +152,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         // RFdiffusion3 designs need sequences put on them and folds to check
         // them; Boltz is the engine its campaign scripts drive.
         case .rfd3:           return [.boltz]
+        case .abmpnn:         return [.mpnn]
         case .boltzAffinity:  return [.boltz]
         case .intellifoldFull:return [.intellifold]
         case .protenixV2, .protenixMini: return [.protenix]

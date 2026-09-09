@@ -1,0 +1,19 @@
+{
+  "sources": [
+    {
+      "name": "Zenodo original",
+      "url": "https://zenodo.org/records/8164693/files/abmpnn.pt?download=1",
+      "sha256": "fd41b40ee0f51974d73e1acb754cd8acaa36b3327543d5d28bcf4aa4e07b4a1b",
+      "retries": 2,
+      "timeout": 15
+    },
+    {
+      "name": "Mosaic equivalent serialization",
+      "url": "https://raw.githubusercontent.com/escalante-bio/mosaic/70fec525423f5f87156a1a957b4a4048f9f8e676/src/mosaic/proteinmpnn/weights/abmpnn.pt",
+      "sha256": "5dca8d551747cffee33ee319724a47cd2e9d9b45132de13d84b511e3381aa125",
+      "notice": "https://github.com/escalante-bio/mosaic/blob/70fec525423f5f87156a1a957b4a4048f9f8e676/src/mosaic/proteinmpnn/NOTICE",
+      "retries": 3,
+      "timeout": 15
+    }
+  ]
+}

@@ -467,21 +467,7 @@ enum AppPaths {
 
     /// True once the pipeline runtime has been installed (venvs present).
     static var isPipelineInstalled: Bool {
-        let venvs = support.appendingPathComponent("venvs", isDirectory: true)
-        // LigandMPNN is the unconditional core install. Boltz is selected by
-        // default, but remains optional so a user can intentionally install a
-        // different predictor without setup being reported as a failure.
-        let mpnn = venvs.appendingPathComponent("NanoHunter_ligandmpnn/bin/python")
-        let source = support.appendingPathComponent("src/LigandMPNN", isDirectory: true)
-        let required = [
-            source.appendingPathComponent("run.py"),
-            source.appendingPathComponent("model_params/proteinmpnn_v_48_020.pt"),
-            source.appendingPathComponent("model_params/solublempnn_v_48_020.pt"),
-            source.appendingPathComponent("model_params/ligandmpnn_v_32_010_25.pt"),
-            source.appendingPathComponent("model_params/abmpnn.pt"),
-        ]
-        return fm.isExecutableFile(atPath: mpnn.path)
-            && required.allSatisfy { fm.fileExists(atPath: $0.path) }
+        InstalledRuntime.hasCompletedComponent(at: support)
     }
 
     /// True once the vendored scripts have been copied into the managed dir.

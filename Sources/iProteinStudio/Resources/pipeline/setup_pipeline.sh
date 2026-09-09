@@ -32,7 +32,8 @@
 # setup wizard:
 #   NHSTEP|<key>|<0-100 pct>|<human message>
 #   NHSTATE|<component>|<ok|missing|skipped>|<detail>
-#   NHDONE|ok
+#   NHDONE|ok or NHDONE|partial|<failed keys> (exit 2)
+#   NHCOMPONENTFAIL|<key>|<detail> (other components continue)
 #   NHREQUIRES|apple-build-tools
 #   NHFAIL|<message>
 set -uo pipefail
@@ -93,6 +94,8 @@ KALIGN_ARCHIVE_SHA256="c0b357feda32e16041cf286a4e67626a52bbf78c39e2237b485d54fb3
 # Every engine is opt-in. Only the sequence designers are unconditional.
 WITH_BOLTZ=0
 WITH_BOLTZ_AFFINITY=0
+WITH_ABMPNN=1
+INSTALL_ONLY=""
 WITH_ANTIFOLD=0
 WITH_INTELLIFOLD=0
 WITH_INTELLIFOLD_FULL=0
@@ -129,6 +132,8 @@ Components (combine as needed):
                                protein-epitope design checkpoint (separate,
                                native MPS, design-only, no CPU fallback)
   --with-openfold3             OpenFold-3/MLX
+  --without-abmpnn             Skip the separately retryable antibody checkpoint
+  --with-abmpnn                Include AbMPNN (default)
   --with-lasermpnn             LASErMPNN ligand sequence design
   --with-nesso                 Experimental NESSO-1 sequence-affinity screening
   --with-rfd3                  RFdiffusion3/MLX (also selects Boltz)
@@ -151,6 +156,19 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --with-boltz)           WITH_BOLTZ=1; shift ;;
     --with-boltz-affinity)  WITH_BOLTZ=1; WITH_BOLTZ_AFFINITY=1; shift ;;
+    --retry-components)
+      [[ $# -ge 2 && -n "$2" ]] || { echo "NHFAIL|Retry needs component keys."; exit 2; }
+      INSTALL_ONLY="$2"
+      IFS=',' read -r -a retry_keys <<< "${INSTALL_ONLY}"
+      for retry_key in "${retry_keys[@]}"; do
+        case "${retry_key}" in
+          mpnn|abmpnn|boltz|boltz_affinity|antifold|intellifold|intellifold_full|protenix|protenix_v2|protenix_mini|protenix_constraint|nesso|lasermpnn|openfold3|rfd3) ;;
+          *) echo "NHFAIL|Unknown retry component: ${retry_key}"; exit 2 ;;
+        esac
+      done
+      shift 2 ;;
+    --with-abmpnn)         WITH_ABMPNN=1; shift ;;
+    --without-abmpnn)      WITH_ABMPNN=0; shift ;;
     --with-antifold)        WITH_ANTIFOLD=1; shift ;;
     --with-intellifold)     WITH_INTELLIFOLD=1; shift ;;
     --with-intellifold-full) WITH_INTELLIFOLD=1; WITH_INTELLIFOLD_FULL=1; shift ;;
@@ -166,7 +184,7 @@ while [[ $# -gt 0 ]]; do
     --with-rfd3)            WITH_RFD3=1; WITH_BOLTZ=1; shift ;;
     --link-existing)        LINK_EXISTING="$2"; shift 2 ;;
     --materialise|--materialize) MATERIALISE=1; shift ;;
-    --all)                  WITH_BOLTZ=1; WITH_BOLTZ_AFFINITY=1; WITH_ANTIFOLD=1
+    --all)                  WITH_ABMPNN=1; WITH_BOLTZ=1; WITH_BOLTZ_AFFINITY=1; WITH_ANTIFOLD=1
                             WITH_INTELLIFOLD=1; WITH_INTELLIFOLD_FULL=1
                             WITH_OPENFOLD3=1; WITH_PROTENIX_RUNTIME=1
                             WITH_PROTENIX_V2=1; WITH_PROTENIX_MINI=1; WITH_PROTENIX_CONSTRAINT=1
@@ -415,10 +433,20 @@ detect() {
      && -f "${LIGANDMPNN_REPO}/run.py" \
      && -f "${LIGANDMPNN_REPO}/model_params/proteinmpnn_v_48_020.pt" \
      && -f "${LIGANDMPNN_REPO}/model_params/solublempnn_v_48_020.pt" \
-     && -f "${LIGANDMPNN_REPO}/model_params/ligandmpnn_v_32_010_25.pt" \
-     && -f "${LIGANDMPNN_REPO}/model_params/abmpnn.pt" ]] \
-    && state mpnn ok "ProteinMPNN / SolubleMPNN / LigandMPNN / AbMPNN" \
+     && -f "${LIGANDMPNN_REPO}/model_params/ligandmpnn_v_32_010_25.pt" ]] \
+    && state mpnn ok "ProteinMPNN / SolubleMPNN / LigandMPNN" \
     || state_absent_or_partial mpnn "environment or source is incomplete" "${LIGAND_VENV}" "${LIGANDMPNN_REPO}"
+  if [[ -x "${LIGAND_VENV}/bin/python" ]] && "${LIGAND_VENV}/bin/python" - "${LIGANDMPNN_REPO}/model_params/abmpnn.pt" "${NESSO_SCRIPT_ROOT}/scripts/abmpnn_sources.json" <<'PYTHON' >/dev/null 2>&1
+import hashlib, json, pathlib, sys
+path = pathlib.Path(sys.argv[1])
+allowed = {s["sha256"] for s in json.load(open(sys.argv[2]))["sources"]}
+raise SystemExit(0 if path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() in allowed else 1)
+PYTHON
+  then
+    state abmpnn ok "Verified antibody-specific checkpoint (requires core sequence designers)"
+  else
+    state_absent_or_partial abmpnn "AbMPNN checkpoint absent or unverified" "${LIGANDMPNN_REPO}/model_params/abmpnn.pt"
+  fi
   [[ -x "${ANTIFOLD_VENV}/bin/python" && -d "${ANTIFOLD_REPO}" \
      && -f "${ANTIFOLD_REPO}/models/model.pt" ]] && state antifold ok "AntiFold" \
     || state_absent_or_partial antifold "environment or source is incomplete" "${ANTIFOLD_VENV}" "${ANTIFOLD_REPO}"
@@ -899,7 +927,7 @@ download_verified_artifact() {
     --url "${url}" --sha256 "${checksum}" --output "${output}" \
     --label "${label}" --progress-key "${key}" \
     --progress-start "${start}" --progress-end "${end}" \
-    || fail "Could not download or verify ${label}. The partial file was retained for resume."
+    || fail "Could not download or verify ${label}. Interrupted transfers can resume; invalid checksums are discarded."
 }
 
 install_pinned_kalign() {
@@ -1096,27 +1124,36 @@ fi
 step python 2 "Preparing exact managed Python environments"
 command -v git >/dev/null 2>&1 || fail "git not found. Install Xcode Command Line Tools: xcode-select --install"
 ensure_python "${PYTHON_311_VERSION}" PYTHON_BIN
-if [[ "${WITH_ANTIFOLD}" -eq 1 ]]; then
-  ensure_python "${PYTHON_310_VERSION}" ANTIFOLD_PYTHON_BIN
-fi
-if [[ "${WITH_INTELLIFOLD}" -eq 1 || "${WITH_PROTENIX_CONSTRAINT}" -eq 1 \
-   || "${WITH_RFD3}" -eq 1 ]]; then
-  ensure_python "${PYTHON_312_VERSION}" INTELLIFOLD_PYTHON_BIN
-fi
+source "${NESSO_SCRIPT_ROOT}/scripts/install_components.sh" \
+  || fail "Bundled component installer helper is missing."
 
-if [[ "${WITH_NESSO}" -eq 1 ]]; then
-  ensure_python "3.12.10" NESSO_PYTHON_BIN
-fi
+  download_protenix() {
+    local relative="$1" url="$2" checksum="$3" label="$4" start="$5" end="$6"
+    local output="${PROTENIX_MODEL_DIR}/${relative}"
+    [[ "${relative}" == common/* ]] \
+      && output="${PROTENIX_COMMON_DIR}/${relative#common/}"
+    "${PROTENIX_VENV}/bin/python" "${VERIFIED_DOWNLOADER}" \
+      --url "${url}" --sha256 "${checksum}" \
+      --output "${output}" --label "${label}" \
+      --progress-key protenix --progress-start "${start}" --progress-end "${end}" \
+      || fail "Could not download or verify ${label}. Interrupted transfers can resume; invalid checksums are discarded."
+  }
 
 # ---- Experimental NESSO-1 (isolated runtime) ----
+install_nesso() {
 if [[ "${WITH_NESSO}" -eq 1 ]]; then
+  ensure_python "3.12.10" NESSO_PYTHON_BIN
   step nesso 4 "Installing NESSO-1 and ESM for experimental sequence screening"
   "${NESSO_PYTHON_BIN}" "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_nesso.py" \
     --root "${NANOHUNTER_ROOT}" --python "${NESSO_PYTHON_BIN}" --uv "${UV_BIN}" \
     || fail "NESSO installation failed; partial files are retained for resume."
 fi
+return 0
+}
+run_install_component nesso install_nesso
 
 # ---- Boltz-2 ----
+install_boltz() {
 if [[ "${WITH_BOLTZ}" -eq 1 ]]; then
 step boltz 8 "Installing Boltz-2"
 BOLTZ_FINAL_VENV="${BOLTZ_VENV}"
@@ -1132,16 +1169,6 @@ download_verified_artifact "${BOLTZ_VENV}/bin/python" \
   "https://model-gateway.boltz.bio/boltz2_conf.ckpt" \
   "090e82ac8c92f5e943fa1b39e7410a44027bea7243c0bbb3caa67a77fc1428e1" \
   "Boltz-2 structure checkpoint" boltz 8 12
-if [[ "${WITH_BOLTZ_AFFINITY}" -eq 1 ]]; then
-  download_verified_artifact "${BOLTZ_VENV}/bin/python" \
-    "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt" \
-    "https://model-gateway.boltz.bio/boltz2_aff.ckpt" \
-    "dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e" \
-    "Boltz-2 affinity checkpoint" boltz_affinity 12 15
-  state boltz_affinity ok "optional small-molecule affinity checkpoint"
-else
-  state boltz_affinity skipped "not requested"
-fi
 if [[ ! -d "${BOLTZ_MODEL_DIR}/mols" ]]; then
   download_verified_artifact "${BOLTZ_VENV}/bin/python" \
     "${BOLTZ_MODEL_DIR}/mols.tar" \
@@ -1206,19 +1233,43 @@ write_component_receipt boltz "${BOLTZ_VERSION}" "${BOLTZ_VENV}/bin/python" \
   "native-mps-preferred" --lock "${BOLTZ_LOCK}" \
   --artifact "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt=090e82ac8c92f5e943fa1b39e7410a44027bea7243c0bbb3caa67a77fc1428e1" \
   --metadata "ccd_archive_sha256=39e076d96dbec6b4e86982bbda16f3a53a2a60c9bdc17828d88f6f9a0c7d1fd7"
-if [[ "${WITH_BOLTZ_AFFINITY}" -eq 1 ]]; then
-  write_component_receipt boltz_affinity "${BOLTZ_VERSION}" "${BOLTZ_VENV}/bin/python" \
-    "native-mps-preferred" \
-    --artifact "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt=dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e"
-fi
 state boltz ok "Boltz-2 structure prediction"
 else
   state boltz skipped "not requested"
   state boltz_affinity skipped "not requested"
 fi
+return 0
+}
+run_install_component boltz install_boltz
+
+install_boltz_affinity() {
+if [[ "${WITH_BOLTZ_AFFINITY}" -eq 1 ]]; then
+  download_verified_artifact "${BOLTZ_VENV}/bin/python" \
+    "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt" \
+    "https://model-gateway.boltz.bio/boltz2_aff.ckpt" \
+    "dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e" \
+    "Boltz-2 affinity checkpoint" boltz_affinity 12 15
+else
+  state boltz_affinity skipped "not requested"
+fi
+if [[ "${WITH_BOLTZ_AFFINITY}" -eq 1 ]]; then
+  write_component_receipt boltz_affinity "${BOLTZ_VERSION}" "${BOLTZ_VENV}/bin/python" \
+    "native-mps-preferred" \
+    --artifact "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt=dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e"
+  state boltz_affinity ok "optional small-molecule affinity checkpoint"
+fi
+
+return 0
+}
+if [[ "${WITH_BOLTZ_AFFINITY}" -eq 1 ]]; then
+  run_install_component boltz_affinity install_boltz_affinity boltz
+else
+  state boltz_affinity skipped "not requested"
+fi
 
 # ---- LigandMPNN family (+ AbMPNN weights) ----
-step ligandmpnn 22 "Installing sequence designers (ProteinMPNN / SolubleMPNN / LigandMPNN / AbMPNN)"
+install_mpnn() {
+step ligandmpnn 22 "Installing core sequence designers (ProteinMPNN / SolubleMPNN / LigandMPNN)"
 LIGAND_FINAL_VENV="${LIGAND_VENV}"
 begin_versioned_venv mpnn "${LIGANDMPNN_REV}" "${LIGAND_FINAL_VENV}" "${PYTHON_BIN}"
 LIGAND_VENV="${TRANSACTION_VENV}"
@@ -1245,11 +1296,6 @@ download_verified_artifact "${LIGAND_VENV}/bin/python" \
   "https://files.ipd.uw.edu/pub/ligandmpnn/ligandmpnn_v_32_010_25.pt" \
   "161cd264061fda9680cbb940255522ae42f2966c552d045d87913d9452a80970" \
   "LigandMPNN checkpoint" mpnn 38 41
-download_verified_artifact "${LIGAND_VENV}/bin/python" \
-  "${MODEL_DIR}/abmpnn.pt" \
-  "https://zenodo.org/records/8164693/files/abmpnn.pt?download=1" \
-  "fd41b40ee0f51974d73e1acb754cd8acaa36b3327543d5d28bcf4aa4e07b4a1b" \
-  "AbMPNN checkpoint" mpnn 41 44
 "${LIGAND_VENV}/bin/python" -c 'import torch, numpy, prody; import prody.proteins.ccealign' >/dev/null \
   || fail "Sequence-designer staged runtime failed its import check."
 commit_versioned_venv
@@ -1259,12 +1305,46 @@ write_component_receipt mpnn "${LIGANDMPNN_REV}" "${LIGAND_VENV}/bin/python" \
   --source "${LIGANDMPNN_REPO}=${LIGANDMPNN_REV}" \
   --artifact "${MODEL_DIR}/proteinmpnn_v_48_020.pt=c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd" \
   --artifact "${MODEL_DIR}/solublempnn_v_48_020.pt=7af52d090172c230c7f0e9d21e02203f6b3a38b16db58d3c7a3960e0a9a6e31a" \
-  --artifact "${MODEL_DIR}/ligandmpnn_v_32_010_25.pt=161cd264061fda9680cbb940255522ae42f2966c552d045d87913d9452a80970" \
-  --artifact "${MODEL_DIR}/abmpnn.pt=fd41b40ee0f51974d73e1acb754cd8acaa36b3327543d5d28bcf4aa4e07b4a1b"
-state mpnn ok "ProteinMPNN / SolubleMPNN / LigandMPNN / AbMPNN"
+  --artifact "${MODEL_DIR}/ligandmpnn_v_32_010_25.pt=161cd264061fda9680cbb940255522ae42f2966c552d045d87913d9452a80970"
+state mpnn ok "ProteinMPNN / SolubleMPNN / LigandMPNN"
+return 0
+}
+run_install_component mpnn install_mpnn
+
+install_abmpnn() {
+if [[ "${WITH_ABMPNN}" -eq 1 ]]; then
+  MODEL_DIR="${LIGANDMPNN_REPO}/model_params"
+  ABMPNN_PROVENANCE="${MODEL_DIR}/abmpnn.source.json"
+  "${LIGAND_VENV}/bin/python" "${VERIFIED_DOWNLOADER}" \
+    --sources "${NESSO_SCRIPT_ROOT}/scripts/abmpnn_sources.json" \
+    --output "${MODEL_DIR}/abmpnn.pt" --provenance "${ABMPNN_PROVENANCE}" \
+    --label "AbMPNN checkpoint" --progress-key abmpnn --progress-start 41 --progress-end 44 \
+    || fail "AbMPNN could not be verified from either approved source. Other sequence designers remain available. Retry AbMPNN in Engines."
+  ABMPNN_SHA="$("${LIGAND_VENV}/bin/python" -c 'import json,sys; print(json.load(open(sys.argv[1]))["sha256"])' "${ABMPNN_PROVENANCE}")" \
+    || fail "Could not read AbMPNN source provenance."
+  ABMPNN_URL="$("${LIGAND_VENV}/bin/python" -c 'import json,sys; print(json.load(open(sys.argv[1]))["url"])' "${ABMPNN_PROVENANCE}")" \
+    || fail "Could not read AbMPNN source URL."
+  write_component_receipt abmpnn "${LIGANDMPNN_REV}" "${LIGAND_VENV}/bin/python" \
+    "native-mps-when-supported" --artifact "${MODEL_DIR}/abmpnn.pt=${ABMPNN_SHA}" \
+    --metadata "checkpoint_source=${ABMPNN_URL}" \
+    --metadata "equivalence_audit=lab_book/0123-check-zenodo-status-and-abmpnn-alternative.md"
+  state abmpnn ok "Verified AbMPNN antibody checkpoint"
+else
+  state abmpnn skipped "not requested"
+fi
+
+return 0
+}
+if [[ "${WITH_ABMPNN}" -eq 1 ]]; then
+  run_install_component abmpnn install_abmpnn mpnn
+else
+  state abmpnn skipped "not requested"
+fi
 
 # ---- AntiFold ----
+install_antifold() {
 if [[ "${WITH_ANTIFOLD}" -eq 1 ]]; then
+  ensure_python "${PYTHON_310_VERSION}" ANTIFOLD_PYTHON_BIN
 step antifold 45 "Installing AntiFold (antibody-aware designer)"
 ensure_pinned_repo "AntiFold" "https://github.com/oxpig/AntiFold.git" \
   "${ANTIFOLD_REV}" "${ANTIFOLD_REPO}"
@@ -1295,9 +1375,14 @@ state antifold ok "AntiFold"
 else
   state antifold skipped "not requested"
 fi
+return 0
+}
+run_install_component antifold install_antifold
 
 # ---- IntelliFold (PyTorch) ----
+install_intellifold() {
 if [[ "${WITH_INTELLIFOLD}" -eq 1 ]]; then
+  ensure_python "${PYTHON_312_VERSION}" INTELLIFOLD_PYTHON_BIN
 step intellifold 60 "Installing IntelliFold prediction engine"
 ensure_pinned_repo "IntelliFold" "https://github.com/IntelliGen-AI/IntelliFold.git" \
   "${INTELLIFOLD_REV}" "${INTELLIFOLD_REPO}"
@@ -1354,11 +1439,6 @@ download_intellifold "protein_id_groups.json" \
 download_intellifold "nucleic_acid_id_groups.json" \
   "0aa0da461f7a36eed6921b1b3f7ea59f50d806fb0c12f94073a3d3b052491d12" \
   "IntelliFold nucleic-acid ID groups" 63 63
-if [[ "${WITH_INTELLIFOLD_FULL}" -eq 1 ]]; then
-  download_intellifold "intellifold_v2.pt" \
-    "8ee1c03344a94c8d3408f9579b3869f791701b7945e23255331d44fb7cc41aaa" \
-    "IntelliFold full-v2 checkpoint" 63 64
-fi
 [[ -s "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
    && -s "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl" ]] \
   || fail "IntelliFold install finished without v2 Flash weights or CCD data."
@@ -1380,9 +1460,22 @@ INTELLIFOLD_VENV="${INTELLIFOLD_FINAL_VENV}"
     --artifact "${INTELLIFOLD_MODEL_DIR}/protein_id_groups.json=b5a46c434278f5ea1aedd8a84ac2c7664acc08817c244c7d13396d4459632eaa" \
     --artifact "${INTELLIFOLD_MODEL_DIR}/nucleic_acid_id_groups.json=0aa0da461f7a36eed6921b1b3f7ea59f50d806fb0c12f94073a3d3b052491d12"
 state intellifold ok "IntelliFold v2 Flash (PyTorch/MPS)"
+
+else
+state intellifold skipped "not requested"
+state intellifold_full skipped "not requested"
+fi
+return 0
+}
+run_install_component intellifold install_intellifold
+
+install_intellifold_full() {
 if [[ "${WITH_INTELLIFOLD_FULL}" -eq 1 ]]; then
-  [[ -s "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" ]] \
-    || fail "IntelliFold full-v2 checkpoint was requested but is absent."
+  download_verified_artifact "${INTELLIFOLD_VENV}/bin/python" \
+    "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" \
+    "https://huggingface.co/intelligenAI/intellifold/resolve/8f5ec8ab39e89fabf1887e54fe5ce588aaaaf890/intellifold_v2.pt?download=true" \
+    "8ee1c03344a94c8d3408f9579b3869f791701b7945e23255331d44fb7cc41aaa" \
+    "IntelliFold full-v2 checkpoint" intellifold_full 63 64
   write_component_receipt intellifold_full "${INTELLIFOLD_REV}" "${INTELLIFOLD_VENV}/bin/python" \
     "native-mps-no-cpu-fallback" \
     --artifact "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt=8ee1c03344a94c8d3408f9579b3869f791701b7945e23255331d44fb7cc41aaa"
@@ -1390,16 +1483,21 @@ if [[ "${WITH_INTELLIFOLD_FULL}" -eq 1 ]]; then
 else
   state intellifold_full skipped "not requested"
 fi
+return 0
+}
+if [[ "${WITH_INTELLIFOLD_FULL}" -eq 1 ]]; then
+  run_install_component intellifold_full install_intellifold_full intellifold
 else
-state intellifold skipped "not requested"
-state intellifold_full skipped "not requested"
+  state intellifold_full skipped "not requested"
 fi
 
 # ---- Protenix Constraint v0.5 (isolated native-MPS profile) ----
+install_protenix_constraint() {
 # This is intentionally not installed into the v2/Mini runtime. The official
 # constraint checkpoint has no trained ESM projection and must be strict-loaded
 # with ESM disabled.
 if [[ "${WITH_PROTENIX_CONSTRAINT}" -eq 1 ]]; then
+  ensure_python "${PYTHON_312_VERSION}" INTELLIFOLD_PYTHON_BIN
   step protenix_constraint 61 "Installing Protenix Constraint v0.5 for the Apple GPU"
   ensure_pinned_repo "Protenix Constraint" "https://github.com/bytedance/Protenix.git" \
     "${PROTENIX_REV}" "${PROTENIX_CONSTRAINT_REPO}"
@@ -1451,7 +1549,7 @@ if [[ "${WITH_PROTENIX_CONSTRAINT}" -eq 1 ]]; then
       --url "${url}" --sha256 "${checksum}" \
       --output "${output}" --label "${label}" \
       --progress-key protenix_constraint --progress-start "${start}" --progress-end "${end}" \
-      || fail "Could not download or verify ${label}. The partial file was retained for resume."
+      || fail "Could not download or verify ${label}. Interrupted transfers can resume; invalid checksums are discarded."
   }
   download_protenix_constraint "checkpoint/protenix_base_constraint_v0.5.0.pt" \
     "https://protenix.tos-cn-beijing.volces.com/checkpoint/protenix_base_constraint_v0.5.0.pt" \
@@ -1517,8 +1615,12 @@ PY
 else
   state protenix_constraint skipped "not requested"
 fi
+return 0
+}
+run_install_component protenix_constraint install_protenix_constraint
 
 # ---- Protenix runtime + selected checkpoints (native Apple MPS) ----
+install_protenix() {
 if [[ "${WITH_PROTENIX_RUNTIME}" -eq 1 ]]; then
   step protenix 64 "Installing the shared Protenix runtime for the Apple GPU"
   ensure_pinned_repo "Protenix" "https://github.com/bytedance/Protenix.git" \
@@ -1554,35 +1656,6 @@ if [[ "${WITH_PROTENIX_RUNTIME}" -eq 1 ]]; then
   seed_shared_protenix_common "${PROTENIX_CONSTRAINT_MODEL_DIR}"
   mkdir -p "${PROTENIX_MODEL_DIR}/checkpoint" "${PROTENIX_COMMON_DIR}"
   PROTENIX_HF_REV="653edab28103133512575365130916e3fd23ecc3"
-  download_protenix() {
-    local relative="$1" url="$2" checksum="$3" label="$4" start="$5" end="$6"
-    local output="${PROTENIX_MODEL_DIR}/${relative}"
-    [[ "${relative}" == common/* ]] \
-      && output="${PROTENIX_COMMON_DIR}/${relative#common/}"
-    "${PROTENIX_VENV}/bin/python" "${VERIFIED_DOWNLOADER}" \
-      --url "${url}" --sha256 "${checksum}" \
-      --output "${output}" --label "${label}" \
-      --progress-key protenix --progress-start "${start}" --progress-end "${end}" \
-      || fail "Could not download or verify ${label}. The partial file was retained for resume."
-  }
-  if [[ "${WITH_PROTENIX_V2}" -eq 1 ]]; then
-    download_protenix "checkpoint/protenix-v2.pt" \
-      "https://huggingface.co/TMF001/protenix-v2-weights/resolve/${PROTENIX_HF_REV}/protenix-v2.pt?download=true" \
-      "8f931f9774a396b67033d0e58628e1834f4a1448165e04254b40a780b0c0d599" \
-      "Protenix v2 checkpoint" 64 70
-    state protenix_v2 ok "Protenix v2 checkpoint"
-  else
-    state protenix_v2 skipped "not requested"
-  fi
-  if [[ "${WITH_PROTENIX_MINI}" -eq 1 ]]; then
-    download_protenix "checkpoint/protenix_mini_default_v0.5.0.pt" \
-      "https://protenix.tos-cn-beijing.volces.com/checkpoint/protenix_mini_default_v0.5.0.pt" \
-      "3803340c5d9958c038e799ddd2b53b532db21855f261592ad455a5f003791f81" \
-      "Protenix Mini checkpoint" 70 73
-    state protenix_mini ok "Protenix Mini checkpoint"
-  else
-    state protenix_mini skipped "not requested"
-  fi
   download_protenix "common/components.cif" \
     "https://protenix.tos-cn-beijing.volces.com/common/components.cif" \
     "bb31ae5cf6c8bc669924313077cb4231ee5ffefd3a20118cd14f3ec89f8bb6a5" \
@@ -1618,24 +1691,68 @@ PY
     --artifact "${PROTENIX_COMMON_DIR}/components.cif.rdkit_mol.pkl=d1cfb71f5993a3ebea7c47877022d7f597bbfbaf86e28a4770e957da6c50cd35" \
     --artifact "${PROTENIX_COMMON_DIR}/obsolete_release_date.csv=a4f3f63ac5d7eebd78b07995cc669b9eccd6f5d8813c9492c9df02868893cf33" \
     --artifact "${PROTENIX_COMMON_DIR}/clusters-by-entity-40.txt=1ab4af905e75b382eda8dec59917dc3608bee0729e36b9e71baf860bbe86850c"
-  if [[ "${WITH_PROTENIX_V2}" -eq 1 ]]; then
-    write_component_receipt protenix_v2 "${PROTENIX_HF_REV}" "${PROTENIX_VENV}/bin/python" \
-      "native-mps-fp32-no-cpu-fallback" \
-      --artifact "${PROTENIX_MODEL_DIR}/checkpoint/protenix-v2.pt=8f931f9774a396b67033d0e58628e1834f4a1448165e04254b40a780b0c0d599"
-  fi
-  if [[ "${WITH_PROTENIX_MINI}" -eq 1 ]]; then
-    write_component_receipt protenix_mini "0.5.0" "${PROTENIX_VENV}/bin/python" \
-      "native-mps-fp32-no-cpu-fallback" \
-      --artifact "${PROTENIX_MODEL_DIR}/checkpoint/protenix_mini_default_v0.5.0.pt=3803340c5d9958c038e799ddd2b53b532db21855f261592ad455a5f003791f81"
-  fi
   state protenix ok "shared native-MPS runtime and chemical data"
 else
   state protenix skipped "not requested"
   state protenix_v2 skipped "not requested"
   state protenix_mini skipped "not requested"
 fi
+return 0
+}
+run_install_component protenix install_protenix
+
+install_protenix_v2() {
+  PROTENIX_HF_REV="653edab28103133512575365130916e3fd23ecc3"
+  if [[ "${WITH_PROTENIX_V2}" -eq 1 ]]; then
+    download_protenix "checkpoint/protenix-v2.pt" \
+      "https://huggingface.co/TMF001/protenix-v2-weights/resolve/${PROTENIX_HF_REV}/protenix-v2.pt?download=true" \
+      "8f931f9774a396b67033d0e58628e1834f4a1448165e04254b40a780b0c0d599" \
+      "Protenix v2 checkpoint" 64 70
+    state protenix_v2 ok "Protenix v2 checkpoint"
+  else
+    state protenix_v2 skipped "not requested"
+  fi
+  if [[ "${WITH_PROTENIX_V2}" -eq 1 ]]; then
+    write_component_receipt protenix_v2 "${PROTENIX_HF_REV}" "${PROTENIX_VENV}/bin/python" \
+      "native-mps-fp32-no-cpu-fallback" \
+      --artifact "${PROTENIX_MODEL_DIR}/checkpoint/protenix-v2.pt=8f931f9774a396b67033d0e58628e1834f4a1448165e04254b40a780b0c0d599"
+  fi
+
+return 0
+}
+if [[ "${WITH_PROTENIX_V2}" -eq 1 ]]; then
+  run_install_component protenix_v2 install_protenix_v2 protenix
+else
+  state protenix_v2 skipped "not requested"
+fi
+
+install_protenix_mini() {
+  PROTENIX_HF_REV="653edab28103133512575365130916e3fd23ecc3"
+  if [[ "${WITH_PROTENIX_MINI}" -eq 1 ]]; then
+    download_protenix "checkpoint/protenix_mini_default_v0.5.0.pt" \
+      "https://protenix.tos-cn-beijing.volces.com/checkpoint/protenix_mini_default_v0.5.0.pt" \
+      "3803340c5d9958c038e799ddd2b53b532db21855f261592ad455a5f003791f81" \
+      "Protenix Mini checkpoint" 70 73
+    state protenix_mini ok "Protenix Mini checkpoint"
+  else
+    state protenix_mini skipped "not requested"
+  fi
+  if [[ "${WITH_PROTENIX_MINI}" -eq 1 ]]; then
+    write_component_receipt protenix_mini "0.5.0" "${PROTENIX_VENV}/bin/python" \
+      "native-mps-fp32-no-cpu-fallback" \
+      --artifact "${PROTENIX_MODEL_DIR}/checkpoint/protenix_mini_default_v0.5.0.pt=3803340c5d9958c038e799ddd2b53b532db21855f261592ad455a5f003791f81"
+  fi
+
+return 0
+}
+if [[ "${WITH_PROTENIX_MINI}" -eq 1 ]]; then
+  run_install_component protenix_mini install_protenix_mini protenix
+else
+  state protenix_mini skipped "not requested"
+fi
 
 # ---- LASErMPNN (ligand-aware inverse folding) ----
+install_lasermpnn() {
 if [[ "${WITH_LASERMPNN}" -eq 1 ]]; then
   step lasermpnn 82 "Installing LASErMPNN (ligand-aware sequence design)"
   LASERMPNN_REPO="${SRC_DIR}/LASErMPNN"
@@ -1677,8 +1794,12 @@ if [[ "${WITH_LASERMPNN}" -eq 1 ]]; then
 else
   state lasermpnn skipped "not requested"
 fi
+return 0
+}
+run_install_component lasermpnn install_lasermpnn
 
 # ---- OpenFold-3-MLX (optional predictor) ----
+install_openfold3() {
 if [[ "${WITH_OPENFOLD3}" -eq 1 ]]; then
   step openfold3 87 "Installing OpenFold-3 (MLX kernels) — downloading ~2 GB checkpoint"
   ensure_pinned_repo "openfold-3-mlx" "https://github.com/latent-spacecraft/openfold-3-mlx.git" \
@@ -1711,9 +1832,14 @@ if [[ "${WITH_OPENFOLD3}" -eq 1 ]]; then
 else
   state openfold3 skipped "not requested"
 fi
+return 0
+}
+run_install_component openfold3 install_openfold3
 
 # ---- RFdiffusion3 (optional backbone generator) ----
+install_rfd3() {
 if [[ "${WITH_RFD3}" -eq 1 ]]; then
+  ensure_python "${PYTHON_312_VERSION}" INTELLIFOLD_PYTHON_BIN
   step rfd3 96 "Installing RFdiffusion3 (MLX)"
   # The MLX port is the upstream this workflow extends. None of the campaign
   # orchestrators, ligand preparation or predictor adapters are in it -- those
@@ -1765,6 +1891,9 @@ if [[ "${WITH_RFD3}" -eq 1 ]]; then
 else
   state rfd3 skipped "not requested"
 fi
+return 0
+}
+run_install_component rfd3 install_rfd3
 
-step done 100 "Setup complete"
-echo "NHDONE|ok"
+finish_install_components
+exit $?

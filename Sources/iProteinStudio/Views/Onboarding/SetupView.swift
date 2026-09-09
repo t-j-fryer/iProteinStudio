@@ -31,6 +31,8 @@ private struct InnerSetup: View {
 
                 if installer.isInstalling {
                     installingView
+                } else if installer.completedWithIssues {
+                    IncompleteSetupView(installer: installer)
                 } else if installer.needsAppleBuildTools {
                     AppleBuildToolsHelpView(installer: installer)
                 } else if let failure = installer.failure {
@@ -64,7 +66,7 @@ private struct InnerSetup: View {
                 reuseCard(existing)
             }
 
-            Text("Every setup automatically installs the core ProteinMPNN, SolubleMPNN, LigandMPNN and AbMPNN sequence designers. The recommended setup also installs Boltz-2 structure prediction, IntelliFold v2 Flash, Protenix v2 and Mini, and AntiFold. Large full-model and affinity checkpoints remain separate choices. Setup runs once and needs an internet connection.")
+            Text("Every setup automatically installs the core ProteinMPNN, SolubleMPNN and LigandMPNN sequence designers. AbMPNN is selected by default and can be retried separately if its download fails. The recommended setup also installs Boltz-2 structure prediction, IntelliFold v2 Flash, Protenix v2 and Mini, and AntiFold. Large full-model and affinity checkpoints remain separate choices. Setup runs once and needs an internet connection.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

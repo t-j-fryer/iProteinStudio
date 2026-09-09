@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import copy
+import json
 import os
 import random
 import re
@@ -163,16 +165,78 @@ def download(args) -> None:
             print(
                 f"NHSTEP|{args.progress_key}|{global_pct(args.progress_start, args.progress_end, kept, None)}|"
                 f"Connection paused; retrying {args.label} from {human(kept)} "
-                f"in {delay:.0f}s (attempt {attempt + 1}/{args.retries})",
+                f"in {delay:.0f}s (attempt {attempt + 1}/{args.retries}): {error}",
                 flush=True,
             )
             time.sleep(delay)
 
 
+def download_sources(args) -> None:
+    """Try explicitly equivalent, separately checksummed serializations.
+
+    Each source owns its partial file: different serializations must never
+    share Range offsets. Existing accepted variants are reused without network.
+    The receipt records a pinned source identity, not an inferred current URL.
+    """
+    sources = json.loads(args.sources.read_text())["sources"]
+    if not sources or any(not re.fullmatch(r"[0-9a-f]{64}", s["sha256"]) for s in sources):
+        raise ValueError("Every source needs a pinned SHA-256")
+    target = args.output.expanduser().resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    actual = digest(target) if target.is_file() else None
+
+    def finish(source, cached):
+        if args.provenance:
+            record = {"schema_version": 1, "url": source["url"],
+                      "sha256": source["sha256"], "source": source["name"],
+                      "cached": cached, "notice": source.get("notice")}
+            temp = args.provenance.with_suffix(args.provenance.suffix + ".tmp")
+            temp.parent.mkdir(parents=True, exist_ok=True)
+            temp.write_text(json.dumps(record, indent=2) + "\n")
+            os.replace(temp, args.provenance)
+        print(f"NHSTEP|{args.progress_key}|{args.progress_end}|Verified {args.label} ({source['name']})", flush=True)
+
+    for source in sources:
+        if actual == source["sha256"]:
+            finish(source, True)
+            return
+    # Do not leave an unverified file exposed under the runtime filename.
+    if target.is_file():
+        os.replace(target, target.with_name(target.name + ".unverified"))
+    if args.provenance:
+        args.provenance.unlink(missing_ok=True)
+    errors = []
+    for source in sources:
+        attempt = copy.copy(args)
+        attempt.url, attempt.sha256 = source["url"], source["sha256"]
+        attempt.output = target.with_name(target.name + "." + source["sha256"])
+        attempt.retries = source.get("retries", 2)
+        attempt.timeout = source.get("timeout", 15)
+        # Preserve resumable bytes from older single-source installers only
+        # for the original serialization, never for its alternative.
+        legacy = target.with_suffix(target.suffix + ".part")
+        partial = attempt.output.with_suffix(attempt.output.suffix + ".part")
+        if source is sources[0] and legacy.is_file() and not partial.exists():
+            os.replace(legacy, partial)
+        try:
+            download(attempt)
+        except (RuntimeError, OSError, urllib.error.URLError) as error:
+            errors.append(f"{source['name']}: {error}")
+            print(f"NHSTEP|{args.progress_key}|{args.progress_start}|{source['name']} unavailable or failed verification; checking remaining approved sources. {error}", flush=True)
+            continue
+        os.replace(attempt.output, target)
+        finish(source, False)
+        return
+    raise RuntimeError(f"No approved source supplied a verified {args.label}: " + "; ".join(errors))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--url", required=True)
-    parser.add_argument("--sha256", required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--url")
+    source.add_argument("--sources", type=Path, help="Manifest of approved equivalent artifacts")
+    parser.add_argument("--sha256")
+    parser.add_argument("--provenance", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--label", required=True)
     parser.add_argument("--progress-key", default="download")
@@ -181,7 +245,12 @@ def main() -> None:
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument("--retries", type=int, default=20)
     args = parser.parse_args()
-    download(args)
+    if args.sources:
+        download_sources(args)
+    else:
+        if not args.sha256:
+            parser.error("--url requires --sha256")
+        download(args)
 
 
 if __name__ == "__main__":

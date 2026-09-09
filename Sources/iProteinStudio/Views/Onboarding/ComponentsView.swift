@@ -26,6 +26,7 @@ struct ComponentsView: View {
                 if installer.needsAppleBuildTools && !installer.isInstalling {
                     AppleBuildToolsHelpView(installer: installer)
                 }
+                if installer.completedWithIssues { IncompleteSetupView(installer: installer) }
                 if installer.isInstalling { progress } else { list }
             }
             .padding(28).frame(maxWidth: 720, alignment: .leading).frame(maxWidth: .infinity)
@@ -63,7 +64,7 @@ struct ComponentsView: View {
                 }
                 .controlSize(.small)
             }
-            Text("Every installation includes the core ProteinMPNN, SolubleMPNN, LigandMPNN and AbMPNN sequence-design suite. Choose only the additional prediction, specialist-design and backbone engines you need; removing an optional engine never deletes workspaces, results or saved alignments.")
+            Text("Every installation includes the core ProteinMPNN, SolubleMPNN and LigandMPNN sequence-design suite. AbMPNN is a separate checkpoint, selected by default. Choose only the additional prediction, specialist-design and backbone engines you need; removing an optional engine never deletes workspaces, results or saved alignments.")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             LabeledContent("Managed runtime") {
                 Text(AppPaths.support.path)
@@ -190,7 +191,7 @@ struct ComponentsView: View {
                         .font(.caption2)
                         .foregroundStyle(installed ? .green : .orange)
                 }
-                Text("ProteinMPNN · SolubleMPNN · LigandMPNN · AbMPNN")
+                Text("ProteinMPNN · SolubleMPNN · LigandMPNN")
                     .font(.caption).foregroundStyle(.secondary)
                 Text("This shared core suite is available throughout design workflows and is not a separate optional engine.")
                     .font(.caption2).foregroundStyle(.tertiary)

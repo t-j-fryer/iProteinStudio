@@ -37,6 +37,9 @@ final class PipelineInstaller: ObservableObject {
     @Published var steps: [Step] = []
     @Published var finished = false
     @Published var failure: String?
+    @Published private(set) var failedComponents: [InstallComponent: String] = [:]
+    @Published private(set) var completedWithIssues = false
+    private var sawPartialCompletion = false
     @Published var installed = AppPaths.isPipelineInstalled
     @Published var components: [InstallComponent: ComponentState] = [:]
     @Published var latestLogURL: URL?
@@ -51,7 +54,7 @@ final class PipelineInstaller: ObservableObject {
     /// family described by onboarding. Heavy alternatives and the experimental,
     /// design-only Protenix Constraint checkpoint remain explicit opt-ins.
     @Published var optionalSelection: Set<InstallComponent> = [
-        .boltz, .antifold, .intellifold, .protenixV2, .protenixMini,
+        .boltz, .abmpnn, .antifold, .intellifold, .protenixV2, .protenixMini,
     ]
     /// An existing NanoHunter checkout found on this machine, if any.
     @Published var detectedNanoHunter: URL?
@@ -119,7 +122,7 @@ final class PipelineInstaller: ObservableObject {
         var message: String
         if component == .rfd3 {
             message = "Deletes Studio's RFdiffusion3 environment and model weights. The checkout is kept to protect any legacy campaigns stored inside it."
-        } else if [.boltzAffinity, .intellifoldFull, .protenixV2, .protenixMini]
+        } else if [.abmpnn, .boltzAffinity, .intellifoldFull, .protenixV2, .protenixMini]
             .contains(component) {
             message = "Deletes only the optional \(component.label). Its shared engine environment and other checkpoints remain installed."
         } else {
@@ -193,6 +196,15 @@ final class PipelineInstaller: ObservableObject {
                         "components/boltz", "receipts/boltz.json", "receipts/boltz_affinity.json"]
         case .boltzAffinity:
             relative = ["models/boltz2/boltz2_aff.ckpt", "receipts/boltz_affinity.json"]
+        case .abmpnn:
+            // A checkpoint inside a linked source directory belongs to the
+            // original installation. Removing that child would follow the
+            // directory link and delete the original's weights.
+            let parent = AppPaths.support.appendingPathComponent("src/LigandMPNN/model_params")
+                .resolvingSymlinksInPath().standardizedFileURL
+            let ownedRoot = AppPaths.support.resolvingSymlinksInPath().standardizedFileURL.path + "/"
+            guard parent.path.hasPrefix(ownedRoot) else { return [] }
+            relative = ["src/LigandMPNN/model_params/abmpnn.pt", "src/LigandMPNN/model_params/abmpnn.source.json", "receipts/abmpnn.json"]
         case .mpnn:
             relative = ["venvs/NanoHunter_ligandmpnn", "src/LigandMPNN",
                         "components/mpnn", "receipts/mpnn.json"]
@@ -313,6 +325,7 @@ final class PipelineInstaller: ObservableObject {
         for component in requested.sorted(by: { $0.rawValue < $1.rawValue }) {
             if let flag = component.installFlag { extra.append(flag) }
         }
+        if !requested.contains(.abmpnn) { extra.append("--without-abmpnn") }
         launch(extraArguments: extra, startMessage: "Preparing…")
     }
 
@@ -440,6 +453,9 @@ final class PipelineInstaller: ObservableObject {
         isInstalling = true
         finished = false
         failure = nil
+        failedComponents = [:]
+        completedWithIssues = false
+        sawPartialCompletion = false
         progress = 0
         steps = []
         currentMessage = startMessage
@@ -516,6 +532,18 @@ final class PipelineInstaller: ObservableObject {
         launch(extraArguments: arguments, startMessage: "Checking Apple tools before resuming setup…")
     }
 
+    /// Repeat only unfinished components from the already reviewed selection.
+    /// Successful dependencies remain on disk and are not reinstalled.
+    func retryIncompleteComponents() {
+        guard completedWithIssues, !failedComponents.isEmpty,
+              var arguments = retrySetupArguments else { return }
+        if let index = arguments.firstIndex(of: "--retry-components") {
+            arguments.removeSubrange(index...index + 1)
+        }
+        arguments += ["--retry-components", failedComponents.keys.map(\.rawValue).sorted().joined(separator: ",")]
+        launch(extraArguments: arguments, startMessage: "Retrying unfinished components…")
+    }
+
     // MARK: Output parsing
 
     private func handle(_ line: String, quiet: Bool = false) {
@@ -533,14 +561,21 @@ final class PipelineInstaller: ObservableObject {
         } else if line.hasPrefix("NHSTATE|"), parts.count >= 3 {
             guard let component = InstallComponent(rawValue: parts[1]),
                   let availability = ComponentState.Availability(rawValue: parts[2]) else { return }
+            // An unselected component is unchanged, not suddenly unusable.
+            if availability == .skipped && components[component]?.isUsable == true { return }
             components[component] = ComponentState(
                 availability: availability,
-                detail: parts.count >= 4 ? parts[3] : ""
+                detail: failedComponents[component] ?? (parts.count >= 4 ? parts[3] : "")
             )
+        } else if line.hasPrefix("NHCOMPONENTFAIL|"), parts.count >= 3 {
+            guard !quiet, let component = InstallComponent(rawValue: parts[1]) else { return }
+            if failedComponents[component] == nil { failedComponents[component] = parts[2] }
+            components[component] = ComponentState(availability: .incomplete, detail: failedComponents[component]!)
         } else if line.hasPrefix("NHDONE|") {
             guard !quiet else { return }
             progress = 1.0
-            currentMessage = "Setup complete."
+            sawPartialCompletion = parts.count >= 2 && parts[1] == "partial"
+            currentMessage = sawPartialCompletion ? "Setup finished with incomplete components." : "Setup complete."
         } else if line == "NHREQUIRES|apple-build-tools" {
             guard !quiet else { return }
             needsAppleBuildTools = true
@@ -559,7 +594,13 @@ final class PipelineInstaller: ObservableObject {
             detectComponents()
             return
         }
-        if code == 0 && installed {
+        if code == 2 && sawPartialCompletion && !failedComponents.isEmpty {
+            completedWithIssues = true
+            finished = false
+            failure = nil
+            progress = 1.0
+            currentMessage = "Available engines are ready. Some components need another attempt."
+        } else if code == 0 && installed {
             finished = true
             progress = 1.0
             currentMessage = "iProteinStudio is ready."

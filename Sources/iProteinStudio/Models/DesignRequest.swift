@@ -32,6 +32,7 @@ enum SequenceDesigner: String, CaseIterable, Codable, Identifiable {
     /// Which installed component this designer needs.
     var component: InstallComponent {
         switch self {
+        case .abmpnn:    return .abmpnn
         case .antifold:  return .antifold
         case .lasermpnn: return .lasermpnn
         default:         return .mpnn

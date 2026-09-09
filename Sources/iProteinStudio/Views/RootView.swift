@@ -71,6 +71,15 @@ struct WorkspaceView: View {
                 EmptyWorkspace()
             }
         }
+        .safeAreaInset(edge: .top) {
+            if installer.completedWithIssues {
+                HStack {
+                    Label("Setup finished with some components incomplete. Available engines can be used.", systemImage: "exclamationmark.triangle")
+                    Button("Review installation") { showComponents = true }
+                }
+                .font(.callout).padding(10)
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showActivity.toggle() } label: {

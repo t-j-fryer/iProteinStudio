@@ -1,0 +1,16 @@
+{
+  "url": "https://raw.githubusercontent.com/escalante-bio/mosaic/70fec525423f5f87156a1a957b4a4048f9f8e676/src/mosaic/proteinmpnn/weights/abmpnn.pt",
+  "original_sha256": "fd41b40ee0f51974d73e1acb754cd8acaa36b3327543d5d28bcf4aa4e07b4a1b",
+  "mirror_sha256": "5dca8d551747cffee33ee319724a47cd2e9d9b45132de13d84b511e3381aa125",
+  "mirror_bytes": 20060943,
+  "keys": [
+    "epoch",
+    "step",
+    "num_edges",
+    "noise_level",
+    "model_state_dict",
+    "optimizer_state_dict"
+  ],
+  "tensors_compared": 472,
+  "differences": []
+}

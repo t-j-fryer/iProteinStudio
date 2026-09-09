@@ -12,3 +12,7 @@ swiftc -module-cache-path "${FIXTURE}/modules" -parse-as-library -I "${FIXTURE}"
   "${ROOT}/Tests/AppleBuildToolsInstallerHarness.swift" \
   -o "${FIXTURE}/apple-tools-contract"
 "${FIXTURE}/apple-tools-contract"
+swiftc -module-cache-path "${FIXTURE}/modules" -parse-as-library \
+  "${ROOT}/Sources/iProteinStudio/Core/InstalledRuntime.swift" \
+  "${ROOT}/Tests/InstalledRuntimeHarness.swift" -o "${FIXTURE}/installed-runtime-contract"
+"${FIXTURE}/installed-runtime-contract"

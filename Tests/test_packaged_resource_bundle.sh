@@ -20,6 +20,11 @@ rg -q '^3eak_nbbcii10_fgla' "${BUNDLE}/pipeline/examples/nanobody_scaffolds/cata
   || fail "resource bundle is missing the 3EAK scaffold catalog entry"
 [[ -s "${BUNDLE}/pipeline/scripts/prepare_boltz_template.py" ]] \
   || fail "resource bundle is missing the Boltz target-template normalizer"
+for resource in download_verified.py install_components.sh abmpnn_sources.json; do
+  [[ -s "${BUNDLE}/pipeline/scripts/${resource}" ]] || fail "missing installer recovery resource: ${resource}"
+  cmp -s "${BUNDLE}/pipeline/scripts/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/${resource}" \
+    || fail "installer recovery resource differs from the current source: ${resource}"
+done
 [[ -s "${BUNDLE}/pipeline/scripts/apple_build_tools.sh" ]] \
   || fail "resource bundle is missing the Apple compiler preflight"
 [[ -s "${BUNDLE}/pipeline/scripts/prediction_templates.py" ]] \
