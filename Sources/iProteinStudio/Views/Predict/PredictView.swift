@@ -12,6 +12,7 @@ struct PredictView: View {
     let project: Project
     @ObservedObject var controller: PredictionController
     @ObservedObject var installer: PipelineInstaller
+    @ObservedObject private var jobs = JobCenter.shared
 
     @State private var warnings: [String] = []
     @State private var parseError: String?
@@ -499,7 +500,7 @@ struct PredictView: View {
     private var startBar: some View {
         let r = request.wrappedValue
         let issues = r.validationIssues
-        let anotherWorkflowIsRunning = app.run.isRunning || app.rfd3.isRunning || app.nise.isRunning
+        let willQueue = !jobs.active.isEmpty || controller.isRunning || app.run.isRunning || app.rfd3.isRunning || app.nise.isRunning
         let missingComponents = r.requiredComponents.filter {
             installer.components[$0] != nil && !installer.isUsable($0)
         }
@@ -515,8 +516,8 @@ struct PredictView: View {
                     .font(.callout).foregroundStyle(.orange)
             }
             HStack {
-                if anotherWorkflowIsRunning {
-                    Label("Finish or stop the active \(app.nise.isRunning ? "NISE" : (app.rfd3.isRunning ? "RFdiffusion3" : "Protein Hunter")) run before starting prediction.",
+                if willQueue {
+                    Label("This prediction will wait in the shared job queue.",
                           systemImage: "hourglass")
                         .font(.callout).foregroundStyle(.secondary)
                 } else if r.jobs.isEmpty {
@@ -527,14 +528,14 @@ struct PredictView: View {
                 Button {
                     controller.start(request: r, outputDir: outputDir)
                 } label: {
-                    Label("Fold \(r.jobs.count) sequence\(r.jobs.count == 1 ? "" : "s")",
+                    Label(willQueue ? "Add to Queue" : "Fold \(r.jobs.count) sequence\(r.jobs.count == 1 ? "" : "s")",
                           systemImage: "play.fill").frame(minWidth: 200)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
-                .accessibilityLabel("Start prediction run for \(r.jobs.count) sequence\(r.jobs.count == 1 ? "" : "s")")
+                .accessibilityLabel(willQueue ? "Add prediction run to queue" : "Start prediction run")
                 .accessibilityIdentifier("start-prediction-run")
                 .disabled(!r.isRunnable || !issues.isEmpty || !missingComponents.isEmpty
-                          || anotherWorkflowIsRunning)
+                          || !controller.canStartAnother)
             }
         }
         .padding(.top, 6)

@@ -7,6 +7,14 @@ struct DesignFormView: View {
     @EnvironmentObject var app: AppState
     let project: Project
     @ObservedObject var installer: PipelineInstaller
+    @ObservedObject private var jobs = JobCenter.shared
+    @ObservedObject private var run: RunController
+
+    init(project: Project, installer: PipelineInstaller, run: RunController) {
+        self.project = project
+        self.installer = installer
+        self.run = run
+    }
     @State private var validationDestination: String?
     @State private var showAdvanced = false
     @State private var setupExperience: SetupExperience = .quick
@@ -294,18 +302,17 @@ struct DesignFormView: View {
     }
 
     private var startBar: some View {
-        let anotherWorkflowIsRunning = app.rfd3.isRunning || app.prediction.isRunning || app.nise.isRunning
+        let willQueue = !jobs.active.isEmpty || run.isRunning || app.rfd3.isRunning || app.prediction.isRunning || app.nise.isRunning
         let missingComponents = request.wrappedValue.requiredComponents.filter {
             !installer.isUsable($0)
         }
         return HStack(spacing: 12) {
             let r = request.wrappedValue
-            if anotherWorkflowIsRunning {
-                Label("Finish or stop the active \(app.nise.isRunning ? "NISE" : (app.rfd3.isRunning ? "RFdiffusion3" : "prediction")) run before starting Protein Hunter.",
-                      systemImage: "hourglass")
-                    .font(.callout).foregroundStyle(.secondary)
-            } else if !r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty {
+            if !r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty {
                 Label(missingReason(r, missingComponents: missingComponents), systemImage: "info.circle")
+                    .font(.callout).foregroundStyle(.secondary)
+            } else if willQueue {
+                Label("Your settings will be saved. This run will wait until the active job releases the GPU.", systemImage: "hourglass")
                     .font(.callout).foregroundStyle(.secondary)
             }
             if let issue = r.validationIssues.first {
@@ -318,12 +325,12 @@ struct DesignFormView: View {
                 app.run.start(project: app.projects.first(where: { $0.id == project.id }) ?? project)
                 if let root = app.run.campaignRoot { app.metrics.start(root: root) }
             } label: {
-                Label("Start Design Run", systemImage: "play.fill").frame(minWidth: 200)
+                Label(willQueue ? "Add to Queue" : "Start Design Run", systemImage: willQueue ? "text.badge.plus" : "play.fill").frame(minWidth: 200)
             }
             .buttonStyle(.borderedProminent).controlSize(.large)
-            .accessibilityLabel("Start Protein Hunter run")
+            .accessibilityLabel(willQueue ? "Add Protein Hunter run to queue" : "Start Protein Hunter run")
             .accessibilityIdentifier("start-iterative-run")
-            .disabled(!r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty || anotherWorkflowIsRunning)
+            .disabled(!r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty || !run.canStartAnother)
         }
         .padding(.top, 6)
     }

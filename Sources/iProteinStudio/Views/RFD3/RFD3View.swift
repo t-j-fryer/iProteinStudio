@@ -17,6 +17,7 @@ struct RFD3View: View {
     let project: Project
     @ObservedObject var controller: RFD3Controller
     @ObservedObject var installer: PipelineInstaller
+    @ObservedObject private var jobs = JobCenter.shared
     @StateObject private var inspector = RFD3TargetInspector()
     @StateObject private var intelligence = LigandIntelligence()
     @State private var showAdvanced = false
@@ -1298,7 +1299,7 @@ struct RFD3View: View {
     private var startBar: some View {
         let r = request.wrappedValue
         let issues = r.validationIssues
-        let anotherWorkflowIsRunning = app.run.isRunning || app.prediction.isRunning || app.nise.isRunning
+        let willQueue = !jobs.active.isEmpty || controller.isRunning || app.run.isRunning || app.prediction.isRunning || app.nise.isRunning
         let missingComponents = r.requiredComponents.filter {
             installer.components[$0] != nil && !installer.isUsable($0)
         }
@@ -1314,8 +1315,8 @@ struct RFD3View: View {
                     .font(.callout).foregroundStyle(.orange)
             }
             HStack {
-                if anotherWorkflowIsRunning {
-                    Label("Finish or stop the active \(app.nise.isRunning ? "NISE" : (app.prediction.isRunning ? "prediction" : "Protein Hunter")) run before starting RFdiffusion3.",
+                if willQueue {
+                    Label("This RFdiffusion3 run will wait in the shared job queue.",
                           systemImage: "hourglass")
                         .font(.callout).foregroundStyle(.secondary)
                 } else if !r.isRunnable {
@@ -1326,13 +1327,13 @@ struct RFD3View: View {
                 Button {
                     controller.start(project: app.projects.first(where: { $0.id == project.id }) ?? project, request: r)
                 } label: {
-                    Label("Start RFdiffusion3 Run", systemImage: "play.fill").frame(minWidth: 220)
+                    Label(willQueue ? "Add to Queue" : "Start RFdiffusion3 Run", systemImage: "play.fill").frame(minWidth: 220)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
-                .accessibilityLabel("Start RFdiffusion3 run")
+                .accessibilityLabel(willQueue ? "Add RFdiffusion3 run to queue" : "Start RFdiffusion3 run")
                 .accessibilityIdentifier("start-rfdiffusion3-run")
                 .disabled(!r.isRunnable || !issues.isEmpty || !missingComponents.isEmpty
-                          || anotherWorkflowIsRunning)
+                          || !controller.canStartAnother)
             }
         }
         .padding(.top, 6)

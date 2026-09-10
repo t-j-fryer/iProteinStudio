@@ -8,7 +8,7 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 MCP = Path(__file__).resolve().parents[1] / "Sources/iProteinStudio/Resources/pipeline/mcp"
 sys.path.insert(0, str(MCP))
@@ -112,6 +112,139 @@ print('PBSTAGE|done|100|Finished',flush=True)
         self.assertFalse((self.root / "overlap").exists())
         self.assertEqual(json.loads((output / "studio_job.json").read_text())["id"], first["id"])
         self.assertTrue((common.agent_root() / "jobs" / first["id"] / "bridge/studioctl.py").is_file())
+
+    def test_protein_hunter_workspaces_queue_and_cancel_independently(self):
+        def submit(workspace, name):
+            output = self.root / 'projects' / workspace / name
+            snapshot = output / '.studio_runtime/pipeline'
+            (snapshot / 'scripts').mkdir(parents=True)
+            runner = snapshot / 'nanohunter_run.sh'
+            runner.write_text('''#!/usr/bin/python3
+import os, pathlib, sys, time
+a=sys.argv; out=pathlib.Path(a[a.index('--out-root')+1])/a[a.index('--run-name')+1]
+root=pathlib.Path(os.environ['NANOHUNTER_ROOT'])
+try: (root/'active').mkdir()
+except FileExistsError: (root/'overlap').touch()
+(out/'started').touch()
+while not (out/'release').exists(): time.sleep(.05)
+(out/'summary_all_runs.csv').write_text('fixture,value\\n1,1\\n')
+(root/'active').rmdir()
+''')
+            runner.chmod(0o755)
+            template = output / 'input.yaml'; template.write_text('inert queue fixture')
+            common.atomic_json(output / 'studio_run.json', {
+                'pipelineSnapshot': str(snapshot), 'arguments': ['--run-name', name,
+                '--out-root', str(output.parent), '--template-yaml', str(template)]})
+            plan = desktop_plan({'project': workspace, 'workflow': 'iterative', 'output': str(output)})
+            state = broker.start_job(plan['id'], plan['sha256'])
+            self.jobs.append(state['id'])
+            return state['id'], output
+        first, one = submit('workspace-one', 'first')
+        deadline = time.monotonic() + 8
+        while not (one / 'started').exists() and time.monotonic() < deadline:
+            time.sleep(.05)
+        self.assertTrue((one / 'started').exists())
+        second, two = submit('workspace-two', 'second')
+        cancelled, three = submit('workspace-two', 'third')
+        self.assertEqual(broker.load_state(second)['status'], 'queued')
+        self.assertFalse((two / 'started').exists())
+        broker.cancel_job(cancelled)
+        self.assertEqual(self.wait(cancelled)['status'], 'cancelled')
+        self.assertFalse((three / 'started').exists())
+        self.assertEqual(broker.load_state(first)['status'], 'running')
+        (two / 'release').touch(); (one / 'release').touch()
+        self.assertEqual(self.wait(first)['status'], 'completed')
+        self.assertEqual(self.wait(second)['status'], 'completed')
+        self.assertFalse((self.root / 'overlap').exists())
+        for output in (one, two):
+            self.assertTrue((output / 'summary_all_runs.csv').is_file())
+
+    def test_cancel_before_worker_ready_keeps_durable_intent(self):
+        identifier = 'job-startup-fixture'
+        path = broker.state_path(identifier)
+        common.atomic_json(path, {'id': identifier, 'status': 'queued', 'pid': 12345,
+                                 'worker_contract': 2, 'cancellation_contract': 1})
+        with patch.object(broker, 'process_alive', return_value=True), patch.object(broker.os, 'kill') as kill:
+            self.assertEqual(broker.cancel_job(identifier)['status'], 'stopping')
+            kill.assert_not_called()
+        # A concurrent progress/status update cannot erase the stop request.
+        broker._update(identifier, status='running')
+        self.assertTrue(broker._cancelled(identifier))
+        self.assertTrue((path.parent / 'cancel.json').is_file())
+
+    def test_all_four_desktop_workflows_share_one_queue(self):
+        # Build inert adapters before planning, so the real provenance checks
+        # and desktop routing run unchanged. No installed engine is accessed.
+        outputs = {kind: self.root / 'projects/demo' / kind
+                   for kind in ('iterative', 'nise', 'rfdiffusion3', 'prediction')}
+        for output in outputs.values():
+            output.mkdir(parents=True)
+        worker = self.script.read_text().replace('a=p.parse_args()', 'a,_=p.parse_known_args()')
+        for relative in ('rfd3/.venv/bin/python', 'venvs/NanoHunter_boltz/bin/python'):
+            python = self.root / relative
+            python.parent.mkdir(parents=True)
+            python.symlink_to(sys.executable)
+        nise_snapshot = outputs['nise'] / '.studio_runtime/pipeline'
+        nise_scripts = nise_snapshot / 'scripts/nise'
+        nise_scripts.mkdir(parents=True)
+        (nise_scripts / 'contract.py').write_text('# inert contract fixture\n')
+        (nise_scripts / 'campaign.py').write_text(worker)
+        common.atomic_json(outputs['nise'] / 'nise_config.json', {'output': str(outputs['nise']), 'request': {}})
+        config = outputs['rfdiffusion3'] / 'config'
+        config.mkdir()
+        common.atomic_json(config / 'studio_request.json', {
+            'campaign_dir': str(outputs['rfdiffusion3']), 'target_kind': 'protein'})
+        (self.root / 'rfd3_scripts/prepare_campaign.py').write_text(
+            "import json,pathlib,sys\np=pathlib.Path(sys.argv[1]); c=json.loads(p.read_text())\n"
+            "(p.parent/'campaign.json').write_text(json.dumps({'output':c['campaign_dir']}))\n")
+        (self.root / 'rfd3_scripts/rfd3_protein_campaign.py').write_text(worker)
+        common.atomic_json(outputs['prediction'] / 'prediction_config.json', {'output': str(outputs['prediction'])})
+        iterative = outputs['iterative']
+        snapshot = iterative / '.studio_runtime/pipeline'
+        snapshot.mkdir(parents=True)
+        # The iterative entry point receives its normal saved argv; this inert
+        # fixture reads only the output file and marks lease overlap.
+        (snapshot / 'nanohunter_run.sh').write_text(
+            '#!/usr/bin/env python3\n' + worker.replace(
+                "c=json.loads(pathlib.Path(a.config).read_text())", f"c={{'output': {str(iterative)!r}}}"))
+        common.atomic_json(iterative / 'studio_run.json', {'pipelineSnapshot': str(snapshot),
+            'arguments': ['--out-root', str(iterative.parent), '--run-name', iterative.name]})
+        # Keep the executable entry point shaped like the production runner.
+        (snapshot / 'fixture.py').write_text((snapshot / 'nanohunter_run.sh').read_text())
+        (snapshot / 'nanohunter_run.sh').write_text(f'#!/bin/sh\nexec "{sys.executable}" "{snapshot}/fixture.py" "$@"\n')
+        (snapshot / 'nanohunter_run.sh').chmod(0o755)
+        contract = Mock()
+        contract.preflight.return_value = {'backbone_method': 'hallucination'}
+        contract.required_files.return_value = []
+        contract.prediction_budget.return_value = {}
+        submitted = []
+        with (common.agent_root() / 'execution.lock').open('a+') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            with patch('iprotein_mcp.nise.contract', return_value=contract):
+                for workflow, output in outputs.items():
+                    plan = desktop_plan({'project': 'demo', 'workflow': workflow, 'output': str(output)})
+                    state = broker.start_job(plan['id'], plan['sha256'])
+                    self.jobs.append(state['id']); submitted.append(state['id'])
+                    self.assertEqual(state['status'], 'queued')
+                    self.assertFalse((output / 'started').exists())
+        for identifier in submitted:
+            result = self.wait(identifier)
+            self.assertEqual(result['status'], 'completed', str(result))
+        self.assertFalse((self.root / 'overlap').exists())
+        self.assertTrue(all((output / 'started').exists() for output in outputs.values()))
+
+    def test_resume_clears_cancel_marker_before_spawning(self):
+        identifier = 'job-resume-fixture'
+        path = broker.state_path(identifier)
+        common.atomic_json(path, {'id': identifier, 'status': 'cancelled', 'pid': None,
+                                 'worker_contract': 2, 'cancellation_contract': 1})
+        common.atomic_json(path.parent / 'cancel.json', {'requested_at': 'fixture'})
+        def spawn(job):
+            self.assertFalse((path.parent / 'cancel.json').exists())
+            self.assertFalse(broker._cancelled(job))
+            return broker.load_state(job)
+        with patch.object(broker, '_spawn', side_effect=spawn):
+            self.assertEqual(broker.resume_job(identifier)['status'], 'queued')
 
     def test_code_change_while_queued_fails_before_execution(self):
         with (common.agent_root() / "execution.lock").open("a+") as lock:

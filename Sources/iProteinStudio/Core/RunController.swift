@@ -24,9 +24,41 @@ final class RunController: ObservableObject {
     private var engineBatchRoot: URL?
 
     var isRunning: Bool { if case .running = phase { return true } else { return false } }
+    // Do not detach while submission is still obtaining its durable job ID.
+    var canStartAnother: Bool { !isRunning || job.id != nil }
+    var observedJobID: String? { job.id }
+
+    @discardableResult
+    func prepareNewRun() -> Bool {
+        guard canStartAnother else { return false }
+        job.detach()
+        phase = .idle
+        campaignRoot = nil
+        engineBatchRoot = nil
+        projectContext = nil
+        manifestURL = nil
+        persistentLogURL = nil
+        lastArguments = nil
+        lastEnvironment = nil
+        lastPipelineSnapshot = nil
+        log = []
+        currentMessage = ""
+        isStopping = false
+        return true
+    }
+
+    func inspect(_ state: ManagedJob, project: Project) {
+        guard observedJobID != state.id, let root = state.output,
+              prepareNewRun() else { return }
+        reattach(project: project, root: root, jobID: state.id)
+    }
 
     func start(project: Project) {
-        guard !isRunning else { return }
+        guard canStartAnother else { return }
+        // The previous campaign remains in the durable registry. New runs get
+        // independent output folders and wait on the broker's shared lease.
+        guard !isRunning || project.request.isRunnable else { return }
+        guard prepareNewRun() else { return }
         let request = project.request
         projectContext = project
         hitThreshold = request.hitThreshold

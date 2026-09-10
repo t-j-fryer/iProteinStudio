@@ -55,6 +55,8 @@ struct WorkspaceView: View {
     @ObservedObject var installer: PipelineInstaller
     @State private var showComponents = false
     @State private var showActivity = false
+    @State private var showQueue = false
+    @ObservedObject private var jobs = JobCenter.shared
     @State private var showAIIntegrations = false
 
     var body: some View {
@@ -81,6 +83,22 @@ struct WorkspaceView: View {
             }
         }
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showQueue.toggle() } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "list.bullet.rectangle")
+                        if !jobs.active.isEmpty {
+                            Text("\(jobs.active.count)").monospacedDigit()
+                        }
+                    }
+                }
+                .help("Job queue: \(jobs.waiting.count) waiting, \(jobs.active.count - jobs.waiting.count) running or stopping")
+                .accessibilityLabel("Open job queue, \(jobs.active.count) active jobs")
+                .accessibilityIdentifier("job-queue-button")
+                .popover(isPresented: $showQueue, arrowEdge: .bottom) {
+                    JobQueueView(run: app.run, rfd3: app.rfd3, prediction: app.prediction, nise: app.nise)
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button { showActivity.toggle() } label: {
                     Label("Activity", systemImage: app.run.isRunning || app.rfd3.isRunning || app.prediction.isRunning || app.nise.isRunning
@@ -164,6 +182,33 @@ struct ProjectDetailView: View {
         return nil
     }
 
+    private var hasDisplayedRun: Bool {
+        switch mode.wrappedValue {
+        case .iterative: return run.projectID == project.id && run.campaignRoot != nil
+        case .rfdiffusion: return rfd3.projectSlug == project.slug && rfd3.campaignRoot != nil
+        case .predict: return prediction.projectSlug == project.slug && prediction.outputRoot != nil
+        case .nise: return app.nise.projectSlug == project.slug && app.nise.outputRoot != nil
+        }
+    }
+
+    private var canPrepareNewRun: Bool {
+        switch mode.wrappedValue {
+        case .iterative: return run.canStartAnother
+        case .rfdiffusion: return rfd3.canStartAnother
+        case .predict: return prediction.canStartAnother
+        case .nise: return app.nise.canStartAnother
+        }
+    }
+
+    private func prepareNewRun() {
+        switch mode.wrappedValue {
+        case .iterative: run.prepareNewRun()
+        case .rfdiffusion: rfd3.prepareNewRun()
+        case .predict: prediction.prepareNewRun()
+        case .nise: app.nise.prepareNewRun()
+        }
+    }
+
     var body: some View {
         // NavigationSplitView may ask its detail for an unconstrained ideal
         // height. RFdiffusion3's long form then reports its full content height,
@@ -181,9 +226,6 @@ struct ProjectDetailView: View {
             // A detached RFdiffusion3 campaign can outlive the app; reattach so a
             // multi-day run does not look like it vanished on restart.
             rfd3.reattachIfRunning(project: project)
-            if run.isRunning { mode.wrappedValue = .iterative }
-            if rfd3.isRunning { mode.wrappedValue = .rfdiffusion }
-            if prediction.isRunning { mode.wrappedValue = .predict }
         }
         .sheet(isPresented: $showingRename) {
             NameEditorSheet(
@@ -204,8 +246,7 @@ struct ProjectDetailView: View {
     private var detailContents: some View {
         VStack(spacing: 0) {
             // Navigation must remain available while a long campaign runs. The
-            // individual Start buttons prevent concurrent GPU work; hiding this
-            // picker trapped users inside RFdiffusion3 for multi-day campaigns.
+            // broker serializes submitted jobs; navigation remains available.
             HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(project.name)
@@ -226,6 +267,15 @@ struct ProjectDetailView: View {
                 .accessibilityLabel("Rename \(project.name)")
 
                 Spacer(minLength: 12)
+
+                if hasDisplayedRun {
+                    Button { prepareNewRun() } label: {
+                        Label("New run", systemImage: "plus")
+                    }
+                    .disabled(!canPrepareNewRun)
+                    .help("Set up another \(mode.wrappedValue.label) run. Existing jobs continue in the queue.")
+                    .accessibilityIdentifier("new-queued-workflow-run")
+                }
 
                 Picker("", selection: mode) {
                     ForEach(WorkspaceMode.allCases) { m in
@@ -257,7 +307,7 @@ struct ProjectDetailView: View {
                 Label(notice, systemImage: "clock").font(.caption).padding(.top, 8)
             }
             if let activeMode {
-                Label("\(activeMode.label) is running. You can inspect every tab; starting another run is paused.",
+                Label("\(activeMode.label) has active work. You can add runs from any tab to the queue; open Queue to see all workspaces.",
                       systemImage: "waveform.path")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -273,7 +323,7 @@ struct ProjectDetailView: View {
                        run.isRunning || run.campaignRoot != nil {
                         LiveDashboardView(project: context, run: run, metrics: metrics)
                     } else {
-                        DesignFormView(project: project, installer: installer)
+                        DesignFormView(project: project, installer: installer, run: run)
                     }
                 case .rfdiffusion:
                     RFD3View(project: project, controller: rfd3, installer: installer)

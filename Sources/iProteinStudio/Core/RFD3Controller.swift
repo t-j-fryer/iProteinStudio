@@ -26,6 +26,20 @@ final class RFD3Controller: ObservableObject {
     private var launchStartedAt: Date?
 
     var isRunning: Bool { if case .running = phase { return true }; return false }
+    var canStartAnother: Bool { (!isRunning && !isPreparing) || job.id != nil }
+    var observedJobID: String? { job.id }
+
+    @discardableResult
+    func prepareNewRun() -> Bool {
+        guard canStartAnother else { return false }
+        job.detach()
+        pollTimer?.invalidate(); pollTimer = nil
+        phase = .idle; campaignRoot = nil; configURL = nil; projectSlug = ""
+        progress = 0; currentStage = ""; currentMessage = ""; log = []
+        counts = [:]; completedStages = []; isPreparing = false
+        lastWasProtein = false; launchStartedAt = nil
+        return true
+    }
     var isProteinCampaign: Bool { lastWasProtein }
 
     // MARK: Availability
@@ -95,7 +109,8 @@ final class RFD3Controller: ObservableObject {
     // MARK: Launch
 
     func start(project: Project, request: RFD3Request) {
-        guard !isRunning, !isPreparing else { return }
+        guard canStartAnother, !isRunning || request.isRunnable else { return }
+        guard prepareNewRun() else { return }
         guard request.isRunnable, request.validationIssues.isEmpty else {
             phase = .failed(request.validationIssues.first
                             ?? "Complete the RFdiffusion3 settings before starting.")

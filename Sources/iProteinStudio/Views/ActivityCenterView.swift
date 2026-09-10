@@ -75,7 +75,12 @@ struct ActivityCenterView: View {
             projectFilter == nil || app.projects.first(where: { $0.slug == job.project })?.id == projectFilter
         }
     }
-    private var hasLiveActivity: Bool { run.isRunning || rfd3.isRunning || prediction.isRunning || app.nise.isRunning || !jobs.active.isEmpty }
+    private func canResume(_ record: StudioRunRecord) -> Bool {
+        if jobs.active.contains(where: { $0.id == record.managedJobID }) { return false }
+        if isEngineBatch(record) || record.managedJobID == nil { return run.canStartAnother }
+        if record.workflow == .nise { return app.nise.canStartAnother }
+        return true
+    }
 
     private func refresh() { Task { await jobs.refresh(); history.refresh(projects: app.projects) } }
 
@@ -112,9 +117,8 @@ struct ActivityCenterView: View {
             if record.isResumable {
                 Button(isEngineBatch(record) ? "Resume batch" : "Resume") { resume(record) }
                     .controlSize(.small)
-                    .disabled(hasLiveActivity)
-                    .help(hasLiveActivity ? "Stop the active GPU job before resuming this run."
-                          : (isEngineBatch(record) ? "Continue the saved engine batch; completed engines are reused." : "Continue from completed checkpoints"))
+                    .disabled(!canResume(record))
+                    .help("Resume from saved checkpoints. If other work is active, this job waits in the queue.")
             }
             if record.hasViewableResults {
                 Button {
@@ -150,14 +154,17 @@ struct ActivityCenterView: View {
     private func resume(_ record: StudioRunRecord) {
         app.selectedProjectID = record.projectID
         if isEngineBatch(record) {
+            guard app.run.prepareNewRun() else { return }
             app.updateSelected { $0.preferredMode = .iterative }
             app.run.resume(record)
         } else if record.workflow == .nise, let id = record.managedJobID {
+            guard app.nise.prepareNewRun() else { return }
             app.updateSelected { $0.preferredMode = .nise }
             app.nise.reattach(root: record.root, jobID: id, resume: true)
         } else if let id = record.managedJobID, let job = jobs.jobs.first(where: { $0.id == id }) {
             jobs.resume(job)
         } else {
+            guard app.run.prepareNewRun() else { return }
             app.run.resume(record)
             if let root = app.run.campaignRoot { app.metrics.start(root: root) }
         }

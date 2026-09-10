@@ -17,8 +17,24 @@ struct ManagedJob: Decodable, Identifiable {
     let engine_count: Int?
     let pipeline_log_tail: [String]?
     let exit_code: Int32?
+    let created_at: String?
     var isActive: Bool { ["queued", "running", "stopping"].contains(status) }
     var output: URL? { output_root.map { URL(fileURLWithPath: $0) } }
+    var workflowLabel: String {
+        if kind.contains("iterative") { return "Protein Hunter" }
+        if kind.contains("nise") { return "NISE" }
+        if kind.contains("rfd3") || kind.contains("rfdiffusion3") { return "RFdiffusion3" }
+        if kind.contains("prediction") || kind == "desktop_target_prepare" { return "Predict" }
+        return kind
+    }
+    var displayStatus: String {
+        switch status {
+        case "queued": return "Waiting"
+        case "running": return "Running"
+        case "stopping": return "Stopping"
+        default: return status.capitalized
+        }
+    }
 }
 
 /// All clients talk to the same durable registry. The CLI is bundled with the
@@ -65,6 +81,7 @@ final class JobCenter: ObservableObject {
     func reportOperationError(_ message: String) { operationError = message }
     private var polling: Task<Void, Never>?
     var active: [ManagedJob] { jobs.filter(\.isActive) }
+    var waiting: [ManagedJob] { active.filter { $0.status == "queued" } }
     func start() {
         guard polling == nil else { return }
         polling = Task { [weak self] in
@@ -120,6 +137,18 @@ final class ManagedJobSession {
     private var cancellationRequested = false
     private(set) var hasSession = false
 
+    /// Stop observing only. The broker continues owning the saved job and GPU
+    /// lease; navigating to a new form must never send a cancellation request.
+    func detach() {
+        task?.cancel()
+        task = nil
+        update = nil
+        failure = nil
+        id = nil
+        hasSession = false
+        cancellationRequested = false
+    }
+
     func submit(project: String, workflow: String, output: URL,
                 update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) {
         self.update = update; self.failure = failure
@@ -131,10 +160,11 @@ final class ManagedJobSession {
                 try JSONEncoder().encode(["project": project, "workflow": workflow, "output": output.path])
                     .write(to: request, options: .atomic)
                 let job = try await BrokerClient.call(["_desktop-submit", request.path], as: ManagedJob.self)
+                guard !Task.isCancelled else { return }
                 id = job.id
                 if cancellationRequested { cancel() }
                 await observe(job)
-            } catch { failure(error.localizedDescription) }
+            } catch { if !Task.isCancelled { failure(error.localizedDescription) } }
         }
     }
 
@@ -147,7 +177,7 @@ final class ManagedJobSession {
             do {
                 let state = try await BrokerClient.call([resume ? "resume" : "job-status", id], as: ManagedJob.self)
                 await observe(state)
-            } catch { failure(error.localizedDescription) }
+            } catch { if !Task.isCancelled { failure(error.localizedDescription) } }
         }
     }
 

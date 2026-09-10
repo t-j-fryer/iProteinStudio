@@ -15,6 +15,9 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
         flags += ["-sdk", os.environ["SDKROOT"]]
     cases = {
         "engine_batch_controller": [SOURCE + "Models/" + name for name in MODELS] + [
+            SOURCE + "Models/NISERequest.swift", SOURCE + "Models/PredictionRequest.swift",
+            SOURCE + "Core/NISEController.swift", SOURCE + "Core/PredictionController.swift",
+            SOURCE + "Core/RFD3Controller.swift", SOURCE + "Core/ProcessRunner.swift",
             SOURCE + "Core/RunController.swift", SOURCE + "Core/RunHistoryStore.swift",
             SOURCE + "Core/TemplateWriter.swift", SOURCE + "Core/CommandBuilder.swift",
             SOURCE + "Core/CDRDetector.swift", SOURCE + "Core/ResumeContract.swift", "Tests/EngineBatchControllerHarness.swift"],

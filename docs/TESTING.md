@@ -66,6 +66,13 @@ commands and saved RFdiffusion3 preparation. Temporary directories isolate these
 from installed engines and existing campaigns. Source-based UI contracts verify
 wiring only; they do not establish accessibility or usability.
 
+`Tests/test_desktop_jobs.py` also submits inert jobs through all four native
+workflow adapters and verifies shared-lock serialization, cancellation of queued
+work without stopping another workspace, cancellation before worker startup,
+and clearing cancellation intent on resume. `Tests/run_swift_contracts.py` runs
+the actual four controllers with a mock job session to check observation
+switching, independent saved runs, and duplicate-submission guards.
+
 Before release, run the application and complete setup, Start, Stop, Resume,
 workspace switching, archive/restore and result navigation using keyboard and
 VoiceOver. Check enlarged display/text settings, focus order, control names,

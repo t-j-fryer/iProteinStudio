@@ -10,9 +10,21 @@ final class NISEController: ObservableObject {
     private(set) var projectSlug = ""
     private let job = ManagedJobSession()
     var isRunning: Bool { if case .running = phase { return true }; return false }
+    var canStartAnother: Bool { !isRunning || job.id != nil }
+    var observedJobID: String? { job.id }
+
+    @discardableResult
+    func prepareNewRun() -> Bool {
+        guard canStartAnother else { return false }
+        job.detach()
+        phase = .idle; outputRoot = nil; projectSlug = ""
+        currentMessage = ""; log = []
+        return true
+    }
 
     func start(request: NISERequest, project: Project) {
-        guard !isRunning else { return }
+        guard canStartAnother, !isRunning || request.validationIssues.isEmpty else { return }
+        guard prepareNewRun() else { return }
         guard request.validationIssues.isEmpty else { phase = .failed(request.validationIssues[0]); return }
         let directory = AppPaths.projectDir(project).appendingPathComponent("nise_runs/nise-\(UUID().uuidString)")
         do {

@@ -157,6 +157,13 @@ histograms, saved hit-filter verdicts and motif correspondence. Every workload
 is launched under `caffeinate` for its actual lifetime so a sleeping Mac does
 not strand a GPU campaign.
 
+Protein Hunter, NISE, RFdiffusion3 and Predict share one job queue across all
+workspaces. While work is active, use **Add to Queue** to save another run, or
+**New run** above the tabs to return to the form. The queue icon at the top right
+shows running and waiting jobs, with **Show run**, **Cancel** for waiting work,
+and **Stop** for active work. Submitted jobs continue when you change workspaces
+or close Studio. See [Job queue](docs/JOB_QUEUE.md) for scheduling and recovery.
+
 Large confidence arrays are retained losslessly as checksum-verified gzip files;
 selected structures, galleries and batch logs use references rather than duplicate
 copies. Exact MSAs and campaign policy snapshots share content-addressed APFS

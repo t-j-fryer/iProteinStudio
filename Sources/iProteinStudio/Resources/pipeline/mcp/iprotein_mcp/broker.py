@@ -32,7 +32,8 @@ def registry_lock():
 
 
 def _cancelled(job_id: str) -> bool:
-    return _CANCEL_REQUESTED or load_json(state_path(job_id)).get("status") in {"stopping", "cancelled"}
+    return (_CANCEL_REQUESTED or (state_path(job_id).parent / "cancel.json").exists()
+            or load_json(state_path(job_id)).get("status") in {"stopping", "cancelled"})
 
 
 
@@ -144,6 +145,9 @@ def _start_job(plan_id: str, plan_sha256: str) -> Dict[str, Any]:
         "project": plan["project"],
         "resource_class": plan["resource_class"],
         "status": "queued",
+        # Capability belongs to the frozen worker created for this job. Do not
+        # upgrade it when resuming jobs that retain an older bridge snapshot.
+        "cancellation_contract": 1,
         "created_at": utc_now(),
         "updated_at": utc_now(),
         "pid": None,
@@ -163,10 +167,16 @@ def cancel_job(job_id: str) -> Dict[str, Any]:
         return state
     if state.get("worker_contract") != 2:
         raise StudioError("This job uses an older worker. Stop it through the client that launched it; Studio kept it running.")
+    # Keep intent separate from status updates made concurrently by the worker.
+    # A queued worker may not yet have installed its signal handlers.
+    if state.get("cancellation_contract") == 1:
+        atomic_json(state_path(job_id).parent / "cancel.json", {"requested_at": utc_now()})
     _update(job_id, status="stopping", stage="stopping", message="Stopping; waiting for all worker processes to exit.")
     # The worker keeps the execution lease until it has stopped and reaped its
     # child process group. Do not mark cancellation terminal at request time.
-    if state.get("pid"):
+    ready_path = state_path(job_id).parent / "worker_ready.json"
+    ready = load_json(ready_path).get("pid") if ready_path.exists() else None
+    if state.get("pid") and (state.get("cancellation_contract") != 1 or ready == state["pid"]):
         try:
             os.kill(int(state["pid"]), signal.SIGTERM)
         except ProcessLookupError:
@@ -185,6 +195,7 @@ def _resume_job(job_id: str) -> Dict[str, Any]:
         return state
     if process_alive(state.get("pid")):
         raise StudioError("The previous worker is still alive; wait before resuming.")
+    (state_path(job_id).parent / "cancel.json").unlink(missing_ok=True)
     state.update({"status": "queued", "stage": "queued", "message": "Waiting to resume from durable outputs.", "finished_at": None, "error": None, "updated_at": utc_now(), "pid": None, "process_group": None})
     atomic_json(state_path(job_id), state)
     return _spawn(job_id)
@@ -509,6 +520,7 @@ def run_worker(job_id: str) -> int:
         if int(load_json(state_path(job_id)).get("pid") or 0) == os.getpid():
             break
         time.sleep(0.01)
+    atomic_json(state_path(job_id).parent / "worker_ready.json", {"pid": os.getpid()})
     plan = None
     try:
         recorded = load_json(state_path(job_id).parent / "plan.json")

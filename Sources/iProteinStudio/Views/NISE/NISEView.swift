@@ -173,10 +173,10 @@ struct NISEView: View {
                 }
                 ForEach(request.wrappedValue.validationIssues, id: \.self) { Text($0).foregroundStyle(.orange) }
                 HStack {
-                    Button("Start NISE") { controller.start(request: request.wrappedValue, project: project) }
-                        .buttonStyle(.borderedProminent).disabled(!ready || busy || !request.wrappedValue.validationIssues.isEmpty || !atomChoicesReady)
+                    Button(busy ? "Add to Queue" : "Start NISE") { controller.start(request: request.wrappedValue, project: project) }
+                        .buttonStyle(.borderedProminent).disabled(!ready || !controller.canStartAnother || !request.wrappedValue.validationIssues.isEmpty || !atomChoicesReady)
                         .accessibilityIdentifier("nise-start")
-                    if busy { Text("Active work must finish or stop before another search starts.").font(.caption) }
+                    if busy { Text("This search will wait in the shared job queue.").font(.caption) }
                 }
                 if ownsRun {
                     Divider()
@@ -184,7 +184,7 @@ struct NISEView: View {
                     if case .failed(let message) = controller.phase { Text(message).foregroundStyle(.orange) }
                     HStack {
                         if controller.isRunning { ProgressView().controlSize(.small); Button("Stop", role: .destructive) { controller.cancel() } }
-                        else if controller.outputRoot != nil && controller.phase != .finished { Button("Resume saved run") { controller.retry() }.disabled(busy) }
+                        else if controller.outputRoot != nil && controller.phase != .finished { Button("Resume saved run") { controller.retry() } }
                         if let root = controller.outputRoot {
                             Button("View results") { openWindow(value: RunResultsWindowRequest(root: root, workflow: .nise)) }
                             if FileManager.default.fileExists(atPath: root.appendingPathComponent("nesso_screening.csv").path) {

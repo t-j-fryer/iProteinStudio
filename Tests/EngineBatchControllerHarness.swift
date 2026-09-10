@@ -24,6 +24,10 @@ enum AppPaths {
     static var boltzCache: URL { support.appendingPathComponent("boltz") }
     static var numbaCache: URL { support.appendingPathComponent("numba") }
     static var intelliFoldCache: URL { support.appendingPathComponent("intelli") }
+    static var objectStore: URL { support.appendingPathComponent("objects") }
+    static var rfd3Root: URL { support.appendingPathComponent("rfd3") }
+    static var parseSequencesScript: URL { support.appendingPathComponent("parse.py") }
+    static func stageRFD3Scripts() {}
     static func projectDir(_ project: Project) -> URL { projects.appendingPathComponent(project.slug) }
     static var snapshotCalls = 0
     static var failAt = 0
@@ -49,19 +53,29 @@ struct ManagedJob {
     var engine_count: Int?
     var output: URL?
     var pipeline_log_tail: [String]? = []
+    var stage: String?
     var isActive: Bool { ["queued", "running", "stopping"].contains(status) }
 }
 @MainActor final class JobCenter { static let shared = JobCenter(); var jobs: [ManagedJob] = [] }
 enum BrokerClient { static func savedJobID(at root: URL) -> String? { nil } }
 enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double { 0.7 } }
 @MainActor final class ManagedJobSession {
+    private(set) var id: String?
+    var hasSession: Bool { id != nil }
     static var submissions: [(workflow: String, output: URL)] = []
     static var receiver: ((ManagedJob) -> Void)?
+    static var cancelCalls = 0
+    static var holdSubmission = false
+    static var pending: ManagedJobSession?
     func submit(project: String, workflow: String, output: URL, update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) {
         Self.submissions.append((workflow, output)); Self.receiver = update
+        if Self.holdSubmission { Self.pending = self }
+        else { id = "fixture-\(Self.submissions.count)" }
     }
-    func attach(id: String, resume: Bool = false, update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) { Self.receiver = update }
-    func cancel() {}
+    func attach(id: String, resume: Bool = false, update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) { self.id = id; Self.receiver = update }
+    func cancel() { Self.cancelCalls += 1 }
+    func detach() { id = nil; Self.receiver = nil }
+    static func completeSubmission() { pending?.id = "pending-fixture"; pending = nil; holdSubmission = false }
 }
 
 @main struct EngineBatchControllerHarness {
@@ -175,6 +189,68 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
         selection.scaffoldSelections![0].trajectories = 0
         precondition(!selection.isRunnable)
         print("PASS scaffold equal/custom budgets, round-trip, exclusions and 21 engine/scaffold campaign manifests")
+        // Starting another workspace detaches only the dashboard, not its job.
+        ManagedJobSession.submissions = []
+        let queuedController = RunController()
+        queuedController.start(project: project)
+        let firstSubmission = ManagedJobSession.submissions[0]
+        let firstBytes = try Data(contentsOf: firstSubmission.output.appendingPathComponent("studio_engine_batch.json"))
+        let firstID = queuedController.observedJobID!
+        var secondProject = project
+        secondProject.id = UUID(); secondProject.slug = "second-workspace"
+        queuedController.start(project: secondProject)
+        precondition(ManagedJobSession.submissions.count == 2)
+        precondition(queuedController.projectID == secondProject.id && ManagedJobSession.cancelCalls == 0)
+        precondition(firstSubmission.output != ManagedJobSession.submissions[1].output)
+        let unchangedBytes = try Data(contentsOf: firstSubmission.output.appendingPathComponent("studio_engine_batch.json"))
+        precondition(unchangedBytes == firstBytes)
+        precondition(queuedController.prepareNewRun() && queuedController.campaignRoot == nil)
+        queuedController.inspect(ManagedJob(id: firstID, output: firstSubmission.output), project: project)
+        precondition(queuedController.observedJobID == firstID && queuedController.projectID == project.id)
+        precondition(ManagedJobSession.submissions.count == 2 && ManagedJobSession.cancelCalls == 0)
+        // A double click during submission cannot detach a not-yet-saved job.
+        ManagedJobSession.holdSubmission = true
+        let pending = RunController(); pending.start(project: project)
+        let pendingCount = ManagedJobSession.submissions.count
+        precondition(!pending.canStartAnother && !pending.prepareNewRun())
+        pending.start(project: secondProject)
+        precondition(ManagedJobSession.submissions.count == pendingCount && pending.projectID == project.id)
+        ManagedJobSession.completeSubmission()
+        precondition(pending.canStartAnother && pending.prepareNewRun())
+        print("PASS queue submission across workspaces, independent manifests, observation switching and submission guard")
+        // Every tab can leave an observed durable job and reopen it without a
+        // broker cancellation or another submission. No engine is launched.
+        let beforeSwitches = ManagedJobSession.submissions.count
+        let fixtureRoot = AppPaths.projects.appendingPathComponent("queue-fixture/runs/first")
+        let secondRoot = AppPaths.projects.appendingPathComponent("other-fixture/runs/second")
+        let nise = NISEController()
+        nise.reattach(root: fixtureRoot, jobID: "nise-first")
+        precondition(nise.isRunning && nise.canStartAnother)
+        precondition(nise.prepareNewRun() && nise.outputRoot == nil && nise.phase == .idle)
+        nise.reattach(root: secondRoot, jobID: "nise-second")
+        precondition(nise.observedJobID == "nise-second" && nise.projectSlug == "other-fixture")
+        let predict = PredictionController()
+        predict.reattach(root: fixtureRoot, jobID: "predict-first")
+        precondition(predict.isRunning && predict.canStartAnother)
+        precondition(predict.prepareNewRun() && predict.outputRoot == nil && predict.phase == .idle)
+        predict.reattach(root: secondRoot, jobID: "predict-second")
+        precondition(predict.observedJobID == "predict-second" && predict.projectSlug == "other-fixture")
+        let rfd3 = RFD3Controller()
+        rfd3.reattach(root: fixtureRoot, jobID: "rfd3-first")
+        precondition(rfd3.isRunning && rfd3.canStartAnother)
+        precondition(rfd3.prepareNewRun() && rfd3.campaignRoot == nil && rfd3.phase == .idle)
+        rfd3.reattach(root: secondRoot, jobID: "rfd3-second")
+        precondition(rfd3.observedJobID == "rfd3-second" && rfd3.projectSlug == "other-fixture")
+        precondition(ManagedJobSession.submissions.count == beforeSwitches && ManagedJobSession.cancelCalls == 0)
+        // Without a durable ID, a pending submission (or old unmanaged RFD3
+        // process) must remain attached until it can be safely observed later.
+        let pendingNISE = NISEController(); pendingNISE.phase = .running
+        let pendingPredict = PredictionController(); pendingPredict.phase = .running
+        let pendingRFD3 = RFD3Controller(); pendingRFD3.phase = .running
+        precondition(!pendingNISE.prepareNewRun() && !pendingNISE.canStartAnother)
+        precondition(!pendingPredict.prepareNewRun() && !pendingPredict.canStartAnother)
+        precondition(!pendingRFD3.prepareNewRun() && !pendingRFD3.canStartAnother)
+        print("PASS NISE, Predict and RFdiffusion3 queue observation, workspace switching and pending-job guards")
         // A preparation failure in a later engine must submit nothing.
         ManagedJobSession.submissions = []
         AppPaths.failAt = AppPaths.snapshotCalls + 2

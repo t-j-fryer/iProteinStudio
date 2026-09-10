@@ -22,6 +22,17 @@ final class PredictionController: ObservableObject {
     private(set) var projectSlug = ""
 
     var isRunning: Bool { if case .running = phase { return true }; return false }
+    var canStartAnother: Bool { !isRunning || job.id != nil }
+    var observedJobID: String? { job.id }
+
+    @discardableResult
+    func prepareNewRun() -> Bool {
+        guard canStartAnother else { return false }
+        job.detach()
+        phase = .idle; outputRoot = nil; configURL = nil; projectSlug = ""
+        progress = 0; currentMessage = ""; log = []; cacheHits = nil
+        return true
+    }
 
     // MARK: Parsing sequences
 
@@ -123,7 +134,8 @@ final class PredictionController: ObservableObject {
     // MARK: Running
 
     func start(request: PredictionRequest, outputDir: URL) {
-        guard !isRunning else { return }
+        guard canStartAnother, !isRunning || request.isRunnable else { return }
+        guard prepareNewRun() else { return }
         guard request.isRunnable else {
             phase = .failed(request.validationIssues.first
                             ?? "Read the current sequences and select at least one engine.")
