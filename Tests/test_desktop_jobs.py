@@ -179,6 +179,7 @@ while not (out/'release').exists(): time.sleep(.05)
                    for kind in ('iterative', 'nise', 'rfdiffusion3', 'prediction')}
         for output in outputs.values():
             output.mkdir(parents=True)
+            common.atomic_json(output / 'studio_run_label.json', {'name': 'Trial α / ' + output.name})
         worker = self.script.read_text().replace('a=p.parse_args()', 'a,_=p.parse_known_args()')
         for relative in ('rfd3/.venv/bin/python', 'venvs/NanoHunter_boltz/bin/python'):
             python = self.root / relative
@@ -226,6 +227,7 @@ while not (out/'release').exists(): time.sleep(.05)
                     state = broker.start_job(plan['id'], plan['sha256'])
                     self.jobs.append(state['id']); submitted.append(state['id'])
                     self.assertEqual(state['status'], 'queued')
+                    self.assertEqual(state['display_name'], 'Trial α / ' + workflow)
                     self.assertFalse((output / 'started').exists())
         for identifier in submitted:
             result = self.wait(identifier)
@@ -263,6 +265,21 @@ while not (out/'release').exists(): time.sleep(.05)
             (output / "prediction_config.json").write_text('{}')
         self.assertEqual(self.wait(job["id"])["status"], "failed")
         self.assertFalse((output / "started").exists())
+
+    def test_queued_run_name_is_frozen_with_the_plan(self):
+        output = self.root / 'projects/demo/prediction_runs/named'
+        output.mkdir(parents=True)
+        common.atomic_json(output / 'prediction_config.json', {'output': str(output)})
+        label = output / 'studio_run_label.json'
+        common.atomic_json(label, {'name': 'Trial α / repeat'})
+        with (common.agent_root() / 'execution.lock').open('a+') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            plan = desktop_plan({'project': 'demo', 'workflow': 'prediction', 'output': str(output)})
+            state = broker.start_job(plan['id'], plan['sha256']); self.jobs.append(state['id'])
+            self.assertEqual(state['display_name'], 'Trial α / repeat')
+            common.atomic_json(label, {'name': 'Changed after submission'})
+        self.assertEqual(self.wait(state['id'])['status'], 'failed')
+        self.assertFalse((output / 'started').exists())
 
     def test_stop_waits_for_resistant_descendant_before_next_job(self):
         job, output = self.native(descendant=True)

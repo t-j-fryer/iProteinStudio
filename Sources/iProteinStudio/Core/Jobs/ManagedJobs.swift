@@ -18,6 +18,7 @@ struct ManagedJob: Decodable, Identifiable {
     let pipeline_log_tail: [String]?
     let exit_code: Int32?
     let created_at: String?
+    let display_name: String?
     var isActive: Bool { ["queued", "running", "stopping"].contains(status) }
     var output: URL? { output_root.map { URL(fileURLWithPath: $0) } }
     var workflowLabel: String {

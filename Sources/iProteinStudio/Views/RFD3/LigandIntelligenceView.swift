@@ -117,7 +117,13 @@ struct LigandIntelligenceView: View {
                 presentationAtoms: intelligence.analysis?.core.presentationAtoms ?? [],
                 atomLabels: displayedAtomLabels,
                 allowsAttachmentPicking: request.ligandIsConjugated,
-                onAtomsResolved: { symbols in atomSymbols = symbols }
+                onAtomsResolved: { symbols in atomSymbols = symbols },
+                onAttachmentChanged: { core, linker in
+                    var updated = request
+                    updated.attachmentAtom = core
+                    updated.attachmentLinkerAtom = linker
+                    request = updated
+                }
             )
             .frame(height: 280)
             .background(RoundedRectangle(cornerRadius: 8).fill(.white))

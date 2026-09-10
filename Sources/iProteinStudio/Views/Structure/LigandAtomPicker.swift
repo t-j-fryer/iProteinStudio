@@ -27,6 +27,8 @@ struct LigandAtomPicker: NSViewRepresentable {
     /// depiction's atom numbering and the analysis's can be caught rather than
     /// silently producing a nonsense split.
     var onAtomsResolved: (([String]) -> Void)?
+    /// Commit both endpoints together when they share one request binding.
+    var onAttachmentChanged: ((Int?, Int?) -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -135,8 +137,12 @@ struct LigandAtomPicker: NSViewRepresentable {
                 let core = payload["core"] as? Int ?? -1
                 let linker = payload["linker"] as? Int ?? -1
                 DispatchQueue.main.async {
-                    self.parent.attachmentAtom = core < 0 ? nil : core
-                    self.parent.attachmentLinkerAtom = linker < 0 ? nil : linker
+                    if let changed = self.parent.onAttachmentChanged {
+                        changed(core < 0 ? nil : core, linker < 0 ? nil : linker)
+                    } else {
+                        self.parent.attachmentAtom = core < 0 ? nil : core
+                        self.parent.attachmentLinkerAtom = linker < 0 ? nil : linker
+                    }
                 }
             case "atoms":
                 if let symbols = payload["symbols"] as? [String] {

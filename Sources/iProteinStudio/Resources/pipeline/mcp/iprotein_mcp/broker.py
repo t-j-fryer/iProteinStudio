@@ -143,6 +143,7 @@ def _start_job(plan_id: str, plan_sha256: str) -> Dict[str, Any]:
         "plan_sha256": plan_sha256,
         "kind": plan["kind"],
         "project": plan["project"],
+        "display_name": plan.get("normalized_request", {}).get("display_name"),
         "resource_class": plan["resource_class"],
         "status": "queued",
         # Capability belongs to the frozen worker created for this job. Do not

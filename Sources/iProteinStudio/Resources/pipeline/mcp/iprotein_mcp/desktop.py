@@ -27,6 +27,13 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
     steps = []
     environment = {}
     context = {}
+    label_path = output / "studio_run_label.json"
+    label_files = [label_path] if label_path.is_file() else []
+    display_name = load_json(label_path).get("name") if label_files else None
+    # The native form bounds grapheme length. Python code-point counts differ
+    # for combining characters and emoji, so do not reject valid native labels.
+    if display_name is not None and (not isinstance(display_name, str) or not display_name.strip()):
+        raise StudioError("The saved run name must be nonempty text.")
     if workflow == "iterative_batch":
         descriptor_path = output / "studio_engine_batch.json"
         descriptor = load_json(descriptor_path)
@@ -59,7 +66,7 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
                 group[scaffold] = budget
             if any(sum(group.values()) != trajectories or group != next(iter(groups.values())) for group in groups.values()):
                 raise StudioError("Every engine must receive the same scaffold allocation and total trajectory budget.")
-        children, provenance = [], _script_provenance([descriptor_path])
+        children, provenance = [], _script_provenance([descriptor_path] + label_files)
         for index, (path, label, budget) in enumerate(zip(campaigns, labels, budgets)):
             child = Path(path).resolve()
             if child.parent != workspace or child == output:
@@ -82,7 +89,7 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
                 raise StudioError("Every campaign must receive its exact recorded trajectory budget.")
             children.append({**planned["normalized_request"], "label": label})
             provenance.extend(planned["provenance"])
-        normalized = {"workflow": workflow, "output": str(output), "engine_campaigns": children,
+        normalized = {"workflow": workflow, "output": str(output), "engine_campaigns": children, "display_name": display_name,
                       "child_outputs": [child["output"] for child in children]}
         # All children are preflighted before a worker can be submitted.
         return _persist("desktop_iterative_batch", project, normalized,
@@ -210,8 +217,8 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
         ]
     else:
         raise StudioError("Unknown native workflow.")
-    normalized = {"output": str(output), "workflow": workflow, "steps": steps,
+    normalized = {"output": str(output), "workflow": workflow, "steps": steps, "display_name": display_name,
                   "environment_overrides": environment, **context}
     return _persist("desktop_" + workflow, project, normalized,
                     steps[0]["command"], "apple_gpu_exclusive",
-                    _script_provenance(list(dict.fromkeys(scripts + inputs))))
+                    _script_provenance(list(dict.fromkeys(scripts + inputs + label_files))))

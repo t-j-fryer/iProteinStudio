@@ -11,6 +11,11 @@ struct NISERequestContractHarness {
         let old = Data(#"{"name":"Existing project","slug":"existing","preferredMode":"iterative"}"#.utf8)
         let project = try JSONDecoder().decode(Project.self, from: old)
         precondition(project.preferredMode == .iterative && project.nise.smiles.isEmpty)
+        precondition(project.runNames.isEmpty)
+        var named = project
+        named.runNames = ["nise": "Ligand trial", "predict": "Fold trial"]
+        let namedAgain = try JSONDecoder().decode(Project.self, from: JSONEncoder().encode(named))
+        precondition(namedAgain.runNames == named.runNames)
         let roundTrip = try JSONEncoder().encode(project)
         let document = try JSONSerialization.jsonObject(with: roundTrip) as! [String: Any]
         precondition(document["preferredMode"] as? String == "iterative")

@@ -1324,8 +1324,11 @@ struct RFD3View: View {
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
+                RunNameField(project: project, mode: .rfdiffusion)
                 Button {
-                    controller.start(project: app.projects.first(where: { $0.id == project.id }) ?? project, request: r)
+                    let current = app.projects.first(where: { $0.id == project.id }) ?? project
+                    controller.start(project: current, request: r,
+                                     name: current.runNames[WorkspaceMode.rfdiffusion.rawValue] ?? "")
                 } label: {
                     Label(willQueue ? "Add to Queue" : "Start RFdiffusion3 Run", systemImage: "play.fill").frame(minWidth: 220)
                 }

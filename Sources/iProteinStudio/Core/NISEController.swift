@@ -22,13 +22,14 @@ final class NISEController: ObservableObject {
         return true
     }
 
-    func start(request: NISERequest, project: Project) {
+    func start(request: NISERequest, project: Project, name: String = "") {
         guard canStartAnother, !isRunning || request.validationIssues.isEmpty else { return }
         guard prepareNewRun() else { return }
         guard request.validationIssues.isEmpty else { phase = .failed(request.validationIssues[0]); return }
         let directory = AppPaths.projectDir(project).appendingPathComponent("nise_runs/nise-\(UUID().uuidString)")
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try RunNaming.write(name, to: directory)
             _ = try AppPaths.createPipelineSnapshot(in: directory)
             struct Config: Encodable { let output: String; let request: NISERequest }
             let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

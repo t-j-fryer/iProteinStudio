@@ -108,7 +108,7 @@ final class RFD3Controller: ObservableObject {
 
     // MARK: Launch
 
-    func start(project: Project, request: RFD3Request) {
+    func start(project: Project, request: RFD3Request, name: String = "") {
         guard canStartAnother, !isRunning || request.isRunnable else { return }
         guard prepareNewRun() else { return }
         guard request.isRunnable, request.validationIssues.isEmpty else {
@@ -126,7 +126,10 @@ final class RFD3Controller: ObservableObject {
 
         let runsRoot = AppPaths.projectDir(project).appendingPathComponent("rfd3_runs", isDirectory: true)
         let campaign = uniqueCampaignDirectory(in: runsRoot)
-        do { try AppPaths.fm.createDirectory(at: campaign.appendingPathComponent("config"), withIntermediateDirectories: true) }
+        do {
+            try AppPaths.fm.createDirectory(at: campaign.appendingPathComponent("config"), withIntermediateDirectories: true)
+            try RunNaming.write(name, to: campaign)
+        }
         catch { phase = .failed("Could not create the campaign folder: \(error.localizedDescription)"); return }
         campaignRoot = campaign
 

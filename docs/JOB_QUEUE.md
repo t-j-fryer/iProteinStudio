@@ -8,6 +8,10 @@ workspace. You can submit another run while existing work continues.
 2. Complete the settings and click **Add to Queue**. When no work is active,
    the button retains its usual Start/Fold label. Missing inputs and unavailable
    engines must still be resolved before submission.
+   You can enter an optional **Run name** beside the button in any tab. Each tab
+   remembers its own draft name. Queue and Activity show the saved name; leaving
+   it blank keeps the automatic name. Reusing a name creates a separate run and
+   never overwrites earlier results.
 3. Open the queue icon at the top right to see all running and waiting jobs.
    Each row identifies the workspace, workflow and saved run folder.
 4. Use **Show run** to open a job's progress, or **Show files** to reveal its

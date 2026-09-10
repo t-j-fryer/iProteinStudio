@@ -173,7 +173,12 @@ struct NISEView: View {
                 }
                 ForEach(request.wrappedValue.validationIssues, id: \.self) { Text($0).foregroundStyle(.orange) }
                 HStack {
-                    Button(busy ? "Add to Queue" : "Start NISE") { controller.start(request: request.wrappedValue, project: project) }
+                    RunNameField(project: project, mode: .nise)
+                    Button(busy ? "Add to Queue" : "Start NISE") {
+                        let current = app.projects.first(where: { $0.id == project.id }) ?? project
+                        controller.start(request: request.wrappedValue, project: current,
+                                         name: current.runNames[WorkspaceMode.nise.rawValue] ?? "")
+                    }
                         .buttonStyle(.borderedProminent).disabled(!ready || !controller.canStartAnother || !request.wrappedValue.validationIssues.isEmpty || !atomChoicesReady)
                         .accessibilityIdentifier("nise-start")
                     if busy { Text("This search will wait in the shared job queue.").font(.caption) }

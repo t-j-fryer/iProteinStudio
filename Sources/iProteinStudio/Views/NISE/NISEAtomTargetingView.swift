@@ -55,7 +55,7 @@ struct NISEAtomTargetingView: View {
                 .id(atoms.signature)
                 .frame(height: 260)
                 .background(RoundedRectangle(cornerRadius: 8).fill(.white))
-                Text("Choose below: Bind marks a hotspot; Expose marks linker atoms to keep solvent-accessible. Unselected atoms have no individual requirement.")
+                Text("Choose below: Bind highlights a hotspot in green; Expose highlights a solvent-accessible atom in orange. None clears its requirement.")
                     .font(.caption)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 185))], spacing: 8) {
                     ForEach(atoms.atoms) { atom in
@@ -64,12 +64,17 @@ struct NISEAtomTargetingView: View {
                             Picker("Requirement for \(atom.name)", selection: Binding(
                                 get: { request.hotspot_atoms.contains(atom.name) ? "bind" : request.exposed_atoms.contains(atom.name) ? "expose" : "none" },
                                 set: { choice in
-                                    request.hotspot_atoms.removeAll { $0 == atom.name }
-                                    request.exposed_atoms.removeAll { $0 == atom.name }
-                                    if choice == "bind" { request.hotspot_atoms.append(atom.name) }
-                                    if choice == "expose" { request.exposed_atoms.append(atom.name) }
-                                    request.ligand_atom_signature = atoms.signature
-                                    request.ligand_atoms_generated_for = request.smiles.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    // SwiftUI can retain the binding's value for
+                                    // this event. Separate writes overwrite one
+                                    // another; commit the choice and map together.
+                                    var updated = request
+                                    updated.hotspot_atoms.removeAll { $0 == atom.name }
+                                    updated.exposed_atoms.removeAll { $0 == atom.name }
+                                    if choice == "bind" { updated.hotspot_atoms.append(atom.name) }
+                                    if choice == "expose" { updated.exposed_atoms.append(atom.name) }
+                                    updated.ligand_atom_signature = atoms.signature
+                                    updated.ligand_atoms_generated_for = updated.smiles.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    request = updated
                                 })) {
                                     Text("None").tag("none")
                                     Text("Bind").tag("bind")

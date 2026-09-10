@@ -336,7 +336,7 @@
 
     function updateHint() {
       if (!pickingEnabled) {
-        hintEl.textContent = atomLabels.length ? 'RFD3 atom names' : 'Zero-based SMILES atom indices';
+        hintEl.textContent = atomLabels.length ? 'Atom names' : 'Zero-based SMILES atom indices';
       } else if (attachment === null) {
         hintEl.textContent = 'First click: atom on the binding-core side of the linker bond';
       } else if (attachmentLinker === null) {
@@ -403,7 +403,14 @@
           g.appendChild(linkerRing);
         }
       });
-      svgEl.insertBefore(g, svgEl.firstChild);
+      // RDKit includes an opaque white background rectangle. Shading must sit
+      // above that rectangle and below the bonds, otherwise choices are hidden.
+      var background = svgEl.querySelector('rect');
+      if (background && background.parentNode === svgEl) {
+        svgEl.insertBefore(g, background.nextSibling);
+      } else {
+        svgEl.insertBefore(g, svgEl.firstChild);
+      }
 
       var oldLabels = svgEl.querySelector('#nh-labels');
       if (oldLabels) oldLabels.parentNode.removeChild(oldLabels);

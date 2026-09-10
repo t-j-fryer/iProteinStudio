@@ -525,8 +525,11 @@ struct PredictView: View {
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
+                RunNameField(project: project, mode: .predict)
                 Button {
-                    controller.start(request: r, outputDir: outputDir)
+                    let current = app.projects.first(where: { $0.id == project.id }) ?? project
+                    controller.start(request: r, outputDir: outputDir,
+                                     name: current.runNames[WorkspaceMode.predict.rawValue] ?? "")
                 } label: {
                     Label(willQueue ? "Add to Queue" : "Fold \(r.jobs.count) sequence\(r.jobs.count == 1 ? "" : "s")",
                           systemImage: "play.fill").frame(minWidth: 200)

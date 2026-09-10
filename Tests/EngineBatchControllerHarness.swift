@@ -192,16 +192,20 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
         // Starting another workspace detaches only the dashboard, not its job.
         ManagedJobSession.submissions = []
         let queuedController = RunController()
-        queuedController.start(project: project)
+        queuedController.start(project: project, name: "  Trial α / first  ")
         let firstSubmission = ManagedJobSession.submissions[0]
         let firstBytes = try Data(contentsOf: firstSubmission.output.appendingPathComponent("studio_engine_batch.json"))
         let firstID = queuedController.observedJobID!
         var secondProject = project
         secondProject.id = UUID(); secondProject.slug = "second-workspace"
-        queuedController.start(project: secondProject)
+        queuedController.start(project: secondProject, name: "Trial α / first")
         precondition(ManagedJobSession.submissions.count == 2)
         precondition(queuedController.projectID == secondProject.id && ManagedJobSession.cancelCalls == 0)
         precondition(firstSubmission.output != ManagedJobSession.submissions[1].output)
+        precondition(RunNaming.read(at: firstSubmission.output, fallback: "missing") == "Trial α / first")
+        precondition(RunNaming.read(at: ManagedJobSession.submissions[1].output, fallback: "missing") == "Trial α / first")
+        precondition(RunNaming.normalized("  line one\nline two  ") == "line one line two")
+        precondition(RunNaming.normalized(String(repeating: "a", count: 150)).count == 120)
         let unchangedBytes = try Data(contentsOf: firstSubmission.output.appendingPathComponent("studio_engine_batch.json"))
         precondition(unchangedBytes == firstBytes)
         precondition(queuedController.prepareNewRun() && queuedController.campaignRoot == nil)

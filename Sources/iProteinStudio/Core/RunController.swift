@@ -53,7 +53,7 @@ final class RunController: ObservableObject {
         reattach(project: project, root: root, jobID: state.id)
     }
 
-    func start(project: Project) {
+    func start(project: Project, name: String = "") {
         guard canStartAnother else { return }
         // The previous campaign remains in the durable registry. New runs get
         // independent output folders and wait on the broker's shared lease.
@@ -86,6 +86,7 @@ final class RunController: ObservableObject {
                 let runName = uniqueRunName(base: base, in: projectDir)
                 let campaign = projectDir.appendingPathComponent(runName, isDirectory: true)
                 try AppPaths.fm.createDirectory(at: campaign, withIntermediateDirectories: true)
+                try RunNaming.write(name, to: campaign)
                 let snapshot = try AppPaths.createPipelineSnapshot(in: campaign)
                 let inputs = campaign.appendingPathComponent("inputs", isDirectory: true)
                 try AppPaths.fm.createDirectory(at: inputs, withIntermediateDirectories: true)
@@ -114,6 +115,7 @@ final class RunController: ObservableObject {
             }
             if let batch {
                 try AppPaths.fm.createDirectory(at: batch, withIntermediateDirectories: true)
+                try RunNaming.write(name, to: batch)
                 let multipleScaffolds = request.designType == .nanobody && request.allocatedScaffolds.count > 1
                 let descriptor = EngineBatchManifest(version: multipleScaffolds ? 2 : 1,
                     campaigns: campaigns.map(\.path), engines: requests.map(\.label),

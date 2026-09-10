@@ -28,6 +28,10 @@ RFdiffusion3 and Predict across workspaces, with a global queue popover and
 observation-only New run navigation. Inert mixed-workflow serialization and
 startup cancellation fixtures pass (Entry 0129).
 
+**Atom controls and names:** Build 37 fixes lost atom-selector edits and hidden
+molecule highlights, and adds optional names beside Start/Add to Queue in all
+four tabs (Entry 0130).
+
 **Working:** NISE now offers Protein Hunter hallucination or experimental
 RFdiffusion3 initial backbones, with 100 starts by default (Entry 0103).
 NESSO installs its required ESM-2 650M assets automatically and can reuse exact
@@ -226,6 +230,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0130 | 2026-09-09 | [Fix atom controls and name runs](lab_book/0130-atom-controls-and-run-names.md) | Native Bind/Expose click regression; visible highlights; atomic contact/linker updates; saved names across all tabs |
 | 0129 | 2026-09-09 | [Queue all Studio workflows](lab_book/0129-queue-all-studio-workflows.md) | All four tabs accept waiting work; global queue controls; independent saved runs and startup cancellation handling |
 | 0118 | 2026-09-09 | [Compare resident NESSO and Boltz2](lab_book/0118-resident-nesso-boltz-fluorescein.md) | 50 paired designs: NESSO 6.16× faster, weak Boltz rank agreement (ρ = 0.106); original design batch resumed. |
 | 0119 | 2026-09-09 | [Add nanobody scaffold selection and budgets](lab_book/0119-nanobody-scaffold-budgets.md) | Equal/custom per-scaffold allocations across engines; add tail-trimmed 3EAK with explicit CDR provenance. |

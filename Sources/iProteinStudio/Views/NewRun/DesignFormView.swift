@@ -320,9 +320,11 @@ struct DesignFormView: View {
                     .accessibilityLabel("Review \(issue.field): \(issue.message)")
             }
             Spacer()
+            RunNameField(project: project, mode: .iterative)
             Button {
                 app.metrics.stop()
-                app.run.start(project: app.projects.first(where: { $0.id == project.id }) ?? project)
+                let current = app.projects.first(where: { $0.id == project.id }) ?? project
+                app.run.start(project: current, name: current.runNames[WorkspaceMode.iterative.rawValue] ?? "")
                 if let root = app.run.campaignRoot { app.metrics.start(root: root) }
             } label: {
                 Label(willQueue ? "Add to Queue" : "Start Design Run", systemImage: willQueue ? "text.badge.plus" : "play.fill").frame(minWidth: 200)

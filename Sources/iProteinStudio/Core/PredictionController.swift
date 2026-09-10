@@ -133,7 +133,7 @@ final class PredictionController: ObservableObject {
 
     // MARK: Running
 
-    func start(request: PredictionRequest, outputDir: URL) {
+    func start(request: PredictionRequest, outputDir: URL, name: String = "") {
         guard canStartAnother, !isRunning || request.isRunnable else { return }
         guard prepareNewRun() else { return }
         guard request.isRunnable else {
@@ -150,7 +150,10 @@ final class PredictionController: ObservableObject {
         }
         AppPaths.stageRFD3Scripts()
         let runDir = uniqueRunDirectory(in: outputDir)
-        do { try AppPaths.fm.createDirectory(at: runDir, withIntermediateDirectories: true) }
+        do {
+            try AppPaths.fm.createDirectory(at: runDir, withIntermediateDirectories: true)
+            try RunNaming.write(name, to: runDir)
+        }
         catch { phase = .failed("Could not create the prediction folder: \(error.localizedDescription)"); return }
         projectSlug = outputDir.deletingLastPathComponent().lastPathComponent
         outputRoot = runDir

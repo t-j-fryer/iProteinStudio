@@ -41,7 +41,7 @@ struct ActivityCenterView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Active and queued work").font(.headline)
                     ForEach(visibleJobs) { job in
-                        liveRow(title: job.project, message: job.message ?? job.status,
+                        liveRow(title: job.display_name ?? job.project, message: job.message ?? job.status,
                                 image: "waveform.path", stop: { jobs.cancel(job) })
                             .disabled(job.status == "stopping")
                     }

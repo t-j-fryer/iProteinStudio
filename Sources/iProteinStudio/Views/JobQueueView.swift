@@ -69,7 +69,7 @@ struct JobQueueView: View {
                 Spacer()
                 Text(job.displayStatus).font(.caption)
             }
-            Text(job.output?.lastPathComponent ?? job.id)
+            Text(job.display_name ?? job.output?.lastPathComponent ?? job.id)
                 .font(.caption).textSelection(.enabled).lineLimit(2)
             Text(job.workflowLabel).font(.caption).foregroundStyle(.secondary)
             if let label = job.engine_label {

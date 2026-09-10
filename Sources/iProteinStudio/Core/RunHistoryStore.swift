@@ -314,7 +314,7 @@ private struct RunHistoryLoader {
                 }
             return StudioRunRecord(projectID: project.id, projectName: project.name,
                                    workflow: .iterative,
-                                   name: manifest?.runName ?? candidate.lastPathComponent,
+                                   name: RunNaming.read(at: candidate, fallback: manifest?.runName ?? candidate.lastPathComponent),
                                    root: candidate,
                                    date: manifest?.createdAt ?? fileDate(candidate), state: state,
                                    detail: detail,
@@ -331,7 +331,7 @@ private struct RunHistoryLoader {
             let completed = summary?["status"] as? String == "completed"
             let count = (try? AppPaths.fm.contentsOfDirectory(atPath: candidate.appendingPathComponent("candidates").path))?.filter { $0.hasSuffix(".json") }.count ?? 0
             return StudioRunRecord(projectID: project.id, projectName: project.name,
-                                   workflow: .nise, name: candidate.lastPathComponent,
+                                   workflow: .nise, name: RunNaming.read(at: candidate, fallback: candidate.lastPathComponent),
                                    root: candidate, date: fileDate(candidate), state: completed ? .completed : .interrupted,
                                    detail: "\(count) evaluated candidates", manifestURL: config, hasViewableResults: count > 0)
         }
@@ -354,7 +354,7 @@ private struct RunHistoryLoader {
                 ?? summary?["num_results"] as? Int
                 ?? csvRowCount(candidate.appendingPathComponent("predictions.csv"))
             return StudioRunRecord(projectID: project.id, projectName: project.name,
-                                   workflow: .prediction, name: candidate.lastPathComponent,
+                                   workflow: .prediction, name: RunNaming.read(at: candidate, fallback: candidate.lastPathComponent),
                                    root: candidate, date: fileDate(candidate), state: state,
                                    detail: completed ? "\(results) result(s), \(failures) failed" : "Settings saved; no final summary",
                                    manifestURL: nil, hasViewableResults: results > 0)
@@ -391,7 +391,7 @@ private struct RunHistoryLoader {
                 : (current.map { "Stopped during \($0)" }
                    ?? (completed.isEmpty ? "Campaign configured" : "Completed: \(completed.joined(separator: ", "))"))
             return StudioRunRecord(projectID: project.id, projectName: project.name,
-                                   workflow: .rfdiffusion3, name: candidate.lastPathComponent,
+                                   workflow: .rfdiffusion3, name: RunNaming.read(at: candidate, fallback: candidate.lastPathComponent),
                                    root: candidate, date: fileDate(candidate), state: state,
                                    detail: detail, manifestURL: nil,
                                    hasViewableResults: hasViewableResults)

@@ -18,6 +18,8 @@ struct Project: Identifiable, Codable, Hashable {
     /// The workflow this workspace reopens to. This is presentation state, not
     /// a restriction: every workspace always offers all workflows.
     var preferredMode: WorkspaceMode = .iterative
+    /// Separate draft labels for each tab; saved jobs retain their own copy.
+    var runNames: [String: String] = [:]
     /// Slug used as the on-disk folder name and pipeline --run-name.
     var slug: String
 
@@ -28,7 +30,7 @@ struct Project: Identifiable, Codable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, createdAt, request, rfd3, prediction, nise, preferredMode, slug
+        case id, name, createdAt, request, rfd3, prediction, nise, preferredMode, slug, runNames
     }
 
     /// Resilient decoding so schema changes never drop saved projects.
@@ -42,6 +44,7 @@ struct Project: Identifiable, Codable, Hashable {
         prediction = try c.decodeIfPresent(PredictionRequest.self, forKey: .prediction) ?? PredictionRequest()
         nise = try c.decodeIfPresent(NISERequest.self, forKey: .nise) ?? NISERequest()
         preferredMode = try c.decodeIfPresent(WorkspaceMode.self, forKey: .preferredMode) ?? .iterative
+        runNames = try c.decodeIfPresent([String: String].self, forKey: .runNames) ?? [:]
         slug = try c.decodeIfPresent(String.self, forKey: .slug) ?? Project.slugify(name)
     }
 

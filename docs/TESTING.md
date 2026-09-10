@@ -73,6 +73,12 @@ and clearing cancellation intent on resume. `Tests/run_swift_contracts.py` runs
 the actual four controllers with a mock job session to check observation
 switching, independent saved runs, and duplicate-submission guards.
 
+`bash Tests/test_ligand_atom_selection.sh` opens an isolated native SwiftUI test
+window with pre-resolved ethanol atoms and the real bundled RDKit/WebKit viewer.
+It drives the None/Bind/Expose control, checks stored choices and map identity,
+independent atom selections, visible SVG layer ordering, stale-map disabling and
+clear/reselect. It does not use installed engines, user workspaces or inference.
+
 Before release, run the application and complete setup, Start, Stop, Resume,
 workspace switching, archive/restore and result navigation using keyboard and
 VoiceOver. Check enlarged display/text settings, focus order, control names,

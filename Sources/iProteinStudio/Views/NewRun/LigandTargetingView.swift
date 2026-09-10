@@ -54,10 +54,12 @@ struct LigandTargetingView: View {
 
     private func invalidate() {
         // Never carry names across a renumbering.
-        request.ligandContactAtoms = []
-        request.ligandAtomsGeneratedFor = ""
-        request.ligandAttachmentAtom = nil
-        request.ligandAttachmentLinkerAtom = nil
+        var updated = request
+        updated.ligandContactAtoms = []
+        updated.ligandAtomsGeneratedFor = ""
+        updated.ligandAttachmentAtom = nil
+        updated.ligandAttachmentLinkerAtom = nil
+        request = updated
         atoms.reset()
         intelligence.reset()
     }
@@ -181,7 +183,13 @@ struct LigandTargetingView: View {
                         presentationAtoms: intelligence.analysis?.core.presentationAtoms ?? [],
                         atomLabels: atoms.namesByInputIndex,
                         allowsAttachmentPicking: request.ligandIsConjugated,
-                        onAtomsResolved: { atomSymbols = $0 }
+                        onAtomsResolved: { atomSymbols = $0 },
+                        onAttachmentChanged: { core, linker in
+                            var updated = request
+                            updated.ligandAttachmentAtom = core
+                            updated.ligandAttachmentLinkerAtom = linker
+                            request = updated
+                        }
                     )
                     .frame(height: 240)
                     .background(RoundedRectangle(cornerRadius: 8).fill(.white))
@@ -236,12 +244,14 @@ struct LigandTargetingView: View {
     }
 
     private func toggle(_ name: String) {
-        if let index = request.ligandContactAtoms.firstIndex(of: name) {
-            request.ligandContactAtoms.remove(at: index)
+        var updated = request
+        if let index = updated.ligandContactAtoms.firstIndex(of: name) {
+            updated.ligandContactAtoms.remove(at: index)
         } else {
-            request.ligandContactAtoms.append(name)
+            updated.ligandContactAtoms.append(name)
         }
-        request.ligandAtomsGeneratedFor = request.ligandContactAtoms.isEmpty ? "" : request.ligandAtomKey
+        updated.ligandAtomsGeneratedFor = updated.ligandContactAtoms.isEmpty ? "" : updated.ligandAtomKey
+        request = updated
     }
 
     private func selectedSymbol(_ index: Int?) -> String? {
