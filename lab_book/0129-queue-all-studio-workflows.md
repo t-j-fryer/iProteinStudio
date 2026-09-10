@@ -4,7 +4,7 @@ title: Queue all Studio workflows without blocking Start
 date: 2026-09-09
 author: GPT-6
 type: implementation
-status: in-progress
+status: complete
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory, macOS 26.x
 tags: [ui, queue, broker, recovery]
 ---
@@ -59,8 +59,16 @@ No performance measurements — implementation only.
   passed. The first workspace test attempt could not write the default Clang
   module cache and emitted cascading SDK errors; it passed with a writable
   `CLANG_MODULE_CACHE_PATH`, without changing the compiler or SDK.
-- Release packaging and source publication audit will be recorded below after
-  assembling the clean-source build.
+- Clean-source release packaging passed from `d5ad764d500e676588b724be835e8f3a56cdbfaa`:
+  version 0.2.0, build 36, arm64. The release script passed deep/strict ad-hoc
+  signature verification, packaged-resource checks and Sparkle archive signing.
+  `hdiutil verify` passed, and both archive checksums matched `SHA256SUMS.txt`.
+  DMG: `build/unsigned-beta-0.2.0-36/iProteinStudio-0.2.0-unsigned-beta-apple-silicon.dmg`.
+  SHA-256: `584a812f2b74f9cd0f807d2126133d5e29cea13e642264c46658f02673e3ad51`.
+- Reopened the updated app through its normal quit/open lifecycle. Old app PID
+  16422 exited; build-36 app PID 45805 opened. The existing job remained running
+  under the same supervisor PID 16600 and child PID 16611. No job cancellation,
+  resume, settings mutation or model launch was performed.
 
 ## Decision and rationale
 
@@ -81,6 +89,8 @@ python3 Tests/test_desktop_jobs.py
 python3 Tests/test_iterative_engine_batch.py
 bash Tests/test_iterative_results_ui_contract.sh
 CLANG_MODULE_CACHE_PATH=/private/tmp/iproteinstudio-modules bash Tests/test_workspace_organization.sh
+CLANG_MODULE_CACHE_PATH=/private/tmp/iproteinstudio-modules SWIFTPM_MODULECACHE_OVERRIDE=/private/tmp/iproteinstudio-modules bash release/release_app.sh --unsigned-beta
+hdiutil verify build/unsigned-beta-0.2.0-36/iProteinStudio-0.2.0-unsigned-beta-apple-silicon.dmg
 ```
 
 The broker tests use temporary support roots, fake adapters and synthetic inputs;
@@ -95,9 +105,12 @@ acceptance. Existing jobs were not stopped, resumed or modified for these tests.
 Old unmanaged RFdiffusion3 processes retain legacy monitoring; New run cannot
 detach such an active process. Queue reordering, priorities and strict FIFO are
 not implemented. App close/reopen durability follows the existing detached
-broker; it is not an automatic computer-reboot resume policy.
+broker and was observed for the existing running job; it is not an automatic
+computer-reboot resume policy. The package is ad-hoc signed, not Developer ID
+signed or notarized. No binary GitHub release was published.
 
 ## Next
 
-Complete release artifact validation and source publication. Perform interactive
-queue/keyboard/VoiceOver acceptance using an isolated support root when available.
+Perform interactive queue/keyboard/VoiceOver acceptance using an isolated support
+root when available. Source changes and this artifact audit are committed for the
+authorized GitHub update; generated app/DMG artifacts remain outside Git.
