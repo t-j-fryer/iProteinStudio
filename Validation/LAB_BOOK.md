@@ -2,7 +2,7 @@
 
 | Entry | Date | Status | Question |
 |---|---|---|---|
-| [0027](lab_book/0027-biotin-noising-acceptance.md) | 2026-09-17 | in progress | Five-start resident biotin pilot with terminal-oxygen exposure and cycle-2 partial noising, before the authorized 1,000-start campaign. |
+| [0027](lab_book/0027-biotin-noising-acceptance.md) | 2026-09-17 | blocked; pilot attrition | Five refinement candidates failed exposure; one scored below 0.80. No cycle-2 noising coverage; full campaign held. |
 | [0026](lab_book/0026-bgx-completed-overviews.md) | 2026-09-17 | complete; retrospective only | Reproduce the requested minibinder and scaffold-based nanobody overviews from 5,250 audited structures, with overlap-aware historical timing. |
 | [0025](lab_book/0025-fluorescein-nise-adaptive-retrospective.md) | 2026-09-16 | complete; retrospective only | 5,440 fluorescein folds: per-cycle advancement/distributions and conditional adaptive subsets; no adaptive policy promoted. |
 | [0024](lab_book/0024-resident-nesso-boltz-fluorescein.md) | 2026-09-09 | complete; audited | 50 paired fluorescein designs: NESSO 6.16× faster; combined rank ρ = 0.106; top 20 retains 4/10 Boltz leaders. |

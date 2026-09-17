@@ -1,6 +1,6 @@
 ---
 date: 2026-09-17
-status: in-progress
+status: blocked
 experiment: biotin_noising_acceptance_v1
 ---
 
@@ -38,3 +38,10 @@ immutable snapshot. A detached guarded continuation audits the pilot before
 submitting full plan `plan-bfd005780c66a3ef`. No full campaign submission or
 scientific acceptance is claimed yet. State is saved in the experiment output
 directory, including the maintenance stop/resume and continuation receipts.
+
+Pilot outcome: all five initial predictions and six first-refinement predictions
+completed. Five refinement candidates failed terminal-oxygen exposure; the sole
+geometry-passing candidate scored 0.7088484786, below the 0.80 gate. No lineage
+advanced. The continuation stopped as designed, and the full campaign was not
+submitted. No criteria changed. This does not establish cycle-2 noising/repair
+acceptance. Read-only diagnosis and XCTest follow-up: project entry 0144.

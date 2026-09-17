@@ -1,0 +1,10 @@
+warning: '--skip-update' option is deprecated and will be removed in a future release
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/Caches/org.swift.swiftpm is not accessible or not writable, disabling user-level cache features.
+warning: 'iproteinstudio': failed storing manifest for 'iproteinstudio' in cache: attempt to write a readonly database
+warning: 'sparkle': failed storing manifest for 'sparkle' in cache: attempt to write a readonly database
+Building for debugging...
+[Planning 1 / 67]
+[Starting]
+Build complete! (0.44 sec)

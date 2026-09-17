@@ -60,9 +60,10 @@ ligand-local X-token masking adds a separately scored/repaired branch from cycle
 2 and replaces one ordinary sampling parent and advancement place, using an
 experimental 6 Å / 25% starting setting (64 ordinary + 32 masked + 32 repair
 predictions per later trajectory-cycle). Software route/replay checks pass;
-a five-start biotin acceptance pilot is running before the authorized large
-campaign, with guarded automatic continuation. Build 38 / MCP 19 are deployed
-and published on GitHub (Entries 0137, 0140, 0143).
+a five-start biotin pilot stopped at first-refinement exposure/score filters,
+so guarded continuation holds the large campaign. Build 38 / MCP 19 are deployed
+and published on GitHub; all six XCTest cases now pass after Xcode setup
+(Entries 0137, 0140, 0143, 0144).
 
 Setup wizard with per-engine choice, worked examples (α-cobratoxin
 with its alignment included, and fluorescein), workspace management, a
@@ -253,7 +254,8 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
-| 0143 | 2026-09-17 | [Start biotin acceptance and update Studio](lab_book/0143-biotin-launch-and-update.md) | Five-start resident pilot running with guarded full-campaign continuation; build 38 / MCP 19 deployed, GitHub source/app/DMG/feed published |
+| 0144 | 2026-09-17 | [Complete XCTest validation](lab_book/0144-validate-xcode-tests.md) | All six XCTest tests and app build pass after Xcode setup; biotin pilot attrition diagnosed and full campaign remains held |
+| 0143 | 2026-09-17 | [Start biotin acceptance and update Studio](lab_book/0143-biotin-launch-and-update.md) | Build 38 / MCP 19 and GitHub release deployed; guarded biotin continuation subsequently stopped on pilot attrition (0144) |
 | 0142 | 2026-09-17 | [Limit biotin exposure to terminal oxygens](lab_book/0142-limit-biotin-exposure-to-terminal-oxygens.md) | Revised draft exposes only O18/O19 at 50%; removes carbon exposure constraints, preserves all other settings and 55,208 prediction ceiling |
 | 0141 | 2026-09-17 | [Compare NISE exposure methods](lab_book/0141-compare-nise-exposure-methods.md) | Studio uses per-atom retained SASA throughout; reported Cα alpha-hull/five-ray method is not equivalent and its exact code remains unavailable |
 | 0140 | 2026-09-17 | [Replace an ordinary sampling parent with noising](lab_book/0140-correct-noising-parent-budget.md) | Two ordinary parents plus one noising branch; 128 later folds per trajectory, revised biotin maximum 55,208; free-ligand terminal exposure retained |

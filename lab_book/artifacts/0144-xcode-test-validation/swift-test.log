@@ -1,0 +1,122 @@
+warning: '--skip-update' option is deprecated and will be removed in a future release
+Building for debugging...
+[Planning 1 / 96]
+[Starting]
+[28 / 63]
+[33 / 63]
+[34 / 64] StudioCore
+[46 / 103]
+[51 / 103]
+[53 / 103]
+[58 / 103]
+[62 / 103]
+[65 / 103]
+[67 / 103]
+[68 / 103]
+[84 / 104] iProteinStudio-product
+[105 / 159]
+[112 / 159]
+[117 / 159]
+[120 / 159]
+[120 / 159] StudioCore
+[125 / 160]
+[127 / 160]
+[143 / 160] iProteinStudio-product
+[143 / 170] iProteinStudio-product
+[144 / 170] iProteinStudio-product
+[148 / 170]
+[149 / 170] iProteinStudio-product
+/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Views/ActivityCenterView.swift:17:17: warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 15 |     let projectFilter: Project.ID?
+ 16 | 
+ 17 |     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 18 | 
+ 19 |     private var records: [StudioRunRecord] {
+
+Combine.Publishers.Autoconnect:2:14: note: generic class declared here
+ 1 | enum Publishers {
+ 2 | public class Autoconnect<Upstream> : Publisher where Upstream : ConnectablePublisher {
+   |              `- note: generic class declared here
+ 3 |     public typealias Output = Upstream.Output
+ 4 |     public typealias Failure = Upstream.Failure
+
+/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Views/ActivityCenterView.swift:17:17: warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 15 |     let projectFilter: Project.ID?
+ 16 | 
+ 17 |     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 18 | 
+ 19 |     private var records: [StudioRunRecord] {
+
+Combine.Publishers:2:13: note: enum declared here
+1 | @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+2 | public enum Publishers {
+  |             `- note: enum declared here
+3 | }
+[150 / 170]
+[154 / 170] StudioCoreTests-product
+[156 / 170] iProteinStudio-product
+/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Views/ActivityCenterView.swift:17:17: warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 15 |     let projectFilter: Project.ID?
+ 16 | 
+ 17 |     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 18 | 
+ 19 |     private var records: [StudioRunRecord] {
+
+Combine.Publishers.Autoconnect:2:14: note: generic class declared here
+ 1 | enum Publishers {
+ 2 | public class Autoconnect<Upstream> : Publisher where Upstream : ConnectablePublisher {
+   |              `- note: generic class declared here
+ 3 |     public typealias Output = Upstream.Output
+ 4 |     public typealias Failure = Upstream.Failure
+
+/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Views/ActivityCenterView.swift:17:17: warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 15 |     let projectFilter: Project.ID?
+ 16 | 
+ 17 |     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 18 | 
+ 19 |     private var records: [StudioRunRecord] {
+
+Combine.Publishers:2:13: note: enum declared here
+1 | @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+2 | public enum Publishers {
+  |             `- note: enum declared here
+3 | }
+[162 / 170] iProteinStudio-product
+[166 / 170] iProteinStudio-product
+[168 / 170] iProteinStudio-product
+Build complete! (10.56 sec)
+Test Suite 'All tests' started at 2026-09-17 15:48:51.602.
+Test Suite 'StudioCoreTests.xctest' started at 2026-09-17 15:48:51.609.
+Test Suite 'PersistenceTests' started at 2026-09-17 15:48:51.609.
+Test Case '-[StudioCoreTests.PersistenceTests testCorruptionRequiresRecoveryAndPreservesEvidence]' started.
+Test Case '-[StudioCoreTests.PersistenceTests testCorruptionRequiresRecoveryAndPreservesEvidence]' passed (0.004 seconds).
+Test Case '-[StudioCoreTests.PersistenceTests testExecutionLeaseExcludesConcurrentOwners]' started.
+Test Case '-[StudioCoreTests.PersistenceTests testExecutionLeaseExcludesConcurrentOwners]' passed (0.001 seconds).
+Test Case '-[StudioCoreTests.PersistenceTests testFailedWriteLeavesReadablePrimary]' started.
+Test Case '-[StudioCoreTests.PersistenceTests testFailedWriteLeavesReadablePrimary]' passed (0.001 seconds).
+Test Case '-[StudioCoreTests.PersistenceTests testMissingPrimaryDoesNotDiscardBackup]' started.
+Test Case '-[StudioCoreTests.PersistenceTests testMissingPrimaryDoesNotDiscardBackup]' passed (0.001 seconds).
+Test Suite 'PersistenceTests' passed at 2026-09-17 15:48:51.616.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'SupportReportTests' started at 2026-09-17 15:48:51.616.
+Test Case '-[StudioCoreTests.SupportReportTests testArbitraryScientificAndSecretContentIsNotExported]' started.
+Test Case '-[StudioCoreTests.SupportReportTests testArbitraryScientificAndSecretContentIsNotExported]' passed (0.000 seconds).
+Test Suite 'SupportReportTests' passed at 2026-09-17 15:48:51.616.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'WorkspaceTransferTests' started at 2026-09-17 15:48:51.616.
+Test Case '-[StudioCoreTests.WorkspaceTransferTests testArchiveRestoreAndFailedIndexWrite]' started.
+Test Case '-[StudioCoreTests.WorkspaceTransferTests testArchiveRestoreAndFailedIndexWrite]' passed (0.004 seconds).
+Test Suite 'WorkspaceTransferTests' passed at 2026-09-17 15:48:51.621.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.004 (0.004) seconds
+Test Suite 'StudioCoreTests.xctest' passed at 2026-09-17 15:48:51.621.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.011 (0.012) seconds
+Test Suite 'All tests' passed at 2026-09-17 15:48:51.621.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.011 (0.019) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

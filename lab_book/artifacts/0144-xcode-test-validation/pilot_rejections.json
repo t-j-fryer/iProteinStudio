@@ -1,0 +1,57 @@
+{
+  "pilot_job": "job-8e5b6fae9509",
+  "stage": "initial refinement 1",
+  "candidates": [
+    {
+      "name": "L002_c1_0",
+      "score": null,
+      "score_status": "not_evaluated",
+      "failures": [
+        "O18: retains less than 50% of unbound accessibility",
+        "O19: retains less than 50% of unbound accessibility"
+      ]
+    },
+    {
+      "name": "L002_c1_1",
+      "score": null,
+      "score_status": "not_evaluated",
+      "failures": [
+        "O19: retains less than 50% of unbound accessibility"
+      ]
+    },
+    {
+      "name": "L002_c1_2",
+      "score": null,
+      "score_status": "not_evaluated",
+      "failures": [
+        "O18: retains less than 50% of unbound accessibility",
+        "O19: retains less than 50% of unbound accessibility"
+      ]
+    },
+    {
+      "name": "L003_c1_0",
+      "score": null,
+      "score_status": "not_evaluated",
+      "failures": [
+        "O18: retains less than 50% of unbound accessibility",
+        "O19: retains less than 50% of unbound accessibility"
+      ]
+    },
+    {
+      "name": "L003_c1_1",
+      "score": 0.7088484786033631,
+      "score_status": "below_early_score_gate",
+      "failures": []
+    },
+    {
+      "name": "L003_c1_2",
+      "score": null,
+      "score_status": "not_evaluated",
+      "failures": [
+        "O18: retains less than 50% of unbound accessibility"
+      ]
+    }
+  ],
+  "full_campaign_started": false,
+  "settings_changed": false
+}
