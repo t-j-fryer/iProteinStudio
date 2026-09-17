@@ -10,9 +10,11 @@ from contract import preflight, saved_request
 from runtime import Backend, atomic, digest
 
 
-def run(config_path):
+def run(config_path, branch_test=False):
     config_path = Path(config_path).resolve()
     config = json.loads(config_path.read_text())
+    if ("branch_test" in config) != branch_test:
+        raise ValueError("A branch-test configuration requires the explicit branch-test entry point")
     root = Path(os.environ["NANOHUNTER_ROOT"]).resolve()
     output = config_path.parent
     if Path(config["output"]).resolve() != output:
@@ -66,6 +68,10 @@ def run(config_path):
         if settings[key]:
             arguments.append("--" + key.replace("_", "-"))
     try:
+        if branch_test:
+            from branch_test import run as test_branch
+            test_branch(arguments, backend, config["branch_test"])
+            return
         atomic(output / "progress.json", dict(message="Searching for ligand-binding structures", scheduler=settings["scheduler"]))
         nise_run.main(arguments, backend=backend)
         if settings["preorganisation"]:
@@ -91,5 +97,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--resume", action="store_true", help="Audited operations are always resumed")
+    parser.add_argument("--branch-test", action="store_true", help="Validate only the partial-noising branch from a recorded parent")
     args = parser.parse_args()
-    run(args.config)
+    run(args.config, branch_test=args.branch_test)

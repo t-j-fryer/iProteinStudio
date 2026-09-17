@@ -1,0 +1,95 @@
+{
+  "accepted": true,
+  "branch_status": "selected",
+  "selected": [
+    "c02_t0_n999_s1"
+  ],
+  "eligible_residues": 13,
+  "masked_residues": 3,
+  "structure_evaluations": 5,
+  "affinity_evaluations": 4,
+  "audited_operation_receipts": 12,
+  "resident_pid": 73202,
+  "resident_sessions": 1,
+  "documented_svd_fallback_warnings": 1,
+  "candidates": [
+    {
+      "name": "c02_t0_mask_s0",
+      "branch": "masked-backbone",
+      "score": 1.1523270934581755,
+      "pbind": 0.37625834345817566,
+      "ligand_plddt": 77.606875,
+      "ca_rmsd": 0.6574214411320197,
+      "ligand_rmsd": 5.197908217381992,
+      "geometry_passed": true,
+      "score_status": "scored",
+      "would_pass_cycle3_geometry": false,
+      "ca_rmsd_vs_original_parent": 0.6574214411320197,
+      "ligand_rmsd_vs_original_parent": 5.197908217381992,
+      "atom_failures": []
+    },
+    {
+      "name": "c02_t0_mask_s1",
+      "branch": "masked-backbone",
+      "score": null,
+      "pbind": null,
+      "ligand_plddt": 57.196875,
+      "ca_rmsd": 0.7057191558283544,
+      "ligand_rmsd": 3.9085483389563764,
+      "geometry_passed": false,
+      "score_status": "not_evaluated",
+      "would_pass_cycle3_geometry": false,
+      "ca_rmsd_vs_original_parent": 0.7057191558283544,
+      "ligand_rmsd_vs_original_parent": 3.9085483389563764,
+      "atom_failures": [
+        "O19: retains less than 50% of unbound accessibility"
+      ]
+    },
+    {
+      "name": "c02_t0_n999_s0",
+      "branch": "partial-noising-repair",
+      "score": 1.1739405979156494,
+      "pbind": 0.3987905979156494,
+      "ligand_plddt": 77.515,
+      "ca_rmsd": 0.5605604445626232,
+      "ligand_rmsd": 18.41173086596889,
+      "geometry_passed": true,
+      "score_status": "scored",
+      "would_pass_cycle3_geometry": false,
+      "ca_rmsd_vs_original_parent": 1.003085107846864,
+      "ligand_rmsd_vs_original_parent": 17.090368104597346,
+      "atom_failures": []
+    },
+    {
+      "name": "c02_t0_n999_s1",
+      "branch": "partial-noising-repair",
+      "score": 1.1774618979454041,
+      "pbind": 0.33926814794540405,
+      "ligand_plddt": 83.81937500000001,
+      "ca_rmsd": 0.8502182406081167,
+      "ligand_rmsd": 1.6151595076134226,
+      "geometry_passed": true,
+      "score_status": "scored",
+      "would_pass_cycle3_geometry": true,
+      "ca_rmsd_vs_original_parent": 0.7235478090618132,
+      "ligand_rmsd_vs_original_parent": 4.9876427356552275,
+      "atom_failures": []
+    },
+    {
+      "name": "c02_t0_n999_s2",
+      "branch": "partial-noising-repair",
+      "score": 0.9840914167404173,
+      "pbind": 0.2812851667404175,
+      "ligand_plddt": 70.28062499999999,
+      "ca_rmsd": 0.7304863057156764,
+      "ligand_rmsd": 20.061259830248442,
+      "geometry_passed": true,
+      "score_status": "scored",
+      "would_pass_cycle3_geometry": false,
+      "ca_rmsd_vs_original_parent": 0.8555763537313232,
+      "ligand_rmsd_vs_original_parent": 22.007177205190516,
+      "atom_failures": []
+    }
+  ],
+  "limitation": "One parent, two masks and three repairs; no efficacy, throughput or full-campaign claim"
+}

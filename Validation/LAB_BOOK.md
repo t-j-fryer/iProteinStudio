@@ -2,6 +2,7 @@
 
 | Entry | Date | Status | Question |
 |---|---|---|---|
+| [0028](lab_book/0028-biotin-parent-noising.md) | 2026-09-17 | complete; branch passed | Five folds and four affinity evaluations in one resident worker; repaired winner 1.177 versus historical parent 1.435; no improvement demonstrated. |
 | [0027](lab_book/0027-biotin-noising-acceptance.md) | 2026-09-17 | blocked; pilot attrition | Five refinement candidates failed exposure; one scored below 0.80. No cycle-2 noising coverage; full campaign held. |
 | [0026](lab_book/0026-bgx-completed-overviews.md) | 2026-09-17 | complete; retrospective only | Reproduce the requested minibinder and scaffold-based nanobody overviews from 5,250 audited structures, with overlap-aware historical timing. |
 | [0025](lab_book/0025-fluorescein-nise-adaptive-retrospective.md) | 2026-09-16 | complete; retrospective only | 5,440 fluorescein folds: per-cycle advancement/distributions and conditional adaptive subsets; no adaptive policy promoted. |

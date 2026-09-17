@@ -1,0 +1,26 @@
+{
+  "experiment": "biotin_parent_noising_v1",
+  "purpose": "Real partial-noising branch test from a previous geometry-passing biotin design",
+  "source_commit": "92bdae1a1c4b547e6f3ab4bd851ffa6bea55c3e8",
+  "source_state": "working tree changes; exact frozen source and model hashes in immutable plan",
+  "parent_run": "nise-C9CCE180-9E41-4BA3-95AE-CB03FBB867FA",
+  "parent_candidate": "c06_t1_n0_s58",
+  "hardware": "Apple M4 Max / 64 GB (confirm at launch)",
+  "msa": "empty; no alignment file",
+  "request": "request.json",
+  "maximum_structure_predictions": 5,
+  "masked_predictions": 2,
+  "repair_predictions": 3,
+  "mask_radius_a": 6,
+  "mask_percent": 25,
+  "cycle": 2,
+  "acceptance": [
+    "Parent passes recomputed atom and strict backbone/ligand consistency checks",
+    "At least one masked backbone passes geometry and is affinity scored",
+    "Three complete repairs are folded and filtered; at least one advances",
+    "One resident MPS worker survives the intervening MPNN stage",
+    "All operation artifact hashes verify; no unexpected CPU fallback"
+  ],
+  "controls": "No paired control; integration test only, no efficacy or speed claim",
+  "promotion": "No defaults promoted; full campaign remains held pending audit"
+}

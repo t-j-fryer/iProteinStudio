@@ -279,7 +279,7 @@ def rebuild_trajectories(out, args):
     return trajs, (cycles[-1] if cycles else 0)
 
 
-def main(argv=None, backend=None):
+def parse_arguments(argv=None, backend=None):
     if backend is None:
         raise ValueError("Use the managed NISE campaign.py entry point with a saved request")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -394,6 +394,11 @@ def main(argv=None, backend=None):
     # Replay the deterministic search over atomic operation receipts, including Phase 0.
     # Never reconstruct patience from a partially appended CSV.
     args.resume = False
+    return args
+
+
+def main(argv=None, backend=None):
+    args = parse_arguments(argv, backend)
 
     # Absolute so subprocesses launched with a different cwd (LASErMPNN in src/,
     # LigandMPNN in its repo) resolve the paths we hand them.

@@ -132,7 +132,7 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
             step, assets = prepare(root, output, workflow, form["nesso"], form.get("targetSmiles"))
             steps.append(step); inputs += assets
 
-    elif workflow == "nise":
+    elif workflow in {"nise", "nise_branch_test"}:
         from .nise import contract as load_contract
         config = output / "nise_config.json"
         settings = load_json(config)
@@ -166,6 +166,26 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
                   "cwd": str(snapshot), "stage": "nise"}]
         context = {"pipeline_snapshot": str(snapshot), "request": normalized_request,
                    "prediction_budget": contract.prediction_budget(normalized_request)}
+        if workflow == "nise_branch_test":
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("studio_nise_branch_test", snapshot / "scripts/nise/branch_test.py")
+            module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+            try:
+                assets = module.validate(output, normalized_request, settings.get("branch_test"))
+            except (ValueError, OSError, KeyError) as exc:
+                raise StudioError(str(exc)) from exc
+            inputs += assets
+            steps[0]["command"].append("--branch-test")
+            steps[0]["stage"] = "partial-noising-validation"
+            context["branch_test"] = settings["branch_test"]
+            context["prediction_budget"] = {
+                "maximum_structure_predictions": normalized_request["noise_predictions"] + normalized_request["noise_mpnn_seqs"],
+                "masked_predictions": normalized_request["noise_predictions"],
+                "repair_predictions": normalized_request["noise_mpnn_seqs"],
+                "initial_generation": 0, "ordinary_mpnn": 0,
+                "interpretation": "One imported parent; branch integration test, not a full campaign"}
+        elif "branch_test" in settings:
+            raise StudioError("Use the explicit nise_branch_test workflow for a branch-test request.")
     elif workflow in {"prediction", "target_prepare"}:
         config = output / "prediction_config.json"
         settings = load_json(config)

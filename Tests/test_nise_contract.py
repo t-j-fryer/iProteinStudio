@@ -108,6 +108,36 @@ class NISEContracts(unittest.TestCase):
         with self.assertRaises(common.StudioError):
             load_plan(plan["id"], plan["sha256"])
 
+    def test_branch_plan_fingerprints_imported_inputs_and_reports_only_branch_budget(self):
+        from iprotein_mcp.desktop import desktop_plan
+        from runtime import digest
+        (self.root / 'projects/demo').mkdir(parents=True)
+        for path in contract.required_files(self.root):
+            path.parent.mkdir(parents=True, exist_ok=True); path.write_text('fixture\n')
+        (self.root / 'models/boltz2/mols').mkdir()
+        cfg = dict(smiles='CCO', num_starts=1, trajectories=1, partial_noising=True,
+                   noise_predictions=2, noise_mpnn_seqs=3, scheduler='resident')
+        initial = nise_plan({'project':'demo', 'request':cfg})
+        output = Path(initial['normalized_request']['output'])
+        inputs = output/'branch_test_inputs'; inputs.mkdir()
+        parent = dict(name='parent', passed=True, sequence='ACD', score=1.4, pbind=.5,
+                      ligand_plddt=90, ca_rmsd=.5, ligand_rmsd=.7)
+        (inputs/'parent.json').write_text(json.dumps(parent))
+        for name in ('parent.pdb', 'reference.pdb', 'ligand_atom_map.json'):
+            (inputs/name).write_text('fixture')
+        config_path=output/'nise_config.json'; config=json.loads(config_path.read_text())
+        config['branch_test']=dict(schema=1, cycle=2, source_run='previous', source_candidate='parent',
+            files={p.name:digest(p) for p in inputs.iterdir()})
+        config_path.write_text(json.dumps(config))
+        with self.assertRaisesRegex(common.StudioError, 'explicit nise_branch_test'):
+            desktop_plan(dict(project='demo', workflow='nise', output=str(output)))
+        plan=desktop_plan(dict(project='demo', workflow='nise_branch_test', output=str(output)))
+        self.assertEqual(plan['normalized_request']['prediction_budget']['maximum_structure_predictions'],5)
+        self.assertEqual(load_plan(plan['id'],plan['sha256']),plan)
+        (inputs/'parent.pdb').write_text('changed')
+        with self.assertRaises(common.StudioError):
+            load_plan(plan['id'],plan['sha256'])
+
     def test_agent_read_profile_cannot_plan_and_run_profile_can(self):
         self.assertNotIn("nise_plan", MCPServer("read").allowed)
         self.assertIn("nise_plan", MCPServer("run").allowed)

@@ -254,6 +254,7 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0145 | 2026-09-17 | [Test noising from a previous biotin parent](lab_book/0145-test-noising-from-previous-biotin-parent.md) | Real branch passes: five folds, four affinity evaluations, one resident worker; repaired winner scores below parent and ligand-pose movement remains significant |
 | 0144 | 2026-09-17 | [Complete XCTest validation](lab_book/0144-validate-xcode-tests.md) | All six XCTest tests and app build pass after Xcode setup; biotin pilot attrition diagnosed and full campaign remains held |
 | 0143 | 2026-09-17 | [Start biotin acceptance and update Studio](lab_book/0143-biotin-launch-and-update.md) | Build 38 / MCP 19 and GitHub release deployed; guarded biotin continuation subsequently stopped on pilot attrition (0144) |
 | 0142 | 2026-09-17 | [Limit biotin exposure to terminal oxygens](lab_book/0142-limit-biotin-exposure-to-terminal-oxygens.md) | Revised draft exposes only O18/O19 at 50%; removes carbon exposure constraints, preserves all other settings and 55,208 prediction ceiling |
