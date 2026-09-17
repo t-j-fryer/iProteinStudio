@@ -10,7 +10,9 @@ import os
 import re
 import subprocess
 import time
+import uuid
 from pathlib import Path
+from rfd3_resume import bind_inputs, save_receipt, verify_receipt, sha256
 
 
 def chain_length(pdb: Path, chain: str = "A") -> int:
@@ -112,6 +114,19 @@ def main() -> None:
         }
     seq_dir = output / "seqs"
     expected = [seq_dir / f"{p.stem}.fa" for p in backbones]
+    specification = {"backbones": {p.name: sha256(p) for p in backbones},
+                     "model": args.model_type, "temperature": args.temperature,
+                     "n_seqs": args.n_seqs, "seed": args.seed, "omit_aa": args.omit_aa,
+                     "chain": args.chain}
+    specification["metadata_sha256"] = sha256(metrics_path) if metrics_path.exists() else None
+    fixed_input = args.backbones.resolve().parent / "fixed_residues_multi.json"
+    specification["fixed_residues_sha256"] = sha256(fixed_input) if fixed_input.exists() else None
+    bind_inputs(output / "studio_sequence_request.json", specification)
+    request_sha256 = sha256(output / "studio_sequence_request.json")
+    complete = verify_receipt(output / "studio_sequence_receipt.json", specification)
+    if complete and not args.overwrite:
+        print(f"reused {len(backbones)} verified sequence batches -> {output / 'sequences.csv'}")
+        return
 
     root = args.nanohunter_root.resolve()
     repo = root / "src" / "LigandMPNN"
@@ -119,8 +134,22 @@ def main() -> None:
     if not python.exists() or not (repo / "run.py").exists():
         raise SystemExit(f"NanoHunter LigandMPNN installation not found under {root}")
 
-    path_map = {str(path): "" for path in backbones}
-    map_path = output / "pdb_paths.json"
+    # Preserve already completed backbone sequences on interruption. Checkpoint
+    # each valid FASTA; one upstream invocation handles the remaining set.
+    pending = []
+    for backbone, fasta in zip(backbones, expected, strict=True):
+        identity = {"request_sha256": request_sha256, "backbone": backbone.name}
+        receipt = output / "receipts" / (backbone.stem + ".json")
+        if args.overwrite or not verify_receipt(receipt, identity):
+            pending.append(backbone)
+            if fasta.exists():
+                archive = output / "interrupted" / uuid.uuid4().hex
+                archive.mkdir(parents=True)
+                fasta.rename(archive / fasta.name)
+    path_map = {str(path): "" for path in pending}
+    attempt_dir = output / "attempts" / uuid.uuid4().hex
+    attempt_dir.mkdir(parents=True)
+    map_path = attempt_dir / "pdb_paths.json"
     map_path.write_text(json.dumps(path_map, indent=2) + "\n")
     command = [
         str(python),
@@ -139,17 +168,52 @@ def main() -> None:
     fixed_map = args.backbones.resolve().parent / "fixed_residues_multi.json"
     if fixed_map.exists():
         command += ["--fixed_residues_multi", str(fixed_map)]
-    command_path = output / "command.json"
+    command_path = attempt_dir / "command.json"
     command_path.write_text(json.dumps(command, indent=2) + "\n")
 
     started = time.time()
-    if args.overwrite or not all(path.exists() for path in expected):
+    if pending:
         env = os.environ.copy()
         env.update({"KMP_USE_SHM": "0", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"})
-        with (output / "mpnn.log").open("w") as log:
-            result = subprocess.run(command, cwd=repo, env=env, stdout=log, stderr=subprocess.STDOUT)
-        if result.returncode:
-            raise SystemExit(f"MPNN failed with exit code {result.returncode}; see {output / 'mpnn.log'}")
+        checkpointed = set()
+
+        def checkpoint_completed():
+            # Upstream writes the FASTA after sampling all requested sequences
+            # for a backbone. Capture it while the resident process proceeds to
+            # the next backbone, so terminating the parent preserves progress.
+            for backbone in pending:
+                if backbone.name in checkpointed:
+                    continue
+                fasta = seq_dir / f"{backbone.stem}.fa"
+                if not fasta.is_file():
+                    continue
+                try:
+                    designs = parse_fasta(fasta)
+                    if len(designs) != args.n_seqs or any(len(seq) != chain_length(backbone, args.chain)
+                        or set(seq) - set("ACDEFGHIKLMNPQRSTVWY") for seq, _ in designs):
+                        continue
+                    save_receipt(output / "receipts" / (backbone.stem + ".json"),
+                                 {"request_sha256": request_sha256, "backbone": backbone.name}, [fasta])
+                    checkpointed.add(backbone.name)
+                except ValueError:
+                    continue
+
+        with (output / "mpnn.log").open("a") as log:
+            process = subprocess.Popen(command, cwd=repo, env=env, stdout=log, stderr=subprocess.STDOUT)
+            try:
+                while process.poll() is None:
+                    checkpoint_completed()
+                    time.sleep(0.25)
+                checkpoint_completed()
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        process.kill(); process.wait()
+        if process.returncode:
+            raise SystemExit(f"MPNN failed with exit code {process.returncode}; see {output / 'mpnn.log'}")
     wall = time.time() - started
 
     rows: list[dict] = []
@@ -163,7 +227,7 @@ def main() -> None:
             )
         expected_length = chain_length(backbone, args.chain)
         for seq_index, (sequence, metrics) in enumerate(designs, 1):
-            if len(sequence) != expected_length:
+            if len(sequence) != expected_length or set(sequence) - set("ACDEFGHIKLMNPQRSTVWY"):
                 raise SystemExit(
                     f"Sequence length mismatch for {backbone.name}: {len(sequence)} != {expected_length}"
                 )
@@ -183,6 +247,8 @@ def main() -> None:
                 }
             )
     write_csv(rows, output / "sequences.csv")
+    save_receipt(output / "studio_sequence_receipt.json", specification,
+                 expected + [output / "sequences.csv"])
     manifest = {
         "num_backbones": len(backbones),
         "sequences_per_backbone": args.n_seqs,

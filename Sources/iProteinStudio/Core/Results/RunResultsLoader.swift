@@ -74,6 +74,17 @@ enum RunResultsLoader {
             let cycle = row["cycle"] as? Int ?? 0
             let group = tid.map { "Trajectory \($0 + 1)" } ?? "Broad search"
             let passed = row["passed"] as? Bool == true
+            let geometryPassed = row["geometry_passed"] as? Bool ?? passed
+            var selectionStatus = geometryPassed ? "Passed geometry checks" : "Did not pass geometry checks"
+            if geometryPassed {
+                switch row["score_status"] as? String {
+                case "below_early_score_gate": selectionStatus = "Below first-refinement score gate"
+                case "score_upper_bound_below_selection_boundary": selectionStatus = "Affinity skipped · cannot enter selection"
+                case "omitted_geometry_only_stage": selectionStatus = "Geometry gate passed · affinity not required"
+                case "not_evaluated": selectionStatus = "Geometry passed · affinity not evaluated"
+                default: break
+                }
+            }
             let mappings: [(String, StudioResultMetric.Kind)] = [("ligand_plddt", .ligandPLDDT), ("pbind", .bindingProbability),
                 ("score", .rankingScore), ("ca_rmsd", .binderBackboneRMSD), ("ligand_rmsd", .ligandRMSD)]
             var metrics = mappings.compactMap { key, kind -> StudioResultMetric? in
@@ -87,9 +98,11 @@ enum RunResultsLoader {
                     if let value = nesso[key] as? Double, value.isFinite { metrics.append(StudioResultMetric(kind: kind, value: value)) }
                 }
             }
+            let branch = row["branch"] as? String ?? "mpnn"
+            let branchLabel = branch == "masked-backbone" ? "Masked backbone · intermediate" : (branch == "partial-noising-repair" ? "Partial-noising redesign" : "MPNN")
             let variant = "cycle-\(cycle)-\(name)"
             var items = [StudioResultItem(id: "nise|\(name)|holo", title: name,
-                subtitle: "Cycle \(cycle) · \(passed ? "self-consistent" : "did not pass self-consistency")",
+                subtitle: "Cycle \(cycle) · \(branchLabel) · \(selectionStatus)",
                 structureURL: structure, sequence: row["sequence"] as? String, metrics: metrics, confidenceURL: file,
                 stage: .design, scoreSource: row["nesso"] == nil ? "Boltz 2" : "Boltz 2 · NESSO prescreen", groupID: group, groupTitle: group,
                 variantID: variant, variantTitle: "Cycle \(cycle) · \(name)", artifactRole: .designedComplex)]
@@ -916,4 +929,3 @@ enum RunResultsLoader {
             .map(String.init).joined()
     }
 }
-

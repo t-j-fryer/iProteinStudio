@@ -1,5 +1,6 @@
 """Shared campaign screening contracts; deterministic fake models, no inference."""
 import csv
+from contextlib import ExitStack
 import json
 from pathlib import Path
 import sys
@@ -185,6 +186,7 @@ class PreflightTests(unittest.TestCase):
                     prepare(root,out,'iterative',opts,'CCO',detected=engines)
 
     def test_rfd3_route_and_resume_reaudits_screen(self):
+        sys.path.insert(0, str(ROOT/'Sources/iProteinStudio/Resources/rfd3_overlay/scripts'))
         spec=importlib.util.spec_from_file_location('rfd3_campaign', ROOT/'Sources/iProteinStudio/Resources/rfd3_overlay/scripts/run_rfd3_nise_campaign.py')
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         with tempfile.TemporaryDirectory() as raw:
@@ -193,8 +195,12 @@ class PreflightTests(unittest.TestCase):
             smiles=root/'ligand.smi';smiles.write_text('CCO')
             atomic(cfg, dict(campaign_dir=str(root),design_yaml=str(design),smiles_file=str(smiles),nesso=dict(enabled=True)))
             atomic(root/'campaign_progress.json',dict(completed_stages=['validate','fixtures','backbones','mpnn','nesso']))
-            with patch.object(sys,'argv',['runner','--config',str(cfg),'--resume']), patch.object(module,'stage_nesso') as run:
-                module.main();self.assertEqual(run.call_count,1)
+            with ExitStack() as stack:
+                stack.enter_context(patch.object(sys,'argv',['runner','--config',str(cfg),'--resume']))
+                calls = [stack.enter_context(patch.object(module, name)) for name in
+                         ['stage_validate', 'stage_fixtures', 'stage_backbones', 'stage_mpnn', 'stage_nesso']]
+                module.main()
+                self.assertTrue(all(call.call_count == 1 for call in calls))
             saved=json.loads((root/'campaign_progress.json').read_text())
             self.assertEqual(saved['completed_stages'].count('nesso'),1)
             with patch.object(sys,'argv',['runner','--config',str(cfg),'--stage','predict-holo']), self.assertRaisesRegex(SystemExit,'verification route'):

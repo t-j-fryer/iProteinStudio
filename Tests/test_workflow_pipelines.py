@@ -120,6 +120,11 @@ def main() -> None:
         try:
             def fake_fixture_run(command, **_kwargs):
                 fixture_commands.append(command)
+                import numpy as np
+                destination = Path(command[command.index('--output-dir') + 1])
+                name = command[command.index('--name') + 1]
+                np.savez(destination / f'oracle_{name}.npz', coord_to_be_noised=np.zeros((1, 3)),
+                         **{'feats/is_ca': np.ones(1)})
                 return SimpleNamespace(returncode=0)
             design_from_yaml.subprocess.run = fake_fixture_run
             fixture_campaign = root / "fixture-campaign"

@@ -1,0 +1,9 @@
+IPROTEINSTUDIO_GEOMETRY_RECORDED|policy=record_only|violations=0|errors=0
+  L70: fixture built in 0.0s -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/iproteinstudio-workflow-contract-0gl3wip1/fixture-campaign/rfd3/fixtures/oracle_shared_display_name.npz
+  wrote 1 bin(s), 1 designs -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/iproteinstudio-workflow-contract-0gl3wip1/fixture-campaign/rfd3/bin_manifest.json
+PBFAIL|Fold names must be 1–80 safe filename characters and start with a letter or number.
+scored 1/1 protein designs across 2 predictor(s); top mean iPTM=0.700, minimum=0.600 -> /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/iproteinstudio-workflow-contract-0gl3wip1/protein-scores/top100.csv
+PBFAIL|Retired predictor(s) cannot run: alphafold3
+PBFAIL|Retired predictor(s) cannot run: intellifold-jax
+PBFAIL|num_seeds must be between 1 and 20.
+PASS workflow pipeline contracts

@@ -1,0 +1,14 @@
+test_agent_read_profile_cannot_plan_and_run_profile_can (__main__.NISEContracts.test_agent_read_profile_cannot_plan_and_run_profile_can) ... ok
+test_boltz_affinity_loads_its_own_model_once_across_later_requests (__main__.NISEContracts.test_boltz_affinity_loads_its_own_model_once_across_later_requests) ... ok
+test_completed_sequences_replay_and_corruption_fails (__main__.NISEContracts.test_completed_sequences_replay_and_corruption_fails) ... ok
+test_defaults_separate_science_and_residency (__main__.NISEContracts.test_defaults_separate_science_and_residency) ... ok
+test_overview_preserves_candidate_identity_and_never_infers_binding_hit (__main__.NISEContracts.test_overview_preserves_candidate_identity_and_never_infers_binding_hit) ... ok
+test_plan_freezes_settings_weights_and_snapshot_without_gpu_work (__main__.NISEContracts.test_plan_freezes_settings_weights_and_snapshot_without_gpu_work) ... ok
+test_request_rejects_incompatible_budgets_and_implicit_resources (__main__.NISEContracts.test_request_rejects_incompatible_budgets_and_implicit_resources) ... ok
+test_rfd3_is_optional_and_has_a_separate_initial_generation_budget (__main__.NISEContracts.test_rfd3_is_optional_and_has_a_separate_initial_generation_budget) ... ok
+test_rfd3_plan_freezes_the_generator_and_its_weights (__main__.NISEContracts.test_rfd3_plan_freezes_the_generator_and_its_weights) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.060s
+
+OK

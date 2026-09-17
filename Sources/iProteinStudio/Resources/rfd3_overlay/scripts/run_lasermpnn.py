@@ -114,11 +114,28 @@ def _design(backbone: Path, out_dir: Path, args) -> list[tuple[str, float]]:
 
 
 def design_one(backbone: Path, out_dir: Path, args) -> list[dict]:
+    from rfd3_resume import bind_inputs, save_receipt, verify_receipt, sha256
+    out_dir.mkdir(parents=True, exist_ok=True)
+    identity = {"backbone": sha256(backbone), "settings": {
+        key: getattr(args, key) for key in ("smiles", "n_seqs", "seq_temp", "fs_temp",
+                                          "fs_distance", "no_constrain_ss", "ala_budget", "gly_budget")}}
+    bind_inputs(out_dir / "studio_sequence_request.json", identity)
+    receipt = out_dir / "studio_sequence_receipt.json"
     fasta = out_dir / "designs" / "designs.fasta"
-    if not args.overwrite and _read_fasta_count(fasta) >= args.n_seqs:
-        pairs = sorted(_read_lasermpnn_fasta(fasta), key=lambda x: x[1], reverse=True)[: args.n_seqs]
+    if not args.overwrite and verify_receipt(receipt, identity):
+        pairs = sorted(_read_lasermpnn_fasta(fasta), key=lambda x: x[1], reverse=True)
     else:
+        if fasta.exists():
+            import uuid
+            archive = out_dir / "interrupted" / uuid.uuid4().hex
+            archive.mkdir(parents=True)
+            fasta.rename(archive / fasta.name)
         pairs = _design(backbone, out_dir, args)
+    from run_mpnn import chain_length
+    if len(pairs) != args.n_seqs or any(len(seq) != chain_length(backbone)
+            or set(seq) - set("ACDEFGHIKLMNPQRSTVWY") for seq, _ in pairs):
+        raise RuntimeError(f"LASErMPNN sequence count, alphabet or length mismatch for {backbone}")
+    save_receipt(receipt, identity, [fasta])
     return [
         {
             "design": backbone.stem, "seq_index": i, "sequence": seq,
@@ -165,6 +182,8 @@ def main() -> None:
     parser.add_argument("--no-constrain-ss", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
+    if args.n_seqs < 1 or args.max_parallel < 1:
+        raise SystemExit("--n-seqs and --max-parallel must be positive")
     args.nanohunter_root = args.nanohunter_root or default_root()
 
     backbones = sorted(args.backbones.resolve().glob("*.pdb"))

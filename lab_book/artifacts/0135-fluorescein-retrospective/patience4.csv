@@ -1,0 +1,25 @@
+trajectory,threshold,stop_cycle,retained_peak,full_peak,missed_score,conditional_on
+0,0.0001,12,1.7214562675906766,1.7214562675906766,0,observed parent path; cycle5 missing affinities excluded from score maxima
+0,0.001,12,1.7214562675906766,1.7214562675906766,0,observed parent path; cycle5 missing affinities excluded from score maxima
+0,0.005,12,1.7214562675906766,1.7214562675906766,0,observed parent path; cycle5 missing affinities excluded from score maxima
+0,0.01,12,1.7214562675906766,1.7214562675906766,0,observed parent path; cycle5 missing affinities excluded from score maxima
+1,0.0001,7,1.8776192630583242,1.8776192630583242,0,observed parent path; cycle5 missing affinities excluded from score maxima
+1,0.001,7,1.8776192630583242,1.8776192630583242,0,observed parent path; cycle5 missing affinities excluded from score maxima
+1,0.005,7,1.8776192630583242,1.8776192630583242,0,observed parent path; cycle5 missing affinities excluded from score maxima
+1,0.01,7,1.8776192630583242,1.8776192630583242,0,observed parent path; cycle5 missing affinities excluded from score maxima
+2,0.0001,6,1.6004366985444096,1.6004366985444096,0,observed parent path; cycle5 missing affinities excluded from score maxima
+2,0.001,6,1.6004366985444096,1.6004366985444096,0,observed parent path; cycle5 missing affinities excluded from score maxima
+2,0.005,6,1.6004366985444096,1.6004366985444096,0,observed parent path; cycle5 missing affinities excluded from score maxima
+2,0.01,6,1.6004366985444096,1.6004366985444096,0,observed parent path; cycle5 missing affinities excluded from score maxima
+3,0.0001,17,1.941142943982155,1.941142943982155,0,observed parent path; cycle5 missing affinities excluded from score maxima
+3,0.001,17,1.941142943982155,1.941142943982155,0,observed parent path; cycle5 missing affinities excluded from score maxima
+3,0.005,14,1.941142943982155,1.941142943982155,0,observed parent path; cycle5 missing affinities excluded from score maxima
+3,0.01,14,1.941142943982155,1.941142943982155,0,observed parent path; cycle5 missing affinities excluded from score maxima
+4,0.0001,13,1.968279180508275,1.968279180508275,0,observed parent path; cycle5 missing affinities excluded from score maxima
+4,0.001,13,1.968279180508275,1.968279180508275,0,observed parent path; cycle5 missing affinities excluded from score maxima
+4,0.005,13,1.968279180508275,1.968279180508275,0,observed parent path; cycle5 missing affinities excluded from score maxima
+4,0.01,9,1.968279180508275,1.968279180508275,0,observed parent path; cycle5 missing affinities excluded from score maxima
+5,0.0001,9,1.943246054784713,1.9585973468688227,0.01535129208410968,observed parent path; cycle5 missing affinities excluded from score maxima
+5,0.001,9,1.943246054784713,1.9585973468688227,0.01535129208410968,observed parent path; cycle5 missing affinities excluded from score maxima
+5,0.005,9,1.943246054784713,1.9585973468688227,0.01535129208410968,observed parent path; cycle5 missing affinities excluded from score maxima
+5,0.01,6,1.943246054784713,1.9585973468688227,0.01535129208410968,observed parent path; cycle5 missing affinities excluded from score maxima

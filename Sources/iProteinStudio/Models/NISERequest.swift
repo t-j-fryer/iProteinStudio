@@ -2,14 +2,28 @@ import Foundation
 
 /// Ligand NISE has a separate, versioned request; historical iterative IDs stay stable.
 struct NISERequest: Codable, Hashable {
+    var search_policy_version = 3
+    var early_score_gate = 0.80
+    var selective_affinity = true
+    var adaptive_proposals = false
+    var initial_proposals = 16
+    var affinity_batch_size = 8
+    var min_improvement = 0.01
     var smiles = ""
-    var num_starts = 100
+    var num_starts = 1000
     var backbone_method = "protein-hunter"
     var rfd3_num_bins = 5
-    var trajectories = 6
-    var nise_seqs = 64
+    var trajectories = 8
+    var nise_seqs = 32
+    var first_cycle_seqs = 64
+    var partial_noising = false
+    var noise_radius = 6.0
+    var noise_percent = 25.0
+    var noise_predictions = 32
+    var noise_mpnn_seqs = 32
+    var noise_advance = 1
     var max_cycles = 30
-    var patience = 5
+    var patience = 4
     var binder_min_len = 65
     var binder_max_len = 150
     var seed = 0
@@ -19,7 +33,7 @@ struct NISERequest: Codable, Hashable {
     var phase0_refine_cycles = 2
     var phase0_seqs1 = 3
     var phase0_seqs2 = 5
-    var beam = 1
+    var beam = 3
     var nesso_screen = false
     var nesso_top_k = 16
     var phase0_nesso_screen = false
@@ -41,6 +55,8 @@ struct NISERequest: Codable, Hashable {
 
     // New controls must not discard existing saved NISE requests.
     enum CodingKeys: String, CodingKey {
+        case search_policy_version, early_score_gate, selective_affinity, adaptive_proposals, initial_proposals, affinity_batch_size, min_improvement
+        case first_cycle_seqs, partial_noising, noise_radius, noise_percent, noise_predictions, noise_mpnn_seqs, noise_advance
         case smiles, num_starts, trajectories, nise_seqs, max_cycles, patience
         case binder_min_len, binder_max_len, seed, preorganisation, top_x, scheduler
         case phase0_refine_cycles, phase0_seqs1, phase0_seqs2, beam, nesso_screen, nesso_top_k
@@ -53,6 +69,17 @@ struct NISERequest: Codable, Hashable {
     init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        search_policy_version = try c.decodeIfPresent(Int.self, forKey: .search_policy_version) ?? 1
+        if search_policy_version == 1 {
+            num_starts = 100; max_cycles = 30; patience = 5; trajectories = 6; beam = 1
+            early_score_gate = 0; selective_affinity = false; min_improvement = 0.0001
+        }
+        early_score_gate = try c.decodeIfPresent(Double.self, forKey: .early_score_gate) ?? early_score_gate
+        selective_affinity = try c.decodeIfPresent(Bool.self, forKey: .selective_affinity) ?? selective_affinity
+        adaptive_proposals = try c.decodeIfPresent(Bool.self, forKey: .adaptive_proposals) ?? adaptive_proposals
+        initial_proposals = try c.decodeIfPresent(Int.self, forKey: .initial_proposals) ?? initial_proposals
+        affinity_batch_size = try c.decodeIfPresent(Int.self, forKey: .affinity_batch_size) ?? affinity_batch_size
+        min_improvement = try c.decodeIfPresent(Double.self, forKey: .min_improvement) ?? min_improvement
         hotspot_atoms = try c.decodeIfPresent([String].self, forKey: .hotspot_atoms) ?? hotspot_atoms
         exposed_atoms = try c.decodeIfPresent([String].self, forKey: .exposed_atoms) ?? exposed_atoms
         hotspot_distance = try c.decodeIfPresent(Double.self, forKey: .hotspot_distance) ?? hotspot_distance
@@ -64,7 +91,14 @@ struct NISERequest: Codable, Hashable {
         backbone_method = try c.decodeIfPresent(String.self, forKey: .backbone_method) ?? backbone_method
         rfd3_num_bins = try c.decodeIfPresent(Int.self, forKey: .rfd3_num_bins) ?? rfd3_num_bins
         trajectories = try c.decodeIfPresent(Int.self, forKey: .trajectories) ?? trajectories
-        nise_seqs = try c.decodeIfPresent(Int.self, forKey: .nise_seqs) ?? nise_seqs
+        nise_seqs = try c.decodeIfPresent(Int.self, forKey: .nise_seqs) ?? (search_policy_version < 3 ? 64 : nise_seqs)
+        first_cycle_seqs = try c.decodeIfPresent(Int.self, forKey: .first_cycle_seqs) ?? (search_policy_version < 3 ? nise_seqs : first_cycle_seqs)
+        partial_noising = try c.decodeIfPresent(Bool.self, forKey: .partial_noising) ?? false
+        noise_radius = try c.decodeIfPresent(Double.self, forKey: .noise_radius) ?? noise_radius
+        noise_percent = try c.decodeIfPresent(Double.self, forKey: .noise_percent) ?? noise_percent
+        noise_predictions = try c.decodeIfPresent(Int.self, forKey: .noise_predictions) ?? noise_predictions
+        noise_mpnn_seqs = try c.decodeIfPresent(Int.self, forKey: .noise_mpnn_seqs) ?? noise_mpnn_seqs
+        noise_advance = try c.decodeIfPresent(Int.self, forKey: .noise_advance) ?? noise_advance
         max_cycles = try c.decodeIfPresent(Int.self, forKey: .max_cycles) ?? max_cycles
         patience = try c.decodeIfPresent(Int.self, forKey: .patience) ?? patience
         binder_min_len = try c.decodeIfPresent(Int.self, forKey: .binder_min_len) ?? binder_min_len
@@ -106,13 +140,41 @@ struct NISERequest: Codable, Hashable {
         if count == 1 { return [(binder_min_len + binder_max_len) / 2] }
         return (0..<count).map { binder_min_len + Int((Double($0 * (binder_max_len - binder_min_len)) / Double(count - 1)).rounded()) }
     }
-    var cyclePredictionBudget: Int { trajectories * (nesso_screen ? nesso_top_k : beam * nise_seqs) }
-    var firstCyclePredictionBudget: Int { trajectories * (nesso_screen ? nesso_top_k : nise_seqs) }
+    func proposalRounds(_ cap: Int) -> Int {
+        guard adaptive_proposals else { return 1 }
+        var count = 1, level = max(1, initial_proposals)
+        while level < cap { level = min(cap, level * 2); count += 1 }
+        return count
+    }
+    var proposalRoundCount: Int { proposalRounds(nise_seqs) }
+    var noisingPredictionBudget: Int { partial_noising ? trajectories * (noise_predictions + (nesso_screen ? min(nesso_top_k, noise_mpnn_seqs) : noise_mpnn_seqs)) : 0 }
+    var normalParentCount: Int { max(0, beam - (partial_noising ? noise_advance : 0)) }
+    var cyclePredictionBudget: Int { trajectories * (nesso_screen ? min(nesso_top_k * proposalRoundCount, normalParentCount * nise_seqs) : normalParentCount * nise_seqs) + noisingPredictionBudget }
+    var firstCyclePredictionBudget: Int { trajectories * (nesso_screen ? min(nesso_top_k * proposalRounds(first_cycle_seqs), first_cycle_seqs) : first_cycle_seqs) }
     var optimizationPredictionBudget: Int { firstCyclePredictionBudget + max(0, max_cycles - 1) * cyclePredictionBudget }
 
 
     var validationIssues: [String] {
         var issues: [String] = []
+        if !(1...3).contains(search_policy_version) || !early_score_gate.isFinite || !(0...2).contains(early_score_gate)
+            || !min_improvement.isFinite || !(0...1).contains(min_improvement)
+            || !(1...128).contains(affinity_batch_size) || !(1...4096).contains(initial_proposals) {
+            issues.append("Use an early score gate of 0–2, improvement of 0–1 and valid sampling/affinity batches.")
+        }
+        if adaptive_proposals && (initial_proposals > min(nise_seqs, first_cycle_seqs) || initial_proposals < beam) {
+            issues.append("Adaptive starting proposals must be between the advancement count and the maximum per parent.")
+        }
+        if !(1...4096).contains(first_cycle_seqs) || first_cycle_seqs < beam {
+            issues.append("First-cycle proposals must cover the beam width (up to 4,096).")
+        }
+        if !noise_radius.isFinite || !(3...15).contains(noise_radius) || !noise_percent.isFinite || !(1...100).contains(noise_percent)
+            || !(1...1024).contains(noise_predictions) || !(1...4096).contains(noise_mpnn_seqs) || !(1...63).contains(noise_advance) {
+            issues.append("Use a noising radius of 3–15 Å, mask 1–100%, and valid proposal counts.")
+        }
+        if partial_noising && (adaptive_proposals || noise_advance >= beam || noise_advance > noise_mpnn_seqs
+            || (nesso_screen && noise_advance > nesso_top_k)) {
+            issues.append("Partial noising requires fixed sampling, at least one normal beam place, and enough repair/NESSO candidates for its reserved places.")
+        }
         if !Set(hotspot_atoms).isDisjoint(with: Set(exposed_atoms)) {
             issues.append("An atom cannot be both a binding hotspot and an exposed atom.")
         }
@@ -174,6 +236,7 @@ struct NISERequest: Codable, Hashable {
     }
 
     mutating func useSmallTrial() {
+        adaptive_proposals = false; initial_proposals = 3; partial_noising = false; first_cycle_seqs = 3
         num_starts = 5; trajectories = 2; nise_seqs = 3; max_cycles = 3; patience = 2
         binder_min_len = 65; binder_max_len = 70; top_x = 3
         phase0_refine_cycles = 2; phase0_seqs1 = 3; phase0_seqs2 = 5; phase0_gate_seqs = 3; phase0_nesso_refine_top_k = 1; phase0_nesso_expand_top_k = 5; beam = 1; nesso_top_k = 2

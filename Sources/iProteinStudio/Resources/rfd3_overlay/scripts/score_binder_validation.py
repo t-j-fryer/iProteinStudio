@@ -15,13 +15,14 @@ from pathlib import Path
 
 import numpy as np
 from biotite.structure.io.pdb import PDBFile
-from biotite.structure.io.pdbx import CIFFile, get_structure as get_cif_structure
+from biotite.structure.io.pdbx import CIFFile, BinaryCIFFile, get_structure as get_cif_structure
 
 
 def load_array(path: str):
     source = Path(path)
     if source.suffix.lower() in {".cif", ".mmcif", ".bcif"}:
-        return get_cif_structure(CIFFile.read(source), model=1)
+        reader = BinaryCIFFile if source.suffix.lower() == ".bcif" else CIFFile
+        return get_cif_structure(reader.read(source), model=1)
     return PDBFile.read(source).get_structure(model=1)
 
 
@@ -185,6 +186,14 @@ def read_rows(path: Path) -> list[dict]:
     return list(csv.DictReader(path.open())) if path.exists() else []
 
 
+def complete_aggregate(values, predictors, operation):
+    """A missing checker must not be hidden by the other checker's good result."""
+    if not predictors or any(p not in values or values[p] is None
+                             or not np.isfinite(values[p]) for p in predictors):
+        return None
+    return operation(values[p] for p in predictors)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--campaign", type=Path, required=True)
@@ -230,17 +239,12 @@ def main() -> None:
             if h and m:
                 binder_rmsds[predictor] = rmsd(m["structure"], h["structure"])
 
-        finite_complex = [v for v in complex_rmsds.values() if v is not None]
-        finite_backbone = [v for v in binder_backbone_rmsds.values() if v is not None]
-        finite_plddt = [v for v in binder_plddts.values() if v is not None]
-        finite_binder = [v for v in binder_rmsds.values() if v is not None]
-        finite_motif = [v for v in motif_rmsds.values() if v is not None]
         aggregate = {
-            "maximum_complex_rmsd": max(finite_complex) if finite_complex else None,
-            "maximum_binder_backbone_rmsd": max(finite_backbone) if finite_backbone else None,
-            "minimum_binder_plddt": min(finite_plddt) if finite_plddt else None,
-            "maximum_binder_rmsd": max(finite_binder) if finite_binder else None,
-            "maximum_motif_rmsd": max(finite_motif) if finite_motif else None,
+            "maximum_complex_rmsd": complete_aggregate(complex_rmsds, predictors, max),
+            "maximum_binder_backbone_rmsd": complete_aggregate(binder_backbone_rmsds, predictors, max),
+            "minimum_binder_plddt": complete_aggregate(binder_plddts, predictors, min),
+            "maximum_binder_rmsd": complete_aggregate(binder_rmsds, predictors, max),
+            "maximum_motif_rmsd": complete_aggregate(motif_rmsds, predictors, max),
         }
         failed = []
         gates = [

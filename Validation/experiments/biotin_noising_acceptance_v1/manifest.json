@@ -1,0 +1,19 @@
+{
+  "experiment": "biotin_noising_acceptance_v1",
+  "purpose": "Bounded real-model orchestration acceptance before the user-authorized 1000-start campaign; not a speed or efficacy benchmark",
+  "source_commit_before_changes": "04fcab788f46e0c53c96927757bb6e6388ba210d",
+  "source_state": "pending changes; immutable plan records exact scripts and checkpoints",
+  "hardware": "Apple M4 Max, 64 GB unified memory; confirm at launch",
+  "pilot": "pilot_request.json",
+  "full": "full_request.json",
+  "msa": "empty",
+  "acceptance": [
+    "job completes",
+    "partial-noising cycle 2 evaluates masks and complete repairs",
+    "atom filters and finite scores audited",
+    "ordinary sampling uses at most two parents",
+    "resident loading count audited",
+    "no unexpected CPU fallback"
+  ],
+  "promotion": "No default promoted; optional user-requested experimental branch"
+}

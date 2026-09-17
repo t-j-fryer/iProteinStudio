@@ -1,0 +1,11 @@
+/Users/thomasfryer/.matplotlib is not a writable directory
+Matplotlib created a temporary cache directory at /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/matplotlib-ojx_oi_6 because there was an issue with the default path ({configdir}); it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.852s
+
+OK
+  L60: fixture built in 0.0s -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpjis29c7v/rfd3/fixtures/oracle_demo_O01.npz
+  L70: fixture built in 0.0s -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpjis29c7v/rfd3/fixtures/oracle_demo_O02.npz
+  L60: fixture built in 0.0s -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpjis29c7v/rfd3/fixtures/oracle_demo_O03.npz
+  wrote 3 surface-origin bin(s), 7 designs -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpjis29c7v/rfd3/bin_manifest.json

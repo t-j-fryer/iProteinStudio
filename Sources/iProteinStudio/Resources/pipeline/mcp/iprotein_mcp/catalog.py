@@ -642,14 +642,18 @@ def _nise_overview(root, limit):
         tid = row.get("trajectory")
         key = f"trajectory-{tid}" if tid is not None else "broad-search"
         group = groups.setdefault(key, {"id": key, "title": f"Trajectory {tid + 1}" if tid is not None else "Broad search", "variants": [], "is_hit": None})
-        artifacts = [{"role": "designed_complex", "path": structure, "predictor": "boltz"}]
+        masked = row.get("branch") == "masked-backbone"
+        artifacts = [{"role": "masked_backbone" if masked else "designed_complex", "path": structure, "predictor": "boltz"}]
         check = checks.get(row["name"])
         if check:
             apo = _run_artifact_reference(root, check.get("apo_pdb"))
             if apo:
                 artifacts.append({"role": "binder_alone", "path": apo, "predictor": "boltz", "metrics": {k: v for k, v in check.items() if k not in {"apo_pdb", "holo_pdb"}}})
         group["variants"].append({"id": row["name"], "cycle": row["cycle"], "is_hit": None,
-            "passed_self_consistency": row["passed"], "sequence": row["sequence"],
+            "passed_self_consistency": row.get("geometry_passed", row["passed"]),
+            "passed_selection": row["passed"], "score_status": row.get("score_status", "scored"),
+            "sequence": row["sequence"], "branch": row.get("branch", "mpnn"),
+            "final_eligible": row.get("final_eligible", row["passed"] and not masked),
             "nesso_screening_scores": row.get("nesso"),
             "metrics": {k: row.get(k) for k in ("ligand_plddt", "pbind", "score", "ca_rmsd", "ligand_rmsd")}, "artifacts": artifacts})
         count += 1
@@ -706,10 +710,11 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
                 "objective": "ligand_pLDDT/100 + affinity_probability_binary; missing affinity fails",
                 "order": ["system_detect", "nise_plan", "job_start with plan digest", "job_status", "results_overview", "results_query"],
                 "scope": "Small molecules only. Apo preorganisation is an optional final shortlist analysis.",
-                "stages": {"initial_backbones": ["backbone_method", "rfd3_num_bins", "num_starts", "binder_min_len", "binder_max_len", "phase0_refine_cycles", "phase0_seqs1", "phase0_gate_seqs", "phase0_seqs2", "phase0_sc_ca", "phase0_nesso_screen", "phase0_nesso_refine_top_k", "phase0_nesso_expand_top_k"],
-                           "optimization": ["trajectories", "nise_seqs", "beam", "max_cycles", "patience", "nesso_screen", "nesso_top_k", "nise_sc_ca", "nise_sc_lig", "nise_ligand_sc_from_cycle"]},
-                "initial_generator": "Choose protein-hunter (default X-token hallucination) or rfdiffusion3 (experimental). Total starts default to 100. RFdiffusion3 shares starts across length groups, then uses the same NISE funnel; it never substitutes hallucination on failure.",
-                "advancement": "nise_seqs is sampled per parent; beam is the maximum Boltz-passing sequences advanced per trajectory. Trajectories never pool candidates.",
+                "stages": {"initial_backbones": ["backbone_method", "rfd3_num_bins", "num_starts", "binder_min_len", "binder_max_len", "phase0_refine_cycles", "phase0_seqs1", "phase0_gate_seqs", "phase0_seqs2", "early_score_gate", "phase0_sc_ca", "phase0_nesso_screen", "phase0_nesso_refine_top_k", "phase0_nesso_expand_top_k"],
+                           "optimization": ["trajectories", "first_cycle_seqs", "partial_noising", "noise_radius", "noise_percent", "noise_predictions", "noise_mpnn_seqs", "noise_advance", "nise_seqs", "beam", "max_cycles", "patience", "nesso_screen", "nesso_top_k", "nise_sc_ca", "nise_sc_lig", "nise_ligand_sc_from_cycle", "adaptive_proposals", "initial_proposals", "min_improvement", "selective_affinity", "affinity_batch_size"]},
+                "initial_generator": "Choose protein-hunter (default X-token hallucination) or rfdiffusion3 (experimental). Total starts default to 1,000. RFdiffusion3 shares starts across length groups, then uses the same NISE funnel; it never substitutes hallucination on failure.",
+                "advancement": "first_cycle_seqs defaults to 64 from each starting seed; later cycles use nise_seqs=32 per parent and beam=3 (up to 96). Optional partial_noising reduces ordinary sampling to the best beam - noise_advance current parents (default two) and uses one branch from the best current parent from cycle 2: 32 masked Boltz folds, select the best passing backbone, 32 MPNN repairs, optional NESSO shortlist, then Boltz scoring. Reserve noise_advance=1 places, keep two normal places; failed branch places stay empty. Mask within 6 Angstrom heavy-atom distance at 25%, experimental. This changes sequence identity, not coordinates; masked scores cannot become finalists. With no screening, default noising uses 64 normal + 32 masked + 32 repair = 128 later folds. Legacy saved requests retain one sampling count. Optional adaptive rounds double from initial_proposals to this cap without replacing parents. NESSO shortlists each new round, pooling folded results. No rollback or rescue.",
+                "search_policy": "New requests: 0.80 first-refinement Boltz gate, selective affinity, 30 optimization cycles, four-cycle patience, 8 seeds and beam 3. Adaptive proposals are experimental and off by default. Selective affinity evaluates geometry first, omits the head at cycle00/gate, and bounds P(bind) by 1 for exact selection among folded candidates. Biotin retrospective savings are not Studio benchmarks.",
                 "nesso": "Independent optional initial and optimization screens. Initial refinement folds phase0_nesso_refine_top_k per lineage (default 1); the gate remains unscreened; expansion scores all derivatives, selects max one per original lineage and folds phase0_nesso_expand_top_k total (default 20). Boltz still performs all atom/structural checks and final ranking; NESSO exposes no ligand pLDDT. nesso_top_k is a per-trajectory shortlist, pooled across that trajectory's parents. Rank by NESSO P(bind) + (1 - entropy_crop_pl), with deterministic name ties. Require finite pocket-cropped protein-ligand entropy in (0.000001, 1]; reject invalid placements before shortlist caps. Full entropy is diagnostic only. All scores and rejections are saved; no fallback. Accuracy for designed binders is unvalidated.",
                 "scheduling": "One exclusive GPU owner; within-cycle model reuse by default; cross-cycle resident structure and affinity models are experimental pending ligand throughput validation.",
                 "resume": "Replay audited sequence/prediction operations from Phase 0; never resample completed sequences.",

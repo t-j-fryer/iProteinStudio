@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -269,23 +268,27 @@ class Fixture:
         path.write_text("\n".join(lines) + "\n")
         return motif_meta
 
-    def metrics(self, coords: np.ndarray) -> dict[str, float | int]:
+    def metrics(self, coords: np.ndarray) -> dict[str, float | int | None]:
+        if not np.isfinite(coords).all():
+            raise ValueError("RFdiffusion3 produced non-finite coordinates")
         ca_atom = {int(self.tok[a]): int(a) for a in np.where(self.is_ca)[0]}
         bca = np.asarray([coords[ca_atom[t]] for t in self.design_tokens])
+        if not len(bca):
+            raise ValueError("RFdiffusion3 fixture contains no designed protein residues")
         seg = np.linalg.norm(np.diff(bca, axis=0), axis=1)
         motif_xyz = coords[self.fixed_atoms]
         d_iface = np.linalg.norm(bca[:, None] - motif_xyz[None], axis=-1)
         drift = np.linalg.norm(
             coords[self.fixed_atoms] - self.coord[0, self.fixed_atoms], axis=1
         )
-        out: dict[str, float | int] = {
+        out: dict[str, float | int | None] = {
             "binder_length": int(len(self.design_tokens)),
-            "ca_mean": float(seg.mean()),
-            "ca_min": float(seg.min()),
-            "ca_max": float(seg.max()),
-            "ca_valid_pct": float(((seg > 3.6) & (seg < 4.0)).mean() * 100),
+            "ca_mean": float(seg.mean()) if seg.size else None,
+            "ca_min": float(seg.min()) if seg.size else None,
+            "ca_max": float(seg.max()) if seg.size else None,
+            "ca_valid_pct": float(((seg > 3.6) & (seg < 4.0)).mean() * 100) if seg.size else None,
             "binder_rg": float(np.sqrt(((bca - bca.mean(0)) ** 2).sum(1).mean())),
-            "interface_min": float(d_iface.min()),
+            "interface_min": float(d_iface.min()) if d_iface.size else None,
             "contacts_8A": int((d_iface < 8.0).sum()),
             "contacts_5A": int((d_iface < 5.0).sum()),
             "motif_max_drift": float(drift.max() if drift.size else 0.0),
@@ -295,7 +298,9 @@ class Fixture:
             exposed = self.fixed_atoms & (self.rasa[:, 2] == 1)
             for label, mask in (("buried", buried), ("exposed", exposed)):
                 d = np.linalg.norm(bca[:, None] - coords[mask][None], axis=-1)
-                out[f"{label}_atom_min"] = float(d.min())
+                # Bind/hotspot conditioning does not imply select_buried.
+                # An omitted optional selection has no distance, not zero or NaN.
+                out[f"{label}_atom_min"] = float(d.min()) if d.size else None
                 out[f"{label}_ca_contacts_8A"] = int((d < 8.0).sum())
         return out
 
@@ -315,10 +320,14 @@ def output_geometry_failures(path: Path) -> list[str]:
         if key not in residues:
             residues[key] = {}; order.append(key)
         xyz = np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+        if not np.isfinite(xyz).all():
+            failures.append(f"{chain}{residue} contains non-finite coordinates")
         residues[key][atom] = xyz
         if atom.startswith("V"):
             failures.append(f"{chain}{residue} contains virtual atom {atom}")
     binder = [(key, residues[key]) for key in order if key[0] == "A" and "CA" in residues[key]]
+    if not binder:
+        failures.append("No binder chain-A CA atoms were exported")
     for (left_key, left), (right_key, right) in zip(binder, binder[1:]):
         ca_distance = float(np.linalg.norm(left["CA"] - right["CA"]))
         if not 2.5 <= ca_distance <= 4.5:
@@ -332,8 +341,9 @@ def output_geometry_failures(path: Path) -> list[str]:
                     f"A{left_key[1]}-A{right_key[1]} C-N={peptide:.2f} A"
                 )
     for (chain, residue), atoms in binder:
-        if "CA" not in atoms:
-            continue
+        missing = BINDER_ATOMS - atoms.keys()
+        if missing:
+            failures.append(f"{chain}{residue} missing backbone atoms: {','.join(sorted(missing))}")
         for atom, xyz in atoms.items():
             if atom not in BINDER_ATOMS and np.linalg.norm(xyz - atoms["CA"]) < 0.5:
                 failures.append(f"{chain}{residue} atom {atom} overlaps CA")
@@ -371,9 +381,11 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--max-attempts-per-design", type=int, default=10)
     args = parser.parse_args()
+    if args.overwrite:
+        raise SystemExit("Audited RFdiffusion3 generation cannot overwrite work; use a new output directory")
     if (args.num_designs < 1 or args.batch_size < 1 or args.steps < 2
-            or args.max_attempts_per_design < 1):
-        raise SystemExit("--num-designs/--batch-size must be >=1 and --steps >=2")
+            or args.recycle < 0 or args.max_attempts_per_design < 1):
+        raise SystemExit("--num-designs/--batch-size/--max-attempts-per-design must be >=1, --steps >=2 and --recycle >=0")
 
     mx.set_default_device(mx.gpu)
     try:
@@ -409,6 +421,10 @@ def main() -> None:
         "batch_size": args.batch_size,
         "seed_start": args.seed_start,
         "precision": args.precision,
+        "motif_residues": motif_residues,
+        "motif_fixed_atoms": motif_fixed_atoms,
+        "ligand_code": args.ligand_code,
+        "max_attempts_per_design": args.max_attempts_per_design,
         "cache_limit_gb": args.cache_limit_gb,
         "tokens": fixture.n_tokens,
         "atoms": fixture.n_atoms,
@@ -416,53 +432,19 @@ def main() -> None:
         "target_protein_tokens": int(fixture.target_protein_tokens.size),
         "ligand_tokens": int(fixture.ligand_tokens.size),
     }
-    batch_state = None
-    if os.environ.get("STUDIO_RFD3_AUDIT_RESUME") == "1":
-        from rfd3_resume import BatchState, sha256
-        if args.overwrite:
-            raise RuntimeError("Audited RFdiffusion3 generation cannot overwrite completed work")
-        batch_state = BatchState(output, {**manifest, "fixture_sha256": sha256(fixture.path)})
+    from rfd3_resume import BatchState, sha256
+    batch_state = BatchState(output, {**manifest, "fixture_sha256": sha256(fixture.path)})
     (output / "run_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
     rejected_path = output / "rejected_samples.csv"
-    rejected: list[dict] = []
-    accepted_rows: list[dict] = []
-    if not args.overwrite:
-        if batch_state is None and rejected_path.exists():
-            rejected = list(csv.DictReader(rejected_path.open()))
-        # Only a contiguous prefix is resumable. A gap means outputs were
-        # manually edited and silently renumbering later designs would destroy
-        # provenance.
-        index = 1
-        while index <= args.num_designs:
-            result = result_dir / f"design_{index:04d}.json"
-            pdb = backbone_dir / f"design_{index:04d}.pdb"
-            if not result.exists() and not pdb.exists():
-                break
-            if not result.is_file() or not pdb.is_file():
-                raise RuntimeError(
-                    f"Incomplete cached design {index}: expected both {result} and {pdb}"
-                )
-            accepted_rows.append(json.loads(result.read_text()))
-            index += 1
-        later = sorted(result_dir.glob("design_*.json"))[len(accepted_rows):]
-        if later:
-            raise RuntimeError(
-                "Cached design numbering has a gap; refusing to renumber or overwrite it: "
-                + ", ".join(path.name for path in later[:5])
-            )
-
-    if batch_state is not None:
-        rejected = batch_state.saved["rejected"]
-    design_index = len(accepted_rows)
-    used_seeds = [int(row["sample_seed"]) for row in accepted_rows if row.get("sample_seed") is not None]
-    used_seeds += [int(row["seed"]) for row in rejected if row.get("seed") not in (None, "")]
-    attempted = max((seed - args.seed_start + 1 for seed in used_seeds), default=0)
+    # BatchState already verified the contiguous committed prefix and archived
+    # incomplete output. Its seed cursor is the only resume authority.
+    rejected = batch_state.saved["rejected"]
+    design_index = batch_state.saved["accepted"]
+    attempted = batch_state.saved["attempted"]
     if design_index:
         print(f"resuming after {design_index} accepted and {len(rejected)} rejected sample(s)",
               flush=True)
-    if batch_state is not None:
-        attempted = batch_state.saved["attempted"]
     # No checkpoint reload on a fully audited replay. During generation each
     # queue loads once and retains the weights across its native batches.
     if design_index < args.num_designs:
@@ -541,8 +523,7 @@ def main() -> None:
         # Rejection history is part of the resume cursor, not a final report.
         # Persist it after every batch so a crash cannot recycle an old seed.
         write_csv(rejected, rejected_path)
-        if batch_state is not None:
-            batch_state.commit(design_index, attempted, rejected)
+        batch_state.commit(design_index, attempted, rejected)
 
     rows = [json.loads(path.read_text()) for path in
             sorted(result_dir.glob("design_*.json"))[:args.num_designs]]

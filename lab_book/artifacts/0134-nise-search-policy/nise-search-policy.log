@@ -1,0 +1,423 @@
+test_exact_upper_bound_preserves_exhaustive_winners_and_ties (__main__.PolicyTests.test_exact_upper_bound_preserves_exhaustive_winners_and_ties) ... ok
+test_validation_levels_and_migration (__main__.PolicyTests.test_validation_levels_and_migration) ... ok
+test_improvement_stops_only_that_trajectory_topups_and_cap_is_eight (__main__.SearchPolicyIntegration.test_improvement_stops_only_that_trajectory_topups_and_cap_is_eight) ... [nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: hallucinating 2 starts (pocket=off)
+[nise]   prepared 2/2 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 4/4 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 8/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L001 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 8 cycles, patience 10)
+[nise]   cycle 1: 3 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 1: 6 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 1: 12 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 1 T0(L000): 2 passed [lig-SC off]; best=1.0200 (ligpLDDT=50.0, pbind=0.52) IMPROVED
+[nise]   cycle 1 T1(L001): 11 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/10
+[nise]   cycle 2: 3 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 2: 6 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 2: 12 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 2 T0(L000): 4 passed [lig-SC off]; best=1.0400 (ligpLDDT=50.0, pbind=0.54) IMPROVED
+[nise]   cycle 2 T1(L001): 33 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/10
+[nise]   cycle 3: 3 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 3: 6 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 3: 12 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 3 T0(L000): 6 passed [lig-SC on]; best=1.0600 (ligpLDDT=50.0, pbind=0.56) IMPROVED
+[nise]   cycle 3 T1(L001): 33 passed [lig-SC on]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 3/10
+[nise]   cycle 4: 3 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 4: 6 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 4: 12 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 4 T0(L000): 6 passed [lig-SC on]; best=1.0800 (ligpLDDT=50.0, pbind=0.58) IMPROVED
+[nise]   cycle 4 T1(L001): 33 passed [lig-SC on]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 4/10
+[nise]   cycle 5: 3 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 5: 6 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 5: 12 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 5 T0(L000): 6 passed [lig-SC on]; best=1.1000 (ligpLDDT=50.0, pbind=0.6) IMPROVED
+[nise]   cycle 5 T1(L001): 33 passed [lig-SC on]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 5/10
+[nise]   cycle 6: 3 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 6: 6 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 6: 12 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 6 T0(L000): 6 passed [lig-SC on]; best=1.1200 (ligpLDDT=50.0, pbind=0.62) IMPROVED
+[nise]   cycle 6 T1(L001): 33 passed [lig-SC on]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 6/10
+[nise]   cycle 7: 3 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 7: 6 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 7: 12 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 7 T0(L000): 6 passed [lig-SC on]; best=1.1400 (ligpLDDT=50.0, pbind=0.64) IMPROVED
+[nise]   cycle 7 T1(L001): 33 passed [lig-SC on]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 7/10
+[nise]   cycle 8: 3 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 8: 6 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 8: 12 proposals/parent reached; 1 trajectories without sufficient improvement
+[nise]   cycle 8 T0(L000): 6 passed [lig-SC on]; best=1.1600 (ligpLDDT=50.0, pbind=0.66) IMPROVED
+[nise]   cycle 8 T1(L001): 33 passed [lig-SC on]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 8/10
+[nise] DONE. Best score=1.1600 (T0<-L000, ligpLDDT=50.0, pbind=0.66)
+[nise]   2 trajectory winners, mean pairwise identity 100.0%
+[nise] Outputs: /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpocqjixkj/trajectory.csv, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpocqjixkj/summary.json, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpocqjixkj/best/
+ok
+test_routes_topups_early_gate_geometry_patience_and_resume (__main__.SearchPolicyIntegration.test_routes_topups_early_gate_geometry_patience_and_resume) ... [nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: hallucinating 3 starts (pocket=off)
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 6/6 sequences sent to Boltz; atom checks follow folding
+/Users/thomasfryer/.iproteinstudio/toolchains/python/cpython-3.11.13-macos-aarch64-none/lib/python3.11/traceback.py:237: ResourceWarning: unclosed file <_io.TextIOWrapper name='/private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpyohid21u/trajectory.csv.part' mode='w' encoding='UTF-8'>
+  tb.tb_frame.clear()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: hallucinating 3 starts (pocket=off)
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 6/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 8/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: hallucinating 3 starts (pocket=off)
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 6/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 8/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1 T0(L000): 11 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 1 T1(L002): 11 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 2: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2 T0(L000): 33 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise]   cycle 2 T1(L002): 33 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise] DONE. Best score=1.0000 (T0<-L000, ligpLDDT=50.0, pbind=0.5)
+[nise]   2 trajectory winners, mean pairwise identity 100.0%
+[nise] Outputs: /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpyohid21u/trajectory.csv, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpyohid21u/summary.json, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpyohid21u/best/
+/Users/thomasfryer/iProteinStudio/Tests/test_nise_search_policy.py:175: ResourceWarning: unclosed file <_io.TextIOWrapper name='/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpyohid21u/trajectory.csv' mode='r' encoding='UTF-8'>
+  rows=list(__import__('csv').DictReader((root/'trajectory.csv').open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: hallucinating 3 starts (pocket=off)
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 6/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 8/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1 T0(L000): 11 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 1 T1(L002): 11 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 2: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2 T0(L000): 33 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise]   cycle 2 T1(L002): 33 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise] DONE. Best score=1.0000 (T0<-L000, ligpLDDT=50.0, pbind=0.5)
+[nise]   2 trajectory winners, mean pairwise identity 100.0%
+[nise] Outputs: /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpyohid21u/trajectory.csv, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpyohid21u/summary.json, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpyohid21u/best/
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: hallucinating 3 starts (pocket=off)
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 3/6 sequences sent to Boltz; atom checks follow folding
+/Users/thomasfryer/.iproteinstudio/toolchains/python/cpython-3.11.13-macos-aarch64-none/lib/python3.11/traceback.py:237: ResourceWarning: unclosed file <_io.TextIOWrapper name='/private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpvotc8pi9/trajectory.csv.part' mode='w' encoding='UTF-8'>
+  tb.tb_frame.clear()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: hallucinating 3 starts (pocket=off)
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 3/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 2/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: hallucinating 3 starts (pocket=off)
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 3/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 2/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1 T0(L000): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 1 T1(L002): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 2: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2 T0(L000): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise]   cycle 2 T1(L002): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise] DONE. Best score=1.0000 (T0<-L000, ligpLDDT=50.0, pbind=0.5)
+[nise]   2 trajectory winners, mean pairwise identity 100.0%
+[nise] Outputs: /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpvotc8pi9/trajectory.csv, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpvotc8pi9/summary.json, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpvotc8pi9/best/
+/Users/thomasfryer/iProteinStudio/Tests/test_nise_search_policy.py:175: ResourceWarning: unclosed file <_io.TextIOWrapper name='/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpvotc8pi9/trajectory.csv' mode='r' encoding='UTF-8'>
+  rows=list(__import__('csv').DictReader((root/'trajectory.csv').open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: hallucinating 3 starts (pocket=off)
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 3/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 2/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1 T0(L000): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 1 T1(L002): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 2: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2 T0(L000): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise]   cycle 2 T1(L002): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise] DONE. Best score=1.0000 (T0<-L000, ligpLDDT=50.0, pbind=0.5)
+[nise]   2 trajectory winners, mean pairwise identity 100.0%
+[nise] Outputs: /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpvotc8pi9/trajectory.csv, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpvotc8pi9/summary.json, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpvotc8pi9/best/
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: generating 3 RFdiffusion3 backbones
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 6/6 sequences sent to Boltz; atom checks follow folding
+/Users/thomasfryer/.iproteinstudio/toolchains/python/cpython-3.11.13-macos-aarch64-none/lib/python3.11/traceback.py:237: ResourceWarning: unclosed file <_io.TextIOWrapper name='/private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp7lm4os7h/trajectory.csv.part' mode='w' encoding='UTF-8'>
+  tb.tb_frame.clear()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: generating 3 RFdiffusion3 backbones
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 6/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 8/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: generating 3 RFdiffusion3 backbones
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 6/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 8/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1 T0(L000): 11 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 1 T1(L002): 11 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 2: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2 T0(L000): 33 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise]   cycle 2 T1(L002): 33 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise] DONE. Best score=1.0000 (T0<-L000, ligpLDDT=50.0, pbind=0.5)
+[nise]   2 trajectory winners, mean pairwise identity 100.0%
+[nise] Outputs: /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp7lm4os7h/trajectory.csv, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp7lm4os7h/summary.json, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp7lm4os7h/best/
+/Users/thomasfryer/iProteinStudio/Tests/test_nise_search_policy.py:175: ResourceWarning: unclosed file <_io.TextIOWrapper name='/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp7lm4os7h/trajectory.csv' mode='r' encoding='UTF-8'>
+  rows=list(__import__('csv').DictReader((root/'trajectory.csv').open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: generating 3 RFdiffusion3 backbones
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 6/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 8/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1 T0(L000): 11 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 1 T1(L002): 11 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 2: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2 T0(L000): 33 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise]   cycle 2 T1(L002): 33 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise] DONE. Best score=1.0000 (T0<-L000, ligpLDDT=50.0, pbind=0.5)
+[nise]   2 trajectory winners, mean pairwise identity 100.0%
+[nise] Outputs: /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp7lm4os7h/trajectory.csv, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp7lm4os7h/summary.json, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp7lm4os7h/best/
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: generating 3 RFdiffusion3 backbones
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 3/6 sequences sent to Boltz; atom checks follow folding
+/Users/thomasfryer/.iproteinstudio/toolchains/python/cpython-3.11.13-macos-aarch64-none/lib/python3.11/traceback.py:237: ResourceWarning: unclosed file <_io.TextIOWrapper name='/private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmphf637qo3/trajectory.csv.part' mode='w' encoding='UTF-8'>
+  tb.tb_frame.clear()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: generating 3 RFdiffusion3 backbones
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 3/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 2/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: generating 3 RFdiffusion3 backbones
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 3/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 2/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1 T0(L000): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 1 T1(L002): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 2: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2 T0(L000): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise]   cycle 2 T1(L002): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise] DONE. Best score=1.0000 (T0<-L000, ligpLDDT=50.0, pbind=0.5)
+[nise]   2 trajectory winners, mean pairwise identity 100.0%
+[nise] Outputs: /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmphf637qo3/trajectory.csv, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmphf637qo3/summary.json, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmphf637qo3/best/
+/Users/thomasfryer/iProteinStudio/Tests/test_nise_search_policy.py:175: ResourceWarning: unclosed file <_io.TextIOWrapper name='/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmphf637qo3/trajectory.csv' mode='r' encoding='UTF-8'>
+  rows=list(__import__('csv').DictReader((root/'trajectory.csv').open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[nise] ligand SMILES: CCO
+[nise] designer=lasermpnn device=cpu rank_metric=auto affinity=True
+[nise] potentials=True  phase0_pocket_constraint=False (binder=protein A around specific ligand-B atoms; off in NISE)
+[nise] Phase 0 cycle00: generating 3 RFdiffusion3 backbones
+[nise]   prepared 3/3 starts
+[nise] Phase 0 cycle01: 2 seqs/lineage, fold (pocket=on), keep best-1/lineage
+[nise]   refinement: 3/6 sequences sent to Boltz; atom checks follow folding
+[nise]   2 lineages advanced
+[nise] Phase 0 cycle02 (gate): 2 seqs/lineage, fold (pocket=off), keep Cα-SC < 2.0 Å vs prior structure
+[nise]   4/4 passed structural/atom checks, from 2 distinct lineages
+[nise] Phase 0 cycle03 (expand): 2 seqs/survivor, fold, rank -> top 2 seeds (max 1/lineage)
+[nise]   expansion: 2/8 sequences sent to Boltz; original-lineage identity retained
+[nise]   2 diverse seeds selected (from 2 surviving lineages):
+[nise]     T0<-L000 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise]     T1<-L002 score=1.000 ligpLDDT=50.0 pbind=0.5
+[nise] Phase 1: 2 independent trajectories, beam 3, 12 seqs/design, ligand-SC from cycle 3 (max 3 cycles, patience 2)
+[nise]   cycle 1: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 1 T0(L000): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 1 T1(L002): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 1/2
+[nise]   cycle 2: 3 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 6 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2: 12 proposals/parent reached; 2 trajectories without sufficient improvement
+[nise]   cycle 2 T0(L000): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise]   cycle 2 T1(L002): 8 passed [lig-SC off]; best=1.0000 (ligpLDDT=50.0, pbind=0.5) no-improve 2/2 -> stop
+[nise] DONE. Best score=1.0000 (T0<-L000, ligpLDDT=50.0, pbind=0.5)
+[nise]   2 trajectory winners, mean pairwise identity 100.0%
+[nise] Outputs: /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmphf637qo3/trajectory.csv, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmphf637qo3/summary.json, /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmphf637qo3/best/
+ok
+test_backend_split_receipts_replay_without_models_and_detect_tampering (__main__.SplitWorkerTests.test_backend_split_receipts_replay_without_models_and_detect_tampering) ... NISE|completed|one
+ok
+test_resident_boltz_split_preserves_filters_and_skips_refolding (__main__.SplitWorkerTests.test_resident_boltz_split_preserves_filters_and_skips_refolding) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 1.841s
+
+OK

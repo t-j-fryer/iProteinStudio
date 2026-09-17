@@ -60,6 +60,21 @@ struct PredictionResultsContractHarness {
 
         precondition(niseItems.first(where: { $0.artifactRole == .binderAlone })?.metrics.contains(where: { $0.kind == .pocketPreorgRMSD }) == true)
         precondition(niseItems.first(where: { $0.artifactRole == .designedComplex })?.metrics.contains(where: { $0.kind == .ligandPLDDT }) == true)
+        let skipped: [String: Any] = ["name": "skipped", "trajectory": 0, "cycle": 1,
+            "pdb": "holo.pdb", "sequence": "AAA", "passed": false, "geometry_passed": true,
+            "score_status": "score_upper_bound_below_selection_boundary", "score": NSNull()]
+        try JSONSerialization.data(withJSONObject: skipped).write(to: nise.appendingPathComponent("candidates/skipped.json"))
+        let skippedItem = RunResultsLoader.load(root: nise, workflow: .nise).first { $0.title == "skipped" }!
+        precondition(skippedItem.subtitle.contains("Affinity skipped"))
+        precondition(!skippedItem.metrics.contains { $0.kind == .rankingScore })
+
+        let masked: [String: Any] = ["name": "masked", "trajectory": 0, "cycle": 2,
+            "pdb": "holo.pdb", "sequence": "AXA", "passed": false, "geometry_passed": true,
+            "branch": "masked-backbone", "score_status": "scored", "score": 1.99]
+        try JSONSerialization.data(withJSONObject: masked).write(to: nise.appendingPathComponent("candidates/masked.json"))
+        let maskedItem = RunResultsLoader.load(root: nise, workflow: .nise).first { $0.title == "masked" }!
+        precondition(maskedItem.subtitle.contains("Masked backbone · intermediate"))
+        precondition(maskedItem.isHit == nil)
 
         if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "iterative" {
             let root = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)

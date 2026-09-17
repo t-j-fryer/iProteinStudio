@@ -1,0 +1,19 @@
+test_all_seed_sample_outputs_required_before_commit (__main__.ResumeTests.test_all_seed_sample_outputs_required_before_commit) ... ok
+test_changed_inputs_during_inference_do_not_commit (__main__.ResumeTests.test_changed_inputs_during_inference_do_not_commit) ... ok
+test_compression_equivalent_but_conflicts_and_nan_rejected (__main__.ResumeTests.test_compression_equivalent_but_conflicts_and_nan_rejected) ... ok
+test_cycle_wave_rebuilds_input_links_for_remaining_jobs (__main__.ResumeTests.test_cycle_wave_rebuilds_input_links_for_remaining_jobs) ... ok
+test_dependency_contents_and_missing_files (__main__.ResumeTests.test_dependency_contents_and_missing_files) ... ok
+test_feature_seeding_survives_actual_accelerate_lookahead (__main__.ResumeTests.test_feature_seeding_survives_actual_accelerate_lookahead) ... skipped 'actual CPU loader requires managed engine Python'
+test_hard_interruption_resumes_only_uncommitted_prediction (__main__.ResumeTests.test_hard_interruption_resumes_only_uncommitted_prediction) ... ok
+test_missing_or_modified_completed_output_is_never_overwritten (__main__.ResumeTests.test_missing_or_modified_completed_output_is_never_overwritten) ... ok
+test_processed_cache_verified_and_partial_cache_archived (__main__.ResumeTests.test_processed_cache_verified_and_partial_cache_archived) ... ok
+test_settings_weights_code_and_sample_changes_fail (__main__.ResumeTests.test_settings_weights_code_and_sample_changes_fail) ... ok
+test_shell_reports_durable_progress_and_accepts_resident_receipt (__main__.ResumeTests.test_shell_reports_durable_progress_and_accepts_resident_receipt) ... ok
+test_untracked_outputs_not_adopted_and_unrequested_write_refused (__main__.ResumeTests.test_untracked_outputs_not_adopted_and_unrequested_write_refused) ... ok
+test_yaml_dependency_and_membership_changes_fail (__main__.ResumeTests.test_yaml_dependency_and_membership_changes_fail) ... ok
+test_yaml_mapping_and_relative_template_dependency (__main__.ResumeTests.test_yaml_mapping_and_relative_template_dependency) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 2.079s
+
+OK (skipped=1)

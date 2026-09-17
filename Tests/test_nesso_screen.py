@@ -160,8 +160,8 @@ class NessoTests(unittest.TestCase):
     def test_initial_screen_budgets_and_dependency_are_independent(self):
         cfg = contract.normalize(dict(smiles='CCO', phase0_nesso_screen=True))
         self.assertFalse(cfg['nesso_screen'])
-        self.assertEqual(contract.prediction_budget(cfg)['initial_boltz_max'], 620)
-        self.assertEqual(contract.prediction_budget({**cfg, 'backbone_method': 'rfdiffusion3'})['initial_boltz_max'], 520)
+        self.assertEqual(contract.prediction_budget(cfg)['initial_boltz_max'], 6020)
+        self.assertEqual(contract.prediction_budget({**cfg, 'backbone_method': 'rfdiffusion3'})['initial_boltz_max'], 5020)
         self.assertEqual(contract.normalize(dict(smiles='CCO', phase0_seqs1=7))['phase0_gate_seqs'], 7)
         with patch.object(contract, 'nesso_contract', return_value=SimpleNamespace(installation_files=lambda r: [r / 'nesso-required'])):
             self.assertIn(self.root / 'nesso-required', contract.required_files(self.root, cfg))
@@ -275,7 +275,7 @@ class NessoTests(unittest.TestCase):
                         {'nesso_top_k': 1001}, {'phase0_refine_cycles': -1}, {'phase0_seqs1': True}):
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 contract.normalize({**cfg, **changes})
-        old = contract.normalize(dict(smiles='CCO'))
+        old = contract.normalize(dict(smiles='CCO', search_policy_version=1))
         self.assertEqual((old['beam'], old['phase0_refine_cycles'], old['phase0_seqs1'], old['phase0_seqs2']), (1,2,3,5))
         self.assertFalse(old['nesso_screen'])
         budget = contract.prediction_budget(old)

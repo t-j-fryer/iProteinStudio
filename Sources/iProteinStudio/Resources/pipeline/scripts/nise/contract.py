@@ -9,17 +9,28 @@ def nesso_contract():
     spec.loader.exec_module(module)
     return module
 
+
+def saved_request(request):
+    """A saved pre-v2 request is different from a new minimal MCP request."""
+    if isinstance(request, dict) and "search_policy_version" not in request:
+        return {**LEGACY_POLICY, "num_starts": 100, "max_cycles": 30, "patience": 5, "trajectories": 6, "beam": 1, **request}
+    return request
+
 # Studio defaults; historical saved runs retain their explicit settings.
-DEFAULTS = dict(smiles="", num_starts=100, trajectories=6, nise_seqs=64,
-                max_cycles=30, patience=5, binder_min_len=65, binder_max_len=150,
+LEGACY_POLICY = dict(search_policy_version=1, early_score_gate=0.0, selective_affinity=False,
+                     adaptive_proposals=False, initial_proposals=16, affinity_batch_size=8, min_improvement=0.0001)
+DEFAULTS = dict(search_policy_version=3, early_score_gate=0.80, selective_affinity=True,
+                adaptive_proposals=False, initial_proposals=16, affinity_batch_size=8, min_improvement=0.01, smiles="", num_starts=1000, trajectories=8, nise_seqs=32, first_cycle_seqs=64,
+                partial_noising=False, noise_radius=6.0, noise_percent=25.0, noise_predictions=32, noise_mpnn_seqs=32, noise_advance=1,
+                max_cycles=30, patience=4, binder_min_len=65, binder_max_len=150,
                 seed=0, preorganisation=False, top_x=8, scheduler="cycle-wave",
-                phase0_refine_cycles=2, phase0_seqs1=3, phase0_seqs2=5, beam=1,
+                phase0_refine_cycles=2, phase0_seqs1=3, phase0_seqs2=5, beam=3,
                 nesso_screen=False, nesso_top_k=16, phase0_nesso_screen=False,
                 phase0_nesso_refine_top_k=1, phase0_nesso_expand_top_k=20, phase0_gate_seqs=3,
                 phase0_sc_ca=2.0, nise_sc_ca=2.5, nise_sc_lig=2.5, nise_ligand_sc_from_cycle=3, backbone_method="protein-hunter", rfd3_num_bins=5,
                 hotspot_atoms=[], exposed_atoms=[], hotspot_distance=6.0, exposure_min_fraction=0.5,
                 ligand_atom_signature="", ligand_atoms_generated_for="")
-BOUNDS = dict(num_starts=(1, 10000), trajectories=(1, 1000), nise_seqs=(1, 4096),
+BOUNDS = dict(search_policy_version=(1, 3), first_cycle_seqs=(1, 4096), noise_predictions=(1, 1024), noise_mpnn_seqs=(1, 4096), noise_advance=(1, 63), initial_proposals=(1, 4096), affinity_batch_size=(1, 128), num_starts=(1, 10000), trajectories=(1, 1000), nise_seqs=(1, 4096),
               max_cycles=(1, 1000), patience=(1, 1000), binder_min_len=(60, 250),
               binder_max_len=(60, 250), seed=(0, 2147483647), top_x=(1, 64),
               phase0_refine_cycles=(0, 20), phase0_seqs1=(1, 1024), phase0_seqs2=(1, 1024),
@@ -31,6 +42,11 @@ def normalize(request):
     if not isinstance(request, dict) or set(request) - set(DEFAULTS):
         raise ValueError("Unknown NISE settings; use the versioned NISE request.")
     cfg = {**DEFAULTS, **request}
+    if cfg["search_policy_version"] == 1:
+        cfg = {**DEFAULTS, "num_starts": 100, "max_cycles": 30, "patience": 5, "trajectories": 6, "beam": 1, **LEGACY_POLICY, **request}
+    if cfg["search_policy_version"] < 3:
+        cfg["nise_seqs"] = request.get("nise_seqs", 64)
+        cfg["first_cycle_seqs"] = request.get("first_cycle_seqs", cfg["nise_seqs"])
     # Older custom requests shared their refinement/gate sampling count.
     cfg["phase0_gate_seqs"] = request.get("phase0_gate_seqs", cfg["phase0_seqs1"])
     if cfg["backbone_method"] not in ("protein-hunter", "rfdiffusion3"):
@@ -39,6 +55,20 @@ def normalize(request):
         value = cfg[key]
         if type(value) is not int or not low <= value <= high:
             raise ValueError(f"{key} must be an integer between {low} and {high}.")
+    for key in ("selective_affinity", "adaptive_proposals", "partial_noising"):
+        if type(cfg[key]) is not bool:
+            raise ValueError(f"{key} must be true or false.")
+    if cfg["adaptive_proposals"] and (cfg["initial_proposals"] > min(cfg["nise_seqs"], cfg["first_cycle_seqs"]) or cfg["beam"] > cfg["initial_proposals"]):
+        raise ValueError("Adaptive initial proposals must be between the beam width and the maximum proposals per parent.")
+    if cfg["beam"] > cfg["first_cycle_seqs"]:
+        raise ValueError("First-cycle proposals must cover the beam width.")
+    if cfg["partial_noising"]:
+        if cfg["adaptive_proposals"]:
+            raise ValueError("Turn off adaptive sampling before enabling partial noising.")
+        if cfg["noise_advance"] >= cfg["beam"] or cfg["noise_advance"] > cfg["noise_mpnn_seqs"]:
+            raise ValueError("Reserve fewer noising places than the beam width, and sample at least that many repair sequences.")
+        if cfg["nesso_screen"] and cfg["noise_advance"] > cfg["nesso_top_k"]:
+            raise ValueError("The NESSO shortlist must cover the reserved noising places.")
     import re, math
     for key in ("hotspot_atoms", "exposed_atoms"):
         values = cfg[key]
@@ -49,8 +79,8 @@ def normalize(request):
         cfg[key] = list(values)
     if set(cfg["hotspot_atoms"]) & set(cfg["exposed_atoms"]):
         raise ValueError("An atom cannot be both a hotspot and an exposed atom.")
-    for key, low, high in (("hotspot_distance", 3, 10), ("exposure_min_fraction", 0.1, 1),
-                           ("phase0_sc_ca", 0.1, 10), ("nise_sc_ca", 0.1, 10), ("nise_sc_lig", 0.1, 10)):
+    for key, low, high in (("noise_radius", 3, 15), ("noise_percent", 1, 100), ("hotspot_distance", 3, 10), ("exposure_min_fraction", 0.1, 1),
+                           ("early_score_gate", 0, 2), ("min_improvement", 0, 1), ("phase0_sc_ca", 0.1, 10), ("nise_sc_ca", 0.1, 10), ("nise_sc_lig", 0.1, 10)):
         if type(cfg[key]) not in (int, float) or not math.isfinite(cfg[key]) or not low <= cfg[key] <= high:
             raise ValueError(f"{key} must be between {low} and {high}.")
     if not isinstance(cfg["ligand_atom_signature"], str) or not isinstance(cfg["ligand_atoms_generated_for"], str):
@@ -124,9 +154,18 @@ def prediction_budget(request):
     expansion = (min(cfg["num_starts"], cfg["phase0_nesso_expand_top_k"]) if cfg["phase0_nesso_screen"]
                  else cfg["num_starts"] * cfg["phase0_gate_seqs"] * cfg["phase0_seqs2"])
     initial = cfg["num_starts"] * ((0 if rfd3 else 1) + cfg["phase0_refine_cycles"] * refinement + cfg["phase0_gate_seqs"]) + expansion
-    first = cfg["trajectories"] * (cfg["nesso_top_k"] if cfg["nesso_screen"] else cfg["nise_seqs"])
-    later = cfg["trajectories"] * (cfg["nesso_top_k"] if cfg["nesso_screen"] else cfg["beam"] * cfg["nise_seqs"])
-    return dict(initial_boltz_max=initial, initial_rfd3_backbones=cfg["num_starts"] if rfd3 else 0,
+    spec = importlib.util.spec_from_file_location("studio_nise_policy", Path(__file__).with_name("search_policy.py"))
+    policy = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(policy)
+    rounds = len(policy.proposal_levels(cfg["nise_seqs"], cfg["adaptive_proposals"], cfg["initial_proposals"]))
+    shortlist = cfg["nesso_top_k"] * rounds
+    first_rounds = len(policy.proposal_levels(cfg["first_cycle_seqs"], cfg["adaptive_proposals"], cfg["initial_proposals"]))
+    first = cfg["trajectories"] * (min(cfg["nesso_top_k"] * first_rounds, cfg["first_cycle_seqs"]) if cfg["nesso_screen"] else cfg["first_cycle_seqs"])
+    normal_parents = cfg["beam"] - (cfg["noise_advance"] if cfg["partial_noising"] else 0)
+    later = cfg["trajectories"] * (min(shortlist, normal_parents * cfg["nise_seqs"]) if cfg["nesso_screen"] else normal_parents * cfg["nise_seqs"])
+    noise = cfg["trajectories"] * (cfg["noise_predictions"] + (min(cfg["noise_mpnn_seqs"], cfg["nesso_top_k"]) if cfg["nesso_screen"] else cfg["noise_mpnn_seqs"])) if cfg["partial_noising"] else 0
+    later += noise
+    return dict(noising_boltz_per_later_cycle_max=noise, initial_boltz_max=initial, initial_rfd3_backbones=cfg["num_starts"] if rfd3 else 0,
                 first_cycle_boltz_max=first, later_cycle_boltz_max=later,
                 optimization_boltz_max=first + (cfg["max_cycles"] - 1) * later,
                 interpretation="Calculated upper bounds, not runtime estimates; fewer survivors and early stopping reduce work.")

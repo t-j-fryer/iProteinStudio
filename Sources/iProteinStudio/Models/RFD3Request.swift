@@ -610,8 +610,11 @@ struct RFD3Request: Codable, Hashable {
         if minLength < 1 || maxLength < minLength { issues.append("Choose a valid binder-length range.") }
         if numDesigns < 1 { issues.append("Generate at least one backbone.") }
         if numBins < 1 { issues.append("Use at least one length bin.") }
-        if timesteps < 1 || recycles < 0 || batchSize < 1 || queuesPerBin < 1 {
-            issues.append("Sampling counts must be positive (recycles may be zero).")
+        if conditions.values.contains(where: { $0.contains(.buried) && $0.contains(.exposed) }) {
+            issues.append("An atom or residue cannot be both buried and exposed.")
+        }
+        if timesteps < 2 || recycles < 0 || batchSize < 1 || queuesPerBin < 1 {
+            issues.append("Use at least two diffusion steps and positive batch/queue counts (recycles may be zero).")
         }
         if sequencesPerBackbone < 1 { issues.append("Design at least one sequence per backbone.") }
         if !(targetKind == .smallMolecule && nesso.enabled) && (verification.topN < 1 || verification.topN > totalDesignedSequences) {

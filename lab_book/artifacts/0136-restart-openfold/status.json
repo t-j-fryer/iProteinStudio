@@ -1,0 +1,100 @@
+[
+  {
+    "error": null,
+    "id": "job-c2773eab4479",
+    "message": "Running the saved iterative settings.",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_6ed978fa",
+    "pipeline_log_tail": [
+      "==> Predictor token buckets: IntelliFold=224; campaign_max_polymer_tokens=224",
+      "==> Reusing exact target MSA from shared cache: /Users/thomasfryer/.iproteinstudio/msa_cache/f7ed245ccf186f4ae8e284e4693c96c5.a3m",
+      "==> Cached target MSA: /Users/thomasfryer/.iproteinstudio/msa_cache/f7ed245ccf186f4ae8e284e4693c96c5.a3m",
+      "==> Validated target MSA: /Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_6ed978fa/msa_cache/target_B.a3m (records=1231)",
+      "==> Validated target chain B MSA: /Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_6ed978fa/msa_cache/target_B.a3m (records=1231)",
+      "==> Calibration: running one openfold-3-mlx prediction at binder length 150...",
+      "OpenFold checkpoint ready: /Users/thomasfryer/.iproteinstudio/models/openfold3/of3_ft3_v1.pt"
+    ],
+    "stage": "iterative-design",
+    "status": "running"
+  },
+  {
+    "error": null,
+    "id": "job-5870cf39b468",
+    "message": "Waiting for the shared iProteinStudio execution lock.",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_06751263",
+    "pipeline_log_tail": [],
+    "stage": "queued",
+    "status": "queued"
+  },
+  {
+    "error": null,
+    "id": "job-88aced8d3154",
+    "message": "Waiting for the shared iProteinStudio execution lock.",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_3eak_nbbcii10_fgla_f45742c3",
+    "pipeline_log_tail": [],
+    "stage": "queued",
+    "status": "queued"
+  },
+  {
+    "error": null,
+    "id": "job-ff77c9495c35",
+    "message": "Waiting for the shared iProteinStudio execution lock.",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_7eow_caplacizumab_f45742c3",
+    "pipeline_log_tail": [],
+    "stage": "queued",
+    "status": "queued"
+  },
+  {
+    "error": null,
+    "id": "job-982005c1809f",
+    "message": "Waiting for the shared iProteinStudio execution lock.",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_7xl0_vobarilizumab_f45742c3",
+    "pipeline_log_tail": [],
+    "stage": "queued",
+    "status": "queued"
+  },
+  {
+    "error": null,
+    "id": "job-fe3b92d3c5b7",
+    "message": "Waiting for the shared iProteinStudio execution lock.",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_8coh_gefurulimab_f45742c3",
+    "pipeline_log_tail": [],
+    "stage": "queued",
+    "status": "queued"
+  },
+  {
+    "error": null,
+    "id": "job-868deea60afc",
+    "message": "Waiting for the shared iProteinStudio execution lock.",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_8z8v_ozoralizumab_alb8_f45742c3",
+    "pipeline_log_tail": [],
+    "stage": "queued",
+    "status": "queued"
+  },
+  {
+    "error": null,
+    "id": "job-256e52bff79b",
+    "message": "Waiting for the shared iProteinStudio execution lock.",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_gontivimab_f45742c3",
+    "pipeline_log_tail": [],
+    "stage": "queued",
+    "status": "queued"
+  },
+  {
+    "error": null,
+    "id": "job-aad246c8d64a",
+    "message": "Waiting for the shared iProteinStudio execution lock.",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_isecarosmab_f45742c3",
+    "pipeline_log_tail": [],
+    "stage": "queued",
+    "status": "queued"
+  },
+  {
+    "error": null,
+    "id": "job-ef658a1e49ca",
+    "message": "Waiting for the shared iProteinStudio execution lock.",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_sonelokimab_f45742c3",
+    "pipeline_log_tail": [],
+    "stage": "queued",
+    "status": "queued"
+  }
+]

@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import os
 from pathlib import Path
 
@@ -33,7 +34,8 @@ IPSAE_PREDICTORS = {"boltz", "intellifold", "protenix-v2", "protenix-mini"}
 
 def to_float(value, default=float("nan")):
     try:
-        return float(value)
+        number = float(value)
+        return number if math.isfinite(number) else default
     except (TypeError, ValueError):
         return default
 
@@ -82,6 +84,8 @@ def main() -> None:
                         help="sequences.csv used to restore sequence/backbone metadata in protein mode")
     parser.add_argument("--nanohunter-root", type=Path)
     args = parser.parse_args()
+    if args.top_n < 1:
+        raise SystemExit("--top-n must be at least 1")
 
     args.nanohunter_root = args.nanohunter_root or default_root()
     studio_runtime.configure(args.nanohunter_root)
@@ -101,11 +105,17 @@ def main() -> None:
             continue
         pbind_raw = row.get("pbind", "")
         pbind = to_float(pbind_raw, default=None) if pbind_raw not in ("", "None") else None
+        ligand_plddt = to_float(row.get("ligand_plddt"), default=None)
+        if ligand_plddt is None or not 0 <= ligand_plddt <= 100:
+            continue
+        # A malformed supplied affinity is not the optional absence of a head.
+        if pbind_raw not in ("", "None", None) and (pbind is None or not 0 <= pbind <= 1):
+            continue
         if args.require_pbind and pbind is None:
             continue
         pred = nise_lib.Prediction(
             name=row["name"], pdb=row.get("pdb", ""),
-            ligand_plddt=to_float(row.get("ligand_plddt")), pbind=pbind,
+            ligand_plddt=ligand_plddt, pbind=pbind,
         )
         score = nise_lib.rank_score(pred, mode="auto")
         scored.append({**row, "score": score})
@@ -165,19 +175,23 @@ def score_proteins(rows: list[dict], args: argparse.Namespace) -> None:
     scored = []
     dropped = []
     for design, design_rows in sorted(grouped.items()):
-        by_predictor = {row.get("predictor", ""): row for row in design_rows}
+        requested_rows = [row for row in design_rows if row.get("predictor") in predictors]
+        by_predictor = {row["predictor"]: row for row in requested_rows}
+        if len(by_predictor) != len(requested_rows):
+            raise SystemExit(f"Duplicate predictor records for {design}; refusing ambiguous ranking")
         missing = [predictor for predictor in predictors if predictor not in by_predictor]
         failures = [predictor for predictor, row in by_predictor.items()
                     if str(row.get("exit_code", "")) != "0" or not row.get("structure")]
         iptms = {predictor: to_float(row.get("iptm"), default=None)
                  for predictor, row in by_predictor.items()}
-        missing_scores = [predictor for predictor, value in iptms.items() if value is None]
+        missing_scores = [predictor for predictor, value in iptms.items()
+                          if value is None or not 0 <= value <= 1]
         ipsae_predictors = [predictor for predictor in predictors
                             if predictor in IPSAE_PREDICTORS]
         ipsaes = {predictor: to_float(by_predictor[predictor].get("ipsae_min"), default=None)
                   for predictor in ipsae_predictors if predictor in by_predictor}
         missing_ipsae = [predictor for predictor in ipsae_predictors
-                         if ipsaes.get(predictor) is None]
+                         if ipsaes.get(predictor) is None or not 0 <= ipsaes[predictor] <= 1]
         if missing or failures or missing_scores or missing_ipsae:
             dropped.append({"design": design, "missing": missing,
                             "failed": failures, "missing_iptm": missing_scores,

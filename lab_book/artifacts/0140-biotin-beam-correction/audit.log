@@ -1,0 +1,195 @@
+{
+  "atom_map_matches_saved": true,
+  "previous_atom_roles": [
+    {
+      "name": "O18",
+      "index": 0,
+      "element": "O",
+      "role": "acid carbonyl oxygen",
+      "selection": "Expose",
+      "neighbors": [
+        "C22"
+      ]
+    },
+    {
+      "name": "C22",
+      "index": 1,
+      "element": "C",
+      "role": "acid carbonyl carbon",
+      "selection": "Expose",
+      "neighbors": [
+        "O18",
+        "O19",
+        "C25"
+      ]
+    },
+    {
+      "name": "O19",
+      "index": 2,
+      "element": "O",
+      "role": "acid hydroxyl oxygen (replaced on amidation)",
+      "selection": "Expose",
+      "neighbors": [
+        "C22"
+      ]
+    },
+    {
+      "name": "C25",
+      "index": 3,
+      "element": "C",
+      "role": "tail methylene adjacent to carbonyl",
+      "selection": "Expose",
+      "neighbors": [
+        "C22",
+        "C26"
+      ]
+    },
+    {
+      "name": "C26",
+      "index": 4,
+      "element": "C",
+      "role": "valeric tail methylene",
+      "selection": "None",
+      "neighbors": [
+        "C25",
+        "C27"
+      ]
+    },
+    {
+      "name": "C27",
+      "index": 5,
+      "element": "C",
+      "role": "valeric tail methylene",
+      "selection": "None",
+      "neighbors": [
+        "C26",
+        "C28"
+      ]
+    },
+    {
+      "name": "C28",
+      "index": 6,
+      "element": "C",
+      "role": "valeric tail methylene",
+      "selection": "None",
+      "neighbors": [
+        "C27",
+        "C31"
+      ]
+    },
+    {
+      "name": "C31",
+      "index": 7,
+      "element": "C",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "C28",
+        "S20",
+        "C30"
+      ]
+    },
+    {
+      "name": "S20",
+      "index": 8,
+      "element": "S",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "C31",
+        "C29"
+      ]
+    },
+    {
+      "name": "C29",
+      "index": 9,
+      "element": "C",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "S20",
+        "C32"
+      ]
+    },
+    {
+      "name": "C32",
+      "index": 10,
+      "element": "C",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "C29",
+        "N24",
+        "C30"
+      ]
+    },
+    {
+      "name": "N24",
+      "index": 11,
+      "element": "N",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "C32",
+        "C21"
+      ]
+    },
+    {
+      "name": "C21",
+      "index": 12,
+      "element": "C",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "N24",
+        "O17",
+        "N23"
+      ]
+    },
+    {
+      "name": "O17",
+      "index": 13,
+      "element": "O",
+      "role": "ureido carbonyl oxygen",
+      "selection": "Bind",
+      "neighbors": [
+        "C21"
+      ]
+    },
+    {
+      "name": "N23",
+      "index": 14,
+      "element": "N",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "C21",
+        "C30"
+      ]
+    },
+    {
+      "name": "C30",
+      "index": 15,
+      "element": "C",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "N23",
+        "C31",
+        "C32"
+      ]
+    }
+  ],
+  "prediction_budget": {
+    "noising_boltz_per_later_cycle_max": 512,
+    "initial_boltz_max": 25000,
+    "initial_rfd3_backbones": 0,
+    "first_cycle_boltz_max": 512,
+    "later_cycle_boltz_max": 1024,
+    "optimization_boltz_max": 30208,
+    "interpretation": "Calculated upper bounds, not runtime estimates; fewer survivors and early stopping reduce work."
+  },
+  "total_boltz_upper_bound": 55208,
+  "affinity_head_max": 51208
+}
+AMIDE PROXY CNC(=O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21 ['C35', 'S22', 'C33', 'C36', 'N27', 'C23', 'O20', 'N26', 'C34'] ['C28', 'N25', 'C24', 'O21', 'C29']

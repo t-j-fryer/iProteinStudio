@@ -1,0 +1,25 @@
+{
+  "status": "Validated draft; no execution plan or job created",
+  "exposed_atoms": [
+    "O18",
+    "O19"
+  ],
+  "removed_exposure_atoms": [
+    "C22",
+    "C25"
+  ],
+  "changed_fields": [
+    "exposed_atoms"
+  ],
+  "atom_signature": "579a063252e23e7064b1254fe4f4efdc74c833e80529e27ac5d266a97518b14f",
+  "exposure_min_fraction": 0.5,
+  "prediction_budget": {
+    "noising_boltz_per_later_cycle_max": 512,
+    "initial_boltz_max": 25000,
+    "initial_rfd3_backbones": 0,
+    "first_cycle_boltz_max": 512,
+    "later_cycle_boltz_max": 1024,
+    "optimization_boltz_max": 30208,
+    "interpretation": "Calculated upper bounds, not runtime estimates; fewer survivors and early stopping reduce work."
+  }
+}

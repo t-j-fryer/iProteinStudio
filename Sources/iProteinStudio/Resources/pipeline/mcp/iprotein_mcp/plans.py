@@ -116,6 +116,16 @@ def _script_provenance(paths: List[Path]) -> List[Dict[str, Any]]:
     return result
 
 
+def rfd3_runtime_scripts(root: Path) -> List[Path]:
+    """Freeze helper and sampler code, not just the two top-level launchers."""
+    scripts = []
+    for directory in (root / "rfd3_scripts", root / "rfd3/scripts",
+                      root / "rfd3/mlx_port", root / "scripts"):
+        scripts.extend(sorted(directory.rglob("*.py")))
+    scripts.extend(sorted((root / "rfd3").glob("*.py")))
+    return list(dict.fromkeys(scripts))
+
+
 def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[str], resource_class: str, provenance: List[Dict[str, Any]]) -> Dict[str, Any]:
     body = {
         "schema_version": 1,
@@ -524,7 +534,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         raise StudioError("lengths must contain between 1 and 100 binder lengths.")
     request["lengths"] = sorted(set(_bounded_int(value, "binder length", 5, 1000) for value in lengths))
     request["num_backbones"] = _bounded_int(request.get("num_backbones", 100), "num_backbones", 1, 100_000)
-    request["timesteps"] = _bounded_int(request.get("timesteps", 200), "timesteps", 1, 1000)
+    request["timesteps"] = _bounded_int(request.get("timesteps", 200), "timesteps", 2, 1000)
     request["recycles"] = _bounded_int(request.get("recycles", 2), "recycles", 0, 20)
     request["batch_size"] = _bounded_int(request.get("batch_size", 4), "batch_size", 1, 64)
     request["queues_per_bin"] = _bounded_int(request.get("queues_per_bin", 2), "queues_per_bin", 1, 4)
@@ -552,6 +562,8 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
     for site, values in conditions.items():
         if not isinstance(values, list) or any(value not in allowed_conditions for value in values):
             raise StudioError(f"Condition site {site} contains an unsupported conditioning class.")
+        if "buried" in values and "exposed" in values:
+            raise StudioError(f"Condition site {site} cannot be both buried and exposed.")
     if target_kind == "protein" and expected_mode == "deNovo":
         hotspots = sorted(site for site, values in conditions.items() if "hotspot" in values)
         mode = request.get("binding_site_mode")
@@ -677,6 +689,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
     else:
         runner = root / "rfd3_scripts" / "rfd3_protein_campaign.py"
     scripts.append(runner)
+    scripts = list(dict.fromkeys(scripts + rfd3_runtime_scripts(root)))
     preview = [str(root / "rfd3" / ".venv" / "bin" / "python"), str(prepare), str(campaign / "config" / "studio_request.json"), "&&", "/usr/bin/caffeinate", "-dimsu", str(root / "rfd3" / ".venv" / "bin" / "python"), str(runner), "--config", str(campaign / "config" / "campaign.json")]
     generated = request["num_backbones"] * request["sequences_per_backbone"]
     normalized = {

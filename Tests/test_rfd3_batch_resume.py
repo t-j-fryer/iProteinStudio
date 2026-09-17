@@ -35,7 +35,7 @@ class BatchResumeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             state = BatchState(root, {'num_designs': 1})
-            doc = state.saved; doc['accepted'] = 1
+            doc = state.saved; doc['accepted'] = 1; doc['attempted'] = 1
             state.path.write_text(json.dumps(doc))
             with self.assertRaisesRegex(RuntimeError, 'completion count'):
                 BatchState(root, {'num_designs': 1})

@@ -1,0 +1,499 @@
+{
+  "purpose": "Retrospective requested plots for three completed Bgx desktop batches; no model execution or setting promotion",
+  "created": "2026-09-17",
+  "reference": "Validation/output/binder_helix_strength_all_engines_v7/analysis/full_analysis_v1/01_overview.svg",
+  "unit": "trajectory mean across cycles 01\u201305",
+  "timing": "sum of recorded campaign spans / optimized output count; overlaps counted once; nanobody campaigns pooled per engine",
+  "campaigns": [
+    {
+      "name": "untitled_design_boltz_06751263",
+      "engine": "boltz",
+      "kind": "minibinder",
+      "condition": "1",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_protenix_constraint_v0_5_06751263",
+      "engine": "protenix_constraint_v0_5",
+      "kind": "minibinder",
+      "condition": "1",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_protenix_v2_06751263",
+      "engine": "protenix_v2",
+      "kind": "minibinder",
+      "condition": "1",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_protenix_mini_06751263",
+      "engine": "protenix_mini",
+      "kind": "minibinder",
+      "condition": "1",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_intellifold_06751263",
+      "engine": "intellifold",
+      "kind": "minibinder",
+      "condition": "1",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_intellifold_full_06751263",
+      "engine": "intellifold_full",
+      "kind": "minibinder",
+      "condition": "1",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_openfold3_06751263",
+      "engine": "openfold3",
+      "kind": "minibinder",
+      "condition": "1",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_boltz_6ed978fa",
+      "engine": "boltz",
+      "kind": "minibinder",
+      "condition": "0",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_protenix_constraint_v0_5_6ed978fa",
+      "engine": "protenix_constraint_v0_5",
+      "kind": "minibinder",
+      "condition": "0",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_protenix_v2_6ed978fa",
+      "engine": "protenix_v2",
+      "kind": "minibinder",
+      "condition": "0",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_protenix_mini_6ed978fa",
+      "engine": "protenix_mini",
+      "kind": "minibinder",
+      "condition": "0",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_intellifold_6ed978fa",
+      "engine": "intellifold",
+      "kind": "minibinder",
+      "condition": "0",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_intellifold_full_6ed978fa",
+      "engine": "intellifold_full",
+      "kind": "minibinder",
+      "condition": "0",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_openfold3_6ed978fa",
+      "engine": "openfold3",
+      "kind": "minibinder",
+      "condition": "0",
+      "trajectories": 50
+    },
+    {
+      "name": "untitled_design_boltz_7xl0_vobarilizumab_f45742c3",
+      "engine": "boltz",
+      "kind": "nanobody",
+      "condition": "7xl0_vobarilizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_boltz_7eow_caplacizumab_f45742c3",
+      "engine": "boltz",
+      "kind": "nanobody",
+      "condition": "7eow_caplacizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_boltz_8coh_gefurulimab_f45742c3",
+      "engine": "boltz",
+      "kind": "nanobody",
+      "condition": "8coh_gefurulimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_boltz_8z8v_ozoralizumab_alb8_f45742c3",
+      "engine": "boltz",
+      "kind": "nanobody",
+      "condition": "8z8v_ozoralizumab_alb8",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_boltz_gontivimab_f45742c3",
+      "engine": "boltz",
+      "kind": "nanobody",
+      "condition": "gontivimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_boltz_isecarosmab_f45742c3",
+      "engine": "boltz",
+      "kind": "nanobody",
+      "condition": "isecarosmab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_boltz_sonelokimab_f45742c3",
+      "engine": "boltz",
+      "kind": "nanobody",
+      "condition": "sonelokimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_boltz_3eak_nbbcii10_fgla_f45742c3",
+      "engine": "boltz",
+      "kind": "nanobody",
+      "condition": "3eak_nbbcii10_fgla",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_constraint_v0_5_7xl0_vobarilizumab_f45742c3",
+      "engine": "protenix_constraint_v0_5",
+      "kind": "nanobody",
+      "condition": "7xl0_vobarilizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_protenix_constraint_v0_5_7eow_caplacizumab_f45742c3",
+      "engine": "protenix_constraint_v0_5",
+      "kind": "nanobody",
+      "condition": "7eow_caplacizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_protenix_constraint_v0_5_8coh_gefurulimab_f45742c3",
+      "engine": "protenix_constraint_v0_5",
+      "kind": "nanobody",
+      "condition": "8coh_gefurulimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_constraint_v0_5_8z8v_ozoralizumab_alb8_f45742c3",
+      "engine": "protenix_constraint_v0_5",
+      "kind": "nanobody",
+      "condition": "8z8v_ozoralizumab_alb8",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_constraint_v0_5_gontivimab_f45742c3",
+      "engine": "protenix_constraint_v0_5",
+      "kind": "nanobody",
+      "condition": "gontivimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_constraint_v0_5_isecarosmab_f45742c3",
+      "engine": "protenix_constraint_v0_5",
+      "kind": "nanobody",
+      "condition": "isecarosmab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_constraint_v0_5_sonelokimab_f45742c3",
+      "engine": "protenix_constraint_v0_5",
+      "kind": "nanobody",
+      "condition": "sonelokimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_constraint_v0_5_3eak_nbbcii10_fgla_f45742c3",
+      "engine": "protenix_constraint_v0_5",
+      "kind": "nanobody",
+      "condition": "3eak_nbbcii10_fgla",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_v2_7xl0_vobarilizumab_f45742c3",
+      "engine": "protenix_v2",
+      "kind": "nanobody",
+      "condition": "7xl0_vobarilizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_protenix_v2_7eow_caplacizumab_f45742c3",
+      "engine": "protenix_v2",
+      "kind": "nanobody",
+      "condition": "7eow_caplacizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_protenix_v2_8coh_gefurulimab_f45742c3",
+      "engine": "protenix_v2",
+      "kind": "nanobody",
+      "condition": "8coh_gefurulimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_v2_8z8v_ozoralizumab_alb8_f45742c3",
+      "engine": "protenix_v2",
+      "kind": "nanobody",
+      "condition": "8z8v_ozoralizumab_alb8",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_v2_gontivimab_f45742c3",
+      "engine": "protenix_v2",
+      "kind": "nanobody",
+      "condition": "gontivimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_v2_isecarosmab_f45742c3",
+      "engine": "protenix_v2",
+      "kind": "nanobody",
+      "condition": "isecarosmab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_v2_sonelokimab_f45742c3",
+      "engine": "protenix_v2",
+      "kind": "nanobody",
+      "condition": "sonelokimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_v2_3eak_nbbcii10_fgla_f45742c3",
+      "engine": "protenix_v2",
+      "kind": "nanobody",
+      "condition": "3eak_nbbcii10_fgla",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_mini_7xl0_vobarilizumab_f45742c3",
+      "engine": "protenix_mini",
+      "kind": "nanobody",
+      "condition": "7xl0_vobarilizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_protenix_mini_7eow_caplacizumab_f45742c3",
+      "engine": "protenix_mini",
+      "kind": "nanobody",
+      "condition": "7eow_caplacizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_protenix_mini_8coh_gefurulimab_f45742c3",
+      "engine": "protenix_mini",
+      "kind": "nanobody",
+      "condition": "8coh_gefurulimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_mini_8z8v_ozoralizumab_alb8_f45742c3",
+      "engine": "protenix_mini",
+      "kind": "nanobody",
+      "condition": "8z8v_ozoralizumab_alb8",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_mini_gontivimab_f45742c3",
+      "engine": "protenix_mini",
+      "kind": "nanobody",
+      "condition": "gontivimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_mini_isecarosmab_f45742c3",
+      "engine": "protenix_mini",
+      "kind": "nanobody",
+      "condition": "isecarosmab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_mini_sonelokimab_f45742c3",
+      "engine": "protenix_mini",
+      "kind": "nanobody",
+      "condition": "sonelokimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_protenix_mini_3eak_nbbcii10_fgla_f45742c3",
+      "engine": "protenix_mini",
+      "kind": "nanobody",
+      "condition": "3eak_nbbcii10_fgla",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_7xl0_vobarilizumab_f45742c3",
+      "engine": "intellifold",
+      "kind": "nanobody",
+      "condition": "7xl0_vobarilizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_intellifold_7eow_caplacizumab_f45742c3",
+      "engine": "intellifold",
+      "kind": "nanobody",
+      "condition": "7eow_caplacizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_intellifold_8coh_gefurulimab_f45742c3",
+      "engine": "intellifold",
+      "kind": "nanobody",
+      "condition": "8coh_gefurulimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_8z8v_ozoralizumab_alb8_f45742c3",
+      "engine": "intellifold",
+      "kind": "nanobody",
+      "condition": "8z8v_ozoralizumab_alb8",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_gontivimab_f45742c3",
+      "engine": "intellifold",
+      "kind": "nanobody",
+      "condition": "gontivimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_isecarosmab_f45742c3",
+      "engine": "intellifold",
+      "kind": "nanobody",
+      "condition": "isecarosmab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_sonelokimab_f45742c3",
+      "engine": "intellifold",
+      "kind": "nanobody",
+      "condition": "sonelokimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_3eak_nbbcii10_fgla_f45742c3",
+      "engine": "intellifold",
+      "kind": "nanobody",
+      "condition": "3eak_nbbcii10_fgla",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_full_7xl0_vobarilizumab_f45742c3",
+      "engine": "intellifold_full",
+      "kind": "nanobody",
+      "condition": "7xl0_vobarilizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_intellifold_full_7eow_caplacizumab_f45742c3",
+      "engine": "intellifold_full",
+      "kind": "nanobody",
+      "condition": "7eow_caplacizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_intellifold_full_8coh_gefurulimab_f45742c3",
+      "engine": "intellifold_full",
+      "kind": "nanobody",
+      "condition": "8coh_gefurulimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_full_8z8v_ozoralizumab_alb8_f45742c3",
+      "engine": "intellifold_full",
+      "kind": "nanobody",
+      "condition": "8z8v_ozoralizumab_alb8",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_full_gontivimab_f45742c3",
+      "engine": "intellifold_full",
+      "kind": "nanobody",
+      "condition": "gontivimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_full_isecarosmab_f45742c3",
+      "engine": "intellifold_full",
+      "kind": "nanobody",
+      "condition": "isecarosmab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_full_sonelokimab_f45742c3",
+      "engine": "intellifold_full",
+      "kind": "nanobody",
+      "condition": "sonelokimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_intellifold_full_3eak_nbbcii10_fgla_f45742c3",
+      "engine": "intellifold_full",
+      "kind": "nanobody",
+      "condition": "3eak_nbbcii10_fgla",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_openfold3_7xl0_vobarilizumab_f45742c3",
+      "engine": "openfold3",
+      "kind": "nanobody",
+      "condition": "7xl0_vobarilizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_openfold3_7eow_caplacizumab_f45742c3",
+      "engine": "openfold3",
+      "kind": "nanobody",
+      "condition": "7eow_caplacizumab",
+      "trajectories": 7
+    },
+    {
+      "name": "untitled_design_openfold3_8coh_gefurulimab_f45742c3",
+      "engine": "openfold3",
+      "kind": "nanobody",
+      "condition": "8coh_gefurulimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_openfold3_8z8v_ozoralizumab_alb8_f45742c3",
+      "engine": "openfold3",
+      "kind": "nanobody",
+      "condition": "8z8v_ozoralizumab_alb8",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_openfold3_gontivimab_f45742c3",
+      "engine": "openfold3",
+      "kind": "nanobody",
+      "condition": "gontivimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_openfold3_isecarosmab_f45742c3",
+      "engine": "openfold3",
+      "kind": "nanobody",
+      "condition": "isecarosmab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_openfold3_sonelokimab_f45742c3",
+      "engine": "openfold3",
+      "kind": "nanobody",
+      "condition": "sonelokimab",
+      "trajectories": 6
+    },
+    {
+      "name": "untitled_design_openfold3_3eak_nbbcii10_fgla_f45742c3",
+      "engine": "openfold3",
+      "kind": "nanobody",
+      "condition": "3eak_nbbcii10_fgla",
+      "trajectories": 6
+    }
+  ]
+}

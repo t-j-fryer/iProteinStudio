@@ -48,7 +48,7 @@ class NessoClient(ResidentClient):
         return {**result, 'session': str(self.queue), 'startup_seconds': self.ready['startup_seconds']}
 
 
-def screen(backend, sequences, smiles, directory, *, owners=None, per_lineage=None, total=None):
+def screen(backend, sequences, smiles, directory, *, owners=None, per_lineage=None, total=None, allow_empty=False):
     directory = Path(directory)
     scores = {}
     try:
@@ -84,7 +84,7 @@ def screen(backend, sequences, smiles, directory, *, owners=None, per_lineage=No
         elif prior != selected:
             raise RuntimeError('NESSO selection differs from its saved shortlist')
         write_report(backend.output)
-        if sequences and not selected:
+        if sequences and not selected and not allow_empty:
             raise RuntimeError("NESSO rejected every candidate: no valid protein-ligand placement entropy. "
                                "Inspect nesso_screening.csv and the saved affinity.json outputs; no Boltz fallback was used.")
         return {name: sequences[name] for name in selected}
@@ -103,7 +103,10 @@ def write_report(output):
             "nesso_placement_entropy", "nesso_screening_score", "nesso_eligible", "nesso_rejection_reason", "nesso_ranking_policy"])
         writer.writeheader()
         import re
-        for path in sorted([*output.glob("cycle*/nesso/selection.json"), *output.glob("phase0/cycle*/nesso/selection.json")]):
+        for path in sorted([*output.glob("cycle*/nesso/selection.json"),
+                            *output.glob("cycle*/topup*/nesso/selection.json"),
+                            *output.glob("cycle*/partial_noising/repair/nesso/selection.json"),
+                            *output.glob("phase0/cycle*/nesso/selection.json")]):
             saved = json.loads(path.read_text())
             for name, seq in saved["input"]["sequences"].items():
                 match = re.fullmatch(r"c(\d+)_t(\d+)_n\d+_s\d+", name)
@@ -114,8 +117,8 @@ def write_report(output):
                 initial = path.relative_to(output).parts[0] == "phase0"
                 if not initial and match is None:
                     raise ValueError("Invalid optimization screening identity: " + name)
-                writer.writerow(dict(candidate=name, stage="initial" if initial else "optimization",
-                    cycle=int(path.parent.parent.name.removeprefix("cycle")),
+                writer.writerow(dict(candidate=name, stage="initial" if initial else ("partial-noising-repair" if "partial_noising" in path.parts else "optimization"),
+                    cycle=int(next(p.name.removeprefix("cycle") for p in path.parents if p.name.startswith("cycle"))),
                     trajectory="" if initial else int(match[2])+1,
                     lineage=saved["input"].get("owners", {}).get(name, ""),
                     sequence=seq, selected_for_boltz=name in saved["result"],

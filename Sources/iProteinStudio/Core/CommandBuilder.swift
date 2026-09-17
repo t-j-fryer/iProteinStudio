@@ -181,14 +181,18 @@ enum CommandBuilder {
         args += ["--throughput-profile", "auto"]
 
         // The complete 12-trajectory × 5-cycle SUMO campaign established one
-        // resident worker as the fastest measured policy for every iterative
-        // design engine except full Protenix v2. Full v2 slows under sustained
+        // resident worker as the fastest measured policy for its supported
+        // engines except full Protenix v2. Full v2 slows under sustained
         // MPS work, so it reloads once per cycle instead. This is product policy,
         // not a form preference: old saved Compatibility values are ignored and
         // direct CLI users can still request the historical scheduler explicitly.
         // Resident workers are intentionally one-process owners of the GPU.
         args += ["--max-parallel", "1"]
-        if request.designPredictor == .protenixV2 {
+        if request.designPredictor == .openfold3 {
+            // OpenFold-3 has no resident worker. Match the MCP planner's
+            // established per-trajectory policy (Lab Book 0046).
+            args += ["--design-scheduler", "run"]
+        } else if request.designPredictor == .protenixV2 {
             args += ["--design-scheduler", "cycle-wave"]
         } else {
             args += ["--design-scheduler", "resident", "--wave-batch-size", "all"]

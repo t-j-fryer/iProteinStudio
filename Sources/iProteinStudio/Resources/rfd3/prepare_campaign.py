@@ -221,6 +221,8 @@ def write_design_yaml(req: dict, campaign: Path, ligand_input: Path | None,
         lines.append(f"    {yaml_quote(req['component_id'])}: {yaml_quote('ALL')}")
 
     conditions = req.get("conditions", {})
+    if any("buried" in applied and "exposed" in applied for applied in conditions.values()):
+        fail("An atom or residue cannot be both buried and exposed.")
     for spec_key, condition in (("select_buried", "buried"),
                                 ("select_exposed", "exposed"),
                                 ("select_hbond_donor", "hbondDonor"),

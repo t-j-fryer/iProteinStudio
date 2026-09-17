@@ -1,0 +1,14 @@
+{
+  "kind": "read-only retrospective; no neural inference",
+  "expected_folds": 5440,
+  "expected_trajectories": 6,
+  "proposals_per_parent": 64,
+  "historical_beam": 1,
+  "thresholds": [0.0001, 0.001, 0.005, 0.01],
+  "proposal_levels": [16, 32, 64],
+  "permutations_per_cycle": 2000,
+  "random_seed": 20260916,
+  "geometry": {"ca_max": 2.5, "ligand_max": 2.5, "ligand_from_cycle": 3},
+  "final_filter": {"ca_max": 1.5, "ligand_max": 1.5, "ligand_plddt_min": 90, "pbind_min": 0.8},
+  "interpretation": "Within-cycle subsets of the observed 64 proposals, conditioned on historical parents. This is not a rerun with adaptive parents, beam three, NESSO, or RFdiffusion3. Missing affinity excludes a whole cycle/trajectory from subset simulation."
+}

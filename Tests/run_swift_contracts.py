@@ -14,6 +14,9 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
     if os.environ.get("SDKROOT"):
         flags += ["-sdk", os.environ["SDKROOT"]]
     cases = {
+        "workflow_requests": [SOURCE + "Models/" + name for name in [
+            "Predictor.swift", "ProteinSequenceInput.swift", "RFD3Request.swift", "PredictionRequest.swift"
+        ]] + ["Tests/WorkflowRequestContractHarness.swift"],
         "engine_batch_controller": [SOURCE + "Models/" + name for name in MODELS] + [
             SOURCE + "Models/NISERequest.swift", SOURCE + "Models/PredictionRequest.swift",
             SOURCE + "Models/RunNaming.swift",

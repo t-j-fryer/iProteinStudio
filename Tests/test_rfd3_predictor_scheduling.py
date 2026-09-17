@@ -19,6 +19,7 @@ RUNNER = ROOT / "Sources/iProteinStudio/Resources/rfd3_overlay/scripts/run_predi
 
 
 def load_runner():
+    sys.path.insert(0, str(RUNNER.parent))
     spec = importlib.util.spec_from_file_location("rfd3_predictor_scheduler", RUNNER)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -101,6 +102,16 @@ class RFD3PredictorSchedulingTests(unittest.TestCase):
             sessions = list((output / "_scheduler").glob("resident_intellifold_*"))
             self.assertEqual(len(sessions), 1)
             self.assertEqual(len(list((sessions[0] / "responses").glob("*.json"))), 2)
+            command = [sys.executable, str(RUNNER), '--inputs', str(inputs), '--output', str(output),
+                       '--predictors', 'intellifold', '--nanohunter-root', str(runtime), '--resume']
+            replay = subprocess.run(command, text=True, capture_output=True, timeout=30)
+            self.assertEqual(replay.returncode, 0, replay.stdout + replay.stderr)
+            self.assertEqual(len(list((output / '_scheduler').glob('resident_intellifold_*'))), 1)
+            structure = next((output / 'intellifold').rglob('*.cif'))
+            structure.write_text('tampered')
+            damaged = subprocess.run(command, text=True, capture_output=True, timeout=30)
+            self.assertNotEqual(damaged.returncode, 0)
+            self.assertIn('missing or changed', damaged.stderr)
 
     def test_full_protenix_v2_uses_one_directory_wave(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -137,6 +148,16 @@ class RFD3PredictorSchedulingTests(unittest.TestCase):
             self.assertEqual((output / "protenix-v2/model_loads.txt").read_text(), "load\n")
             manifest = json.loads((output / "run_manifest.json").read_text())
             self.assertEqual(manifest["scheduling"]["protenix-v2"], "cycle-wave")
+            command = [sys.executable, str(RUNNER), '--inputs', str(inputs), '--output', str(output),
+                       '--predictors', 'protenix-v2', '--nanohunter-root', str(runtime), '--resume']
+            replay = subprocess.run(command, text=True, capture_output=True, timeout=30)
+            self.assertEqual(replay.returncode, 0, replay.stdout + replay.stderr)
+            self.assertEqual((output / 'protenix-v2/model_loads.txt').read_text(), 'load\n')
+            source = next(inputs.glob('*.yaml'))
+            source.write_text(source.read_text() + '\n# changed input\n')
+            changed = subprocess.run(command, text=True, capture_output=True, timeout=30)
+            self.assertNotEqual(changed.returncode, 0)
+            self.assertIn('inputs changed', changed.stderr)
 
 
 if __name__ == "__main__":

@@ -313,6 +313,20 @@ struct IterativeCommandContractHarness {
         expect(value(after: "--design-scheduler", in: args) == "cycle-wave",
                "legacy GUI scheduling value bypassed Protenix v2's optimized policy")
 
+        for designType in [DesignType.minibinder, .nanobody] {
+            request.designType = designType
+            request.designPredictor = .openfold3
+            for mode in [SpeedMode.standard, .batched] {
+                request.speedMode = mode
+                args = arguments(request)
+                expect(value(after: "--design-scheduler", in: args) == "run",
+                       "OpenFold-3 selected an unsupported resident worker")
+                expect(value(after: "--max-parallel", in: args) == "1",
+                       "OpenFold-3 lost the single GPU owner policy")
+                expect(!args.contains("--wave-batch-size"), "OpenFold-3 received resident wave settings")
+            }
+        }
+
         request = proteinRequest()
         request.speedMode = .standard
         let legacyData = try JSONEncoder().encode(request)
@@ -340,7 +354,8 @@ struct IterativeCommandContractHarness {
             let args = arguments(child)
             expect(value(after: "--num-runs", in: args) == "12", "checkpoint did not receive the full budget")
             expect(value(after: "--predictor", in: args) == engine.predictor.runnerValue, "checkpoint backend changed")
-            expect(value(after: "--design-scheduler", in: args) == "resident", "checkpoint lost resident scheduling")
+            expect(value(after: "--design-scheduler", in: args) == (engine == .openfold3 ? "run" : "resident"),
+                   "checkpoint selected an unsupported scheduler")
             if let model = engine.model {
                 expect(value(after: "--model", in: args) == model.rawValue, "wrong IntelliFold checkpoint selected")
                 expect(!child.effectivePostPredictors.contains(.intellifold), "Flash/Full were treated as independent checkers")

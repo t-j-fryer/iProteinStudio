@@ -26,7 +26,7 @@
         "infer_ori_strategy": {"type": "string", "description": "Legacy/expert Foundry control. Do not use target COM for a fixed protein."},
         "ori_token": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}},
         "lengths": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"type": "integer", "minimum": 5, "maximum": 1000}},
-        "num_backbones": {"type": "integer", "minimum": 1}, "timesteps": {"type": "integer", "minimum": 1},
+        "num_backbones": {"type": "integer", "minimum": 1}, "timesteps": {"type": "integer", "minimum": 2},
         "recycles": {"type": "integer", "minimum": 0}, "batch_size": {"type": "integer", "minimum": 1, "maximum": 64},
         "queues_per_bin": {"type": "integer", "minimum": 1, "maximum": 4}, "precision": {"enum": ["bf16", "fp32"]},
         "seed_base": {"type": "integer"}, "sequences_per_backbone": {"type": "integer", "minimum": 1},

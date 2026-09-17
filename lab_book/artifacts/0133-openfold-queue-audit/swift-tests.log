@@ -1,0 +1,10 @@
+PASS workflow request contract
+PASS scaffold equal/custom budgets, round-trip, exclusions and 21 engine/scaffold campaign manifests
+PASS queue submission across workspaces, independent manifests, observation switching and submission guard
+PASS NISE, Predict and RFdiffusion3 queue observation, workspace switching and pending-job guards
+PASS native engine-batch preparation, saved launch records, progress routing and all-before-submit failure
+PASS Predict template request, persistence and chain/engine constraints
+PASS NISE request and existing-workspace migration contracts
+PASS StudioCore recovery, archive crash replay, lock and support report contracts
+PASS prediction result discovery contract
+PASS iterative command contract

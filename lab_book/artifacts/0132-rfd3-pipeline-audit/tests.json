@@ -1,0 +1,83 @@
+{
+  "neural_inference": false,
+  "results": [
+    {
+      "test": "Tests/test_rfd3_audit_regressions.py",
+      "exit_code": 0,
+      "cases": 18,
+      "log": "test_rfd3_audit_regressions.log"
+    },
+    {
+      "test": "Tests/test_rfd3_batch_resume.py",
+      "exit_code": 0,
+      "cases": 2,
+      "log": "test_rfd3_batch_resume.log"
+    },
+    {
+      "test": "Tests/test_rfd3_motif_scoring.py",
+      "exit_code": 0,
+      "cases": null,
+      "log": "test_rfd3_motif_scoring.log"
+    },
+    {
+      "test": "Tests/test_rfd3_partial_validation.py",
+      "exit_code": 0,
+      "cases": null,
+      "log": "test_rfd3_partial_validation.log"
+    },
+    {
+      "test": "Tests/test_rfd3_predictor_scheduling.py",
+      "exit_code": 0,
+      "cases": 3,
+      "log": "test_rfd3_predictor_scheduling.log"
+    },
+    {
+      "test": "Tests/test_rfd3_surface_origins.py",
+      "exit_code": 0,
+      "cases": 4,
+      "log": "test_rfd3_surface_origins.log"
+    },
+    {
+      "test": "Tests/test_rfd3_target_export.py",
+      "exit_code": 0,
+      "cases": 1,
+      "log": "test_rfd3_target_export.log"
+    },
+    {
+      "test": "Tests/test_rfd3_weight_provenance.py",
+      "exit_code": 0,
+      "cases": 4,
+      "log": "test_rfd3_weight_provenance.log"
+    },
+    {
+      "test": "Tests/test_rfd3_worked_examples.py",
+      "exit_code": 0,
+      "cases": null,
+      "log": "test_rfd3_worked_examples.log"
+    },
+    {
+      "test": "Tests/test_workflow_pipelines.py",
+      "exit_code": 0,
+      "cases": null,
+      "log": "test_workflow_pipelines.log"
+    },
+    {
+      "test": "Tests/test_ligand_conditioning.py",
+      "exit_code": 0,
+      "cases": null,
+      "log": "test_ligand_conditioning.log"
+    },
+    {
+      "test": "Tests/test_ligand_screening.py",
+      "exit_code": 0,
+      "cases": 13,
+      "log": "test_ligand_screening.log"
+    },
+    {
+      "test": "Tests/test_nise_rfd3.py",
+      "exit_code": 0,
+      "cases": 3,
+      "log": "test_nise_rfd3.log"
+    }
+  ]
+}

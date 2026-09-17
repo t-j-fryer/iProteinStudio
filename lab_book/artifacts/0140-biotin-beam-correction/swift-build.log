@@ -1,0 +1,14 @@
+warning: '--skip-update' option is deprecated and will be removed in a future release
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/Caches/org.swift.swiftpm is not accessible or not writable, disabling user-level cache features.
+warning: 'iproteinstudio': failed storing manifest for 'iproteinstudio' in cache: attempt to write a readonly database
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--1AB21518FC5DEDBE.txt
+[3/6] Compiling iProteinStudio NISEView.swift
+[4/6] Emitting module iProteinStudio
+[4/7] Write Objects.LinkFileList
+[5/7] Linking iProteinStudio
+[6/7] Applying iProteinStudio
+Build complete! (1.85s)

@@ -1,0 +1,34 @@
+warning: '--skip-update' option is deprecated and will be removed in a future release
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/Caches/org.swift.swiftpm is not accessible or not writable, disabling user-level cache features.
+warning: 'iproteinstudio': failed storing manifest for 'iproteinstudio' in cache: attempt to write a readonly database
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--1AB21518FC5DEDBE.txt
+[3/6] Compiling iProteinStudio NISERequest.swift
+[4/6] Emitting module iProteinStudio
+[5/26] Compiling iProteinStudio iProteinStudioApp.swift
+[6/26] Compiling iProteinStudio RootView.swift
+[7/26] Compiling iProteinStudio NISEAtomTargetingView.swift
+[8/26] Compiling iProteinStudio RunNameField.swift
+[9/26] Compiling iProteinStudio ProjectSidebar.swift
+[10/26] Compiling iProteinStudio LiveDashboardView.swift
+[11/26] Compiling iProteinStudio NISEView.swift
+[12/26] Compiling iProteinStudio AppState.swift
+[13/26] Compiling iProteinStudio ActivityCenterView.swift
+[14/26] Compiling iProteinStudio DesignFormView.swift
+[15/26] Compiling iProteinStudio SetupView.swift
+[16/26] Compiling iProteinStudio PredictView.swift
+[17/26] Compiling iProteinStudio RunHistoryStore.swift
+[18/26] Compiling iProteinStudio Project.swift
+[19/26] Compiling iProteinStudio JobQueueView.swift
+[20/26] Compiling iProteinStudio AppPaths.swift
+[21/26] Compiling iProteinStudio NISEController.swift
+[22/26] Compiling iProteinStudio RFD3View.swift
+[23/26] Compiling iProteinStudio RFD3Controller.swift
+[24/26] Compiling iProteinStudio RunController.swift
+[24/27] Write Objects.LinkFileList
+[25/27] Linking iProteinStudio
+[26/27] Applying iProteinStudio
+Build complete! (4.47s)

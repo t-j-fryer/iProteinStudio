@@ -17,8 +17,12 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
+import uuid
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from rfd3_resume import bind_inputs, save_receipt, verify_receipt, sha256
 
 
 SUPPORTED = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"}
@@ -53,6 +57,16 @@ def atomic_json(path: Path, value: object) -> None:
     temporary = path.with_suffix(path.suffix + ".part")
     temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
     temporary.replace(path)
+
+
+def terminate_process(process):
+    if process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
 
 
 def yaml_uses_real_msa(path: Path) -> bool:
@@ -210,7 +224,7 @@ class ResidentWorker:
 
     def __init__(self, predictor: str, root: Path, output: Path,
                  intellifold_model: str, use_msa: bool) -> None:
-        stamp = f"{int(time.time())}_{os.getpid()}"
+        stamp = f"{int(time.time())}_{os.getpid()}_{uuid.uuid4().hex[:8]}"
         self.predictor = predictor
         self.queue = output / "_scheduler" / f"resident_{predictor}_{stamp}"
         self.queue.mkdir(parents=True, exist_ok=False)
@@ -220,17 +234,17 @@ class ResidentWorker:
         self.config = self.queue / "config.json"
         atomic_json(self.config, config)
         self._log_handle = self.log.open("w")
-        self.process = subprocess.Popen(
-            [str(python), str(root / "scripts" / "resident_predictor.py"),
-             "--config", str(self.config)],
-            cwd=root, env=env, stdout=self._log_handle, stderr=subprocess.STDOUT,
-        )
+        self.process = None
         try:
+            self.process = subprocess.Popen(
+                [str(python), str(root / "scripts" / "resident_predictor.py"),
+                 "--config", str(self.config)],
+                cwd=root, env=env, stdout=self._log_handle, stderr=subprocess.STDOUT,
+            )
             self._wait_ready()
-        except Exception:
-            if self.process.poll() is None:
-                self.process.terminate()
-                self.process.wait(timeout=15)
+        except BaseException:
+            if self.process is not None:
+                terminate_process(self.process)
             self._log_handle.close()
             raise
 
@@ -290,8 +304,7 @@ class ResidentWorker:
             while self.process.poll() is None and time.time() < deadline:
                 time.sleep(0.1)
             if self.process.poll() is None:
-                self.process.terminate()
-                self.process.wait(timeout=15)
+                terminate_process(self.process)
         self._log_handle.close()
         stopped = self.queue / "stopped.json"
         if self.process.returncode == 0 and not stopped.is_file():
@@ -357,12 +370,26 @@ def ensure_ipsae(predictor: str, yaml_path: Path, output: Path, root: Path,
         )
 
 
+def record_prediction(rows: list[dict], row: dict) -> None:
+    if row.get("exit_code") == 0:
+        required = [row.get("structure"), row.get("confidence_json")]
+        if not all(p and Path(p).is_file() and Path(p).stat().st_size for p in required):
+            raise RuntimeError(f"Predictor exited successfully without complete outputs: {row['design']}")
+        receipt = Path(row["output_dir"]) / "studio_prediction_receipt.json"
+        identity = json.loads((Path(row["output_dir"]) / "studio_prediction_request.json").read_text())
+        if not verify_receipt(receipt, identity):
+            save_receipt(receipt, identity, [Path(p) for p in required])
+    rows.append(row)
+
+
 def write_csv(rows: list[dict], path: Path) -> None:
     fields = sorted({key for row in rows for key in row})
-    with path.open("w", newline="") as handle:
+    temporary = path.with_suffix(path.suffix + ".part")
+    with temporary.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         writer.writerows(rows)
+    temporary.replace(path)
 
 
 def default_root() -> Path:
@@ -396,6 +423,8 @@ def main() -> None:
     parser.add_argument("--nanohunter-root", type=Path)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
+    if args.max_parallel < 1:
+        raise SystemExit("--max-parallel must be at least 1")
     args.nanohunter_root = args.nanohunter_root or default_root()
     predictors = [value.strip() for value in args.predictors.split(",") if value.strip()]
     retired = [value for value in predictors if value in RETIRED]
@@ -404,6 +433,7 @@ def main() -> None:
     unknown = [v for v in predictors if v not in SUPPORTED]
     if not predictors or unknown:
         raise SystemExit(f"--predictors must be drawn from {sorted(SUPPORTED)}; got {unknown}")
+    predictors = list(dict.fromkeys(predictors))
     if any(value.startswith("protenix-") for value in predictors):
         args.max_parallel = 1
     yamls = sorted(args.inputs.resolve().glob("*.yaml"))
@@ -413,6 +443,25 @@ def main() -> None:
     root = args.nanohunter_root.resolve()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    # Hash exact YAML content and external alignment contents, not just names.
+    inputs = {}
+    for path in yamls:
+        msas = {}
+        entries = []
+        if yaml_uses_real_msa(path):
+            import yaml
+            entries = yaml.safe_load(path.read_text()).get("sequences", [])
+        for entry in entries:
+            msa = entry.get("protein", {}).get("msa")
+            if msa and msa != "empty":
+                msa_path = Path(msa)
+                if not msa_path.is_absolute():
+                    msa_path = path.parent / msa_path
+                msas[str(msa_path)] = sha256(msa_path)
+        inputs[path.name] = {"yaml": sha256(path), "msas": msas}
+    specification = {"inputs": inputs, "predictors": predictors,
+                     "intellifold_model": args.intellifold_model, "root": str(root)}
+    bind_inputs(output / "studio_prediction_request.json", specification)
     previous: dict[tuple[str, str], dict] = {}
     previous_csv = output / "prediction_metrics.csv"
     if previous_csv.exists():
@@ -424,13 +473,14 @@ def main() -> None:
         for yaml_path in yamls:
             job_out = output / predictor / yaml_path.stem
             job_out.mkdir(parents=True, exist_ok=True)
-            if args.resume and any(job_out.rglob("*.cif")):
-                ensure_ipsae(predictor, yaml_path, job_out, root,
-                             job_out / "predict.log")
+            identity = {"input": inputs[yaml_path.name], "predictor": predictor,
+                        "intellifold_model": args.intellifold_model}
+            receipt = job_out / "studio_prediction_receipt.json"
+            verified = verify_receipt(receipt, identity)
             cached = parse_metrics(job_out)
-            if args.resume and cached["structure"] and cached["confidence_json"]:
+            if args.resume and verified:
                 prior = previous.get((predictor, yaml_path.stem), {})
-                rows.append({
+                record_prediction(rows, {
                     **prior, "design": yaml_path.stem, "predictor": predictor, "exit_code": 0,
                     "wall_sec": prior.get("wall_sec", 0.0), "reused": 1,
                     "scheduler": prior.get("scheduler", scheduling_policy(predictor)),
@@ -438,6 +488,14 @@ def main() -> None:
                     "log": str(job_out / "predict.log"), **cached,
                 })
                 continue
+            # Preserve uncommitted/legacy output rather than mixing old and new
+            # structures when a predictor is retried after partial failure.
+            if any(job_out.iterdir()):
+                archive = output / "_interrupted" / uuid.uuid4().hex / predictor
+                archive.mkdir(parents=True)
+                job_out.rename(archive / job_out.name)
+                job_out.mkdir()
+            bind_inputs(job_out / "studio_prediction_request.json", identity)
             pending[predictor].append((yaml_path, job_out))
 
     campaign_start = time.time()
@@ -466,7 +524,7 @@ def main() -> None:
                         f"scheduler=resident\nworker_log={worker.log}\n"
                         f"request_receipt={response_path}\nmodel_load_count=1\n")
                     ensure_ipsae(predictor, yaml_path, job_out, root, log_path)
-                    rows.append({
+                    record_prediction(rows, {
                         "design": yaml_path.stem, "predictor": predictor, "exit_code": 0,
                         "wall_sec": wall, "reused": 0, "scheduler": policy,
                         "model_load_count": receipt["model_load_count"],
@@ -498,7 +556,7 @@ def main() -> None:
                     command, cwd=root, env=env, stdout=handle, stderr=subprocess.STDOUT)
             wave_wall = time.time() - started
             for yaml_path, job_out in jobs:
-                rows.append({
+                record_prediction(rows, {
                     "design": yaml_path.stem, "predictor": predictor,
                     "exit_code": completed.returncode, "wall_sec": wave_wall / len(jobs),
                     "wave_wall_sec": wave_wall, "wave_size": len(jobs), "reused": 0,
@@ -517,33 +575,42 @@ def main() -> None:
                 predictor, yaml_path, job_out, root, args.intellifold_model)
             queue.append((yaml_path, job_out, command, env))
         running = []
-        while queue or running:
-            while queue and len(running) < args.max_parallel:
-                yaml_path, job_out, command, env = queue.pop(0)
-                log_path = job_out / "predict.log"
-                handle = log_path.open("w")
-                started = time.time()
-                proc = subprocess.Popen(
-                    command, cwd=root, env=env, stdout=handle, stderr=subprocess.STDOUT)
-                running.append((proc, handle, started, yaml_path, job_out, log_path, command))
-            time.sleep(0.25)
-            for job in list(running):
-                proc, handle, started, yaml_path, job_out, log_path, command = job
-                if proc.poll() is None:
-                    continue
+        try:
+            while queue or running:
+                while queue and len(running) < args.max_parallel:
+                    yaml_path, job_out, command, env = queue.pop(0)
+                    log_path = job_out / "predict.log"
+                    handle = log_path.open("w")
+                    started = time.time()
+                    try:
+                        proc = subprocess.Popen(
+                            command, cwd=root, env=env, stdout=handle, stderr=subprocess.STDOUT)
+                    except BaseException:
+                        handle.close()
+                        raise
+                    running.append((proc, handle, started, yaml_path, job_out, log_path, command))
+                time.sleep(0.25)
+                for job in list(running):
+                    proc, handle, started, yaml_path, job_out, log_path, command = job
+                    if proc.poll() is None:
+                        continue
+                    handle.close()
+                    wall = time.time() - started
+                    record_prediction(rows, {
+                        "design": yaml_path.stem, "predictor": predictor,
+                        "exit_code": proc.returncode, "wall_sec": wall, "reused": 0,
+                        "scheduler": policy, "model_load_count": 1,
+                        "input_yaml": str(yaml_path), "output_dir": str(job_out),
+                        "log": str(log_path), "command": json.dumps(command),
+                        **parse_metrics(job_out),
+                    })
+                    write_csv(rows, output / "prediction_metrics.csv")
+                    print(f"{predictor} {yaml_path.stem}: rc={proc.returncode}, {wall:.1f}s", flush=True)
+                    running.remove(job)
+        finally:
+            for proc, handle, *_ in running:
+                terminate_process(proc)
                 handle.close()
-                wall = time.time() - started
-                rows.append({
-                    "design": yaml_path.stem, "predictor": predictor,
-                    "exit_code": proc.returncode, "wall_sec": wall, "reused": 0,
-                    "scheduler": policy, "model_load_count": 1,
-                    "input_yaml": str(yaml_path), "output_dir": str(job_out),
-                    "log": str(log_path), "command": json.dumps(command),
-                    **parse_metrics(job_out),
-                })
-                write_csv(rows, output / "prediction_metrics.csv")
-                print(f"{predictor} {yaml_path.stem}: rc={proc.returncode}, {wall:.1f}s", flush=True)
-                running.remove(job)
 
     campaign_wall = time.time() - campaign_start
     write_csv(rows, output / "prediction_metrics.csv")

@@ -1,0 +1,7 @@
+test_partial_batch_is_archived_and_committed_seeds_and_files_survive (__main__.BatchResumeTests.test_partial_batch_is_archived_and_committed_seeds_and_files_survive) ... ok
+test_receipt_must_account_for_every_completed_design (__main__.BatchResumeTests.test_receipt_must_account_for_every_completed_design) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.004s
+
+OK

@@ -1,0 +1,54 @@
+.resuming after completed stages: validate, fixtures, backbones, mpnn, nesso
+=== stage: validate ===
+=== stage: fixtures ===
+=== stage: backbones ===
+=== stage: mpnn ===
+=== stage: nesso ===
+complete: validate, fixtures, backbones, mpnn, nesso in 0.0s
+.NHSTEP|nesso-screen|0|NESSO screened design_0001_1
+NHSTEP|nesso-screen|0|NESSO screened design_0001_2
+NHSTEP|nesso-screen|0|NESSO screened design_0002_1
+.NHSTEP|nesso-screen|0|NESSO screened design_0001_1
+NHSTEP|nesso-screen|0|NESSO screened design_0001_2
+NHSTEP|nesso-screen|0|NESSO screened design_0002_1
+NHSTEP|nesso-verification|0|Folding 2 NESSO-selected sequences with intellifold
+.NHSTEP|nesso-screen|0|NESSO screened design_0001_1
+NHSTEP|nesso-screen|0|NESSO screened design_0001_2
+NHSTEP|nesso-screen|0|NESSO screened design_0002_1
+NHSTEP|nesso-verification|0|Folding 2 NESSO-selected sequences with intellifold
+.NHSTEP|nesso-screen|0|NESSO screened design_0001_1
+NHSTEP|nesso-screen|0|NESSO screened design_0001_2
+NHSTEP|nesso-screen|0|NESSO screened design_0002_1
+NHSTEP|nesso-verification|0|Folding 2 NESSO-selected sequences with intellifold
+/Users/thomasfryer/iProteinStudio/Tests/test_ligand_screening.py:97: ResourceWarning: unclosed file <_io.TextIOWrapper name='/private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp15i7n2cu/campaign/nesso_verification/nesso_screening.csv' mode='r' encoding='UTF-8'>
+  report = list(csv.DictReader((self.output / 'nesso_screening.csv').open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.NHSTEP|nesso-screen|0|NESSO screened design_0001_1
+NHSTEP|nesso-screen|0|NESSO screened design_0001_1
+NHSTEP|nesso-screen|0|NESSO screened design_0001_2
+NHSTEP|nesso-screen|0|NESSO screened design_0002_1
+NHSTEP|nesso-verification|0|Folding 2 NESSO-selected sequences with intellifold
+..NHSTEP|nesso-screen|0|NESSO screened design_0001_1
+NHSTEP|nesso-screen|0|NESSO screened design_0001_2
+NHSTEP|nesso-screen|0|NESSO screened design_0002_1
+NHSTEP|nesso-verification|0|Folding 2 NESSO-selected sequences with intellifold
+NHSTEP|nesso-screen|0|NESSO screened design_0001_1
+NHSTEP|nesso-screen|0|NESSO screened design_0001_2
+NHSTEP|nesso-screen|0|NESSO screened design_0002_1
+NHSTEP|nesso-verification|0|Folding 1 NESSO-selected sequences with intellifold
+.NHSTEP|nesso-screen|0|NESSO screened run_001_cycle_01
+NHSTEP|nesso-screen|0|NESSO screened run_001_cycle_02
+NHSTEP|nesso-verification|0|Folding 2 NESSO-selected sequences with intellifold
+..NHSTEP|nesso-screen|0|NESSO screened design_0001_1
+NHSTEP|nesso-screen|0|NESSO screened design_0001_2
+NHSTEP|nesso-screen|0|NESSO screened design_0002_1
+NHSTEP|nesso-verification|0|Folding 2 NESSO-selected sequences with intellifold
+.NHSTEP|nesso-screen|0|NESSO screened design_0001_1
+NHSTEP|nesso-screen|0|NESSO screened design_0001_2
+NHSTEP|nesso-screen|0|NESSO screened design_0002_1
+NHSTEP|nesso-verification|0|Folding 2 NESSO-selected sequences with intellifold
+.
+----------------------------------------------------------------------
+Ran 13 tests in 0.167s
+
+OK

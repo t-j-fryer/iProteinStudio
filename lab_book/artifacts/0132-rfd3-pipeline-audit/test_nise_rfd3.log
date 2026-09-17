@@ -1,0 +1,15 @@
+test_adapter_prepares_real_ligand_resumes_and_audits_handoff (__main__.RFD3IntegrationTests.test_adapter_prepares_real_ligand_resumes_and_audits_handoff) ... ok
+test_generator_keeps_weights_across_batches_and_skips_loading_on_replay (__main__.RFD3IntegrationTests.test_generator_keeps_weights_across_batches_and_skips_loading_on_replay) ... batch 0000: accepted 2/2, 0.00s (0.00s/attempt)
+resuming after 2 accepted and 0 rejected sample(s)
+batch 0001: accepted 2/2, 0.00s (0.00s/attempt)
+batch 0002: accepted 1/1, 0.00s (0.00s/attempt)
+wrote 5 designs -> /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpiagq_vhb/queue
+resuming after 5 accepted and 0 rejected sample(s)
+ok
+test_selected_hotspots_and_exposure_reach_diffusion_and_survive_resume (__main__.RFD3IntegrationTests.test_selected_hotspots_and_exposure_reach_diffusion_and_survive_resume) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 5.379s
+
+OK
+wrote 5 designs -> /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpiagq_vhb/queue

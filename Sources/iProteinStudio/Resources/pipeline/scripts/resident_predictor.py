@@ -208,7 +208,35 @@ class BoltzSession:
             arguments.append("--use_potentials")
         if "--override" not in arguments:
             arguments.append("--override")
-        self.boltz_main.predict.main(args=arguments, standalone_mode=False)
+        request_seed = getattr(self, "request_seed", None)
+        if request_seed is not None:
+            if type(request_seed) is not int or not 0 <= request_seed <= 2147483647:
+                die("invalid per-request Boltz seed")
+            if "--seed" in arguments:
+                arguments[arguments.index("--seed") + 1] = str(request_seed)
+            else:
+                arguments += ["--seed", str(request_seed)]
+        phase = getattr(self, "request_phase", "complete")
+        if phase not in {"complete", "structure", "affinity"}:
+            die("unknown Boltz request phase")
+        structure_filter = self.boltz_main.filter_inputs_structure
+        affinity_filter = self.boltz_main.filter_inputs_affinity
+        def skip_structure(manifest, outdir, **kwargs):
+            # The affinity head consumes Boltz's saved full-precision structure,
+            # not a re-fold or a PDB reconstructed by Studio.
+            for record in manifest.records:
+                if not (outdir / "predictions" / record.id / f"pre_affinity_{record.id}.npz").is_file():
+                    die(f"missing saved affinity structure for {record.id}")
+            return type(manifest)([])
+        try:
+            if phase == "structure":
+                self.boltz_main.filter_inputs_affinity = lambda manifest, **kw: type(manifest)([])
+            elif phase == "affinity":
+                self.boltz_main.filter_inputs_structure = skip_structure
+            self.boltz_main.predict.main(args=arguments, standalone_mode=False)
+        finally:
+            self.boltz_main.filter_inputs_structure = structure_filter
+            self.boltz_main.filter_inputs_affinity = affinity_filter
         root = output / f"boltz_results_{source.stem}" / "predictions"
         names = {path.stem for path in source.glob("*.yaml")}
         found = set()
@@ -660,6 +688,12 @@ def serve(config_path: Path) -> None:
                     "total": total, "reused": reused, "epoch": time.time(),
                 })
             session.report_progress = report_progress
+            session.request_seed = request.get("prediction_seed")
+            if session.request_seed is not None and (config["engine"] != "boltz" or type(session.request_seed) is not int or not 0 <= session.request_seed <= 2147483647):
+                die("per-request seeds require Boltz and an integer from 0 to 2147483647")
+            session.request_phase = request.get("phase", "complete")
+            if session.request_phase != "complete" and config["engine"] != "boltz":
+                die("split structure/affinity requests require Boltz")
             session.predict(source, output, expected)
             after_digest, after_paths = input_digest(source)
             if after_digest != actual_digest or len(after_paths) != expected:
@@ -670,6 +704,8 @@ def serve(config_path: Path) -> None:
                 "request_id": request["request_id"],
                 "input_sha256": actual_digest,
                 "completed_jobs": expected,
+                "phase": session.request_phase,
+                "prediction_seed": session.request_seed,
                 "start_epoch": request_started,
                 "end_epoch": time.time(),
                 "wall_seconds": time.time() - request_started,

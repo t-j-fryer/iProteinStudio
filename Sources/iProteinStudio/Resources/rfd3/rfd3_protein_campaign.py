@@ -427,6 +427,11 @@ def main() -> None:
     if rfd3_root is None or not (rfd3_root / "scripts" / "design_from_yaml.py").exists():
         die("RFdiffusion3 checkout not found, or it predates design_from_yaml.py.")
     campaign = Path(cfg["campaign_dir"]).resolve()
+    sys.path.insert(0, str(rfd3_root / "scripts"))
+    from rfd3_resume import atomic, bind_inputs, sha256
+    bind_inputs(campaign / "campaign_request.json", {
+        "config": cfg, "design_sha256": sha256(cfg["design_yaml"]),
+    })
     logs = campaign / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     pid_file = campaign / "campaign.pid"
@@ -446,15 +451,16 @@ def main() -> None:
                          if name in STAGES]
         except (OSError, json.JSONDecodeError):
             completed = []
-        selected = tuple(name for name in selected if name not in completed)
+        # Re-enter each stage to verify its durable per-unit receipts. Completed
+        # model work is reused; progress labels alone never bypass verification.
         if completed:
             info("resuming after completed stages: " + ", ".join(completed))
 
     def record(current):
-        progress_file.write_text(json.dumps({
+        atomic(progress_file, {
             "completed_stages": completed, "current_stage": current,
             "updated_epoch": time.time(), "wall_sec": time.time() - started,
-        }, indent=2) + "\n")
+        })
 
     for name in selected:
         record(name)
@@ -474,7 +480,9 @@ def main() -> None:
             if cfg.get("design_mode") == "partialDiffusion" and cfg.get("preserve_partial_sequence"):
                 stage("mpnn", "Preserving the starting binder sequence")
                 write_preserved_sequences(campaign)
-                completed.append(name); record(None)
+                if name not in completed:
+                    completed.append(name)
+                record(None)
                 continue
             model = cfg.get("sequence_model", "solublempnn")
             if model not in {"solublempnn", "proteinmpnn"}:
@@ -520,7 +528,8 @@ def main() -> None:
         elif name == "validate":
             stage("validate", "Computing self-consistency and applying saved hit filters")
             stage_validate(cfg, campaign, rfd3_root, env)
-        completed.append(name)
+        if name not in completed:
+            completed.append(name)
         record(None)
 
     print(f"RFSTAGE|done|100|Finished in {(time.time() - started) / 60:.1f} min", flush=True)

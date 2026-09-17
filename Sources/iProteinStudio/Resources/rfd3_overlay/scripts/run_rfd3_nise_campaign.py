@@ -19,6 +19,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from rfd3_resume import atomic, bind_inputs, sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGES = ("validate", "fixtures", "backbones", "mpnn", "predict-holo", "score", "predict-apo", "rmsd", "nesso")
@@ -114,6 +115,10 @@ def stage_mpnn(cfg: dict, campaign: Path, logs: Path) -> None:
     # ``sequence_model`` is optional and defaults to lasermpnn, so a config
     # written before this option existed behaves exactly as it did before.
     model = cfg.get("sequence_model", "lasermpnn")
+    model_types = {"ligandmpnn": "ligand_mpnn", "solublempnn": "soluble_mpnn",
+                   "proteinmpnn": "protein_mpnn"}
+    if model not in {"lasermpnn", *model_types}:
+        raise SystemExit(f"Unsupported ligand sequence model: {model}")
     if model == "lasermpnn":
         cmd = [
             sys.executable, str(ROOT / "scripts" / "run_lasermpnn.py"),
@@ -133,12 +138,12 @@ def stage_mpnn(cfg: dict, campaign: Path, logs: Path) -> None:
             sys.executable, str(ROOT / "scripts" / "run_mpnn.py"),
             "--backbones", str(campaign / "rfd3" / "backbones"),
             "--output", str(campaign / "mpnn"),
-            "--model-type", "ligand_mpnn" if model == "ligandmpnn" else "soluble_mpnn",
+            "--model-type", model_types[model],
             "--temperature", str(cfg.get("sequence_temperature", 0.1)),
             "--n-seqs", str(cfg["sequences_per_backbone"]),
         ]
-        if cfg.get("nanohunter_root"):
-            cmd += ["--nanohunter-root", cfg["nanohunter_root"]]
+    if cfg.get("nanohunter_root"):
+        cmd += ["--nanohunter-root", cfg["nanohunter_root"]]
     run(cmd, logs / "mpnn.log")
     per_backbone = cfg["sequences_per_backbone"]
     expected = cfg["num_backbones"] * per_backbone
@@ -248,6 +253,10 @@ def main() -> None:
     if not campaign.is_absolute():
         campaign = (ROOT / campaign).resolve()
     campaign.mkdir(parents=True, exist_ok=True)
+    bind_inputs(campaign / "campaign_request.json", {
+        "config": cfg, "design_sha256": sha256(cfg["design_yaml"]),
+        "smiles_sha256": sha256(cfg["smiles_file"]),
+    })
     logs = campaign / "logs"
     logs.mkdir(exist_ok=True)
     (campaign / "config").mkdir(exist_ok=True)
@@ -279,22 +288,23 @@ def main() -> None:
                          if name in STAGES]
         except (OSError, json.JSONDecodeError):
             completed = []
-        stages = [name for name in stages if name not in completed or name == "nesso"]
+        # Every stage revalidates its own input/output receipts on resume.
+        # A progress label alone is not evidence that scientific files survive.
         if completed:
             print("resuming after completed stages: " + ", ".join(completed), flush=True)
     for stage in stages:
         print(f"=== stage: {stage} ===", flush=True)
-        progress_file.write_text(json.dumps({
+        atomic(progress_file, {
             "completed_stages": completed, "current_stage": stage,
             "updated_epoch": time.time(), "wall_sec": time.time() - start,
-        }, indent=2) + "\n")
+        })
         dispatch[stage](cfg, campaign, logs)
         if stage not in completed:
             completed.append(stage)
-        progress_file.write_text(json.dumps({
+        atomic(progress_file, {
             "completed_stages": completed, "current_stage": None,
             "updated_epoch": time.time(), "wall_sec": time.time() - start,
-        }, indent=2) + "\n")
+        })
     print(f"complete: {', '.join(completed)} in {time.time() - start:.1f}s", flush=True)
 
 

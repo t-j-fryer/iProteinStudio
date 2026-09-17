@@ -1,0 +1,9 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.302s
+
+OK
+  L60: fixture built in 0.0s -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpz0ii4hvj/rfd3/fixtures/oracle_demo_O01.npz
+  L70: fixture built in 0.0s -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpz0ii4hvj/rfd3/fixtures/oracle_demo_O02.npz
+  L60: fixture built in 0.0s -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpz0ii4hvj/rfd3/fixtures/oracle_demo_O03.npz
+  wrote 3 surface-origin bin(s), 7 designs -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpz0ii4hvj/rfd3/bin_manifest.json

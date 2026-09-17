@@ -1,0 +1,33 @@
+test_affinity_chunks_verify_outputs_before_reuse (__main__.CheckpointTests.test_affinity_chunks_verify_outputs_before_reuse) ... chunk 0: 1 designs in 0.0s (0.0s/design), 0 failed
+ok
+test_bad_fixture_is_not_checkpointed (__main__.CheckpointTests.test_bad_fixture_is_not_checkpointed) ... ok
+test_binary_cif_uses_binary_reader_and_preserves_insertions (__main__.CheckpointTests.test_binary_cif_uses_binary_reader_and_preserves_insertions) ... ok
+test_failed_queue_stops_the_other_worker_and_exposes_traceback (__main__.CheckpointTests.test_failed_queue_stops_the_other_worker_and_exposes_traceback) ... ok
+test_fixture_replay_and_changed_atom_selection_or_input (__main__.CheckpointTests.test_fixture_replay_and_changed_atom_selection_or_input) ... ok
+test_mpnn_resumes_only_unfinished_backbones_and_rejects_tampering (__main__.CheckpointTests.test_mpnn_resumes_only_unfinished_backbones_and_rejects_tampering) ... ok
+test_receipt_checks_input_and_artifact_content (__main__.CheckpointTests.test_receipt_checks_input_and_artifact_content) ... ok
+test_stale_duplicate_or_unsafe_prediction_names_fail (__main__.CheckpointTests.test_stale_duplicate_or_unsafe_prediction_names_fail) ... ok
+test_three_and_four_queues_do_not_reuse_next_bins_seed_range (__main__.CheckpointTests.test_three_and_four_queues_do_not_reuse_next_bins_seed_range) ... ok
+test_every_optional_ligand_selection_combination (__main__.MetricTests.test_every_optional_ligand_selection_combination) ... ok
+test_invalid_coordinates_and_no_designed_residues_fail (__main__.MetricTests.test_invalid_coordinates_and_no_designed_residues_fail) ... ok
+test_missing_atoms_cannot_pass_export_audit (__main__.MetricTests.test_missing_atoms_cannot_pass_export_audit) ... ok
+test_monomer_and_single_residue_have_unavailable_not_fake_distances (__main__.MetricTests.test_monomer_and_single_residue_have_unavailable_not_fake_distances) ... ok
+test_duplicate_checker_records_are_ambiguous (__main__.RankingTests.test_duplicate_checker_records_are_ambiguous) ... ok
+test_invalid_conformer_weights_fail_before_generation (__main__.RankingTests.test_invalid_conformer_weights_fail_before_generation) ... ok
+test_ligand_sequence_designer_routes_exact_model (__main__.RankingTests.test_ligand_sequence_designer_routes_exact_model) ... ok
+test_nonfinite_scores_and_missing_checkers_cannot_be_hits (__main__.RankingTests.test_nonfinite_scores_and_missing_checkers_cannot_be_hits) ... ok
+test_only_requested_predictors_contribute_to_rank (__main__.RankingTests.test_only_requested_predictors_contribute_to_rank) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.832s
+
+OK
+completed 1 predictions (0 failed) -> /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp1lhv75ok/output/prediction_metrics.csv
+chunk 0: cached (1 successful designs)
+completed 1 predictions (0 failed) -> /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp1lhv75ok/output/prediction_metrics.csv
+preflight ok: all select_* keys and atom names resolve against structure.bcif
+  L65: fixture built in 0.0s -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpj4fj_jk3/run/rfd3/fixtures/oracle_demo.npz
+  wrote 1 bin(s), 2 designs -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpj4fj_jk3/run/rfd3/bin_manifest.json
+  L65: fixture cached -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpj4fj_jk3/run/rfd3/fixtures/oracle_demo.npz
+  wrote 1 bin(s), 2 designs -> /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmpj4fj_jk3/run/rfd3/bin_manifest.json
+scored 1/1 protein designs across 1 predictor(s); top mean iPTM=0.700, minimum=0.700 -> /private/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/tmp25wg3ux2/top100.csv

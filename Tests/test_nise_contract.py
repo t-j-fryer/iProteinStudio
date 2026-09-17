@@ -33,7 +33,7 @@ class NISEContracts(unittest.TestCase):
         self.env.stop(); self.temp.cleanup()
 
     def test_request_rejects_incompatible_budgets_and_implicit_resources(self):
-        for change in ({"num_starts": 0}, {"num_starts": True}, {"trajectories": 101},
+        for change in ({"num_starts": 0}, {"num_starts": True}, {"trajectories": 1001},
                        {"num_starts": 1, "trajectories": 2}, {"binder_min_len": 151},
                        {"scheduler": "parallel"}, {"affinity": False}, {"smiles": "CC\nO"}):
             with self.subTest(change=change), self.assertRaises(ValueError):
@@ -43,7 +43,7 @@ class NISEContracts(unittest.TestCase):
 
     def test_defaults_separate_science_and_residency(self):
         cfg = contract.normalize({"smiles": "CCO"})
-        self.assertEqual((cfg["num_starts"], cfg["trajectories"], cfg["nise_seqs"]), (100, 6, 64))
+        self.assertEqual((cfg["num_starts"], cfg["trajectories"], cfg["nise_seqs"]), (1000, 8, 32))
         self.assertEqual(cfg["scheduler"], "cycle-wave")
         self.assertFalse(cfg["preorganisation"])
 
@@ -53,9 +53,9 @@ class NISEContracts(unittest.TestCase):
         self.assertEqual(lengths(cfg), [65, 86, 108, 129, 150])
         self.assertEqual(lengths({**cfg, 'rfd3_num_bins': 1}), [107])
         self.assertEqual(lengths({**cfg, 'binder_max_len': 66}), [65, 66])
-        self.assertEqual(contract.prediction_budget(cfg)['initial_boltz_max'], 2400)
-        self.assertEqual(contract.prediction_budget(cfg)['initial_rfd3_backbones'], 100)
-        self.assertEqual(contract.prediction_budget({'smiles': 'CCO'})['initial_boltz_max'], 2500)
+        self.assertEqual(contract.prediction_budget(cfg)['initial_boltz_max'], 24000)
+        self.assertEqual(contract.prediction_budget(cfg)['initial_rfd3_backbones'], 1000)
+        self.assertEqual(contract.prediction_budget({'smiles': 'CCO'})['initial_boltz_max'], 25000)
         paths = contract.required_files(self.root, cfg)
         self.assertIn(self.root / 'rfd3/checkpoints/rfd3_latest.ckpt', paths)
         self.assertNotIn(self.root / 'rfd3/checkpoints/rfd3_latest.ckpt', contract.required_files(self.root))
@@ -101,6 +101,8 @@ class NISEContracts(unittest.TestCase):
         self.assertTrue((output / ".studio_runtime/pipeline/scripts/nise/campaign.py").is_file())
         self.assertFalse((output / "candidates").exists())
         self.assertEqual(load_plan(plan["id"], plan["sha256"]), plan)
+        self.assertTrue((output / ".studio_runtime/pipeline/scripts/nise/partial_noising.py").is_file())
+        self.assertEqual(plan["normalized_request"]["prediction_budget"]["later_cycle_boltz_max"], 8 * 96)
         settings = output / "nise_config.json"
         settings.write_text(settings.read_text() + "\n")
         with self.assertRaises(common.StudioError):
@@ -119,7 +121,7 @@ class NISEContracts(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True); path.write_text('fixture\n')
         (self.root / 'models/boltz2/mols').mkdir()
         plan = nise_plan({'project': 'demo', 'request': cfg})
-        self.assertEqual(plan['normalized_request']['prediction_budget']['initial_rfd3_backbones'], 100)
+        self.assertEqual(plan['normalized_request']['prediction_budget']['initial_rfd3_backbones'], 1000)
         self.assertEqual(load_plan(plan['id'], plan['sha256']), plan)
         generator = self.root / 'rfd3/scripts/generate_backbones.py'
         generator.write_text('changed code\n')
@@ -140,6 +142,13 @@ class NISEContracts(unittest.TestCase):
         self.assertEqual(len(result["groups"][0]["variants"]), 2)
         self.assertIsNone(result["groups"][0]["is_hit"])
         self.assertEqual(catalog.results_overview("demo/nise_runs/one", hit_only=True)["groups"], [])
+        common.atomic_json(output / "candidates/masked.json", {
+            "name": "masked", "trajectory": 0, "cycle": 2, "pdb": "holo.pdb", "sequence": "AXA",
+            "passed": False, "branch": "masked-backbone", "final_eligible": False})
+        variants = catalog.results_overview("demo/nise_runs/one")["groups"][0]["variants"]
+        masked = next(v for v in variants if v["id"] == "masked")
+        self.assertFalse(masked["final_eligible"])
+        self.assertEqual(masked["artifacts"][0]["role"], "masked_backbone")
 
 
 if __name__ == "__main__":

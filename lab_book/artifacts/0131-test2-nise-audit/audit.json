@@ -1,0 +1,1244 @@
+[
+  {
+    "folder": "nise-016073B9-7F59-4E71-BBA3-62ACDEFBD44C",
+    "job_id": "job-583a358c6eb5",
+    "name": "NISE_NESSO_PH_Bt",
+    "status": "failed",
+    "exit_code": 1,
+    "started_at": "2026-09-13T04:30:55.859450Z",
+    "finished_at": "2026-09-13T11:00:07.666134Z",
+    "recorded_wall_seconds": 23351.806684,
+    "request": {
+      "backbone_method": "protein-hunter",
+      "beam": 1,
+      "binder_max_len": 150,
+      "binder_min_len": 65,
+      "exposed_atoms": [
+        "C25",
+        "C22",
+        "O18",
+        "O19"
+      ],
+      "exposure_min_fraction": 0.5,
+      "hotspot_atoms": [
+        "C31",
+        "S20",
+        "C29",
+        "C32",
+        "N24",
+        "C30",
+        "N23",
+        "O17",
+        "C21"
+      ],
+      "hotspot_distance": 6,
+      "ligand_atom_signature": "579a063252e23e7064b1254fe4f4efdc74c833e80529e27ac5d266a97518b14f",
+      "ligand_atoms_generated_for": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2",
+      "max_cycles": 30,
+      "nesso_screen": true,
+      "nesso_top_k": 8,
+      "nise_ligand_sc_from_cycle": 3,
+      "nise_sc_ca": 2.5,
+      "nise_sc_lig": 2.5,
+      "nise_seqs": 64,
+      "num_starts": 100,
+      "patience": 5,
+      "phase0_gate_seqs": 3,
+      "phase0_nesso_expand_top_k": 20,
+      "phase0_nesso_refine_top_k": 1,
+      "phase0_nesso_screen": true,
+      "phase0_refine_cycles": 2,
+      "phase0_sc_ca": 2,
+      "phase0_seqs1": 3,
+      "phase0_seqs2": 5,
+      "preorganisation": false,
+      "rfd3_num_bins": 5,
+      "scheduler": "cycle-wave",
+      "seed": 0,
+      "smiles": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2",
+      "top_x": 8,
+      "trajectories": 6
+    },
+    "initial_reference_count": 100,
+    "sequence_candidate_count": 127,
+    "candidate_set_sha256": "bb9925526909da9e6fdf1a292ff3c24d510454d06aba0c89779e0e0ad115f31e",
+    "initial_reference_set_sha256": "f8bf9c10c25cabe79b37ac1958fa5c0dcd0ecf51abce2c52da2d441a228964ad",
+    "phase0": {
+      "1": {
+        "folded": 100,
+        "passed": 18,
+        "atom_passed": 18,
+        "passing_lineages": [
+          "L004",
+          "L005",
+          "L006",
+          "L013",
+          "L018",
+          "L019",
+          "L021",
+          "L027",
+          "L037",
+          "L040",
+          "L043",
+          "L056",
+          "L057",
+          "L072",
+          "L080",
+          "L084",
+          "L087",
+          "L091"
+        ],
+        "atom_failures_overlapping": {
+          "C25: retains less than 50% of unbound accessibility": 65,
+          "C22: retains less than 50% of unbound accessibility": 56,
+          "O18: retains less than 50% of unbound accessibility": 57,
+          "O19: retains less than 50% of unbound accessibility": 59,
+          "N23: no protein contact within 6 \u00c5": 1
+        }
+      },
+      "2": {
+        "folded": 18,
+        "passed": 3,
+        "atom_passed": 3,
+        "passing_lineages": [
+          "L004",
+          "L018",
+          "L021"
+        ],
+        "atom_failures_overlapping": {
+          "C25: retains less than 50% of unbound accessibility": 11,
+          "C22: retains less than 50% of unbound accessibility": 8,
+          "O18: retains less than 50% of unbound accessibility": 8,
+          "O19: retains less than 50% of unbound accessibility": 9
+        }
+      },
+      "3": {
+        "folded": 9,
+        "passed": 0,
+        "atom_passed": 3,
+        "passing_lineages": [],
+        "atom_failures_overlapping": {
+          "C25: retains less than 50% of unbound accessibility": 4,
+          "O19: retains less than 50% of unbound accessibility": 3,
+          "O18: retains less than 50% of unbound accessibility": 2,
+          "C22: retains less than 50% of unbound accessibility": 2
+        }
+      }
+    },
+    "optimization": {},
+    "gate": [
+      {
+        "name": "L004_c3_0",
+        "ca_rmsd": 4.24554340906385,
+        "ligand_rmsd": 8.004582122598581,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L004_c3_1",
+        "ca_rmsd": 3.161346471061211,
+        "ligand_rmsd": 5.572380661059148,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L004_c3_2",
+        "ca_rmsd": 3.2204010401759637,
+        "ligand_rmsd": 4.3037539441000465,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L018_c3_0",
+        "ca_rmsd": 6.327208769063844,
+        "ligand_rmsd": 4.862011268057958,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L018_c3_1",
+        "ca_rmsd": 4.53280819905802,
+        "ligand_rmsd": 7.03821223466317,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L018_c3_2",
+        "ca_rmsd": 5.338066353704863,
+        "ligand_rmsd": 8.029970809389638,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L021_c3_0",
+        "ca_rmsd": 3.285242268994921,
+        "ligand_rmsd": 18.739327007320362,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L021_c3_1",
+        "ca_rmsd": 18.052498333643122,
+        "ligand_rmsd": 13.504315400582389,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L021_c3_2",
+        "ca_rmsd": 3.0599016955716043,
+        "ligand_rmsd": 21.290677896682073,
+        "passed": false,
+        "atom_passed": true
+      }
+    ],
+    "nesso": {
+      "scored": 354,
+      "eligible": 352,
+      "selected": 118,
+      "rejections": [
+        {
+          "candidate": "L033_c1_1",
+          "stage": "initial",
+          "cycle": "1",
+          "trajectory": "",
+          "lineage": "L033",
+          "sequence": "TPGSLAVYAAQHSSEELARLIYRSMKIVADRLLEAEEFETDDDAATAGAVASIAATTASGSISDAKTEDERKKDADEQAKQVSETMQRLVEEGLFALAAATVVRTTGLSYYRLKLLLDEKEDPQLKEEAEKNVQEAEERAERVKQILTGT",
+          "selected_for_boltz": "False",
+          "nesso_pbind": "0.44467806816101074",
+          "nesso_affinity_log10_ic50_um": "0.26498356461524963",
+          "nesso_placement_entropy": "0.0",
+          "nesso_screening_score": "",
+          "nesso_eligible": "False",
+          "nesso_rejection_reason": "Protein-ligand placement entropy is zero or near zero (<= 0.000001)",
+          "nesso_ranking_policy": "nesso-pbind-placement-v2"
+        },
+        {
+          "candidate": "L076_c1_0",
+          "stage": "initial",
+          "cycle": "1",
+          "trajectory": "",
+          "lineage": "L076",
+          "sequence": "LSTYSSVTSLASTGGQTESKRTTGARAKENASPADLLAPDQTATVRSVASSRVEPDDVEEPLFSVTVTVTSSVAPSDVAAIHDKDAPASDTSKSVKVEDVTA",
+          "selected_for_boltz": "False",
+          "nesso_pbind": "0.3895275890827179",
+          "nesso_affinity_log10_ic50_um": "0.19966793060302734",
+          "nesso_placement_entropy": "0.0",
+          "nesso_screening_score": "",
+          "nesso_eligible": "False",
+          "nesso_rejection_reason": "Protein-ligand placement entropy is zero or near zero (<= 0.000001)",
+          "nesso_ranking_policy": "nesso-pbind-placement-v2"
+        }
+      ],
+      "selected_subset_correlations": {
+        "1": {
+          "n": 100,
+          "pearson": 0.1595161923084365,
+          "spearman": 0.11120312031203121
+        },
+        "2": {
+          "n": 18,
+          "pearson": 0.4284249542562497,
+          "spearman": 0.1434468524251806
+        }
+      }
+    },
+    "rfd3_fixtures": [],
+    "rfd3_partial_pdbs": []
+  },
+  {
+    "folder": "nise-C9CCE180-9E41-4BA3-95AE-CB03FBB867FA",
+    "job_id": "job-4a2f043a9b21",
+    "name": "NISE_BOLTZ_PH_Bt",
+    "status": "completed",
+    "exit_code": 0,
+    "started_at": "2026-09-10T15:22:46.812499Z",
+    "finished_at": "2026-09-13T04:30:52.173122Z",
+    "recorded_wall_seconds": 220085.360623,
+    "request": {
+      "backbone_method": "protein-hunter",
+      "beam": 1,
+      "binder_max_len": 150,
+      "binder_min_len": 65,
+      "exposed_atoms": [
+        "C25",
+        "C22",
+        "O18",
+        "O19"
+      ],
+      "exposure_min_fraction": 0.5,
+      "hotspot_atoms": [
+        "C31",
+        "S20",
+        "C29",
+        "C32",
+        "N24",
+        "C30",
+        "N23",
+        "O17",
+        "C21"
+      ],
+      "hotspot_distance": 6,
+      "ligand_atom_signature": "579a063252e23e7064b1254fe4f4efdc74c833e80529e27ac5d266a97518b14f",
+      "ligand_atoms_generated_for": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2",
+      "max_cycles": 30,
+      "nesso_screen": false,
+      "nesso_top_k": 16,
+      "nise_ligand_sc_from_cycle": 3,
+      "nise_sc_ca": 2.5,
+      "nise_sc_lig": 2.5,
+      "nise_seqs": 64,
+      "num_starts": 100,
+      "patience": 5,
+      "phase0_gate_seqs": 3,
+      "phase0_nesso_expand_top_k": 20,
+      "phase0_nesso_refine_top_k": 1,
+      "phase0_nesso_screen": false,
+      "phase0_refine_cycles": 2,
+      "phase0_sc_ca": 2,
+      "phase0_seqs1": 3,
+      "phase0_seqs2": 5,
+      "preorganisation": false,
+      "rfd3_num_bins": 5,
+      "scheduler": "cycle-wave",
+      "seed": 0,
+      "smiles": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2",
+      "top_x": 8,
+      "trajectories": 6
+    },
+    "initial_reference_count": 100,
+    "sequence_candidate_count": 2369,
+    "candidate_set_sha256": "c7271bb5b55f65ae8ffe3a0aa58e703b0e2ab5ddbea34994c7dd3d4599967115",
+    "initial_reference_set_sha256": "7ce4a90533e4c6d8964b49b2ce8f7ee56e720e837f94bb429195a2c7bbebc1d3",
+    "phase0": {
+      "1": {
+        "folded": 300,
+        "passed": 54,
+        "atom_passed": 54,
+        "passing_lineages": [
+          "L000",
+          "L001",
+          "L007",
+          "L009",
+          "L011",
+          "L012",
+          "L013",
+          "L017",
+          "L019",
+          "L024",
+          "L025",
+          "L028",
+          "L031",
+          "L032",
+          "L035",
+          "L037",
+          "L039",
+          "L041",
+          "L042",
+          "L043",
+          "L044",
+          "L046",
+          "L049",
+          "L051",
+          "L053",
+          "L054",
+          "L055",
+          "L056",
+          "L061",
+          "L064",
+          "L065",
+          "L070",
+          "L072",
+          "L073",
+          "L076",
+          "L078",
+          "L086",
+          "L089",
+          "L090",
+          "L097"
+        ],
+        "atom_failures_overlapping": {
+          "O19: retains less than 50% of unbound accessibility": 165,
+          "C25: retains less than 50% of unbound accessibility": 173,
+          "C22: retains less than 50% of unbound accessibility": 133,
+          "O18: retains less than 50% of unbound accessibility": 146,
+          "O17: no protein contact within 6 \u00c5": 3
+        }
+      },
+      "2": {
+        "folded": 120,
+        "passed": 24,
+        "atom_passed": 24,
+        "passing_lineages": [
+          "L001",
+          "L007",
+          "L012",
+          "L017",
+          "L025",
+          "L028",
+          "L031",
+          "L032",
+          "L039",
+          "L049",
+          "L051",
+          "L053",
+          "L054",
+          "L055",
+          "L056",
+          "L061",
+          "L064",
+          "L065",
+          "L070",
+          "L072",
+          "L086"
+        ],
+        "atom_failures_overlapping": {
+          "O19: retains less than 50% of unbound accessibility": 61,
+          "C22: retains less than 50% of unbound accessibility": 59,
+          "O18: retains less than 50% of unbound accessibility": 37,
+          "C25: retains less than 50% of unbound accessibility": 57,
+          "N23: no protein contact within 6 \u00c5": 1,
+          "O17: no protein contact within 6 \u00c5": 1
+        }
+      },
+      "3": {
+        "folded": 63,
+        "passed": 6,
+        "atom_passed": 15,
+        "passing_lineages": [
+          "L001",
+          "L025",
+          "L031",
+          "L039",
+          "L051"
+        ],
+        "atom_failures_overlapping": {
+          "O19: retains less than 50% of unbound accessibility": 38,
+          "O18: retains less than 50% of unbound accessibility": 19,
+          "C25: retains less than 50% of unbound accessibility": 29,
+          "C22: retains less than 50% of unbound accessibility": 30,
+          "O17: no protein contact within 6 \u00c5": 3,
+          "C21: no protein contact within 6 \u00c5": 1,
+          "C32: no protein contact within 6 \u00c5": 1,
+          "N24: no protein contact within 6 \u00c5": 1
+        }
+      },
+      "4": {
+        "folded": 30,
+        "passed": 10,
+        "atom_passed": 10,
+        "passing_lineages": [
+          "L001",
+          "L025",
+          "L031",
+          "L039",
+          "L051"
+        ],
+        "atom_failures_overlapping": {
+          "C25: retains less than 50% of unbound accessibility": 11,
+          "O19: retains less than 50% of unbound accessibility": 12,
+          "C22: retains less than 50% of unbound accessibility": 6,
+          "O18: retains less than 50% of unbound accessibility": 6,
+          "O17: no protein contact within 6 \u00c5": 2,
+          "C21: no protein contact within 6 \u00c5": 1,
+          "S20: no protein contact within 6 \u00c5": 2,
+          "C29: no protein contact within 6 \u00c5": 2,
+          "C31: no protein contact within 6 \u00c5": 1
+        }
+      }
+    },
+    "optimization": {
+      "1": {
+        "folded": 320,
+        "passed": 106,
+        "atom_passed": 146,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "C25: retains less than 50% of unbound accessibility": 76,
+          "O19: retains less than 50% of unbound accessibility": 82,
+          "C22: retains less than 50% of unbound accessibility": 53,
+          "O18: retains less than 50% of unbound accessibility": 60,
+          "O17: no protein contact within 6 \u00c5": 7,
+          "C21: no protein contact within 6 \u00c5": 4,
+          "N23: no protein contact within 6 \u00c5": 4,
+          "C31: no protein contact within 6 \u00c5": 5,
+          "S20: no protein contact within 6 \u00c5": 7,
+          "C29: no protein contact within 6 \u00c5": 7,
+          "C32: no protein contact within 6 \u00c5": 5,
+          "N24: no protein contact within 6 \u00c5": 5,
+          "C30: no protein contact within 6 \u00c5": 3
+        }
+      },
+      "2": {
+        "folded": 320,
+        "passed": 108,
+        "atom_passed": 135,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "O18: retains less than 50% of unbound accessibility": 71,
+          "O19: retains less than 50% of unbound accessibility": 111,
+          "C25: retains less than 50% of unbound accessibility": 78,
+          "C22: retains less than 50% of unbound accessibility": 68,
+          "C29: no protein contact within 6 \u00c5": 8,
+          "C32: no protein contact within 6 \u00c5": 3,
+          "S20: no protein contact within 6 \u00c5": 8,
+          "N24: no protein contact within 6 \u00c5": 1,
+          "O17: no protein contact within 6 \u00c5": 2,
+          "C21: no protein contact within 6 \u00c5": 1,
+          "C31: no protein contact within 6 \u00c5": 1
+        }
+      },
+      "3": {
+        "folded": 320,
+        "passed": 26,
+        "atom_passed": 145,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "O18: retains less than 50% of unbound accessibility": 64,
+          "O19: retains less than 50% of unbound accessibility": 110,
+          "C25: retains less than 50% of unbound accessibility": 75,
+          "C22: retains less than 50% of unbound accessibility": 57,
+          "O17: no protein contact within 6 \u00c5": 5,
+          "C21: no protein contact within 6 \u00c5": 3,
+          "C29: no protein contact within 6 \u00c5": 4,
+          "N24: no protein contact within 6 \u00c5": 3,
+          "C31: no protein contact within 6 \u00c5": 2,
+          "S20: no protein contact within 6 \u00c5": 4,
+          "C32: no protein contact within 6 \u00c5": 3,
+          "C30: no protein contact within 6 \u00c5": 2,
+          "N23: no protein contact within 6 \u00c5": 1
+        }
+      },
+      "4": {
+        "folded": 128,
+        "passed": 31,
+        "atom_passed": 54,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "O19: retains less than 50% of unbound accessibility": 58,
+          "O18: retains less than 50% of unbound accessibility": 22,
+          "C25: retains less than 50% of unbound accessibility": 24,
+          "C22: retains less than 50% of unbound accessibility": 21
+        }
+      },
+      "5": {
+        "folded": 128,
+        "passed": 10,
+        "atom_passed": 37,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "O19: retains less than 50% of unbound accessibility": 64,
+          "C25: retains less than 50% of unbound accessibility": 39,
+          "C22: retains less than 50% of unbound accessibility": 33,
+          "O18: retains less than 50% of unbound accessibility": 21
+        }
+      },
+      "6": {
+        "folded": 128,
+        "passed": 25,
+        "atom_passed": 47,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "O19: retains less than 50% of unbound accessibility": 58,
+          "O18: retains less than 50% of unbound accessibility": 28,
+          "C25: retains less than 50% of unbound accessibility": 41,
+          "C22: retains less than 50% of unbound accessibility": 33,
+          "O17: no protein contact within 6 \u00c5": 1
+        }
+      },
+      "7": {
+        "folded": 128,
+        "passed": 27,
+        "atom_passed": 38,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "O19: retains less than 50% of unbound accessibility": 62,
+          "C25: retains less than 50% of unbound accessibility": 45,
+          "C22: retains less than 50% of unbound accessibility": 32,
+          "O18: retains less than 50% of unbound accessibility": 27
+        }
+      },
+      "8": {
+        "folded": 128,
+        "passed": 18,
+        "atom_passed": 29,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "O19: retains less than 50% of unbound accessibility": 64,
+          "O18: retains less than 50% of unbound accessibility": 29,
+          "C25: retains less than 50% of unbound accessibility": 46,
+          "C22: retains less than 50% of unbound accessibility": 35,
+          "N23: no protein contact within 6 \u00c5": 1,
+          "O17: no protein contact within 6 \u00c5": 2,
+          "C21: no protein contact within 6 \u00c5": 1
+        }
+      },
+      "9": {
+        "folded": 128,
+        "passed": 17,
+        "atom_passed": 31,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "C22: retains less than 50% of unbound accessibility": 35,
+          "O19: retains less than 50% of unbound accessibility": 71,
+          "C25: retains less than 50% of unbound accessibility": 39,
+          "O18: retains less than 50% of unbound accessibility": 30
+        }
+      },
+      "10": {
+        "folded": 64,
+        "passed": 8,
+        "atom_passed": 13,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "C25: retains less than 50% of unbound accessibility": 31,
+          "O19: retains less than 50% of unbound accessibility": 34,
+          "C22: retains less than 50% of unbound accessibility": 28,
+          "O18: retains less than 50% of unbound accessibility": 8
+        }
+      },
+      "11": {
+        "folded": 64,
+        "passed": 3,
+        "atom_passed": 12,
+        "passing_lineages": null,
+        "atom_failures_overlapping": {
+          "C25: retains less than 50% of unbound accessibility": 30,
+          "O19: retains less than 50% of unbound accessibility": 35,
+          "C22: retains less than 50% of unbound accessibility": 25,
+          "O18: retains less than 50% of unbound accessibility": 19
+        }
+      }
+    },
+    "gate": [
+      {
+        "name": "L001_c3_0",
+        "ca_rmsd": 12.395687281091094,
+        "ligand_rmsd": 9.71653138215036,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L001_c3_1",
+        "ca_rmsd": 1.7594011634546711,
+        "ligand_rmsd": 4.352747109019345,
+        "passed": true,
+        "atom_passed": true
+      },
+      {
+        "name": "L001_c3_2",
+        "ca_rmsd": 2.8079522939378974,
+        "ligand_rmsd": 4.35198061986802,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L007_c3_0",
+        "ca_rmsd": 1.6091163759155602,
+        "ligand_rmsd": 20.416757383766306,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L007_c3_1",
+        "ca_rmsd": 1.9714679289832906,
+        "ligand_rmsd": 3.63188886375237,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L007_c3_2",
+        "ca_rmsd": 11.483448916484821,
+        "ligand_rmsd": 12.862345755092704,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L012_c3_0",
+        "ca_rmsd": 2.3624760935130644,
+        "ligand_rmsd": 23.032221461370593,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L012_c3_1",
+        "ca_rmsd": 7.424758465051387,
+        "ligand_rmsd": 29.666397921950722,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L012_c3_2",
+        "ca_rmsd": 3.6480813313695433,
+        "ligand_rmsd": 21.688979523251245,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L017_c3_0",
+        "ca_rmsd": 0.8574866564976941,
+        "ligand_rmsd": 25.153661357091387,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L017_c3_1",
+        "ca_rmsd": 11.503573538127313,
+        "ligand_rmsd": 12.062941893583933,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L017_c3_2",
+        "ca_rmsd": 2.588617682005318,
+        "ligand_rmsd": 15.89368833898815,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L025_c3_0",
+        "ca_rmsd": 2.629666753883793,
+        "ligand_rmsd": 19.49446816325417,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L025_c3_1",
+        "ca_rmsd": 1.9180038288310097,
+        "ligand_rmsd": 7.590611133702175,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L025_c3_2",
+        "ca_rmsd": 1.2407883385515892,
+        "ligand_rmsd": 8.56604247881004,
+        "passed": true,
+        "atom_passed": true
+      },
+      {
+        "name": "L028_c3_0",
+        "ca_rmsd": 7.131684955199867,
+        "ligand_rmsd": 6.40157544866335,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L028_c3_1",
+        "ca_rmsd": 2.125740181088079,
+        "ligand_rmsd": 1.894000832979669,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L028_c3_2",
+        "ca_rmsd": 6.019274973696022,
+        "ligand_rmsd": 7.33633027752616,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L031_c3_0",
+        "ca_rmsd": 4.145881551732121,
+        "ligand_rmsd": 8.512853669285269,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L031_c3_1",
+        "ca_rmsd": 2.772963833170862,
+        "ligand_rmsd": 3.2353263560471164,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L031_c3_2",
+        "ca_rmsd": 1.5661617256768317,
+        "ligand_rmsd": 12.443386521561878,
+        "passed": true,
+        "atom_passed": true
+      },
+      {
+        "name": "L032_c3_0",
+        "ca_rmsd": 2.7217520851058663,
+        "ligand_rmsd": 8.212777130276253,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L032_c3_1",
+        "ca_rmsd": 1.0570054406842289,
+        "ligand_rmsd": 13.112768144487433,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L032_c3_2",
+        "ca_rmsd": 0.47758180325788496,
+        "ligand_rmsd": 3.6559483875508496,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L039_c3_0",
+        "ca_rmsd": 0.8261168851838766,
+        "ligand_rmsd": 7.158873262879184,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L039_c3_1",
+        "ca_rmsd": 0.8424639080725175,
+        "ligand_rmsd": 4.1129720232603315,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L039_c3_2",
+        "ca_rmsd": 1.062259903443764,
+        "ligand_rmsd": 28.1957096126705,
+        "passed": true,
+        "atom_passed": true
+      },
+      {
+        "name": "L049_c3_0",
+        "ca_rmsd": 8.85958859089856,
+        "ligand_rmsd": 22.39053769809351,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L049_c3_1",
+        "ca_rmsd": 8.935165717672524,
+        "ligand_rmsd": 25.042981237072855,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L049_c3_2",
+        "ca_rmsd": 11.706258500228,
+        "ligand_rmsd": 15.954295380135367,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L051_c3_0",
+        "ca_rmsd": 0.4326685998492193,
+        "ligand_rmsd": 4.723593629324706,
+        "passed": true,
+        "atom_passed": true
+      },
+      {
+        "name": "L051_c3_1",
+        "ca_rmsd": 0.6225051488185911,
+        "ligand_rmsd": 3.0348543007346223,
+        "passed": true,
+        "atom_passed": true
+      },
+      {
+        "name": "L051_c3_2",
+        "ca_rmsd": 0.4611113467467333,
+        "ligand_rmsd": 7.787039603345808,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L053_c3_0",
+        "ca_rmsd": 0.8152871646771135,
+        "ligand_rmsd": 13.916636599694103,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L053_c3_1",
+        "ca_rmsd": 1.088363969810379,
+        "ligand_rmsd": 8.183432557245174,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L053_c3_2",
+        "ca_rmsd": 0.772165885736396,
+        "ligand_rmsd": 24.512443139271358,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L054_c3_0",
+        "ca_rmsd": 7.840015939856721,
+        "ligand_rmsd": 16.55799811632253,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L054_c3_1",
+        "ca_rmsd": 3.0954785097013944,
+        "ligand_rmsd": 18.80876795054637,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L054_c3_2",
+        "ca_rmsd": 5.57099213068898,
+        "ligand_rmsd": 7.463405204006953,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L055_c3_0",
+        "ca_rmsd": 1.090211239542249,
+        "ligand_rmsd": 28.26152177020358,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L055_c3_1",
+        "ca_rmsd": 2.1947668295223313,
+        "ligand_rmsd": 18.579475345029937,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L055_c3_2",
+        "ca_rmsd": 2.222326401113968,
+        "ligand_rmsd": 21.843468464555354,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L056_c3_0",
+        "ca_rmsd": 2.0121482532117057,
+        "ligand_rmsd": 20.374909360716877,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L056_c3_1",
+        "ca_rmsd": 1.0071702458365217,
+        "ligand_rmsd": 10.748313880823249,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L056_c3_2",
+        "ca_rmsd": 1.8653908736341396,
+        "ligand_rmsd": 16.013488121516023,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L061_c3_0",
+        "ca_rmsd": 11.831403617082973,
+        "ligand_rmsd": 13.107495179920022,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L061_c3_1",
+        "ca_rmsd": 12.945554182800603,
+        "ligand_rmsd": 18.327895978810705,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L061_c3_2",
+        "ca_rmsd": 13.337180006448886,
+        "ligand_rmsd": 29.560728822258206,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L064_c3_0",
+        "ca_rmsd": 2.3028351203373365,
+        "ligand_rmsd": 30.641938417937233,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L064_c3_1",
+        "ca_rmsd": 3.1237089530306705,
+        "ligand_rmsd": 3.865557639838159,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L064_c3_2",
+        "ca_rmsd": 5.804090448945189,
+        "ligand_rmsd": 8.29247730658193,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L065_c3_0",
+        "ca_rmsd": 5.187128084298139,
+        "ligand_rmsd": 25.974544863880055,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L065_c3_1",
+        "ca_rmsd": 1.3976817465077374,
+        "ligand_rmsd": 28.317262926809345,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L065_c3_2",
+        "ca_rmsd": 1.162052275356049,
+        "ligand_rmsd": 18.989925873715244,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L070_c3_0",
+        "ca_rmsd": 4.846690836946477,
+        "ligand_rmsd": 10.511420740304178,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L070_c3_1",
+        "ca_rmsd": 5.177476724024294,
+        "ligand_rmsd": 9.325326410509977,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L070_c3_2",
+        "ca_rmsd": 5.608221296006266,
+        "ligand_rmsd": 13.340009498620622,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L072_c3_0",
+        "ca_rmsd": 5.658129005957294,
+        "ligand_rmsd": 8.26318415020555,
+        "passed": false,
+        "atom_passed": true
+      },
+      {
+        "name": "L072_c3_1",
+        "ca_rmsd": 13.710704104921712,
+        "ligand_rmsd": 27.079998616536432,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L072_c3_2",
+        "ca_rmsd": 2.193609207681278,
+        "ligand_rmsd": 10.506773326350789,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L086_c3_0",
+        "ca_rmsd": 2.6609930944183176,
+        "ligand_rmsd": 13.460261810456448,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L086_c3_1",
+        "ca_rmsd": 5.280587660915899,
+        "ligand_rmsd": 23.647936413734016,
+        "passed": false,
+        "atom_passed": false
+      },
+      {
+        "name": "L086_c3_2",
+        "ca_rmsd": 4.827586338879564,
+        "ligand_rmsd": 13.116563098428447,
+        "passed": false,
+        "atom_passed": false
+      }
+    ],
+    "winners": [
+      {
+        "ligand_plddt": 91.06125,
+        "origin": "L001",
+        "pbind": 0.5246928334236145,
+        "score": 1.4353053334236145,
+        "sequence": "MLYDSLEDRIKVEYVSSSITEEEALTIVRILANVADALEINEEKARKAAQKATDLVEVHKVPGSLEIIATNLEKKEIVAVIRVEVESEEEQEKLYRRLKKAADFLNKIVKEKHERRQKKRSLRQHH",
+        "trajectory": 1,
+        "name": "c06_t1_n0_s58",
+        "cycle": 6,
+        "ca_rmsd": 0.792613703992893,
+        "ligand_rmsd": 0.9489383897605246,
+        "passed": true,
+        "pdb": "cycle06/fold/c06_t1_n0_s58/out/boltz_results_yaml/predictions/c06_t1_n0_s58/c06_t1_n0_s58_model_0.pdb",
+        "ligand_consistency_was_required": true
+      },
+      {
+        "ligand_plddt": 88.464375,
+        "origin": "L051",
+        "pbind": 0.45897337794303894,
+        "score": 1.343617127943039,
+        "sequence": "SLQAAVEAAQEAHRAGRVTLELLLSIPESSLSEQQQQVLKQLIRDVTSVAQDLLAAPFDAENGRTLARRARERSRQLADEIRQNFAPRYPELVEAAQNFAEAATRAAEAILRAL",
+        "trajectory": 0,
+        "name": "c04_t0_n0_s43",
+        "cycle": 4,
+        "ca_rmsd": 0.4134470570793985,
+        "ligand_rmsd": 1.1006175555700795,
+        "passed": true,
+        "pdb": "cycle04/fold/c04_t0_n0_s43/out/boltz_results_yaml/predictions/c04_t0_n0_s43/c04_t0_n0_s43_model_0.pdb",
+        "ligand_consistency_was_required": true
+      },
+      {
+        "ligand_plddt": 84.70875000000001,
+        "origin": "L039",
+        "pbind": 0.2787526547908783,
+        "score": 1.1258401547908785,
+        "sequence": "SRQLAVDTGKQFIDDRINDFATLEEAKEFLREFVRQFTLEHGGTLEQARQATQELEKILEKRFLAKERETRL",
+        "trajectory": 3,
+        "name": "c01_t3_n0_s52",
+        "cycle": 1,
+        "ca_rmsd": 0.8328207466405225,
+        "ligand_rmsd": 8.868097565190379,
+        "passed": true,
+        "pdb": "cycle01/fold/c01_t3_n0_s52/out/boltz_results_yaml/predictions/c01_t3_n0_s52/c01_t3_n0_s52_model_0.pdb",
+        "ligand_consistency_was_required": false
+      },
+      {
+        "ligand_plddt": 73.213125,
+        "origin": "L031",
+        "pbind": 0.28250405192375183,
+        "score": 1.014635301923752,
+        "sequence": "LQAGREAMDRQGVASVVLKKKGDEVEVSAVGKDGTTKMGVGGGHAAVPGGQLGAASAAAEGSMGTFTVKKDADGVWLVTSFQLGYFADNDDAVAMGRYAEALLRKYEDLLKDGQELNVTEL",
+        "trajectory": 2,
+        "name": "c02_t2_n0_s7",
+        "cycle": 2,
+        "ca_rmsd": 1.9426924371994987,
+        "ligand_rmsd": 6.148338185475782,
+        "passed": true,
+        "pdb": "cycle02/fold/c02_t2_n0_s7/out/boltz_results_yaml/predictions/c02_t2_n0_s7/c02_t2_n0_s7_model_0.pdb",
+        "ligand_consistency_was_required": false
+      },
+      {
+        "ligand_plddt": 65.43937500000001,
+        "origin": "L025",
+        "pbind": 0.10330962389707565,
+        "score": 0.7577033738970758,
+        "sequence": "GIIVFLVILVLVTVALLVIGIVVTLFLLLVLLSLGVGLVIISMVVLLFVIYNIVFTIVVSVFGLLVLVAVG",
+        "trajectory": 4,
+        "name": "c01_t4_n0_s5",
+        "cycle": 1,
+        "ca_rmsd": 2.35107772758313,
+        "ligand_rmsd": 2.5656090139367778,
+        "passed": true,
+        "pdb": "cycle01/fold/c01_t4_n0_s5/out/boltz_results_yaml/predictions/c01_t4_n0_s5/c01_t4_n0_s5_model_0.pdb",
+        "ligand_consistency_was_required": false
+      }
+    ],
+    "rfd3_fixtures": [],
+    "rfd3_partial_pdbs": []
+  },
+  {
+    "folder": "nise-CC39D6E2-90C1-4A59-B32B-D597A15D45C4",
+    "job_id": "job-bbc773b52ca2",
+    "name": "NISE_NESSO_RFD_Bt",
+    "status": "failed",
+    "exit_code": 1,
+    "started_at": "2026-09-14T18:53:11.755638Z",
+    "finished_at": "2026-09-14T18:55:30.804149Z",
+    "recorded_wall_seconds": 139.048511,
+    "request": {
+      "backbone_method": "rfdiffusion3",
+      "beam": 1,
+      "binder_max_len": 150,
+      "binder_min_len": 65,
+      "exposed_atoms": [
+        "C25",
+        "C22",
+        "O18",
+        "O19"
+      ],
+      "exposure_min_fraction": 0.5,
+      "hotspot_atoms": [
+        "C31",
+        "S20",
+        "C29",
+        "C32",
+        "N24",
+        "C30",
+        "N23",
+        "O17",
+        "C21"
+      ],
+      "hotspot_distance": 6,
+      "ligand_atom_signature": "579a063252e23e7064b1254fe4f4efdc74c833e80529e27ac5d266a97518b14f",
+      "ligand_atoms_generated_for": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2",
+      "max_cycles": 30,
+      "nesso_screen": true,
+      "nesso_top_k": 8,
+      "nise_ligand_sc_from_cycle": 3,
+      "nise_sc_ca": 2.5,
+      "nise_sc_lig": 2.5,
+      "nise_seqs": 64,
+      "num_starts": 100,
+      "patience": 5,
+      "phase0_gate_seqs": 3,
+      "phase0_nesso_expand_top_k": 20,
+      "phase0_nesso_refine_top_k": 1,
+      "phase0_nesso_screen": true,
+      "phase0_refine_cycles": 2,
+      "phase0_sc_ca": 2,
+      "phase0_seqs1": 3,
+      "phase0_seqs2": 5,
+      "preorganisation": false,
+      "rfd3_num_bins": 5,
+      "scheduler": "cycle-wave",
+      "seed": 0,
+      "smiles": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2",
+      "top_x": 8,
+      "trajectories": 6
+    },
+    "initial_reference_count": 0,
+    "sequence_candidate_count": 0,
+    "candidate_set_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "initial_reference_set_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "phase0": {},
+    "optimization": {},
+    "gate": [],
+    "rfd3_fixtures": [
+      {
+        "path": "phase0/cycle00/rfd3_initial/rfd3/fixtures/oracle_nise_initial_L108.npz",
+        "fixed_atoms": 16,
+        "buried_atoms": 0,
+        "exposed_atoms": 4,
+        "hotspot_atoms": 9
+      },
+      {
+        "path": "phase0/cycle00/rfd3_initial/rfd3/fixtures/oracle_nise_initial_L129.npz",
+        "fixed_atoms": 16,
+        "buried_atoms": 0,
+        "exposed_atoms": 4,
+        "hotspot_atoms": 9
+      },
+      {
+        "path": "phase0/cycle00/rfd3_initial/rfd3/fixtures/oracle_nise_initial_L150.npz",
+        "fixed_atoms": 16,
+        "buried_atoms": 0,
+        "exposed_atoms": 4,
+        "hotspot_atoms": 9
+      },
+      {
+        "path": "phase0/cycle00/rfd3_initial/rfd3/fixtures/oracle_nise_initial_L65.npz",
+        "fixed_atoms": 16,
+        "buried_atoms": 0,
+        "exposed_atoms": 4,
+        "hotspot_atoms": 9
+      },
+      {
+        "path": "phase0/cycle00/rfd3_initial/rfd3/fixtures/oracle_nise_initial_L86.npz",
+        "fixed_atoms": 16,
+        "buried_atoms": 0,
+        "exposed_atoms": 4,
+        "hotspot_atoms": 9
+      }
+    ],
+    "rfd3_partial_pdbs": [
+      "phase0/cycle00/rfd3_initial/rfd3/L65/queue0/backbones/design_0001.pdb",
+      "phase0/cycle00/rfd3_initial/rfd3/L65/queue1/backbones/design_0001.pdb"
+    ]
+  }
+]

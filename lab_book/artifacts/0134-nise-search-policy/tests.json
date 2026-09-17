@@ -1,0 +1,52 @@
+{
+  "neural_inference": false,
+  "results": [
+    {
+      "suite": "nise-all-tests",
+      "tests": 35,
+      "skipped": 0,
+      "result": "passed",
+      "log": "nise-all-tests.log"
+    },
+    {
+      "suite": "nise-search-policy",
+      "tests": 6,
+      "skipped": 0,
+      "result": "passed",
+      "log": "nise-search-policy.log"
+    },
+    {
+      "suite": "nise-nesso-tests",
+      "tests": 18,
+      "skipped": 0,
+      "result": "passed",
+      "log": "nise-nesso-tests.log"
+    },
+    {
+      "suite": "nise-resident-tests",
+      "tests": 14,
+      "skipped": 1,
+      "result": "passed",
+      "log": "nise-resident-tests.log"
+    },
+    {
+      "suite": "nise-desktop-tests",
+      "tests": 18,
+      "skipped": 0,
+      "result": "passed",
+      "log": "nise-desktop-tests.log"
+    },
+    {
+      "suite": "nise-mcp-tests",
+      "tests": 17,
+      "skipped": 0,
+      "result": "passed",
+      "log": "nise-mcp-tests.log"
+    }
+  ],
+  "note": "The six policy tests are included in the 35-test NISE suite; do not count them twice.",
+  "swift_contracts": [
+    "NISE request/workspace migration",
+    "Prediction result discovery and unscored-candidate labeling"
+  ]
+}

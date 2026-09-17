@@ -83,6 +83,21 @@ if (root/('wait-'+name)).exists():
     def calls(self):
         return (self.root / 'calls').read_text().splitlines()
 
+    def test_invalid_last_engine_rejects_batch_before_first_engine_runs(self):
+        path = self.children[-1] / 'studio_run.json'
+        manifest = json.loads(path.read_text())
+        manifest['arguments'] += ['--predictor', 'openfold-3-mlx']
+        common.atomic_json(path, manifest)
+        with self.assertRaisesRegex(common.StudioError, 'OpenFold-3 has no resident worker'):
+            self.start()
+        self.assertFalse((self.root / 'calls').exists())
+        self.assertFalse(list((self.root / 'agent/jobs').glob('*/state.json')))
+        manifest['arguments'][manifest['arguments'].index('--design-scheduler') + 1] = 'run'
+        common.atomic_json(path, manifest)
+        job = self.start()
+        self.assertEqual(self.wait(job)['status'], 'completed')
+        self.assertEqual(self.calls(), ['first', 'second', 'third'])
+
     def scaffold_batch(self, budgets=(10, 20, 40)):
         path = self.batch / 'studio_engine_batch.json'
         descriptor = json.loads(path.read_text())

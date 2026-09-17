@@ -1,0 +1,122 @@
+[
+  {
+    "change": "design-scheduler resident -> run; remove resident-only wave-batch-size all",
+    "expected": 250,
+    "original_manifest_sha256": "a28bf2dae0224dfca6a252fad99d32dcc4121ebc7be0079b18578112bc3894f5",
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_6ed978fa",
+    "plan_id": "plan-c2773eab4479fb66",
+    "plan_sha256": "c2773eab4479fb661dd577eefe8a71c9b9225021ee51c26ffcad81b8a29ee3fd",
+    "scientific_settings_unchanged": true,
+    "source_job": "job-4d54e18d450b",
+    "source_plan": "plan-4d54e18d450be6ad",
+    "source_plan_sha256": "4d54e18d450be6ad0277c40aac8693648fc5d078a3bcb965ecdd7b7f5e0f11c2"
+  },
+  {
+    "change": "design-scheduler resident -> run; remove resident-only wave-batch-size all",
+    "expected": 250,
+    "original_manifest_sha256": "eb9055bdf3709daaf3ef404b6e9f4c8f7480ddd0be80a8ab57d9f6205d49710f",
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_06751263",
+    "plan_id": "plan-5870cf39b468fa9f",
+    "plan_sha256": "5870cf39b468fa9f70a0db33946e239255034726a88d3e867538c07ad883e5fa",
+    "scientific_settings_unchanged": true,
+    "source_job": "job-2cde615cf637",
+    "source_plan": "plan-2cde615cf637fb86",
+    "source_plan_sha256": "2cde615cf637fb861ed07d1849fdfcdf7aaa223ef7c4fc786cd090ce534bb9cf"
+  },
+  {
+    "change": "design-scheduler resident -> run; remove resident-only wave-batch-size all",
+    "expected": 30,
+    "original_manifest_sha256": "fe5998ff83b06777c6c38bbe12ca37d5b0d119c697eaece9afff73e8a1a2f04b",
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_3eak_nbbcii10_fgla_f45742c3",
+    "plan_id": "plan-88aced8d3154dadd",
+    "plan_sha256": "88aced8d3154daddb0af1271d24a882416177d592e7d049d4874b24a6a83805f",
+    "scientific_settings_unchanged": true,
+    "source_job": "job-aea5a49375d2",
+    "source_plan": "plan-aea5a49375d26673",
+    "source_plan_sha256": "aea5a49375d26673c5da33b19b6437e95fabe28974a3304365855ad275845849"
+  },
+  {
+    "change": "design-scheduler resident -> run; remove resident-only wave-batch-size all",
+    "expected": 35,
+    "original_manifest_sha256": "e8caa36eda88750e514d2c0651e61b65fda56c283e87111765932175571202a2",
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_7eow_caplacizumab_f45742c3",
+    "plan_id": "plan-ff77c9495c35308e",
+    "plan_sha256": "ff77c9495c35308e4dbba0cef6621ce6193553a7afa0afba79031b682554b084",
+    "scientific_settings_unchanged": true,
+    "source_job": "job-aea5a49375d2",
+    "source_plan": "plan-aea5a49375d26673",
+    "source_plan_sha256": "aea5a49375d26673c5da33b19b6437e95fabe28974a3304365855ad275845849"
+  },
+  {
+    "change": "design-scheduler resident -> run; remove resident-only wave-batch-size all",
+    "expected": 35,
+    "original_manifest_sha256": "afbc506a5ef88c004b6aa9e1311e6624779b947e8121e5aaf8fc845da14f8797",
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_7xl0_vobarilizumab_f45742c3",
+    "plan_id": "plan-982005c1809f2580",
+    "plan_sha256": "982005c1809f25809e571e817696da73c12513803307bf20616781dd5d15cc4a",
+    "scientific_settings_unchanged": true,
+    "source_job": "job-aea5a49375d2",
+    "source_plan": "plan-aea5a49375d26673",
+    "source_plan_sha256": "aea5a49375d26673c5da33b19b6437e95fabe28974a3304365855ad275845849"
+  },
+  {
+    "change": "design-scheduler resident -> run; remove resident-only wave-batch-size all",
+    "expected": 30,
+    "original_manifest_sha256": "d8994da884b24728566bdb9969dd323a22363f48348776dcb4fe31714a144a70",
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_8coh_gefurulimab_f45742c3",
+    "plan_id": "plan-fe3b92d3c5b769a0",
+    "plan_sha256": "fe3b92d3c5b769a00a1daf409c1b8ba9171e9b933352eb4b75b2ff444cda3a6e",
+    "scientific_settings_unchanged": true,
+    "source_job": "job-aea5a49375d2",
+    "source_plan": "plan-aea5a49375d26673",
+    "source_plan_sha256": "aea5a49375d26673c5da33b19b6437e95fabe28974a3304365855ad275845849"
+  },
+  {
+    "change": "design-scheduler resident -> run; remove resident-only wave-batch-size all",
+    "expected": 30,
+    "original_manifest_sha256": "fb6f137d8e1ff18f1ac64b14fe957fc5aa8fd671291259a3047b4c9927f06bc3",
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_8z8v_ozoralizumab_alb8_f45742c3",
+    "plan_id": "plan-868deea60afc5ac0",
+    "plan_sha256": "868deea60afc5ac0c49c2d5853aa9528ed9753d887fe03c8475df3d110f06793",
+    "scientific_settings_unchanged": true,
+    "source_job": "job-aea5a49375d2",
+    "source_plan": "plan-aea5a49375d26673",
+    "source_plan_sha256": "aea5a49375d26673c5da33b19b6437e95fabe28974a3304365855ad275845849"
+  },
+  {
+    "change": "design-scheduler resident -> run; remove resident-only wave-batch-size all",
+    "expected": 30,
+    "original_manifest_sha256": "71a1875063137a42c0e1fe9f12193c8cccbb0190ba74aaddd1d92b321754cd6e",
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_gontivimab_f45742c3",
+    "plan_id": "plan-256e52bff79b3a42",
+    "plan_sha256": "256e52bff79b3a42d8ba7455978b837686e1c6a1575b19263af75ca6984200c1",
+    "scientific_settings_unchanged": true,
+    "source_job": "job-aea5a49375d2",
+    "source_plan": "plan-aea5a49375d26673",
+    "source_plan_sha256": "aea5a49375d26673c5da33b19b6437e95fabe28974a3304365855ad275845849"
+  },
+  {
+    "change": "design-scheduler resident -> run; remove resident-only wave-batch-size all",
+    "expected": 30,
+    "original_manifest_sha256": "e8e0a4797973196422b0d046c5f10960eb7e226fcb3ee162c0060710baaa3165",
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_isecarosmab_f45742c3",
+    "plan_id": "plan-aad246c8d64a2c89",
+    "plan_sha256": "aad246c8d64a2c897ef91e4359c7e328fea6382fbb3fc44c1e241affbdee4146",
+    "scientific_settings_unchanged": true,
+    "source_job": "job-aea5a49375d2",
+    "source_plan": "plan-aea5a49375d26673",
+    "source_plan_sha256": "aea5a49375d26673c5da33b19b6437e95fabe28974a3304365855ad275845849"
+  },
+  {
+    "change": "design-scheduler resident -> run; remove resident-only wave-batch-size all",
+    "expected": 30,
+    "original_manifest_sha256": "e4099ce110ced9ed1da16c777000e305346a21753ac62f75e547f360a0c20674",
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_sonelokimab_f45742c3",
+    "plan_id": "plan-ef658a1e49ca920b",
+    "plan_sha256": "ef658a1e49ca920bfd12c90b87a53516b894234fc0260a5072647961d56d3f51",
+    "scientific_settings_unchanged": true,
+    "source_job": "job-aea5a49375d2",
+    "source_plan": "plan-aea5a49375d26673",
+    "source_plan_sha256": "aea5a49375d26673c5da33b19b6437e95fabe28974a3304365855ad275845849"
+  }
+]

@@ -1,0 +1,37 @@
+warning: '--skip-update' option is deprecated and will be removed in a future release
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/Caches/org.swift.swiftpm is not accessible or not writable, disabling user-level cache features.
+warning: 'iproteinstudio': failed storing manifest for 'iproteinstudio' in cache: attempt to write a readonly database
+warning: 'sparkle': failed storing manifest for 'sparkle' in cache: attempt to write a readonly database
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--1AB21518FC5DEDBE.txt
+[3/8] Compiling iProteinStudio NISEView.swift
+[4/8] Compiling iProteinStudio NISERequest.swift
+[5/8] Emitting module iProteinStudio
+[6/8] Compiling iProteinStudio RunResultsLoader.swift
+[7/26] Compiling iProteinStudio RunNameField.swift
+[8/26] Compiling iProteinStudio SetupView.swift
+[9/26] Compiling iProteinStudio RFD3Controller.swift
+[10/26] Compiling iProteinStudio RunController.swift
+[11/27] Compiling iProteinStudio iProteinStudioApp.swift
+[12/27] Compiling iProteinStudio ProjectSidebar.swift
+[13/27] Compiling iProteinStudio DesignFormView.swift
+[14/27] Compiling iProteinStudio PredictView.swift
+[15/27] Compiling iProteinStudio LiveDashboardView.swift
+[16/27] Compiling iProteinStudio JobQueueView.swift
+[17/27] Compiling iProteinStudio Project.swift
+[18/27] Compiling iProteinStudio AppState.swift
+[19/27] Compiling iProteinStudio ActivityCenterView.swift
+[20/27] Compiling iProteinStudio AppPaths.swift
+[21/27] Compiling iProteinStudio NISEController.swift
+[22/27] Compiling iProteinStudio NISEAtomTargetingView.swift
+[23/27] Compiling iProteinStudio RootView.swift
+[24/27] Compiling iProteinStudio RunHistoryStore.swift
+[25/27] Compiling iProteinStudio RFD3View.swift
+[25/28] Write Objects.LinkFileList
+[26/28] Linking iProteinStudio
+[27/28] Applying iProteinStudio
+Build complete! (6.30s)

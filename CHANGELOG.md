@@ -4,6 +4,17 @@ Initialization-only helix-kill strength is now the sole secondary-structure cont
 
 ## 0.2.0 — updater foundation
 
+- Build 38 adds NISE's optional ligand-local masking and MPNN repair branch,
+  with two ordinary sampling parents plus one reserved repaired winner at the
+  default total beam of three. New defaults are 1,000 starts, 64 proposals in
+  the first optimisation cycle, 32 per parent later, 30 cycles and four-cycle
+  patience. Geometry-first selective affinity, explicit budgets and replayable
+  sampling receipts are shared by the app and MCP. Partial noising remains
+  experimental and off by default.
+- Hardens RFdiffusion3 atom conditioning, output qualification and resume checks;
+  corrects OpenFold-3 Protein Hunter scheduling to its supported per-trajectory
+  mode. MCP version 19 includes the updated workflow guidance and contracts.
+
 - Adds in-app Apple Command Line Tools installation guidance to Setup and Engines.
   Open Apple's installer or Software Update directly, then retry the saved engine
   selection after the compiler check succeeds; Terminal and full Xcode are not required.

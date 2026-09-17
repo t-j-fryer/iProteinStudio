@@ -1,0 +1,131 @@
+{
+  "observed_at": "2026-09-17T16:01:14.705129+00:00",
+  "jobs": [
+    {
+      "id": "job-c2773eab4479",
+      "campaign": "untitled_design_openfold3_6ed978fa",
+      "status": "completed",
+      "optimized": 250,
+      "starts": 50,
+      "expected": 250,
+      "finished_at": "2026-09-17T05:29:00.278489Z",
+      "summary_rows": 300,
+      "summary_cardinality_valid": true,
+      "all_summary_structures_present": true
+    },
+    {
+      "id": "job-5870cf39b468",
+      "campaign": "untitled_design_openfold3_06751263",
+      "status": "completed",
+      "optimized": 250,
+      "starts": 50,
+      "expected": 250,
+      "finished_at": "2026-09-17T12:54:17.790691Z",
+      "summary_rows": 300,
+      "summary_cardinality_valid": true,
+      "all_summary_structures_present": true
+    },
+    {
+      "id": "job-88aced8d3154",
+      "campaign": "untitled_design_openfold3_3eak_nbbcii10_fgla_f45742c3",
+      "status": "completed",
+      "optimized": 30,
+      "starts": 6,
+      "expected": 30,
+      "finished_at": "2026-09-17T06:45:08.310159Z",
+      "summary_rows": 36,
+      "summary_cardinality_valid": true,
+      "all_summary_structures_present": true
+    },
+    {
+      "id": "job-ff77c9495c35",
+      "campaign": "untitled_design_openfold3_7eow_caplacizumab_f45742c3",
+      "status": "completed",
+      "optimized": 35,
+      "starts": 7,
+      "expected": 35,
+      "finished_at": "2026-09-17T07:30:07.190002Z",
+      "summary_rows": 42,
+      "summary_cardinality_valid": true,
+      "all_summary_structures_present": true
+    },
+    {
+      "id": "job-982005c1809f",
+      "campaign": "untitled_design_openfold3_7xl0_vobarilizumab_f45742c3",
+      "status": "completed",
+      "optimized": 35,
+      "starts": 7,
+      "expected": 35,
+      "finished_at": "2026-09-17T15:19:05.148348Z",
+      "summary_rows": 42,
+      "summary_cardinality_valid": true,
+      "all_summary_structures_present": true
+    },
+    {
+      "id": "job-fe3b92d3c5b7",
+      "campaign": "untitled_design_openfold3_8coh_gefurulimab_f45742c3",
+      "status": "completed",
+      "optimized": 30,
+      "starts": 6,
+      "expected": 30,
+      "finished_at": "2026-09-17T14:33:01.320729Z",
+      "summary_rows": 36,
+      "summary_cardinality_valid": true,
+      "all_summary_structures_present": true
+    },
+    {
+      "id": "job-868deea60afc",
+      "campaign": "untitled_design_openfold3_8z8v_ozoralizumab_alb8_f45742c3",
+      "status": "completed",
+      "optimized": 30,
+      "starts": 6,
+      "expected": 30,
+      "finished_at": "2026-09-17T15:56:37.895399Z",
+      "summary_rows": 36,
+      "summary_cardinality_valid": true,
+      "all_summary_structures_present": true
+    },
+    {
+      "id": "job-256e52bff79b",
+      "campaign": "untitled_design_openfold3_gontivimab_f45742c3",
+      "status": "completed",
+      "optimized": 30,
+      "starts": 6,
+      "expected": 30,
+      "finished_at": "2026-09-17T13:35:05.453612Z",
+      "summary_rows": 36,
+      "summary_cardinality_valid": true,
+      "all_summary_structures_present": true
+    },
+    {
+      "id": "job-aad246c8d64a",
+      "campaign": "untitled_design_openfold3_isecarosmab_f45742c3",
+      "status": "completed",
+      "optimized": 30,
+      "starts": 6,
+      "expected": 30,
+      "finished_at": "2026-09-17T06:06:24.658454Z",
+      "summary_rows": 36,
+      "summary_cardinality_valid": true,
+      "all_summary_structures_present": true
+    },
+    {
+      "id": "job-ef658a1e49ca",
+      "campaign": "untitled_design_openfold3_sonelokimab_f45742c3",
+      "status": "completed",
+      "optimized": 30,
+      "starts": 6,
+      "expected": 30,
+      "finished_at": "2026-09-17T08:08:12.331391Z",
+      "summary_rows": 36,
+      "summary_cardinality_valid": true,
+      "all_summary_structures_present": true
+    }
+  ],
+  "status_counts": {
+    "completed": 10
+  },
+  "optimized_structure_files": 750,
+  "starting_structure_files": 150,
+  "expected_optimized": 750
+}

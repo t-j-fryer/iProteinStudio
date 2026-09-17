@@ -26,6 +26,7 @@ struct WorkflowRequestContractHarness {
     static func proteinRFD3(structure: URL) -> RFD3Request {
         var request = RFD3Request()
         request.targetKind = .protein
+        request.originStrategy = .surfaceScan
         request.targetStructurePath = structure.path
         request.targetChain = "B"
         request.targetContig = "B1-8"
@@ -47,6 +48,16 @@ struct WorkflowRequestContractHarness {
                "RFdiffusion3 predictors were not canonicalized")
         expect(request.requiredComponents.contains(.boltz), "protein MSA generator dependency is missing")
         expect(request.totalDesignedSequences == 12, "sequence budget ignored sequences per backbone")
+        request.timesteps = 1
+        expect(request.validationIssues.contains { $0.contains("two diffusion steps") },
+               "one-step RFdiffusion3 request was not blocked before launch")
+        request.timesteps = 200
+        request.recycles = 0
+        expect(request.validationIssues.isEmpty, "valid zero-recycle RFdiffusion3 request was rejected")
+        request.conditions = ["B1": [.buried, .exposed]]
+        expect(request.validationIssues.contains { $0.contains("both buried and exposed") },
+               "contradictory solvent accessibility was not blocked")
+        request.conditions = [:]
 
         request.targetSequence = "ACDEFGHI:KLMNPQRS"
         request.structureTargetSequence = request.targetSequence

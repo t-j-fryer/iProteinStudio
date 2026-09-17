@@ -19,11 +19,11 @@ import argparse
 from collections import Counter
 import csv
 import json
-import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+from rfd3_resume import atomic, bind_inputs, sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,13 +42,24 @@ def run_queue(bin_spec: dict, out_dir: Path, num_designs: int, args, seed_start:
     if bin_spec.get("motif_source_residues"):
         cmd += ["--motif-residues", ",".join(bin_spec["motif_source_residues"])]
         cmd += ["--motif-atoms-json", json.dumps(bin_spec.get("motif_fixed_atoms") or {})]
-    log = (out_dir / "queue.log").open("w")
-    return subprocess.Popen(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT), log
+    log = (out_dir / "queue.log").open("a")
+    try:
+        return subprocess.Popen(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT), log
+    except BaseException:
+        log.close()
+        raise
 
 
 def split_quota(quota: int, n: int) -> list[int]:
     base, remainder = divmod(quota, n)
     return [base + (1 if i < remainder else 0) for i in range(n)]
+
+
+def seed_strides(bins, queues):
+    # Reserve the generator's full ten-attempt budget. Preserve the established
+    # two-queue layout, while preventing queue 2/3 from colliding with the next bin.
+    queue_stride = max(500_000, max(max(split_quota(b['quota'], queues)) for b in bins) * 10)
+    return queue_stride, queue_stride * max(2, queues)
 
 
 def bin_directory_name(bin_spec: dict, repeated_lengths: set[int]) -> str:
@@ -68,6 +79,8 @@ def main() -> None:
     parser.add_argument("--recycle", type=int, default=2)
     parser.add_argument("--ligand-code", default=None)
     args = parser.parse_args()
+    if args.queues_per_bin < 1 or args.batch_size < 1 or args.steps < 2 or args.recycle < 0:
+        raise SystemExit("queues/batch must be >=1, steps >=2 and recycle >=0")
 
     manifest = json.loads(args.bin_manifest.read_text())
     if args.ligand_code is None:
@@ -75,6 +88,22 @@ def main() -> None:
 
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    bins = manifest.get("bins", [])
+    if not bins or any(b["quota"] < 1 for b in bins):
+        raise SystemExit("bin manifest must contain positive design quotas")
+    if sum(b["quota"] for b in bins) != manifest["num_designs"]:
+        raise SystemExit("bin quotas do not sum to the requested design count")
+    if len({b["bin_index"] for b in bins}) != len(bins):
+        raise SystemExit("bin indices must be unique")
+    if len({b["seed"] for b in bins}) != len(bins):
+        raise SystemExit("bin seeds must be unique")
+    queue_stride, bin_stride = seed_strides(bins, args.queues_per_bin)
+    bind_inputs(output / "generation_request.json", {
+        "manifest": manifest, "batch_size": args.batch_size, "queues": args.queues_per_bin,
+        "precision": args.precision, "steps": args.steps, "recycle": args.recycle,
+        "ligand_code": args.ligand_code,
+        "fixtures": {b["fixture"]: sha256(b["fixture"]) for b in bins},
+    })
     flat_dir = output / "backbones"
     flat_dir.mkdir(exist_ok=True)
 
@@ -90,29 +119,39 @@ def main() -> None:
         bin_dir = output / bin_directory_name(b, repeated_lengths)
         queue_dirs = [bin_dir / f"queue{q}" for q in range(args.queues_per_bin)]
         done_marker = bin_dir / "bin_done.json"
-        if done_marker.exists() and os.environ.get("STUDIO_RFD3_AUDIT_RESUME") != "1":
-            print(f"L{length}: cached ({quota} designs)")
-            cached = json.loads(done_marker.read_text())
-            if b.get("origin"):
-                cached["origin"] = b["origin"]
-            bin_records.append(cached)
-            continue
-
         quotas = split_quota(quota, args.queues_per_bin)
-        seed_offset = b["seed"] * 1_000_000
+        seed_offset = b["seed"] * bin_stride
         started = time.time()
         procs = []
-        for q, (qdir, qn) in enumerate(zip(queue_dirs, quotas, strict=True)):
-            if qn == 0:
-                continue
-            proc, log = run_queue(b, qdir, qn, args, seed_offset + q * 500_000)
-            procs.append((proc, log, qdir))
         failures = []
-        for proc, log, qdir in procs:
-            rc = proc.wait()
-            log.close()
-            if rc != 0:
-                failures.append(str(qdir))
+        try:
+            for q, (qdir, qn) in enumerate(zip(queue_dirs, quotas, strict=True)):
+                if qn == 0:
+                    continue
+                proc, log = run_queue(b, qdir, qn, args, seed_offset + q * queue_stride)
+                procs.append((proc, log, qdir))
+            pending = list(procs)
+            while pending and not failures:
+                for item in list(pending):
+                    proc, log, qdir = item
+                    rc = proc.poll()
+                    if rc is None:
+                        continue
+                    pending.remove(item)
+                    if rc != 0:
+                        tail = '\n'.join((qdir / "queue.log").read_text(errors="replace").splitlines()[-18:])
+                        failures.append(f"{qdir}\n{tail}")
+                if pending and not failures:
+                    time.sleep(0.1)
+        finally:
+            for proc, log, _ in procs:
+                if proc.poll() is None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        proc.kill(); proc.wait()
+                log.close()
         if failures:
             raise SystemExit(f"generate_backbones.py failed for: {failures}")
         wall = time.time() - started
@@ -131,11 +170,19 @@ def main() -> None:
             "pdbs": [str(p) for p in pdbs],
             "origin": b.get("origin"),
         }
-        done_marker.write_text(json.dumps(record, indent=2) + "\n")
+        # Keep original generation timing on audited replay.
+        if done_marker.exists():
+            previous = json.loads(done_marker.read_text())
+            record.update({k: previous[k] for k in ("wall_sec", "sec_per_design")})
+        atomic(done_marker, record)
         bin_records.append(record)
         print(f"L{length}: {len(pdbs)} designs in {wall:.1f}s ({wall / max(quota,1):.2f}s/design)")
 
     # Flatten into a single globally numbered, flat backbone set.
+    expected_names = {f"design_{i:04d}.pdb" for i in range(1, manifest["num_designs"] + 1)}
+    unexpected = [p.name for p in flat_dir.glob("*.pdb") if p.name not in expected_names]
+    if unexpected:
+        raise RuntimeError(f"Unexpected stale flattened backbones: {unexpected}")
     rows = []
     index = 0
     for record in bin_records:
@@ -162,7 +209,7 @@ def main() -> None:
         for row in rows:
             src = Path(row["source_pdb"])
             result_path = src.parent.parent / "results" / (src.stem + ".json")
-            metrics = json.loads(result_path.read_text()) if result_path.exists() else {}
+            metrics = json.loads(result_path.read_text())
             merged_rows.append({**metrics, **row})
         fields = sorted({key for row in merged_rows for key in row})
         writer = csv.DictWriter(handle, fieldnames=fields)

@@ -1,0 +1,188 @@
+{
+  "source": "/Users/thomasfryer/NanoHunter/output/nise_fluorescein",
+  "configuration": {
+    "kind": "read-only retrospective; no neural inference",
+    "expected_folds": 5440,
+    "expected_trajectories": 6,
+    "proposals_per_parent": 64,
+    "historical_beam": 1,
+    "thresholds": [
+      0.0001,
+      0.001,
+      0.005,
+      0.01
+    ],
+    "proposal_levels": [
+      16,
+      32,
+      64
+    ],
+    "permutations_per_cycle": 2000,
+    "random_seed": 20260916,
+    "geometry": {
+      "ca_max": 2.5,
+      "ligand_max": 2.5,
+      "ligand_from_cycle": 3
+    },
+    "final_filter": {
+      "ca_max": 1.5,
+      "ligand_max": 1.5,
+      "ligand_plddt_min": 90,
+      "pbind_min": 0.8
+    },
+    "interpretation": "Within-cycle subsets of the observed 64 proposals, conditioned on historical parents. This is not a rerun with adaptive parents, beam three, NESSO, or RFdiffusion3. Missing affinity excludes a whole cycle/trajectory from subset simulation."
+  },
+  "historical_saved_config": {
+    "template_yaml": "examples/Fluorescein_hydroxyethylamide.yaml",
+    "out_dir": "output/nise_fluorescein",
+    "resume": true,
+    "designer": "lasermpnn",
+    "device": "cpu",
+    "seed": 0,
+    "num_starts": 12,
+    "binder_min_len": 65,
+    "binder_max_len": 150,
+    "binder_percent_x": 50,
+    "phase0_seqs1": 3,
+    "phase0_seqs2": 5,
+    "phase0_temp": 0.5,
+    "phase0_sc_ca": 2.0,
+    "phase0_sc_lig": 2.0,
+    "phase0_refine_cycles": 2,
+    "phase0_ligand_sc": false,
+    "trajectories": 6,
+    "beam": 1,
+    "nise_seqs": 64,
+    "nise_sc_ca": 2.5,
+    "nise_sc_lig": 2.5,
+    "nise_ligand_sc_from_cycle": 3,
+    "seq_temp": 0.5,
+    "bindingsite_temp": 0.7,
+    "fs_distance": 10.0,
+    "ala_budget": 2,
+    "gly_budget": 0,
+    "max_cycles": 30,
+    "patience": 5,
+    "min_improvement": 0.0001,
+    "rank_metric": "auto",
+    "affinity": true,
+    "recycling": null,
+    "sampling_steps": null,
+    "use_potentials": true,
+    "phase0_constraints": true,
+    "phase0_pocket_distance": 6.0,
+    "phase0_pocket_contacts": 5,
+    "phase0_pocket_ligand_atoms": null,
+    "phase0_pocket_force": true,
+    "boltz_parallel": 4,
+    "ligand_sasa_max": null
+  },
+  "recorded_summary": {
+    "best_score": 1.968279180508275,
+    "best_trajectory": 4,
+    "best_origin": "L005",
+    "best_sequence": "GPALKDTPEGRKLLKQLSEALDQAREILGERYEELESKRTESTKLLVLQEIIKLSREKDPQLAEQLEKIYNEIKETYPDYIQELEELAK",
+    "best_ligand_plddt": 97.99806451612902,
+    "best_pbind": 0.9882985353469849,
+    "n_trajectories": 6,
+    "trajectory_winners": [
+      {
+        "trajectory": 0,
+        "origin": "L029",
+        "score": 1.7214562675906766,
+        "ligand_plddt": 94.47451612903227,
+        "pbind": 0.776711106300354,
+        "sequence": "MAAREVAERIANLFSEVTPLSEEEIRENARTTQRVLETADEQTLRNIIRGLKKAASGTDSERGQKALDDLGLIYDPEEVINPSEAAKQAFLESAELLEDYL"
+      },
+      {
+        "trajectory": 1,
+        "origin": "L080",
+        "score": 1.8776,
+        "ligand_plddt": 97.39,
+        "pbind": 0.904,
+        "sequence": "SLEEAQQAVQQVRDVAKRLEQLANKIQEEQEKAKQQIESGGTEQEIEELKVKLANIRTDYLFSSEGRQLLISMEEALSELLSHDIVDEEASETVQKVNEIYTKLQLPKRLPVQQAFQKYT"
+      },
+      {
+        "trajectory": 2,
+        "origin": "L006",
+        "score": 1.6004,
+        "ligand_plddt": 94.91,
+        "pbind": 0.651,
+        "sequence": "SYLARAEKARELMEAMERGIDHLITLSEQKEEIERELERLRREADEAFDRVVSASAGRGTEEEARRALEELLAIRDRYVEVLQQAYELVFPDLDANEHLDEVKQLAESL"
+      },
+      {
+        "trajectory": 3,
+        "origin": "L032",
+        "score": 1.941142943982155,
+        "ligand_plddt": 96.61290322580645,
+        "pbind": 0.9750139117240906,
+        "sequence": "MAAVPLTEEQIDQLLKSARFYASKFDDDILKKLLEAQEMAYRALKESDYELGRKAVDLAETLEEKAQPILQQPAGDNEELSELQNTITRSVDHVHRIAP"
+      },
+      {
+        "trajectory": 4,
+        "origin": "L005",
+        "score": 1.968279180508275,
+        "ligand_plddt": 97.99806451612902,
+        "pbind": 0.9882985353469849,
+        "sequence": "GPALKDTPEGRKLLKQLSEALDQAREILGERYEELESKRTESTKLLVLQEIIKLSREKDPQLAEQLEKIYNEIKETYPDYIQELEELAK"
+      },
+      {
+        "trajectory": 5,
+        "origin": "L014",
+        "score": 1.9585973468688227,
+        "ligand_plddt": 97.40903225806451,
+        "pbind": 0.9845070242881775,
+        "sequence": "EPSAAEILLNALVIGAIVGAIVAGLTDEAIHVALHVIKKVEEARRTLTPEEQVEFAVDYANLSLRVWQRDPKSVLGIVSLWVHLITRLAAVQAFEKKLLPRKYVERIPP"
+      }
+    ],
+    "pairwise_identity_pct": [
+      7.9,
+      9.0,
+      2.2,
+      7.9,
+      4.5,
+      8.1,
+      11.9,
+      5.9,
+      7.3,
+      7.1,
+      11.1,
+      7.1,
+      5.9,
+      8.3,
+      6.9
+    ],
+    "mean_pairwise_identity_pct": 7.4
+  },
+  "analysis_script_sha256": "b9de3f69700d4518c3c6d36c3020b736cd43112946a53b81697e239b2a4d2afd",
+  "studio_head": "04fcab788f46e0c53c96927757bb6e6388ba210d",
+  "hardware": "Apple M4 Max / 64 GB, CPU retrospective only; historical runtime not inferred",
+  "historical_checkpoint_fingerprint": "not established from surviving campaign metadata",
+  "historical_msa": "empty in audited input YAMLs",
+  "neural_inference": false,
+  "source_file_count": 21807,
+  "full_source_manifest": "Validation/output/nise_fluorescein_adaptive_v1/analysis/manifest.json",
+  "full_source_manifest_sha256": "217c04876778549a436e515cc0e475fccad1ac201aa21de3e755dbfd1a67218c",
+  "artifact_sha256": {
+    "adaptive_subsets.csv": "d9dd113e3a62dfd3973133cd855f81bde29d47c82baf3a2f29787ccd4743077e",
+    "audit.json": "ff73301ad42c8a8af6a2ac38c63ea221f6e5307ca19c6c06a42f5e16924c5bdb",
+    "cycle_improvements.svg": "decd835368baf210c0d618c69b8a8e73dd3a432e8b3645e503ac95b6cb849c84",
+    "cycles.csv": "48c214cec9a9ded05587fcc3c57a2a50a84faa8da8572a417b2268f5a218ad8f",
+    "nise-defaults-nesso.log": "ecfc798fb32cf6817ddb2d9e0b4cc6a45f9f36d398a72685d6e18fef1965349e",
+    "nise-defaults-policy-final.log": "49f6105214cba6fb6f1fe622194022bef5244688a6109b189d5c60db8b56cc03",
+    "nise-defaults-swift.log": "19ffaf982585b340f2b7ad5d06c099de20d9a0217974e9b4111a3c8c7f81e654",
+    "nise-defaults-tests.log": "e6423dbcafaedaf91798cbf1fd510ba1bc47ca80bf122770d9657d4cff53de58",
+    "patience4.csv": "d07b8d11449ca977ba584ab42e50472f5664409a2f00d27625130e83dde2801a",
+    "policy_comparison.csv": "12e2921a11b6261f3c61f4547328f5446268bdcb1ab0a2faa13b7c40619ef233",
+    "score_components.svg": "2d0ba155e24479fe9c4e4a44c50af5b9a113fc8cc230f333f41f6a89cc91ec98",
+    "summary.json": "cf6e089cc2271490c6dec1febb2fd7c44ec00131a9e30cc1a679536a1ee970e2",
+    "trajectories.csv": "c7267aaf8879b1be65b51d050ff684901252325cb532d146bbb6ae396d694a2f",
+    "trajectory_distributions.svg": "ebbbc556a27a4aab66865fbc125aead73616c8f940c3a00d7142010fc0588136"
+  },
+  "analysis_code_sha256": {
+    "README.md": "2fbec721873a63a64c6a1d1f20c51c9a35b67735e7f19ffc46beaa8128bfabe4",
+    "analyse.py": "b9de3f69700d4518c3c6d36c3020b736cd43112946a53b81697e239b2a4d2afd",
+    "config.json": "19e9017fab5aa416760573f826e91e8489181ac51da8cb5cceabb869acd50c39",
+    "report.py": "45a1a57144503a50e9f3041ed639051cd30019604e99ecd938f5cc4fa496351d"
+  }
+}

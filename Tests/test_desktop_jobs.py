@@ -101,6 +101,27 @@ print('PBSTAGE|done|100|Finished',flush=True)
         with self.assertRaisesRegex(common.StudioError, "supports"):
             plans.prediction_plan({"project": "demo", "request": request})
 
+    def test_rfd3_plan_freezes_nested_runtime_helpers(self):
+        output = self.root / "projects/demo/rfd3_runs/frozen"
+        (output / "config").mkdir(parents=True)
+        for relative in ("rfd3_scripts/prepare_campaign.py",
+                         "rfd3_scripts/rfd3_protein_campaign.py",
+                         "rfd3/mlx_port/sampler.py", "rfd3/scripts/rfd3_resume.py"):
+            script = self.root / relative
+            script.parent.mkdir(parents=True, exist_ok=True)
+            script.write_text("# inert fixture\n")
+        common.atomic_json(output / "config/studio_request.json", {
+            "campaign_dir": str(output), "target_kind": "protein"})
+        plan = desktop_plan({"project": "demo", "workflow": "rfdiffusion3", "output": str(output)})
+        helper = self.root / "rfd3/scripts/rfd3_resume.py"
+        paths = {item["path"] for item in plan["provenance"]}
+        self.assertIn(str(helper), paths)
+        self.assertIn(str(self.root / "rfd3/mlx_port/sampler.py"), paths)
+        plans.load_plan(plan["id"], plan["sha256"])
+        helper.write_text("# changed helper\n")
+        with self.assertRaisesRegex(common.StudioError, "changed after preflight"):
+            plans.load_plan(plan["id"], plan["sha256"])
+
     def test_native_and_mcp_share_execution_ownership(self):
         first, output = self.native()
         plan = plans.prediction_plan({"project": "demo", "request": {
@@ -338,6 +359,34 @@ while not (out/'release').exists(): time.sleep(.05)
         self.jobs.append(job["id"])
         self.assertEqual(self.wait(job["id"])["status"], "completed")
         self.assertEqual(json.loads((output / "studio_run.json").read_text())["arguments"], arguments)
+
+    def test_openfold_resident_rejected_before_submission(self):
+        output = self.root / "projects/demo/openfold"
+        snapshot = output / ".studio_runtime/pipeline"
+        snapshot.mkdir(parents=True)
+        runner = snapshot / "nanohunter_run.sh"
+        runner.write_text("#!/bin/sh\necho inert-openfold-worker\n")
+        runner.chmod(0o755)
+        template = output / "template.yaml"
+        template.write_text("sequences: []\n")
+        for scheduler in ("resident", "campaign-resident", "run"):
+            with self.subTest(scheduler=scheduler):
+                arguments = ["--predictor", "openfold-3-mlx", "--design-scheduler", scheduler,
+                             "--template-yaml", str(template), "--out-root", str(output.parent),
+                             "--run-name", output.name]
+                common.atomic_json(output / "studio_run.json", {
+                    "pipelineSnapshot": str(snapshot), "arguments": arguments})
+                request = {"project": "demo", "workflow": "iterative", "output": str(output)}
+                if scheduler != "run":
+                    with self.assertRaisesRegex(common.StudioError, "OpenFold-3 has no resident worker"):
+                        desktop_plan(request)
+                    self.assertFalse(list((self.root / "agent/jobs").glob("*/state.json")))
+                else:
+                    plan = desktop_plan(request)
+                    job = broker.start_job(plan["id"], plan["sha256"])
+                    self.jobs.append(job["id"])
+                    self.assertEqual(self.wait(job["id"])["status"], "completed")
+                self.assertEqual(json.loads((output / "studio_run.json").read_text())["arguments"], arguments)
 
     def test_preparation_checkpoint_is_reused_and_rejects_changed_inputs(self):
         output = self.root / "projects/demo/rfd3"

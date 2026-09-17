@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
-from contract import preflight
+from contract import preflight, saved_request
 from runtime import Backend, atomic, digest
 
 
@@ -17,7 +17,7 @@ def run(config_path):
     output = config_path.parent
     if Path(config["output"]).resolve() != output:
         raise ValueError("NISE output does not match its saved configuration")
-    settings = preflight(root, config["request"])
+    settings = preflight(root, saved_request(config["request"]))
     from ligand_atoms import resolve, validate_selection
     manifest = resolve(settings["smiles"])
     validate_selection(settings, manifest)
@@ -57,11 +57,14 @@ def run(config_path):
                  "--nise-sc-ca", str(settings["nise_sc_ca"]), "--nise-sc-lig", str(settings["nise_sc_lig"]),
                  "--nise-ligand-sc-from-cycle", str(settings["nise_ligand_sc_from_cycle"]), "--seq-temp", "0.5", "--bindingsite-temp", "0.7",
                  "--fs-distance", "10.0", "--ala-budget", "2", "--gly-budget", "0",
-                 "--binder-percent-x", "50", "--min-improvement", "0.0001", "--boltz-parallel", "1",
+                 "--binder-percent-x", "50", "--min-improvement", str(settings["min_improvement"]), "--boltz-parallel", "1",
                  "--phase0-pocket-distance", str(settings["hotspot_distance"]), "--phase0-pocket-contacts", "5"]
-    for key in ("num_starts", "trajectories", "nise_seqs", "max_cycles", "patience",
-                "binder_min_len", "binder_max_len", "seed", "phase0_refine_cycles", "phase0_seqs1", "phase0_seqs2", "phase0_gate_seqs", "beam"):
+    for key in ("num_starts", "trajectories", "nise_seqs", "first_cycle_seqs", "noise_radius", "noise_percent", "noise_predictions", "noise_mpnn_seqs", "noise_advance", "max_cycles", "patience",
+                "binder_min_len", "binder_max_len", "seed", "phase0_refine_cycles", "phase0_seqs1", "phase0_seqs2", "phase0_gate_seqs", "beam", "early_score_gate", "initial_proposals", "affinity_batch_size"):
         arguments += ["--" + key.replace("_", "-"), str(settings[key])]
+    for key in ("selective_affinity", "adaptive_proposals", "partial_noising"):
+        if settings[key]:
+            arguments.append("--" + key.replace("_", "-"))
     try:
         atomic(output / "progress.json", dict(message="Searching for ligand-binding structures", scheduler=settings["scheduler"]))
         nise_run.main(arguments, backend=backend)

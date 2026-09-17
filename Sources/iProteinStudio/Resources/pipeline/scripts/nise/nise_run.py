@@ -13,6 +13,7 @@ import sys
 import csv
 import json
 import argparse
+import copy
 from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass, asdict
@@ -47,10 +48,13 @@ class Node:
     ligand_rmsd: float
     ligand_plddt: float
     pbind: Optional[float]
-    score: float
+    score: Optional[float]
     cycle: int
     traj: int = -1          # independent-trajectory id this design belongs to
     origin: str = ""        # originating hallucinated start
+    score_status: str = "scored"
+    geometry_passed: bool = True
+    branch: str = "mpnn"
 
 
 def design_sequences(designer, struct_pdb, out_dir, n, smiles, args,
@@ -74,6 +78,9 @@ def design_sequences(designer, struct_pdb, out_dir, n, smiles, args,
 
 def fold_and_score(seq_by_name, smiles, work_dir, args, pocket=None):
     if args.backend is not None:
+        if getattr(args, "selective_affinity", False):
+            args = copy.copy(args)
+            args.boltz_phase = "structure"
         return args.backend.fold(seq_by_name, smiles, work_dir, args, pocket)
     preds = L.boltz_predict_batch(
         seq_by_name, smiles, work_dir, affinity=args.affinity,
@@ -92,7 +99,7 @@ def evaluate_candidates(preds, seq_by_name, ref_by_name, args, cycle, ca_thresh,
             sc = L.self_consistency(pred.pdb, ref, ca_thresh=ca_thresh, lig_thresh=lig_thresh)
         except Exception as e:
             raise RuntimeError(f"{name}: self-consistency could not be measured") from e
-        score = L.rank_score(pred, args.rank_metric)
+        score = None if getattr(args, "selective_affinity", False) else L.rank_score(pred, args.rank_metric)
         passed = sc.ok
         if args.backend is not None and hasattr(args.backend, "check_atom_requirements"):
             passed = args.backend.check_atom_requirements(pred) and passed
@@ -105,6 +112,8 @@ def evaluate_candidates(preds, seq_by_name, ref_by_name, args, cycle, ca_thresh,
             name=name, sequence=seq_by_name[name], pdb=pred.pdb, ref_pdb=ref,
             ca_rmsd=sc.ca_rmsd, ligand_rmsd=sc.ligand_rmsd,
             ligand_plddt=pred.ligand_plddt, pbind=pred.pbind, score=score, cycle=cycle,
+            score_status="not_evaluated" if getattr(args, "selective_affinity", False) else "scored",
+            geometry_passed=passed, branch=getattr(args, "candidate_branch", "mpnn"),
         )
         if args.backend is not None:
             args.backend.record_candidate(node, passed, pred)
@@ -113,12 +122,47 @@ def evaluate_candidates(preds, seq_by_name, ref_by_name, args, cycle, ca_thresh,
     return nodes
 
 
+def select_scores(nodes, preds, args, directory, owners, *, per_group=1,
+                  total_groups=None, minimum=0.0, previous=(), geometry_only=False):
+    """Shared by both backbone sources and by NESSO-screened/Boltz-only routes."""
+    if not getattr(args, "selective_affinity", False):
+        for node in nodes:
+            if node.score < minimum:
+                node.score_status = "below_early_score_gate"
+                args.backend.record_candidate(node, False, preds[node.name])
+        return [n for n in nodes if n.score >= minimum]
+    from search_policy import affinity_selection
+    try:
+        if geometry_only:
+            for n in nodes:
+                n.score_status = "omitted_geometry_only_stage"
+                args.backend.record_candidate(n, True, preds[n.name])
+            return nodes
+        def score_batch(batch):
+            scored = args.backend.affinity({n.name: preds[n.name] for n in batch}, directory, args)
+            for node in batch:
+                pred = scored[node.name]
+                node.pbind, node.score = pred.pbind, L.rank_score(pred, args.rank_metric)
+                node.score_status = "scored" if node.score >= minimum else "below_early_score_gate"
+                args.backend.record_candidate(node, node.score >= minimum, pred)
+        scored, skipped = affinity_selection(nodes, score_batch, lambda n: owners.get(n.name, n.traj),
+            per_group=per_group, total_groups=total_groups, minimum=minimum,
+            batch_size=args.affinity_batch_size, previous=previous)
+        for n in nodes:
+            if n.name in skipped:
+                n.score_status = skipped[n.name]
+                args.backend.record_candidate(n, False, preds[n.name])
+        return [n for n in scored if n.score >= minimum]
+    finally:
+        args.backend.finish_scoring_stage()
+
+
 def write_trajectory_row(writer, phase, node: Node, passed=True):
     writer.writerow([
         phase, node.cycle, node.traj, node.origin, node.name,
         f"{node.ca_rmsd:.3f}", f"{node.ligand_rmsd:.3f}",
         f"{node.ligand_plddt:.2f}", "" if node.pbind is None else f"{node.pbind:.3f}",
-        f"{node.score:.4f}", int(passed), node.sequence,
+        "" if node.score is None else f"{node.score:.4f}", int(passed), node.sequence,
     ])
 
 
@@ -280,6 +324,13 @@ def main(argv=None, backend=None):
                     help="Within-trajectory beam width (structures carried per cycle). "
                          "The paper used 3 (with ~1000 seqs each); 1 is a cheaper hill-climb.")
     ap.add_argument("--nise-seqs", type=int, default=64)
+    ap.add_argument("--first-cycle-seqs", type=int, default=None)
+    ap.add_argument("--partial-noising", action="store_true")
+    ap.add_argument("--noise-radius", type=float, default=6.0)
+    ap.add_argument("--noise-percent", type=float, default=25.0)
+    ap.add_argument("--noise-predictions", type=int, default=32)
+    ap.add_argument("--noise-mpnn-seqs", type=int, default=32)
+    ap.add_argument("--noise-advance", type=int, default=1)
     ap.add_argument("--nise-sc-ca", type=float, default=2.5)
     ap.add_argument("--nise-sc-lig", type=float, default=2.5)
     ap.add_argument("--nise-ligand-sc-from-cycle", type=int, default=3,
@@ -293,6 +344,11 @@ def main(argv=None, backend=None):
     ap.add_argument("--max-cycles", type=int, default=30)
     ap.add_argument("--patience", type=int, default=5)
     ap.add_argument("--min-improvement", type=float, default=1e-4)
+    ap.add_argument("--early-score-gate", type=float, default=0.0)
+    ap.add_argument("--selective-affinity", action="store_true")
+    ap.add_argument("--affinity-batch-size", type=int, default=8)
+    ap.add_argument("--adaptive-proposals", action="store_true")
+    ap.add_argument("--initial-proposals", type=int, default=16)
 
     # ranking / prediction
     ap.add_argument("--rank-metric", choices=["auto", "ligand_plddt", "ligand_plddt+pbind"], default="auto")
@@ -330,6 +386,10 @@ def main(argv=None, backend=None):
     args = ap.parse_args(argv)
     if args.phase0_gate_seqs is None:
         args.phase0_gate_seqs = args.phase0_seqs1
+    if args.first_cycle_seqs is None:
+        args.first_cycle_seqs = args.nise_seqs
+    if args.partial_noising and (backend is None or args.adaptive_proposals or args.noise_advance >= args.beam):
+        raise ValueError("Partial noising requires the managed backend, fixed sampling and a normal beam place")
     args.backend = backend
     # Replay the deterministic search over atomic operation receipts, including Phase 0.
     # Never reconstruct patience from a partially appended CSV.
@@ -425,6 +485,16 @@ def main(argv=None, backend=None):
                 ref = p0dir(0) / f"{name}_ref.pdb"
                 L.patch_unk_pdb(pred.pdb, ref)
                 lineages[name] = str(ref)
+            if getattr(args, "selective_affinity", False):
+                backend.finish_scoring_stage()
+        if getattr(args, "selective_affinity", False):
+            from types import SimpleNamespace
+            from runtime import atomic
+            checks = {name: backend.check_atom_requirements(SimpleNamespace(name=name, pdb=pdb))
+                      for name, pdb in lineages.items()}
+            atomic(p0dir(0, "initial_geometry.json"), dict(passed=checks,
+                   atom_checks=getattr(backend, "atom_checks", {}), affinity="omitted"))
+            lineages = {name: pdb for name, pdb in lineages.items() if checks[name]}
         log(f"  prepared {len(lineages)}/{args.num_starts} starts")
         if not lineages:
             raise SystemExit("Hallucination produced no foldable starts.")
@@ -447,10 +517,12 @@ def main(argv=None, backend=None):
                 log(f"  refinement: {len(seq_by_name)}/{sampled} sequences sent to Boltz; atom checks follow folding")
             preds = fold_and_score(seq_by_name, smiles, p0dir(cyc, "fold"), args, pocket=phase0_pocket)
             nodes = evaluate_candidates(preds, seq_by_name, ref_by_name, args, cyc, 1e9, 1e9)  # no gate
+            nodes = select_scores(nodes, preds, args, p0dir(cyc, "fold"), owner,
+                                  minimum=args.early_score_gate if cyc == 1 else 0.0)
             best = {}
             for n in nodes:
                 lid = owner[n.name]; n.origin = lid
-                if lid not in best or n.score > best[lid].score:
+                if lid not in best or (-n.score, n.name) < (-best[lid].score, best[lid].name):
                     best[lid] = n
             for n in best.values():
                 write_trajectory_row(tw, f"phase0.c{cyc}", n, True)
@@ -475,6 +547,7 @@ def main(argv=None, backend=None):
                 seq_by_name[nm] = s; ref_by_name[nm] = pdb; owner[nm] = lid
         preds = fold_and_score(seq_by_name, smiles, p0dir(gate_cyc, "fold"), args, pocket=None)
         survivors = evaluate_candidates(preds, seq_by_name, ref_by_name, args, gate_cyc, args.phase0_sc_ca, 1e9)
+        survivors = select_scores(survivors, preds, args, p0dir(gate_cyc, "fold"), owner, geometry_only=True)
         for n in survivors:
             n.origin = owner[n.name]
             write_trajectory_row(tw, f"phase0.c{gate_cyc}", n, True)
@@ -503,13 +576,15 @@ def main(argv=None, backend=None):
             log(f"  expansion: {len(seq_by_name)}/{sampled} sequences sent to Boltz; original-lineage identity retained")
         preds = fold_and_score(seq_by_name, smiles, p0dir(exp_cyc, "fold"), args, pocket=None)
         ranked = evaluate_candidates(preds, seq_by_name, ref_by_name, args, exp_cyc, 1e9, 1e9)  # rank only
+        ranked = select_scores(ranked, preds, args, p0dir(exp_cyc, "fold"), owner,
+                               total_groups=args.trajectories)
         for n in ranked:
             n.origin = owner[n.name]
             write_trajectory_row(tw, f"phase0.c{exp_cyc}", n, True)
         traj.flush()
         if not ranked:
             raise SystemExit("Phase 0 expand cycle produced no designs passing selection. Inspect candidates/ and atom_checks.csv.")
-        ranked.sort(key=lambda n: n.score, reverse=True)
+        ranked.sort(key=lambda n: (-n.score, n.name))
         seeds, used = [], set()
         for n in ranked:
             if n.origin in used:            # max 1 per lineage -> structural diversity
@@ -527,66 +602,91 @@ def main(argv=None, backend=None):
     #   at a time only so their folds share one parallel Boltz batch.
     # ------------------------------------------------------------------
     log(f"Phase 1: {len(seeds)} independent trajectories, beam {args.beam}, "
-        f"{args.nise_seqs} seqs/design, ligand-SC from cycle {args.nise_ligand_sc_from_cycle} "
+        f"{args.first_cycle_seqs} proposals in cycle 1; {args.nise_seqs} per parent later, ligand-SC from cycle {args.nise_ligand_sc_from_cycle} "
         f"(max {args.max_cycles} cycles, patience {args.patience})")
     if not args.resume:
         trajs = [dict(tid=n.traj, origin=n.origin, current=[n], best_score=n.score,
-                      best_node=n, no_improve=0, alive=True) for n in seeds]
+                      best_node=n, best_beam=[n], no_improve=0, alive=True) for n in seeds]
 
     for cycle in range(start_cycle, args.max_cycles + 1):
         alive = [t for t in trajs if t["alive"]]
         if not alive:
             break
         lig_thresh = args.nise_sc_lig if cycle >= args.nise_ligand_sc_from_cycle else 1e9
-        fold_dir = out / f"cycle{cycle:02d}" / "fold"
-        seq_by_name, ref_by_name, owner = {}, {}, {}
-
-        # On resume, if this cycle was already folded before the interruption,
-        # score those exact structures instead of designing/folding again.
-        existing = read_folded_sequences(fold_dir) if cycle == ingest_cycle else {}
-        by_id = {t["tid"]: t for t in alive}
-        if existing:
-            for nm, s in existing.items():
-                m = re.match(r"c\d+_t(\d+)_n(\d+)_s\d+$", nm)
-                if not m:
-                    continue
-                tid, j = int(m.group(1)), int(m.group(2))
-                t = by_id.get(tid)
-                if t is None or j >= len(t["current"]):
-                    continue
-                seq_by_name[nm] = s
-                ref_by_name[nm] = t["current"][j].pdb
-                owner[nm] = t
-            log(f"  cycle {cycle}: ingesting {len(seq_by_name)} already-folded designs from disk")
-            ingested_preds = L.parse_existing_batch(fold_dir, list(seq_by_name))
-            log(f"  cycle {cycle}: parsed {len(ingested_preds)} existing predictions (no re-folding)")
-        else:
-            for t in alive:
-                for j, node in enumerate(t["current"]):
-                    seqs = design_sequences(
-                        args.designer, node.pdb,
-                        out / f"cycle{cycle:02d}" / "design" / f"T{t['tid']}_n{j}",
-                        args.nise_seqs, smiles, args, seed=args.seed + cycle * 1000 + t["tid"] * 10 + j,
+        from search_policy import proposal_levels
+        from runtime import atomic
+        cap = args.first_cycle_seqs if cycle == 1 else args.nise_seqs
+        levels = proposal_levels(cap, args.adaptive_proposals, args.initial_proposals)
+        noising_active = args.partial_noising and cycle >= 2
+        normal_places = args.beam - args.noise_advance if noising_active else args.beam
+        by_tid = defaultdict(list)
+        pending = list(alive)
+        previous_level = 0
+        for level in levels:
+            if not pending:
+                break
+            round_dir = out / f"cycle{cycle:02d}"
+            if args.adaptive_proposals:
+                round_dir = round_dir / f"topup{level:04d}"
+            fold_dir = round_dir / "fold"
+            seq_by_name, ref_by_name, owner = {}, {}, {}
+            # A reserved noising place also replaces an ordinary sampling parent.
+            # Rank across the complete current beam: a successful repair can
+            # become an ordinary parent in the next cycle.
+            sampling_parents = {
+                t["tid"]: (sorted(t["current"], key=lambda n: (-n.score, n.name))[:normal_places]
+                           if noising_active else t["current"])
+                for t in pending}
+            parents = {tid: [asdict(n) for n in nodes] for tid, nodes in sampling_parents.items()}
+            for t in pending:
+                for j, node in enumerate(sampling_parents[t["tid"]]):
+                    seqs = design_sequences(args.designer, node.pdb,
+                        round_dir / "design" / f"T{t['tid']}_n{j}",
+                        level - previous_level, smiles, args,
+                        seed=(args.seed + cycle * 1000000 + t["tid"] * 10000 + j * 100 + previous_level
+                              if args.adaptive_proposals else args.seed + cycle * 1000 + t["tid"] * 10 + j),
                         constrain_ss=(args.designer == "lasermpnn"),
                         seq_temp=args.seq_temp, fs_temp=args.bindingsite_temp)
-                    for k, s in enumerate(seqs):
-                        nm = f"c{cycle:02d}_t{t['tid']}_n{j}_s{k}"
-                        seq_by_name[nm] = s
-                        ref_by_name[nm] = node.pdb
-                        owner[nm] = t
-        preds = ingested_preds if existing else fold_and_score(seq_by_name, smiles, fold_dir, args)
-        cands = evaluate_candidates(preds, seq_by_name, ref_by_name, args, cycle,
-                                    args.nise_sc_ca, lig_thresh)
-        by_tid = defaultdict(list)
-        for n in cands:
-            t = owner[n.name]
-            n.traj, n.origin = t["tid"], t["origin"]
-            by_tid[t["tid"]].append(n)
-            write_trajectory_row(tw, "nise", n, True)
-        traj.flush()
+                    for k, sequence in enumerate(seqs, start=previous_level):
+                        name = f"c{cycle:02d}_t{t['tid']}_n{j}_s{k}"
+                        seq_by_name[name] = sequence
+                        ref_by_name[name] = node.pdb
+                        owner[name] = t["tid"]
+            preds = fold_and_score(seq_by_name, smiles, fold_dir, args)
+            cands = evaluate_candidates(preds, seq_by_name, ref_by_name, args, cycle,
+                                        args.nise_sc_ca, lig_thresh)
+            cands = select_scores(cands, preds, args, fold_dir, owner, per_group=normal_places,
+                                 previous=[n for pool in by_tid.values() for n in pool])
+            by_id = {t["tid"]: t for t in alive}
+            for n in cands:
+                t = by_id[owner[n.name]]
+                n.traj, n.origin = t["tid"], t["origin"]
+                by_tid[t["tid"]].append(n)
+                write_trajectory_row(tw, "nise", n, True)
+            traj.flush()
+            continuing = [t for t in pending if not by_tid[t["tid"]] or
+                          max(n.score for n in by_tid[t["tid"]]) <= t["best_score"] + args.min_improvement]
+            atomic(round_dir / "proposal_round.json", dict(
+                cycle=cycle, cumulative_proposals_per_parent=level,
+                additional_proposals_per_parent=level - previous_level,
+                sampled=len(seq_by_name), folded=len(preds), affinity_scored=len(cands),
+                parents=parents, normal_parent_limit=normal_places,
+                pooled_beams={str(t["tid"]): [asdict(n) for n in
+                    sorted(by_tid[t["tid"]], key=lambda n: (-n.score, n.name))[:args.beam]] for t in alive},
+                needs_topup=[t["tid"] for t in continuing], rollback=False))
+            log(f"  cycle {cycle}: {level} proposals/parent reached; "
+                f"{len(continuing)} trajectories without sufficient improvement")
+            pending, previous_level = continuing, level
+        noise_pools = {}
+        if noising_active:
+            from partial_noising import run_branch
+            noise_pools = run_branch(alive, out, smiles, args, cycle, lig_thresh, tw)
+            traj.flush()
         lig_state = "on" if cycle >= args.nise_ligand_sc_from_cycle else "off"
         for t in alive:
-            tc = sorted(by_tid.get(t["tid"], []), key=lambda n: n.score, reverse=True)
+            normal = sorted(by_tid.get(t["tid"], []), key=lambda n: (-n.score, n.name))
+            noisy = noise_pools.get(t["tid"], [])
+            tc = sorted(normal[:normal_places] + noisy[:args.noise_advance], key=lambda n: (-n.score, n.name))
             if not tc:
                 t["alive"] = False
                 log(f"  cycle {cycle} T{t['tid']}: no self-consistent designs; trajectory stops.")
@@ -594,7 +694,8 @@ def main(argv=None, backend=None):
             t["current"] = tc[: args.beam]
             cbest = tc[0].score
             if cbest > t["best_score"] + args.min_improvement:
-                t["best_score"], t["best_node"], t["no_improve"] = cbest, tc[0], 0
+                t["no_improve"] = 0
+                t["best_beam"] = list(t["current"])
                 flag = "IMPROVED"
             else:
                 t["no_improve"] += 1
@@ -602,7 +703,9 @@ def main(argv=None, backend=None):
                 if t["no_improve"] >= args.patience:
                     t["alive"] = False
                     flag += " -> stop"
-            log(f"  cycle {cycle} T{t['tid']}({t['origin']}): {len(tc)} passed [lig-SC {lig_state}]; "
+            if cbest > t["best_score"]:
+                t["best_score"], t["best_node"] = cbest, tc[0]
+            log(f"  cycle {cycle} T{t['tid']}({t['origin']}): {len(normal) + len(noisy)} scored survivors, {len(t['current'])} advancing [lig-SC {lig_state}]; "
                 f"best={cbest:.4f} (ligpLDDT={tc[0].ligand_plddt:.1f}, pbind={tc[0].pbind}) {flag}")
 
         if hasattr(backend, "record_advancement"):

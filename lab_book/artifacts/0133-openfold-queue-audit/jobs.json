@@ -1,0 +1,38 @@
+[
+  {
+    "id": "job-aea5a49375d2",
+    "plan_id": "plan-aea5a49375d26673",
+    "plan_sha256": "aea5a49375d26673c5da33b19b6437e95fabe28974a3304365855ad275845849",
+    "status": "failed",
+    "created_at": "2026-09-10T01:59:52.148568Z",
+    "finished_at": "2026-09-16T05:52:21.740239Z",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/engine-batch-d5146abc-6264-4c16-9c86-c287f45742c3",
+    "engine_index": 49,
+    "engine_count": 56,
+    "message": "Workflow command exited with status 1. Last output: ERROR: --design-scheduler resident has no validated worker for predictor openfold-3-mlx."
+  },
+  {
+    "id": "job-2cde615cf637",
+    "plan_id": "plan-2cde615cf637fb86",
+    "plan_sha256": "2cde615cf637fb861ed07d1849fdfcdf7aaa223ef7c4fc786cd090ce534bb9cf",
+    "status": "failed",
+    "created_at": "2026-09-10T01:58:39.543839Z",
+    "finished_at": "2026-09-14T18:53:06.677580Z",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/engine-batch-9b22095d-7d6e-4377-b712-002106751263",
+    "engine_index": 7,
+    "engine_count": 7,
+    "message": "Workflow command exited with status 1. Last output: ERROR: --design-scheduler resident has no validated worker for predictor openfold-3-mlx."
+  },
+  {
+    "id": "job-4d54e18d450b",
+    "plan_id": "plan-4d54e18d450be6ad",
+    "plan_sha256": "4d54e18d450be6ad0277c40aac8693648fc5d078a3bcb965ecdd7b7f5e0f11c2",
+    "status": "failed",
+    "created_at": "2026-09-08T20:11:16.053744Z",
+    "finished_at": "2026-09-10T15:22:44.940907Z",
+    "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/engine-batch-fedb3004-f3ed-4137-b6c3-884d6ed978fa",
+    "engine_index": 7,
+    "engine_count": 7,
+    "message": "Workflow command exited with status 1. Last output: ERROR: --design-scheduler resident has no validated worker for predictor openfold-3-mlx."
+  }
+]

@@ -10,7 +10,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-09-09_
+_Last updated: 2026-09-17_
 
 | | |
 |---|---|
@@ -32,14 +32,36 @@ startup cancellation fixtures pass (Entry 0129).
 molecule highlights, and adds optional names beside Start/Add to Queue in all
 four tabs (Entry 0130).
 
+**RFdiffusion3 audit:** Source fixes cover optional atom selections, verified
+resume and output qualification. Software regression tests and the app build pass;
+new real-model smoke testing and deployment remain outstanding (Entry 0132).
+
+**OpenFold queue fix:** The app now uses OpenFold-3's supported per-trajectory
+scheduler and rejects unsupported residency during batch preflight. The three
+affected Bgx batches have 4,500 completed optimized structures and 750 outstanding;
+the ten unfinished OpenFold campaigns have now been submitted as corrected
+immutable jobs (one running and nine queued at restart). Rebuilt local app;
+historic failed plans and completed results are preserved (Entries 0133, 0136).
+
 **Working:** NISE now offers Protein Hunter hallucination or experimental
-RFdiffusion3 initial backbones, with 100 starts by default (Entry 0103).
+RFdiffusion3 initial backbones (Entry 0103), now with 1,000 starts by default
+(Entry 0135).
 NESSO installs its required ESM-2 650M assets automatically and can reuse exact
 verified cache files. NISE separates initial backbone generation from optimisation,
 with typed budgets, explicit sequences-to-advance and optional experimental
 NESSO sequence screening before Boltz (Entry 0102). Its worker and screening contracts have fixture coverage. The resident 50-design
 fluorescein benchmark (Entry 0118) found NESSO 6.16× faster but weak Boltz rank
 agreement; full NISE screening-campaign acceptance remains pending.
+
+**NISE search policy:** New requests use 1,000 starts, 30 maximum cycles,
+four-cycle patience and beam three. Sampling is 64 proposals from the starting
+seed, then 32 per parent (up to 96 per trajectory). Adaptive stays off. Optional
+ligand-local X-token masking adds a separately scored/repaired branch from cycle
+2 and replaces one ordinary sampling parent and advancement place, using an
+experimental 6 Å / 25% starting setting (64 ordinary + 32 masked + 32 repair
+predictions per later trajectory-cycle). Software route/replay checks pass;
+a five-start biotin acceptance pilot is running before the authorized large
+campaign. Build 38 / MCP 19 deployment is in progress (Entries 0137, 0140, 0143).
 
 Setup wizard with per-engine choice, worked examples (α-cobratoxin
 with its alignment included, and fluorescein), workspace management, a
@@ -230,6 +252,19 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0143 | 2026-09-17 | [Start biotin acceptance and update Studio](lab_book/0143-biotin-launch-and-update.md) | Authorized campaign preceded by five-start resident noising pilot; build 38 and MCP 19 update in progress |
+| 0142 | 2026-09-17 | [Limit biotin exposure to terminal oxygens](lab_book/0142-limit-biotin-exposure-to-terminal-oxygens.md) | Revised draft exposes only O18/O19 at 50%; removes carbon exposure constraints, preserves all other settings and 55,208 prediction ceiling |
+| 0141 | 2026-09-17 | [Compare NISE exposure methods](lab_book/0141-compare-nise-exposure-methods.md) | Studio uses per-atom retained SASA throughout; reported Cα alpha-hull/five-ray method is not equivalent and its exact code remains unavailable |
+| 0140 | 2026-09-17 | [Replace an ordinary sampling parent with noising](lab_book/0140-correct-noising-parent-budget.md) | Two ordinary parents plus one noising branch; 128 later folds per trajectory, revised biotin maximum 55,208; free-ligand terminal exposure retained |
+| 0139 | 2026-09-17 | [Review biotin attachment atoms and noising scale](lab_book/0139-review-biotin-noising-plan.md) | Prior atom map verified; free-acid versus conjugated-amide distinction; draft 62,632-fold upper bound, attachment confirmation and pilot pending |
+| 0138 | 2026-09-17 | [Plot completed Bgx minibinder and nanobody overviews](lab_book/0138-plot-completed-bgx-overviews.md) | Reference-style figures from 5,250 audited structures; scaffold-specific nanobody confidence and pooled per-engine timing; SVG/PDF/PNG exports |
+| 0137 | 2026-09-16 | [Separate NISE budgets and add optional ligand-local masking](lab_book/0137-nise-fixed-budgets-and-partial-noising.md) | First cycle 64, later 32 per parent with beam three; experimental masked-backbone/MPNN repair branch reserves one place, remains off, with route/replay fixtures passing |
+| 0136 | 2026-09-16 | [Restart outstanding OpenFold campaigns](lab_book/0136-restart-outstanding-openfold-runs.md) | Ten corrected immutable plans submitted; one running and nine queued for 750 optimized designs, retaining original inputs, seeds and snapshots |
+| 0135 | 2026-09-16 | [Audit fluorescein score progression before choosing adaptive sampling](lab_book/0135-fluorescein-nise-adaptive-retrospective.md) | Requested 1,000/30/4 defaults; 5,440-fold audit finds rare cycle winners and small late gains; adaptive policy remains unpromoted |
+| 0134 | 2026-09-16 | [Add the NISE efficient search policy](lab_book/0134-nise-efficient-search-policy.md) | Shared early gate, geometry-first selective affinity, eight-cycle default and optional resumable adaptive top-ups without rollback/rescue |
+| 0133 | 2026-09-16 | [Fix OpenFold scheduling and audit stalled batches](lab_book/0133-fix-openfold-scheduler-and-audit-queue.md) | Supported OpenFold scheduling, early batch rejection, 4,500 verified optimized structures and 750 outstanding; local app rebuilt and original jobs left paused |
+| 0132 | 2026-09-16 | [Audit and harden the RFdiffusion3 pipeline](lab_book/0132-audit-and-harden-rfd3-pipeline.md) | Empty selections, verified resume, disjoint queue seeds, exact designer routing, finite ranking and complete multi-engine hit checks |
+| 0131 | 2026-09-16 | [Audit three test2 NISE campaigns](lab_book/0131-audit-test2-nise-runs.md) | Stage attrition, historical-winner caveat, NESSO gate exhaustion and RFD3 empty buried-atom metrics crash |
 | 0130 | 2026-09-09 | [Fix atom controls and name runs](lab_book/0130-atom-controls-and-run-names.md) | Native Bind/Expose click regression; visible highlights; atomic contact/linker updates; saved names across all tabs |
 | 0129 | 2026-09-09 | [Queue all Studio workflows](lab_book/0129-queue-all-studio-workflows.md) | All four tabs accept waiting work; global queue controls; independent saved runs and startup cancellation handling |
 | 0118 | 2026-09-09 | [Compare resident NESSO and Boltz2](lab_book/0118-resident-nesso-boltz-fluorescein.md) | 50 paired designs: NESSO 6.16× faster, weak Boltz rank agreement (ρ = 0.106); original design batch resumed. |

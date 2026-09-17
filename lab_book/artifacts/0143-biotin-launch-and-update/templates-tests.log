@@ -1,0 +1,31 @@
+/Users/thomasfryer/.matplotlib is not a writable directory
+Matplotlib created a temporary cache directory at /var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/matplotlib-k05zj4do because there was an issue with the default path ({configdir}); it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+...PBSTAGE|msa|10|Looking for alignments we already have
+PBINFO|0 distinct sequences already aligned on this machine
+PBINFO|0 of 0 needed alignments came from the cache
+PBSTAGE|plan|32|Preparing inputs
+PBSTAGE|template|34|Preparing boltz structure guidance
+PBINFO|boltz: 2 fold(s) in 1 shape group(s), 1 process(es) x 8 input(s) each
+PBSTAGE|fold|95|2 of 2 folds done
+PBSTAGE|collect|96|Collecting results
+PBINFO|{"template": {"path": "/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/predict-template-f61eczv0/synthetic.pdb", "chains": ["A"], "mode": "guide"}, "jobs": 2, "predictors": ["boltz"], "results": 2, "failures": 0, "wall_sec": 0.0, "seed": 42, "num_seeds": 1, "diffusion_samples": 0, "effective_diffusion_samples": {"boltz": 1}, "msa_cache": "/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/predict-template-f61eczv0/msa_cache"}
+PBSTAGE|done|100|2 of 2 folds succeeded
+PBDONE|ok
+PBSTAGE|msa|10|Looking for alignments we already have
+PBINFO|0 distinct sequences already aligned on this machine
+PBINFO|0 of 0 needed alignments came from the cache
+PBSTAGE|plan|32|Preparing inputs
+PBSTAGE|template|34|Preparing boltz structure guidance
+PBINFO|boltz: 2 fold(s) in 1 shape group(s), 1 process(es) x 8 input(s) each
+PBINFO|boltz_b128_c0: reused 2 completed fold(s)
+PBSTAGE|fold|95|2 of 2 folds done
+PBSTAGE|collect|96|Collecting results
+PBINFO|{"template": {"path": "/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/predict-template-f61eczv0/synthetic.pdb", "chains": ["A"], "mode": "guide"}, "jobs": 2, "predictors": ["boltz"], "results": 2, "failures": 0, "wall_sec": 0.0, "seed": 42, "num_seeds": 1, "diffusion_samples": 0, "effective_diffusion_samples": {"boltz": 1}, "msa_cache": "/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/predict-template-f61eczv0/msa_cache"}
+PBSTAGE|done|100|2 of 2 folds succeeded
+PBDONE|ok
+PBFAIL|Cannot remove the template from an existing guided run; start a new run.
+...
+----------------------------------------------------------------------
+Ran 6 tests in 1.069s
+
+OK

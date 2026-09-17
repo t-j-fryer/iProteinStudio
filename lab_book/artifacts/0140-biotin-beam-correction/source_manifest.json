@@ -1,0 +1,11 @@
+{
+  "purpose": "Software-tested replacement of an ordinary sampling parent with partial noising; no inference or performance claim",
+  "files": {
+    "Sources/iProteinStudio/Resources/pipeline/scripts/nise/nise_run.py": "abe2a52d52ebe889c9f3a3171655a1155f1e7a25438ab001a6a74d8445a30dac",
+    "Sources/iProteinStudio/Resources/pipeline/scripts/nise/contract.py": "3d00bf58b42f49212a8eb8db7cae706246a2c41e8a7327d725cf30854be2e130",
+    "Sources/iProteinStudio/Models/NISERequest.swift": "560266b6c0e97efb80756283663c47c0ce4b4375945a0226017db4951c7ffdb9",
+    "Sources/iProteinStudio/Views/NISE/NISEView.swift": "144eaff14cd8aee84a21d165c580e2ba0fe6e0346b191ed1a382fca79a36b839",
+    "Tests/test_nise_partial_noising.py": "174a46ec78803dcf22e30c66ae92ede45ceb5e4613a33dbe7e275622f58870c8",
+    "Tests/NISERequestContractHarness.swift": "5c70f3a1f5d6cc73fc274560437147087bc42c20fb5b2fefe0833c63d86ba557"
+  }
+}

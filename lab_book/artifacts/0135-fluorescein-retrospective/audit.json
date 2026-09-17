@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "folds": 5440,
+  "cycles": 85,
+  "trajectory_rows": 2615,
+  "missing_affinity": 53,
+  "geometry_matches_recorded": true,
+  "parent_coordinate_matches": 85,
+  "candidate_sequences_match_yaml": true,
+  "source_files_verified": 21807,
+  "notes": [
+    "Saved num_starts=12 was overwritten on resume; original cycle00 has 100 starts.",
+    "Missing affinity is never imputed; all six cycle05 groups excluded from subset simulation."
+  ]
+}

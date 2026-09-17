@@ -503,7 +503,8 @@ does not download IntelliFold's optional PDB template database.
 The app always selects `resident` for Boltz 2, IntelliFold v2-flash,
 IntelliFold full v2, Protenix Mini and Protenix Constraint. It selects
 `cycle-wave` for full Protenix v2, which was faster than residency in the paired
-M4 Max campaign. Scheduling is not a GUI preference: direct CLI users can still
+M4 Max campaign. OpenFold-3 uses `run`, because it has no resident worker.
+Scheduling is not a GUI preference: direct CLI users can still
 pass `--design-scheduler run` explicitly to reproduce or diagnose the historical
 per-trajectory route, while an existing campaign Resume reuses its recorded
 command unchanged.
@@ -720,6 +721,26 @@ New GUI campaigns live under
 `campaign_progress.json` and accept `--resume`; the Activity panel detects the
 PID, checkpoints and final `analysis/top100.csv`. Existing `projects/<slug>/rfd3`
 campaigns remain visible as legacy history.
+
+RFdiffusion3 resume now checks the saved request and output hashes at each stage;
+`campaign_progress.json` is a progress display, not permission to skip verification.
+Unchanged completed fixtures, backbone batches, sequence batches and prediction
+outputs are reused. An interrupted backbone batch resumes from its committed seed
+cursor; incomplete files are preserved separately. Sequence-design retries retain
+completed per-backbone FASTAs. Changed inputs or damaged committed output stop with
+an error instead of silently mixing work from different requests.
+
+Use a new output directory for a changed request. Legacy fixtures/backbone results
+without verification receipts cannot be adopted by the new runner; existing Studio
+campaigns retain their frozen runtime. The historical `--overwrite` route for
+fixtures/backbones is rejected to protect audited outputs. No migration or automatic
+restart of old campaigns occurs when the app is updated.
+
+Optional buried/exposed atom selections may be empty. Their unavailable minimum
+distances are recorded as null, with zero selected contacts. Hotspot contact does
+not imply burial. Non-finite scores cannot enter ranking, and an enabled final hit
+criterion requires a finite result from every selected checking engine. Sampling
+requires at least two diffusion steps; zero recycles remains supported.
 
 The RFdiffusion3 results sheet is live. It discovers each append-only accepted
 backbone checkpoint and each successful verification structure without waiting

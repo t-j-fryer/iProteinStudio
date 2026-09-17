@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from .common import StudioError, load_json, project_root, runtime_root, stable_environment, validate_slug
-from .plans import _persist, _script_provenance
+from .plans import _persist, _script_provenance, rfd3_runtime_scripts
 
 
 def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
@@ -103,6 +103,12 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
         arguments = manifest.get("arguments")
         if not isinstance(arguments, list) or not all(isinstance(v, str) for v in arguments):
             raise StudioError("The recorded iterative command is unreadable.")
+        # A GUI regression emitted resident for OpenFold-3, which has no such
+        # worker. Reject the whole batch at preflight, before any engine runs.
+        if ("--predictor" in arguments and "--design-scheduler" in arguments
+                and arguments[arguments.index("--predictor") + 1:][:1] == ["openfold-3-mlx"]
+                and arguments[arguments.index("--design-scheduler") + 1:][:1] in (["resident"], ["campaign-resident"])):
+            raise StudioError("OpenFold-3 has no resident worker. Recreate the unfinished OpenFold-3 run with --design-scheduler run; the saved plan cannot be changed in place.")
         # Exact GUI argv is retained, including MSA and resident scheduling.
         for flag in ("--template-yaml", "--target-template"):
             if flag in arguments:
@@ -138,7 +144,7 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
             raise StudioError("The NISE pipeline snapshot is missing.")
         contract = load_contract()
         try:
-            normalized_request = contract.preflight(root, settings.get("request"))
+            normalized_request = contract.preflight(root, contract.saved_request(settings.get("request")))
         except ValueError as exc:
             raise StudioError(str(exc)) from exc
         scripts = sorted((snapshot / "scripts").rglob("*.py"))
@@ -207,7 +213,7 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
             if settings.get(key):
                 inputs.append(Path(settings[key]))
         inputs += [Path(item["path"]) for item in settings.get("conformers", []) if item.get("path")]
-        scripts = [root / "rfd3_scripts/prepare_campaign.py", runner] + sorted((root / "rfd3_scripts").rglob("*.py")) + sorted((root / "rfd3/scripts").rglob("*.py"))
+        scripts = [root / "rfd3_scripts/prepare_campaign.py", runner] + rfd3_runtime_scripts(root)
         steps = [
             {"command": [str(python), str(root / "rfd3_scripts/prepare_campaign.py"), str(source)],
              "cwd": str(root / "rfd3"), "stage": "prepare"},

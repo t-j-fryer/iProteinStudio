@@ -35,9 +35,11 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 
 import yaml
+from rfd3_resume import bind_inputs, save_receipt, verify_receipt, sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -119,15 +121,15 @@ def preflight(spec: dict) -> None:
         print("preflight: no `input` structure (ligand-free design) -- skipped")
         return
     try:
-        from biotite.structure.io.pdbx import CIFFile, get_structure as cif_structure
+        from biotite.structure.io.pdbx import CIFFile, BinaryCIFFile, get_structure as cif_structure
         from biotite.structure.io.pdb import PDBFile
-    except ImportError:  # pragma: no cover - biotite ships with the venv
-        print("preflight: biotite unavailable -- skipped")
-        return
+    except ImportError as exc:  # pragma: no cover - biotite ships with the venv
+        raise SystemExit("RFdiffusion3 structure validation requires biotite; repair the RFdiffusion3 environment.") from exc
 
     path = Path(spec["input"])
     if path.suffix.lower() in {".cif", ".mmcif", ".bcif"}:
-        array = cif_structure(CIFFile.read(path), model=1)
+        reader = BinaryCIFFile if path.suffix.lower() == ".bcif" else CIFFile
+        array = cif_structure(reader.read(path), model=1)
     else:
         array = PDBFile.read(path).get_structure(model=1)
 
@@ -227,6 +229,8 @@ def plan_lengths(spec: dict, run: dict) -> list[int]:
         return [int(x) for x in run["lengths"]]
     if run.get("min_length") is not None and run.get("max_length") is not None:
         lo, hi, n = int(run["min_length"]), int(run["max_length"]), int(run["num_bins"])
+        if lo < 1 or hi < lo:
+            raise SystemExit("binder length range must be positive and ordered")
         if n < 1:
             raise SystemExit("num_bins must be >= 1")
         if n == 1:
@@ -254,14 +258,15 @@ def input_chain_length(spec: dict, chain: str) -> int:
     if not spec.get("input"):
         raise SystemExit("partial diffusion requires an input structure")
     try:
-        from biotite.structure.io.pdbx import CIFFile, get_structure as cif_structure
+        from biotite.structure.io.pdbx import CIFFile, BinaryCIFFile, get_structure as cif_structure
         from biotite.structure.io.pdb import PDBFile
         path = Path(spec["input"])
-        array = (cif_structure(CIFFile.read(path), model=1)
+        reader = BinaryCIFFile if path.suffix.lower() == ".bcif" else CIFFile
+        array = (cif_structure(reader.read(path), model=1)
                  if path.suffix.lower() in {".cif", ".mmcif", ".bcif"}
                  else PDBFile.read(path).get_structure(model=1))
         mask = (array.chain_id == chain) & array.hetero.__eq__(False)
-        ids = set(zip(array.chain_id[mask].tolist(), array.res_id[mask].tolist()))
+        ids = set(zip(array.chain_id[mask].tolist(), array.res_id[mask].tolist(), array.ins_code[mask].tolist()))
     except Exception as exc:
         raise SystemExit(f"could not read partial-diffusion chain {chain}: {exc}") from exc
     if not ids:
@@ -276,7 +281,9 @@ def allocate(total: int, n: int) -> list[int]:
 
 def allocate_weighted(total: int, weights: list[float]) -> list[int]:
     """Largest-remainder allocation whose quotas always sum to ``total``."""
-    positive = [max(0.0, float(weight)) for weight in weights]
+    positive = [float(weight) for weight in weights]
+    if total < 1 or any(not math.isfinite(w) or w < 0 for w in positive):
+        raise SystemExit("design count must be positive and conformer weights finite and non-negative")
     weight_sum = sum(positive)
     if weight_sum <= 0:
         raise SystemExit("conformer weights must include at least one positive value")
@@ -473,11 +480,31 @@ def _bins_for_conformer(spec, run, name, lengths, quotas, conf_path, tag, motif_
         total_length = length + motif_residues
         if spec.get("partial_t") is None:
             bin_spec["length"] = f"{total_length}-{total_length}"
-        input_json.write_text(json.dumps({bin_name: bin_spec}, indent=2) + "\n")
+        identity = {"spec": bin_spec, "seed": int(run["seed_base"]) + i,
+                    "timesteps": run["timesteps"], "n_recycle": run["n_recycle"],
+                    "input_sha256": sha256(Path(conf_path)) if conf_path else None,
+                    "ccd": {str(p): sha256(p) for p in sorted(
+                        Path(env["CCD_MIRROR_PATH"]).rglob("*.cif"))}
+                    if env.get("CCD_MIRROR_PATH") else {}}
+        receipt = fixture.with_suffix(".receipt.json")
+        request = fixture.with_suffix(".request.json")
+        if overwrite:
+            raise SystemExit("Fixture replacement requires a new campaign output directory")
+        if fixture.exists() and not receipt.exists():
+            if not request.exists():
+                raise SystemExit(f"Unverified cached fixture: {fixture}. Use a new campaign output directory.")
+            bind_inputs(request, identity)
+            archive = oracle_dir / "interrupted" / uuid.uuid4().hex
+            archive.mkdir(parents=True)
+            fixture.rename(archive / fixture.name)
+            if input_json.exists():
+                input_json.rename(archive / input_json.name)
+        bind_inputs(request, identity)
 
-        if fixture.exists() and not overwrite:
+        if verify_receipt(receipt, identity):
             print(f"  L{length}: fixture cached -> {fixture}")
         else:
+            input_json.write_text(json.dumps({bin_name: bin_spec}, indent=2) + "\n")
             log_path = rfd3_dir / f"fixture_{bin_name}.log"
             cmd = [
                 sys.executable, str(ROOT / "milestone0_oracle.py"),
@@ -491,6 +518,15 @@ def _bins_for_conformer(spec, run, name, lengths, quotas, conf_path, tag, motif_
                 result = subprocess.run(cmd, cwd=ROOT, env=env, stdout=handle, stderr=subprocess.STDOUT)
             if result.returncode:
                 raise SystemExit(f"fixture build failed for L{length} (exit {result.returncode}); see {log_path}")
+            # Load the ZIP directory and each array: a truncated NPZ must never
+            # become a successful fixture merely because the process exited 0.
+            import numpy as np
+            with np.load(fixture, allow_pickle=False) as arrays:
+                if "coord_to_be_noised" not in arrays or not any(k.startswith("feats/") for k in arrays):
+                    raise RuntimeError(f"Incomplete RFdiffusion3 feature fixture: {fixture}")
+                for key in arrays.files:
+                    arrays[key]
+            save_receipt(receipt, identity, [fixture, input_json])
             print(f"  L{length}: fixture built in {time.time() - started:.1f}s -> {fixture}")
 
         bins.append({
@@ -570,6 +606,8 @@ def main() -> None:
         run["lengths"] = [int(x) for x in args.lengths.split(",")]
 
     name = str(run.get("name") or args.spec.stem).replace("-", "_")
+    if not re.fullmatch(r"[A-Za-z0-9_]+", name):
+        raise SystemExit("design name must contain only letters, digits, underscores or hyphens")
     campaign = Path(run.get("output") or (ROOT / "campaigns" / name))
     campaign = campaign if campaign.is_absolute() else (ROOT / campaign)
     campaign = campaign.resolve()
@@ -577,6 +615,14 @@ def main() -> None:
     resolve_paths(spec, args.spec.resolve().parent)
     preflight(spec)
     lengths = plan_lengths(spec, run)
+    if not lengths or any(length < 1 for length in lengths) or len(set(lengths)) != len(lengths):
+        raise SystemExit("binder lengths must be positive and unique")
+    for key, minimum in (("num_designs", 1), ("batch_size", 1), ("queues_per_bin", 1),
+                         ("timesteps", 2), ("n_recycle", 0)):
+        if int(run[key]) < minimum:
+            raise SystemExit(f"{key} must be >= {minimum}")
+    if run["precision"] not in {"fp32", "bf16", "int8"}:
+        raise SystemExit("unsupported RFdiffusion3 precision")
 
     env = os.environ.copy()
     env.update({"DEBUG": "false", "TOKENIZERS_PARALLELISM": "false"})
@@ -588,6 +634,15 @@ def main() -> None:
     print(f"ligand   : {spec.get('ligand') or '(none)'}   ccd mirror: {env['CCD_MIRROR_PATH']}")
     print(f"lengths  : {lengths}  ({run['num_designs']} designs total)")
     conformers = parse_conformers(args.conformers or run.get("conformers"))
+    if conformers:
+        resolved = []
+        for path, weight, label in conformers:
+            variant = {**spec, "input": path}
+            resolve_paths(variant, args.spec.resolve().parent)
+            preflight(variant)
+            resolved.append((variant["input"], weight, label))
+        conformers = resolved
+        allocate_weighted(int(run["num_designs"]), [w for _, w, _ in conformers])
     origins = parse_origins(args.origins or run.get("origins"))
     if origins:
         print(f"surface origins: {len(origins)} explicit centres")

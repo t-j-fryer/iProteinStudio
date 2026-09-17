@@ -1,0 +1,659 @@
+{
+  "status": "chemistry review pending; no job or immutable execution plan created",
+  "old_run": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-C9CCE180-9E41-4BA3-95AE-CB03FBB867FA",
+  "source_sha256": {
+    "nise_config.json": "92403bf341959335caf5aea5561bba96248c37d2d13c90255134217571f731d7",
+    "ligand_atom_map.json": "d7a707683233669c40040fecc19cabe091ce454df129566a68e66330c388934e"
+  },
+  "atom_map_matches_saved": true,
+  "previous_atom_roles": [
+    {
+      "name": "O18",
+      "index": 0,
+      "element": "O",
+      "role": "acid carbonyl oxygen",
+      "selection": "Expose",
+      "neighbors": [
+        "C22"
+      ]
+    },
+    {
+      "name": "C22",
+      "index": 1,
+      "element": "C",
+      "role": "acid carbonyl carbon",
+      "selection": "Expose",
+      "neighbors": [
+        "O18",
+        "O19",
+        "C25"
+      ]
+    },
+    {
+      "name": "O19",
+      "index": 2,
+      "element": "O",
+      "role": "acid hydroxyl oxygen (replaced on amidation)",
+      "selection": "Expose",
+      "neighbors": [
+        "C22"
+      ]
+    },
+    {
+      "name": "C25",
+      "index": 3,
+      "element": "C",
+      "role": "tail methylene adjacent to carbonyl",
+      "selection": "Expose",
+      "neighbors": [
+        "C22",
+        "C26"
+      ]
+    },
+    {
+      "name": "C26",
+      "index": 4,
+      "element": "C",
+      "role": "valeric tail methylene",
+      "selection": "None",
+      "neighbors": [
+        "C25",
+        "C27"
+      ]
+    },
+    {
+      "name": "C27",
+      "index": 5,
+      "element": "C",
+      "role": "valeric tail methylene",
+      "selection": "None",
+      "neighbors": [
+        "C26",
+        "C28"
+      ]
+    },
+    {
+      "name": "C28",
+      "index": 6,
+      "element": "C",
+      "role": "valeric tail methylene",
+      "selection": "None",
+      "neighbors": [
+        "C27",
+        "C31"
+      ]
+    },
+    {
+      "name": "C31",
+      "index": 7,
+      "element": "C",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "C28",
+        "S20",
+        "C30"
+      ]
+    },
+    {
+      "name": "S20",
+      "index": 8,
+      "element": "S",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "C31",
+        "C29"
+      ]
+    },
+    {
+      "name": "C29",
+      "index": 9,
+      "element": "C",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "S20",
+        "C32"
+      ]
+    },
+    {
+      "name": "C32",
+      "index": 10,
+      "element": "C",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "C29",
+        "N24",
+        "C30"
+      ]
+    },
+    {
+      "name": "N24",
+      "index": 11,
+      "element": "N",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "C32",
+        "C21"
+      ]
+    },
+    {
+      "name": "C21",
+      "index": 12,
+      "element": "C",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "N24",
+        "O17",
+        "N23"
+      ]
+    },
+    {
+      "name": "O17",
+      "index": 13,
+      "element": "O",
+      "role": "ureido carbonyl oxygen",
+      "selection": "Bind",
+      "neighbors": [
+        "C21"
+      ]
+    },
+    {
+      "name": "N23",
+      "index": 14,
+      "element": "N",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "C21",
+        "C30"
+      ]
+    },
+    {
+      "name": "C30",
+      "index": 15,
+      "element": "C",
+      "role": "bicyclic head",
+      "selection": "Bind",
+      "neighbors": [
+        "N23",
+        "C31",
+        "C32"
+      ]
+    }
+  ],
+  "old_formula": "C10H16N2O3S",
+  "old_stereo": [
+    [
+      7,
+      "S"
+    ],
+    [
+      10,
+      "R"
+    ],
+    [
+      15,
+      "S"
+    ]
+  ],
+  "old_atom_manifest": {
+    "schema": 1,
+    "input_smiles": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2",
+    "smiles_used": "O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "atoms": [
+      {
+        "name": "O18",
+        "el": "O",
+        "index": 0,
+        "x": 1.6204465765936626,
+        "y": 0.9625841602791925,
+        "z": -1.826018774129543
+      },
+      {
+        "name": "C22",
+        "el": "C",
+        "index": 1,
+        "x": 2.709500336592236,
+        "y": 0.412231893956968,
+        "z": -1.7823407526569683
+      },
+      {
+        "name": "O19",
+        "el": "O",
+        "index": 2,
+        "x": 3.8075152179263743,
+        "y": 1.0118497299660458,
+        "z": -2.273913510266951
+      },
+      {
+        "name": "C25",
+        "el": "C",
+        "index": 3,
+        "x": 2.992097984290597,
+        "y": -0.9364238021985244,
+        "z": -1.1812383212937785
+      },
+      {
+        "name": "C26",
+        "el": "C",
+        "index": 4,
+        "x": 2.9231215875431436,
+        "y": -0.9233238220384528,
+        "z": 0.34454990534264945
+      },
+      {
+        "name": "C27",
+        "el": "C",
+        "index": 5,
+        "x": 1.5893812360479012,
+        "y": -0.46147985173772665,
+        "z": 0.9451357719120208
+      },
+      {
+        "name": "C28",
+        "el": "C",
+        "index": 6,
+        "x": 0.3891373004564516,
+        "y": -1.3123560274131767,
+        "z": 0.5140844187375023
+      },
+      {
+        "name": "C31",
+        "el": "C",
+        "index": 7,
+        "x": -0.9309932629749483,
+        "y": -0.7573822988172294,
+        "z": 1.057753668537509
+      },
+      {
+        "name": "S20",
+        "el": "S",
+        "index": 8,
+        "x": -2.310539906690733,
+        "y": -1.903900910899257,
+        "z": 0.7245887550080585
+      },
+      {
+        "name": "C29",
+        "el": "C",
+        "index": 9,
+        "x": -3.482374549414799,
+        "y": -0.6285148997520635,
+        "z": 0.19810572796901457
+      },
+      {
+        "name": "C32",
+        "el": "C",
+        "index": 10,
+        "x": -2.8783674625898876,
+        "y": 0.728698036708955,
+        "z": 0.5695628243655734
+      },
+      {
+        "name": "N24",
+        "el": "N",
+        "index": 11,
+        "x": -3.1332229796639917,
+        "y": 1.7174377158785077,
+        "z": -0.45392362391180835
+      },
+      {
+        "name": "C21",
+        "el": "C",
+        "index": 12,
+        "x": -2.1021919903494704,
+        "y": 1.7153785035513804,
+        "z": -1.3847312044984377
+      },
+      {
+        "name": "O17",
+        "el": "O",
+        "index": 13,
+        "x": -2.095629698285709,
+        "y": 2.327659496264933,
+        "z": -2.4347522116732345
+      },
+      {
+        "name": "N23",
+        "el": "N",
+        "index": 14,
+        "x": -1.0925595591763682,
+        "y": 0.8984857535669948,
+        "z": -0.8919969769688044
+      },
+      {
+        "name": "C30",
+        "el": "C",
+        "index": 15,
+        "x": -1.3528263020684514,
+        "y": 0.6041417915227102,
+        "z": 0.5011183937513932
+      }
+    ],
+    "rdkit_version": "2026.03.5",
+    "boltz_parser_sha256": "c0dae4c89c4c4a22175a433b5a0c68860329d2a292c76224328bdde19b73b743",
+    "signature": "579a063252e23e7064b1254fe4f4efdc74c833e80529e27ac5d266a97518b14f",
+    "standardized": true,
+    "chemical_state_changed": false,
+    "display_smiles": "O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "input_order_names": [
+      "O18",
+      "C22",
+      "O19",
+      "C25",
+      "C26",
+      "C27",
+      "C28",
+      "C31",
+      "S20",
+      "C29",
+      "C32",
+      "N24",
+      "C21",
+      "O17",
+      "N23",
+      "C30"
+    ],
+    "mapped_to_input_order": false,
+    "affinity": true,
+    "conformer_mmff_status": 0
+  },
+  "amide_proxy": {
+    "status": "illustrative minimal cap, not approved chemistry or full lysine/protein",
+    "smiles": "CNC(=O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "formula": "C11H19N3O2S",
+    "hotspot_atoms": [
+      "C35",
+      "S22",
+      "C33",
+      "C36",
+      "N27",
+      "C23",
+      "O20",
+      "N26",
+      "C34"
+    ],
+    "exposed_atoms": [
+      "C28",
+      "N25",
+      "C24",
+      "O21",
+      "C29"
+    ],
+    "manifest": {
+      "schema": 1,
+      "input_smiles": "CNC(=O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+      "smiles_used": "CNC(=O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+      "atoms": [
+        {
+          "name": "C28",
+          "el": "C",
+          "index": 0,
+          "x": -5.684553428659765,
+          "y": -0.3454151187781866,
+          "z": -0.6071131262745788
+        },
+        {
+          "name": "N25",
+          "el": "N",
+          "index": 1,
+          "x": -4.343497475534913,
+          "y": -0.6976888329426043,
+          "z": -0.21630033321634487
+        },
+        {
+          "name": "C24",
+          "el": "C",
+          "index": 2,
+          "x": -3.401203550843891,
+          "y": 0.276320103469474,
+          "z": 0.04576584159993702
+        },
+        {
+          "name": "O21",
+          "el": "O",
+          "index": 3,
+          "x": -3.6101960340157695,
+          "y": 1.4740886244715252,
+          "z": -0.1065953483077682
+        },
+        {
+          "name": "C29",
+          "el": "C",
+          "index": 4,
+          "x": -2.0909012818525685,
+          "y": -0.3013374773507299,
+          "z": 0.5517885051490838
+        },
+        {
+          "name": "C30",
+          "el": "C",
+          "index": 5,
+          "x": -0.985718013278872,
+          "y": 0.7400894376199842,
+          "z": 0.7297568492662511
+        },
+        {
+          "name": "C31",
+          "el": "C",
+          "index": 6,
+          "x": -0.40600792017506876,
+          "y": 1.285606851280112,
+          "z": -0.5773226549201697
+        },
+        {
+          "name": "C32",
+          "el": "C",
+          "index": 7,
+          "x": 0.2988414795678378,
+          "y": 0.29776672762600226,
+          "z": -1.5134685721807197
+        },
+        {
+          "name": "C35",
+          "el": "C",
+          "index": 8,
+          "x": 1.5301901317954314,
+          "y": -0.4947052910557735,
+          "z": -1.053000309835592
+        },
+        {
+          "name": "S22",
+          "el": "S",
+          "index": 9,
+          "x": 1.1907636088897637,
+          "y": -1.911008176860822,
+          "z": 0.03791555526344923
+        },
+        {
+          "name": "C33",
+          "el": "C",
+          "index": 10,
+          "x": 2.797041554689505,
+          "y": -1.8631025145951707,
+          "z": 0.875983167717554
+        },
+        {
+          "name": "C36",
+          "el": "C",
+          "index": 11,
+          "x": 3.6534091440822265,
+          "y": -0.790718451805817,
+          "z": 0.18866957740174353
+        },
+        {
+          "name": "N27",
+          "el": "N",
+          "index": 12,
+          "x": 4.3702634885626335,
+          "y": 0.007238075371412418,
+          "z": 1.1553800399351388
+        },
+        {
+          "name": "C23",
+          "el": "C",
+          "index": 13,
+          "x": 3.6154760989556114,
+          "y": 1.1129115059388424,
+          "z": 1.509482130596844
+        },
+        {
+          "name": "O20",
+          "el": "O",
+          "index": 14,
+          "x": 3.879162783096807,
+          "y": 1.9058979689553714,
+          "z": 2.391679780694156
+        },
+        {
+          "name": "N26",
+          "el": "N",
+          "index": 15,
+          "x": 2.514601166603059,
+          "y": 1.1657012299527738,
+          "z": 0.6636516384368549
+        },
+        {
+          "name": "C34",
+          "el": "C",
+          "index": 16,
+          "x": 2.7145996325744224,
+          "y": 0.2530429970445175,
+          "z": -0.43997155895783696
+        }
+      ],
+      "rdkit_version": "2026.03.5",
+      "boltz_parser_sha256": "c0dae4c89c4c4a22175a433b5a0c68860329d2a292c76224328bdde19b73b743",
+      "signature": "c5a679932e16d7bf6636980eedf792b96f73c83275dd347d1884c93328677fd2",
+      "standardized": true,
+      "chemical_state_changed": false,
+      "display_smiles": "CNC(=O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+      "input_order_names": [
+        "C28",
+        "N25",
+        "C24",
+        "O21",
+        "C29",
+        "C30",
+        "C31",
+        "C32",
+        "C35",
+        "S22",
+        "C33",
+        "C36",
+        "N27",
+        "C23",
+        "O20",
+        "N26",
+        "C34"
+      ],
+      "mapped_to_input_order": false,
+      "affinity": true,
+      "conformer_mmff_status": 0
+    }
+  },
+  "proposed_settings_on_original_free_biotin": {
+    "search_policy_version": 3,
+    "early_score_gate": 0.8,
+    "selective_affinity": true,
+    "adaptive_proposals": false,
+    "initial_proposals": 16,
+    "affinity_batch_size": 8,
+    "min_improvement": 0.01,
+    "smiles": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2",
+    "num_starts": 1000,
+    "trajectories": 8,
+    "nise_seqs": 32,
+    "first_cycle_seqs": 64,
+    "partial_noising": true,
+    "noise_radius": 6.0,
+    "noise_percent": 25.0,
+    "noise_predictions": 32,
+    "noise_mpnn_seqs": 32,
+    "noise_advance": 1,
+    "max_cycles": 30,
+    "patience": 4,
+    "binder_min_len": 65,
+    "binder_max_len": 150,
+    "seed": 0,
+    "preorganisation": false,
+    "top_x": 8,
+    "scheduler": "resident",
+    "phase0_refine_cycles": 2,
+    "phase0_seqs1": 3,
+    "phase0_seqs2": 5,
+    "beam": 3,
+    "nesso_screen": false,
+    "nesso_top_k": 16,
+    "phase0_nesso_screen": false,
+    "phase0_nesso_refine_top_k": 1,
+    "phase0_nesso_expand_top_k": 20,
+    "phase0_gate_seqs": 3,
+    "phase0_sc_ca": 2.0,
+    "nise_sc_ca": 2.5,
+    "nise_sc_lig": 2.5,
+    "nise_ligand_sc_from_cycle": 3,
+    "backbone_method": "protein-hunter",
+    "rfd3_num_bins": 5,
+    "hotspot_atoms": [
+      "C31",
+      "S20",
+      "C29",
+      "C32",
+      "N24",
+      "C30",
+      "N23",
+      "O17",
+      "C21"
+    ],
+    "exposed_atoms": [
+      "C25",
+      "C22",
+      "O18",
+      "O19"
+    ],
+    "hotspot_distance": 6.0,
+    "exposure_min_fraction": 0.5,
+    "ligand_atom_signature": "579a063252e23e7064b1254fe4f4efdc74c833e80529e27ac5d266a97518b14f",
+    "ligand_atoms_generated_for": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2"
+  },
+  "prediction_budget": {
+    "noising_boltz_per_later_cycle_max": 512,
+    "initial_boltz_max": 25000,
+    "initial_rfd3_backbones": 0,
+    "first_cycle_boltz_max": 512,
+    "later_cycle_boltz_max": 1280,
+    "optimization_boltz_max": 37632,
+    "interpretation": "Calculated upper bounds, not runtime estimates; fewer survivors and early stopping reduce work."
+  },
+  "total_boltz_upper_bound": 62632,
+  "first_refinement_affinity_max": 6000,
+  "seed_expansion_affinity_max": 15000,
+  "affinity_head_max": 58632,
+  "throughput_estimate": null,
+  "gating": {
+    "hotspot": "each selected atom within 6 A of a binder heavy atom; not a hydrogen-bond constraint",
+    "exposed": "each selected atom retains at least 50% of its isolated-ligand SASA; 1.4 A water probe",
+    "phase0_refinement": "atom checks; no RMSD rejection; first-round score gate >=0.80",
+    "phase0_unrestrained_gate": "Ca RMSD <2 A, atom checks, no affinity",
+    "optimization": "Ca RMSD <2.5 A; ligand RMSD <2.5 A from optimisation cycle 3; atom checks every cycle"
+  },
+  "old_isolated_exposed_sasa_A2": {
+    "O18": 22.965356457006752,
+    "C22": 6.038141080199581,
+    "O19": 53.58583173301576,
+    "C25": 27.77544896891807
+  },
+  "proxy_isolated_exposed_sasa_A2": {
+    "C28": 65.21192366615547,
+    "N25": 19.226547039969535,
+    "C24": 6.038141080199581,
+    "O21": 34.99482888686743,
+    "C29": 19.322051456638658
+  }
+}

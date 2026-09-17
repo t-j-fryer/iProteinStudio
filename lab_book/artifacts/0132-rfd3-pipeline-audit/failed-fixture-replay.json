@@ -1,0 +1,50 @@
+{
+  "method": "Actual saved feature arrays and initial coordinates; pure metrics only, no neural inference or regenerated structures",
+  "fixtures": [
+    {
+      "fixture": "oracle_nise_initial_L108.npz",
+      "sha256": "dc2661625ca7bb6b2d9ad064a8443a7f994864b4a93b62315aa0b3cac053884d",
+      "fixed_atoms": 16,
+      "buried_atoms": 0,
+      "exposed_atoms": 4,
+      "metrics_serialization": "strict JSON passed",
+      "buried_atom_min": null
+    },
+    {
+      "fixture": "oracle_nise_initial_L129.npz",
+      "sha256": "9f8b43d57f7e57e02d927eded7f121d754a52fe9e85641f0d5cc8b80c7d0d144",
+      "fixed_atoms": 16,
+      "buried_atoms": 0,
+      "exposed_atoms": 4,
+      "metrics_serialization": "strict JSON passed",
+      "buried_atom_min": null
+    },
+    {
+      "fixture": "oracle_nise_initial_L150.npz",
+      "sha256": "2f19c40379bbef76829a700475f27e9242731f39422debd6db5113080e321f61",
+      "fixed_atoms": 16,
+      "buried_atoms": 0,
+      "exposed_atoms": 4,
+      "metrics_serialization": "strict JSON passed",
+      "buried_atom_min": null
+    },
+    {
+      "fixture": "oracle_nise_initial_L65.npz",
+      "sha256": "5374bb3cc73021eeaa0086d5306ceccef35db7b0029a7c2f4e75026bc644b73e",
+      "fixed_atoms": 16,
+      "buried_atoms": 0,
+      "exposed_atoms": 4,
+      "metrics_serialization": "strict JSON passed",
+      "buried_atom_min": null
+    },
+    {
+      "fixture": "oracle_nise_initial_L86.npz",
+      "sha256": "fe7803b98294277c6377cf0950b283aef1111dde71e252bdd93d9456376a7c42",
+      "fixed_atoms": 16,
+      "buried_atoms": 0,
+      "exposed_atoms": 4,
+      "metrics_serialization": "strict JSON passed",
+      "buried_atom_min": null
+    }
+  ]
+}

@@ -34,7 +34,7 @@ refinement, an unconstrained gate and an expansion stage. The old configuration
 writer also overwrites `config.json` on resume. The original `phase0/cycle00`
 outputs contain **100** starting inputs and completed structures, `L000`–`L099`,
 even though the later saved configuration says 12. Six trajectories entered
-optimisation. Studio now defaults to **100 starts**, as requested; this does not
+optimisation. Studio now defaults to **1,000 starts**, as requested; this does not
 claim that the current initial refinement recipe exactly reproduces the old run. Consequently an old run folder
 and today's shell launcher do not establish identical commands or seeds.
 Studio ports the current inspected source and records its exact hashes, rather
@@ -59,6 +59,72 @@ no-improvement counter. LASErMPNN expands its current design, Boltz predicts the
 ligand complex and affinity, and the driver filters/ranks the candidates. Ligand
 self-consistency is enabled after the recorded initial cycles. A stopped
 trajectory does not donate its budget or winners to a different trajectory.
+
+## Efficient search policy (new runs)
+
+New requests use policy version 3: **1,000 starting backbones, up to eight distinct-lineage
+seeds, beam three, 30 optimisation cycles and four-cycle patience**. Starts remain
+user-adjustable. The initial recipe remains two
+three-proposal pocket refinements, a three-proposal unrestrained gate and five-proposal
+survivor expansion. No rollback or rescue is implemented.
+
+The first refinement now requires a winning Boltz score of **at least 0.80** after
+requested geometry checks. Set `early_score_gate` to zero to disable this extra gate;
+zero refinement rounds also bypass it. The threshold always means
+`ligand_pLDDT/100 + Boltz P(bind)`, including when NESSO supplied the shortlist.
+It is not a threshold on the differently calibrated NESSO metric.
+
+**Selective affinity** is on for new runs. Cycle 00 and the unrestrained gate omit
+affinity because their advancement uses geometry. Other stages fold first, check
+RMSD and requested atom requirements, and evaluate affinity only for eligible
+candidates. Candidates are visited in decreasing ligand pLDDT, in selection batches
+(default eight, not eight simultaneous GPU jobs). The bound `ligand_pLDDT/100 + 1`
+can rule a candidate out only when it is strictly below the applicable boundary:
+its lineage winner, the distinct-lineage seed cutoff, or its trajectory's beam cutoff.
+Ties are evaluated. Previously evaluated top-up candidates contribute to the boundary.
+
+Boltz inputs retain their affinity property so preprocessing uses the same chemical
+state and saves `pre_affinity_*.npz`. The resident worker runs the structure and
+affinity stages separately; the latter consumes that verified full-precision output
+without refolding. Model weights stay resident across the stage's requests. Receipts
+for structure and affinity are separate, and resume verifies both inputs and outputs.
+An unscored candidate has a null score and an explicit reason, never an invented zero
+or a ligand-pLDDT-only search score. The mathematical pruning preserves selection for
+fixed predictions and affinity values; this is not a claim of bitwise identity with
+an older combined stochastic inference run.
+
+**Adaptive proposals are an experimental opt-in.** Start at 16 per parent and top up
+the same parent set to its cap (now 64 in cycle 1, 32 in later cycles by default).
+If the cap is explicitly set to 64, these cost
+16 + 16 + 32 proposals, not 16 + 32 + 64. Each trajectory stops topping up when its
+pooled best score exceeds its previous best by more than `min_improvement` (default
+0.01). Otherwise it exhausts the cap and advances the best passing beam. All evaluated
+rounds compete together; a failed small batch can receive a top-up. With no passing
+candidate after the cap, that trajectory stops. Patience advances once per completed
+cycle, not once per top-up. Any new best is retained even if its gain is too small
+to reset patience. Full last-improving beams, structures and hashes are recorded.
+
+With NESSO enabled, each **new proposal batch** gets its own per-trajectory shortlist;
+all candidates actually folded across these shortlists compete together. For example,
+a shortlist of 16 and three rounds can produce up to 48 Boltz folds per trajectory
+per cycle. This prevents a fully used first shortlist from making later top-ups
+ineffective. The UI's prediction budget includes all possible rounds. Initial-stage
+NESSO screening remains separate and the unrestrained gate remains unscreened.
+
+Saved old workspaces decode to policy 1: no new early gate, exhaustive affinity,
+adaptive off and their old budgets. Resetting to **Default settings** explicitly
+chooses the new recipe. Frozen campaigns keep their recorded code and settings.
+The controls in both stage panels, including advanced score/filter controls, are
+saved in the request and exposed through the MCP schema.
+
+The user-supplied biotin retrospective reported roughly 52% fewer affinity evaluations
+and 37% fewer structure evaluations for particular combinations of changes. Those
+are **not measurements reproduced in Studio**. The 0.80 threshold and any bounded search
+budget can lose good lineages on other ligands; adaptive savings remain unmeasured.
+`search_cost.json` records completed unique evaluations; `proposal_round.json` records
+incremental counts and fixed parents; `advancement.json` records beams and patience.
+Best-so-far outputs retain the checks from the stage where they were evaluated;
+they are not automatically recertified against later ligand-RMSD gates.
 
 ## Binding hotspots, atom labels and linker exposure
 
@@ -97,7 +163,8 @@ RFdiffusion3 also receives explicit hotspot/exposure conditioning for its initia
 backbones. Boltz has no negative exposure restraint. From the unrestrained gate
 onward, the pocket restraint remains off as in the original NISE protocol.
 Geometry requirements filter every sequence-bearing refinement, gate, expansion
-and optimisation candidate before advancement; cycle-00 backbones are proposals.
+and optimisation candidate before advancement. With selective affinity enabled,
+requested atom checks also filter cycle-00 proposals from either generator.
 A failed requirement is never converted into a passing hit by a high affinity
 score. All rejected candidates retain their measured checks and failure reasons.
 
@@ -119,7 +186,7 @@ No user-selected atom requirements are imposed by default.
 
 ## Two stages, separate controls
 
-**100 is the Studio default, not a model limit.** The first Studio tab exposed
+**1,000 is the Studio default, not a model limit.** The first Studio tab exposed
 1–100 starting attempts and fixed the within-trajectory beam to one. The form
 now accepts typed values, supports 1–10,000 starting attempts, and exposes both
 the initial funnel and the number of sequences advanced during optimisation.
@@ -132,7 +199,7 @@ fields to the historical recipe (including advancement of one and NESSO off).
 |---|---|---|---:|
 | 1 · Initial backbones | Backbone generator (`backbone_method`) | Protein Hunter X-token hallucination or experimental RFdiffusion3 | Protein Hunter |
 | 1 | Length groups (`rfd3_num_bins`, RFdiffusion3 only) | Evenly spaced binder lengths; the count is capped by starts and distinct available lengths | 5 |
-| 1 | Starting backbone attempts (`num_starts`) | Total initial starts / lineages, shared across all RFdiffusion3 length groups when selected | 100 |
+| 1 | Starting backbone attempts (`num_starts`) | Total initial starts / lineages, shared across all RFdiffusion3 length groups when selected | 1,000 |
 | 1 | Binder length (`binder_min_len`, `binder_max_len`) | Initial length range in residues | 65–150 |
 | 1 | Pocket refinement rounds (`phase0_refine_cycles`) | Constrained refinement, keeping the best descendant per lineage | 2 |
 | 1 | Refinement sequences (`phase0_seqs1`) | Sampled per lineage in each pocket-guided refinement round | 3 |
@@ -144,36 +211,38 @@ fields to the historical recipe (including advancement of one and NESSO off).
 | Advanced | Optimisation RMSD (`nise_sc_ca`, `nise_sc_lig`) | Parent–candidate Cα and ligand cutoffs in Å | 2.5 / 2.5 |
 | Advanced | First ligand-check cycle (`nise_ligand_sc_from_cycle`) | Optimisation cycle at which ligand RMSD becomes required | 3 |
 | 1 | Expansion sequences (`phase0_seqs2`) | Sampled per gate survivor before choosing diverse trajectory seeds | 5 |
-| 2 · Optimisation | Independent trajectories (`trajectories`) | Up to one seed per surviving initial lineage; may be fewer than requested | 6 |
-| 2 | Sequences sampled per parent (`nise_seqs`) | LASErMPNN samples this many from **each** retained parent each cycle | 64 |
-| 2 | Sequences to advance (`beam`) | Maximum passing, Boltz-ranked sequences retained **per trajectory** as the next cycle's parents | 1 |
-| 2 | Maximum cycles / patience (`max_cycles`, `patience`) | Cycle limit and per-trajectory stop after no improvement | 30 / 5 |
-| 2, optional | NESSO shortlist (`nesso_top_k`) | Candidates sent to Boltz **per trajectory per cycle**, pooled across that trajectory's parents | 16, screening off |
+| 2 · Optimisation | Independent trajectories (`trajectories`) | Up to one seed per surviving initial lineage; may be fewer than requested | 8 |
+| 2 | First-cycle proposals (`first_cycle_seqs`) | Sampled from the starting seed in cycle 1 | 64 |
+| 2 | Later proposals per parent (`nise_seqs`) | Sampled from **each** retained parent from cycle 2 | 32 |
+| 2 | Sequences to advance (`beam`) | Maximum passing, Boltz-ranked sequences retained **per trajectory** as the next cycle's parents | 3 |
+| 2 | Maximum cycles / patience (`max_cycles`, `patience`) | Cycle limit and per-trajectory stop after no improvement | 30 / 4 |
+| 2, optional | NESSO shortlist (`nesso_top_k`) | Candidates sent to Boltz **per trajectory per proposal round**, pooled across that trajectory's parents | 16, screening off |
 
-A trajectory starts with one parent. For example, sampling 64 and advancing
-three means 64 sequences in cycle 1 and up to 192 per later cycle, per trajectory.
-With a NESSO shortlist of 16, all sampled sequences are screened and at most
+A trajectory starts with one parent. The defaults produce 64 sequences in cycle 1
+and up to 3 × 32 = 96 per later cycle, per trajectory. Optional partial noising
+adds a separate branch from cycle 2; its costs and reserved beam places are described below.
+With adaptive proposals and partial noising off and a NESSO shortlist of 16, all sampled sequences are screened and at most
 16 are folded by Boltz per trajectory per cycle; up to three passing folded
-sequences advance. Without NESSO all sampled sequences are folded. The shortlist
+sequences advance. Without NESSO all sampled sequences in each executed round are folded. The shortlist
 must be at least the advancement count and no larger than the per-parent sample
-count so the first cycle can supply it. A smaller passing pool reduces actual
+count. The actual shortlist is capped by the available candidates in each batch. A smaller passing pool reduces actual
 advancement; Studio never invents survivors or borrows from another trajectory.
 
 The initial funnel has at most
 `starts × [1 + refinement_rounds × refinement_sequences + gate_sequences + gate_sequences × expansion_sequences]`
 Boltz predictions. The extra round is the unrestrained gate. At the current default
-settings this is **2,500** initial predictions for Protein Hunter. RFdiffusion3
-replaces the first prediction per start with a diffusion backbone: **100
-RFdiffusion3 backbones plus at most 2,400 initial Boltz predictions**. These
+settings this is **25,000** initial predictions for Protein Hunter. RFdiffusion3
+replaces the first prediction per start with a diffusion backbone: **1,000
+RFdiffusion3 backbones plus at most 24,000 initial Boltz predictions**. These
 counts are calculated from the recipe. These
 are counts, not measured speed estimates. The form separately previews the
 first optimisation cycle, later cycles, and maximum total optimisation folds.
 With initial NESSO enabled, the calculated Boltz upper bound becomes
 `starts × [hallucination + refinement_rounds × refinement_shortlist + gate_sequences] + min(starts, expansion_shortlist)`,
 where `hallucination` is 1 for Protein Hunter and 0 for RFdiffusion3. At the
-reference settings that is **620** Boltz predictions, or **520** plus 100
-RFdiffusion3 backbones. NESSO additionally scores up to 2,100 sequences
-(100 × 2 × 3 refinement candidates + 100 × 3 × 5 expansion candidates).
+reference settings that is **6,020** Boltz predictions, or **5,020** plus 1,000
+RFdiffusion3 backbones. NESSO additionally scores up to 21,000 sequences
+(1,000 × 2 × 3 refinement candidates + 1,000 × 3 × 5 expansion candidates).
 These are arithmetic work counts, not measured throughput or a speedup claim.
 
 Patience and failed structural checks can reduce actual work. `Small trial`
@@ -208,7 +277,7 @@ hallucination** or **RFdiffusion3 · ligand-conditioned diffusion**. Protein Hun
 remains the default. Changing the generator preserves the other displayed search
 budgets, NESSO settings and optimisation controls. Existing saved requests without
 a generator field decode as Protein Hunter; explicit previous starting counts
-are retained. **Default settings** resets the form to 100 starts and Protein Hunter;
+are retained. **Default settings** resets the form to 1,000 starts and Protein Hunter;
 **Small trial** reduces the budget while retaining the chosen generator.
 
 RFdiffusion3 requires the existing **RFdiffusion3** engine installation in addition
@@ -222,7 +291,7 @@ from the example or from leaving an atom unselected.
 
 The default five length groups span the requested length range. For 65–150
 residues these are 65, 86, 108, 129 and 150, receiving 20 backbones each at the
-100-start default. One group uses the rounded-down midpoint. Shorter ranges or
+1,000-start default. One group uses the rounded-down midpoint. Shorter ranges or
 fewer starts reduce the actual number of groups, which the form previews.
 The total requested starting count is **not multiplied** by the number of groups.
 
@@ -512,10 +581,116 @@ interruption/replay, score/artifact corruption and saved-request migration.
 A new real-model NESSO screening campaign, ranking-accuracy comparison and
 cross-cycle memory soak have not been run for this Studio port.
 
-The initial-generator option and 100-start default are recorded in
+The initial-generator option and its original 100-start default are recorded in
 [Project Lab Book 0103](../lab_book/0103-select-nise-backbone-generator.md).
 Model-boundary fixtures exercise both search branches, the real ligand-preparation
 script, interrupted generation, batch model reuse and corruption refusal. A new
 real-model RFdiffusion3-to-NISE campaign has not been run for this integration.
 
+The requested new defaults of 1,000 starts, 30 maximum cycles and four-cycle
+patience are recorded in [Project Lab Book 0135](../lab_book/0135-fluorescein-nise-adaptive-retrospective.md).
+The fluorescein retrospective audited 5,440 predictions: adaptive 16→32→64
+subsets with a >0.01 stopping threshold saved 12.0% of proposals conditionally,
+but missed the full-batch winner by more than 0.01 in 7.2% of simulated decisions.
+These are within-cycle subsets of historical beam-one proposals, not a speed
+benchmark or an adaptive campaign. Adaptive sampling stays off by default.
+The existing shared 0.01 improvement tolerance is unchanged pending a policy
+decision; the analysis recommends separating patience and top-up tolerances.
+Four-cycle patience can miss late gains. See the
+[analysis record](../Validation/lab_book/0025-fluorescein-nise-adaptive-retrospective.md)
+for distributions, missing-affinity exclusions and replay limitations.
+
 For optional campaign-wide screening in the other design tabs, see [NESSO screening](NESSO_SCREENING.md).
+
+## Optional ligand-local X-token noising
+
+Policy version 3 separates **64 proposals from the starting seed in cycle 1**
+from **32 proposals per retained parent in later cycles**. With beam three this
+is up to **96 ordinary MPNN proposals per later cycle, per trajectory**. Existing
+saved version-1/2 requests retain their old first/later shared count. The
+1,000 starts, 30-cycle cap and four-cycle patience are unchanged. With partial
+noising enabled, the ordinary sampling beam is reduced to two parents, leaving
+one place for the noising branch (three total advancing sequences). Adaptive sampling
+remains off; it cannot be combined with this experimental branch.
+
+Enable **Ligand-local X-token noising** in NISE optimisation to add the following
+branch from **cycle 2**. It works after either initial backbone generator and with
+or without NESSO screening. All branches use Boltz for structure generation and
+final combined-score ranking.
+
+1. Take the highest-scoring **current parent** in each trajectory; this is not a
+   rollback to a historical best. Identify chain-A residues with any heavy atom
+   within **6 Å** of any ligand-B heavy atom. Distances ignore hydrogens. Sequence
+   positions and original PDB residue identifiers are saved separately.
+2. Make **32 masked inputs**. For each, randomly select **25% of the eligible
+   residues** and replace their sequence identities with X, leaving the rest of
+   the sequence unchanged. The count is rounded to the nearest integer (halves
+   upward), with at least one residue when the neighbourhood is nonempty.
+   Each prediction has its own recorded seed; small pockets may repeat the same
+   mask but still get distinct folding seeds. No residues in range means that
+   trajectory's branch is recorded as unavailable for this cycle.
+3. Fold with Boltz, apply the usual geometry/Bind/Expose checks, then score eligible
+   intermediates by **ligand pLDDT/100 + P(bind)**, using selective affinity when
+   enabled. Choose the best passing masked backbone. This score is an experimental
+   backbone-selection heuristic on an incomplete sequence, not a final binding
+   prediction. NESSO is not asked to rank masked sequences.
+4. Prepare a copy for LASErMPNN, converting only binder-chain UNK residue labels to
+   ALA as an inverse-folding placeholder; leave the raw prediction and ligand
+   unchanged. Generate **32 complete MPNN sequences** using the existing whole-
+   binder design recipe. If enabled, NESSO screens this branch separately using
+   the usual per-trajectory shortlist. Boltz then folds the selected sequences,
+   checks self-consistency against the selected masked backbone and applies the
+   same atom requirements and combined score.
+5. Reserve **one beam place** for the best passing repaired candidate and keep
+   the best **two** from the ordinary MPNN pool. Candidates never cross trajectories.
+   Ordinary MPNN samples only the best **two current parents**, ranked across the
+   entire previous beam; a repaired winner can therefore become an ordinary
+   parent. The noising branch uses the best current parent separately. Reserved
+   places replace ordinary sampling parents as well as ordinary advancement places.
+   If the branch has no passing descendant its reserved place stays empty; no
+   rejected or masked candidate is substituted. The overall best-so-far can only
+   contain complete, scored designs. Masked intermediates are also excluded from
+   apo preorganisation shortlists and marked explicitly in the results browser.
+
+Radius (3–15 Å), masked percentage (1–100%), masked prediction count, repair
+sequence count and reserved beam places are editable. At least one beam place
+must remain for ordinary MPNN candidates. Partial noising is **off by default**.
+The masking neighbourhood is measured anew from each cycle's chosen parent.
+
+**These are sequence masks, not spatial diffusion noise.** Boltz receives a
+sequence and ligand, not fixed outside-pocket coordinates or a partial-diffusion
+timestep. Unmasked identities stay unchanged in the masked input, but the whole
+structure can move. Existing global Cα and ligand RMSD thresholds/ramp still apply;
+this option does not loosen them or add a pocket restraint during optimisation.
+The subsequent MPNN step can redesign the whole binder, as in ordinary NISE.
+
+The **6 Å / 25%** settings are a deliberately local experimental starting point,
+not an established optimum. As context, the LigandMPNN paper evaluates near-ligand
+sequence recovery at a 5 Å sidechain-contact cutoff and discusses ligand context
+within roughly 10 Å; neither validates X-token masking. Our 6 Å any-heavy-atom
+neighbourhood adds a modest margin around direct contacts. An 8 Å radius is a
+broader exploratory alternative; 10 Å by this definition may cover much of a
+small binder. LASErMPNN's existing **10 Å Cα first-shell temperature radius** is a
+separate control and is unchanged. [LigandMPNN primary paper](https://www.ipd.uw.edu/publication-pdfs/331/b896bbdf83798df6853c60bf2f2a0928/s41592-025-02626-1-3.pdf).
+
+**Budget per trajectory:** cycle 1 remains 64 proposals. Later cycles can use
+64 normal folds (two parents × 32) + 32 masked folds + 32 repair folds = **128 Boltz predictions**
+without screening. With a NESSO shortlist of 16, the later upper bound is
+16 normal + 32 masked + 16 repair = **64 Boltz predictions**; NESSO still scores
+all 64 normal and 32 complete repair proposals. Fewer parents/survivors reduce
+these numbers. This is added exploration, not a claimed speed optimisation.
+
+`partial_noising/T*/masks.json` stores parent hashes, exact masks, sequence/PDB
+positions and seeds. Masked predictions and repair sampling use the standard
+per-operation journals. `partial_noising/selection.json` records winners, empty
+branches and reserved places; `advancement.json` records the combined beam.
+Completed work replays without resampling. The existing resident Boltz worker
+accepts per-request seeds without reloading weights; the same seed is preserved
+for a masked structure's separate affinity request. Cross-cycle residency remains
+controlled by the selected scheduler.
+
+Software fixtures cover both backbone generators, both NESSO choices,
+interruption/replay, empty/rejected branches, heavy-atom neighbourhood mapping,
+mask seeds, worker seed isolation and legacy migration. **No new real-model
+partial-noising campaign or binding-quality validation has been run.** See
+[Lab Book 0137](../lab_book/0137-nise-fixed-budgets-and-partial-noising.md).

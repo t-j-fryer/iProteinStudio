@@ -34,21 +34,21 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 10000,
-          "default": 100,
+          "default": 1000,
           "description": "Total independent initial backbone attempts across all lengths."
         },
         "trajectories": {
           "type": "integer",
           "minimum": 1,
           "maximum": 1000,
-          "default": 6
+          "default": 8
         },
         "nise_seqs": {
           "type": "integer",
           "minimum": 1,
           "maximum": 4096,
-          "default": 64,
-          "description": "Sequences sampled per retained parent per optimization cycle."
+          "default": 32,
+          "description": "Maximum proposals per retained parent per cycle; adaptive sampling starts smaller and tops up to this cap."
         },
         "max_cycles": {
           "type": "integer",
@@ -60,7 +60,7 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 1000,
-          "default": 5
+          "default": 4
         },
         "binder_min_len": {
           "type": "integer",
@@ -108,7 +108,7 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 64,
-          "default": 1,
+          "default": 3,
           "description": "Maximum Boltz-passing sequences advanced per trajectory per cycle."
         },
         "nesso_top_k": {
@@ -116,7 +116,7 @@
           "minimum": 1,
           "maximum": 4096,
           "default": 16,
-          "description": "NESSO shortlist sent to Boltz per trajectory per cycle, pooled across its parents."
+          "description": "Maximum newly sampled candidates folded per trajectory per proposal round; adaptive rounds pool folded results."
         },
         "nesso_screen": {
           "type": "boolean",
@@ -225,6 +225,85 @@
           "default": 3,
           "minimum": 1,
           "maximum": 1001
+        },
+        "search_policy_version": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 3
+        },
+        "early_score_gate": {
+          "type": "number",
+          "default": 0.8,
+          "minimum": 0,
+          "maximum": 2
+        },
+        "min_improvement": {
+          "type": "number",
+          "default": 0.01,
+          "minimum": 0,
+          "maximum": 1
+        },
+        "initial_proposals": {
+          "type": "integer",
+          "default": 16,
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "affinity_batch_size": {
+          "type": "integer",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 128
+        },
+        "adaptive_proposals": {
+          "type": "boolean",
+          "default": false
+        },
+        "selective_affinity": {
+          "type": "boolean",
+          "default": true
+        },
+        "first_cycle_seqs": {
+          "type": "integer",
+          "default": 64,
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "noise_predictions": {
+          "type": "integer",
+          "default": 32,
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "noise_mpnn_seqs": {
+          "type": "integer",
+          "default": 32,
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "noise_advance": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 63
+        },
+        "noise_radius": {
+          "type": "number",
+          "default": 6.0,
+          "minimum": 3,
+          "maximum": 15
+        },
+        "noise_percent": {
+          "type": "number",
+          "default": 25.0,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "partial_noising": {
+          "type": "boolean",
+          "default": false,
+          "description": "Experimental ligand-local X-mask branch from cycle 2; replaces noise_advance ordinary sampling parents and advancement places. Default: two ordinary parents plus one repaired winner, three total places. Requires Boltz for masked predictions."
         }
       }
     }

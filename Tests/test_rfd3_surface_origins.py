@@ -8,6 +8,9 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
+import numpy as np
 from pathlib import Path
 
 
@@ -38,6 +41,7 @@ class SurfaceOriginTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         sys.path.insert(0, str(RFD3))
+        sys.path.insert(0, str(OVERLAY))
         cls.surface = load("surface_origins_contract", RFD3 / "surface_origins.py")
         cls.prepare = load("prepare_surface_contract", RFD3 / "prepare_campaign.py")
         cls.design = load("design_from_yaml_contract", OVERLAY / "design_from_yaml.py")
@@ -88,13 +92,17 @@ class SurfaceOriginTests(unittest.TestCase):
             campaign = Path(raw)
             fixtures = campaign / "rfd3" / "fixtures"
             fixtures.mkdir(parents=True)
-            for oi in range(1, 4):
-                (fixtures / f"oracle_demo_O{oi:02d}.npz").touch()
-            manifest_path = self.design.build_fixtures(
-                {"input": str(EXAMPLE), "contig": "60-70,/0,A25-109"},
-                {"num_designs": 7, "timesteps": 20, "n_recycle": 1, "seed_base": 10},
-                "demo", [60, 70], campaign, {}, False, origins=origins,
-            )
+            def build(command, **kwargs):
+                name = command[command.index('--name') + 1]
+                np.savez(fixtures / f'oracle_{name}.npz', coord_to_be_noised=np.zeros((1, 3)),
+                         **{'feats/is_ca': np.ones(1)})
+                return SimpleNamespace(returncode=0)
+            with patch.object(self.design.subprocess, 'run', side_effect=build):
+                manifest_path = self.design.build_fixtures(
+                    {"input": str(EXAMPLE), "contig": "60-70,/0,A25-109"},
+                    {"num_designs": 7, "timesteps": 20, "n_recycle": 1, "seed_base": 10},
+                    "demo", [60, 70], campaign, {}, False, origins=origins,
+                )
             manifest = json.loads(manifest_path.read_text())
             self.assertEqual(sum(item["quota"] for item in manifest["bins"]), 7)
             self.assertEqual(len(manifest["bins"]), 3)

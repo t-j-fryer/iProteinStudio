@@ -1,0 +1,67 @@
+{
+  "observed_at": "2026-09-17T03:45:36.056864+00:00",
+  "jobs": [
+    {
+      "id": "job-c2773eab4479",
+      "status": "running",
+      "campaign": "untitled_design_openfold3_6ed978fa"
+    },
+    {
+      "id": "job-5870cf39b468",
+      "status": "queued",
+      "campaign": "untitled_design_openfold3_06751263"
+    },
+    {
+      "id": "job-88aced8d3154",
+      "status": "queued",
+      "campaign": "untitled_design_openfold3_3eak_nbbcii10_fgla_f45742c3"
+    },
+    {
+      "id": "job-ff77c9495c35",
+      "status": "queued",
+      "campaign": "untitled_design_openfold3_7eow_caplacizumab_f45742c3"
+    },
+    {
+      "id": "job-982005c1809f",
+      "status": "queued",
+      "campaign": "untitled_design_openfold3_7xl0_vobarilizumab_f45742c3"
+    },
+    {
+      "id": "job-fe3b92d3c5b7",
+      "status": "queued",
+      "campaign": "untitled_design_openfold3_8coh_gefurulimab_f45742c3"
+    },
+    {
+      "id": "job-868deea60afc",
+      "status": "queued",
+      "campaign": "untitled_design_openfold3_8z8v_ozoralizumab_alb8_f45742c3"
+    },
+    {
+      "id": "job-256e52bff79b",
+      "status": "queued",
+      "campaign": "untitled_design_openfold3_gontivimab_f45742c3"
+    },
+    {
+      "id": "job-aad246c8d64a",
+      "status": "queued",
+      "campaign": "untitled_design_openfold3_isecarosmab_f45742c3"
+    },
+    {
+      "id": "job-ef658a1e49ca",
+      "status": "queued",
+      "campaign": "untitled_design_openfold3_sonelokimab_f45742c3"
+    }
+  ],
+  "completed_trajectories": 33,
+  "optimized_structure_files": 165,
+  "starting_structure_files": 33,
+  "expected_optimized_this_campaign": 250,
+  "expected_optimized_recovery": 750,
+  "latest_log_lines": [
+    ">>> run_033 cycle_05: done in 54.202779s (iPTM=0.8417640924453735)",
+    ">>> Finished run_033 in 335.513798s",
+    ">>> Starting run_034",
+    ">>> run_034 cycle_00: openfold-3-mlx predict...",
+    "OpenFold checkpoint ready: /Users/thomasfryer/.iproteinstudio/models/openfold3/of3_ft3_v1.pt"
+  ]
+}

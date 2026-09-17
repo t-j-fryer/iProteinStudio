@@ -5,6 +5,7 @@ separately on restart; completed batches must pass all original file hashes.
 """
 import hashlib
 import json
+import re
 from pathlib import Path
 import uuid
 
@@ -18,9 +19,49 @@ def sha256(path):
 
 
 def atomic(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + '.part')
     temporary.write_text(json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + '\n')
     temporary.replace(path)
+
+
+def bind_inputs(path, specification):
+    """Freeze a request before doing work, including an interrupted first attempt."""
+    if path.exists():
+        if json.loads(path.read_text()) != specification:
+            raise RuntimeError(f"RFdiffusion3 inputs changed: {path}. Use a new output directory.")
+    else:
+        atomic(path, specification)
+
+
+def save_receipt(path, specification, files):
+    files = list(files)
+    if not files or any(not p.is_file() or p.stat().st_size == 0 for p in files):
+        raise RuntimeError(f"Cannot checkpoint missing/empty RFdiffusion3 artifacts: {path}")
+    atomic(path, {"schema": 1, "input": specification,
+                  "files": {str(p.absolute()): sha256(p) for p in files}})
+
+
+def verify_receipt(path, specification):
+    if not path.exists():
+        return False
+    saved = json.loads(path.read_text())
+    if saved.get("schema") != 1 or saved.get("input") != specification or not saved.get("files"):
+        raise RuntimeError(f"RFdiffusion3 receipt inputs changed or invalid: {path}")
+    for name, checksum in saved["files"].items():
+        if not Path(name).is_file() or sha256(name) != checksum:
+            raise RuntimeError(f"Completed RFdiffusion3 artifact missing or changed: {name}")
+    return True
+
+
+def validate_input_names(output, names):
+    if not names or len(names) != len(set(names)):
+        raise ValueError("Prediction inputs must have non-empty, unique design names")
+    if any(not re.fullmatch(r"[A-Za-z0-9_.-]+", name) or name in {".", ".."} for name in names):
+        raise ValueError("Unsafe prediction input name")
+    stale = {p.stem for p in output.glob("*.yaml")} - set(names)
+    if stale:
+        raise ValueError(f"Unexpected stale prediction inputs: {sorted(stale)}. Use a new output directory.")
 
 
 class BatchState:
@@ -33,9 +74,15 @@ class BatchState:
             if self.saved.get('input') != specification or self.saved.get('schema') != 1:
                 raise RuntimeError('RFdiffusion3 batch inputs changed')
         else:
+            if any((self.output / "results").glob("design_*.json")):
+                raise RuntimeError("Legacy RFdiffusion3 outputs have no audited batch receipt; use a new output directory")
             self.saved = dict(schema=1, input=specification, accepted=0, attempted=0, rejected=[], files={})
             atomic(self.path, self.saved)
         files = self.saved['files']
+        accepted, attempted = self.saved['accepted'], self.saved['attempted']
+        if (type(accepted) is not int or type(attempted) is not int
+                or attempted < accepted or attempted < 0):
+            raise RuntimeError('Invalid RFdiffusion3 batch seed cursor')
         for name, checksum in files.items():
             if Path(name).is_absolute() or '..' in Path(name).parts:
                 raise RuntimeError('Invalid RFdiffusion3 batch receipt path')

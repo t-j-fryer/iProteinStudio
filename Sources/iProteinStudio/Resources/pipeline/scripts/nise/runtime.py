@@ -78,6 +78,7 @@ class ResidentClient:
         self.process = subprocess.Popen([str(root / "venvs/NanoHunter_boltz/bin/python"),
                                          str(scripts / "resident_predictor.py"), "--config", str(self.config)],
                                         stdout=self.stream, stderr=subprocess.STDOUT, env=env)
+        self.loaded_affinity = False
         try:
             self.ready = self.wait(self.queue / "ready.json")
             if (self.ready.get("device") != "mps" or self.ready.get("fallback") != 0
@@ -99,18 +100,22 @@ class ResidentClient:
             time.sleep(0.1)
         return json.loads(path.read_text())
 
-    def predict(self, source, output, affinity):
+    def predict(self, source, output, affinity, phase="complete", prediction_seed=None):
         identifier = uuid.uuid4().hex
         name = "request_" + identifier + ".json"
         checksum = input_digest(source)
         atomic(self.queue / "requests" / name, dict(request_id=identifier,
-               input_dir=str(source), output_dir=str(output), expected_jobs=1, input_sha256=checksum))
+               input_dir=str(source), output_dir=str(output), expected_jobs=1, input_sha256=checksum, phase=phase, prediction_seed=prediction_seed))
         receipt = self.wait(self.queue / "responses" / name)
-        expected_loads = 2 if affinity else 1
+        if prediction_seed is not None and receipt.get("prediction_seed") != prediction_seed:
+            raise RuntimeError("NISE prediction returned the wrong sampling seed")
+        expected_loads = 2 if affinity or self.loaded_affinity else 1
         if (not receipt.get("ok") or receipt.get("request_id") != identifier
                 or receipt.get("input_sha256") != checksum or receipt.get("completed_jobs") != 1
-                or receipt.get("model_load_count") != expected_loads):
+                or receipt.get("model_load_count") != expected_loads
+                or (phase != "complete" and receipt.get("phase") != phase)):
             raise RuntimeError(f"NISE prediction failed: {receipt.get('error', 'invalid receipt')}; see {self.log}")
+        self.loaded_affinity = self.loaded_affinity or affinity
         return {**receipt, "session": str(self.queue), "startup_seconds": self.ready["startup_seconds"]}
 
     def close(self):
@@ -148,6 +153,20 @@ class Backend:
 
     def freeze_config(self, cfg):
         path = self.output / "config.json"
+        if path.exists() and self.settings.get("search_policy_version") == 1:
+            prior = json.loads(path.read_text())
+            # Old requests use the historical exhaustive policy. Preserve their
+            # original config rather than injecting newly added disabled flags.
+            additions = {"early_score_gate": 0.0, "selective_affinity": False,
+                         "adaptive_proposals": False, "initial_proposals": 16,
+                         "affinity_batch_size": 8}
+            cfg = {k: v for k, v in cfg.items() if k in prior or k not in additions or v != additions[k]}
+        if path.exists() and self.settings.get("search_policy_version", 1) < 3:
+            prior = json.loads(path.read_text())
+            additions = dict(first_cycle_seqs=cfg.get("nise_seqs"), partial_noising=False,
+                             noise_radius=6.0, noise_percent=25.0, noise_predictions=32,
+                             noise_mpnn_seqs=32, noise_advance=1)
+            cfg = {k: v for k, v in cfg.items() if k in prior or k not in additions or v != additions[k]}
         if path.exists() and json.loads(path.read_text()) != cfg:
             raise RuntimeError("Saved scientific settings differ from this NISE request")
         if not path.exists():
@@ -216,10 +235,12 @@ class Backend:
         from types import SimpleNamespace
         directory = Path(directory)
         predictions = {}
-        if self.settings.get("nesso_screen") and not apo and sequences and all(
+        phase = "complete" if apo else getattr(args, "boltz_phase", "complete")
+        if self.settings.get("nesso_screen") and not getattr(args, "skip_nesso", False) and not apo and sequences and all(
                 re.fullmatch(r"c\d+_t\d+_n\d+_s\d+", name) for name in sequences):
             from nesso_screen import screen
-            sequences = screen(self, sequences, smiles, directory.parent / "nesso")
+            sequences = screen(self, sequences, smiles, directory.parent / "nesso",
+                               allow_empty=self.settings.get("adaptive_proposals", False) or self.settings.get("partial_noising", False))
         try:
             for name, sequence in sequences.items():
                 unit = directory / name
@@ -229,6 +250,12 @@ class Backend:
                 yaml = source / (name + ".yaml")
                 spec = dict(sequence=sequence, smiles=None if apo else smiles, pocket=pocket,
                             affinity=not apo, seed=args.seed, potentials=False if apo else args.use_potentials)
+                seed_override = getattr(args, "prediction_seeds", {}).get(name)
+                if seed_override is not None:
+                    spec["seed"] = seed_override
+                    spec["prediction_seed"] = seed_override
+                if phase != "complete":
+                    spec["phase"] = phase
                 receipt_path = unit / "completed.json"
                 saved = self.journal.load(receipt_path, spec)
                 if saved is not None:
@@ -244,17 +271,25 @@ class Backend:
                 if self.worker is None:
                     self.worker = ResidentClient(self.root, self.output, self.scripts, args.seed,
                                                  not apo and args.use_potentials, not apo)
-                timing = self.worker.predict(source, out, not apo)
+                seed_options = {"prediction_seed": seed_override} if seed_override is not None else {}
+                timing = (self.worker.predict(source, out, False, phase="structure", **seed_options) if phase == "structure"
+                          else self.worker.predict(source, out, not apo, **seed_options))
                 pred = self.science.parse_prediction(out, name)
                 if pred is None:
                     raise RuntimeError(f"Missing prediction for {name}")
-                if not apo:
+                if phase == "structure":
+                    pred.pbind = None
+                if not apo and phase == "complete":
                     self.science.rank_score(pred, "ligand_plddt+pbind")
                 self.audit_structure(pred.pdb, sequence, not apo)
                 if not apo:
                     from ligand_atoms import audit_atoms
                     audit_atoms(pred.pdb, self.atom_manifest(smiles))
                 files = [yaml] + sorted((Path(pred.pdb).parent).glob("*.json")) + [Path(pred.pdb)]
+                if phase == "structure":
+                    # Bind every input needed by the later affinity head.
+                    files = [yaml] + sorted(p for p in out.rglob("*") if p.is_file()
+                                           and not p.name.startswith("affinity_"))
                 values = {k: (None if isinstance(v, float) and not math.isfinite(v) else v)
                           for k, v in asdict(pred).items()}
                 self.journal.save(receipt_path, spec, dict(prediction=values, timing=timing), files)
@@ -262,9 +297,44 @@ class Backend:
                 atomic(self.output / "progress.json", dict(message=f"Completed {name}", scheduler=self.settings["scheduler"]))
                 print(f"NISE|completed|{name}", flush=True)
         finally:
-            if self.settings["scheduler"] == "cycle-wave":
+            if self.settings["scheduler"] == "cycle-wave" and phase != "structure":
                 self.close()
         return predictions
+
+    def affinity(self, predictions, directory, args):
+        """Evaluate only the affinity head on verified structure-stage artifacts."""
+        from types import SimpleNamespace
+        result = {}
+        for name, prediction in predictions.items():
+            unit = Path(directory) / name
+            structure_receipt = unit / "completed.json"
+            saved = json.loads(structure_receipt.read_text())
+            if saved["input"].get("phase") != "structure":
+                raise RuntimeError("Selective affinity requires a structure-stage receipt")
+            self.journal.load(structure_receipt, saved["input"])
+            spec = dict(structure_receipt_sha256=digest(structure_receipt))
+            receipt = unit / "affinity_completed.json"
+            scored = self.journal.load(receipt, spec)
+            if scored is None:
+                if self.worker is None:
+                    self.worker = ResidentClient(self.root, self.output, self.scripts, args.seed,
+                                                 args.use_potentials, True)
+                seed_options = {"prediction_seed": saved["input"]["prediction_seed"]} if "prediction_seed" in saved["input"] else {}
+                timing = self.worker.predict(unit / "yaml", unit / "out", True, phase="affinity", **seed_options)
+                pred = self.science.parse_prediction(unit / "out", name)
+                self.science.rank_score(pred, "ligand_plddt+pbind")
+                self.journal.load(structure_receipt, saved["input"])
+                values = dict(saved["result"]["prediction"], pbind=pred.pbind)
+                scored = dict(prediction=values, timing=timing)
+                self.journal.save(receipt, spec, scored,
+                                  [Path(pred.pdb).parent / f"affinity_{name}.json"])
+            result[name] = SimpleNamespace(**scored["prediction"])
+            atomic(self.output / "progress.json", dict(message=f"Affinity scored {name}"))
+        return result
+
+    def finish_scoring_stage(self):
+        if self.settings["scheduler"] == "cycle-wave":
+            self.close()
 
     @staticmethod
     def audit_structure(path, sequence, ligand):
@@ -288,7 +358,9 @@ class Backend:
         row = asdict(node)
         match = re.search(r"_t(\d+)_", node.name)
         row["trajectory"] = int(match.group(1)) if match else None
-        row["passed"] = passed
+        row["intermediate_passed"] = passed if row.get("branch") == "masked-backbone" else None
+        row["passed"] = passed and row.get("branch") != "masked-backbone"
+        row["final_eligible"] = row["passed"] and re.fullmatch("[ACDEFGHIKLMNPQRSTVWY]+", node.sequence) is not None
         if node.name in getattr(self, "atom_checks", {}):
             row["atom_checks"] = self.atom_checks[node.name]
         if node.name in getattr(self, "nesso_scores", {}):
@@ -299,11 +371,30 @@ class Backend:
 
     def record_advancement(self, cycle, trajectories):
         atomic(self.output / f"cycle{cycle:02d}" / "advancement.json", {
-            "beam": self.settings["beam"], "selection": "Boltz combined score after self-consistency",
+            "beam": self.settings["beam"], "selection": "Reserved normal/noising places after Boltz scoring and self-consistency" if self.settings.get("partial_noising") and cycle >= 2 else "Boltz combined score after self-consistency",
             "trajectories": [dict(trajectory=t["tid"], alive=t["alive"], no_improve=t["no_improve"],
-                selected=[n.name for n in t["current"]] if t["alive"] else []) for t in trajectories]})
+                selected=[n.name for n in t["current"]] if t["alive"] else [],
+                current_beam=[asdict(n) for n in t["current"]],
+                best_node=asdict(t["best_node"]),
+                last_improving_beam=[asdict(n) for n in t.get("best_beam", [t["best_node"]])],
+                structure_sha256={n.pdb: digest(n.pdb) for n in
+                    t["current"] + t.get("best_beam", []) + [t["best_node"]]}) for t in trajectories],
+            "rollback": False, "rescue": False})
 
     def write_summary(self, summary):
+        folds = [json.loads(p.read_text()) for p in self.output.rglob("completed.json")
+                 if p.parent.parent.name in {"fold", "cycle00"}]
+        affinity = list(self.output.rglob("affinity_completed.json"))
+        sampling = [json.loads(p.read_text()) for p in self.output.rglob("sampling.json")]
+        cost = dict(structure_evaluations=len(folds),
+                    affinity_evaluations=len(affinity) + sum(
+                        r["input"].get("affinity", False) and r["input"].get("phase", "complete") == "complete"
+                        for r in folds),
+                    sampled_sequences=sum(len(r["result"]) for r in sampling),
+                    interpretation="Completed unique operations, including reused receipts; not a speed benchmark.",
+                    rollback=False, rescue=False)
+        atomic(self.output / "search_cost.json", cost)
+        summary["evaluation_cost"] = cost
         atomic(self.output / "search_summary.json", summary)
         self.write_atom_report()
 
@@ -327,7 +418,7 @@ class Backend:
         import preorg
         self.close()  # Apo has no affinity, pocket restraint or steering.
         rows = [json.loads(p.read_text()) for p in (self.output / "candidates").glob("*.json")]
-        candidates = sorted((r for r in rows if r["passed"] and r["trajectory"] is not None),
+        candidates = sorted((r for r in rows if r["passed"] and r["trajectory"] is not None and r.get("branch") != "masked-backbone" and r.get("score") is not None and re.fullmatch("[ACDEFGHIKLMNPQRSTVWY]+", r["sequence"])),
                             key=lambda r: (-r["score"], r["name"]))[:self.settings["top_x"]]
         if not candidates:
             atomic(self.output / "preorg.json", dict(ranked=[], shortlist=[], status="no_candidates"))

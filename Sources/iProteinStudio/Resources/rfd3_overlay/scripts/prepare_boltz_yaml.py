@@ -21,6 +21,7 @@ import os
 from pathlib import Path
 
 import studio_runtime
+from rfd3_resume import bind_inputs, validate_input_names, save_receipt, verify_receipt
 
 
 def write_apo_yaml(path: Path, sequence: str) -> None:
@@ -81,17 +82,23 @@ def main() -> None:
     rows = list(csv.DictReader(args.sequences.open()))
     if not rows:
         raise SystemExit(f"No rows in {args.sequences}")
+    names = [f"{row['design']}_{row['seq_index']}" for row in rows]
+    validate_input_names(output, names)
+    identity = {"rows": rows, "smiles": args.smiles, "affinity": args.affinity, "mode": args.mode}
+    bind_inputs(output / "studio_inputs_request.json", identity)
+    receipt = output / "studio_inputs_receipt.json"
+    if verify_receipt(receipt, identity) and not args.overwrite:
+        return
 
     manifest = {}
     for row in rows:
         name = f"{row['design']}_{row['seq_index']}"
         yaml_path = output / f"{name}.yaml"
-        if args.overwrite or not yaml_path.exists():
-            if args.mode == "holo":
-                nise_lib.write_boltz_yaml(yaml_path, row["sequence"], args.smiles,
-                                          affinity=args.affinity)
-            else:
-                write_apo_yaml(yaml_path, row["sequence"])
+        if args.mode == "holo":
+            nise_lib.write_boltz_yaml(yaml_path, row["sequence"], args.smiles,
+                                      affinity=args.affinity)
+        else:
+            write_apo_yaml(yaml_path, row["sequence"])
         manifest[name] = {
             "design": row["design"], "seq_index": row["seq_index"],
             "sequence": row["sequence"], "backbone_pdb": row.get("backbone_pdb", ""),
@@ -99,6 +106,7 @@ def main() -> None:
         }
 
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    save_receipt(receipt, identity, [output / f"{name}.yaml" for name in names] + [output / "manifest.json"])
     print(f"wrote {len(manifest)} {args.mode} YAMLs -> {output}")
 
 

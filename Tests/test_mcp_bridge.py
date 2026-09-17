@@ -320,6 +320,9 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         prepare = self.root / "rfd3_scripts" / "prepare_campaign.py"
         protein = self.root / "rfd3_scripts" / "rfd3_protein_campaign.py"
         prepare.write_text("# prepare\n"); protein.write_text("# runner\n")
+        sampler = self.root / "rfd3/mlx_port/sampler.py"
+        sampler.parent.mkdir(parents=True)
+        sampler.write_text("# sampler fixture\n")
         base = {"target_kind": "protein", "target_structure": str(target), "target_sequence": "ACDEFG", "target_chains": ["B"], "source_binder_chain": "A", "lengths": [60], "sequence_model": "solublempnn", "extra_predictors": ["boltz"]}
         partial = plans.rfd3_plan({"project": "demo", "request": {**base, "design_mode": "partialDiffusion", "partial_t": 2.0, "infer_ori_strategy": "hotspots"}}, "partialDiffusion")
         normalized = partial["normalized_request"]["request"]
@@ -332,6 +335,11 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
 
         denovo = {key: value for key, value in base.items() if key not in {"source_binder_chain"}}
         denovo.pop("lengths")
+        with self.assertRaisesRegex(common.StudioError, "timesteps"):
+            plans.rfd3_plan({"project": "demo", "request": {**denovo, "timesteps": 1}}, "deNovo")
+        with self.assertRaisesRegex(common.StudioError, "both buried and exposed"):
+            plans.rfd3_plan({"project": "demo", "request": {
+                **denovo, "conditions": {"B1": ["buried", "exposed"]}}}, "deNovo")
         simple = plans.rfd3_plan({"project": "demo", "request": {**denovo, "design_mode": "deNovo"}}, "deNovo")
         request = simple["normalized_request"]["request"]
         self.assertNotIn("contig", request)
@@ -339,6 +347,11 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         self.assertEqual(request["sequence_model"], "solublempnn")
         self.assertEqual(request["binding_site_mode"], "surface_scan")
         self.assertEqual(request["hit_filters"]["minimum_ipsae_min"], 0.50)
+        self.assertIn(str(sampler), [item["path"] for item in simple["provenance"]])
+        plans.load_plan(simple["id"], simple["sha256"])
+        sampler.write_text("# changed sampler\n")
+        with self.assertRaisesRegex(common.StudioError, "changed after preflight"):
+            plans.load_plan(simple["id"], simple["sha256"])
         with self.assertRaisesRegex(common.StudioError, "Omit `contig`"):
             plans.rfd3_plan({"project": "demo", "request": {**denovo, "design_mode": "deNovo", "contig": "B1-236/0 45-75"}}, "deNovo")
         with self.assertRaisesRegex(common.StudioError, "silently disagree"):

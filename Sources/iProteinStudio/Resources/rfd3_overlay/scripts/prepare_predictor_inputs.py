@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 import yaml
+from rfd3_resume import bind_inputs, validate_input_names, save_receipt, verify_receipt
 
 
 def a3m_query(path: Path) -> tuple[str, int]:
@@ -42,7 +43,7 @@ def main() -> None:
     entries = template.get("sequences", [])
     proteins = [entry["protein"] for entry in entries if "protein" in entry]
     ligands = [entry["ligand"] for entry in entries if "ligand" in entry]
-    if not proteins or proteins[0].get("id") != "A":
+    if not entries or entries[0].get("protein", {}).get("id") != "A":
         raise SystemExit("Template must contain binder protein chain A first")
     target_proteins = proteins[1:]
     if not args.monomer and bool(target_proteins) == bool(ligands):
@@ -82,6 +83,13 @@ def main() -> None:
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     rows = list(csv.DictReader(args.sequences.open()))
+    names = [prediction_name(row) for row in rows]
+    validate_input_names(output, names)
+    identity = {"rows": rows, "template": template, "target_msas": {k: str(v) for k, v in target_msas.items()}}
+    bind_inputs(output / "studio_inputs_request.json", identity)
+    receipt = output / "studio_inputs_receipt.json"
+    if verify_receipt(receipt, identity):
+        return
     for row in rows:
         data = json.loads(json.dumps(template))
         data["sequences"][0]["protein"]["sequence"] = row["sequence"]
@@ -103,6 +111,7 @@ def main() -> None:
         "target_msa_records": msa_records,
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    save_receipt(receipt, identity, [output / f"{name}.yaml" for name in names] + [output / "manifest.json"])
     print(f"wrote {len(rows)} predictor YAMLs -> {output}")
 
 

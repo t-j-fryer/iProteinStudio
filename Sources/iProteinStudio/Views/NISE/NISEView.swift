@@ -86,6 +86,14 @@ struct NISEView: View {
                         DisclosureGroup("Advanced · initial sampling and selection") {
                             VStack(alignment: .leading, spacing: 10) {
                                 budgetControl("Pocket refinement rounds", value: request.phase0_refine_cycles, range: 0...20)
+                                HStack {
+                                    Text("First refinement minimum Boltz score (0 disables)")
+                                    Spacer()
+                                    TextField("0.80", value: request.early_score_gate, format: .number)
+                                        .textFieldStyle(.roundedBorder).frame(width: 90)
+                                }
+                                Text("After geometry checks, retain lineage winners with ligand pLDDT/100 + P(bind) at or above this value. Applies only to the first refinement, including NESSO-screened candidates. The 0.80 pilot threshold is not validated across ligands.")
+                                    .font(.caption).foregroundStyle(.secondary)
                                 budgetControl("Sequences sampled per lineage per refinement", value: request.phase0_seqs1, range: 1...1024)
                                 if request.wrappedValue.phase0_nesso_screen {
                                     budgetControl("NESSO shortlist per lineage per refinement", value: request.phase0_nesso_refine_top_k,
@@ -109,15 +117,17 @@ struct NISEView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         budgetControl("Independent trajectories to optimise", value: request.trajectories,
                                       range: 1...max(1, min(1000, request.wrappedValue.num_starts)))
-                        budgetControl("Sequences sampled per parent per cycle", value: request.nise_seqs, range: 1...4096)
-                        budgetControl("Sequences to advance per trajectory per cycle", value: request.beam,
+                        budgetControl("First cycle · proposals from the starting seed", value: request.first_cycle_seqs,
+                                      range: max(1, request.wrappedValue.beam)...4096)
+                        budgetControl("Later cycles · proposals per parent", value: request.nise_seqs, range: 1...4096)
+                        budgetControl("Total sequences to advance per trajectory per cycle", value: request.beam,
                                       range: 1...max(1, min(64, request.wrappedValue.nise_seqs)))
-                        Text("Each trajectory starts with one parent. After folding, up to this many passing sequences become its next parents. Every parent samples the number above; trajectories never share their survivors.")
+                        Text("Each trajectory starts with one parent. After folding, up to this many passing sequences become its next parents. Later cycles sample the per-parent count above; trajectories never share their survivors.")
                             .font(.caption).foregroundStyle(.secondary)
                         Toggle("Screen sequences with NESSO before folding (experimental)", isOn: request.nesso_screen)
                             .accessibilityIdentifier("nise-nesso-screen")
                         if request.wrappedValue.nesso_screen {
-                            budgetControl("NESSO shortlist to fold per trajectory per cycle", value: request.nesso_top_k,
+                            budgetControl("NESSO shortlist per trajectory per proposal round", value: request.nesso_top_k,
                                           range: max(1, request.wrappedValue.beam)...max(request.wrappedValue.beam, request.wrappedValue.nise_seqs))
                             Text("NESSO ranks the sampled sequences from all parents within each trajectory by P(bind) + (1 − pocket-cropped protein–ligand entropy). Invalid or near-zero entropy (≤ 0.000001) is rejected before selection. Only the shortlist goes to Boltz. Boltz scores and structural checks then decide which sequences advance. This switch controls optimisation independently of initial-stage NESSO screening.")
                                 .font(.caption).foregroundStyle(.secondary)
@@ -125,6 +135,30 @@ struct NISEView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                             if !installer.isUsable(.nesso) {
                                 Label("Install NESSO-1 from Engines; its required ESM-2 650M model is included automatically.", systemImage: "shippingbox")
+                            }
+                        }
+                        partialNoisingControls
+                        Toggle("Adaptive proposals · experimental", isOn: request.adaptive_proposals)
+                            .disabled(request.wrappedValue.partial_noising)
+                        if request.wrappedValue.adaptive_proposals {
+                            budgetControl("Starting proposals per parent", value: request.initial_proposals,
+                                          range: max(1, request.wrappedValue.beam)...max(request.wrappedValue.beam, request.wrappedValue.nise_seqs))
+                            Text("Start small, then double up to the maximum only if the trajectory has not improved enough. With 16 and 64: sample 16, add 16, then add 32 per parent. Parents stay fixed during top-ups; all evaluated candidates compete for the next beam. NESSO shortlists each new batch separately. No rollback or rescue. Savings have not been measured.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        HStack {
+                            Text("Minimum improvement to reset patience / stop top-ups")
+                            Spacer()
+                            TextField("0.01", value: request.min_improvement, format: .number)
+                                .textFieldStyle(.roundedBorder).frame(width: 90)
+                        }
+                        Toggle("Selective Boltz affinity evaluation (experimental)", isOn: request.selective_affinity)
+                        if request.wrappedValue.selective_affinity {
+                            Text("Skip affinity for initial backbones and the geometry-only gate. Elsewhere, check geometry first, then evaluate affinity in ligand-confidence order until the remaining score bounds cannot enter the selected beam. NESSO screening still runs before folding. Software checks pass; run a small trial before a large campaign.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            DisclosureGroup("Advanced · affinity batches") {
+                                budgetControl("Affinity candidates per selection batch", value: request.affinity_batch_size, range: 1...128)
+                                Text("Smaller batches allow earlier stopping. Workers retain their models within each scoring stage; this is not a GPU parallelism setting.").font(.caption)
                             }
                         }
                         DisclosureGroup("Advanced · optimisation structural filters") {
@@ -218,16 +252,59 @@ struct NISEView: View {
         }
         .onChange(of: request.wrappedValue.nise_seqs) { _, count in
             request.wrappedValue.beam = min(request.wrappedValue.beam, count)
+            request.wrappedValue.initial_proposals = max(request.wrappedValue.beam, min(request.wrappedValue.initial_proposals, max(1, count)))
             request.wrappedValue.nesso_top_k = max(request.wrappedValue.beam, min(request.wrappedValue.nesso_top_k, count))
         }
         .onChange(of: request.wrappedValue.beam) { _, count in
             request.wrappedValue.nesso_top_k = max(count, request.wrappedValue.nesso_top_k)
+            request.wrappedValue.initial_proposals = max(count, request.wrappedValue.initial_proposals)
+            request.wrappedValue.first_cycle_seqs = max(count, request.wrappedValue.first_cycle_seqs)
+            request.wrappedValue.noise_advance = min(request.wrappedValue.noise_advance, max(1, count - 1))
+            if count < 2 { request.wrappedValue.partial_noising = false }
         }
         .onChange(of: request.wrappedValue.binder_min_len) { _, minimum in
             request.wrappedValue.binder_max_len = max(request.wrappedValue.binder_max_len, minimum)
         }
         .onChange(of: request.wrappedValue.binder_max_len) { _, maximum in
             request.wrappedValue.binder_min_len = min(request.wrappedValue.binder_min_len, maximum)
+        }
+    }
+
+    private var partialNoisingControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Ligand-local X-token noising · experimental", isOn: request.partial_noising)
+                .disabled(request.wrappedValue.beam < 2 || request.wrappedValue.adaptive_proposals)
+                .accessibilityIdentifier("nise-partial-noising")
+            if request.wrappedValue.partial_noising {
+                Text("From cycle 2, partial noising replaces ordinary sampling places: use the best \(request.wrappedValue.normalParentCount) current parents for normal MPNN, plus one noising branch from the best current parent. Mask residues near the ligand, fold with Boltz, redesign the best passing backbone with LASErMPNN, then fold and score the complete sequences. Advance \(request.wrappedValue.normalParentCount) normal winners and up to \(request.wrappedValue.noise_advance) repaired winners, within \(request.wrappedValue.beam) total places. Empty branch places stay empty if its candidates fail.")
+                    .font(.caption).foregroundStyle(.secondary)
+                DisclosureGroup("Partial noising settings") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Ligand neighbourhood radius (Å)"); Spacer()
+                            TextField("6", value: request.noise_radius, format: .number)
+                                .textFieldStyle(.roundedBorder).frame(width: 80)
+                        }
+                        HStack {
+                            Text("Neighbourhood residues to mask (%)"); Spacer()
+                            TextField("25", value: request.noise_percent, format: .number)
+                                .textFieldStyle(.roundedBorder).frame(width: 80)
+                        }
+                        budgetControl("Masked Boltz predictions per trajectory", value: request.noise_predictions, range: 1...1024)
+                        budgetControl("MPNN sequences from the chosen masked backbone", value: request.noise_mpnn_seqs,
+                                      range: max(1, request.wrappedValue.noise_advance)...4096)
+                        budgetControl("Beam places reserved for repaired sequences", value: request.noise_advance,
+                                      range: 1...max(1, min(request.wrappedValue.beam - 1, request.wrappedValue.noise_mpnn_seqs)))
+                        Text("Distance uses the nearest protein/ligand heavy atoms. Mask a random subset of that neighbourhood, with at least one residue and a separate recorded folding seed per prediction. The 6 Å / 25% starting settings are unvalidated. No eligible residues means no branch for that cycle.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.padding(.top, 8)
+                }
+                Text("This masks sequence identities; it does not freeze coordinates outside the pocket. Masked structures are intermediates, never final designs. NESSO screens only complete MPNN sequences. Existing RMSD, Bind and Expose checks still apply. The branch uses up to \(request.wrappedValue.noisingPredictionBudget.formatted()) Boltz predictions across all trajectories per later cycle; totals below also account for the reduced ordinary parent count.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else if request.wrappedValue.beam < 2 || request.wrappedValue.adaptive_proposals {
+                Text("Partial noising needs at least two beam places and fixed sampling.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 

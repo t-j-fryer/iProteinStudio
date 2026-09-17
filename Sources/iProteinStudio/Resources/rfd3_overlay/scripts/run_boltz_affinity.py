@@ -14,7 +14,8 @@ sequence-to-YAML path, so the exact YAMLs on disk are what gets folded.
 
 Because ``boltz predict --override`` has no per-file resume, this script
 owns its own coarser-grained resumability: the input YAMLs are split into
-fixed-size chunks, and a chunk is skipped once its manifest exists.
+fixed-size chunks, and reuses a completed chunk only after checking its saved
+input identity and hashes of its manifest and output structures.
 
 Boltz-2-with-affinity throughput on ligand workloads is NOT covered by
 NanoHunter's shipped ``device_profile.json`` (protein-protein only), so
@@ -31,6 +32,7 @@ import json
 import time
 import os
 from pathlib import Path
+from rfd3_resume import bind_inputs, save_receipt, verify_receipt, sha256
 
 import studio_runtime
 
@@ -144,6 +146,8 @@ def main() -> None:
     parser.add_argument("--prediction-context", choices=("complex", "binder_alone"),
                         help="durable provenance for whether inputs contain the binding partner")
     args = parser.parse_args()
+    if args.chunk_size < 1 or (args.parallel is not None and args.parallel < 1) or args.calibrate_n < 1:
+        raise SystemExit("chunk-size, parallel and calibrate-n must be positive")
 
     pipeline_root = args.nanohunter_root or default_root()
     studio_runtime.configure(pipeline_root)
@@ -160,8 +164,15 @@ def main() -> None:
 
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    specification = {"inputs": {p.name: sha256(p) for p in yaml_paths},
+                     "chunk_size": args.chunk_size, "use_potentials": args.use_potentials,
+                     "prediction_context": prediction_context, "parallel": args.parallel}
+    bind_inputs(output / "studio_prediction_request.json", specification)
+    request_sha256 = sha256(output / "studio_prediction_request.json")
 
     parallel = args.parallel
+    if parallel is None and (output / "run_manifest.json").is_file():
+        parallel = json.loads((output / "run_manifest.json").read_text())["parallel"]
     if parallel is None:
         parallel = calibrate(nise_lib, yaml_paths, output / "_calibration", args.use_potentials, args.calibrate_n)
         print(f"calibration chose parallel={parallel}")
@@ -172,7 +183,9 @@ def main() -> None:
     for ci, chunk in enumerate(chunks):
         chunk_dir = output / f"chunk_{ci:04d}"
         manifest_out = chunk_dir / "chunk_manifest.json"
-        if manifest_out.exists():
+        receipt = chunk_dir / "studio_prediction_receipt.json"
+        identity = {"request_sha256": request_sha256, "chunk": [p.name for p in chunk]}
+        if verify_receipt(receipt, identity):
             cached = json.loads(manifest_out.read_text())
             expected_names = {path.stem for path in chunk}
             cached_names = {row.get("name") for row in cached}
@@ -184,6 +197,11 @@ def main() -> None:
                 print(f"chunk {ci}: cached ({len(chunk)} successful designs)")
                 continue
             print(f"chunk {ci}: incomplete/failed cache; rerunning")
+        if chunk_dir.exists():
+            import uuid
+            archive = output / "_interrupted" / uuid.uuid4().hex
+            archive.mkdir(parents=True)
+            chunk_dir.rename(archive / chunk_dir.name)
         started = time.time()
         results = shard_and_predict(nise_lib, chunk, chunk_dir, args.use_potentials, parallel)
         wall = time.time() - started
@@ -194,6 +212,8 @@ def main() -> None:
             for path in chunk
         ]
         manifest_out.write_text(json.dumps(rows, indent=2) + "\n")
+        if all(row["ok"] for row in rows):
+            save_receipt(receipt, identity, [manifest_out] + [Path(row["pdb"]) for row in rows])
         all_rows.extend(rows)
         failed = sum(1 for r in rows if not r["ok"])
         print(f"chunk {ci}: {len(chunk)} designs in {wall:.1f}s ({per_design:.1f}s/design), {failed} failed", flush=True)

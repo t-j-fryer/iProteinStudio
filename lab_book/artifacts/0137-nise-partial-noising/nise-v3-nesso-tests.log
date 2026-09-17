@@ -1,0 +1,24 @@
+test_all_invalid_writes_audited_report_then_stops_without_fallback (__main__.NessoTests.test_all_invalid_writes_audited_report_then_stops_without_fallback) ... ok
+test_changed_installation_fails_on_resume (__main__.NessoTests.test_changed_installation_fails_on_resume) ... ok
+test_changed_requested_shortlist_fails_on_resume (__main__.NessoTests.test_changed_requested_shortlist_fails_on_resume) ... ok
+test_esm_reuses_only_exact_cached_assets_and_keeps_an_owned_copy (__main__.NessoTests.test_esm_reuses_only_exact_cached_assets_and_keeps_an_owned_copy) ... Reused checksum-verified ESM-2 asset: config.json
+ok
+test_experimental_residency_reuses_models_across_later_cycle_inputs (__main__.NessoTests.test_experimental_residency_reuses_models_across_later_cycle_inputs) ... ok
+test_initial_screen_budgets_and_dependency_are_independent (__main__.NessoTests.test_initial_screen_budgets_and_dependency_are_independent) ... ok
+test_initial_screen_is_durable_and_reports_lineages_without_optimization_ids (__main__.NessoTests.test_initial_screen_is_durable_and_reports_lineages_without_optimization_ids) ... ok
+test_initial_selection_caps_original_lineages_before_global_pooling (__main__.NessoTests.test_initial_selection_caps_original_lineages_before_global_pooling) ... ok
+test_installation_requires_exact_pins_and_rejects_receipt_path_escape (__main__.NessoTests.test_installation_requires_exact_pins_and_rejects_receipt_path_escape) ... ok
+test_interrupted_screen_replays_completed_scores_and_retains_rejected_candidates (__main__.NessoTests.test_interrupted_screen_replays_completed_scores_and_retains_rejected_candidates) ... ok
+test_large_budget_and_stage_settings_are_typed_and_constrained (__main__.NessoTests.test_large_budget_and_stage_settings_are_typed_and_constrained) ... ok
+test_managed_detection_reports_missing_and_incomplete_without_installing (__main__.NessoTests.test_managed_detection_reports_missing_and_incomplete_without_installing) ... ok
+test_old_or_changed_ranking_policy_cannot_reuse_shortlist (__main__.NessoTests.test_old_or_changed_ranking_policy_cannot_reuse_shortlist) ... ok
+test_placement_confidence_changes_both_rankings_and_caps_follow_rejection (__main__.NessoTests.test_placement_confidence_changes_both_rankings_and_caps_follow_rejection) ... ok
+test_queue_client_reuses_one_process_and_surfaces_worker_death (__main__.NessoTests.test_queue_client_reuses_one_process_and_surfaces_worker_death) ... ok
+test_rejected_placements_are_reported_and_cached_without_rescoring (__main__.NessoTests.test_rejected_placements_are_reported_and_cached_without_rescoring) ... ok
+test_selection_and_raw_artifact_corruption_fail_instead_of_rescoring (__main__.NessoTests.test_selection_and_raw_artifact_corruption_fail_instead_of_rescoring) ... ok
+test_shortlist_is_per_trajectory_with_stable_ties_and_no_score_substitution (__main__.NessoTests.test_shortlist_is_per_trajectory_with_stable_ties_and_no_score_substitution) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.595s
+
+OK
