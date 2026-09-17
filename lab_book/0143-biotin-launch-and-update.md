@@ -46,6 +46,12 @@ skipped surface-origin suite also passes in RFD3. Standalone Swift contracts and
 no full Xcode installation is present. This is recorded rather than counted as a pass.
 The continuation guard's negative/positive fixture passes.
 
+The first packaging attempt correctly stopped at its hard-coded MCP-18 assertion
+after building the MCP-19 bundle. Updated the packaging contract to version 19,
+added exact-source checks for the NISE policy/noising files, and reran it
+successfully before retrying publication. No artifact from the failed attempt
+was published.
+
 The pilot passed two of five initial backbones and entered refinement. A planned
 stop/resume for runtime deployment will preserve completed unit receipts. The
 acceptance guard permits this one restart while still requiring a single resident

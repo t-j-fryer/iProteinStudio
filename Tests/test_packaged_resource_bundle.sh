@@ -41,6 +41,10 @@ done
   || fail "resource bundle is missing the iterative secondary-structure prior helper"
 [[ -s "${BUNDLE}/pipeline/scripts/nise/campaign.py" ]] \
   || fail "resource bundle is missing the ligand NISE campaign"
+for resource in partial_noising.py search_policy.py contract.py nise_run.py; do
+  cmp -s "${BUNDLE}/pipeline/scripts/nise/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/nise/${resource}" \
+    || fail "NISE sampling resource is missing or differs from source: ${resource}"
+done
 [[ -s "${BUNDLE}/pipeline/mcp/schemas/nise-v1.json" ]] \
   || fail "resource bundle is missing the ligand NISE request schema"
 [[ -s "${BUNDLE}/pipeline/scripts/nise/rfd3_initial.py" ]] \
@@ -53,8 +57,8 @@ for resource in ligand_atoms.py atom_geometry.py nesso_worker.py nesso_screen.py
 done
 [[ -s "${BUNDLE}/pipeline/mcp/server.py" ]] \
   || fail "resource bundle is missing the MCP server"
-[[ "$(tr -d '[:space:]' < "${BUNDLE}/pipeline/mcp/MCP_VERSION")" == "18" ]] \
-  || fail "resource bundle does not contain MCP contract v18 (including cropped NESSO screening and verification)"
+[[ "$(tr -d '[:space:]' < "${BUNDLE}/pipeline/mcp/MCP_VERSION")" == "19" ]] \
+  || fail "resource bundle does not contain MCP contract v19 (including NISE sampling and partial noising)"
 [[ -s "${BUNDLE}/pipeline/mcp/remote_server.py" ]] \
   || fail "resource bundle is missing the authenticated remote MCP transport"
 [[ -s "${BUNDLE}/pipeline/mcp/remote_gateway.py" ]] \
