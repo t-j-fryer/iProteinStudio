@@ -1,0 +1,28 @@
+{
+  "app_version": "0.2.0",
+  "app_build": 38,
+  "mcp_version": 19,
+  "packaged_source_commit": "0128830",
+  "published_feed_commit": "0c8a42d",
+  "app_path": "build/iProteinStudio.app",
+  "release_url": "https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.0-beta",
+  "pilot_job": "job-8e5b6fae9509",
+  "pilot_status_at_recording": "running",
+  "full_plan": "plan-bfd005780c66a3ef",
+  "full_status": "guarded continuation; not yet submitted",
+  "continuation": {
+    "pid": 69460,
+    "script": "/Users/thomasfryer/iProteinStudio/Validation/experiments/biotin_noising_acceptance_v1/continue_after_pilot.py",
+    "sha256": "418bb3ac6cf0028f4b949301cad0ca533de36eb6ebc7ea461a31c0bc3a6d05e1",
+    "full_plan": "plan-bfd005780c66a3ef",
+    "pilot_job": "job-8e5b6fae9509"
+  },
+  "checks": {
+    "bundle": "pass",
+    "dmg_checksum": "pass",
+    "swift_build": "pass",
+    "swift_contracts": "pass",
+    "suite_commands_after_environment_reruns": "50/51 pass; swift test unavailable without XCTest"
+  },
+  "mcp_connections": "Staged bridge is v19; the already-connected read MCP server still caches older guidance until reconnected"
+}

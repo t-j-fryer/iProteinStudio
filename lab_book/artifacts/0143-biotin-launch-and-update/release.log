@@ -1,0 +1,49 @@
+iProteinStudio 0.2.0 (38) unsigned beta
+Source: 012883079cf874009795af836d92b9e073789c14 (clean)
+==> swift build -c release
+Building for production...
+[0/2] Write swift-version--1AB21518FC5DEDBE.txt
+Build complete! (0.11s)
+==> assembling build/iProteinStudio.app
+build/iProteinStudio.app: replacing existing signature
+   ad-hoc signed trusted beta (Sparkle updates require an EdDSA-signed archive)
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+build/iProteinStudio.app: valid on disk
+build/iProteinStudio.app: satisfies its Designated Requirement
+✅ Built build/iProteinStudio.app
+   Version: 0.2.0 (38)
+   Launch with:  open "build/iProteinStudio.app"
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+build/iProteinStudio.app: valid on disk
+build/iProteinStudio.app: satisfies its Designated Requirement
+PASS packaged SwiftPM resource bundle contract
+Wrote 1 new update, updated 0 existing updates, and removed 0 old updates in appcast.xml
+Unsigned beta artifacts are ready in build/unsigned-beta-0.2.0-38
+The beta appcast contains a Sparkle EdDSA archive signature.
+Installation instructions: docs/INSTALL_UNSIGNED_BETA.md
+To https://github.com/t-j-fryer/iProteinStudio.git
+ * [new tag]         v0.2.0-beta -> v0.2.0-beta
+https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.0-beta
+[main 0c8a42d] Publish iProteinStudio 0.2.0 trusted beta update feed
+ 1 file changed, 219 insertions(+), 9 deletions(-)
+To https://github.com/t-j-fryer/iProteinStudio.git
+   04fcab7..0c8a42d  main -> main
+Published v0.2.0-beta; trusted-beta appcast is live on main.

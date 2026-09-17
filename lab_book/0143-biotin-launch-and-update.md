@@ -92,5 +92,34 @@ entry's creation. No model weights are committed or distributed.
 
 ## Next
 
-Audit the pilot, launch the full campaign only after acceptance, complete app/MCP
-deployment and GitHub updates, and append exact results and source revisions.
+Audit the pilot through the durable guarded continuation and submit the full
+campaign only after acceptance. Any failure remains visible in its continuation
+record and must be diagnosed before further execution.
+
+## Deployment and continuation update
+
+Packaged build 38 from clean source `0128830` (implementation commit `a8b9064`).
+Ad-hoc signature/resource checks pass; the DMG verifies. Published the beta
+app/DMG, provenance and checksum files at GitHub release `v0.2.0-beta`; Sparkle
+archive signature and feed were published in `0c8a42d`. The app is open from
+`build/iProteinStudio.app` (observed PID 69225). Installed MCP doctor reports
+version 19, and the staged MCP guide/schema and NISE script bytes match source.
+Existing live MCP connections can retain imported old guidance until reconnected;
+fresh connections load v19. No client configuration was overwritten.
+
+The pilot was stopped through the broker for staging and resumed after byte
+verification. All five initial predictions were reused; refinement continued
+with `L002_c1_1`, after the already completed `L002_c1_0`. Two of five starts passed
+initial atom checks. Pilot remains running; the 1,000-start job is not yet submitted.
+
+Detached guarded continuation PID 69460 monitors job `job-8e5b6fae9509` and holds
+full plan `plan-bfd005780c66a3ef` for automatic submission through `job_start` only
+after its strict output audit passes. It runs under caffeinate, saves its status
+to `Validation/output/biotin_noising_acceptance_v1/continuation.json`, accepts a
+STOP_CONTINUATION marker, and expires after 48 h. One planned maintenance restart
+is allowed; optimisation must use a single resident session across both cycles.
+No new permission is required for the already authorized full campaign.
+
+Deployment logs and [receipt](artifacts/0143-biotin-launch-and-update/deployment.json)
+record the release and pending scientific acceptance separately. This is not a
+claim that the new scientific branch has already passed real-model acceptance.

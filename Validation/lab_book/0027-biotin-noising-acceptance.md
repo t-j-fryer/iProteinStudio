@@ -29,3 +29,12 @@ inspection and final audit are recorded separately in Validation/output.
 Configuration and protocol: `experiments/biotin_noising_acceptance_v1/`.
 Plan/job receipts: `output/biotin_noising_acceptance_v1/`.
 Project record: `lab_book/0143-biotin-launch-and-update.md` at the repository root.
+
+Update: two of five initial backbones passed atom checks. Pilot was stopped
+through the broker for build-38/MCP-19 staging, then resumed, reusing all five
+initial predictions and the completed first refinement prediction. The installed
+runtime matches packaged source `0128830`; running science retains its original
+immutable snapshot. A detached guarded continuation audits the pilot before
+submitting full plan `plan-bfd005780c66a3ef`. No full campaign submission or
+scientific acceptance is claimed yet. State is saved in the experiment output
+directory, including the maintenance stop/resume and continuation receipts.
