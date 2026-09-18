@@ -10,8 +10,62 @@ enum RunResultsLoader {
         switch workflow {
         case .nise: return niseResults(root: root)
         case .prediction: return predictionResults(root: root)
-        case .iterative: return iterativeResults(root: root) + ligandScreeningResults(root: root)
+        case .iterative:
+            if fm.fileExists(atPath: root.appendingPathComponent("studio_engine_batch.json").path) { return batchResults(root: root) }
+            return iterativeResults(root: root) + ligandScreeningResults(root: root)
         case .rfdiffusion3: return rfd3Results(root: root) + ligandScreeningResults(root: root)
+        }
+    }
+
+    struct BatchCampaign: Identifiable {
+        var id: String { root.lastPathComponent }
+        let root: URL
+        let frameworkID: String
+        let frameworkName: String
+        let engine: String
+        let trajectories: Int
+    }
+
+    /// Children are siblings of the saved batch. Relocate by exact basename for
+    /// copied archives; never follow an arbitrary path or escape the workspace.
+    static func batchCampaigns(root: URL) -> [BatchCampaign] {
+        guard let descriptor = jsonObject(at: root.appendingPathComponent("studio_engine_batch.json")),
+              let paths = descriptor["campaigns"] as? [String] else { return [] }
+        let workspace = root.deletingLastPathComponent().resolvingSymlinksInPath()
+        return paths.enumerated().compactMap { index, path in
+            let child = workspace.appendingPathComponent(URL(fileURLWithPath: path).lastPathComponent).resolvingSymlinksInPath()
+            guard child.deletingLastPathComponent() == workspace,
+                  let manifest = jsonObject(at: child.appendingPathComponent("studio_run.json")) else { return nil }
+            let request = manifest["request"] as? [String: Any] ?? [:]
+            let framework = request["scaffoldID"] as? String ?? "none"
+            let labels = descriptor["engines"] as? [String] ?? []
+            let label = index < labels.count ? labels[index] : framework
+            let frameworkName = label.components(separatedBy: " · ").dropFirst().joined(separator: " · ")
+            let engineIDs = descriptor["engineIDs"] as? [String] ?? []
+            return BatchCampaign(root: child, frameworkID: framework,
+                frameworkName: frameworkName.isEmpty ? framework : frameworkName,
+                engine: index < engineIDs.count ? engineIDs[index] : (request["designPredictor"] as? String ?? label),
+                trajectories: request["numDesigns"] as? Int ?? 0)
+        }
+    }
+
+    static func batchResults(root: URL) -> [StudioResultItem] {
+        batchCampaigns(root: root).flatMap { child in
+            (iterativeResults(root: child.root) + ligandScreeningResults(root: child.root)).map { item in
+                var value = StudioResultItem(id: child.id + "|" + item.id, title: item.title,
+                    subtitle: child.frameworkName + " · " + child.engine + " · " + item.subtitle,
+                    structureURL: item.structureURL, sequence: item.sequence, metrics: item.metrics,
+                    confidenceURL: item.confidenceURL, stage: item.stage, scoreSource: item.scoreSource,
+                    isHit: item.isHit, failedFilters: item.failedFilters, motifMapping: item.motifMapping,
+                    motifResidueRMSDs: item.motifResidueRMSDs,
+                    groupID: "iterative|" + child.id + "|" + item.groupID,
+                    groupTitle: child.frameworkName + " · " + child.engine + " · " + item.groupTitle,
+                    variantID: item.variantID, variantTitle: item.variantTitle, artifactRole: item.artifactRole)
+                value.frameworkID = child.frameworkID; value.frameworkName = child.frameworkName
+                value.campaignID = child.id; value.designEngine = child.engine
+                value.designHitThreshold = iterativeHitThreshold(root: child.root)
+                return value
+            }
         }
     }
 

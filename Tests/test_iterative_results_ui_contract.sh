@@ -23,7 +23,7 @@ rg -q '\.sheet\(item: \$selectedPoint\)' "${GRID}" \
   || fail "structures grid does not own the inspector lifecycle"
 rg -q '\.sheet\(item: \$selectedPoint\)' "${HITS}" \
   || fail "hits gallery does not own the inspector lifecycle"
-rg -q 'optimized design' "${RESULTS}" \
+rg -q 'optimized cycle outputs' "${RESULTS}" \
   || fail "results still label cycle-00 structures as designs"
 rg -q 'LiveGroupedRunResultsPane' "${LIVE}" \
   || fail "live Structures/Hits tabs do not share the durable grouped browser"

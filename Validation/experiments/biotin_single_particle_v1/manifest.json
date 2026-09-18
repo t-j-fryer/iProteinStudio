@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "date": "2026-09-17",
+  "purpose": "Test the complete physical-guidance bundle with FK resampling off; observe exposure reversals during diffusion without early termination.",
+  "source_replay_job": "job-1fdba14287be",
+  "starting_commit": "f6ca4108e14dcebc7c60c3d3b77703098c9b45cd plus plan-fingerprinted working tree",
+  "hardware": "Apple M4 Max, 64 GB, macOS26.6.1; managed Boltz2.2.1 FP32/MPS",
+  "unit": "30 frozen biotin cycle00 inputs, not optimized designs",
+  "pilot": "First2 inputs, clean and traced requests (4 folds), excluded from the main timing results",
+  "arms": ["physical guidance and pocket on, FK off, all inputs in one request", "identical settings plus read-only diffusion snapshots, all inputs in one request"],
+  "held_constant": {"recycles": 3, "diffusion_steps": 200, "output_samples": 1, "seed": 0, "msa": "empty", "pocket_force": true, "affinity": false, "physical_guidance_update": true, "contact_guidance_update": true, "fk_steering": false},
+  "pairing": "Reuse original preprocessed ligand conformers and prior singleton RNG states; verify actual tensor-feature hashes. One resident model per arm; separate timing and traced passes. Immutable broker plans and shared execution lock.",
+  "trace": "Snapshot corrected denoised estimates AND noisy diffusion states after step1 and every5 steps through200. No SASA computation in the prediction path. Verify saved final state exactly equals model output and reproduces the PDB geometry. Record callback and elapsed times; callback time includes GPU synchronization and is not pure added overhead. Recycling updates latent features and supplies no intermediate complete structures.",
+  "exposure": "Unchanged production heavy-atom RDKit FreeSASA Shrake-Rupley,1.4Å probe. Both O18 and O19 must retain at least50% isolated-ligand SASA. Evaluate after prediction on derived snapshots.",
+  "analysis": "At each snapshot report eventual-failure detection, false rejection of eventual passers, exposure recovery, and hypothetical remaining compute. Explore persistence across consecutive observations, clearly retrospective and unvalidated. Run all inputs to completion; no early-kill policy promoted.",
+  "limits": "One ligand,30 incomplete-side-chain initializations; fixed arm order, no timing replicates, no affinity/optimization. A zero observed false-rejection count on this sample does not establish a safe gate. No full-campaign resume or default change."
+}

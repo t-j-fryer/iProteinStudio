@@ -16,19 +16,38 @@ struct RunResultsView: View {
     let root: URL
     let workflow: StudioWorkflow
     let title: String
+    var embedded = false
 
     @Environment(\.dismiss) private var dismiss
-    @State private var items: [StudioResultItem]
+    @State private var allItems: [StudioResultItem]
+    @State private var frameworkFilter = ""
+    @State private var engineFilter = ""
+    private var items: [StudioResultItem] {
+        allItems.filter { (frameworkFilter.isEmpty || $0.frameworkID == frameworkFilter) && (engineFilter.isEmpty || $0.designEngine == engineFilter) }
+    }
     @State private var selectedID: String?
     @State private var section: ResultsSection = .overview
     @State private var selectedMetric: StudioResultMetric.Kind = .iptm
 
-    init(root: URL, workflow: StudioWorkflow, title: String? = nil) {
+    init(root: URL, workflow: StudioWorkflow, title: String? = nil, embedded: Bool = false) {
         self.root = root
+        self.embedded = embedded
         self.workflow = workflow
         self.title = title ?? "\(workflow.label) results"
-        _items = State(initialValue: [])
+        _allItems = State(initialValue: [])
         _selectedID = State(initialValue: nil)
+    }
+
+    private var batchWarning: String? {
+        let file = root.appendingPathComponent("studio_engine_batch.json")
+        guard FileManager.default.fileExists(atPath: file.path) else { return nil }
+        guard let data = try? Data(contentsOf: file),
+              let descriptor = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let campaigns = descriptor["campaigns"] as? [String], !campaigns.isEmpty else {
+            return "The saved batch membership is unreadable. Reveal Run to inspect its files."
+        }
+        return RunResultsLoader.batchCampaigns(root: root).count == campaigns.count ? nil
+            : "Some campaign folders or saved settings are missing. Showing available results; Reveal Run to locate the folders."
     }
 
     private var selection: StudioResultItem? {
@@ -42,13 +61,16 @@ struct RunResultsView: View {
         let threshold = RunResultsLoader.iterativeHitThreshold(root: root)
         func passes(_ item: StudioResultItem) -> Bool {
             if let verdict = item.isHit { return verdict }
-            return item.metrics.first { $0.kind == .iptm }.map { $0.value >= threshold } ?? false
+            return item.metrics.first { $0.kind == .iptm }.map { $0.value >= (item.designHitThreshold ?? threshold) } ?? false
         }
         let design = items.filter { $0.stage == .design && passes($0) }.count
         let checked = items.filter {
             $0.artifactRole == .complexReprediction && passes($0)
         }.count
         let hasSavedVerdicts = items.contains { $0.stage == .postPrediction && $0.isHit != nil }
+        if allItems.contains(where: { $0.campaignID != nil }) {
+            return "\(design) design-stage hits at saved campaign thresholds · \(checked) independent checks passed saved filters"
+        }
         if hasSavedVerdicts {
             return "\(design) design-stage hit\(design == 1 ? "" : "s") at iPTM ≥ \(String(format: "%.2f", threshold)) · \(checked) independent check\(checked == 1 ? "" : "s") passed every saved filter"
         }
@@ -71,7 +93,7 @@ struct RunResultsView: View {
         let designs = items.filter { $0.stage == .design }.count
         let starts = items.filter { $0.stage == .startingStructure }.count
         let checks = items.filter { $0.artifactRole == .complexReprediction }.count
-        return "\(designs) optimized design\(designs == 1 ? "" : "s") · \(starts) cycle-00 start\(starts == 1 ? "" : "s") · \(checks) independent check\(checks == 1 ? "" : "s")"
+        return "\(groups.count) independent trajectories · \(designs) optimized cycle outputs · \(starts) cycle-00 start\(starts == 1 ? "" : "s") · \(checks) independent check\(checks == 1 ? "" : "s")"
     }
 
     private var savedHitUnitCount: Int {
@@ -84,6 +106,10 @@ struct RunResultsView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if let warning = batchWarning {
+                Label(warning, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).font(.caption).padding(.horizontal)
+            }
+            ResultFrameworkFilters(items: allItems, framework: $frameworkFilter, engine: $engineFilter)
             Divider()
             if workflow != .prediction {
                 Picker("Results section", selection: $section) {
@@ -112,7 +138,7 @@ struct RunResultsView: View {
                    FileManager.default.fileExists(atPath: root.appendingPathComponent("analysis/hit_summary.json").path) {
                     break
                 }
-                if workflow == .iterative,
+                if workflow == .iterative, !FileManager.default.fileExists(atPath: root.appendingPathComponent("studio_engine_batch.json").path),
                    FileManager.default.fileExists(atPath: root.appendingPathComponent("summary_post_boltz.csv").path) {
                     break
                 }
@@ -146,7 +172,7 @@ struct RunResultsView: View {
             } label: {
                 Label("Reveal Run", systemImage: "folder")
             }
-            Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+            if !embedded { Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
         }
         .padding(14)
     }
@@ -216,7 +242,7 @@ struct RunResultsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 12) {
                     SummaryCard(value: groups.count,
-                                label: workflow == .rfdiffusion3 ? "backbones" : (workflow == .nise ? "search groups" : "runs"))
+                                label: workflow == .rfdiffusion3 ? "backbones" : (workflow == .nise ? "search groups" : "trajectories"))
                     SummaryCard(value: groups.flatMap(\.variants).count,
                                 label: workflow == .rfdiffusion3 ? "MPNN derivatives" : (workflow == .nise ? "candidates" : "cycles"))
                     SummaryCard(value: items.count, label: "related structures")
@@ -270,7 +296,7 @@ struct RunResultsView: View {
     private func refresh() async {
         let loaded = await ResultsRepository.shared.load(root: root, workflow: workflow)
         guard !Task.isCancelled else { return }
-        items = loaded
+        allItems = loaded
         if !loaded.contains(where: { $0.id == selectedID }) { selectedID = loaded.first?.id }
         if !availableMetrics.contains(selectedMetric),
            let preferred = Self.preferredDistributionMetric(in: loaded) {

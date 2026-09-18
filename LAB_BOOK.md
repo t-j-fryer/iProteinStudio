@@ -254,6 +254,12 @@ Newest first.
 
 | # | Date | Entry | What it settles |
 |---:|---|---|---|
+| 0151 | 2026-09-17 | [Single-particle guidance and early exposure](lab_book/0151-biotin-single-particle-and-early-exposure.md) | Complete: 30-input physical/FK-off replay and 1,230 exposure snapshots; early rejection loses passers, late persistence remains exploratory. |
+| 0150 | 2026-09-17 | [Biotin guidance/request replay](lab_book/0150-biotin-guidance-replay.md) | 30 paired starts:48.69→15.48→14.43s; pocket-only causes11 wrong-chirality ligands. Batching saves6.82%; main run paused. |
+| 0149 | 2026-09-17 | [Explain biotin Boltz timing](lab_book/0149-explain-biotin-boltz-timing.md) | Historical potentials-off worker predictions average20–21 s; current guided biotin initialization52 s. Three internal steering particles; residency intact and no initial affinity head. |
+| 0148 | 2026-09-17 | [Launch biotin without partial noising](lab_book/0148-launch-biotin-without-partial-noising.md) | Approved 1000-start request submitted; job-002ee4e5c61e running with a resident MPS worker and noising disabled |
+| 0147 | 2026-09-17 | [Biotin settings without partial noising](lab_book/0147-biotin-settings-without-partial-noising.md) | Revised draft disables noising and uses three ordinary parents:64 first-cycle proposals,96 later;47,784 total structure-prediction ceiling. Launched in0148. |
+| 0146 | 2026-09-17 | [Review partial-noising beam semantics](lab_book/0146-review-partial-noising-beam-semantics.md) | Third-ranked repair has no descendants; effective search is two active parents plus a noising proposal route. Policy clarification recommended, not implemented. |
 | 0145 | 2026-09-17 | [Test noising from a previous biotin parent](lab_book/0145-test-noising-from-previous-biotin-parent.md) | Real branch passes: five folds, four affinity evaluations, one resident worker; repaired winner scores below parent and ligand-pose movement remains significant |
 | 0144 | 2026-09-17 | [Complete XCTest validation](lab_book/0144-validate-xcode-tests.md) | All six XCTest tests and app build pass after Xcode setup; biotin pilot attrition diagnosed and full campaign remains held |
 | 0143 | 2026-09-17 | [Start biotin acceptance and update Studio](lab_book/0143-biotin-launch-and-update.md) | Build 38 / MCP 19 and GitHub release deployed; guarded biotin continuation subsequently stopped on pilot attrition (0144) |
@@ -414,3 +420,7 @@ forgotten one.
 - [0101 — Simplify helix control and benchmark installed predictors](lab_book/0101-simplify-helix-control-and-cross-engine-benchmark.md) (2026-09-06, in progress).
 
 - [0103 — Record geometry without rejection](lab_book/0103-record-geometry-without-rejection.md): requested advisory policy, MCP reports and full paired benchmark restart.
+
+| 0152 | 2026-09-17 | [Resume biotin with stage batches](lab_book/0152-resume-biotin-with-stage-batches.md) | Interruption/affinity smoke passed; original campaign continued with stage submissions and per-input checkpoints. |
+| 0153 | 2026-09-18 | [Audit student VHH budgets and results](lab_book/0153-audit-student-vhh-budgets-and-results.md) | 12 saved trajectories explain 60 cycle outputs; 756 hashes verified; dashboard aggregation and numeric commit UX remain. |
+| 0154 | 2026-09-18 | [Framework budgets and combined results](lab_book/0154-framework-budgets-and-combined-results.md) | Explicit total/per-framework budgets, immediate numeric commits, combined filtered results and MCP 20; build 39 release. |

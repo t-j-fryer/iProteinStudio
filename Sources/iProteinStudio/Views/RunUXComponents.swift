@@ -1,79 +1,73 @@
 import SwiftUI
 import AppKit
 
-/// A numeric field and stepper that share the same constrained integer value.
-///
-/// SwiftUI's labelled `Stepper` renders its value as read-only text on macOS.
-/// This control keeps the familiar arrow buttons while also letting someone
-/// type a value and commit it with Return or by leaving the field.
+/// Synchronously tracks invalid editors so Start cannot submit an older value.
+final class NumericInputValidation: ObservableObject {
+    @Published private(set) var invalidEditors: Set<UUID> = []
+    func update(_ id: UUID, valid: Bool) {
+        if valid { invalidEditors.remove(id) } else { invalidEditors.insert(id) }
+    }
+}
+private struct NumericInputValidationKey: EnvironmentKey {
+    static let defaultValue: NumericInputValidation? = nil
+}
+extension EnvironmentValues {
+    var numericInputValidation: NumericInputValidation? {
+        get { self[NumericInputValidationKey.self] }
+        set { self[NumericInputValidationKey.self] = newValue }
+    }
+}
+
+/// Valid edits update the request in the TextField setter, before a Run click.
+/// Invalid edits stay visible and block submission instead of silently clamping.
 struct EditableIntStepper: View {
     @Binding private var value: Int
     let range: ClosedRange<Int>
     let step: Int
     let suffix: String
     let accessibilityLabel: String
-
+    @Environment(\.numericInputValidation) private var validation
+    @State private var editorID = UUID()
     @State private var draft: String
     @FocusState private var isFocused: Bool
 
-    init(value: Binding<Int>,
-         in range: ClosedRange<Int>,
-         step: Int = 1,
-         suffix: String = "",
-         accessibilityLabel: String) {
-        _value = value
-        self.range = range
-        self.step = max(1, step)
-        self.suffix = suffix
-        self.accessibilityLabel = accessibilityLabel
+    init(value: Binding<Int>, in range: ClosedRange<Int>, step: Int = 1,
+         suffix: String = "", accessibilityLabel: String) {
+        _value = value; self.range = range; self.step = max(1, step)
+        self.suffix = suffix; self.accessibilityLabel = accessibilityLabel
         _draft = State(initialValue: String(value.wrappedValue))
     }
-
+    private var parsed: Int? {
+        guard let n = Int(draft.trimmingCharacters(in: .whitespacesAndNewlines)), range.contains(n) else { return nil }
+        return n
+    }
+    private func edit(_ text: String) {
+        draft = text
+        let valid = NumericInputValue.apply(text, in: range) { value = $0 }
+        validation?.update(editorID, valid: valid)
+    }
     var body: some View {
-        HStack(spacing: 5) {
-            TextField(accessibilityLabel, text: $draft)
-                .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.trailing)
-                .monospacedDigit()
-                .frame(width: 64)
-                .focused($isFocused)
-                .onSubmit(commitDraft)
-                .accessibilityLabel(accessibilityLabel)
-
-            if !suffix.isEmpty {
-                Text(suffix).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 5) {
+                TextField(accessibilityLabel, text: Binding(get: { draft }, set: edit))
+                    .textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing)
+                    .monospacedDigit().frame(width: 76).focused($isFocused)
+                    .accessibilityLabel(accessibilityLabel)
+                if !suffix.isEmpty { Text(suffix).foregroundStyle(.secondary) }
+                Stepper("", value: Binding(get: { value }, set: { edit(String($0)) }), in: range, step: step)
+                    .labelsHidden().fixedSize().accessibilityLabel("Adjust \(accessibilityLabel)")
             }
-
-            Stepper("", value: constrainedValue, in: range, step: step)
-                .labelsHidden()
-                .fixedSize()
-                .accessibilityLabel("Adjust \(accessibilityLabel)")
-        }
-        .onChange(of: value) { _, newValue in
-            if !isFocused { draft = String(newValue) }
-        }
-        .onChange(of: isFocused) { _, focused in
-            if !focused { commitDraft() }
-        }
-    }
-
-    private var constrainedValue: Binding<Int> {
-        Binding(
-            get: { value },
-            set: { newValue in
-                value = min(range.upperBound, max(range.lowerBound, newValue))
-                draft = String(value)
+            if parsed == nil {
+                Text("Enter a whole number from \(range.lowerBound) to \(range.upperBound).")
+                    .font(.caption).foregroundStyle(.red)
             }
-        )
-    }
-
-    private func commitDraft() {
-        guard let parsed = Int(draft.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            draft = String(value)
-            return
         }
-        value = min(range.upperBound, max(range.lowerBound, parsed))
-        draft = String(value)
+        .onAppear { validation?.update(editorID, valid: parsed != nil) }
+        .onDisappear { validation?.update(editorID, valid: true) }
+        .onChange(of: range) { _, _ in validation?.update(editorID, valid: parsed != nil) }
+        .onChange(of: value) { _, n in
+            if !isFocused { draft = String(n); validation?.update(editorID, valid: parsed != nil) }
+        }
     }
 }
 

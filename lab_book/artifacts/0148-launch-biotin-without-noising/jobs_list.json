@@ -1,0 +1,125 @@
+{
+  "jobs": [
+    {
+      "id": "job-3f997fd4df79",
+      "status": "completed",
+      "display_name": "Biotin: previous-parent partial-noising test",
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-branch-0472093142998daf"
+    },
+    {
+      "id": "job-8e5b6fae9509",
+      "status": "failed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-3c9725ad1fee467f"
+    },
+    {
+      "id": "job-ef658a1e49ca",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_sonelokimab_f45742c3"
+    },
+    {
+      "id": "job-aad246c8d64a",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_isecarosmab_f45742c3"
+    },
+    {
+      "id": "job-256e52bff79b",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_gontivimab_f45742c3"
+    },
+    {
+      "id": "job-868deea60afc",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_8z8v_ozoralizumab_alb8_f45742c3"
+    },
+    {
+      "id": "job-fe3b92d3c5b7",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_8coh_gefurulimab_f45742c3"
+    },
+    {
+      "id": "job-982005c1809f",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_7xl0_vobarilizumab_f45742c3"
+    },
+    {
+      "id": "job-ff77c9495c35",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_7eow_caplacizumab_f45742c3"
+    },
+    {
+      "id": "job-88aced8d3154",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_3eak_nbbcii10_fgla_f45742c3"
+    },
+    {
+      "id": "job-5870cf39b468",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_06751263"
+    },
+    {
+      "id": "job-c2773eab4479",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/untitled_design_openfold3_6ed978fa"
+    },
+    {
+      "id": "job-bbc773b52ca2",
+      "status": "failed",
+      "display_name": "NISE_NESSO_RFD_Bt",
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-CC39D6E2-90C1-4A59-B32B-D597A15D45C4"
+    },
+    {
+      "id": "job-583a358c6eb5",
+      "status": "failed",
+      "display_name": "NISE_NESSO_PH_Bt",
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-016073B9-7F59-4E71-BBA3-62ACDEFBD44C"
+    },
+    {
+      "id": "job-4a2f043a9b21",
+      "status": "completed",
+      "display_name": "NISE_BOLTZ_PH_Bt",
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-C9CCE180-9E41-4BA3-95AE-CB03FBB867FA"
+    },
+    {
+      "id": "job-aea5a49375d2",
+      "status": "failed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/engine-batch-d5146abc-6264-4c16-9c86-c287f45742c3"
+    },
+    {
+      "id": "job-2cde615cf637",
+      "status": "failed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/engine-batch-9b22095d-7d6e-4377-b712-002106751263"
+    },
+    {
+      "id": "job-79f5b8815b03",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/iProteinStudio/Validation/output/nesso_boltz_fluorescein_v1/full"
+    },
+    {
+      "id": "job-c780eb3e71a9",
+      "status": "completed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/iProteinStudio/Validation/output/nesso_boltz_fluorescein_v1/pilot"
+    },
+    {
+      "id": "job-4d54e18d450b",
+      "status": "failed",
+      "display_name": null,
+      "output_root": "/Users/thomasfryer/.iproteinstudio/projects/untitled_design/engine-batch-fedb3004-f3ed-4137-b6c3-884d6ed978fa"
+    }
+  ],
+  "purpose": "Queue snapshot before launch; logs remain in the broker"
+}

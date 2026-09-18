@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Validation/experiments/biotin_single_particle_v1/analyse.py", line 273, in <module>
+    else:report(analyse(args.output,args.destination,args.baseline),args.destination)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Validation/experiments/biotin_single_particle_v1/analyse.py", line 101, in analyse
+    raise ValueError('Incorrect guidance settings')
+ValueError: Incorrect guidance settings

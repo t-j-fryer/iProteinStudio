@@ -110,6 +110,11 @@ struct StudioResultItem: Identifiable, Hashable {
     /// the MLX generator and independent-prediction recovery scorer, never
     /// inferred by the presentation layer.
     let motifResidueRMSDs: [String: Double]
+    var frameworkID: String? = nil
+    var frameworkName: String? = nil
+    var campaignID: String? = nil
+    var designEngine: String? = nil
+    var designHitThreshold: Double? = nil
 
     init(id: String, title: String, subtitle: String, structureURL: URL,
          sequence: String?, metrics: [StudioResultMetric], confidenceURL: URL?,

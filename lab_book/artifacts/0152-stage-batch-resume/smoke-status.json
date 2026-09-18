@@ -1,0 +1,36 @@
+{
+  "cancellation_contract": 1,
+  "child_outputs": null,
+  "child_pid": 96919,
+  "child_process_group": 96919,
+  "created_at": "2026-09-17T23:39:24.681487Z",
+  "display_name": "NISE stage batching \u2014 interruption and affinity smoke",
+  "error": null,
+  "exit_code": 0,
+  "finished_at": "2026-09-17T23:44:26.935129Z",
+  "id": "job-3a3397d12144",
+  "kind": "desktop_nise_batch_test",
+  "message": "Completed.",
+  "output_root": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/nise-batch-smoke-8321b43dee1f",
+  "pid": 96916,
+  "plan_id": "plan-3a3397d12144e480",
+  "plan_sha256": "3a3397d12144e480c7ea71dc58f8534a53788a83533c26ff9736e065f3af5b35",
+  "process_group": 96916,
+  "project": "test2",
+  "resource_class": "apple_gpu_exclusive",
+  "schema_version": 1,
+  "stage": "done",
+  "started_at": "2026-09-17T23:39:26.456401Z",
+  "status": "completed",
+  "updated_at": "2026-09-17T23:44:26.935211Z",
+  "worker_contract": 2,
+  "log_tail": [
+    "NISE|completed|L000",
+    "NISE|completed|L001"
+  ],
+  "pipeline_log_tail": [
+    "NISE|completed|L000",
+    "NISE|completed|L001"
+  ],
+  "worker_log_tail": []
+}

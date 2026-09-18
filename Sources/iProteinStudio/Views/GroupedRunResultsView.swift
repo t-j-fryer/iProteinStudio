@@ -483,3 +483,31 @@ private struct MotifMappingSummary: View {
         .font(.callout)
     }
 }
+
+/// The same filters are used in combined live and reopened batch results.
+struct ResultFrameworkFilters: View {
+    let items: [StudioResultItem]
+    @Binding var framework: String
+    @Binding var engine: String
+    private var frameworks: [String] { Array(Set(items.compactMap(\.frameworkID))).sorted() }
+    private var engines: [String] { Array(Set(items.compactMap(\.designEngine))).sorted() }
+    var body: some View {
+        if !frameworks.isEmpty {
+            HStack {
+                Picker("Framework", selection: $framework) {
+                    Text("All frameworks").tag("")
+                    ForEach(frameworks, id: \.self) { id in
+                        Text(items.first { $0.frameworkID == id }?.frameworkName ?? id).tag(id)
+                    }
+                }.accessibilityIdentifier("results-framework-filter")
+                Picker("Design engine", selection: $engine) {
+                    Text("All engines").tag("")
+                    ForEach(engines, id: \.self) { Text($0).tag($0) }
+                }.accessibilityIdentifier("results-engine-filter")
+                if !framework.isEmpty || !engine.isEmpty {
+                    Button("Show all") { framework = ""; engine = "" }
+                }
+            }.padding(.horizontal, 14).padding(.bottom, 8)
+        }
+    }
+}

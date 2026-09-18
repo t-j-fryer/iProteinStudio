@@ -1,0 +1,11 @@
+{
+  "run_id": "test2/nise_runs/nise-7345aaf6c30d1a9e",
+  "workflow": "nise",
+  "organization": "trajectory \u2192 cycle/candidate \u2192 holo/apo artifacts",
+  "groups": [],
+  "candidate_limit": 100,
+  "returned_candidates": 0,
+  "truncated": false,
+  "note": "Self-consistency is a search filter, not an independently validated binding hit. Preorganisation reranks only the final apo-tested shortlist.",
+  "next_step": "Use results_query with one of run_status.result_files for raw rows and score distributions. Treat derivative/cycle verdicts as authoritative; never promote a parent merely because one artifact looks plausible."
+}

@@ -134,7 +134,7 @@ extension StudioRunManifest {
             var inactive: Set<String> = ["secondaryStructureBias", "secondaryStructureBiasScope",
                 "betaBiasStrength", "betaPatternStrength", "turnLocalizationStrength"]
             if request.designType != .nanobody {
-                inactive.formUnion(["scaffoldID", "scaffoldSequence", "scaffoldSelections", "equalScaffoldBudgets", "cdrs"])
+                inactive.formUnion(["scaffoldID", "scaffoldSequence", "scaffoldSelections", "equalScaffoldBudgets", "trajectoriesPerScaffold", "cdrs"])
             } else {
                 inactive.formUnion(["binderMinLen", "binderMaxLen", "helixKill"])
             }
@@ -240,6 +240,7 @@ private struct RunHistoryLoader {
         var found: [StudioRunRecord] = []
         for project in projects {
             let root = AppPaths.projects.appendingPathComponent(project.slug)
+            found += batchRuns(project: project, root: root)
             found += iterativeRuns(project: project, root: root)
             found += predictionRuns(project: project, root: root)
             found += rfd3Runs(project: project, root: root)
@@ -269,6 +270,24 @@ private struct RunHistoryLoader {
             } else { item.managedJobID = BrokerClient.savedJobID(at: item.root) }
             return item
         }.sorted { $0.date > $1.date }
+    }
+
+    private func batchRuns(project: Project, root: URL) -> [StudioRunRecord] {
+        directories(in: root).compactMap { batch in
+            guard let descriptor = json(at: batch.appendingPathComponent("studio_engine_batch.json")),
+                  let paths = descriptor["campaigns"] as? [String], !paths.isEmpty else { return nil }
+            let children = paths.map { root.appendingPathComponent(URL(fileURLWithPath: $0).lastPathComponent) }
+            let completion = json(at: batch.appendingPathComponent("engine_batch_progress.json"))?["completed"] as? [String: Any]
+            let completed = completion?.count ?? children.filter { child in
+                (json(at: child.appendingPathComponent("studio_run.json"))?["state"] as? String) == "completed"
+            }.count
+            let viewable = children.contains { csvRowCount($0.appendingPathComponent("summary_all_runs.csv")) > 0 }
+            return StudioRunRecord(projectID: project.id, projectName: project.name, workflow: .iterative,
+                name: RunNaming.read(at: batch, fallback: "Combined framework / engine batch"),
+                root: batch, date: fileDate(batch), state: completed == paths.count ? .completed : .interrupted,
+                detail: "\(completed)/\(paths.count) campaigns complete · all framework results",
+                manifestURL: nil, managedJobID: BrokerClient.savedJobID(at: batch), hasViewableResults: viewable)
+        }
     }
 
     private func iterativeRuns(project: Project, root: URL) -> [StudioRunRecord] {

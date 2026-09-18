@@ -75,6 +75,8 @@ RESULT_OVERVIEW = {
     "required": ["run_id"],
     "properties": {
         "run_id": {"type": "string"},
+        "framework_id": {"type": "string", "description": "Optional scaffold ID for an iterative batch."},
+        "design_engine": {"type": "string", "description": "Optional engine ID for an iterative batch."},
         "hit_only": {"type": "boolean", "default": False},
         "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 100},
     },
@@ -174,7 +176,7 @@ class MCPServer:
         elif name == "projects_list": result = {"projects": list_projects()}
         elif name == "runs_list": result = {"runs": list_runs(arguments.get("project"), arguments.get("limit", 100))}
         elif name == "run_status": result = run_status(arguments["run_id"])
-        elif name == "results_overview": result = results_overview(arguments["run_id"], bool(arguments.get("hit_only", False)), int(arguments.get("limit", 100)))
+        elif name == "results_overview": result = results_overview(arguments["run_id"], bool(arguments.get("hit_only", False)), int(arguments.get("limit", 100)), arguments.get("framework_id"), arguments.get("design_engine"))
         elif name == "results_query": result = query_results(arguments["run_id"], arguments.get("dataset"), arguments.get("metric"), bool(arguments.get("hit_only", False)), int(arguments.get("limit", 100)))
         elif name == "artifact_import": result = import_artifact(arguments["path"])
         elif name == "target_inspect": result = inspect_target(arguments)

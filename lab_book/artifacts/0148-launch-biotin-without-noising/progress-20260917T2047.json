@@ -1,0 +1,114 @@
+{
+  "observed_at": "2026-09-17T20:47:35.910395+00:00",
+  "job": "job-002ee4e5c61e",
+  "hardware": "Apple M4 Max / 64 GB",
+  "stage": "phase0/cycle00",
+  "completed": 12,
+  "requested": 1000,
+  "mean_prediction_seconds": 51.64358522494634,
+  "recent_10_mean_seconds": 52.29564516544342,
+  "remaining_initial_hours_at_mean": 14.173295056179718,
+  "session_count": 1,
+  "model_load_counts": [
+    1
+  ],
+  "timings": [
+    {
+      "name": "L000",
+      "wall_seconds": 47.921791076660156,
+      "end_epoch": 1789677463.904135,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L001",
+      "wall_seconds": 48.84477996826172,
+      "end_epoch": 1789677512.9605,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L002",
+      "wall_seconds": 52.89701986312866,
+      "end_epoch": 1789677565.963509,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L003",
+      "wall_seconds": 59.19009017944336,
+      "end_epoch": 1789677625.36577,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L004",
+      "wall_seconds": 69.1506838798523,
+      "end_epoch": 1789677694.621856,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L005",
+      "wall_seconds": 49.7962110042572,
+      "end_epoch": 1789677744.52465,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L006",
+      "wall_seconds": 48.05770206451416,
+      "end_epoch": 1789677792.794474,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L007",
+      "wall_seconds": 43.93226861953735,
+      "end_epoch": 1789677836.8327098,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L008",
+      "wall_seconds": 53.67677187919617,
+      "end_epoch": 1789677890.720871,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L009",
+      "wall_seconds": 50.41824412345886,
+      "end_epoch": 1789677941.245003,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L010",
+      "wall_seconds": 50.733022928237915,
+      "end_epoch": 1789677992.084555,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    },
+    {
+      "name": "L011",
+      "wall_seconds": 45.10443711280823,
+      "end_epoch": 1789678037.2953432,
+      "session": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/sessions/59b491b4f0e247eea09372b3b97e87c8",
+      "model_load_count": 1,
+      "phase": "structure"
+    }
+  ],
+  "interpretation": "Early observed timings, not a controlled benchmark; estimate covers remaining cycle00 generation only, not refinement or optimization."
+}

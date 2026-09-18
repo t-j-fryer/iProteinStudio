@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-17",
+  "purpose": "User-requested continuation with original physical/FK guidance and stage-directory submission, retaining per-input checkpoints.",
+  "source_job": "job-002ee4e5c61e",
+  "source_commit": "f6ca4108e14dcebc7c60c3d3b77703098c9b45cd plus immutable script snapshots",
+  "hardware": "Apple M4 Max, 64 GB, managed Boltz 2.2.1 FP32/MPS",
+  "smoke": "Two original sequence inputs in one structure request; intentionally interrupt after a native completion marker before controller commit. Recover without repeating completed folds, submit both saved structures to one affinity-head request, then replay all checkpoints without new inference.",
+  "budget": {"maximum_structure_attempts": 4, "affinity_evaluations": 2},
+  "held_constant": "Original biotin chemistry/atom mapping, physical and FK guidance on, stage-specific pocket policy, 3 recycles, 200 diffusion steps, one output, seed0, empty MSA.",
+  "audit": "One model per live worker, separate cached structure/affinity identities, per-input native output hashes and atomic markers; verify saved units after controller interruption and identical repeated-resume receipts. Only documented MPS SVD fallback allowed.",
+  "limits": "Transport/resume integration test, not a new speed comparison or proof of final binder quality. Directory requests use a recorded request-level RNG stream; changing pending membership on resume can change future uncompleted samples. Completed predictions are never regenerated. No early termination, adaptive sampling, partial noising or production-default promotion. Long memory soak not tested."
+}

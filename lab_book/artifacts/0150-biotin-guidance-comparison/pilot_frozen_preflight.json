@@ -1,0 +1,66 @@
+{
+  "id": "plan-1029852023f5fe40",
+  "sha256": "1029852023f5fe40a3c02b1a6ea4da04122b4f93e2f1272308ffcc908914a783",
+  "normalized_request": {
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-4924619dff7492b3",
+    "workflow": "boltz_replay_validation",
+    "steps": [
+      {
+        "command": [
+          "/usr/bin/caffeinate",
+          "-dimsu",
+          "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python",
+          "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-4924619dff7492b3/.studio_runtime/pipeline/scripts/boltz_replay_validation.py",
+          "--config",
+          "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-4924619dff7492b3/replay_config.json"
+        ],
+        "cwd": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-4924619dff7492b3/.studio_runtime/pipeline",
+        "stage": "boltz-replay-validation"
+      }
+    ],
+    "display_name": "Biotin pocket-only replay \u2014 2 initial backbones",
+    "environment_overrides": {},
+    "pipeline_snapshot": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-4924619dff7492b3/.studio_runtime/pipeline",
+    "request": {
+      "files": {
+        "inputs/L000/L000.yaml": "921c552480a7944a75dfc255b01f797101afb860a31ade9bd7829dbfbf8abc9b",
+        "inputs/L000/L000_model_0.pdb": "5dafd1d548e1b27b097a767dfc06be53ccfc8684bd9933d105a18bc0e16f4df6",
+        "inputs/L000/completed.json": "d85fc712909f37818cb91327292f781d1b1faa213c67fc6ffbcb092a1ac2401e",
+        "inputs/L000/confidence_L000_model_0.json": "b91d91e45a32b1147a6c0b808f7362f97ee741c30e0490316bb2f0c5c3d2d656",
+        "inputs/L000/processed/constraints/L000.npz": "1f3b38e5233bda73f1860f48fc3dc835c7c30be8631ffdb49cb21ddfa74f6077",
+        "inputs/L000/processed/manifest.json": "7787054ea9c37e0efc82b1aeaa1bad87b888b730108fb12e3c9427ffc18186db",
+        "inputs/L000/processed/mols/L000.pkl": "1a57136cf92c4751d2767df6b307b841b13c160c0341b6fdfe3a7d64b0ca3878",
+        "inputs/L000/processed/records/L000.json": "8d9dc78f3713adc5d3fa4affdd1bbe339d6017f9552ff04dc32df5102d276c13",
+        "inputs/L000/processed/structures/L000.npz": "a3018cb39eac2f80ff50e9321c7f773cc9caf71440d222b25a91cded0cfafc87",
+        "inputs/L001/L001.yaml": "8376288188951af3889b7b50fa44411ebc7508efbcac8a6d210ac93cae9e88e5",
+        "inputs/L001/L001_model_0.pdb": "df199f19137839636814260d4176731d82e9593689af7918a2db62cb043969d9",
+        "inputs/L001/completed.json": "5e787aede609f18ea2375275f32b00f7130224df41454c984d15735d8b460789",
+        "inputs/L001/confidence_L001_model_0.json": "5c4ff25f1b12130c59e8275b14b5c6eb9b423bf3101e8d2e08208bf2516e6b5d",
+        "inputs/L001/processed/constraints/L001.npz": "08d54cc3b4787604a78881b41582f4f5e3b4f7ecd6a63add389da9fc1f0887be",
+        "inputs/L001/processed/manifest.json": "839de13a5ae619ca7d3dcc7c576dbe7658a7f9cdb29e263c67be8364cd35d339",
+        "inputs/L001/processed/mols/L001.pkl": "aa50fea1c732f8ee76bfe28985e8548d5b70b73e98ba8c21019daae40215ec32",
+        "inputs/L001/processed/records/L001.json": "e2ae3b0389e7d661d77a39f3616cfc505dba4541b22aaff0849d61b688731f5c",
+        "inputs/L001/processed/structures/L001.npz": "25a8fa9e884bd3df8e5f46a6c0a8f21e9e423fa2f908f42b0d3350fc2f57ab80",
+        "inputs/ligand_atom_map.json": "d7a707683233669c40040fecc19cabe091ce454df129566a68e66330c388934e",
+        "inputs/nise_config.json": "aec233fb183965b8c0cfe5d758e9fbbe9822fe09b1bc8b574118d590c7ea385d",
+        "inputs/original_worker_config.json": "c3505d272e9d1c46ff9aa5508c92faba81a4a9332e404723704cd3597a83fe14",
+        "inputs/source_status.json": "1bb795df3372d6df325c683d56c1a4c8a7bc15cdf7bd37799c5a9a7fffdf68a6"
+      },
+      "ids": [
+        "L000",
+        "L001"
+      ],
+      "output": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-4924619dff7492b3",
+      "phase": "structure",
+      "potentials": false,
+      "schema": 1,
+      "seed": 0,
+      "source_job": "job-002ee4e5c61e"
+    },
+    "prediction_budget": {
+      "maximum_structure_predictions": 4,
+      "affinity_evaluations": 0
+    },
+    "scheduler": "resident; singleton arm then one directory request"
+  }
+}

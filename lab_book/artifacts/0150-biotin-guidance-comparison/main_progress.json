@@ -1,0 +1,43 @@
+{
+  "cancellation_contract": 1,
+  "child_outputs": null,
+  "child_pid": 82125,
+  "child_process_group": 82125,
+  "created_at": "2026-09-17T21:14:15.249155Z",
+  "display_name": "Biotin pocket-only replay \u2014 30 initial backbones",
+  "id": "job-1fdba14287be",
+  "kind": "desktop_boltz_replay_validation",
+  "message": "Running the saved boltz_replay_validation settings.",
+  "output_root": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-efff2efa3233dd87",
+  "pid": 82123,
+  "plan_id": "plan-1fdba14287be8a93",
+  "plan_sha256": "1fdba14287be8a932376c2aa01be5e9df519a6bee3c55bd7f98dec6fdcfa9236",
+  "process_group": 82123,
+  "project": "test2",
+  "resource_class": "apple_gpu_exclusive",
+  "schema_version": 1,
+  "stage": "boltz-replay-validation",
+  "started_at": "2026-09-17T21:14:16.168440Z",
+  "status": "running",
+  "updated_at": "2026-09-17T21:14:16.172067Z",
+  "worker_contract": 2,
+  "log_tail": [
+    "REPLAY|completed|singleton|L000",
+    "REPLAY|completed|singleton|L001",
+    "REPLAY|completed|singleton|L002",
+    "REPLAY|completed|singleton|L003",
+    "REPLAY|completed|singleton|L004",
+    "REPLAY|completed|singleton|L005",
+    "REPLAY|completed|singleton|L006"
+  ],
+  "pipeline_log_tail": [
+    "REPLAY|completed|singleton|L000",
+    "REPLAY|completed|singleton|L001",
+    "REPLAY|completed|singleton|L002",
+    "REPLAY|completed|singleton|L003",
+    "REPLAY|completed|singleton|L004",
+    "REPLAY|completed|singleton|L005",
+    "REPLAY|completed|singleton|L006"
+  ],
+  "worker_log_tail": []
+}

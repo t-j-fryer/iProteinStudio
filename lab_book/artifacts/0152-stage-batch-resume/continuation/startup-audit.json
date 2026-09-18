@@ -1,0 +1,37 @@
+{
+  "complete_initial_count": 31,
+  "config_sha256": "aec233fb183965b8c0cfe5d758e9fbbe9822fe09b1bc8b574118d590c7ea385d",
+  "interpretation": "Launch verification only; original scientific settings retained; campaign ongoing",
+  "job_id": "job-0f975ef0db89",
+  "new_checkpoints": [
+    {
+      "name": "L155",
+      "receipt_sha256": "cc58279fc14f1a4f232541cbf3bfc14210851624d6371f5d29021da8973e57bc"
+    }
+  ],
+  "original_checkpoints_verified": 30,
+  "request": {
+    "expected_jobs": 970,
+    "input_dir": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/_batches/structure-0cb815bb915342f38166e1e32123fa3f/yaml",
+    "input_sha256": "f06785e9665c630344dcfa33927b264b06aed7d7edac1f65123c6b595fc97433",
+    "output_dir": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/_batches/structure-0cb815bb915342f38166e1e32123fa3f/out",
+    "phase": "structure",
+    "prediction_seed": null,
+    "request_id": "bb65105ae3284d6895e864f4488377f2"
+  },
+  "timestamp": "2026-09-17T23:47:14.164440+00:00",
+  "use_potentials": true,
+  "worker_ready": {
+    "config_sha256": "ee89161d1dfe531fa0b19aeda61af7c40803264275ba0a74865cb12305394ca4",
+    "device": "mps",
+    "engine": "boltz",
+    "fallback": 0,
+    "model": "boltz2",
+    "model_load_count": 1,
+    "mps_driver_allocated_bytes": 475136,
+    "pid": 97786,
+    "ready_epoch": 1789688736.4983401,
+    "schema": 1,
+    "startup_seconds": 9.799718141555786
+  }
+}

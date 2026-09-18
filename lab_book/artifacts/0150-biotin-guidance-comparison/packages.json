@@ -1,0 +1,8 @@
+{
+  "torch": "2.13.0",
+  "boltz": "2.2.1",
+  "pytorch-lightning": "2.5.0",
+  "rdkit": "2026.3.5",
+  "numpy": "1.26.4",
+  "gemmi": "0.6.5"
+}

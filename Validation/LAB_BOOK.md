@@ -2,6 +2,10 @@
 
 | Entry | Date | Status | Question |
 |---|---|---|---|
+| [0032](lab_book/0032-nise-stage-batch-resume.md) | 2026-09-17 | passed; campaign ongoing | Native writer checkpoints, interrupted batch recovery, affinity and continuation. |
+| [0031](lab_book/0031-biotin-single-particle-and-early-exposure.md) | 2026-09-17 | complete | Physical guidance without FK preserves biotin chirality; late exposure persistence is a candidate for independent validation. |
+| [0030](lab_book/0030-biotin-guidance-replay.md) | 2026-09-17 | complete; audited | Pocket-only48.69→15.48s but11/30 wrong biotin stereochemistry; batching14.43s with matched filter outcomes. |
+| [0029](lab_book/0029-biotin-boltz-timing-audit.md) | 2026-09-17 | complete; read-only | Current biotin uses physical/FK steering with three internal particles; historical Boltz bars used potentials off. No causal speed benchmark. |
 | [0028](lab_book/0028-biotin-parent-noising.md) | 2026-09-17 | complete; branch passed | Five folds and four affinity evaluations in one resident worker; repaired winner 1.177 versus historical parent 1.435; no improvement demonstrated. |
 | [0027](lab_book/0027-biotin-noising-acceptance.md) | 2026-09-17 | blocked; pilot attrition | Five refinement candidates failed exposure; one scored below 0.80. No cycle-2 noising coverage; full campaign held. |
 | [0026](lab_book/0026-bgx-completed-overviews.md) | 2026-09-17 | complete; retrospective only | Reproduce the requested minibinder and scaffold-based nanobody overviews from 5,250 audited structures, with overlap-aware historical timing. |

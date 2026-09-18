@@ -1,0 +1,43 @@
+{
+  "cancellation_contract": 1,
+  "child_outputs": null,
+  "child_pid": 97775,
+  "child_process_group": 97775,
+  "created_at": "2026-09-17T23:45:21.099927Z",
+  "display_name": "Biotin \u2014 1000 starts \u2014 Boltz NISE",
+  "id": "job-0f975ef0db89",
+  "kind": "desktop_nise_continuation",
+  "message": "Running the saved nise_continuation settings.",
+  "output_root": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e",
+  "pid": 97759,
+  "plan_id": "plan-0f975ef0db89cf1a",
+  "plan_sha256": "0f975ef0db89cf1a8b7b41a8c3833a7ea1757c1afabbd7c0ce8b747275649b68",
+  "process_group": 97759,
+  "project": "test2",
+  "resource_class": "apple_gpu_exclusive",
+  "schema_version": 1,
+  "stage": "nise",
+  "started_at": "2026-09-17T23:45:22.852382Z",
+  "status": "running",
+  "updated_at": "2026-09-17T23:45:22.855899Z",
+  "worker_contract": 2,
+  "log_tail": [
+    "NISE ligand chemical state (Boltz affinity, RFdiffusion3, NESSO): O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "[nise] ligand SMILES: O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "[nise] designer=lasermpnn device=cpu rank_metric=ligand_plddt+pbind affinity=True",
+    "[nise] potentials=True  phase0_pocket_constraint=True (binder=protein A around specific ligand-B atoms; off in NISE)",
+    "[nise] Phase-0 pocket: binder=A contacts (ligand atoms)=['C31', 'S20', 'C29', 'C32', 'N24', 'C30', 'N23', 'O17', 'C21'] dist=6.0 force=True",
+    "[nise] Phase 0 cycle00: hallucinating 1000 starts (pocket=on)",
+    "NISE|completed|L155"
+  ],
+  "pipeline_log_tail": [
+    "NISE ligand chemical state (Boltz affinity, RFdiffusion3, NESSO): O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "[nise] ligand SMILES: O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "[nise] designer=lasermpnn device=cpu rank_metric=ligand_plddt+pbind affinity=True",
+    "[nise] potentials=True  phase0_pocket_constraint=True (binder=protein A around specific ligand-B atoms; off in NISE)",
+    "[nise] Phase-0 pocket: binder=A contacts (ligand atoms)=['C31', 'S20', 'C29', 'C32', 'N24', 'C30', 'N23', 'O17', 'C21'] dist=6.0 force=True",
+    "[nise] Phase 0 cycle00: hallucinating 1000 starts (pocket=on)",
+    "NISE|completed|L155"
+  ],
+  "worker_log_tail": []
+}

@@ -1,0 +1,285 @@
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_apple_build_tools.py
+......
+----------------------------------------------------------------------
+Ran 6 tests in 6.053s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_install_download_recovery.py
+...........
+----------------------------------------------------------------------
+Ran 11 tests in 3.976s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_framework_batch_results.py
+..
+----------------------------------------------------------------------
+Ran 2 tests in 0.009s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_nise_stage_batches.py
+NISE_BATCH|written|structure|L000
+..
+----------------------------------------------------------------------
+Ran 2 tests in 0.004s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_iterative_engine_batch.py
+..........
+----------------------------------------------------------------------
+Ran 10 tests in 8.989s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_resident_prediction_resume.py
+test_all_seed_sample_outputs_required_before_commit (__main__.ResumeTests.test_all_seed_sample_outputs_required_before_commit) ... ok
+test_changed_inputs_during_inference_do_not_commit (__main__.ResumeTests.test_changed_inputs_during_inference_do_not_commit) ... ok
+test_compression_equivalent_but_conflicts_and_nan_rejected (__main__.ResumeTests.test_compression_equivalent_but_conflicts_and_nan_rejected) ... ok
+test_cycle_wave_rebuilds_input_links_for_remaining_jobs (__main__.ResumeTests.test_cycle_wave_rebuilds_input_links_for_remaining_jobs) ... ok
+test_dependency_contents_and_missing_files (__main__.ResumeTests.test_dependency_contents_and_missing_files) ... ok
+test_feature_seeding_survives_actual_accelerate_lookahead (__main__.ResumeTests.test_feature_seeding_survives_actual_accelerate_lookahead) ... skipped 'actual CPU loader requires managed engine Python'
+test_hard_interruption_resumes_only_uncommitted_prediction (__main__.ResumeTests.test_hard_interruption_resumes_only_uncommitted_prediction) ... ok
+test_missing_or_modified_completed_output_is_never_overwritten (__main__.ResumeTests.test_missing_or_modified_completed_output_is_never_overwritten) ... ok
+test_processed_cache_verified_and_partial_cache_archived (__main__.ResumeTests.test_processed_cache_verified_and_partial_cache_archived) ... ok
+test_settings_weights_code_and_sample_changes_fail (__main__.ResumeTests.test_settings_weights_code_and_sample_changes_fail) ... ok
+test_shell_reports_durable_progress_and_accepts_resident_receipt (__main__.ResumeTests.test_shell_reports_durable_progress_and_accepts_resident_receipt) ... ok
+test_untracked_outputs_not_adopted_and_unrequested_write_refused (__main__.ResumeTests.test_untracked_outputs_not_adopted_and_unrequested_write_refused) ... ok
+test_yaml_dependency_and_membership_changes_fail (__main__.ResumeTests.test_yaml_dependency_and_membership_changes_fail) ... ok
+test_yaml_mapping_and_relative_template_dependency (__main__.ResumeTests.test_yaml_mapping_and_relative_template_dependency) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 2.430s
+
+OK (skipped=1)
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_nanobody_scaffold_catalog.py
+..
+----------------------------------------------------------------------
+Ran 2 tests in 0.046s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_nise_contract.py
+test_agent_read_profile_cannot_plan_and_run_profile_can (__main__.NISEContracts.test_agent_read_profile_cannot_plan_and_run_profile_can) ... ok
+test_boltz_affinity_loads_its_own_model_once_across_later_requests (__main__.NISEContracts.test_boltz_affinity_loads_its_own_model_once_across_later_requests) ... ok
+test_branch_plan_fingerprints_imported_inputs_and_reports_only_branch_budget (__main__.NISEContracts.test_branch_plan_fingerprints_imported_inputs_and_reports_only_branch_budget) ... ok
+test_completed_sequences_replay_and_corruption_fails (__main__.NISEContracts.test_completed_sequences_replay_and_corruption_fails) ... ok
+test_defaults_separate_science_and_residency (__main__.NISEContracts.test_defaults_separate_science_and_residency) ... ok
+test_overview_preserves_candidate_identity_and_never_infers_binding_hit (__main__.NISEContracts.test_overview_preserves_candidate_identity_and_never_infers_binding_hit) ... ok
+test_plan_freezes_settings_weights_and_snapshot_without_gpu_work (__main__.NISEContracts.test_plan_freezes_settings_weights_and_snapshot_without_gpu_work) ... ok
+test_request_rejects_incompatible_budgets_and_implicit_resources (__main__.NISEContracts.test_request_rejects_incompatible_budgets_and_implicit_resources) ... ok
+test_rfd3_is_optional_and_has_a_separate_initial_generation_budget (__main__.NISEContracts.test_rfd3_is_optional_and_has_a_separate_initial_generation_budget) ... ok
+test_rfd3_plan_freezes_the_generator_and_its_weights (__main__.NISEContracts.test_rfd3_plan_freezes_the_generator_and_its_weights) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.202s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_rfd3_batch_resume.py
+test_partial_batch_is_archived_and_committed_seeds_and_files_survive (__main__.BatchResumeTests.test_partial_batch_is_archived_and_committed_seeds_and_files_survive) ... ok
+test_receipt_must_account_for_every_completed_design (__main__.BatchResumeTests.test_receipt_must_account_for_every_completed_design) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.007s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_nesso_screen.py
+test_all_invalid_writes_audited_report_then_stops_without_fallback (__main__.NessoTests.test_all_invalid_writes_audited_report_then_stops_without_fallback) ... ok
+test_changed_installation_fails_on_resume (__main__.NessoTests.test_changed_installation_fails_on_resume) ... ok
+test_changed_requested_shortlist_fails_on_resume (__main__.NessoTests.test_changed_requested_shortlist_fails_on_resume) ... ok
+test_esm_reuses_only_exact_cached_assets_and_keeps_an_owned_copy (__main__.NessoTests.test_esm_reuses_only_exact_cached_assets_and_keeps_an_owned_copy) ... Reused checksum-verified ESM-2 asset: config.json
+ok
+test_experimental_residency_reuses_models_across_later_cycle_inputs (__main__.NessoTests.test_experimental_residency_reuses_models_across_later_cycle_inputs) ... ok
+test_initial_screen_budgets_and_dependency_are_independent (__main__.NessoTests.test_initial_screen_budgets_and_dependency_are_independent) ... ok
+test_initial_screen_is_durable_and_reports_lineages_without_optimization_ids (__main__.NessoTests.test_initial_screen_is_durable_and_reports_lineages_without_optimization_ids) ... ok
+test_initial_selection_caps_original_lineages_before_global_pooling (__main__.NessoTests.test_initial_selection_caps_original_lineages_before_global_pooling) ... ok
+test_installation_requires_exact_pins_and_rejects_receipt_path_escape (__main__.NessoTests.test_installation_requires_exact_pins_and_rejects_receipt_path_escape) ... ok
+test_interrupted_screen_replays_completed_scores_and_retains_rejected_candidates (__main__.NessoTests.test_interrupted_screen_replays_completed_scores_and_retains_rejected_candidates) ... ok
+test_large_budget_and_stage_settings_are_typed_and_constrained (__main__.NessoTests.test_large_budget_and_stage_settings_are_typed_and_constrained) ... ok
+test_managed_detection_reports_missing_and_incomplete_without_installing (__main__.NessoTests.test_managed_detection_reports_missing_and_incomplete_without_installing) ... ok
+test_old_or_changed_ranking_policy_cannot_reuse_shortlist (__main__.NessoTests.test_old_or_changed_ranking_policy_cannot_reuse_shortlist) ... ok
+test_placement_confidence_changes_both_rankings_and_caps_follow_rejection (__main__.NessoTests.test_placement_confidence_changes_both_rankings_and_caps_follow_rejection) ... ok
+test_queue_client_reuses_one_process_and_surfaces_worker_death (__main__.NessoTests.test_queue_client_reuses_one_process_and_surfaces_worker_death) ... ok
+test_rejected_placements_are_reported_and_cached_without_rescoring (__main__.NessoTests.test_rejected_placements_are_reported_and_cached_without_rescoring) ... ok
+test_selection_and_raw_artifact_corruption_fail_instead_of_rescoring (__main__.NessoTests.test_selection_and_raw_artifact_corruption_fail_instead_of_rescoring) ... ok
+test_shortlist_is_per_trajectory_with_stable_ties_and_no_score_substitution (__main__.NessoTests.test_shortlist_is_per_trajectory_with_stable_ties_and_no_score_substitution) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.624s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_initialization_refinement.py
+..............
+----------------------------------------------------------------------
+Ran 14 tests in 0.245s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_secondary_structure_control.py
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.189s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_design_cardinality.py
+PASS design cardinality contract (37 trajectories x 7 cycles)
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_runtime_transaction.py
+PASS versioned runtime transaction, interruption, switch and rollback contract
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_storage_policy.py
+PASS storage policy
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_mcp_bridge.py
+.................
+----------------------------------------------------------------------
+Ran 17 tests in 8.816s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_desktop_jobs.py
+..................
+----------------------------------------------------------------------
+Ran 18 tests in 11.515s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_vendor_pipeline.py
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.004s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_verified_downloader.py
+...
+----------------------------------------------------------------------
+Ran 3 tests in 3.235s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_prediction_engine_safety.py
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.009s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_prediction_msa_reliability.py
+PBINFO|Generating the missing alignment with Boltz's ColabFold client
+PBINFO|Boltz/ColabFold MSA attempt 1/3 failed; retrying
+.PBINFO|Generating the missing alignment with Protenix's MSA server client
+PBINFO|Protenix MSA attempt 1/3 failed; retrying
+PBINFO|Protenix MSA attempt 2/3 failed; retrying
+.PBINFO|Generating the missing alignment with Protenix's MSA server client
+PBINFO|Protenix MSA attempt 1/3 failed; retrying
+PBINFO|Protenix MSA attempt 2/3 failed; retrying
+..
+----------------------------------------------------------------------
+Ran 4 tests in 0.010s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_installer_lock_contract.py
+PASS installer hash-lock contract (9 complete graphs)
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_managed_storage.py
+PASS verified managed-storage consolidation
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_rfd3_predictor_scheduling.py
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.692s
+
+OK
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/test_rfd3_weight_provenance.py
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.003s
+
+OK
+RUN bash Tests/test_apple_build_tools_ui.sh
+PASS linked original AbMPNN weights are excluded from removal
+PASS partial installation reporting, unavailable failed engine, narrow retry and recovery
+PASS native Apple tools prerequisite, request/failure/retry, selection retention and lease release
+PASS workspace access after partial setup, corrupt receipt rejection, missing artifact and core without AbMPNN
+RUN bash Tests/test_iterative_cli_contract.sh
+PASS iterative CLI contract
+RUN bash Tests/test_iterative_results_ui_contract.sh
+FAIL: results still label cycle-00 structures as designs
+RUN bash Tests/test_rfd3_results_ui_contract.sh
+RFdiffusion3 live results, motif-analysis, and ORI-mode UI contract: PASS
+RUN bash Tests/test_ai_integrations_ui_contract.sh
+PASS AI desktop and remote integration UI contract
+RUN bash Tests/test_unsigned_beta_release_contract.sh
+PASS unsigned beta release contract
+RUN bash Tests/test_update_release_contract.sh
+PASS application/engine update contracts
+RUN bash Tests/test_process_runner_cancellation.sh
+PASS process runner cancellation
+RUN bash Tests/test_workspace_organization.sh
+PASS workspace organization contract
+PASS workspace navigation contracts
+RUN bash Tests/test_pipeline_snapshot.sh
+PASS content-addressed pipeline snapshots
+RUN swift test --scratch-path /Users/thomasfryer/iProteinStudio/.build
+Building for debugging...
+[Pre-planning 1 / 96]
+[Planning deferred tasks]
+[1 / 12]
+[3 / 8] StudioCoreTests-product
+Build complete! (1.00 sec)
+Test Suite 'All tests' started at 2026-09-18 12:44:34.183.
+Test Suite 'StudioCoreTests.xctest' started at 2026-09-18 12:44:34.192.
+Test Suite 'PersistenceTests' started at 2026-09-18 12:44:34.192.
+Test Case '-[StudioCoreTests.PersistenceTests testCorruptionRequiresRecoveryAndPreservesEvidence]' started.
+Test Case '-[StudioCoreTests.PersistenceTests testCorruptionRequiresRecoveryAndPreservesEvidence]' passed (0.008 seconds).
+Test Case '-[StudioCoreTests.PersistenceTests testExecutionLeaseExcludesConcurrentOwners]' started.
+Test Case '-[StudioCoreTests.PersistenceTests testExecutionLeaseExcludesConcurrentOwners]' passed (0.001 seconds).
+Test Case '-[StudioCoreTests.PersistenceTests testFailedWriteLeavesReadablePrimary]' started.
+Test Case '-[StudioCoreTests.PersistenceTests testFailedWriteLeavesReadablePrimary]' passed (0.001 seconds).
+Test Case '-[StudioCoreTests.PersistenceTests testMissingPrimaryDoesNotDiscardBackup]' started.
+Test Case '-[StudioCoreTests.PersistenceTests testMissingPrimaryDoesNotDiscardBackup]' passed (0.002 seconds).
+Test Suite 'PersistenceTests' passed at 2026-09-18 12:44:34.205.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.012 (0.013) seconds
+Test Suite 'SupportReportTests' started at 2026-09-18 12:44:34.205.
+Test Case '-[StudioCoreTests.SupportReportTests testArbitraryScientificAndSecretContentIsNotExported]' started.
+Test Case '-[StudioCoreTests.SupportReportTests testArbitraryScientificAndSecretContentIsNotExported]' passed (0.000 seconds).
+Test Suite 'SupportReportTests' passed at 2026-09-18 12:44:34.205.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'WorkspaceTransferTests' started at 2026-09-18 12:44:34.205.
+Test Case '-[StudioCoreTests.WorkspaceTransferTests testArchiveRestoreAndFailedIndexWrite]' started.
+Test Case '-[StudioCoreTests.WorkspaceTransferTests testArchiveRestoreAndFailedIndexWrite]' passed (0.007 seconds).
+Test Suite 'WorkspaceTransferTests' passed at 2026-09-18 12:44:34.213.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'StudioCoreTests.xctest' passed at 2026-09-18 12:44:34.213.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.019 (0.020) seconds
+Test Suite 'All tests' passed at 2026-09-18 12:44:34.213.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.019 (0.030) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
+RUN /Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python Tests/run_swift_contracts.py
+PASS workflow request contract
+Sources/iProteinStudio/Core/RFD3Controller.swift:172:32: warning: 'init(contentsOf:)' was deprecated in macOS 15: Use `init(contentsOf:encoding:)` instead [#DeprecatedDeclaration]
+170 |             // Compatibility for campaigns launched before the durable broker.
+171 |             // Keep polling until their recorded process has actually exited.
+172 |             if let text = try? String(contentsOf: campaign.appendingPathComponent("campaign.pid")),
+    |                                `- warning: 'init(contentsOf:)' was deprecated in macOS 15: Use `init(contentsOf:encoding:)` instead [#DeprecatedDeclaration]
+173 |                let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 1 {
+174 |                 kill(lastWasProtein ? pid : -pid, SIGTERM)
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+PASS scaffold equal/custom budgets, round-trip, exclusions and 21 engine/scaffold campaign manifests
+PASS immediate numeric edits, invalid submission gates, per-framework mode, selection changes, round-trip and batch result root
+PASS queue submission across workspaces, independent manifests, observation switching and submission guard
+PASS NISE, Predict and RFdiffusion3 queue observation, workspace switching and pending-job guards
+PASS native engine-batch preparation, saved launch records, progress routing and all-before-submit failure
+PASS Predict template request, persistence and chain/engine constraints
+PASS NISE request and existing-workspace migration contracts
+PASS StudioCore recovery, archive crash replay, lock and support report contracts
+PASS combined batch relocation, framework identity, duplicate run numbers and trajectory playback
+PASS prediction result discovery contract
+PASS iterative command contract
+{
+  "passed": 36,
+  "total": 37,
+  "failed": [
+    [
+      "bash",
+      "Tests/test_iterative_results_ui_contract.sh"
+    ]
+  ],
+  "not_run": [
+    "Live network ligand acceptance",
+    "Real-model inference campaigns",
+    "Interactive VoiceOver/GUI acceptance",
+    "Packaged app/Gatekeeper/Sparkle acceptance",
+    "Science fixture suite (use --suite all --science-python PATH)"
+  ]
+}

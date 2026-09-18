@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "date": "2026-09-17",
+  "hypothesis": "Disabling physical/FK steering while retaining forced pocket contacts reduces initial-backbone cost; measure geometry tradeoffs. One directory request may reduce overhead further.",
+  "hardware": "Apple M4 Max, 64 GB unified memory; verify machine inventory in analysis",
+  "starting_commit": "f6ca4108e14dcebc7c60c3d3b77703098c9b45cd",
+  "source_job": "job-002ee4e5c61e",
+  "statistical_unit": "30 completed cycle00 inputs, paired by ID; these are initializations, not optimized designs",
+  "pilot": "First two inputs, four new folds, excluded from the main timing summary",
+  "arms": [
+    "historical physical/FK-on singleton",
+    "physical/FK-off singleton",
+    "physical/FK-off all-input directory request"
+  ],
+  "held_constant": {
+    "recycles": 3,
+    "diffusion_steps": 200,
+    "output_samples": 1,
+    "seed": 0,
+    "msa": "empty",
+    "pocket_force": true,
+    "affinity": false,
+    "precision": "FP32",
+    "device": "MPS",
+    "dataloader_batch_size": 1
+  },
+  "randomness": "Reuse every original preprocessed input, including its actual ligand conformer: Boltz RDKit ETKDG does not set randomSeed and otherwise changes conformers when batching. Singleton RNG is observed without reseeding. All-input arm replays Python/NumPy/CPU/MPS RNG states at featurization and prediction boundaries. Actual model tensor hashes must match; fail if they do not.",
+  "timing": "Worker request wall time includes loading frozen processed inputs, feature/RNG audit instrumentation, folding/confidence/output checks. Sum/N for singleton; one request/N for batch. Model startup separately. Original baseline includes its initial YAML/RDKit preprocessing whereas both replay arms reuse that data; report this difference. No invented individual batch timings.",
+  "provenance": "Broker plan fingerprints frozen scripts, Boltz source, structure checkpoint, inputs and atom map; generated operation receipts hash raw outputs and RNG files.",
+  "metrics": [
+    "atom identity and sequence audit",
+    "per-atom hotspot distances and terminal SASA retention",
+    "C-alpha and peptide continuity diagnostics",
+    "protein-ligand and nonlocal protein heavy-atom overlaps",
+    "ligand bond geometry and stereochemistry",
+    "ligand and complex pLDDT",
+    "singleton/batch coordinate and confidence equivalence"
+  ],
+  "limits": "One ligand, 30 X-containing initial backbones, sequential arm order; incomplete side chains. No affinity or optimization. No setting promoted and main campaign stays paused. On/off contrast intentionally changes internal FK particle count.",
+  "promotion": "None",
+  "followup_analysis": "After CIP errors appeared, validate all270 ligand-centre assignments independently by signed volumes against the original frozen conformers; separately inspect protein C-alpha handedness. No additional inference or selection changes."
+}

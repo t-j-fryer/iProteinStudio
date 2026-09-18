@@ -1,0 +1,7 @@
+test_discovery_filters_and_owner_relative_artifacts (test_framework_batch_results.BatchResults.test_discovery_filters_and_owner_relative_artifacts) ... ok
+test_missing_or_escaping_children_fail_loudly (test_framework_batch_results.BatchResults.test_missing_or_escaping_children_fail_loudly) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.011s
+
+OK

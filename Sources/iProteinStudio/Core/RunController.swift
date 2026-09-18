@@ -21,7 +21,8 @@ final class RunController: ObservableObject {
     private var lastArguments: [String]?
     private var lastEnvironment: [String: String]?
     private var lastPipelineSnapshot: URL?
-    private var engineBatchRoot: URL?
+    @Published private(set) var engineBatchRoot: URL?
+    var resultsRoot: URL? { engineBatchRoot ?? campaignRoot }
 
     var isRunning: Bool { if case .running = phase { return true } else { return false } }
     // Do not detach while submission is still obtaining its durable job ID.
@@ -166,6 +167,14 @@ final class RunController: ObservableObject {
     /// app never reconstructs scientific settings from today's form values.
     func resume(_ record: StudioRunRecord) {
         guard !isRunning else { return }
+        if AppPaths.fm.fileExists(atPath: record.root.appendingPathComponent("studio_engine_batch.json").path),
+           let id = record.managedJobID ?? BrokerClient.savedJobID(at: record.root) {
+            var project = Project(name: record.projectName)
+            project.id = record.projectID
+            project.slug = record.root.deletingLastPathComponent().lastPathComponent
+            reattach(project: project, root: record.root, jobID: id, resume: true)
+            return
+        }
         guard let url = record.manifestURL,
               let data = try? Data(contentsOf: url),
               var manifest = try? JSONDecoder().decode(StudioRunManifest.self, from: data) else {
@@ -264,7 +273,7 @@ final class RunController: ObservableObject {
         }
     }
 
-    func reattach(project: Project, root: URL, jobID: String) {
+    func reattach(project: Project, root: URL, jobID: String, resume: Bool = false) {
         guard !isRunning else { return }
         projectContext = project
         engineBatchRoot = nil
@@ -274,7 +283,7 @@ final class RunController: ObservableObject {
             engineBatchRoot = root
             selectCampaign(URL(fileURLWithPath: first))
             phase = .running
-            job.attach(id: jobID, update: receive, failure: failedSubmission)
+            job.attach(id: jobID, resume: resume, update: receive, failure: failedSubmission)
             return
         }
         campaignRoot = root
@@ -288,7 +297,7 @@ final class RunController: ObservableObject {
         }
         hitThreshold = RunResultsLoader.iterativeHitThreshold(root: root)
         phase = .running
-        job.attach(id: jobID, update: receive, failure: failedSubmission)
+        job.attach(id: jobID, resume: resume, update: receive, failure: failedSubmission)
     }
 
     private func receive(_ state: ManagedJob) {

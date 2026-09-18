@@ -62,6 +62,7 @@ class Journal:
 
 
 class ResidentClient:
+    worker_script = "resident_predictor.py"
     def __init__(self, root, output, scripts, seed, potentials, allow_affinity):
         self.queue = Path(output) / "sessions" / uuid.uuid4().hex
         self.queue.mkdir(parents=True)
@@ -76,7 +77,7 @@ class ResidentClient:
         env = dict(os.environ, PYTORCH_ENABLE_MPS_FALLBACK="0", BOLTZ_CACHE=str(root / "models/boltz2"))
         self.stream = self.log.open("w")
         self.process = subprocess.Popen([str(root / "venvs/NanoHunter_boltz/bin/python"),
-                                         str(scripts / "resident_predictor.py"), "--config", str(self.config)],
+                                         str(scripts / self.worker_script), "--config", str(self.config)],
                                         stdout=self.stream, stderr=subprocess.STDOUT, env=env)
         self.loaded_affinity = False
         try:

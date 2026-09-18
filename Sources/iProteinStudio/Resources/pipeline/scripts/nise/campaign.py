@@ -10,7 +10,7 @@ from contract import preflight, saved_request
 from runtime import Backend, atomic, digest
 
 
-def run(config_path, branch_test=False):
+def run(config_path, branch_test=False, stage_batches=False):
     config_path = Path(config_path).resolve()
     config = json.loads(config_path.read_text())
     if ("branch_test" in config) != branch_test:
@@ -33,7 +33,11 @@ def run(config_path, branch_test=False):
     if not map_path.exists():
         atomic(map_path, manifest)
     scripts = Path(__file__).resolve().parent.parent
-    backend = Backend(root, output, settings, scripts)
+    if stage_batches:
+        from batch_runtime import BatchBackend
+        backend = BatchBackend(root, output, settings, scripts)
+    else:
+        backend = Backend(root, output, settings, scripts)
     backend.ligand_manifest = manifest
     request_hash = digest(config_path)
     fingerprint = output / "request.sha256"
@@ -98,5 +102,6 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--resume", action="store_true", help="Audited operations are always resumed")
     parser.add_argument("--branch-test", action="store_true", help="Validate only the partial-noising branch from a recorded parent")
+    parser.add_argument("--stage-batches", action="store_true", help="Submit stage inputs together with per-input durable checkpoints")
     args = parser.parse_args()
-    run(args.config, branch_test=args.branch_test)
+    run(args.config, branch_test=args.branch_test, stage_batches=args.stage_batches)

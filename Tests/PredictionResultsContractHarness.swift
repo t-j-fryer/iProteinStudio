@@ -20,6 +20,38 @@ struct PredictionResultsContractHarness {
         try "iptm,name\n0.8,complete\n0.9,\"unfinished".write(to: malformed, atomically: true, encoding: .utf8)
         guard CSVTable.rows(at: malformed).count == 1 else { fatalError("partial quoted CSV row was accepted") }
 
+        let batch = csvRoot.appendingPathComponent("engine-batch-test")
+        try FileManager.default.createDirectory(at: batch, withIntermediateDirectories: true)
+        for name in ["framework-a", "framework-b"] {
+            let child = csvRoot.appendingPathComponent(name)
+            try FileManager.default.createDirectory(at: child, withIntermediateDirectories: true)
+            try "data_fixture".write(to: child.appendingPathComponent("model.cif"), atomically: true, encoding: .utf8)
+            try JSONSerialization.data(withJSONObject: ["request": ["scaffoldID": name, "designPredictor": "boltz", "numDesigns": 1]])
+                .write(to: child.appendingPathComponent("studio_run.json"))
+            try "run,cycle,stage,predictor,structure_path,iptm,is_hit\n1,0,design,boltz,model.cif,0.8,\n1,1,design,boltz,model.cif,0.9,\n1,1,post,boltz,model.cif,0.9,true\n"
+                .write(to: child.appendingPathComponent("comparison_scores_long.csv"), atomically: true, encoding: .utf8)
+        }
+        try JSONSerialization.data(withJSONObject: ["campaigns": ["/old/workspace/framework-a", "/old/workspace/framework-b"],
+            "engines": ["Boltz · Framework A", "Boltz · Framework B"]]).write(to: batch.appendingPathComponent("studio_engine_batch.json"))
+        let combined = RunResultsLoader.load(root: batch, workflow: .iterative)
+        precondition(combined.count == 6 && Set(combined.map(\.id)).count == 6)
+        let combinedGroups = RunResultsLoader.groups(from: combined)
+        precondition(combinedGroups.count == 2 && combinedGroups.allSatisfy { $0.iterativeTrajectoryItems.count == 2 })
+        precondition(combined.filter { $0.frameworkID == "framework-a" }.count == 3)
+        precondition(combined.allSatisfy { $0.designEngine == "boltz" && $0.campaignID != nil })
+        // A later child refresh must preserve the earlier child's records and verdict.
+        let again = RunResultsLoader.load(root: batch, workflow: .iterative)
+        precondition(again == combined)
+        if let archive = ProcessInfo.processInfo.environment["STUDIO_ARCHIVE_BATCH"] {
+            let archived = RunResultsLoader.load(root: URL(fileURLWithPath: archive), workflow: .iterative)
+            precondition(RunResultsLoader.groups(from: archived).count == 12)
+            precondition(archived.filter { $0.stage == .design }.count == 60)
+            precondition(archived.filter { $0.stage == .startingStructure }.count == 12)
+            precondition(Set(archived.compactMap(\.frameworkID)).count == 8)
+            print("PASS student archive: eight frameworks, 12 distinct trajectories, 60 optimized cycle outputs")
+        }
+        print("PASS combined batch relocation, framework identity, duplicate run numbers and trajectory playback")
+
         let shortlist = csvRoot.appendingPathComponent("nesso_verification")
         try FileManager.default.createDirectory(at: shortlist, withIntermediateDirectories: true)
         try "data_fixture".write(to: shortlist.appendingPathComponent("fold.cif"), atomically: true, encoding: .utf8)

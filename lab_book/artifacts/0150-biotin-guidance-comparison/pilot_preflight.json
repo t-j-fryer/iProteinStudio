@@ -1,0 +1,56 @@
+{
+  "id": "plan-4317fffbe332dd55",
+  "sha256": "4317fffbe332dd55fcf14c8ae572333b398f5e233b6b3fefcbd1ee32d49861ea",
+  "normalized_request": {
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-c9abf557bebec1b5",
+    "workflow": "boltz_replay_validation",
+    "steps": [
+      {
+        "command": [
+          "/usr/bin/caffeinate",
+          "-dimsu",
+          "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python",
+          "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-c9abf557bebec1b5/.studio_runtime/pipeline/scripts/boltz_replay_validation.py",
+          "--config",
+          "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-c9abf557bebec1b5/replay_config.json"
+        ],
+        "cwd": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-c9abf557bebec1b5/.studio_runtime/pipeline",
+        "stage": "boltz-replay-validation"
+      }
+    ],
+    "display_name": "Biotin pocket-only replay \u2014 2 initial backbones",
+    "environment_overrides": {},
+    "pipeline_snapshot": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-c9abf557bebec1b5/.studio_runtime/pipeline",
+    "request": {
+      "files": {
+        "inputs/L000/L000.yaml": "921c552480a7944a75dfc255b01f797101afb860a31ade9bd7829dbfbf8abc9b",
+        "inputs/L000/L000_model_0.pdb": "5dafd1d548e1b27b097a767dfc06be53ccfc8684bd9933d105a18bc0e16f4df6",
+        "inputs/L000/completed.json": "d85fc712909f37818cb91327292f781d1b1faa213c67fc6ffbcb092a1ac2401e",
+        "inputs/L000/confidence_L000_model_0.json": "b91d91e45a32b1147a6c0b808f7362f97ee741c30e0490316bb2f0c5c3d2d656",
+        "inputs/L001/L001.yaml": "8376288188951af3889b7b50fa44411ebc7508efbcac8a6d210ac93cae9e88e5",
+        "inputs/L001/L001_model_0.pdb": "df199f19137839636814260d4176731d82e9593689af7918a2db62cb043969d9",
+        "inputs/L001/completed.json": "5e787aede609f18ea2375275f32b00f7130224df41454c984d15735d8b460789",
+        "inputs/L001/confidence_L001_model_0.json": "5c4ff25f1b12130c59e8275b14b5c6eb9b423bf3101e8d2e08208bf2516e6b5d",
+        "inputs/ligand_atom_map.json": "d7a707683233669c40040fecc19cabe091ce454df129566a68e66330c388934e",
+        "inputs/nise_config.json": "aec233fb183965b8c0cfe5d758e9fbbe9822fe09b1bc8b574118d590c7ea385d",
+        "inputs/original_worker_config.json": "c3505d272e9d1c46ff9aa5508c92faba81a4a9332e404723704cd3597a83fe14",
+        "inputs/source_status.json": "1bb795df3372d6df325c683d56c1a4c8a7bc15cdf7bd37799c5a9a7fffdf68a6"
+      },
+      "ids": [
+        "L000",
+        "L001"
+      ],
+      "output": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-replay-c9abf557bebec1b5",
+      "phase": "structure",
+      "potentials": false,
+      "schema": 1,
+      "seed": 0,
+      "source_job": "job-002ee4e5c61e"
+    },
+    "prediction_budget": {
+      "maximum_structure_predictions": 4,
+      "affinity_evaluations": 0
+    },
+    "scheduler": "resident; singleton arm then one directory request"
+  }
+}

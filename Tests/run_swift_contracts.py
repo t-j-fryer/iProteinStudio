@@ -7,7 +7,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "Sources/iProteinStudio/"
-MODELS = ["ProteinSequenceInput.swift", "Predictor.swift", "RFD3Request.swift", "DesignRequest.swift", "DesignEngine.swift", "DesignPoint.swift", "RunResult.swift"]
+MODELS = ["NumericInputValue.swift", "ProteinSequenceInput.swift", "Predictor.swift", "RFD3Request.swift", "DesignRequest.swift", "DesignEngine.swift", "DesignPoint.swift", "RunResult.swift"]
 with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
     tmp = Path(raw)
     flags = ["swiftc", "-module-cache-path", str(tmp / "modules")]

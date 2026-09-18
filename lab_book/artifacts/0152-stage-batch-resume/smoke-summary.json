@@ -1,0 +1,11 @@
+{
+  "affinities": 2,
+  "native_completion_counts": {
+    "L000": 1,
+    "L001": 1
+  },
+  "recovery_verified": true,
+  "repeat_resume_reused_all": true,
+  "status": "completed",
+  "structures": 2
+}

@@ -15,6 +15,7 @@ struct DesignFormView: View {
         self.installer = installer
         self.run = run
     }
+    @StateObject private var numericValidation = NumericInputValidation()
     @State private var validationDestination: String?
     @State private var showAdvanced = false
     @State private var setupExperience: SetupExperience = .quick
@@ -256,6 +257,7 @@ struct DesignFormView: View {
                 onClose: { showTargetPrep = false }
             )
         }
+        .environment(\.numericInputValidation, numericValidation)
         .fileImporter(isPresented: $showTargetTemplateImporter,
                       allowedContentTypes: [.data], allowsMultipleSelection: false) { result in
             importTargetTemplate(result)
@@ -306,7 +308,9 @@ struct DesignFormView: View {
         let missingComponents = request.wrappedValue.requiredComponents.filter {
             !installer.isUsable($0)
         }
-        return HStack(spacing: 12) {
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(request.wrappedValue.budgetSummary).font(.callout.weight(.semibold)).textSelection(.enabled)
+            HStack(spacing: 12) {
             let r = request.wrappedValue
             if !r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty {
                 Label(missingReason(r, missingComponents: missingComponents), systemImage: "info.circle")
@@ -322,6 +326,7 @@ struct DesignFormView: View {
             Spacer()
             RunNameField(project: project, mode: .iterative)
             Button {
+                guard numericValidation.invalidEditors.isEmpty else { return }
                 app.metrics.stop()
                 let current = app.projects.first(where: { $0.id == project.id }) ?? project
                 app.run.start(project: current, name: current.runNames[WorkspaceMode.iterative.rawValue] ?? "")
@@ -332,7 +337,8 @@ struct DesignFormView: View {
             .buttonStyle(.borderedProminent).controlSize(.large)
             .accessibilityLabel(willQueue ? "Add Protein Hunter run to queue" : "Start Protein Hunter run")
             .accessibilityIdentifier("start-iterative-run")
-            .disabled(!r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty || !run.canStartAnother)
+            .disabled(!numericValidation.invalidEditors.isEmpty || !r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty || !run.canStartAnother)
+        }
         }
         .padding(.top, 6)
     }
@@ -391,24 +397,31 @@ struct ScaffoldPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Total trajectories per engine")
-                if request.equalScaffoldBudgets {
+            Picker("Trajectory budget", selection: Binding(get: { request.frameworkBudgetMode },
+                set: { request.setFrameworkBudgetMode($0) })) {
+                ForEach(DesignRequest.FrameworkBudgetMode.allCases) { mode in Text(mode.rawValue).tag(mode) }
+            }.pickerStyle(.segmented)
+            switch request.frameworkBudgetMode {
+            case .total:
+                HStack {
+                    Text("Total trajectories across all selected frameworks, per engine")
                     EditableIntStepper(value: $request.numDesigns,
                         in: max(1, request.allocatedScaffolds.count)...(10_000 * max(1, request.allocatedScaffolds.count)),
-                        accessibilityLabel: "Total trajectories across nanobody scaffolds per engine")
-                } else {
-                    Text("\(request.numDesigns)").monospacedDigit()
-                    Text("sum of scaffold budgets").font(.caption).foregroundStyle(.secondary)
+                        accessibilityLabel: "Total trajectories across frameworks per engine")
                 }
+                Text("This total is divided equally. Any remainder goes to the first selected frameworks.").font(.caption)
+            case .perFramework:
+                HStack {
+                    Text("Trajectories for EACH selected framework, per engine")
+                    EditableIntStepper(value: Binding(get: { request.trajectoriesPerScaffold ?? 1 },
+                        set: { request.setTrajectoriesPerScaffold($0) }), in: 1...10_000,
+                        accessibilityLabel: "Trajectories per framework per engine")
+                }
+                Text("Selecting another framework adds this many trajectories to the total.").font(.caption)
+            case .custom:
+                Text("Set each framework’s count below. The total is the sum of these counts.").font(.caption)
             }
-            Toggle("Split trajectories equally", isOn: Binding(
-                get: { request.equalScaffoldBudgets },
-                set: { request.setEqualScaffoldBudgets($0) }))
-            Text(request.equalScaffoldBudgets
-                 ? "The total is shared across selected scaffolds. Any remainder goes to the first selected scaffolds. Selecting more scaffolds raises the total if needed to give each at least one trajectory."
-                 : "Edit each scaffold’s budget below. The total updates automatically; changing the selection preserves the other custom budgets.")
-                .font(.caption).foregroundStyle(.secondary)
+            Text(request.budgetSummary).font(.callout.weight(.semibold)).textSelection(.enabled)
             HStack {
                 Button("Select all") {
                     for scaffold in app.scaffolds {
@@ -418,7 +431,7 @@ struct ScaffoldPicker: View {
                 }
                 Button("Clear selection") {
                     request.scaffoldSelections = []
-                    if !request.equalScaffoldBudgets { request.numDesigns = 0 }
+                    if request.frameworkBudgetMode != .total { request.numDesigns = 0 }
                 }
                 Spacer()
                 Text("\(request.allocatedScaffolds.count) selected").font(.caption)
@@ -454,7 +467,7 @@ struct ScaffoldPicker: View {
                     }
                 }
             }
-            Text("For example: 70 trajectories across seven selected scaffolds gives 10 each. Each selected engine receives this same allocation, with separate results for every engine and scaffold.")
+            Text("Example: Same per framework = 100 with eight selected frameworks means 800 trajectories per engine. Each trajectory produces one output per optimisation cycle; cycle outputs are not independent trajectories.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .onAppear {

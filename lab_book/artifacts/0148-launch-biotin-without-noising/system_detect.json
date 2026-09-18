@@ -1,0 +1,67 @@
+{
+  "runtime_root": "/Users/thomasfryer/.iproteinstudio",
+  "staged": true,
+  "exit_code": 0,
+  "engines": {
+    "nesso": {
+      "state": "ok",
+      "detail": "NESSO-1 native MPS (experimental; full hashes checked at preflight)"
+    },
+    "boltz": {
+      "state": "ok",
+      "detail": "Boltz-2 structure environment with managed model and CCD data"
+    },
+    "boltz_affinity": {
+      "state": "ok",
+      "detail": "optional small-molecule affinity checkpoint"
+    },
+    "mpnn": {
+      "state": "ok",
+      "detail": "ProteinMPNN / SolubleMPNN / LigandMPNN"
+    },
+    "abmpnn": {
+      "state": "ok",
+      "detail": "Verified antibody-specific checkpoint (requires core sequence designers)"
+    },
+    "antifold": {
+      "state": "ok",
+      "detail": "AntiFold"
+    },
+    "intellifold": {
+      "state": "ok",
+      "detail": "IntelliFold PyTorch/MPS with v2 Flash weights"
+    },
+    "intellifold_full": {
+      "state": "ok",
+      "detail": "optional IntelliFold full-v2 checkpoint"
+    },
+    "protenix": {
+      "state": "ok",
+      "detail": "shared native-MPS runtime and chemical data"
+    },
+    "protenix_v2": {
+      "state": "ok",
+      "detail": "Protenix v2 checkpoint"
+    },
+    "protenix_mini": {
+      "state": "ok",
+      "detail": "Protenix Mini checkpoint"
+    },
+    "protenix_constraint": {
+      "state": "ok",
+      "detail": "Protenix Constraint v0.5 (native MPS, strict ESM-free profile)"
+    },
+    "openfold3": {
+      "state": "ok",
+      "detail": "OpenFold-3-MLX with checkpoint"
+    },
+    "lasermpnn": {
+      "state": "ok",
+      "detail": "LASErMPNN"
+    },
+    "rfd3": {
+      "state": "ok",
+      "detail": "RFdiffusion3 MLX with checkpoint and verified EMA weights"
+    }
+  }
+}

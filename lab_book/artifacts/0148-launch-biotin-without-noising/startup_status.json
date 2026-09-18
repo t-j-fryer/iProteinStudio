@@ -1,0 +1,43 @@
+{
+  "cancellation_contract": 1,
+  "child_outputs": null,
+  "child_pid": 76812,
+  "child_process_group": 76812,
+  "created_at": "2026-09-17T20:36:41.628663Z",
+  "display_name": "Biotin \u2014 1000 starts \u2014 Boltz NISE",
+  "id": "job-002ee4e5c61e",
+  "kind": "desktop_nise",
+  "log_tail": [
+    "NISE ligand chemical state (Boltz affinity, RFdiffusion3, NESSO): O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "[nise] ligand SMILES: O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "[nise] designer=lasermpnn device=cpu rank_metric=ligand_plddt+pbind affinity=True",
+    "[nise] potentials=True  phase0_pocket_constraint=True (binder=protein A around specific ligand-B atoms; off in NISE)",
+    "[nise] Phase-0 pocket: binder=A contacts (ligand atoms)=['C31', 'S20', 'C29', 'C32', 'N24', 'C30', 'N23', 'O17', 'C21'] dist=6.0 force=True",
+    "[nise] Phase 0 cycle00: hallucinating 1000 starts (pocket=on)",
+    "NISE|completed|L000"
+  ],
+  "message": "Running the saved nise settings.",
+  "output_root": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e",
+  "pid": 76805,
+  "pipeline_log_tail": [
+    "NISE ligand chemical state (Boltz affinity, RFdiffusion3, NESSO): O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "[nise] ligand SMILES: O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21",
+    "[nise] designer=lasermpnn device=cpu rank_metric=ligand_plddt+pbind affinity=True",
+    "[nise] potentials=True  phase0_pocket_constraint=True (binder=protein A around specific ligand-B atoms; off in NISE)",
+    "[nise] Phase-0 pocket: binder=A contacts (ligand atoms)=['C31', 'S20', 'C29', 'C32', 'N24', 'C30', 'N23', 'O17', 'C21'] dist=6.0 force=True",
+    "[nise] Phase 0 cycle00: hallucinating 1000 starts (pocket=on)",
+    "NISE|completed|L000"
+  ],
+  "plan_id": "plan-002ee4e5c61e272f",
+  "plan_sha256": "002ee4e5c61e272f5f4511fb554b90041f73a4681c1a6612140d4dcb752c47aa",
+  "process_group": 76805,
+  "project": "test2",
+  "resource_class": "apple_gpu_exclusive",
+  "schema_version": 1,
+  "stage": "nise",
+  "started_at": "2026-09-17T20:36:43.409210Z",
+  "status": "running",
+  "updated_at": "2026-09-17T20:36:43.413066Z",
+  "worker_contract": 2,
+  "worker_log_tail": []
+}

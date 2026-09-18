@@ -41,6 +41,10 @@ struct LiveDashboardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
+            if let batch = run.engineBatchRoot {
+                RunResultsView(root: batch, workflow: .iterative, title: "All framework and engine results", embedded: true)
+                    .id(batch.path)
+            } else {
             statTiles
             Picker("", selection: $tab) {
                 ForEach(DashTab.allCases) { Text($0.rawValue).tag($0) }
@@ -55,6 +59,7 @@ struct LiveDashboardView: View {
             case .structures: durableResults(hitsOnly: false)
             case .hits:       durableResults(hitsOnly: true)
             }
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -63,7 +68,7 @@ struct LiveDashboardView: View {
 
     @ViewBuilder
     private func durableResults(hitsOnly: Bool) -> some View {
-        if let root = run.campaignRoot {
+        if let root = run.resultsRoot {
             LiveGroupedRunResultsPane(root: root, workflow: .iterative, hitsOnly: hitsOnly)
         } else {
             EmptyHint(text: hitsOnly ? "No saved hits yet" : "No structures yet",
@@ -108,7 +113,7 @@ struct LiveDashboardView: View {
             HStack(spacing: 10) {
                 if !run.isRunning, run.campaignRoot != nil {
                     Button {
-                        if let root = run.campaignRoot {
+                        if let root = run.resultsRoot {
                             openWindow(value: RunResultsWindowRequest(
                                 root: root, workflow: .iterative))
                         }
@@ -119,7 +124,7 @@ struct LiveDashboardView: View {
                     .accessibilityIdentifier("view-design-results")
                 }
                 Button {
-                    if let root = run.campaignRoot { NSWorkspace.shared.activateFileViewerSelecting([root]) }
+                    if let root = run.resultsRoot { NSWorkspace.shared.activateFileViewerSelecting([root]) }
                 } label: { Label("Reveal Output", systemImage: "folder") }
                 if run.isRunning {
                     Button(role: .destructive) { run.cancel() } label: { Label("Stop", systemImage: "stop.fill") }

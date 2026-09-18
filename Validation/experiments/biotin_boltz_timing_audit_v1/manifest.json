@@ -1,0 +1,12 @@
+{
+  "purpose": "Explain current biotin cycle00 timing versus historical Boltz minibinder overview bars",
+  "type": "read-only historical audit; no inference",
+  "source_commit": "f6ca4108e14dcebc7c60c3d3b77703098c9b45cd",
+  "hardware": "Apple M4 Max / 64 GB",
+  "current_snapshot": "lab_book/artifacts/0148-launch-biotin-without-noising/progress-20260917T2047.json",
+  "historical_campaigns": ["untitled_design_boltz_6ed978fa", "untitled_design_boltz_06751263"],
+  "controls": "No paired control. Different inputs/settings; do not attribute a measured causal speedup.",
+  "msa": "Current empty; historical cached protein-target MSA hashes retained in bgx overview campaign_provenance.json",
+  "provenance": "Current model and source fingerprints in Lab Book0148 plan; historical weights not retrospectively verified",
+  "promotion": "None; active campaign unchanged"
+}

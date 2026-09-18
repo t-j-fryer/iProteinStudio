@@ -32,11 +32,14 @@ actor ResultsRepository {
 
     private nonisolated static func fingerprint(_ root: URL) -> [String: String] {
         let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
-        guard let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys) else { return [:] }
+        let roots = [root] + RunResultsLoader.batchCampaigns(root: root).map(\.root)
         var result: [String: String] = [:]
+        for directory in roots {
+        guard let files = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else { continue }
         for case let file as URL in files where ["csv", "json"].contains(file.pathExtension) {
             guard let values = try? file.resourceValues(forKeys: Set(keys)) else { continue }
             result[file.path] = "\(values.fileSize ?? -1)|\(values.contentModificationDate?.timeIntervalSince1970 ?? -1)"
+        }
         }
         return result
     }

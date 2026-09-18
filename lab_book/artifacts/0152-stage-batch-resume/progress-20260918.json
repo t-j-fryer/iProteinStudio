@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-09-18T16:07:13.864835+00:00",
+  "job_id": "job-0f975ef0db89",
+  "hardware": "Apple M4 Max 64 GB",
+  "stage": "Phase0 cycle01 refinement",
+  "initial_complete": 1000,
+  "initial_passed": 422,
+  "cycle01_total": 1266,
+  "cycle01_complete": 312,
+  "cycle01_affinity_complete": 0,
+  "recent100_mean_seconds": 44.507984189987184,
+  "latest_completion_utc": "2026-09-18T16:07:05.151665+00:00",
+  "same_resident_session": "b049a2eb80124654976f72fb7b1ac1be",
+  "interpretation": "Observed structure+writer timing, no controlled speed comparison; ETA excludes affinity and later stages.",
+  "structure_stage_remaining_hours": 11.794615810346604
+}

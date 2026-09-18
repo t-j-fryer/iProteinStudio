@@ -1,0 +1,2810 @@
+{
+  "command_preview": [
+    "/usr/bin/caffeinate",
+    "-dimsu",
+    "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python",
+    "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/campaign.py",
+    "--config",
+    "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/nise_config.json",
+    "--resume",
+    "--stage-batches"
+  ],
+  "created_at": "2026-09-17T23:42:43.583975Z",
+  "id": "plan-0f975ef0db89cf1a",
+  "kind": "desktop_nise_continuation",
+  "normalized_request": {
+    "continuation": {
+      "base_config_sha256": "aec233fb183965b8c0cfe5d758e9fbbe9822fe09b1bc8b574118d590c7ea385d",
+      "base_plan_id": "plan-002ee4e5c61e272f",
+      "checkpoints": {
+        "phase0/cycle00/L000/completed.json": "d85fc712909f37818cb91327292f781d1b1faa213c67fc6ffbcb092a1ac2401e",
+        "phase0/cycle00/L001/completed.json": "5e787aede609f18ea2375275f32b00f7130224df41454c984d15735d8b460789",
+        "phase0/cycle00/L002/completed.json": "5e37c56ee6f8762d80bde4d659e9a6950bf72db716e5fe87e5a37b0814ae0f1e",
+        "phase0/cycle00/L003/completed.json": "d7bf3f8dc68c12c7ebda2c601c603cbd010e07ea38b0cc78d75521de1755a0cd",
+        "phase0/cycle00/L004/completed.json": "89e0cef4c90a9e3a5c7db082f03e6808eea29da0f3a7a1b6b1ea546abdcd2ad0",
+        "phase0/cycle00/L005/completed.json": "0ba620741fef59f48c5e78d228170f319d73245788c58d7be477b1396735f829",
+        "phase0/cycle00/L006/completed.json": "750b4bd369845401d3b7549087774d5542816cc6d7a2c3f1517ea1d9569a1f7e",
+        "phase0/cycle00/L007/completed.json": "30bc57b67b13804d0eddb198755415e325f79e5f2e4fb06b19619716de8c387a",
+        "phase0/cycle00/L008/completed.json": "15fdc945670d23c22a202815b304149756cc9d05c334ee184a988929a3d9ad3d",
+        "phase0/cycle00/L009/completed.json": "78c3c832c1d311ec48590be89f1d0033700e5293b801341fc2bffb5672b2f1f3",
+        "phase0/cycle00/L010/completed.json": "c728f07c7cb69f5bb62a3242cacd31621f5c198ddb4426c971ccf58622d4e944",
+        "phase0/cycle00/L011/completed.json": "2d60e06861f0aec77465555254e9c0feac748ce41830d9498a5d0b6359edb011",
+        "phase0/cycle00/L012/completed.json": "2efb92dbf712a4da91ac636e3813711e0031ca411ccccac3abed1315a4270bdb",
+        "phase0/cycle00/L013/completed.json": "98020fed0ef73fce855cea40450d21e74145af57f06ff27acc16aabecce04d5b",
+        "phase0/cycle00/L014/completed.json": "07a9b62600d310c3d62756f164f1c15ec5e76b8566194a0ab256b164d32e3fd1",
+        "phase0/cycle00/L015/completed.json": "0a9b8b79ecf96b21bc745c9a526bc092022f080c64931f78440f74d13f8bb12c",
+        "phase0/cycle00/L016/completed.json": "2f1e459fece42e65761b809f43fa25ed5b399ef49c33656156e66dcbf017494c",
+        "phase0/cycle00/L017/completed.json": "123ff7cb4e72e44f7f5433329bba0ceb221e42ace3fd110ed7279df00800a081",
+        "phase0/cycle00/L018/completed.json": "6dbb8b88d4a231f5d34007346650517b8c8030838debe1af41ba01df0c67c7df",
+        "phase0/cycle00/L019/completed.json": "50ec1f565d050049115e674d4a8083dfa39e8404bc38e8186cf3f8d53b69a9da",
+        "phase0/cycle00/L020/completed.json": "8350c4dbaaece9c8eb5173d9a2dfa55a2e8ddc2ebf6b18be602d897ea3983207",
+        "phase0/cycle00/L021/completed.json": "f7ff720fe061731efab085ed068424889a24668b5e33e828e53d0a4dd30337a4",
+        "phase0/cycle00/L022/completed.json": "55f4b7d127267fa067dbe757cda426b9e977b4a5bc0b5669ce2f11aee9ae7db8",
+        "phase0/cycle00/L023/completed.json": "cb79dde5b91072416a48976662aa59083bd6db447a5e5855f9befd70257b6d25",
+        "phase0/cycle00/L024/completed.json": "ee10f0f508e1b88d8fc289ee2a2d7a912e654c817e886ada6c7e4cf3be0fcddd",
+        "phase0/cycle00/L025/completed.json": "e82f7bfc8a7c3cfa4f923228bea647a6afc9dfeaa9d0aefb075e93e4ec19d26f",
+        "phase0/cycle00/L026/completed.json": "9452cf694e2349d56237fe1d7523e326d591b1d728d5a8cb1d2cb40950a0903c",
+        "phase0/cycle00/L027/completed.json": "f26e46f838d7c77f62f86609de1466f03d90634eacadc0fa65961ca2fa7e5fbd",
+        "phase0/cycle00/L028/completed.json": "9605818dcfd0b356d655f7ce6e83004c8ed0d3a6391891d8cafe8f288fdfb5f0",
+        "phase0/cycle00/L029/completed.json": "832650ecf9e8236a660faa13d605941d7b6a6ec22c89ee62285537b4db7530b9"
+      },
+      "note": "Original science/config/checkpoints preserved; one pending input directory per stage; no early killing.",
+      "pipeline_snapshot": ".studio_runtime/stage-directory-v1/pipeline",
+      "schema": 1,
+      "source_job": "job-002ee4e5c61e",
+      "submission": "stage-directory"
+    },
+    "display_name": "Biotin \u2014 1000 starts \u2014 Boltz NISE",
+    "environment_overrides": {},
+    "output": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e",
+    "pipeline_snapshot": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline",
+    "prediction_budget": {
+      "first_cycle_boltz_max": 512,
+      "initial_boltz_max": 25000,
+      "initial_rfd3_backbones": 0,
+      "interpretation": "Calculated upper bounds, not runtime estimates; fewer survivors and early stopping reduce work.",
+      "later_cycle_boltz_max": 768,
+      "noising_boltz_per_later_cycle_max": 0,
+      "optimization_boltz_max": 22784
+    },
+    "request": {
+      "adaptive_proposals": false,
+      "affinity_batch_size": 8,
+      "backbone_method": "protein-hunter",
+      "beam": 3,
+      "binder_max_len": 150,
+      "binder_min_len": 65,
+      "early_score_gate": 0.8,
+      "exposed_atoms": [
+        "O18",
+        "O19"
+      ],
+      "exposure_min_fraction": 0.5,
+      "first_cycle_seqs": 64,
+      "hotspot_atoms": [
+        "C31",
+        "S20",
+        "C29",
+        "C32",
+        "N24",
+        "C30",
+        "N23",
+        "O17",
+        "C21"
+      ],
+      "hotspot_distance": 6.0,
+      "initial_proposals": 16,
+      "ligand_atom_signature": "579a063252e23e7064b1254fe4f4efdc74c833e80529e27ac5d266a97518b14f",
+      "ligand_atoms_generated_for": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2",
+      "max_cycles": 30,
+      "min_improvement": 0.01,
+      "nesso_screen": false,
+      "nesso_top_k": 16,
+      "nise_ligand_sc_from_cycle": 3,
+      "nise_sc_ca": 2.5,
+      "nise_sc_lig": 2.5,
+      "nise_seqs": 32,
+      "noise_advance": 1,
+      "noise_mpnn_seqs": 32,
+      "noise_percent": 25.0,
+      "noise_predictions": 32,
+      "noise_radius": 6.0,
+      "num_starts": 1000,
+      "partial_noising": false,
+      "patience": 4,
+      "phase0_gate_seqs": 3,
+      "phase0_nesso_expand_top_k": 20,
+      "phase0_nesso_refine_top_k": 1,
+      "phase0_nesso_screen": false,
+      "phase0_refine_cycles": 2,
+      "phase0_sc_ca": 2.0,
+      "phase0_seqs1": 3,
+      "phase0_seqs2": 5,
+      "preorganisation": false,
+      "rfd3_num_bins": 5,
+      "scheduler": "resident",
+      "search_policy_version": 3,
+      "seed": 0,
+      "selective_affinity": true,
+      "smiles": "C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2",
+      "top_x": 8,
+      "trajectories": 8
+    },
+    "steps": [
+      {
+        "command": [
+          "/usr/bin/caffeinate",
+          "-dimsu",
+          "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python",
+          "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/campaign.py",
+          "--config",
+          "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/nise_config.json",
+          "--resume",
+          "--stage-batches"
+        ],
+        "cwd": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline",
+        "stage": "nise"
+      }
+    ],
+    "submission": "One directory request per pending fold stage or selective-affinity selection batch; per-input checkpoints",
+    "workflow": "nise_continuation"
+  },
+  "project": "test2",
+  "provenance": [
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/audit_design_cardinality.py",
+      "sha256": "936dcc98af1d0798afe8a2db8a5bfbe484786555e1f30b65b60b0fec9cf8ed60"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/boltz_diffusion_observer.py",
+      "sha256": "b8cf0493827e0cb45ba099b4c4b75361079bba75dbed9a0dfb38f08c89efc1e8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/boltz_mps.py",
+      "sha256": "47c5a6c4eb2df84b5edde6e47c5b88274dea5243cb04ad92957df21c5bd26a87"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/boltz_replay_validation.py",
+      "sha256": "1df43335770382c6ea86e7e3d8175894994c3ee089d807cf86d1ffd05856c55e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/calibrate_device_throughput.py",
+      "sha256": "1dbd6c5bc3568eb9f9d75dd2e0aadfb03911086de94798be741b0dc880ea8fdb"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/component_receipt.py",
+      "sha256": "5d2704a03eff2a615e3b1fddf29120be58d9ced6cd6e829b91e7ffc05c373579"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/compute_throughput_profile.py",
+      "sha256": "0c44b03b1ae8acd095b0ebca712b433e7b2ea8c4a119bbd43d99edfd1b399349"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/download_verified.py",
+      "sha256": "d4d226911bc603cb79aac45d11d873e9d1ef71756eb29ae24056fcbcd02e04c4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/find_target_msa.py",
+      "sha256": "86c228a3a28218868c103313b9f94b48f5a7340e782db6f4d53a657d62d4a78b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/initialization_assessment.py",
+      "sha256": "e328ba657715d1b4342b3bdfb493728dd780e59a9b389a414136658ccc1ade8f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/initialization_refinement.py",
+      "sha256": "bd55ece0c91ab8987ed5117a6577d3b8eb51cfda4253fc41aa66a647c9aa62f2"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/intellifold_mps_compat.py",
+      "sha256": "2705c282de6e1009e2cb90a5368af3290950eaa5dba3ae3783f4678700fed0b3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/intellifold_predict.py",
+      "sha256": "731c6f71df0948e9e1294212202f23f0141ea028523e90dec79494dde4716666"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/intellifold_user_template.py",
+      "sha256": "d5e8d7f9ebbc4f763bce29bc5f5c42f2473936aee255b5fe719f26043f4435ff"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/ipsae_score.py",
+      "sha256": "1c110d0d0a63defa7b406f47d929ba089b07d8818488da5331d07c45711dd4a9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/lasermpnn_prepare_input.py",
+      "sha256": "eb776c61ecb5e2ee9ba8f1b58a6e07154d71d067c778cbc6e0acbdc067aff494"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/managed_storage.py",
+      "sha256": "00a3b9486d2b439b5221a3a84fac2f79faaef648717f0dea3ad21072a5be714e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/merge_openfold_queries.py",
+      "sha256": "f676cb9a1963ebc7f299e8c203da6a090faf8e35d230e22e95b708aa9957ebf5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nanobody_cdrs.py",
+      "sha256": "33a8246d4c8059aae48dc6143123c0e6822dbfc754a830150d1459e16b437b98"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/__init__.py",
+      "sha256": "670ed081fd059544b565ea132d3f0518112556de7075af06f6201be3371ee8fb"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/atom_geometry.py",
+      "sha256": "0103f1a4e24036e3bef58992d0c6794c1cc92a86b9e298347793fc08af1df798"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/batch_runtime.py",
+      "sha256": "20a573531986ce92fed3abe519bc97ad6d9ed5ddf923304bcd0c41678359c93a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/batch_smoke.py",
+      "sha256": "5bf3e0c6e0e566ad0386129d807e823c707f0d8da4b63d587d36235f69461529"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/batch_worker.py",
+      "sha256": "e1f535058224aaf3361f77efaf34410baf9110695cd671784ff54ef346875b2a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/branch_test.py",
+      "sha256": "680388bc5b08f30152d19ba51b18016a74b67f6abad6bed6b07c1146b3bf46dc"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/campaign.py",
+      "sha256": "31e6d5a0e34399044e9d5a520fdb99efb12104a7b88a3968fa448d7511a55113"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/continuation.py",
+      "sha256": "35e2bde8f797d29ce2fbae22b9466643bec884b5d876f33c7fe2bb9c3de909bf"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/contract.py",
+      "sha256": "3d00bf58b42f49212a8eb8db7cae706246a2c41e8a7327d725cf30854be2e130"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/ligand_atoms.py",
+      "sha256": "08393fe4b2cc2657c211d5a12ac0a5570f306fc19e589c913c2836dff99cfff4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/ligand_screening.py",
+      "sha256": "c703feb72dd343316d79383eb9263dcf7b910bef387f6aa0c72733eefaaea82e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/metrics.py",
+      "sha256": "67f1374c1df47e3c3b380137ea1ea618c2fdd7470ca9465a55962f8b104e1277"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/nesso_contract.py",
+      "sha256": "940260d2b9affb823fe00830f2b789ada4a3292aa9b52d20bf2d97b2a6f902d0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/nesso_screen.py",
+      "sha256": "5326349b4ab594d78f48dadba8efe6b1c8afbe6f295a978b3a82032dc6d99b6b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/nesso_worker.py",
+      "sha256": "a54fb86be8db9d98aa57f99ec45fa49f3a512ffaac10c316b760181b04f99b09"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/nise_lib.py",
+      "sha256": "de691de9ca7c49c05c7916086baa0a6fef9372e5acaaafdf407a2d6bac9fb24f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/nise_run.py",
+      "sha256": "e8664c9c0ca71b56d28629a804de580ee23ef15eebf0cc5956e85828a371551f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/partial_noising.py",
+      "sha256": "aeff1e4f06d8439c51719dd42eb383c9fd541c165b6fd5a29b67286660fb1409"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/preorg.py",
+      "sha256": "2bfb4a87a1d533fd94e82a8fddc1f871f648a5ce9c718d8ed77debb4baacf008"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/rfd3_initial.py",
+      "sha256": "488616b3dc5a470d85ce94b84afb73b5f6a90cd0ebf07ce076382e1f35be75a5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/runtime.py",
+      "sha256": "feffb679a9b1362f1d4c5ed26b155850e069190874a43ff2cf4ff0f74d7d836c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/search_policy.py",
+      "sha256": "7d6566356664944021349e2896b662dbbc4d54789e052c57a8856524445b8996"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/setup_nesso.py",
+      "sha256": "4858070a63acb61c87fb9dc8785310a031dd789e0d64bfa2a5eba4efca9aece4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/normalize_unk_cif.py",
+      "sha256": "fbdca1577e5c531754605499ae6f256bd3a8f7911eec29a202170856841a6489"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/openfold_query_json.py",
+      "sha256": "df13855da32d5dfc53fb36d40fadd04bcb2dd572d644dd46711bea49b6e21a98"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/openfold_runner_yaml.py",
+      "sha256": "8291e0022b856ecc654fb6aea879c75dca0b01921a2c6bc21766cee3adfaed57"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/patch_intellifold_mps.py",
+      "sha256": "929de3fb865b7e1c2fd29bfc175e5d84c87795859d694d0f0d4f11b9cc4e3707"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/prediction_resume.py",
+      "sha256": "a389f64022ee48d7b15709c99a6eb1f878ef93e8567a5e84556eab6d6bd05d9d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/prediction_templates.py",
+      "sha256": "2b2540e1c98e215fade49999579135ee076b4bc47bd67d9d3146f8b305016fdd"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/prepare_boltz_template.py",
+      "sha256": "b8da86a4c633f2cb59a2a9cb495132339aa16afa8ca798ff41420cd5e8661b59"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/prepare_intellifold_template.py",
+      "sha256": "287aaf0fadcd7d21fee274c26204bf07b65bea6efa90235b14d63c34f912fec9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/protenix_msa.py",
+      "sha256": "028e4cbd69bfa3a8a4f92d1469caaff937e1e644ed5b34adf68d2aef19abf5d3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/protenix_predict.py",
+      "sha256": "52440c6315a6f3c1d0440ea3bca723c9f8181e4daa721c9405cb8ed85878a4ed"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/resident_predictor.py",
+      "sha256": "0811892dc406cfa1ed2466daabb68fe986ac0e1ec96216a7168393c59faf160c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/rewrite_a3m_query.py",
+      "sha256": "4f9374dc129ffaa7ae5643baa8cd5d323a5ed703917d7c928741dcbf54a8d5d5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/run_lasermpnn_seeded.py",
+      "sha256": "dd2fb4c28d21cea9a1c0cd9c8cf5c422c08e4e449330667c0539a5388cae1e96"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/runtime_transaction.py",
+      "sha256": "1973ebbe42dd0cf1d9295d120ceb80ddc08b56a0f4c9120facb2e2b2ec5bb6a7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/sample_antifold_positions.py",
+      "sha256": "0b1094a5b59297e106f0022f174accb9d6f7c45b820fb102d3083a3b8a0f2357"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/score_post_prediction_pair.py",
+      "sha256": "c158d6ba9a0ca4e520fd2b621e4340fdde89fa9482b2bf01ab1f7bf3a689591d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/secondary_structure_control.py",
+      "sha256": "ed46f68d78dcf75f8c3da420943c49c3ac976d89d52a576ee233be8f87974ff9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/select_post_tasks.py",
+      "sha256": "a2baff57c98653e3a2cb68c2afe7aa8cbde2d09c4616c7dde067e77bf1deae49"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/storage_policy.py",
+      "sha256": "5d6971855eeefbaa398fe714d74b834f31f7f269006dcfffaa09b65dfc19400f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/validate_prediction_geometry.py",
+      "sha256": "0aafa3de587751d95b17b728c8c171d48f15195afd5e618de6072e942cf6f59a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/nise_config.json",
+      "sha256": "aec233fb183965b8c0cfe5d758e9fbbe9822fe09b1bc8b574118d590c7ea385d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/nise_continuation.json",
+      "sha256": "a95edfd5217a60127b1cbd2fa6c7f47394159bffdc203247f271e46420b09206"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/completed.json",
+      "sha256": "d85fc712909f37818cb91327292f781d1b1faa213c67fc6ffbcb092a1ac2401e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/predictions/L000/L000_model_0.pdb",
+      "sha256": "5dafd1d548e1b27b097a767dfc06be53ccfc8684bd9933d105a18bc0e16f4df6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/predictions/L000/confidence_L000_model_0.json",
+      "sha256": "b91d91e45a32b1147a6c0b808f7362f97ee741c30e0490316bb2f0c5c3d2d656"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/predictions/L000/pae_L000_model_0.npz",
+      "sha256": "ba541c711a77a4947087200fa9ea5257b5d02aa7b23697f8f34c673d356562d0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/predictions/L000/pde_L000_model_0.npz",
+      "sha256": "0898f7a2715b191b7ec0477c8666810f418ee618a50c07f6ae8e52cb455f53ec"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/predictions/L000/plddt_L000_model_0.npz",
+      "sha256": "df348a9c0045cd99a0f3d13aaaa294245e85316efc3892b33d13d8f24e8a69e3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/predictions/L000/pre_affinity_L000.npz",
+      "sha256": "d40070ffca979c892fffc191c300864c03555c8a2822cc4178b8fb7d2e96d1b6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/processed/constraints/L000.npz",
+      "sha256": "1f3b38e5233bda73f1860f48fc3dc835c7c30be8631ffdb49cb21ddfa74f6077"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "7787054ea9c37e0efc82b1aeaa1bad87b888b730108fb12e3c9427ffc18186db"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/processed/mols/L000.pkl",
+      "sha256": "1a57136cf92c4751d2767df6b307b841b13c160c0341b6fdfe3a7d64b0ca3878"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/processed/records/L000.json",
+      "sha256": "8d9dc78f3713adc5d3fa4affdd1bbe339d6017f9552ff04dc32df5102d276c13"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/boltz_results_yaml/processed/structures/L000.npz",
+      "sha256": "a3018cb39eac2f80ff50e9321c7f773cc9caf71440d222b25a91cded0cfafc87"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/out/geometry_report.json",
+      "sha256": "25af60fa21c9e09ea60aee7c8cf932e2a4090dabb44c8a143bda10f7286b551a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L000/yaml/L000.yaml",
+      "sha256": "921c552480a7944a75dfc255b01f797101afb860a31ade9bd7829dbfbf8abc9b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/completed.json",
+      "sha256": "5e787aede609f18ea2375275f32b00f7130224df41454c984d15735d8b460789"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/predictions/L001/L001_model_0.pdb",
+      "sha256": "df199f19137839636814260d4176731d82e9593689af7918a2db62cb043969d9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/predictions/L001/confidence_L001_model_0.json",
+      "sha256": "5c4ff25f1b12130c59e8275b14b5c6eb9b423bf3101e8d2e08208bf2516e6b5d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/predictions/L001/pae_L001_model_0.npz",
+      "sha256": "d77f3f966c219b0e8ddc81ed86aae487abe7df82ea931e9526aab6b94ecf1fc1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/predictions/L001/pde_L001_model_0.npz",
+      "sha256": "2fdc88ec09c73d137e2ecb3c22b2cd3411a01ddd2632ae8503332985cdff6e55"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/predictions/L001/plddt_L001_model_0.npz",
+      "sha256": "d381c10526f1c9dc4ed1b7cc5478956c3184d2e23b8abebbcf926b6469b5a890"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/predictions/L001/pre_affinity_L001.npz",
+      "sha256": "0bdd4116a412e4dcbcfe5dc7976a5611361c3a728b293f3c982ee99d09021cac"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/processed/constraints/L001.npz",
+      "sha256": "08d54cc3b4787604a78881b41582f4f5e3b4f7ecd6a63add389da9fc1f0887be"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "839de13a5ae619ca7d3dcc7c576dbe7658a7f9cdb29e263c67be8364cd35d339"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/processed/mols/L001.pkl",
+      "sha256": "aa50fea1c732f8ee76bfe28985e8548d5b70b73e98ba8c21019daae40215ec32"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/processed/records/L001.json",
+      "sha256": "e2ae3b0389e7d661d77a39f3616cfc505dba4541b22aaff0849d61b688731f5c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/boltz_results_yaml/processed/structures/L001.npz",
+      "sha256": "25a8fa9e884bd3df8e5f46a6c0a8f21e9e423fa2f908f42b0d3350fc2f57ab80"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/out/geometry_report.json",
+      "sha256": "5784976f3bafc07da6600fe28cf80b6c51ebcec25de757beb91bc38ebdc3d6e0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L001/yaml/L001.yaml",
+      "sha256": "8376288188951af3889b7b50fa44411ebc7508efbcac8a6d210ac93cae9e88e5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/completed.json",
+      "sha256": "5e37c56ee6f8762d80bde4d659e9a6950bf72db716e5fe87e5a37b0814ae0f1e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/predictions/L002/L002_model_0.pdb",
+      "sha256": "3cda06a931179c8c346b36f7338f48512dd1b58b26ec7c76214112678cece32f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/predictions/L002/confidence_L002_model_0.json",
+      "sha256": "a49938c9fae5d9f1ddff5255f049bfb36da7f04a07082c507175fbe50cc24e1f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/predictions/L002/pae_L002_model_0.npz",
+      "sha256": "24786084226faaa5f55327ae60a3f65fecf5e590309975431b230ead7403948a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/predictions/L002/pde_L002_model_0.npz",
+      "sha256": "1f55d74c016bf65f021808a3c642347247dfed190cd4240a7f57cb45ca2723f7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/predictions/L002/plddt_L002_model_0.npz",
+      "sha256": "b908c5d7073f4b0f87336ce3a59ced3f1777871cfbba7c1f073680b004b9f018"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/predictions/L002/pre_affinity_L002.npz",
+      "sha256": "002df48724bdbf5be43aae0174fd1d3168a73d585f58f424a80d754332a5642d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/processed/constraints/L002.npz",
+      "sha256": "68dff6605c4a9b979d78514f920e54b3d7c5b4afbf7d87d010d71c4884b54c8b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "008e037d310ca1e8a86f928d566f9e6a22e940c6a4a9d50d0064f6deced42b4f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/processed/mols/L002.pkl",
+      "sha256": "3aa935d9740b4d346096d331e23be920bb973277539805a52cb7f35d0eaf6df8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/processed/records/L002.json",
+      "sha256": "c360f28d5288a98de63c9ab72449a4823549e64c93efc0054bc3adf3ce71e1d8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/boltz_results_yaml/processed/structures/L002.npz",
+      "sha256": "97779de65ab7d2ac94f19b4708e0d33781e841382780ac0735c087587f028c4d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/out/geometry_report.json",
+      "sha256": "c5ac786ccad253b00b7053c53aaccaba09547f76974531403cdfb4f73e2ebd1f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L002/yaml/L002.yaml",
+      "sha256": "a1e6bb2273fbeaaa9ae3670bc72b07a89c2618fee4e6992b726fa53db2eb6836"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/completed.json",
+      "sha256": "d7bf3f8dc68c12c7ebda2c601c603cbd010e07ea38b0cc78d75521de1755a0cd"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/predictions/L003/L003_model_0.pdb",
+      "sha256": "c0de25e30d129efcf7552fb66d6a072676bda6990845d7a6e5fbd2ed80a1ec4e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/predictions/L003/confidence_L003_model_0.json",
+      "sha256": "fe92077cb113ac409810416b565a905ec74bf0b60e675a15461de778b08f1e5b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/predictions/L003/pae_L003_model_0.npz",
+      "sha256": "f69034d7432136b75fca135329b8bc635e090b51b2e2b5e7798d4c6b21c83d58"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/predictions/L003/pde_L003_model_0.npz",
+      "sha256": "d72c2fb13a8518bd17122170e8148f7660db3fc48ca4e39f399c656d65aa1fe4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/predictions/L003/plddt_L003_model_0.npz",
+      "sha256": "d9ed3e96ac2cd6c8a812f214280a4dfed8aabb62267cb8ff9f911e09f19364a8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/predictions/L003/pre_affinity_L003.npz",
+      "sha256": "1107467094def058824cb1b2455aa65a28762cb13cb4b9969e2ed0463ec17c21"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/processed/constraints/L003.npz",
+      "sha256": "21f37cb1d9890a8d6a9b3ca4aaa4f01da0d23ed20b5dd5b7f18b945e9d96014b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "6c4b565c7a5d075c20af6397e87bf1c54138e101740056d92a3384652915235f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/processed/mols/L003.pkl",
+      "sha256": "99be55eb7e09bc79942306dc6ace8e19b0085ea95abf26406e0bc27120837654"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/processed/records/L003.json",
+      "sha256": "732e6c15b13e6ef97eae14f31148aba4019bd668b9b3828bf435119de867c847"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/boltz_results_yaml/processed/structures/L003.npz",
+      "sha256": "926d4766fe64a72bde588f10ee68ae132014e23476e01a61c4d53a24aa810f2b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/out/geometry_report.json",
+      "sha256": "8fd278dc158c48ddb4dce8348ced5cd06fb70d7534e8e0fa310d3bc220d53476"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L003/yaml/L003.yaml",
+      "sha256": "38762d97b82407a36cedf79737e633fe96a750f80328ae1c09a90ee51e612f21"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/completed.json",
+      "sha256": "89e0cef4c90a9e3a5c7db082f03e6808eea29da0f3a7a1b6b1ea546abdcd2ad0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/predictions/L004/L004_model_0.pdb",
+      "sha256": "b849f856700dae58847521c9f6549573abeccff6911e255f3c8e8bd7308f28ca"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/predictions/L004/confidence_L004_model_0.json",
+      "sha256": "fa3c8129a879b2758074d3c85ce1c82d37638775208b2c61977bb532f5662ff2"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/predictions/L004/pae_L004_model_0.npz",
+      "sha256": "a425cc6e338c473f3a18647eaa8490cd544b87b43c757b57be843b6824c7a8c7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/predictions/L004/pde_L004_model_0.npz",
+      "sha256": "3d0b16ddc0fab002c80920ee39a658b6887b0c8dd9d6569bc8d99cc24b768188"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/predictions/L004/plddt_L004_model_0.npz",
+      "sha256": "6e7b1acc89108eeac47a533af4c64c7d3fee0e84a7a4d68f06ddcb92e151deec"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/predictions/L004/pre_affinity_L004.npz",
+      "sha256": "1515be77c7652c8b659a33569fb98975767f7a09bec438612064b1f8a68a02f9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/processed/constraints/L004.npz",
+      "sha256": "1c084f44e6022a5b1bd167da6fcdfd5187532dc330806389964132a67187726d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "6811d455a9990a11de92a75a7f71c901b555b240094e9dae4ae83c6419dc1eb9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/processed/mols/L004.pkl",
+      "sha256": "4ea44e3b5302977f1ad11fc530c572c01bcd766814eb0ce9f6af1663bfe53d16"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/processed/records/L004.json",
+      "sha256": "7c836da3f166335a4220b2f6cf7cc411b1095fe083a47002567933bbbdacc1a6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/boltz_results_yaml/processed/structures/L004.npz",
+      "sha256": "0c681075f872e6663a3e55142eae7e283308b932cc6d61b4a4e00aac5057c739"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/out/geometry_report.json",
+      "sha256": "3f06255f9ffe7a3327de959b2d1a35faf0726bd06160d524985913185e10e59d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L004/yaml/L004.yaml",
+      "sha256": "0fa1d0b88a7582ae9172afed324c16713bcf07897d2a614b3455e86aa2e15b1d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/completed.json",
+      "sha256": "0ba620741fef59f48c5e78d228170f319d73245788c58d7be477b1396735f829"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/predictions/L005/L005_model_0.pdb",
+      "sha256": "95b54df50aa6ccf91d762325e0c665aaf41155306ee0cb6b80d494f1751f9b41"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/predictions/L005/confidence_L005_model_0.json",
+      "sha256": "e5ea0e43c6fa8b825785852f5ce93a97b6b078522a1c07362e9785078c474421"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/predictions/L005/pae_L005_model_0.npz",
+      "sha256": "fdee6d192c1eac01f0f8b873fcda86b14ce8a84e78a85be3d1c8822ccc873550"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/predictions/L005/pde_L005_model_0.npz",
+      "sha256": "d7e55161fc7857029f0e819a65f2f3c049a0bf9071f3af99880862ac322b2290"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/predictions/L005/plddt_L005_model_0.npz",
+      "sha256": "5668723c59368a67ea6b58bcee29d811668b33721c2f7029a56ce6f5f35f8d50"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/predictions/L005/pre_affinity_L005.npz",
+      "sha256": "1ea14a9c289b40621e4a1734cc808646c67dc0b5e3cf29be781e56a113cbc1f7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/processed/constraints/L005.npz",
+      "sha256": "98a8052828fab488685eca1eaa94b79fb4fb977f86f02177531c6db5217e8ec0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "0971958594324d10a717d424b6d8e9eb251bb762e81f908f30b6b83f8e6b9291"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/processed/mols/L005.pkl",
+      "sha256": "aef008390d7d721fc96a214cbb2b2a4fa51fd9e70ddcbd623932df9b8226ef94"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/processed/records/L005.json",
+      "sha256": "9d9075987913004271274f7de896c8169e38a56556a6f61f8001d3ab4e5f79e3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/boltz_results_yaml/processed/structures/L005.npz",
+      "sha256": "02db68332cdb0c83923857338e557e87e7e3c01ddc5cd579d7aff5def0c9bfcd"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/out/geometry_report.json",
+      "sha256": "bb00cd51ebc1d89f71dad816204bbc26adaf5cd7f32afe03162899a8237f7090"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L005/yaml/L005.yaml",
+      "sha256": "0d07d2e7d51c31f5da502699b045de94b07bbb5179a3df093b940a529490d4f2"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/completed.json",
+      "sha256": "750b4bd369845401d3b7549087774d5542816cc6d7a2c3f1517ea1d9569a1f7e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/predictions/L006/L006_model_0.pdb",
+      "sha256": "a35f733fffe0b41602fc4361d93a22483d56dd51b4459223bc4a53bc774f3e33"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/predictions/L006/confidence_L006_model_0.json",
+      "sha256": "e1c220cf8e200c4f0a9a2395d2882cc844ceecf185d7f9a54f6fb9a58873911a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/predictions/L006/pae_L006_model_0.npz",
+      "sha256": "3c41d38ea4873f70c1340408c2f74af0b42f0ee827fc368a4d78729952c00203"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/predictions/L006/pde_L006_model_0.npz",
+      "sha256": "3c840dd81972555d9c6f4e0a099d31c62229c557a3629925aafe7dca7ca36618"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/predictions/L006/plddt_L006_model_0.npz",
+      "sha256": "0188e302facd6b7092e65c2c621b0ea6ea261742deb719bf663ed95e03fb4b30"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/predictions/L006/pre_affinity_L006.npz",
+      "sha256": "915aab2793423e5fbb2f708b55304cf99b671b0359cf47b0284bb5a2754d7e3f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/processed/constraints/L006.npz",
+      "sha256": "54f76701d0cda06e85c05eb2e8d0d5e8d340852185a2ddda3cbbbcf93bc68aab"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "7329f6d18b750dd725e63297bd6e7b262a07985fa1e8f0ab7ccee718d94266bc"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/processed/mols/L006.pkl",
+      "sha256": "9c947eae6c1f6a254e7b4d2f7002f3e9549e83fa212b8f7b329abab77aab6ecb"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/processed/records/L006.json",
+      "sha256": "5d387c24cd1e8cbe11c5ffc931d9baa3c9dab83d4f661a33977ac13781ecef24"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/boltz_results_yaml/processed/structures/L006.npz",
+      "sha256": "a4ac639986782d58b5981b3c3b291bef1923abc95525e306c764c2c7d339f3b3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/out/geometry_report.json",
+      "sha256": "e596afb284be6e55a0f4b04e80ee9fbcd6b50087ab0fffec42b467d1cc51a3f1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L006/yaml/L006.yaml",
+      "sha256": "b0356d48f84621af11080f18261187d9fc89a58cab522220fdba28099af25f32"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/completed.json",
+      "sha256": "30bc57b67b13804d0eddb198755415e325f79e5f2e4fb06b19619716de8c387a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/predictions/L007/L007_model_0.pdb",
+      "sha256": "b84caad1091bbee5bd08cf41d1ac6033d49ea0414bd6e841f930049c7b5d088e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/predictions/L007/confidence_L007_model_0.json",
+      "sha256": "c5b19dd1ed84dcab94a3054df64b0125141a704b613f2b3a5b11d86ce14b4c6d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/predictions/L007/pae_L007_model_0.npz",
+      "sha256": "2afdfb786262b3272bf44f6407865558245cab8b3cea8ff404ef6dcd8465fadd"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/predictions/L007/pde_L007_model_0.npz",
+      "sha256": "8b92a73d78cbe283bc3baca0f3148bd96ee03620aaa5219baa7de8570afa07e9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/predictions/L007/plddt_L007_model_0.npz",
+      "sha256": "02ec4571d567fcb555ef1525efde71b4320f6dfcc67276ed2a03e4848528c67d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/predictions/L007/pre_affinity_L007.npz",
+      "sha256": "78f405421b34c23ab176d25d4bdb06bd691f566f216cc1a04334a86b644c9c9c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/processed/constraints/L007.npz",
+      "sha256": "9e9278d4fa91810944c1ee9a41fdac229215e93052adba1a279b1ce13c1dcbaf"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "4d07edc14497e158bd6f061d5aa0bb912cec4dbdf388fb64f84f001952679be9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/processed/mols/L007.pkl",
+      "sha256": "a31c42fe0349c883c1dc33dbb2474e55b31ea1a372d90720e86b86365b2f8a03"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/processed/records/L007.json",
+      "sha256": "485282c23986c0de57cd974d55c5cfb16045893c5dfa5fee7a22e2a4ea2d8353"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/boltz_results_yaml/processed/structures/L007.npz",
+      "sha256": "f350f5b1f343eb05f6b59adf08db417bbb5cab3f68f7adbc30f5f5299fdad9d0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/out/geometry_report.json",
+      "sha256": "6b640fa0bfac0f2d9cc085288c460693b889d83c6f9727d16bc9cddeaa8a5ff3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L007/yaml/L007.yaml",
+      "sha256": "417c63a75b382a0c7233e8258f660486512b2a94b58b5f3b5cbe11a9b0792a27"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/completed.json",
+      "sha256": "15fdc945670d23c22a202815b304149756cc9d05c334ee184a988929a3d9ad3d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/predictions/L008/L008_model_0.pdb",
+      "sha256": "b982431b0596fe19cab822a9ed387eacb35f4e9566d1a12319f9d17bb7fdf79b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/predictions/L008/confidence_L008_model_0.json",
+      "sha256": "35943af374c52bec32b5b82d53255d972c9dd57aef1ac7e807cfd2a17891c34e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/predictions/L008/pae_L008_model_0.npz",
+      "sha256": "c5d2967e1279574b9fd15240ccff6d2c9237c7c5d8b1f3cd161d832a3a6f160c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/predictions/L008/pde_L008_model_0.npz",
+      "sha256": "d0ddae1c9135fe283bddb815cf88ebb581148e140799609fbc3b3dfda4a4be1e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/predictions/L008/plddt_L008_model_0.npz",
+      "sha256": "5e62f2cad8f5d4c885145626a40f4a6f9b33743970f8aba311db8bc5c2441254"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/predictions/L008/pre_affinity_L008.npz",
+      "sha256": "8f88eb78ba29b1fe5669b081f529bd30b9bd4cc3267d5648bd5bd5da9438cd40"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/processed/constraints/L008.npz",
+      "sha256": "c27884810a78c6aa75b0bd7d548fc9d9fe7aea16d5b69d65d63359676b1418a0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "3ddfaeebc1f3ccdf9d425a1b7a65af29bc07e5156b976403e4e09751b74cf02a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/processed/mols/L008.pkl",
+      "sha256": "0994cf1ab2e8ccf254196cff47c44840360e36697a3be0779da2f2e678d33551"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/processed/records/L008.json",
+      "sha256": "51b419b6ebf7d7b51d1315d1039ffabde7e7901a9406a4ce8114bf7a184238a3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/boltz_results_yaml/processed/structures/L008.npz",
+      "sha256": "3d2d1b474779bd2de8b74272da97dff040ca665a12cbd9e7f8f7101a0cb0ca19"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/out/geometry_report.json",
+      "sha256": "3d8dae7f9bc358ee079d0ef2ecb740659db58d7379598df85175c7242dd7ecd5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L008/yaml/L008.yaml",
+      "sha256": "56deb173fa9c05cf5475dcfef3c64635f2df3f98205ec8fb3dbe16e17c6c0bb7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/completed.json",
+      "sha256": "78c3c832c1d311ec48590be89f1d0033700e5293b801341fc2bffb5672b2f1f3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/predictions/L009/L009_model_0.pdb",
+      "sha256": "5a47099022d40ce6b81b2ad128a58e9b00002c59ad0a380b9e9870c027a91f2d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/predictions/L009/confidence_L009_model_0.json",
+      "sha256": "a17ffec2560d140523c6ab2ef481575a6b269b32bd79968f37bf58c25949c24a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/predictions/L009/pae_L009_model_0.npz",
+      "sha256": "6d653ddd9ab9b26af86cc08cfa37b53752345e656212edffe949463e7e7f2fa6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/predictions/L009/pde_L009_model_0.npz",
+      "sha256": "6ea9641a7ff6203b7896ef10e1ad9e6b51ec750847788a50f5fef873ff3edcbe"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/predictions/L009/plddt_L009_model_0.npz",
+      "sha256": "67a6e621a74744d236e4872eee1bc4192028b64dd5cba74e553b429925e04595"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/predictions/L009/pre_affinity_L009.npz",
+      "sha256": "62f0ee4117d8863ac91ca7f5874ce884c77801a26398c35e40e47fa92a8d6cec"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/processed/constraints/L009.npz",
+      "sha256": "7af5389a13eb6ad9570879a8e49a3159894cd5c4a0d8fb5db4812fbaa0deb936"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "3bb4b01a7e4af70095b883a240582200d5841f8fe2c8108b04a751db844c9017"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/processed/mols/L009.pkl",
+      "sha256": "2524e25f2bac05e01ff385afaa230c483a4616afc895c25bb46adb5f02fcd4c4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/processed/records/L009.json",
+      "sha256": "48612d996ad82589007b4d63447e12407113a2a6b1672d3a877e8ce239ec88e0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/boltz_results_yaml/processed/structures/L009.npz",
+      "sha256": "e7575b76dec4e6ca0278801ed443cbf8fba1a72006076ffb2a365f30a3e67fc4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/out/geometry_report.json",
+      "sha256": "332bad7d429a1f68eafb17c320b7fa1a54af4d097c0d2df05aef55baa65871fc"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L009/yaml/L009.yaml",
+      "sha256": "7eec3fdef9c7a94f1c4d34b307adb926e8b27b8d2bfb84a950d6ae8ddcb57361"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/completed.json",
+      "sha256": "c728f07c7cb69f5bb62a3242cacd31621f5c198ddb4426c971ccf58622d4e944"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/predictions/L010/L010_model_0.pdb",
+      "sha256": "bb5edb01f496c998c662d6b2d44351878fcbc1872200f19b3a2061f1e9296442"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/predictions/L010/confidence_L010_model_0.json",
+      "sha256": "6dcebaf3daec79b65ca076bc5395824db6aad59e3792d3586ec375f4a8418bda"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/predictions/L010/pae_L010_model_0.npz",
+      "sha256": "13823f5d31841953d02299749a9fbf860614a447a2e1ffbcd6ac8c76faace6d3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/predictions/L010/pde_L010_model_0.npz",
+      "sha256": "f8f5393aeb2db69d387130efb803ff649ec030579ceb1839bb4011319b75e376"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/predictions/L010/plddt_L010_model_0.npz",
+      "sha256": "fbcd98db026ed0e99c7de5530f3e12a6d5c5a00189b52ef9c07f2d4df0fa16eb"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/predictions/L010/pre_affinity_L010.npz",
+      "sha256": "560df4347fb2f701b80e3efec90da6dbcc138a0d3d41eef0f0cf8df0c7341065"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/processed/constraints/L010.npz",
+      "sha256": "a31b6d8e2cdb03bee7871c894e12cd38ca941f6c68c70c5949ce7c3df109ed65"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "3af4a69814d3ffee01fdcfa978697c064e5411cf167bb1a59a38cd0b6c971fcc"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/processed/mols/L010.pkl",
+      "sha256": "2e91bec746e7c721128cbcc90289ce2a5b4a253902120c01f2d0db4437188753"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/processed/records/L010.json",
+      "sha256": "d2757278da3126ceb08884e84278849eb7be630229c483737f31e7c5986665e8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/boltz_results_yaml/processed/structures/L010.npz",
+      "sha256": "54ddd6175a707ea38f510d1276b650af000b08657e2fac5ed3e78e4ca04b61c2"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/out/geometry_report.json",
+      "sha256": "79bbdf1a4b3a3b489ec78774bb58384565cc839fd8489aecdd076f6b6f116c38"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L010/yaml/L010.yaml",
+      "sha256": "9d9a889f39650eae65ad0934e46718f7b8f0a6251988c901098e84454e0a4271"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/completed.json",
+      "sha256": "2d60e06861f0aec77465555254e9c0feac748ce41830d9498a5d0b6359edb011"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/predictions/L011/L011_model_0.pdb",
+      "sha256": "47966252f348dd54b1d5b22c7b03195fbdd49e1a26d0ae1f16726f38316f3a7e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/predictions/L011/confidence_L011_model_0.json",
+      "sha256": "f964941634ff1ef5ff12af16ceb74264caedf5e642c9d6ebbf05c14df3164c69"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/predictions/L011/pae_L011_model_0.npz",
+      "sha256": "45052350c4a78c6e66e6bfd630bf1474d56486e8cd4e7a18dec45c87125156ee"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/predictions/L011/pde_L011_model_0.npz",
+      "sha256": "e98b56781af16256a0992668252b657e37a4323b564a02b0fc1ffb421e380ed6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/predictions/L011/plddt_L011_model_0.npz",
+      "sha256": "3eb536f6b4e90c7785a6cf7392cbce9ffe2f03971b0886ac223ed9d1bfa8eb74"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/predictions/L011/pre_affinity_L011.npz",
+      "sha256": "1c72e42f208b2f5bc25ef8b64ed94feb9a38e483908ef441e07bc336a178971a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/processed/constraints/L011.npz",
+      "sha256": "ae3e919b6d4bef3e9da07e0b0336ced194cf2fa5f158bad11402e33d28c3e1c5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "f2b606050d30f25ef45771112ae9d416fc534aae17c82b3876b74a4aac7aa465"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/processed/mols/L011.pkl",
+      "sha256": "160fed752a07dcc18f19da1a52d2b826af512fd7e89064c1ad0539c8cf689618"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/processed/records/L011.json",
+      "sha256": "a5518e9c5e4ec571d01c6054f0777c429393673ca4f5c991188e34d8af74e09d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/boltz_results_yaml/processed/structures/L011.npz",
+      "sha256": "2cc88f659242c784ae4f6818dbaa83c4e3ac2718e3490f27f9139dede3d5c21d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/out/geometry_report.json",
+      "sha256": "818af17343da5ce20755a781880fbadaf9bfcba655f531989463a70e01397a3f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L011/yaml/L011.yaml",
+      "sha256": "1bac1f15ccf66377b1a588e53fc80de494a76dcbae71bcbced3a182baa5f3baf"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/completed.json",
+      "sha256": "2efb92dbf712a4da91ac636e3813711e0031ca411ccccac3abed1315a4270bdb"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/predictions/L012/L012_model_0.pdb",
+      "sha256": "efd0ec4a70a4f51bdb78fdc581ab6213161aa0e90955f9ba1690f32b7241fdde"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/predictions/L012/confidence_L012_model_0.json",
+      "sha256": "f5f225d218f63b7fa7761342a1e5f4c1bb7dcea549e156e2df797322010ddd8d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/predictions/L012/pae_L012_model_0.npz",
+      "sha256": "c4dd62e8b4393fee01452b96823167c83bf666e30319f94e0320eb6d7091b525"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/predictions/L012/pde_L012_model_0.npz",
+      "sha256": "8f05dce1edcf645daa3040c144e34117d9d2511a8f1ed2c76db275e2f5dd65c9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/predictions/L012/plddt_L012_model_0.npz",
+      "sha256": "7004a5ae112931b6b1fbfaee0d392c1758b53259a23f5cfd3600035ac9a80024"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/predictions/L012/pre_affinity_L012.npz",
+      "sha256": "260b81500eded635e7b99c9fdcd988a533efb1755f6c5f48f89518568549c6b8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/processed/constraints/L012.npz",
+      "sha256": "c65e1a97a7b79be0e59a7e7e9d2f3a84f90335c9da6d61b355802e7ea6839f5e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "258dd159b75a9fc1a6c4f07b1689bae4a12c6f3fd922f4816c14dc78eee9eadf"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/processed/mols/L012.pkl",
+      "sha256": "1b8560e5581bb0dc81da7ac6af643e946f778f42e359bb27a5b0aae15bebcc0b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/processed/records/L012.json",
+      "sha256": "867b7c45344fda9a0dc6100177701b5c9f02e9a0a1c3a223d148427a4e50802d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/boltz_results_yaml/processed/structures/L012.npz",
+      "sha256": "8611bd18b59dfd62796ea8ac66676d9fbcc96f948560f5e51ab0667ed68b5490"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/out/geometry_report.json",
+      "sha256": "b9a7730d20fbb350d96b477bca29a753a30ea55740deee319e8211109ec42653"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L012/yaml/L012.yaml",
+      "sha256": "31d97ca54c0e7287d713bb6e8798e6c793f04f76742e14e5247b9c5aa28860be"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/completed.json",
+      "sha256": "98020fed0ef73fce855cea40450d21e74145af57f06ff27acc16aabecce04d5b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/predictions/L013/L013_model_0.pdb",
+      "sha256": "5770065a089be3aeabf5508fa6504257271306ec570dcbeedf614a4e227162d3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/predictions/L013/confidence_L013_model_0.json",
+      "sha256": "f9ab1c07e3912a87c4aa0799ecf44790bfeebe980ba6934c9580f6fe6efeffb9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/predictions/L013/pae_L013_model_0.npz",
+      "sha256": "765ba239e0e8002182c4141f6ee5cd8a324acb2859c99d589b9fbd6dbeec92c0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/predictions/L013/pde_L013_model_0.npz",
+      "sha256": "bf9d9cfec342f851c1365c1e62ae0ec9c92990135459853a95f6e5e0013f0383"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/predictions/L013/plddt_L013_model_0.npz",
+      "sha256": "4aa58d66f37d904fa0e7c0b5bc0b2437beb2aa230cb7956e9bb62ad2b0641000"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/predictions/L013/pre_affinity_L013.npz",
+      "sha256": "9f15784472d2fee071737b360cfd528ca0683f2c8a5fd2703d95bbbb3480a36f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/processed/constraints/L013.npz",
+      "sha256": "3e31cfc489967a8e9ae865a78c71e096bef0059238d6239d792b4b85ee23c182"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "976b7a1bbb87b48b33b400d9e1d70a904ad6888f001940d358e599395d238a18"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/processed/mols/L013.pkl",
+      "sha256": "b66874b5b8a91eddee15284dc884e4244a6c7e92a024bde102b3d8a897e5ccb9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/processed/records/L013.json",
+      "sha256": "a820ff8e57f88e27de26f57e93bce8180b97e5e657f2b49d21b89821048dd2fe"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/boltz_results_yaml/processed/structures/L013.npz",
+      "sha256": "1023c2e232f3fd0be941154d1170335b764b133c69ff72d233fddde4bbfe66a8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/out/geometry_report.json",
+      "sha256": "fc081b167c20cfb1d7fcdb5459dcee2f30807d0b9747028f0c5bb423eac0fa42"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L013/yaml/L013.yaml",
+      "sha256": "3b46926ebad0c6e9267a876833f2f5c4fc45d9a00be114a5050502e640557271"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/completed.json",
+      "sha256": "07a9b62600d310c3d62756f164f1c15ec5e76b8566194a0ab256b164d32e3fd1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/predictions/L014/L014_model_0.pdb",
+      "sha256": "af1015f954a7c35a2fcf385aff758af0959283a5d91c6d27b1325a73244c180d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/predictions/L014/confidence_L014_model_0.json",
+      "sha256": "e32588af9102a0897573569c85e68ae727a2ec9bff0faee069dae647763a3a66"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/predictions/L014/pae_L014_model_0.npz",
+      "sha256": "8fa2e2f687beff3cd89bc72076a4b54bd0ecfb635a04cc96769c990f7cce5d0a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/predictions/L014/pde_L014_model_0.npz",
+      "sha256": "be99fb7f055cbbe2a2a0fa5f268da8e37e40890813af81f9b8e4846f0fca8b68"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/predictions/L014/plddt_L014_model_0.npz",
+      "sha256": "330828c4a87e30375d36e8edd96e316fd5e3e0df69ae514111c052085b9965ce"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/predictions/L014/pre_affinity_L014.npz",
+      "sha256": "de715a43e42310733a7e616a0b059a613b04b47ecade4ca631e6dd9aca1d6eca"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/processed/constraints/L014.npz",
+      "sha256": "8c0b0ee88f0da16044e40e169f422513ab44ac9826eead54817b3135c08d0daa"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "db0c7918842e94b96a3c2fe0c0352caa769baddc953fb5e38c3f534e93855a1a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/processed/mols/L014.pkl",
+      "sha256": "dbed87f3ca2605467b0455452df9ef598ff80e76bb31f6e536b57042642c8ef8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/processed/records/L014.json",
+      "sha256": "f9d33657190e98e392dfe03b01f9ee9252007af3ea943648d7b40ca93eb5c8ba"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/boltz_results_yaml/processed/structures/L014.npz",
+      "sha256": "cc1831a0ce12431359cdbaf779e7e411da7fd4c2dc752ac8a8844af7af98263f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/out/geometry_report.json",
+      "sha256": "f6f17a111d50835f8c4bd0a7a13dbe491f929b6ff0f174dfa548c16b7be9aa83"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L014/yaml/L014.yaml",
+      "sha256": "8e26aeea56a74cc4c248b2030edbf19aabe14751ec9e9bf4df6c16c97cba2ec1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/completed.json",
+      "sha256": "0a9b8b79ecf96b21bc745c9a526bc092022f080c64931f78440f74d13f8bb12c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/predictions/L015/L015_model_0.pdb",
+      "sha256": "c01a90a50111ba9b129130ed3b7f061df62a91828fa0fe510948aa6e4ba55904"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/predictions/L015/confidence_L015_model_0.json",
+      "sha256": "a61acfe2b7fb10be09cad41fc5cb33984835e9d550c1b35123af353bcb39610b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/predictions/L015/pae_L015_model_0.npz",
+      "sha256": "4c233d3701140922393df4f72764f458ab1dc41793a02441aadf01c3e058d6cb"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/predictions/L015/pde_L015_model_0.npz",
+      "sha256": "d43c33af9faf4ea9cf4436e9c9116e76ffe90fdf40ff651b70717d96a97ac014"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/predictions/L015/plddt_L015_model_0.npz",
+      "sha256": "72c1446d927dd7f1d37df36bd60fc370b27002786678e94c2f3bf5a2fd622504"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/predictions/L015/pre_affinity_L015.npz",
+      "sha256": "1e22d51492a70a456e264c566ec96bf436558bd2f399b1c10983da813ab83105"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/processed/constraints/L015.npz",
+      "sha256": "f567406c8f0a0588a8b737c0cfc250167a89777bcb5db79d3d8ec6577bb9fc7a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "5261b8357af13d9c44398d15f342227a48c770a21006b71034ca024c0871a985"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/processed/mols/L015.pkl",
+      "sha256": "4b734ef846115e316b0114ec8ca6139631dc80479788630680f369de0e6d829b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/processed/records/L015.json",
+      "sha256": "069d517b206ac87a0b246d5074566ceb7ce018201cb0d8a73cfc767026368809"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/boltz_results_yaml/processed/structures/L015.npz",
+      "sha256": "c0ed7a25e6273ad142b9dcc535fb0cc9f787cf910f716acd0f063d4bff6a0284"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/out/geometry_report.json",
+      "sha256": "d4c66e8a03f90552900dea12628c1e1436e91504d2c68a0a43560de1221244a7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L015/yaml/L015.yaml",
+      "sha256": "8ffb8c8927c8439556a5713a8f9eab82a1f6006b28add53dffac973d9734864c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/completed.json",
+      "sha256": "2f1e459fece42e65761b809f43fa25ed5b399ef49c33656156e66dcbf017494c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/predictions/L016/L016_model_0.pdb",
+      "sha256": "a0923ee1b29d346865aa16df3aee25776773568dd957cb0b13b1ce07b22b1086"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/predictions/L016/confidence_L016_model_0.json",
+      "sha256": "0e83867c2cc1f4b2d5df5010e7785b8a0f89a1cd031d8887722639be192c7f26"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/predictions/L016/pae_L016_model_0.npz",
+      "sha256": "8653299094dd365e770c571ca19c71582028e2f333a63f8b2b8d63d04e9baa5d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/predictions/L016/pde_L016_model_0.npz",
+      "sha256": "8645a00c8f792c1660e247fda3207cc5b93bc19674930c0411218e0136da8ac5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/predictions/L016/plddt_L016_model_0.npz",
+      "sha256": "03a1a3033de16fd3c692e1f47c36a261ffee4fb73fb416695f88bad9cfd5b4d5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/predictions/L016/pre_affinity_L016.npz",
+      "sha256": "7067a520babd59c06ac5391fe2537a34a4cec4ef625f60207d4fb4d182513e45"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/processed/constraints/L016.npz",
+      "sha256": "969368aadf3e17decb02957ffdda1665ebacc766d6deea3e49bfe91112dbabd6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "6067300fcfd9fa5178c3ddb631a1c1ea209e5c86247ad9ebc8135b30c38ade91"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/processed/mols/L016.pkl",
+      "sha256": "5c61c5860f87694ab637d7c1048f8716304abbb953f98c230a67f368dc33abd6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/processed/records/L016.json",
+      "sha256": "59b2d0bd0771d0bedc1303a10b32e2528748856f869c9b59544eae8a3c7a8097"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/boltz_results_yaml/processed/structures/L016.npz",
+      "sha256": "2e974e538969daa0d263c7096042e0ab87f914bb4a2762876b5de1b5cc602902"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/out/geometry_report.json",
+      "sha256": "dc82383ecef5675b7e05f40c0465826cc86198e45dd08f197fd0da5d24f8e717"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L016/yaml/L016.yaml",
+      "sha256": "3f4698f7650d14022167f4d1e82aaf79b68985badda875173d626774441c82c6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/completed.json",
+      "sha256": "123ff7cb4e72e44f7f5433329bba0ceb221e42ace3fd110ed7279df00800a081"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/predictions/L017/L017_model_0.pdb",
+      "sha256": "f945d68f68c2d5ddc582fae5e9f8a0ceae21df5d38e764316a6a6bd2fd11cc41"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/predictions/L017/confidence_L017_model_0.json",
+      "sha256": "3c249f7c186c66a086508748469967b22671b349c95fb5e6df61c8570c3b182b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/predictions/L017/pae_L017_model_0.npz",
+      "sha256": "6541efb1d1780d230b11f5749f7b2447c748d83f348039b5e05944a0d3b16035"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/predictions/L017/pde_L017_model_0.npz",
+      "sha256": "f7097d92e4052ba6ba97c6d3ba85b989adc940cb44b6e5a0969877350f05f459"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/predictions/L017/plddt_L017_model_0.npz",
+      "sha256": "1dc8130cc3dca25719fa3df4f888b6682ba10a790df622bcac6279e54917b8d7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/predictions/L017/pre_affinity_L017.npz",
+      "sha256": "78c172ad7c3d9da04ca644c117ef14c9d4db0697050d3c592c940971c9205b81"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/processed/constraints/L017.npz",
+      "sha256": "110e3d79148283c35acc1633c8dfeea243bb33013f88761a7641457619eda6c6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "b73c4a73f9dd4a2946cc3414b610e535f50923100b7fa63b6d386b8b74d01d44"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/processed/mols/L017.pkl",
+      "sha256": "eec33dc872fd676dc88d182eda99afec20b5f8324cd9fb12f9fc61f007fb3c4c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/processed/records/L017.json",
+      "sha256": "e0490d81dfb9478a44b1d92e4e1595301392e810caf559248f9e1e1eedd05f2e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/boltz_results_yaml/processed/structures/L017.npz",
+      "sha256": "aaa575ece47d462753fe8cefa435cd93fa5bba9a52587f6f175595e5fdbbd3df"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/out/geometry_report.json",
+      "sha256": "ef8891dd386ee63f30dc9a55f79eb13982fa8590bf599bc1e861a9fa862b35e0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L017/yaml/L017.yaml",
+      "sha256": "e7d7a2e40d5ca9424dcdae75abd69ee6ea8d86224cd512689872e9c7317b63c8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/completed.json",
+      "sha256": "6dbb8b88d4a231f5d34007346650517b8c8030838debe1af41ba01df0c67c7df"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/predictions/L018/L018_model_0.pdb",
+      "sha256": "50d57c0bc1960520ab646bc5d03cfb382b616a64eb0b5b558716fb51c6877844"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/predictions/L018/confidence_L018_model_0.json",
+      "sha256": "2ea2f8e24dc2f817799a3ca72633eacd7ce08b0fe97a5ebd494a3d6582149adc"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/predictions/L018/pae_L018_model_0.npz",
+      "sha256": "a66790da64592ca415d6c14e7a339f4a06947be016a64e076f040bf9953b9c1d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/predictions/L018/pde_L018_model_0.npz",
+      "sha256": "3450ed5cc580e4108e44297fcad1744a5d0958c64c7f44067935a4c1a10de918"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/predictions/L018/plddt_L018_model_0.npz",
+      "sha256": "abcb284e2d190e91d1f19849ab4f04726a32a1f2429379015da42eb595d9bd5e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/predictions/L018/pre_affinity_L018.npz",
+      "sha256": "a01dbe7ee2c07cd8afd07efdfc9cd6992c853fa2b344d4a1d5a9f87694d53e6b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/processed/constraints/L018.npz",
+      "sha256": "3b516cf3da9c58a98a7d7f210453e4891ef5c9c81448cb60b9df2e8c9f536569"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "4f963007a40f69d68c386f79f91d75b864a17222174d15b56f83cdf6e9e2211f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/processed/mols/L018.pkl",
+      "sha256": "9d31102c862efeacadf53edc8df0b08d5527e4109eecdcda6630f69f7da2a6fc"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/processed/records/L018.json",
+      "sha256": "fe42f7805e14610671927df6f6eabf45c6d49e3160356ee0ca0212b33f64cb6a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/boltz_results_yaml/processed/structures/L018.npz",
+      "sha256": "45ddf08f731ae2c511d253d3e461c381817a38ae7238069db4e8f5240e8c0e35"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/out/geometry_report.json",
+      "sha256": "2d7ad19b18c8fb355627468f55d75324b1688a27afd3fb3838c9a9eaf1e7b3c7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L018/yaml/L018.yaml",
+      "sha256": "fa42abb4011ae7829174af3e22dc449a75686362b6653eab5d4a71f8aeabd7f0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/completed.json",
+      "sha256": "50ec1f565d050049115e674d4a8083dfa39e8404bc38e8186cf3f8d53b69a9da"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/predictions/L019/L019_model_0.pdb",
+      "sha256": "8f75494ac99be4b716a3b8363e6d4c2fca4bf9e7020b7715ee5e10d485897616"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/predictions/L019/confidence_L019_model_0.json",
+      "sha256": "9a5c6ca7789d86ec4de4474492e0417abca1dfbc3ea87d6ea35b013c760971e6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/predictions/L019/pae_L019_model_0.npz",
+      "sha256": "d06af44d127aabde4a01dbb5181878877d082bd347e088ada5b8a6c25707e4ff"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/predictions/L019/pde_L019_model_0.npz",
+      "sha256": "6c0df3fba06785fa62bf8d9458f44de8acc39f038f83c5f77f3372a311296815"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/predictions/L019/plddt_L019_model_0.npz",
+      "sha256": "efc3ba89c7d2048f5d96d155c721f95fef3557c14dec5f2b172c33f8991e5874"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/predictions/L019/pre_affinity_L019.npz",
+      "sha256": "1321d9aebed8106e39f16b1c1e0aa79e2eb77722998045e7d891344e43b7f3a9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/processed/constraints/L019.npz",
+      "sha256": "baf4ca6c7d1e1bc049b1d55b7e2d1934689781904b87fb16c227b0769f266a76"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "fbd827002568de05c875e38d9aed5a175c12b2d068f67f7dbcf6ad851dd89d53"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/processed/mols/L019.pkl",
+      "sha256": "b87627aa517f67c1752395abdeb8f12cd1cdc8f184a421d18db05f593e87c843"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/processed/records/L019.json",
+      "sha256": "a65ac3776577cc3fc3112f2b89af722d1063a2e6ceb1cceeec7431b8d5a4f3db"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/boltz_results_yaml/processed/structures/L019.npz",
+      "sha256": "df3b88a3d25ef05c394015bbd144319c9ba9a4394b4ef73e17dfe4a78030adeb"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/out/geometry_report.json",
+      "sha256": "85aa09a3f6aaccef963d749444f4a4923ef8d5dd656db882b2809bab1206b2ff"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L019/yaml/L019.yaml",
+      "sha256": "20613404c4a54cd749677734b47e5b09f3fe42c4499632185363c78977271de1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/completed.json",
+      "sha256": "8350c4dbaaece9c8eb5173d9a2dfa55a2e8ddc2ebf6b18be602d897ea3983207"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/predictions/L020/L020_model_0.pdb",
+      "sha256": "d2b4e4504965b4afb92d7f9575a3598a8545e2a518bede0248ca0219a51f3e95"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/predictions/L020/confidence_L020_model_0.json",
+      "sha256": "2e1a52c3245a91cc4b988190d68dee87bb6847beaf1b5a6daa8217ddab640263"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/predictions/L020/pae_L020_model_0.npz",
+      "sha256": "63c36a92768481006dfc9c7e274a88bf994571d941b3141e621152e8e5d2a68c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/predictions/L020/pde_L020_model_0.npz",
+      "sha256": "c25cb8a45f28ebc46263993336eb2d293c7d34d6eff112b0b3d4c739c13fc627"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/predictions/L020/plddt_L020_model_0.npz",
+      "sha256": "17a82dd6f3e8f07f027b42c614c7b8fa9aeab027bfb99c90f2d54e9272573a93"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/predictions/L020/pre_affinity_L020.npz",
+      "sha256": "60cba4e2f16cb49d939ddf11b96d0402de8337e8e87ce094166c855444fb703d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/processed/constraints/L020.npz",
+      "sha256": "2646a9e85976dcfee8c93299dbb7b9da822e83a90254d17b9beed75497bff009"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "4733d4ed9d70a62502b7f8970ea3165076d842577f4aab24c4c270d0464d5411"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/processed/mols/L020.pkl",
+      "sha256": "1c2cdf44afd566b6f5836b5229d6e0f734d044831028d00743d2090b7922a5d7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/processed/records/L020.json",
+      "sha256": "649f25380367cc0146d3651a814f9df1dee69e77e7a88c313fca4098039ecd6e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/boltz_results_yaml/processed/structures/L020.npz",
+      "sha256": "df95e3fa31bbd6bc437df4b9b84a16d7ab3586f314bd40abade887946a7e125b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/out/geometry_report.json",
+      "sha256": "034a3c77ef5b1e39e9cc84b5d00b12e27bc7417a28daff98d5be5513fee42a6c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L020/yaml/L020.yaml",
+      "sha256": "f376db9a0467a5bb50a05f7c42656f77a8ddd402ea5c2013e1e87692da63835a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/completed.json",
+      "sha256": "f7ff720fe061731efab085ed068424889a24668b5e33e828e53d0a4dd30337a4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/predictions/L021/L021_model_0.pdb",
+      "sha256": "ea35d93157e37b5bdea8b48f71515281be833e692f4ddcf4cd9613b76734c1ef"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/predictions/L021/confidence_L021_model_0.json",
+      "sha256": "b83698ce875d25da8292e4436a47e33e91ebc7ac697e312b5b2c98bd8845b891"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/predictions/L021/pae_L021_model_0.npz",
+      "sha256": "98b743588eb859f7776c5d4d2f0e8e3f4be1c5374f065645f5a23319b8800b03"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/predictions/L021/pde_L021_model_0.npz",
+      "sha256": "1998a856a0ea16d314ac4dcd751081ae17b7aaaca3beb6716e936006d0f2b60b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/predictions/L021/plddt_L021_model_0.npz",
+      "sha256": "83e8c83acb896eb0aa62717365a337ce3be18f0b310373cbfe60a4ee16e36b91"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/predictions/L021/pre_affinity_L021.npz",
+      "sha256": "dfa45a018a60f8bb46b632febac4c797436398b6d16411b587c16b88e2944e95"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/processed/constraints/L021.npz",
+      "sha256": "a82cc9abdba9413624d8ae86183e969dbc08e4c85498c5f9e4ae021d3794d73f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "5e8a2f2a3d17cdae9ff3ab1ab674128ae293c843c4e87cbf0dbe5e033ce94969"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/processed/mols/L021.pkl",
+      "sha256": "b991afa28ad8c195efdae785dbadb247e5917cf8daa0bd598f71dd5dafccd21d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/processed/records/L021.json",
+      "sha256": "a52927dca9f43ec7312dcceef35a9457f9071e3d2c2940cbbf86ea57d9882009"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/boltz_results_yaml/processed/structures/L021.npz",
+      "sha256": "6dac6648c5e777b6abea4b6effeea7b8d6ed069cf774f0cd3b8ae9311ce3d4e6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/out/geometry_report.json",
+      "sha256": "96d2a7470670e40481285b3ea52f0d3d6b3b7d53845f1e073a43ea97100785a4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L021/yaml/L021.yaml",
+      "sha256": "0a8baa99a50a9e43a1fea7a54a82f7c8628e1d1d922cfb3bf532077a838e1d9e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/completed.json",
+      "sha256": "55f4b7d127267fa067dbe757cda426b9e977b4a5bc0b5669ce2f11aee9ae7db8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/predictions/L022/L022_model_0.pdb",
+      "sha256": "bf303ccde431e915c04ceda22c57f736093674d82190232f7e03be7d3c196d03"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/predictions/L022/confidence_L022_model_0.json",
+      "sha256": "2dd70a152a3a2f14d5ae87e0678e670dc5d2152fb5d6594aeba671fa14a17c66"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/predictions/L022/pae_L022_model_0.npz",
+      "sha256": "9da963084ff772914ffbfb71881e4dd3b6c94ae62aa3e35eaf83c7a6f5fc6d82"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/predictions/L022/pde_L022_model_0.npz",
+      "sha256": "b0d9239c8e8ec24739c48c5a056e0870c6316bfd6138ae838bafd7c3eba11299"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/predictions/L022/plddt_L022_model_0.npz",
+      "sha256": "1d577edd06a382443f09ad113be5f1b3f45d1f1e53615c8cc094c8334136a0e9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/predictions/L022/pre_affinity_L022.npz",
+      "sha256": "4848c156ccf0f66c77e303c9dfe1ea2380cff022cd1a10f99efad04ac159722f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/processed/constraints/L022.npz",
+      "sha256": "ee170b41d92055e6715d4cb0346b0da1cadb5b426ae68c9257d672e3fbe98b73"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "7f9c39cd6276bae8d5f7c2e61c6cc3401fc0d400f3cf7e59801572d00d691e40"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/processed/mols/L022.pkl",
+      "sha256": "a4bfae0805a7fa5c8a687ad65b90cadd1c0d725448cca63a6766562f1449f687"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/processed/records/L022.json",
+      "sha256": "49892611653d95acd22f96a6b99a7f139c2c6b15c54163d7b4a1d26671e865e2"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/boltz_results_yaml/processed/structures/L022.npz",
+      "sha256": "91ecf8a260c5cd6f8ed76dd49462cd3302437cff1498c15fad962d7d4da66dd7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/out/geometry_report.json",
+      "sha256": "e962629437132fd8cce735eb4456ff061ba697dd18b55badabf1fa2d3841cb71"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L022/yaml/L022.yaml",
+      "sha256": "f7e5f5ac0d6679fdfe4cd935b1a02c90a6bdd355036cba1c9f2513f900790eca"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/completed.json",
+      "sha256": "cb79dde5b91072416a48976662aa59083bd6db447a5e5855f9befd70257b6d25"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/predictions/L023/L023_model_0.pdb",
+      "sha256": "8e7d33dd1b7df3af812c0a3a4bd47a761eeef1aea11d64ca3bff398914aa35fc"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/predictions/L023/confidence_L023_model_0.json",
+      "sha256": "8b77b39e3a70ed991d652d6793f95469f5cb984b03f3489220f7aaea94bda0db"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/predictions/L023/pae_L023_model_0.npz",
+      "sha256": "c3bf891f29d450e851554be69b5a8d09a54257927f3a0ff61e01b725f37dd672"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/predictions/L023/pde_L023_model_0.npz",
+      "sha256": "8a51b9345baa3a54e94fbbd5d035f964ca4cd0bfe6769a88a4b664ccf261e12d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/predictions/L023/plddt_L023_model_0.npz",
+      "sha256": "f147fb589e85a38b88a823310333a1d731aa8fbf02005c4e227509752f7f65e3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/predictions/L023/pre_affinity_L023.npz",
+      "sha256": "dc36b869f7d0bad99aa8b7e0447d18d34a165213650f3f02abe72c6396cdbf29"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/processed/constraints/L023.npz",
+      "sha256": "8aad34d98a40ec26fac7dea062a7f57d26e356e303edac30ef6d5406b71849c7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "bf84bb16825345f14ee58d58d54c9e89c733579303cbb59b94bd54c271c090d4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/processed/mols/L023.pkl",
+      "sha256": "abd6da1931cb8c00596b736c6949e6265c84ad049ec42c1d2d2d351d65eba099"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/processed/records/L023.json",
+      "sha256": "bcbce31b94c7abb0a5792b7cc56cd48307a3812a407406dfba409e10836a6045"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/boltz_results_yaml/processed/structures/L023.npz",
+      "sha256": "87cebea56b084a2e125e1f16ee03c6a07b7f4f3f365e43550264c8cc3945f0f1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/out/geometry_report.json",
+      "sha256": "102c2228f13acb49e2a89d250dd810fcd9f675435113696934ed08a2bd613bc5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L023/yaml/L023.yaml",
+      "sha256": "ec8c83ebf370384dc2c700cf95c7558b29b7aedfba2f347c76881a7bc78f5303"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/completed.json",
+      "sha256": "ee10f0f508e1b88d8fc289ee2a2d7a912e654c817e886ada6c7e4cf3be0fcddd"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/predictions/L024/L024_model_0.pdb",
+      "sha256": "959cd5f438d5aecbf3f19065cc184f21e60990092b9120992eeb32421ea47387"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/predictions/L024/confidence_L024_model_0.json",
+      "sha256": "bb0795efcee71807ab91cb1cf6b284997145b752feba9df8ada17d3ddb71a93f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/predictions/L024/pae_L024_model_0.npz",
+      "sha256": "0573f09c1bd2d435f70a74c43e66f40e4011891428a863738bff1be6433f9f4c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/predictions/L024/pde_L024_model_0.npz",
+      "sha256": "a7f76e39b48743e078a2be835da444d0beb125221bd509bb1aba56a52beee462"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/predictions/L024/plddt_L024_model_0.npz",
+      "sha256": "093877adb588f859520d46d4da2cf49c781601a9df6c0451fbd6ba95c481d150"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/predictions/L024/pre_affinity_L024.npz",
+      "sha256": "cd7a1965f8a8296869a48c3c791dd5e67a7631111807e8f5fe039f01af7b314e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/processed/constraints/L024.npz",
+      "sha256": "b0078702ae9273ef00f89f3dc3bdf3a21bdfcfd47f89418955517557fe64afae"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "377b2a209a4962091b3db8e242f10848202d8cc70f990f6fbe69271dd31277dc"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/processed/mols/L024.pkl",
+      "sha256": "07119485e381634c15926617cdd3fceaf266ddc5ce7561e99e4160fdfa606fe4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/processed/records/L024.json",
+      "sha256": "b75cbbddcb71dc17a6a2fc5e6dc6c93c343731e0d4482810bf7ac336940dc011"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/boltz_results_yaml/processed/structures/L024.npz",
+      "sha256": "3081f36ecf7c8d542489ce843604938764dbd3df907d272b8f842fd82ed885b8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/out/geometry_report.json",
+      "sha256": "a6ac3e508c38b87eb258c8d71b363f8965b6cb2eaea81cb9436824623336bbee"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L024/yaml/L024.yaml",
+      "sha256": "f0aa7d77dbedf8ffddbcd0bff5819afebc936a9e66ec5b350a1c6d85b4f7e1e2"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/completed.json",
+      "sha256": "e82f7bfc8a7c3cfa4f923228bea647a6afc9dfeaa9d0aefb075e93e4ec19d26f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/predictions/L025/L025_model_0.pdb",
+      "sha256": "006683a94ec3637ae5189d2bbd9fbc45d85380c75916fa50511b5fb84a529f09"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/predictions/L025/confidence_L025_model_0.json",
+      "sha256": "6b94faf8d59c9977266014ad8322f0804762870082a04bd9e01bc490a1c6f316"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/predictions/L025/pae_L025_model_0.npz",
+      "sha256": "e7a0fe02bee127be8038a67d1a945d86498bc56372ab98db19769b415cc930f7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/predictions/L025/pde_L025_model_0.npz",
+      "sha256": "23bdf3afc237335e1b4bcc42c8bfc9700f36a0e82d5918432e7f5c40fe9a782f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/predictions/L025/plddt_L025_model_0.npz",
+      "sha256": "fcfb299a082edb123a6c5cc1f317afc9a8544791d9794239b0dee7a22bbfe6a0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/predictions/L025/pre_affinity_L025.npz",
+      "sha256": "a0e6ae8fe8561cf647d9e712047821798a88cb7ae0dfc6123c4874dac43e40d5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/processed/constraints/L025.npz",
+      "sha256": "7069779322ab811c52e5824cf7839e97c4e8b6dde15821dcef0351efd8731a14"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "eeaa26f901cc558cae7c8a5e669d855aec65e098659645d635d6ee90e7d09eb9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/processed/mols/L025.pkl",
+      "sha256": "19fb594784010eb0282e3930f2dde673f4fb8f3badf6adc2e685820f01cba2a4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/processed/records/L025.json",
+      "sha256": "b72109bdef81fdce4519484501c29b94b65144153116315312b4481a5c173504"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/boltz_results_yaml/processed/structures/L025.npz",
+      "sha256": "f326bd0d4c9a6e2033f7c0f9acb8c1a05e73891c517de0f2750e2aa794f4ff33"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/out/geometry_report.json",
+      "sha256": "eb211e102e7442661409a50bfb210097da4af57f502a38df49beb71d5e63d027"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L025/yaml/L025.yaml",
+      "sha256": "72453326c8234f110aca168f18b4613bd09cc0b49d4dc19c4965c41ecca2101a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/completed.json",
+      "sha256": "9452cf694e2349d56237fe1d7523e326d591b1d728d5a8cb1d2cb40950a0903c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/predictions/L026/L026_model_0.pdb",
+      "sha256": "304a88cc27f8c0e48295baaa5c479e0a7bb023deb45824fc5106f22967ed54d0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/predictions/L026/confidence_L026_model_0.json",
+      "sha256": "c8e619f5b39cfca4ba7c50967670548cfb359f54435c36233852b8f252407efb"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/predictions/L026/pae_L026_model_0.npz",
+      "sha256": "4be526d2c2c205a68d53b691468b75ba62dd650b8ab1230fd3348c9e55a4f3b3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/predictions/L026/pde_L026_model_0.npz",
+      "sha256": "738a4c0eeb37852243f69771118fdb2b346663836c28d1f60e4ed7e21f699d16"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/predictions/L026/plddt_L026_model_0.npz",
+      "sha256": "e68f951c4e36d146bc59d37eb45001137296dbcb7760f6aa272dfedd0cb62281"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/predictions/L026/pre_affinity_L026.npz",
+      "sha256": "c8dd2dc8aeed03fcf6867a7e76c050c26acd497013ccc6eaebd67db0889d8944"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/processed/constraints/L026.npz",
+      "sha256": "81ddee400d1f575f96a96c7f69b94d86d8e2e3ae5147125298d0af91b44be67c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "728385a9c4f84335f1c20cbc96d228c7e77994a0db99362f6f3681598b2c43e2"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/processed/mols/L026.pkl",
+      "sha256": "db3e40dddab2b3d6ac645a775393b4e27f5f3976b5ab996afcac9d81e31bc557"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/processed/records/L026.json",
+      "sha256": "e18e3deb5ae5d8fa732c1f0cbb1aef1a1c12081fe94c3dea0cd6f82bd76022b4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/boltz_results_yaml/processed/structures/L026.npz",
+      "sha256": "10e31f1b00068eefe5ee6ec33acbafc422a17ad370d23b4bf63e1bcfec8ee7ce"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/out/geometry_report.json",
+      "sha256": "26af2c2657d9e1286faaf1494f822d37a3bb4dc4957e31e0cbb5fc211a1414a9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L026/yaml/L026.yaml",
+      "sha256": "9665b9ae660656fc2b1cb78070f907d229d1c959a12b0354087b3b91b3984709"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/completed.json",
+      "sha256": "f26e46f838d7c77f62f86609de1466f03d90634eacadc0fa65961ca2fa7e5fbd"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/predictions/L027/L027_model_0.pdb",
+      "sha256": "a6bc7d8ae1b8ec71d45dfbc29c66574891aa0aec555c7b5da5b1580614c3639f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/predictions/L027/confidence_L027_model_0.json",
+      "sha256": "65ccba786d7cd98d02a8c50cd234c9b2f84e919448052e11021d5c67a7f38bb0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/predictions/L027/pae_L027_model_0.npz",
+      "sha256": "9a57bd3e47a8888122d168f47d6dd9e45d111250187294d6af00ef05ae963435"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/predictions/L027/pde_L027_model_0.npz",
+      "sha256": "c57983c18de842e191b09711a29eeea8b00d97b2cd0a06fae79c1b39754e517b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/predictions/L027/plddt_L027_model_0.npz",
+      "sha256": "eb30d2ad045f1b8c1b179c573aa761fe8311e12992ce7e0c1c09ad2c3f8a0da9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/predictions/L027/pre_affinity_L027.npz",
+      "sha256": "095b92812e2c2f5eaa26aec3dc95f4e370a774f84bdd521513fbf916fd806285"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/processed/constraints/L027.npz",
+      "sha256": "37d28ac81647ab01c923e8580300dcf594f89b4ccf9ad1406ca35bcc0a174b01"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "15d2be321f24fbf28f972be1bfc45de0691f75295071007b34a179ce47ad5970"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/processed/mols/L027.pkl",
+      "sha256": "47bb05751f531642297ecc256b723d690669cd8298d06a3df43cb3b892d09a17"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/processed/records/L027.json",
+      "sha256": "5ee5660a2bc06f874a8d19537b22b436b3f07be784fe598eba49a298bb802ddf"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/boltz_results_yaml/processed/structures/L027.npz",
+      "sha256": "ffbf4290d5363ee0c1e8aad613be02d17ffe981351b185198afa0160ac2d6486"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/out/geometry_report.json",
+      "sha256": "e395a642dfb53df020d954079313ce9afc32b3e590972b191f1eade5fd3eed8a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L027/yaml/L027.yaml",
+      "sha256": "da290b4676fe8eb9c52cc96b08341f15c8177fdb493054e988be9ac7fe67fc79"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/completed.json",
+      "sha256": "9605818dcfd0b356d655f7ce6e83004c8ed0d3a6391891d8cafe8f288fdfb5f0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/predictions/L028/L028_model_0.pdb",
+      "sha256": "a15b896feb930a50f42102994857a4c3f903429b97816fadde6507035327be16"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/predictions/L028/confidence_L028_model_0.json",
+      "sha256": "42c7944414454c2330e3eacc0f05f5cc4078be866ecb11899b0ee1563c5cd3c1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/predictions/L028/pae_L028_model_0.npz",
+      "sha256": "c01f689820cd9de1a40e6028e49d7dc77ce718326e14295589a26559f1706348"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/predictions/L028/pde_L028_model_0.npz",
+      "sha256": "833403cd3b0ad4749ddd613ef7aa2c6320a41f6f2dffcf90233136efc47216b0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/predictions/L028/plddt_L028_model_0.npz",
+      "sha256": "05763a93baa26d7f6947130813f3682cf7682bd51a6f84b191e8ac94d0b89d3f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/predictions/L028/pre_affinity_L028.npz",
+      "sha256": "4f071b2a4df0284fedb5656185137b3aa3af6ae91c3abb32ff0abaae77f445c2"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/processed/constraints/L028.npz",
+      "sha256": "e4a21f6c33abcc3e9eace804016c78530fd8801b3c27db0c3dcf8bcec8f89599"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "b30b85b5da366c6733e17676f6fdfb64c6af370fec147bc8f95170fb82bd4278"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/processed/mols/L028.pkl",
+      "sha256": "0954be188d109aefb664ea5f3c8e05eb1e79083b9e8fd0b9cb0831743fa93cba"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/processed/records/L028.json",
+      "sha256": "e0718b41a68d2a59a3f9b098119719adf59bda20613ba5c22733bd09b2ebf906"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/boltz_results_yaml/processed/structures/L028.npz",
+      "sha256": "efef17c431d242aa3eb589017b45e594afcc5fe0c8ab17ce0f7f44f0c24f3616"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/out/geometry_report.json",
+      "sha256": "48a028d675961051ccc8f4cb58b42944133c4a5514e3ac3cd5162632693ccd7a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L028/yaml/L028.yaml",
+      "sha256": "d4bdf2c0c9b9c497db3051dde0a83c88a6abfd8304f244fb5e7e6a2a9e1d8f85"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/completed.json",
+      "sha256": "832650ecf9e8236a660faa13d605941d7b6a6ec22c89ee62285537b4db7530b9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/lightning_logs/version_0/hparams.yaml",
+      "sha256": "690e36180cb26d559415a8ceafa4e605e6d09cc052270c527364a495c09e9a75"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/predictions/L029/L029_model_0.pdb",
+      "sha256": "1f3c0074e0585ecc2dbf84e2027a59e51ae0424769151e3cac3423bdbeb53114"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/predictions/L029/confidence_L029_model_0.json",
+      "sha256": "0fccb24aa47cf7ea79b90a1bc5543c2e893b2907030712f9462098e91b3caff5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/predictions/L029/pae_L029_model_0.npz",
+      "sha256": "3ce7a1a9c00ba267b8ee0dcc4b9885ab54a97f559d14547b1c4e5b1de6c42657"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/predictions/L029/pde_L029_model_0.npz",
+      "sha256": "d00cc3610a354f14b8437f84e3af9853da63642717356ed7a19c61512f8ec05f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/predictions/L029/plddt_L029_model_0.npz",
+      "sha256": "99595da8b1230e0c0d6ca63e293b6390e6ca017c1c746c48411aa4abb97d284f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/predictions/L029/pre_affinity_L029.npz",
+      "sha256": "db7ebeca3fb4aa430c719d9bd2e9ba3631db8fb6f37901065ecce5eadf053304"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/processed/constraints/L029.npz",
+      "sha256": "6d323bd66ff09298e9ad82895e82cbc05a942ab1e18d8a5263acff3b7be918a1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/processed/manifest.json",
+      "sha256": "23669873a7cd92f16df7051b06070ae664aad825a55550c7bbe840185a1c92ae"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/processed/mols/L029.pkl",
+      "sha256": "8585d18e2c198dccafa8f677fda60138923783d7830614a2ac03e3ae4a9259c1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/processed/records/L029.json",
+      "sha256": "516f1992636cdfa14c9cb7cb6e6ac1b0cc39bce12dc7208b5dec3b1cf6a9aee5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/boltz_results_yaml/processed/structures/L029.npz",
+      "sha256": "12cb68af77dbe3cbfda3b6ccd62574ca065a3a0083dbc6bd0c60c3366ad6125e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/out/geometry_report.json",
+      "sha256": "286f44649afe7ca434dc95e278782df8db10122f0693efb57317933e6ecfab46"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/phase0/cycle00/L029/yaml/L029.yaml",
+      "sha256": "cb5a659543fdc2b0d90473c935037142ee8780c99b9e11e3620e08e78905feb2"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/bin/python",
+      "sha256": "632fc848edf9f60bf6a44d2a2475990539e52e00eedac260f9db604dab56a63d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_lasermpnn/bin/python",
+      "sha256": "eecb5f80bb58cf0411c91d17437d923fc95de6e9fe0d070e86f9a4280cc72bae"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/models/boltz2/boltz2_conf.ckpt",
+      "sha256": "090e82ac8c92f5e943fa1b39e7410a44027bea7243c0bbb3caa67a77fc1428e1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/models/boltz2/boltz2_aff.ckpt",
+      "sha256": "dcc5cd3722b1c9eaa34267e4ae32f55cbbf1963f4c19319381ccfa30fdd2ca9e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/model_weights/laser_weights_0p1A_nothing_heldout.pt",
+      "sha256": "304fe02a4807c310bdd9d68c988ae87619da3cf2025d5c223fb31030aa411173"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/scripts/lasermpnn_prepare_input.py",
+      "sha256": "eb776c61ecb5e2ee9ba8f1b58a6e07154d71d067c778cbc6e0acbdc067aff494"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/nesso_assets/LICENSE",
+      "sha256": "0e3af7f367f197d0ec2ca9c52937edf5442b764a8bf19efdfa71dcd6937d7be5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/nesso_assets/nesso_mps.patch",
+      "sha256": "a4031c837d3309a4b695e58e8052dc5513eed34ec6dc951779f8902079a22183"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/nesso_assets/protocol.json",
+      "sha256": "b9e3d23461b552056ca49f8cd8a6cd8086a2ad91aec21f69442642f5572084a0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/.studio_runtime/stage-directory-v1/pipeline/scripts/nise/nesso_assets/requirements.lock",
+      "sha256": "808dd6f2736503b296bca73d455f6d72ca6b31e2f5afbe96f6292204988a76fa"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/pretrain_ligand_encoder.py",
+      "sha256": "a44621b7e69aaf16a9843d6f52fe1a9fa635009e95641b4df71fd17f76baebb2"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/run_batch_inference.py",
+      "sha256": "02d4e0d83fe415fd5a09a8440486009c7c4af6279b8dfcf5f751a0ce759435ae"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/run_batch_inference_ligandmpnn.py",
+      "sha256": "4d5f09912e4eac263c51b221835cd64ce2f4c3b81907bcee0727eb9dbf793191"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/run_inference.py",
+      "sha256": "fc7d634df531e2b7ecaac82e9abb1b7206ef78f0082d142d55bf71d4893af99a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/run_inference_ligandmpnn.py",
+      "sha256": "d323252cd53da63f75321db17451577ce5fe46ec448148cc919188dc10938fc1"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/run_inference_tied.py",
+      "sha256": "78a91389820802a6ae39d1d9f74f316ecbacbb606ca08677759a96f175be8713"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/run_predict_partial_charges.py",
+      "sha256": "f3331445370025eb18ea90d069f4d688b92cfeea34c29e301c38c863ca0ef007"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/run_proofreading.py",
+      "sha256": "6108087a6a23cc3f2875d7cf8a1e23e803fb079f65187ae8e876285b08795b3c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/scripts/thread_and_score_sequences.py",
+      "sha256": "bd28614d5b140bd91fa3b9ce803bff47e433a2c4bd1f2df2218e0c63ed8ce1d3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/tests/test_equivariance.py",
+      "sha256": "6f835f0beebf52ae2ea5db5cf1a97b96488c34ffc616cee8a49e6289f60b3179"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/tests/test_inference.py",
+      "sha256": "95774f7832757233e12f5310452767687f76d62fe09ba5445e6facf1c5ae4d05"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/tests/test_model_generics.py",
+      "sha256": "7a734284499d3e8eeaa8d9c7e2b75a886d81422615a3f5e8d32cc39afa383af8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/train_lasermpnn.py",
+      "sha256": "d8ba6d7dd005b8624c167d1fcbcb91ad0152acef1cb2b1b4d46f019735b75160"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/train_lasermpnn_streptavidin_heldout_split.py",
+      "sha256": "0e64aecf8ec1e2837759b7f690b87967404d3cc2c1db0946003fa0947b0f6303"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/train_ligandmpnn.py",
+      "sha256": "2e601506c785db4b2968ad91f4ec19e1073ba70fd0c3af2765945a27377a7740"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/train_ligandmpnn_streptavidin_heldout_split.py",
+      "sha256": "a8a231353cb1712568b4479cc5362fb9a24ab3147b25e303a13b588ddbfdbfca"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/build_rotamers.py",
+      "sha256": "5eb73518ae175f3128d8144d666e6f3e0ba1868f4adedb2b6d1489f2dd6be7e6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/burial_calc.py",
+      "sha256": "6c556ea07d72afae63991d18bc7873e09ebc0e12625b1b3b3f9af5ed744de18a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/constants.py",
+      "sha256": "73a42cf857c6b2f44d44d36ca14b2930ac942d7d735853ed7dc8e1959de83b2d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/hbond_network.py",
+      "sha256": "3d6be2c3b455f89a97e94d0b7557e38372d17bf090e810491e139613c82047cd"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/helper_functions.py",
+      "sha256": "438bd65f285cbdc8df79145df9b13eb79cd87a50dfc8952aa74d8960cc2b981f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/ligand_featurization.py",
+      "sha256": "1055de7699f177c92a50ed941d223a331d2628bc62b2a2169e1c6eed81570e72"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/ligand_featurization_ligandmpnn.py",
+      "sha256": "1a8bc31b2d86954eef5a2a78b9e63ffc977554e323d04ef60aa4424cca607796"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/model.py",
+      "sha256": "d8c141121c1bb1c38c72b0ff2728cd7847cb2063b4695a0738364c01623d0a8e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/model_generics.py",
+      "sha256": "86823a5b528571a9975649646ab375cef7dcbee0b64d18875e23547a26f7e80e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/model_ligandmpnn.py",
+      "sha256": "eec9463151807bacf9d5498fea2d0341766824151ee74e2aeb7f72fe86857667"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/optimizer.py",
+      "sha256": "8827691dfadd5b4fa8ea1b6d2ec53c2dc5f612bf7689ee7d7ca8d09734ad268d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/pdb_dataset.py",
+      "sha256": "874ece5899f0c35683b86f208cb6ca466f395795eba6c54e96805a0cd7768532"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/pdb_dataset_ligandmpnn.py",
+      "sha256": "78c734b4ba10f6f3f0f73024151d87592f5f82eb65ce19282454dce7052c53e3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/src/LASErMPNN/utils/spice_dataset.py",
+      "sha256": "2cf1eb653b0cfb8b7b2267b447bb3e8c2c7a477db980023e6cc6284e0de4e089"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/__init__.py",
+      "sha256": "17ffaca374b8d2266b499f3d19ee134ba699ab05b2657abf1f801718395b03f8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/const.py",
+      "sha256": "d4cfbcf19e8791f298e8c90db6a723ddbf4ffa85fdc445e5ba1dea33fbbc74d5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/crop/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/crop/affinity.py",
+      "sha256": "36a1adbc8f3788eb561839805704e95f2233c5e4920070dab860ab9b1aafb18b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/crop/boltz.py",
+      "sha256": "6e5a0ff6f93a726288678cd9a0ed3821785ba2e488105bca6f1054a0b1034071"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/crop/cropper.py",
+      "sha256": "0460e017035550fc8166f72a9c9c0fc87fc87d9d4d018099fca3306d07f81cae"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/feature/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/feature/featurizer.py",
+      "sha256": "fb0a7ecbbb42d5e02ef85d26e399a4bbb807773bcb5fbb3149a50923f697f860"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/feature/featurizerv2.py",
+      "sha256": "af1f9e6ec0c3d7289eb1f7503c3c1c3ee0d9f03436778dd4a7d412b8f7bd9f94"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/feature/symmetry.py",
+      "sha256": "244ab11b85dc72ceeae14288c4b3d42d7b2fe70622344dc164c0c7d26b0168d0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/dynamic/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/dynamic/date.py",
+      "sha256": "33d92cd4fcfda7433df7ec69a27aeebfefc51df351dc7bf7a17b7f35134c396a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/dynamic/filter.py",
+      "sha256": "ae7ca9f3e84258c1df3954ca6c3a3ed000efc35ce8bc6c23fd8f8fb8ffe9c625"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/dynamic/max_residues.py",
+      "sha256": "b6f61a7e4f02e3efedf7a9d6487209e7bcaac568c7ae5257e4bf0a8e9b8a6c4d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/dynamic/resolution.py",
+      "sha256": "38b84f8f462e992f2de39c7440a2c173a1116f04aa6c539907ca6e11dd7b51f6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/dynamic/size.py",
+      "sha256": "7f1f6d65f7f4c723536259da0c3792a2ae8ca4d2bf53e859a67035c581ea4c0a"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/dynamic/subset.py",
+      "sha256": "c49fcb51e2d635af432046f1a07e3c2e9fc6d17374acb17d7a9e97c9f0ecfaa7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/static/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/static/filter.py",
+      "sha256": "2bb4ae77861327b8bd44d2bb68f6ccd2e22e3bfd577cbae466b3ca823563eb22"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/static/ligand.py",
+      "sha256": "2da982f99f488d88f70e67f1c0c1663db28106144c6f2dee5908fbe300d65497"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/filter/static/polymer.py",
+      "sha256": "2cdb1032c38e9e162978ab8cf404ad92da1340f3191371f4caee26460fa3c0f7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/module/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/module/inference.py",
+      "sha256": "3f19e1cc43cb6f2815b8f088ad3b4cdd18903b42c56e4daaa7576c332d6881f7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/module/inferencev2.py",
+      "sha256": "675235dff103d698dc65f2ebaca85a62b664ab28cd09f4b1c0166e6e56b47db4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/module/training.py",
+      "sha256": "9a4e3f1487e1056b97ecc2ee50b584a059c6dd8949040a02ab81a20f3c868030"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/module/trainingv2.py",
+      "sha256": "66c6141d85f17ee3e02296d3c028f940b3b45cafffc63b2a230e8601148d196d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/mol.py",
+      "sha256": "99a3a93c71065f55555c220563aa5034617b8140593c07e04afb8f7f640ed727"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/msa/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/msa/mmseqs2.py",
+      "sha256": "7537c23ca2d6863639187b8815011d592ee433bb145e6fdc86082ca836d3a6e7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/pad.py",
+      "sha256": "3b808638e7394f016eb9678fee12a330822c96375f2e3f9526d5d07955c5c7cb"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/parse/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/parse/a3m.py",
+      "sha256": "2399c3d7a918556d4d3ca78b10c9bb2381a7110aed664f5b16dc70f3dc262a2d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/parse/csv.py",
+      "sha256": "1dcabcac95b69e37336a112bf237ddfe8fb3c4b68d4a0277608a02f6cac8aa9c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/parse/fasta.py",
+      "sha256": "63828f22d66a859dcc7a3ecfa3799dcdf6c44f2a472fef494f8d34962b4654f4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/parse/mmcif.py",
+      "sha256": "db99045c2931f8eb9a6b002cedc773d1fc5d46ee7f0823b4015d34bbce0fae34"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/parse/mmcif_with_constraints.py",
+      "sha256": "5876197244aa530bbe35bf6f9959b11e60bbbb1c15ac5ec05547952ac739c064"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/parse/pdb.py",
+      "sha256": "7aa50724cd70fdbd8a4acaeba8ceca0bd76ba9cc95099592a1ddcd1e53081a69"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/parse/schema.py",
+      "sha256": "c0dae4c89c4c4a22175a433b5a0c68860329d2a292c76224328bdde19b73b743"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/parse/yaml.py",
+      "sha256": "19115132d0c3e0f4383c8a40fd2d638f4bd1684bb62e565dfe0e2b375cd4acda"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/sample/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/sample/cluster.py",
+      "sha256": "f52c7ca8fef3199380c84b29c1816d0936c64c1667b8dfb37c22856db03fea82"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/sample/distillation.py",
+      "sha256": "001cecb76141aff139e0aa995881dcd5b62d298afbf65c5124cecf9d2e227cad"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/sample/random.py",
+      "sha256": "8e67a79c335f92eab6501ca7e79c2b413c0d3c2381baeebf8c1253e15ada2f6f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/sample/sampler.py",
+      "sha256": "2d757814b40f74c0bf8dae0c8cf8f4922704aebf145d25ab29e84f045e733b14"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/tokenize/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/tokenize/boltz.py",
+      "sha256": "53c62f3952d95f8d523a258375b0d23431336f0c19db218207ef0c4381f68cd3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/tokenize/boltz2.py",
+      "sha256": "e35aeb4b1c63df7abc402cf71ac3261447fd2374e557ab1aebd57ce4ff054422"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/tokenize/tokenizer.py",
+      "sha256": "f689243bcf40d51bd0779b5c5bd54b20a6424afbd400ba2ccb68ad74dd660c81"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/types.py",
+      "sha256": "e7e5ede40e0c208bcb966acd04caebb3b017e8a50b85b1aa3cae4cdf83b71707"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/write/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/write/mmcif.py",
+      "sha256": "ebf4c5773903bb4f5dbe8121ece2def65855c7f5947157586cca74d26ec3337c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/write/pdb.py",
+      "sha256": "a7ec3450deaec04fe4c030a99e778df5ed23a6f483b286d10fed00fa22aa6db9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/write/utils.py",
+      "sha256": "d8fcef78ce2a67b01a76bbb5433a22d83862b7fb382d7973e1c797a46262e32d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/data/write/writer.py",
+      "sha256": "65b7fd13f6fdd0d06c0f241a9b717529cf1bbe5e2d5fb70e1aa068400ac2f815"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/main.py",
+      "sha256": "b5ded4dac1552af2e079c335d56e64ea580b4d5ca0202a9542385ce3e318c3b3"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/attention.py",
+      "sha256": "ae47793d3228541d644b30e706b65fbade03a041ca1c10b0b836f5a7425f49c9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/attentionv2.py",
+      "sha256": "ae9bbc1eeb56c8dcd403d49693c84cd616ffd6772226364214ffd61d328cd8da"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/confidence_utils.py",
+      "sha256": "50cc0fe50e6088127c04ae715875e612c0f8a690ee8114b86a5ad41aebc63db7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/dropout.py",
+      "sha256": "cb22161a9683a8d9d16866f4fd3d1ece2cce663e2e4ed738bcd3bd23f47a77b6"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/initialize.py",
+      "sha256": "2a72bdb547c6bc25a47706dc2ef258a0bf969a5a3d61c21c281b5dad76941b7d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/outer_product_mean.py",
+      "sha256": "c7966c776a9f5b8075f2d75c59ec88cc0ea2ba38694b568167c64ede619a774c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/pair_averaging.py",
+      "sha256": "5d7662a723a5c59bf8411e1493670851ef0ec3f5e9af8e5e102aac5a8b8d015b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/pairformer.py",
+      "sha256": "794efe7648927a1681a236cb54bb65cb3125acc48a89a72cf205bbc551be2f2e"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/relative.py",
+      "sha256": "7cb3b00031b95430dd1f61aa8acf8be8bc3c867586c423e37d5eadf2461e1087"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/transition.py",
+      "sha256": "cc50a51a6aa669455420549de16e29558d7b96f8a7d8da6f69930ab9e738cf37"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/triangular_attention/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/triangular_attention/attention.py",
+      "sha256": "deaaa0c28d2864d630d83c586d3d6b3f3499909cad01579753ce1c35a9c465c7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/triangular_attention/primitives.py",
+      "sha256": "d7245ffe8eefa580c693967e047da9950ed2b366c3595804e19a4477d789a412"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/triangular_attention/utils.py",
+      "sha256": "1236df24edde965ec06fcbfc006ef3b16f0a9359fa6e519f0b21cf47e34ecdb5"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/layers/triangular_mult.py",
+      "sha256": "458319d62723c19a672fa650b11a601feaff8ee195179e37e6a43b34a92b3a94"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/loss/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/loss/bfactor.py",
+      "sha256": "cd7f4922518011347734c71ba6d0118f34ab870586feb5ab1bca47ac75ab13ff"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/loss/confidence.py",
+      "sha256": "ca018acad7e8a7ccf05e58dd9625623f45c62816e70a03dc076e5fbf53d47808"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/loss/confidencev2.py",
+      "sha256": "3c58b678c5c78735ed3f5d78e74e3fe4ccf0bfc6a46f75e6e1961e1ef07b5a24"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/loss/diffusion.py",
+      "sha256": "e71b74b36a09a4f31241de704fc31fe4bcca821a0abbef035cf3872f77b81076"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/loss/diffusionv2.py",
+      "sha256": "c7eca07579fde88efb6c232ccd7b3964721cb91c70f17df1583de5f43cbe503b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/loss/distogram.py",
+      "sha256": "79006491376335f9e46b480c34570c797fe8ecacec4d8e134d97e6fa80db5ee0"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/loss/distogramv2.py",
+      "sha256": "74580c1b0a5d2cae3eb241c9c2fa44446d7429f1776543754fdfe1523fa25900"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/loss/validation.py",
+      "sha256": "818a5b6a0f66ba58391c93d78ce50568c57d5d2617fecd9b210d22623880a30d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/models/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/models/boltz1.py",
+      "sha256": "dc506b7d313187c1082a7e2f8dcf663a899d43a2cefe499cb2ca7367f0d78754"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/models/boltz2.py",
+      "sha256": "c3f21a4c5e31bdcb81709da131b201944c48d11e00e52aaadd15b3e2512568ab"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/affinity.py",
+      "sha256": "164b48db0ae40eab2318724ebafcd5ad92bbf0c38f8d4eb940dd25eac07540f4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/confidence.py",
+      "sha256": "b171b29998a232d7d73e452f1e96b62820af358efd0fc8d75c4c7d1b3dab345b"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/confidence_utils.py",
+      "sha256": "2b71b1e9b675544d8cfc435b27df2e2adb719319ea44f94fffb806a05359c88c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/confidencev2.py",
+      "sha256": "1b48b2194a9361e46a8b67d845d630e92e2e293fd05f93cb4e30413b463eb80f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/diffusion.py",
+      "sha256": "61d13ffd2314fd0520f311c1e63b73fe64b77b86556eba83476fa6e828a6dcbb"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/diffusion_conditioning.py",
+      "sha256": "6500f3bd894c27d072581810be5548250eba18f1e400af637d554aebc20ce719"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/diffusionv2.py",
+      "sha256": "9eacc8cf7daeb62dffa81a09a1f93d2e268a4b7b68b5b88c2058c5ebf5ca4057"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/encoders.py",
+      "sha256": "cc3aecc74a80a92a65188a0e3211f8856dfb701269fb543a02da2ed5ecd9c18c"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/encodersv2.py",
+      "sha256": "2938af17252607d056106fc04a3afa0ea96b145fa7485764ebf33d646c99e0d4"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/transformers.py",
+      "sha256": "2e427fb4940106053a99f4eba9de9966eda3abb1755a93736207a6577fb5b74f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/transformersv2.py",
+      "sha256": "4fbecbe835ec2d7286d5a46e408cb9134b2378bce8dd443df58b80392736f982"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/trunk.py",
+      "sha256": "44b4e5b73714d1032cd8ae680abcd5715e38b7dd06991f9b3e1692ae5f4e898d"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/trunkv2.py",
+      "sha256": "6efdf74176e06237e7a0e601b534a0eb74addc60f42de56609930a2ec8d5dad9"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/modules/utils.py",
+      "sha256": "9752c1ad82549c9cf2638c484f576ce411436130cd1d43265362be38b46bf0f8"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/optim/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/optim/ema.py",
+      "sha256": "ae3d5df44e53589d84516eb3fca86b80e1007bf8f3077763ecee65c099e9acc7"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/optim/scheduler.py",
+      "sha256": "9c1e23cf4099e294789f4f0b427804c4bfe937270875823c0175681cf9d9590f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/potentials/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/potentials/potentials.py",
+      "sha256": "1e4a79f1454e5a71ca5a3eb82fca5451a7dc2bed8a45df9f0a814f62a6219f38"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/venvs/NanoHunter_boltz/lib/python3.11/site-packages/boltz/model/potentials/schedules.py",
+      "sha256": "3c4fe0ca97a122e8d3148dc7e5401b2ac1b112f3806a2e98351d719086e9534f"
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/projects/test2/nise_runs/nise-7345aaf6c30d1a9e/studio_run_label.json",
+      "sha256": "70c01b6c3de4e3bf9e90445813d3ae9b8b36c5110e918aa15698be034826fb3a"
+    }
+  ],
+  "resource_class": "apple_gpu_exclusive",
+  "schema_version": 1,
+  "sha256": "0f975ef0db89cf1a8b7b41a8c3833a7ea1757c1afabbd7c0ce8b747275649b68"
+}

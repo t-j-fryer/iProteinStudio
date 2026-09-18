@@ -849,3 +849,12 @@ Unreadable, empty or non-finite coordinates still fail as unusable inputs.
 MCP `results_overview` exposes the report path and violation/error counts on each
 cycle. A geometry warning does not change the saved hit verdict. Inspect final
 violations when reviewing results; they are not evidence of experimental folding.
+
+### Combined Protein Hunter batches
+
+`runs_list` includes saved engine/framework batches (`workflow=iterative_batch`).
+`results_overview(run_id, framework_id?, design_engine?)` preserves campaign →
+trajectory → cycle identities and reports requested trajectories separately from
+expected optimized cycle outputs. Each group carries `campaign_run_id` for raw
+queries and `artifact_run_id` for resolving its relative artifacts. Filters do
+not alter saved runs. See [framework budgets](NANOBODY_DESIGN.md#framework-budgets-and-combined-results-build-39).

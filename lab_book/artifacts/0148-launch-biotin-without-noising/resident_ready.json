@@ -1,0 +1,13 @@
+{
+  "config_sha256": "c3505d272e9d1c46ff9aa5508c92faba81a4a9332e404723704cd3597a83fe14",
+  "device": "mps",
+  "engine": "boltz",
+  "fallback": 0,
+  "model": "boltz2",
+  "model_load_count": 1,
+  "mps_driver_allocated_bytes": 475136,
+  "pid": 76818,
+  "ready_epoch": 1789677415.8759491,
+  "schema": 1,
+  "startup_seconds": 9.999966144561768
+}

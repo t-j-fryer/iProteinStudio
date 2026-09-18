@@ -496,6 +496,24 @@ LASErMPNN keeps its existing CPU invocation and settings; persistent LASErMPNN i
 not implemented or claimed. No tensor-batching or ligand speedup claim follows
 from the resident lifecycle smoke.
 
+An opt-in continuation can submit all pending inputs of a folding stage as one
+directory request to the resident Boltz worker. Boltz still predicts one input
+at a time internally. Native output writers emit an atomic completion marker
+after each input; the controller audits that prediction and saves its usual
+per-input checkpoint immediately. An interrupted request recovers those finished
+inputs and submits only the remainder. Selective affinity continues to evaluate
+geometry-passing candidates in its selection batches, submitting each batch
+together; its stopping rule and scientific settings are unchanged.
+
+This continuation has a separate immutable pipeline snapshot and broker plan,
+preserving the original configuration, snapshot and completed predictions.
+Directory membership, input hashes and processed ligand assets are recorded.
+Future predictions use Boltz's request-level random stream: changing the pending
+membership/order can change unfinished predictions, so this does not promise
+bitwise equality with singleton submissions. It does not enable early exposure
+termination. The feature remains opt-in; see [Lab Book 0152](../lab_book/0152-resume-biotin-with-stage-batches.md)
+for interruption/affinity validation and untested cases.
+
 To promote a new default, run a declared paired ligand campaign holding inputs,
 seeds, recycles, diffusion samples/steps, restraints and shortlist policy fixed.
 Compare complete campaign wall time, startup/load counts, sampling, feature

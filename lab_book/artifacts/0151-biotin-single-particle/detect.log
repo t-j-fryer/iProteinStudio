@@ -1,0 +1,16 @@
+NHSTATE|nesso|ok|NESSO-1 native MPS (experimental; full hashes checked at preflight)
+NHSTATE|boltz|ok|Boltz-2 structure environment with managed model and CCD data
+NHSTATE|boltz_affinity|ok|optional small-molecule affinity checkpoint
+NHSTATE|mpnn|ok|ProteinMPNN / SolubleMPNN / LigandMPNN
+NHSTATE|abmpnn|ok|Verified antibody-specific checkpoint (requires core sequence designers)
+NHSTATE|antifold|ok|AntiFold
+NHSTATE|intellifold|ok|IntelliFold PyTorch/MPS with v2 Flash weights
+NHSTATE|intellifold_full|ok|optional IntelliFold full-v2 checkpoint
+NHSTATE|protenix|ok|shared native-MPS runtime and chemical data
+NHSTATE|protenix_v2|ok|Protenix v2 checkpoint
+NHSTATE|protenix_mini|ok|Protenix Mini checkpoint
+NHSTATE|protenix_constraint|ok|Protenix Constraint v0.5 (native MPS, strict ESM-free profile)
+NHSTATE|openfold3|ok|OpenFold-3-MLX with checkpoint
+NHSTATE|lasermpnn|ok|LASErMPNN
+NHSTATE|rfd3|ok|RFdiffusion3 MLX with checkpoint and verified EMA weights
+NHDONE|ok

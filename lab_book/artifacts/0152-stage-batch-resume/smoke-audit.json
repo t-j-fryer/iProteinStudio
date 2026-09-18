@@ -1,0 +1,97 @@
+{
+  "batches": [
+    {
+      "completions": 2,
+      "descriptor_sha256": "52a8d837198eebfe197cc3bbffc9d721394d24cefe54f9a2e0b663e645021a0b",
+      "inputs": 2,
+      "phase": "affinity"
+    },
+    {
+      "completions": 1,
+      "descriptor_sha256": "3310762a1b30c2c7cc4e3dbb424ba7b176d5810be257977dc48930fbb16d7014",
+      "inputs": 1,
+      "phase": "structure"
+    },
+    {
+      "completions": 1,
+      "descriptor_sha256": "fcf431bb1665d38778331c1530864c45358c6fb5fc4d81a6232a373edc11cbf7",
+      "inputs": 2,
+      "phase": "structure"
+    }
+  ],
+  "completed_requests": [
+    {
+      "completed_jobs": 1,
+      "end_epoch": 1789688518.971724,
+      "input_sha256": "37a43d74edc4e348ef1c441d2d900805e9a85d3138d1c55c533d767efba3d0f0",
+      "model_load_count": 1,
+      "mps_driver_allocated_after_bytes": 3254648832,
+      "mps_driver_allocated_before_bytes": 475136,
+      "ok": true,
+      "phase": "structure",
+      "prediction_seed": null,
+      "request_id": "25d7afb9516f40b0a4acc445d2795035",
+      "schema": 1,
+      "start_epoch": 1789688461.9970958,
+      "wall_seconds": 56.97462821006775
+    },
+    {
+      "completed_jobs": 2,
+      "end_epoch": 1789688665.701389,
+      "input_sha256": "81f935ea4463c5e0ffcf82cdd42d98259292877a5252e9a80462a62dcc492630",
+      "model_load_count": 2,
+      "mps_driver_allocated_after_bytes": 3271360512,
+      "mps_driver_allocated_before_bytes": 3254648832,
+      "ok": true,
+      "phase": "affinity",
+      "prediction_seed": null,
+      "request_id": "358cf41324be47b99eb421d9bdfab1fc",
+      "schema": 1,
+      "start_epoch": 1789688519.078322,
+      "wall_seconds": 146.62306714057922
+    }
+  ],
+  "documented_svd_fallback_warnings": 2,
+  "interpretation": "Transport/recovery audit; no performance or binder-quality conclusion",
+  "output": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/nise-batch-smoke-8321b43dee1f",
+  "receipts": {
+    "folds/L000/affinity_completed.json": "dc849bf454724f6aafcdde3d85860b8028fc59c6d07b3ed29bf6af8f487155e4",
+    "folds/L000/completed.json": "5ac15e729e942a39a5ef3ac25d683aeae605f05b561b994e585322d733ce80c3",
+    "folds/L001/affinity_completed.json": "494b5361c89857ab2f628caff8fb38ef520957a3fabd00036339c4878d0cca45",
+    "folds/L001/completed.json": "b30e15e59d4574e499eef4a213b2605b81a45f425c3b589663ddbb64b658fa21"
+  },
+  "status": "passed",
+  "untested": [
+    "Long campaign memory soak",
+    "Full-funnel outcome equivalence",
+    "Mixed per-input seed overrides (unsupported)"
+  ],
+  "workers": [
+    {
+      "config_sha256": "abb98c70f24c3b7e3f978b51e23cb9d686c5229c1d11c66d10e53d09cb2dd9f7",
+      "device": "mps",
+      "engine": "boltz",
+      "fallback": 0,
+      "model": "boltz2",
+      "model_load_count": 1,
+      "mps_driver_allocated_bytes": 475136,
+      "pid": 96923,
+      "ready_epoch": 1789688378.124196,
+      "schema": 1,
+      "startup_seconds": 9.800624132156372
+    },
+    {
+      "config_sha256": "be5077df59108cac7c3e941ed72a827b7665d38eb2fbb7fe55f20888b28e7eb9",
+      "device": "mps",
+      "engine": "boltz",
+      "fallback": 0,
+      "model": "boltz2",
+      "model_load_count": 1,
+      "mps_driver_allocated_bytes": 475136,
+      "pid": 97053,
+      "ready_epoch": 1789688461.892586,
+      "schema": 1,
+      "startup_seconds": 10.008068799972534
+    }
+  ]
+}

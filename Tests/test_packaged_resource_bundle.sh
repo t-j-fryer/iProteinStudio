@@ -57,8 +57,8 @@ for resource in ligand_atoms.py atom_geometry.py nesso_worker.py nesso_screen.py
 done
 [[ -s "${BUNDLE}/pipeline/mcp/server.py" ]] \
   || fail "resource bundle is missing the MCP server"
-[[ "$(tr -d '[:space:]' < "${BUNDLE}/pipeline/mcp/MCP_VERSION")" == "19" ]] \
-  || fail "resource bundle does not contain MCP contract v19 (including NISE sampling and partial noising)"
+[[ "$(tr -d '[:space:]' < "${BUNDLE}/pipeline/mcp/MCP_VERSION")" == "20" ]] \
+  || fail "resource bundle does not contain MCP contract v20 (including framework batch result filters)"
 [[ -s "${BUNDLE}/pipeline/mcp/remote_server.py" ]] \
   || fail "resource bundle is missing the authenticated remote MCP transport"
 [[ -s "${BUNDLE}/pipeline/mcp/remote_gateway.py" ]] \

@@ -4,6 +4,17 @@ Initialization-only helix-kill strength is now the sole secondary-structure cont
 
 ## 0.2.0 — updater foundation
 
+- Build 39 makes nanobody budgets explicit: total across frameworks, the same
+  number for each framework, or custom counts. Valid numeric edits apply
+  immediately; invalid Protein Hunter fields block Start/Queue. The launch
+  summary distinguishes independent trajectories from optimisation-cycle outputs.
+- Combined Protein Hunter results retain earlier framework/engine campaigns,
+  with framework and design-engine filters, unique trajectory identities, and a
+  combined entry in run history. Existing saved batches work without rerunning.
+- MCP contract 20 exposes batch parents and matching result filters and budget
+  guidance. The optional NISE stage-directory continuation preserves per-input
+  checkpoints and original scientific settings; default scheduling is unchanged.
+
 - Build 38 adds NISE's optional ligand-local masking and MPNN repair branch,
   with two ordinary sampling parents plus one reserved repaired winner at the
   default total beam of three. New defaults are 1,000 starts, 64 proposals in

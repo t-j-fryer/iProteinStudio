@@ -207,11 +207,15 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// nil retains the historical single-scaffold request; [] is deliberately invalid.
     var scaffoldSelections: [NanobodyScaffoldAllocation]? = nil
     var equalScaffoldBudgets = true
+    /// Non-nil means the user chose an explicit count for every framework.
+    var trajectoriesPerScaffold: Int? = nil
 
     var allocatedScaffolds: [NanobodyScaffoldAllocation] {
         var selected = scaffoldSelections ?? [.init(id: scaffoldID, name: scaffoldID,
                                                    sequence: scaffoldSequence, trajectories: numDesigns)]
-        if equalScaffoldBudgets && !selected.isEmpty {
+        if let each = trajectoriesPerScaffold {
+            for i in selected.indices { selected[i].trajectories = each }
+        } else if equalScaffoldBudgets && !selected.isEmpty {
             for i in selected.indices {
                 selected[i].trajectories = numDesigns / selected.count + (i < numDesigns % selected.count ? 1 : 0)
             }
@@ -221,6 +225,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     mutating func setEqualScaffoldBudgets(_ equal: Bool) {
         scaffoldSelections = allocatedScaffolds
+        trajectoriesPerScaffold = nil
         equalScaffoldBudgets = equal
     }
 
@@ -231,7 +236,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
                                 trajectories: max(1, numDesigns / (values.count + 1))))
         } else if !selected { values.removeAll { $0.id == id } }
         scaffoldSelections = values
-        if equalScaffoldBudgets { numDesigns = max(numDesigns, values.count) }
+        if let each = trajectoriesPerScaffold { numDesigns = each * values.count }
+        else if equalScaffoldBudgets { numDesigns = max(numDesigns, values.count) }
         else { numDesigns = values.reduce(0) { $0 + $1.trajectories } }
     }
 
@@ -241,12 +247,48 @@ struct DesignRequest: Codable, Equatable, Hashable {
         values[index].trajectories = trajectories
         scaffoldSelections = values
         equalScaffoldBudgets = false
+        trajectoriesPerScaffold = nil
         numDesigns = values.reduce(0) { $0 + $1.trajectories }
+    }
+
+    enum FrameworkBudgetMode: String, CaseIterable, Identifiable {
+        case total = "Total across frameworks"
+        case perFramework = "Same per framework"
+        case custom = "Custom per framework"
+        var id: String { rawValue }
+    }
+
+    var frameworkBudgetMode: FrameworkBudgetMode {
+        trajectoriesPerScaffold != nil ? .perFramework : (equalScaffoldBudgets ? .total : .custom)
+    }
+
+    mutating func setFrameworkBudgetMode(_ mode: FrameworkBudgetMode) {
+        let allocation = allocatedScaffolds
+        scaffoldSelections = allocation
+        trajectoriesPerScaffold = nil
+        equalScaffoldBudgets = mode != .custom
+        if mode == .perFramework {
+            // Round up visibly when converting an uneven total; never drop a trajectory.
+            setTrajectoriesPerScaffold(max(1, (numDesigns + max(1, allocation.count) - 1) / max(1, allocation.count)))
+        }
+    }
+
+    mutating func setTrajectoriesPerScaffold(_ count: Int) {
+        trajectoriesPerScaffold = count
+        equalScaffoldBudgets = true
+        numDesigns = count * allocatedScaffolds.count
+    }
+
+    var budgetSummary: String {
+        let frameworks = designType == .nanobody ? allocatedScaffolds.count : 1
+        let allocation = designType == .nanobody ? "\(frameworks) framework(s) · " : ""
+        return allocation + "\(numDesigns) trajectories per engine × \(selectedDesignEngines.count) engine(s) = \(totalTrajectories) trajectories; \(numCycles) cycles each = \(expectedOptimizedDesigns) optimized cycle outputs, plus \(totalTrajectories) initial structures."
     }
 
     func forScaffold(_ scaffold: NanobodyScaffoldAllocation) -> DesignRequest {
         var child = self
         child.scaffoldSelections = nil
+        child.trajectoriesPerScaffold = nil
         child.equalScaffoldBudgets = true
         child.scaffoldID = scaffold.id
         child.scaffoldSequence = scaffold.sequence
@@ -745,7 +787,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case designType, scaffoldID, scaffoldSequence, scaffoldSelections, equalScaffoldBudgets, cdrs, binderMinLen, binderMaxLen, helixKill
+        case designType, scaffoldID, scaffoldSequence, scaffoldSelections, equalScaffoldBudgets, trajectoriesPerScaffold, cdrs, binderMinLen, binderMaxLen, helixKill
         case secondaryStructureBias, secondaryStructureBiasScope
         case betaBiasStrength, betaPatternStrength, turnLocalizationStrength
         case targetKind, targetName, targetSequence, targetSmiles, epitopeResidues
@@ -771,6 +813,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         scaffoldSequence = try c.decodeIfPresent(String.self, forKey: .scaffoldSequence) ?? d.scaffoldSequence
         scaffoldSelections = try c.decodeIfPresent([NanobodyScaffoldAllocation].self, forKey: .scaffoldSelections)
         equalScaffoldBudgets = try c.decodeIfPresent(Bool.self, forKey: .equalScaffoldBudgets) ?? true
+        trajectoriesPerScaffold = try c.decodeIfPresent(Int.self, forKey: .trajectoriesPerScaffold)
         cdrs            = try c.decodeIfPresent(CDRSelection.self, forKey: .cdrs) ?? d.cdrs
         binderMinLen    = try c.decodeIfPresent(Int.self, forKey: .binderMinLen) ?? d.binderMinLen
         binderMaxLen    = try c.decodeIfPresent(Int.self, forKey: .binderMaxLen) ?? d.binderMaxLen

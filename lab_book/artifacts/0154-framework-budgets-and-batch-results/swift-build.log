@@ -1,0 +1,66 @@
+Building for debugging...
+[Computing dependencies]
+[Using on-disk description]
+[1 / 7]
+[2 / 5] iProteinStudio-product
+[8 / 11] iProteinStudio-product
+/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Views/ActivityCenterView.swift:17:17: warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 15 |     let projectFilter: Project.ID?
+ 16 | 
+ 17 |     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 18 | 
+ 19 |     private var records: [StudioRunRecord] {
+
+Combine.Publishers.Autoconnect:2:14: note: generic class declared here
+ 1 | enum Publishers {
+ 2 | public class Autoconnect<Upstream> : Publisher where Upstream : ConnectablePublisher {
+   |              `- note: generic class declared here
+ 3 |     public typealias Output = Upstream.Output
+ 4 |     public typealias Failure = Upstream.Failure
+
+/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Views/ActivityCenterView.swift:17:17: warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 15 |     let projectFilter: Project.ID?
+ 16 | 
+ 17 |     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 18 | 
+ 19 |     private var records: [StudioRunRecord] {
+
+Combine.Publishers:2:13: note: enum declared here
+1 | @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+2 | public enum Publishers {
+  |             `- note: enum declared here
+3 | }
+[20 / 23] iProteinStudio-product
+/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Views/ActivityCenterView.swift:17:17: warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 15 |     let projectFilter: Project.ID?
+ 16 | 
+ 17 |     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 18 | 
+ 19 |     private var records: [StudioRunRecord] {
+
+Combine.Publishers.Autoconnect:2:14: note: generic class declared here
+ 1 | enum Publishers {
+ 2 | public class Autoconnect<Upstream> : Publisher where Upstream : ConnectablePublisher {
+   |              `- note: generic class declared here
+ 3 |     public typealias Output = Upstream.Output
+ 4 |     public typealias Failure = Upstream.Failure
+
+/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Views/ActivityCenterView.swift:17:17: warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 15 |     let projectFilter: Project.ID?
+ 16 | 
+ 17 |     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 18 | 
+ 19 |     private var records: [StudioRunRecord] {
+
+Combine.Publishers:2:13: note: enum declared here
+1 | @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+2 | public enum Publishers {
+  |             `- note: enum declared here
+3 | }
+[21 / 23] iProteinStudio-product
+[23 / 25] iProteinStudio-product
+Build complete! (8.29 sec)

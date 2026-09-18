@@ -148,7 +148,8 @@ struct ActivityCenterView: View {
     }
 
     private func isEngineBatch(_ record: StudioRunRecord) -> Bool {
-        jobs.jobs.contains { $0.id == record.managedJobID && $0.kind == "desktop_iterative_batch" }
+        FileManager.default.fileExists(atPath: record.root.appendingPathComponent("studio_engine_batch.json").path)
+            || jobs.jobs.contains { $0.id == record.managedJobID && $0.kind == "desktop_iterative_batch" }
     }
 
     private func resume(_ record: StudioRunRecord) {

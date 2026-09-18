@@ -1,0 +1,13 @@
+{
+  "main_job": "job-1927596b1a7e",
+  "plan_id": "plan-1927596b1a7ee001",
+  "digest": "1927596b1a7ee0010851770655e1371090a5f218c25a3098cfd13fd9892ec0af",
+  "budget": {
+    "affinity_evaluations": 0,
+    "maximum_structure_predictions": 60
+  },
+  "pilot_audit_passed": true,
+  "pilot_output": "/Users/thomasfryer/.iproteinstudio/projects/test2/validation_runs/biotin-single-particle-deb2f859fcff418e",
+  "starting_commit": "f6ca4108e14dcebc7c60c3d3b77703098c9b45cd",
+  "note": "Main pending; separate clean/traced passes. No live early termination."
+}

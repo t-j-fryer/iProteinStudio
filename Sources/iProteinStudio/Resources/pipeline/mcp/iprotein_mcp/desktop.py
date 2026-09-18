@@ -132,13 +132,57 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
             step, assets = prepare(root, output, workflow, form["nesso"], form.get("targetSmiles"))
             steps.append(step); inputs += assets
 
-    elif workflow in {"nise", "nise_branch_test"}:
+    elif workflow == "boltz_replay_validation":
+        # Bounded, typed validation route; never accepts a caller-supplied command.
+        import importlib.util
+        config = output / "replay_config.json"
+        snapshot = output / ".studio_runtime/pipeline"
+        runner = snapshot / "scripts/boltz_replay_validation.py"
+        spec = importlib.util.spec_from_file_location("studio_boltz_replay", runner)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        try:
+            assets = module.validate(output, load_json(config))
+        except (ValueError, OSError, KeyError) as exc:
+            raise StudioError(str(exc)) from exc
+        checkpoint = root / "models/boltz2/boltz2_conf.ckpt"
+        if not checkpoint.is_file():
+            raise StudioError("Boltz structure weights are missing.")
+        inputs = [config, checkpoint] + assets
+        inputs += sorted((root / "venvs/NanoHunter_boltz/lib").glob("python*/site-packages/boltz/**/*.py"))
+        inputs += [root / "models/boltz2/mols" / (name + ".pkl") for name in
+                   "ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL UNK".split()]
+        scripts = sorted((snapshot / "scripts").rglob("*.py"))
+        steps = [{"command": ["/usr/bin/caffeinate", "-dimsu",
+                  str(root / "venvs/NanoHunter_boltz/bin/python"), str(runner), "--config", str(config)],
+                  "cwd": str(snapshot), "stage": "boltz-replay-validation"}]
+        context = {"pipeline_snapshot": str(snapshot), "request": load_json(config),
+                   "prediction_budget": {"maximum_structure_predictions": 2 * len(load_json(config)["ids"]),
+                                         "affinity_evaluations": 0},
+                   "scheduler": ("resident; one directory request per clean/traced single-particle arm"
+                                 if load_json(config)["schema"] == 2 else
+                                 "resident; singleton arm then one directory request")}
+    elif workflow in {"nise", "nise_branch_test", "nise_continuation", "nise_batch_test"}:
         from .nise import contract as load_contract
         config = output / "nise_config.json"
         settings = load_json(config)
         if Path(settings.get("output", "")).resolve() != output:
             raise StudioError("The NISE settings point to a different campaign.")
         snapshot = output / ".studio_runtime/pipeline"
+        continuation_assets = []
+        continuation_descriptor = None
+        if workflow == "nise_continuation":
+            import importlib.util
+            module_path = Path(__file__).resolve().parents[2] / "scripts/nise/continuation.py"
+            # Load its dependency from the same shipped script directory.
+            import sys
+            script_directory = str(module_path.parent)
+            sys.path.insert(0, script_directory)
+            try:
+                spec = importlib.util.spec_from_file_location("studio_nise_continuation", module_path)
+                module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+                snapshot, continuation_assets, continuation_descriptor = module.validate(output)
+            finally:
+                sys.path.remove(script_directory)
         contract_path = snapshot / "scripts/nise/contract.py"
         if not contract_path.is_file():
             raise StudioError("The NISE pipeline snapshot is missing.")
@@ -150,7 +194,7 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
         scripts = sorted((snapshot / "scripts").rglob("*.py"))
         # All model bytes remain in the managed installation; plans fingerprint
         # them and the executed engine code without copying or shipping weights.
-        inputs = [config] + contract.required_files(root, normalized_request)
+        inputs = [config] + continuation_assets + contract.required_files(root, normalized_request)
         inputs += sorted(p for p in (snapshot / "scripts/nise/nesso_assets").glob("*") if p.is_file())
         inputs += sorted((root / "src/LASErMPNN").rglob("*.py"))
         inputs += sorted((root / "venvs/NanoHunter_boltz/lib").glob("python*/site-packages/boltz/**/*.py"))
@@ -166,6 +210,27 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
                   "cwd": str(snapshot), "stage": "nise"}]
         context = {"pipeline_snapshot": str(snapshot), "request": normalized_request,
                    "prediction_budget": contract.prediction_budget(normalized_request)}
+        if workflow == "nise_continuation":
+            steps[0]["command"].append("--stage-batches")
+            context["continuation"] = continuation_descriptor
+            context["submission"] = "One directory request per pending fold stage or selective-affinity selection batch; per-input checkpoints"
+        if workflow == "nise_batch_test":
+            import importlib.util
+            import sys
+            sys.path.insert(0,str(snapshot / "scripts/nise"))
+            try:
+                spec=importlib.util.spec_from_file_location("studio_nise_batch_smoke",snapshot / "scripts/nise/batch_smoke.py")
+                module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                inputs+=module.validate(output,settings["batch_test"])
+            finally:
+                sys.path.remove(str(snapshot / "scripts/nise"))
+            steps[0]["command"]=["/usr/bin/caffeinate","-dimsu",str(root / "venvs/NanoHunter_boltz/bin/python"),
+                str(snapshot / "scripts/nise/batch_smoke.py"),"--config",str(config)]
+            steps[0]["stage"]="nise-batch-validation"
+            context["prediction_budget"]={"maximum_structure_predictions":2*len(settings["batch_test"]["ids"]),
+                "affinity_evaluations":len(settings["batch_test"]["ids"]),"intentional_interruption":True}
+        elif "batch_test" in settings:
+            raise StudioError("Batch smoke inputs require the explicit validation workflow")
         if workflow == "nise_branch_test":
             import importlib.util
             spec = importlib.util.spec_from_file_location("studio_nise_branch_test", snapshot / "scripts/nise/branch_test.py")

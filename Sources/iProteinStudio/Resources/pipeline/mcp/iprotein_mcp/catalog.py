@@ -137,6 +137,8 @@ def detect_engines() -> Dict[str, Any]:
 
 
 def classify_run(path: Path) -> Optional[str]:
+    if (path / "studio_engine_batch.json").is_file():
+        return "iterative_batch"
     if (path / "nise_config.json").is_file():
         return "nise"
     if (path / "prediction_config.json").exists() or (path / "predictions.csv").exists():
@@ -151,7 +153,7 @@ def classify_run(path: Path) -> Optional[str]:
 def run_record(path: Path, project: str) -> Dict[str, Any]:
     workflow = classify_run(path) or "unknown"
     manifest = {}
-    for relative in ("studio_run.json", "run_summary.json", "campaign_progress.json", "summary.json", "progress.json"):
+    for relative in ("studio_engine_batch.json", "studio_run.json", "run_summary.json", "campaign_progress.json", "summary.json", "progress.json"):
         candidate = path / relative
         if candidate.is_file():
             try:
@@ -421,7 +423,7 @@ def _iterative_rows(root: Path) -> List[Dict[str, str]]:
     return rows
 
 
-def _iterative_overview(root: Path, limit: int) -> Dict[str, Any]:
+def _iterative_overview(root: Path, limit: int, hit_only: bool = False) -> Dict[str, Any]:
     grouped: Dict[int, Dict[int, List[Dict[str, Any]]]] = {}
     for row in _iterative_rows(root):
         try:
@@ -452,7 +454,7 @@ def _iterative_overview(root: Path, limit: int) -> Dict[str, Any]:
                 artifacts.append(binder)
 
     groups: List[Dict[str, Any]] = []
-    for run_number in sorted(grouped)[:limit]:
+    for run_number in sorted(grouped):
         variants: List[Dict[str, Any]] = []
         trajectory: List[Dict[str, Any]] = []
         for cycle in sorted(grouped[run_number]):
@@ -492,9 +494,11 @@ def _iterative_overview(root: Path, limit: int) -> Dict[str, Any]:
                 "excludes": "independent complex and binder-alone validation structures",
             },
         })
+    if hit_only:
+        groups = [group for group in groups if group.get("is_hit") is True]
     return {
         "organization": "run -> cycle -> design/complex-reprediction/binder-alone",
-        "groups": groups,
+        "groups": groups[:limit], "truncated": len(groups) > limit,
     }
 
 
@@ -662,7 +666,50 @@ def _nise_overview(root, limit):
             "note": "Self-consistency is a search filter, not an independently validated binding hit. Preorganisation reranks only the final apo-tested shortlist."}
 
 
-def results_overview(run_id: str, hit_only: bool = False, limit: int = 100) -> Dict[str, Any]:
+def _iterative_batch_overview(root: Path, limit: int, framework_id: Optional[str],
+                              design_engine: Optional[str], hit_only: bool) -> Dict[str, Any]:
+    descriptor = load_json(root / "studio_engine_batch.json")
+    paths = descriptor.get("campaigns", [])
+    if not isinstance(paths, list) or not paths or len({Path(p).name for p in paths}) != len(paths):
+        raise StudioError("The saved batch has invalid campaign membership.")
+    workspace = root.parent.resolve()
+    campaigns, groups = [], []
+    for index, path in enumerate(paths):
+        child = (workspace / Path(path).name).resolve()
+        if child.parent != workspace or not (child / "studio_run.json").is_file():
+            raise StudioError("A batch campaign is missing or outside its workspace: " + Path(path).name)
+        manifest = load_json(child / "studio_run.json")
+        request = manifest.get("request", {})
+        framework = request.get("scaffoldID", "none")
+        ids = descriptor.get("engineIDs", [])
+        engine = ids[index] if index < len(ids) else request.get("designPredictor", "unknown")
+        child_id = workspace.name + "/" + child.name
+        campaigns.append({"run_id": child_id, "framework_id": framework, "design_engine": engine,
+                          "requested_trajectories": request.get("numDesigns", 0),
+                          "optimization_cycles": request.get("numCycles", 0)})
+        if framework_id is not None and framework_id != framework:
+            continue
+        if design_engine is not None and design_engine != engine:
+            continue
+        for group in _iterative_overview(child, limit + 1, hit_only)["groups"]:
+            if hit_only and group.get("is_hit") is not True:
+                continue
+            group.update(id="iterative|" + child.name + "|" + group["id"],
+                         title=framework + " · " + engine + " · " + group["title"],
+                         campaign_run_id=child_id, framework_id=framework, design_engine=engine,
+                         artifact_run_id=child_id)
+            groups.append(group)
+    return {"organization": "framework / engine campaign -> independent trajectory -> cycle -> artifacts",
+            "campaigns": campaigns, "groups": groups[:limit], "truncated": len(groups) > limit,
+            "frameworks": sorted({c["framework_id"] for c in campaigns}),
+            "design_engines": sorted({c["design_engine"] for c in campaigns}),
+            "requested_trajectories": sum(c["requested_trajectories"] for c in campaigns),
+            "expected_optimized_cycle_outputs": sum(c["requested_trajectories"] * c["optimization_cycles"] for c in campaigns),
+            "note": "Artifact paths are relative to each group's artifact_run_id, not the batch. Cycle outputs are not independent trajectories. Query each campaign_run_id for raw tables."}
+
+
+def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
+                     framework_id: Optional[str] = None, design_engine: Optional[str] = None) -> Dict[str, Any]:
     """Return the same scientific hierarchy presented by the native app.
 
     This intentionally complements, rather than replaces, results_query: agents
@@ -671,10 +718,14 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100) -> D
     """
     root = resolve_run(run_id)
     workflow = classify_run(root)
-    if workflow == "nise":
+    if workflow == "iterative_batch":
+        result = _iterative_batch_overview(root, limit, framework_id, design_engine, hit_only)
+    elif framework_id is not None or design_engine is not None:
+        raise StudioError("Framework/engine filters require an iterative batch run_id.")
+    elif workflow == "nise":
         result = _nise_overview(root, limit)
     elif workflow == "iterative":
-        result = _iterative_overview(root, limit)
+        result = _iterative_overview(root, limit, hit_only)
     elif workflow == "rfdiffusion3":
         result = _rfd3_overview(root, limit)
     else:
@@ -800,6 +851,8 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
                 "When the user supplies a trusted target PDB/CIF, pass it as target_template_path. Guide mode works with Boltz-2, Protenix v2, and IntelliFold v2 Flash/full. Do not request strong coordinate restraint; it is disabled after Apple-GPU acceptance failures.",
                 "The target template applies only to target chains during design cycles. Never template binder A or independent complex/binder-alone validation folds.",
                 "Secondary-structure control is initialization-only helix kill: --negative-helix-constant accepts a finite strength from 0 to 1, with 0 disabled. Later MPNN cycles use normal sampling. Beta, mixed, sustained, loop-kill and inspection controls are retired.",
+                "Nanobody GUI budgets explicitly choose a total across frameworks, the same count per framework, or custom allocations. Saved child numDesigns/--num-runs is the independent trajectory count, not the number of cycle outputs. Eight frameworks at 100 each means 800 trajectories per engine; five cycles means 4000 optimized outputs plus 800 starts.",
+                "runs_list includes iterative_batch parents. Use results_overview on that parent with optional framework_id/design_engine filters; read each group artifact_run_id when resolving artifacts, and query campaign_run_id for its raw tables. Earlier framework outputs remain part of the batch.",
                 "Review results as run -> ordered cycles. Each cycle keeps its design structure, independent complex reprediction, binder-alone fold, scores, and saved filter verdict together.",
                 "The GUI trajectory contains only cycle design-stage structures, ordered from cycle 00, and rigidly aligns later frames to matching target-chain C-alpha atoms (chains B onward). Do not mix validation folds into that optimization trajectory.",
             ],

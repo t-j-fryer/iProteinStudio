@@ -65,6 +65,7 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
     static var submissions: [(workflow: String, output: URL)] = []
     static var receiver: ((ManagedJob) -> Void)?
     static var cancelCalls = 0
+    static var lastAttachResumed = false
     static var holdSubmission = false
     static var pending: ManagedJobSession?
     func submit(project: String, workflow: String, output: URL, update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) {
@@ -72,7 +73,7 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
         if Self.holdSubmission { Self.pending = self }
         else { id = "fixture-\(Self.submissions.count)" }
     }
-    func attach(id: String, resume: Bool = false, update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) { self.id = id; Self.receiver = update }
+    func attach(id: String, resume: Bool = false, update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) { self.id = id; Self.receiver = update; Self.lastAttachResumed = resume }
     func cancel() { Self.cancelCalls += 1 }
     func detach() { id = nil; Self.receiver = nil }
     static func completeSubmission() { pending?.id = "pending-fixture"; pending = nil; holdSubmission = false }
@@ -189,6 +190,34 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
         selection.scaffoldSelections![0].trajectories = 0
         precondition(!selection.isRunnable)
         print("PASS scaffold equal/custom budgets, round-trip, exclusions and 21 engine/scaffold campaign manifests")
+        // Typing updates the request before Start, without Return/focus loss.
+        var perFramework = nanobody.request
+        perFramework.setFrameworkBudgetMode(.perFramework)
+        var valid = NumericInputValue.apply("100", in: 1...10_000) { perFramework.setTrajectoriesPerScaffold($0) }
+        precondition(valid && perFramework.numDesigns == 700)
+        precondition(perFramework.campaignRequests.allSatisfy { $0.request.numDesigns == 100 && $0.request.trajectoriesPerScaffold == nil })
+        for invalid in ["", "abc", "0", "10001", "999999999999999999999999"] {
+            valid = NumericInputValue.apply(invalid, in: 1...10_000) { perFramework.setTrajectoriesPerScaffold($0) }
+            precondition(!valid && perFramework.numDesigns == 700)
+        }
+        perFramework.setScaffold(id: "eighth", name: "Eighth", sequence: perFramework.allocatedScaffolds[0].sequence, selected: true)
+        precondition(perFramework.numDesigns == 800 && perFramework.allocatedScaffolds.allSatisfy { $0.trajectories == 100 })
+        let restoredBudget = try JSONDecoder().decode(DesignRequest.self, from: JSONEncoder().encode(perFramework))
+        precondition(restoredBudget == perFramework && restoredBudget.frameworkBudgetMode == .perFramework)
+        perFramework.setFrameworkBudgetMode(.custom)
+        perFramework.setScaffoldBudget(id: "eighth", trajectories: 50)
+        precondition(perFramework.numDesigns == 750 && perFramework.trajectoriesPerScaffold == nil)
+        perFramework.setFrameworkBudgetMode(.total)
+        precondition(perFramework.numDesigns == 750 && perFramework.allocatedScaffolds.reduce(0) { $0 + $1.trajectories } == 750)
+        precondition(scaffoldController.resultsRoot == scaffoldSubmission.output)
+        let batchRecord = StudioRunRecord(projectID: nanobody.id, projectName: nanobody.name,
+            workflow: .iterative, name: "Combined", root: scaffoldSubmission.output, date: Date(),
+            state: .stopped, detail: "", manifestURL: nil, managedJobID: "batch-fixture", hasViewableResults: true)
+        let resumedBatch = RunController(); resumedBatch.resume(batchRecord)
+        precondition(resumedBatch.isRunning && resumedBatch.resultsRoot == scaffoldSubmission.output)
+        precondition(ManagedJobSession.lastAttachResumed && resumedBatch.observedJobID == "batch-fixture")
+
+        print("PASS immediate numeric edits, invalid submission gates, per-framework mode, selection changes, round-trip and batch result root")
         // Starting another workspace detaches only the dashboard, not its job.
         ManagedJobSession.submissions = []
         let queuedController = RunController()
