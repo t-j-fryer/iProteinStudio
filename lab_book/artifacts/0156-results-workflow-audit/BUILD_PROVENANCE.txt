@@ -1,0 +1,10 @@
+iProteinStudio unsigned beta
+Version: 0.2.0
+Build: 41
+Architecture: arm64 (Apple silicon)
+Minimum macOS: 14.0
+Source commit: 034466a830c19be669f39ef89fa56f4f8035fd4b
+Source state: clean
+Code signature: ad hoc; not Developer ID signed or Apple notarized
+Application updates: Sparkle enabled; update archives require the project EdDSA signature
+Update feed: https://raw.githubusercontent.com/t-j-fryer/iProteinStudio/main/appcast.xml

@@ -1,0 +1,2 @@
+fdc104a49a3a8bc958b1ba3b59a6d36c1f275eb2dd38a4a26a736afb245a1a3f  iProteinStudio-0.2.0-unsigned-beta-apple-silicon.dmg
+474312f6bf0bafae165b4da6c4713aa49460a0d2353b21a5eacb2457e9b2ec02  iProteinStudio-0.2.0-unsigned-beta-apple-silicon.zip

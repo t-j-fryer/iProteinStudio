@@ -1,0 +1,99 @@
+iProteinStudio 0.2.0 (41) unsigned beta
+Source: 034466a830c19be669f39ef89fa56f4f8035fd4b (clean)
+==> swift build -c release
+Building for production...
+[Pre-planning 1 / 67]
+[Planning deferred tasks]
+[17 / 35]
+[19 / 35]
+[23 / 35]
+[24 / 36] StudioCore
+[35 / 71]
+[37 / 71]
+[40 / 71]
+[42 / 71]
+[44 / 71]
+[48 / 71]
+[50 / 71]
+[53 / 71]
+[56 / 71]
+[57 / 71]
+[58 / 71]
+[59 / 71]
+[60 / 71] StudioCore
+[67 / 72] iProteinStudio-product
+[85 / 111]
+[95 / 111]
+[96 / 111]
+[98 / 111]
+[101 / 111]
+[103 / 111]
+[104 / 111]
+[106 / 111]
+/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/Sources/iProteinStudio/Views/ActivityCenterView.swift:17:17: warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 15 |     let projectFilter: Project.ID?
+ 16 | 
+ 17 |     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 18 | 
+ 19 |     private var records: [StudioRunRecord] {
+
+Combine.Publishers.Autoconnect:2:14: note: generic class declared here
+ 1 | enum Publishers {
+ 2 | public class Autoconnect<Upstream> : Publisher where Upstream : ConnectablePublisher {
+   |              `- note: generic class declared here
+ 3 |     public typealias Output = Upstream.Output
+ 4 |     public typealias Failure = Upstream.Failure
+
+/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/Sources/iProteinStudio/Views/ActivityCenterView.swift:17:17: warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_[107 / 111] iProteinStudio-product
+implementationOnly'; 'Combine' was not imported by this file
+ 15 |     let projectFilter: Project.ID?
+ 16 | 
+ 17 |     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+ 18 | 
+ 19 |     private var records: [StudioRunRecord] {
+
+Combine.Publishers:2:13: note: enum declared here
+1 | @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+2 | public enum Publishers {
+  |             `- note: enum declared here
+3 | }
+[109 / 111] iProteinStudio-product
+[110 / 111] iProteinStudio-product
+Build complete! (79.72 sec)
+==> assembling build/iProteinStudio.app
+build/iProteinStudio.app: replacing existing signature
+   ad-hoc signed trusted beta (Sparkle updates require an EdDSA-signed archive)
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+build/iProteinStudio.app: valid on disk
+build/iProteinStudio.app: satisfies its Designated Requirement
+✅ Built build/iProteinStudio.app
+   Version: 0.2.0 (41)
+   Launch with:  open "build/iProteinStudio.app"
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/results-build41/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+build/iProteinStudio.app: valid on disk
+build/iProteinStudio.app: satisfies its Designated Requirement
+PASS packaged SwiftPM resource bundle contract
+Wrote 1 new update, updated 0 existing updates, and removed 1 old update in appcast.xml
+Unsigned beta artifacts are ready in build/unsigned-beta-0.2.0-41
+The beta appcast contains a Sparkle EdDSA archive signature.
+Installation instructions: docs/INSTALL_UNSIGNED_BETA.md

@@ -4,7 +4,7 @@ title: Audit result organisation and score provenance across workflows
 date: 2026-09-18
 author: GPT-6 Codex
 type: bugfix
-status: in-progress
+status: complete
 machine: Apple M4 Max, 64 GB unified memory
 tags: [nise, nesso, prediction, rfd3, results, ui]
 ---
@@ -86,6 +86,16 @@ when no explicit model correspondence exists. Existing compiler warnings remain.
 
 ## Deployment
 
-Build 41 pending. Use an isolated release worktree because unrelated Validation
-analysis edits are active in the main checkout. No pipeline/MCP runtime changes
-or campaign pause are required for this presentation-only update.
+Build 41 was packaged from clean source commit `034466a` in an isolated release
+worktree, excluding unrelated active Validation edits. Packaging/resource contracts,
+ad-hoc signature verification and `hdiutil verify` passed. ZIP, DMG, checksums and
+clean source provenance were uploaded to the existing `v0.2.0-beta` release;
+GitHub main and the signed Sparkle archive feed were updated (`a6fa6d1`). The app
+is still an ad-hoc-signed trusted beta, not Apple-notarized.
+
+The open local app was replaced and reopened as build 41 (PID 73524); build 40
+was retained as an ignored local backup. After replacement, broker job
+`job-0f975ef0db89` remained running with runner PID 60540 and child PID 60546,
+the same plan digest and start time, and no reported error. A final read-only
+check found 478/1,266 cycle01 folding receipts and zero affinity receipts.
+No pipeline/MCP runtime change, worker restart or campaign pause occurred.
