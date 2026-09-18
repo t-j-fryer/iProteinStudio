@@ -17,7 +17,7 @@ struct RunResultsWindowRequest: Codable, Hashable {
     var root: URL { URL(fileURLWithPath: rootPath, isDirectory: true) }
 }
 
-enum StudioResultStage: String, Hashable {
+enum StudioResultStage: String, CaseIterable, Hashable {
     case prediction
     case startingStructure
     case design
@@ -456,5 +456,17 @@ enum CSVTable {
         }
         if !quoted && (!field.isEmpty || !record.isEmpty) { record.append(field); records.append(record) }
         return records
+    }
+}
+
+
+/// Shared presentation filters never alter scientific grouping or saved verdicts.
+struct ResultBrowserFilter: Equatable {
+    var query = ""
+    var stage = ""
+    var source = ""
+    func includes(_ item: StudioResultItem) -> Bool {
+        (stage.isEmpty || item.stage.rawValue == stage) && (source.isEmpty || item.scoreSource == source)
+            && (query.isEmpty || [item.title, item.subtitle, item.groupTitle, item.variantTitle ?? ""].joined(separator: " ").localizedCaseInsensitiveContains(query))
     }
 }

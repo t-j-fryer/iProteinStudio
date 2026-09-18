@@ -4,6 +4,16 @@ Initialization-only helix-kill strength is now the sole secondary-structure cont
 
 ## 0.2.0 — updater foundation
 
+- Build 41 audits results across all workflows: NISE exposes NESSO sequence
+  scores before folding and reads committed Boltz affinity-head results with
+  structure-receipt matching. Screening scores remain separate from Boltz scores.
+- Predict results stay live, read completed chunk receipts before the final CSV,
+  and group engine/model samples by input. Template-conditioned results are
+  labelled, and per-sample confidences cannot be borrowed from another model.
+- RFdiffusion3 retains completed predictions outside its ranked shortlist.
+  Shared result views add search, stage and score-source filters; completed work
+  remains accessible while campaigns run and after failures or restarts.
+
 - Build 40 shows live NISE structures during Phase 0, directly from completed
   prediction checkpoints. Separate Phase 0 preparation, Phase 1 optimisation
   and final-check views retain earlier work, with stage progress, lineage/trajectory

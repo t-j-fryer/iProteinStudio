@@ -753,3 +753,19 @@ batch-copy trees, loads away from the UI thread, and shares snapshots between
 windows. Missing/unreadable records or unsafe structure paths produce a visible
 warning. Copied prediction receipts relocate only through their explicit relative
 artifact inventory; the view does not follow references outside the selected run.
+
+
+The **NESSO scores** section shows sequences as their screening receipts arrive,
+including sequences that never receive a Boltz fold. It shares the phase/stage
+and name search, and reports NESSO P(bind), interface entropy, the recorded
+screening score and shortlist decision. A missing decision means the shortlist
+has not yet been committed. No historical score policy is recomputed by the UI.
+Matching sequence identities attach those NESSO metrics to live Boltz structures.
+
+Boltz P(bind) also becomes visible when its separate affinity receipt commits,
+even before a larger score batch finishes. The receipt must name the same
+candidate and match the exact structure-receipt digest. In selective-affinity
+runs, initial generation and the geometry-only gate omit affinity; refinement
+and optimisation finish folding before checks and selective affinity scoring.
+A blank P(bind) can therefore mean pending, deliberately omitted, or ineligible
+for scoring; it is never interpreted as zero.

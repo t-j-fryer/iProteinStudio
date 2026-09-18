@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 enum StudioWorkflow: String, Codable {
     case iterative, nise, rfdiffusion3, prediction
@@ -77,12 +78,44 @@ struct NISEResultsContractHarness {
         precondition(snapshot.records.first { $0.item.title == "c01_t0_n0_s0" }?.advanced == false)
         precondition(snapshot.records.first { $0.item.title == "L000_c1_0" }?.advanced == nil)
 
+        // NESSO is useful before any fold/candidate record exists. Preserve its
+        // probability and entropy separately from the later Boltz probability.
+        let scores: [String: Any] = ["affinity_probability_binary": 0.73, "entropy_crop_pl": 0.2, "entropy_pl": 0.4]
+        try write("cycle01/nesso/c01_t0_n0_s0/completed.json", ["input": ["sequence": "AXAA"], "result": ["scores": scores]])
+        snapshot = NISEResultsLoader.load(root: root)
+        precondition(snapshot.screening.first { $0.name == "c01_t0_n0_s0" }?.selected == nil)
+        try write("cycle01/nesso/selection.json", ["input": ["sequences": ["c01_t0_n0_s0": "AXAA", "screened_out": "AAAA"],
+            "scores": ["c01_t0_n0_s0": scores, "screened_out": scores],
+            "assessments": ["c01_t0_n0_s0": ["score": 1.53], "screened_out": ["score": 1.53]]], "result": ["c01_t0_n0_s0"]])
+        snapshot = NISEResultsLoader.load(root: root)
+        precondition(snapshot.screening.contains { $0.name == "screened_out" && $0.selected == false })
+        let nessoFold = snapshot.records.first { $0.item.title == "c01_t0_n0_s0" }!
+        precondition(nessoFold.item.metrics.contains { $0.kind == .nessoBindingProbability && $0.value == 0.73 })
+        precondition(nessoFold.item.metrics.contains { $0.kind == .nessoScreeningScore && $0.value == 1.53 })
+        precondition(!nessoFold.item.metrics.contains { $0.kind == .bindingProbability })
+        let completedData = try Data(contentsOf: root.appendingPathComponent("cycle01/fold/c01_t0_n0_s0/completed.json"))
+        let digest = SHA256.hash(data: completedData).map { String(format: "%02x", $0) }.joined()
+        let affinity: [String: Any] = ["input": ["structure_receipt_sha256": digest], "result": ["prediction": ["name": "c01_t0_n0_s0", "pbind": 0.81]]]
+        try write("cycle01/fold/c01_t0_n0_s0/affinity_completed.json", affinity)
+        snapshot = NISEResultsLoader.load(root: root)
+        precondition(snapshot.records.first { $0.id == nessoFold.id }!.item.metrics.contains { $0.kind == .bindingProbability && $0.value == 0.81 })
+        var invalidAffinity = affinity; invalidAffinity["input"] = ["structure_receipt_sha256": "wrong"]
+        try write("cycle01/fold/c01_t0_n0_s0/affinity_completed.json", invalidAffinity)
+        snapshot = NISEResultsLoader.load(root: root)
+        precondition(!snapshot.records.first { $0.id == nessoFold.id }!.item.metrics.contains { $0.kind == .bindingProbability })
+
         // RFdiffusion3's committed initial set has no invented Boltz confidence.
         try structure("phase0/cycle00/L003_ref.pdb")
         try write("phase0/cycle00/initial_backbones.json", ["result": ["L003": "phase0/cycle00/L003_ref.pdb"]])
         snapshot = NISEResultsLoader.load(root: root)
         let rfd = snapshot.records.first { $0.item.title == "L003" }!
         precondition(rfd.item.scoreSource == "RFdiffusion3" && rfd.item.metrics.isEmpty)
+
+        // Phase labels follow saved refinement settings across backbone routes.
+        try write("config.json", ["num_starts": 3, "phase0_refine_cycles": 3, "backbone_method": "rfdiffusion3"])
+        snapshot = NISEResultsLoader.load(root: root)
+        precondition(snapshot.stages.first { $0.id == "0|4" }?.title == "Unrestrained geometry gate")
+        precondition(snapshot.stages.first { $0.id == "0|5" }?.title == "Seed expansion")
 
         // Arbitrary outside references, escaping symlinks and missing structures are not rendered.
         try write("candidates/escape.json", ["name": "escape", "pdb": "../outside.pdb"])

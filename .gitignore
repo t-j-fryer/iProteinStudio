@@ -21,3 +21,6 @@ __pycache__/
 Validation/output/
 Validation/cache/
 Validation/.venv/
+
+# Isolated development/release checkouts
+.worktrees/

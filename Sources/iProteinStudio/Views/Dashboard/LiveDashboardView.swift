@@ -111,7 +111,7 @@ struct LiveDashboardView: View {
             }
             Spacer()
             HStack(spacing: 10) {
-                if !run.isRunning, run.campaignRoot != nil {
+                if run.campaignRoot != nil {
                     Button {
                         if let root = run.resultsRoot {
                             openWindow(value: RunResultsWindowRequest(

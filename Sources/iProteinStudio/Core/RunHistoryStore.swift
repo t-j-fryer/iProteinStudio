@@ -376,8 +376,8 @@ private struct RunHistoryLoader {
             return StudioRunRecord(projectID: project.id, projectName: project.name,
                                    workflow: .prediction, name: RunNaming.read(at: candidate, fallback: candidate.lastPathComponent),
                                    root: candidate, date: fileDate(candidate), state: state,
-                                   detail: completed ? "\(results) result(s), \(failures) failed" : "Settings saved; no final summary",
-                                   manifestURL: nil, hasViewableResults: results > 0)
+                                   detail: completed ? "\(results) result(s), \(failures) failed" : "Prediction progress available",
+                                   manifestURL: nil, hasViewableResults: true)
         }
     }
 

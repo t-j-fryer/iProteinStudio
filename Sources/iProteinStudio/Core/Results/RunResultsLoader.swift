@@ -116,9 +116,37 @@ enum RunResultsLoader {
 
     // MARK: Prediction batches
 
+    /// Predict writes its final CSV after all engines finish. Successful chunk
+    /// receipts provide the same task identity while the batch is still running.
+    static func predictionRows(root: URL) -> [[String: String]] {
+        func key(_ row: [String: String]) -> String { (row["predictor"] ?? "") + "|" + (row["job"] ?? "") }
+        let csv = CSVTable.rows(at: root.appendingPathComponent("predictions.csv"))
+        var rows = Dictionary(csv.map { (key($0), $0) }, uniquingKeysWith: { _, last in last })
+        func children(_ url: URL) -> [URL] { (try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? [] }
+        let boundary = root.standardizedFileURL.resolvingSymlinksInPath().path + "/"
+        for engine in children(root) {
+            for bucket in children(engine) where bucket.lastPathComponent.hasPrefix("bucket_") {
+                for chunk in children(bucket) where chunk.lastPathComponent.hasPrefix("chunk_") {
+                    let marker = chunk.appendingPathComponent("chunk_complete.json").resolvingSymlinksInPath()
+                    guard marker.path.hasPrefix(boundary), let receipt = jsonObject(at: marker),
+                          let predictor = receipt["predictor"] as? String, predictor == engine.lastPathComponent,
+                          let jobs = receipt["jobs"] as? [String] else { continue }
+                    for job in jobs {
+                        let row = ["job": job, "predictor": predictor, "bucket": String(bucket.lastPathComponent.dropFirst(7)),
+                                   "exit_code": "0", "output": chunk.path]
+                        rows[key(row)] = row
+                    }
+                }
+            }
+        }
+        return rows.values.sorted { key($0) < key($1) }
+    }
+
     private static func predictionResults(root: URL) -> [StudioResultItem] {
-        let rows = CSVTable.rows(at: root.appendingPathComponent("predictions.csv"))
+        let rows = predictionRows(root: root)
         let sequences = predictionSequences(root: root)
+        let configuration = jsonObject(at: root.appendingPathComponent("prediction_config.json")) ?? [:]
+        let conditioned = configuration["template"] as? [String: Any] != nil
         let outputCounts = Dictionary(grouping: rows, by: { $0["output"] ?? "" }).mapValues(\.count)
         return rows.flatMap { row -> [StudioResultItem] in
             guard row["exit_code"] == "0", let outputText = row["output"],
@@ -133,17 +161,23 @@ enum RunResultsLoader {
             let predictor = friendlyPredictor(row["predictor"] ?? "Prediction")
             let baseTitle = (job?.isEmpty == false ? job! : "Prediction")
             return structures.map { structure in
-                let documents = confidenceDocuments(near: structure,
+                var documents = confidenceDocuments(near: structure,
                                                     within: structure.deletingLastPathComponent())
-                let metrics = collectMetrics(row: row, documents: documents)
+                if structures.count == 1, let name = row["job"] {
+                    let affinity = structure.deletingLastPathComponent().appendingPathComponent("affinity_" + name + ".json")
+                    if fm.fileExists(atPath: affinity.path) { documents.append(affinity) }
+                }
+                let metrics = collectMetrics(row: structures.count == 1 ? row : [:], documents: documents)
                 let suffix = structures.count > 1 ? sampleLabel(for: structure) : nil
                 let title = suffix.map { "\(baseTitle) · \($0)" } ?? baseTitle
                 return StudioResultItem(
                     id: "\(predictor)|\(title)|\(structure.path)", title: title,
-                    subtitle: predictor, structureURL: structure,
+                    subtitle: predictor + (conditioned ? " · Template-conditioned" : ""), structureURL: structure,
                     sequence: job.flatMap { sequences[$0] }, metrics: metrics,
                     confidenceURL: documents.first, stage: .prediction,
-                    scoreSource: predictor, artifactRole: .prediction
+                    scoreSource: predictor, groupID: "prediction|" + baseTitle, groupTitle: baseTitle,
+                    variantID: predictor + "|" + (suffix ?? structure.lastPathComponent),
+                    variantTitle: predictor + " · " + (suffix ?? "Prediction"), artifactRole: .prediction
                 )
             }
         }
@@ -152,7 +186,7 @@ enum RunResultsLoader {
     private static func predictionSequences(root: URL) -> [String: String] {
         guard let object = jsonObject(at: root.appendingPathComponent("prediction_config.json")),
               let jobs = object["jobs"] as? [[String: Any]] else { return [:] }
-        return Dictionary(uniqueKeysWithValues: jobs.compactMap { job in
+        return Dictionary(jobs.compactMap { job -> (String, String)? in
             guard let name = job["name"] as? String,
                   let chains = job["chains"] as? [[String: Any]] else { return nil }
             let proteins = chains.compactMap { chain -> String? in
@@ -161,7 +195,7 @@ enum RunResultsLoader {
             }
             guard !proteins.isEmpty else { return nil }
             return (name, proteins.joined(separator: ":"))
-        })
+        }, uniquingKeysWith: { first, second in first == second ? first : "" })
     }
 
     // MARK: Iterative designs
@@ -323,7 +357,15 @@ enum RunResultsLoader {
     private static func rfd3Results(root: URL) -> [StudioResultItem] {
         let backbones = liveRFD3Backbones(root: root)
         let ranked = rankedRFD3Results(root: root)
-        if !ranked.isEmpty { return backbones + ranked }
+        // Ranked summaries cover a shortlist, not the whole prediction pool.
+        // Replace matching provisional artifacts and retain all other completed work.
+        if !ranked.isEmpty {
+            func identity(_ item: StudioResultItem) -> String {
+                [item.groupID, item.variantID ?? "", item.artifactRole.rawValue, item.scoreSource].joined(separator: "|")
+            }
+            let promoted = Set(ranked.map(identity))
+            return backbones + ranked + liveRFD3Predictions(root: root).filter { !promoted.contains(identity($0)) }
+        }
 
         // Prediction rows are append-only checkpoints. Prefer them as soon as
         // structures exist, but fall back to raw generated backbones while the
@@ -664,7 +706,8 @@ enum RunResultsLoader {
             return nil
         }
 
-        add(.plddt, rowNumber(["complex_plddt", "plddt", "ligand_plddt"]))
+        add(.plddt, rowNumber(["complex_plddt", "plddt"]))
+        add(.ligandPLDDT, rowNumber(["ligand_plddt"]))
         add(.iptm, rowNumber(["iptm", "ipTM"]))
         add(.ptm, rowNumber(["ptm", "pTM"]))
         add(.interfacePAEMinimum, rowNumber(["ipae_min", "interface_pae_min", "min_interface_pae"]))
@@ -688,6 +731,7 @@ enum RunResultsLoader {
         for document in documents {
             guard let object = jsonObject(at: document) else { continue }
             add(.plddt, number(in: object, keys: ["complex_plddt", "protein_plddt", "mean_plddt", "plddt"]))
+            add(.ligandPLDDT, number(in: object, keys: ["ligand_plddt"]))
             add(.iptm, number(in: object, keys: ["iptm", "ipTM"]))
             add(.ptm, number(in: object, keys: ["ptm", "pTM"]))
             add(.interfacePAEMinimum, number(in: object, keys: ["ipae_min", "interface_pae_min", "min_interface_pae"]))
@@ -789,7 +833,25 @@ enum RunResultsLoader {
                 || name.hasPrefix("confidence_") || name.hasSuffix("_confidences.json")
         }
         let unique = Dictionary(grouping: candidates, by: \.path).compactMap { $0.value.first }
-        return unique.sorted { confidenceRank($0) < confidenceRank($1) }.prefix(4).map { $0 }
+        let stem = structure.deletingPathExtension().lastPathComponent.lowercased()
+        let escaped = NSRegularExpression.escapedPattern(for: stem)
+        let exact = unique.filter { $0.lastPathComponent.lowercased().range(of: escaped + "(?![0-9])", options: .regularExpression) != nil }
+        if !exact.isEmpty { return exact.sorted { confidenceRank($0) < confidenceRank($1) } }
+        // Confidence belonging to another stochastic sample must never leak in.
+        func sampleIndex(_ name: String) -> String? {
+            guard let regex = try? NSRegularExpression(pattern: "(?:model_|sample[-_])([0-9]+)"),
+                  let match = regex.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)),
+                  let range = Range(match.range(at: 1), in: name) else { return nil }
+            return String(name[range])
+        }
+        let siblings = (try? fm.contentsOfDirectory(at: structure.deletingLastPathComponent(), includingPropertiesForKeys: nil)) ?? []
+        let multiple = siblings.filter { ["cif", "pdb"].contains($0.pathExtension) }.count > 1
+        let filtered = unique.filter {
+            guard $0.deletingLastPathComponent() == structure.deletingLastPathComponent() else { return false }
+            if let index = sampleIndex($0.lastPathComponent.lowercased()) { return index == sampleIndex(stem) }
+            return !multiple
+        }
+        return filtered.sorted { confidenceRank($0) < confidenceRank($1) }.prefix(4).map { $0 }
     }
 
     private static func confidenceRank(_ url: URL) -> String {

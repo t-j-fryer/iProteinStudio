@@ -603,7 +603,7 @@ struct PredictProgressView: View {
 
             if let root = controller.outputRoot {
                 HStack {
-                    if !controller.isRunning {
+                    Group {
                         Button {
                             openWindow(value: RunResultsWindowRequest(
                                 root: root, workflow: .prediction))

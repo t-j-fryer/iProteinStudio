@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Presentation of committed NISE records. Never runs checks or changes the search.
 enum NISEPhase: Int, CaseIterable, Identifiable {
@@ -47,7 +48,7 @@ struct NISEStageProgress: Identifiable {
     var id: String { "\(phase.rawValue)|\(cycle)" }
     var progressLabel: String {
         if let planned { return "\(completed) / \(planned) structures" }
-        return completed == 0 ? "Not started" : "\(completed) structures"
+        return completed == 0 ? (screened > 0 ? "Screening · awaiting folds" : "No completed structures yet") : "\(completed) structures"
     }
 }
 
@@ -55,7 +56,21 @@ struct NISESnapshot {
     var records: [NISERecord] = []
     var stages: [NISEStageProgress] = []
     var warnings: [String] = []
+    var screening: [NISEScreeningRecord] = []
     var items: [StudioResultItem] { records.map(\.item) }
+}
+
+struct NISEScreeningRecord: Identifiable {
+    let name: String
+    let phase: NISEPhase
+    let cycle: Int
+    let sequence: String
+    let metrics: [StudioResultMetric]
+    let selected: Bool?
+    let rejection: String?
+    let receipt: URL
+    var stageID: String { "\(phase.rawValue)|\(cycle)" }
+    var id: String { stageID + "|" + name }
 }
 
 enum NISEResultsLoader {
@@ -86,6 +101,7 @@ enum NISEResultsLoader {
         var rowFiles: [String: URL] = [:]
         var stages: [String: NISEStageProgress] = [:]
         var invalidRecords = 0
+        var screeningScores: [String: (sequence: String, values: [String: Any])] = [:]
         // Accept historical absolute references only when they resolve inside this run.
         // Copied receipts relocate using their explicit, relative artifact inventory.
         func artifact(_ path: String, inventory: [String: Any] = [:]) -> URL? {
@@ -165,13 +181,51 @@ enum NISEResultsLoader {
                     row["score_status"] = "awaiting_checks"
                     rows[name] = row; rowFiles[name] = directory.appendingPathComponent("completed.json")
                 }
+                // Affinity can commit before the surrounding score batch finishes.
+                // Bind it to this exact structure receipt, not just a candidate name.
+                if let affinity = object(directory.appendingPathComponent("affinity_completed.json")),
+                   let spec = affinity["input"] as? [String: Any],
+                   let data = try? Data(contentsOf: completedURL),
+                   spec["structure_receipt_sha256"] as? String == SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined(),
+                   let scored = (affinity["result"] as? [String: Any])?["prediction"] as? [String: Any],
+                   scored["name"] as? String == name,
+                   let pbind = scored["pbind"] as? Double, pbind.isFinite {
+                    rows[name]?["pbind"] = pbind
+                }
                 return
             }
             let file = directory.appendingPathComponent("selection.json")
-            if directory.lastPathComponent == "nesso", let receipt = object(file),
-               let input = receipt["input"] as? [String: Any], let seqs = input["sequences"] as? [String: Any],
-               let selected = receipt["result"] as? [String] {
-                stages[key]?.screened += seqs.count; stages[key]?.shortlisted += selected.count
+            if directory.lastPathComponent == "nesso" {
+                let receipt = object(file)
+                let input = receipt?["input"] as? [String: Any] ?? [:]
+                let selected = (receipt?["result"] as? [String]).map(Set.init)
+                let assessments = input["assessments"] as? [String: [String: Any]] ?? [:]
+                var savedScores = input["scores"] as? [String: [String: Any]] ?? [:]
+                var sequences = input["sequences"] as? [String: String] ?? [:]
+                var receipts: [String: URL] = [:]
+                for unit in children(directory) {
+                    let path = unit.appendingPathComponent("completed.json")
+                    guard path.resolvingSymlinksInPath().path.hasPrefix(root.path + "/") else { invalidRecords += 1; continue }
+                    guard let saved = object(path), let result = saved["result"] as? [String: Any],
+                          let scores = result["scores"] as? [String: Any],
+                          let spec = saved["input"] as? [String: Any], let sequence = spec["sequence"] as? String else { continue }
+                    let name = unit.lastPathComponent
+                    if savedScores[name] == nil { savedScores[name] = scores; sequences[name] = sequence }
+                    receipts[name] = path
+                }
+                for (name, raw) in savedScores {
+                    guard let sequence = sequences[name] else { continue }
+                    var values = raw
+                    // Display the recorded assessment; never recompute old policies.
+                    if let score = assessments[name]?["score"] { values["screening_score"] = score }
+                    screeningScores[name] = (sequence, values)
+                    snapshot.screening.append(NISEScreeningRecord(name: name, phase: phase, cycle: cycle,
+                        sequence: sequence, metrics: metrics(["nesso": values]), selected: selected.map { $0.contains(name) },
+                        rejection: assessments[name]?["rejection_reason"] as? String, receipt: receipts[name] ?? file))
+                }
+                stages[key]?.screened += max(savedScores.count, selected == nil ? 0 : sequences.count)
+                stages[key]?.shortlisted += selected?.count ?? 0
+                return
             }
             for child in children(directory) {
                 let name = child.lastPathComponent
@@ -227,8 +281,11 @@ enum NISEResultsLoader {
         }, uniquingKeysWith: { _, last in last })
 
         for name in rows.keys.sorted() {
-            guard let row = rows[name], let path = row["pdb"] as? String, let structure = artifact(path) else {
+            guard var row = rows[name], let path = row["pdb"] as? String, let structure = artifact(path) else {
                 invalidRecords += 1; continue
+            }
+            if row["nesso"] == nil, let screening = screeningScores[name], row["sequence"] as? String == screening.sequence {
+                row["nesso"] = screening.values
             }
             let tid = row["trajectory"] as? Int ?? trajectory(name)
             let phase = provenance[name]?.0 ?? (tid == nil ? .preparation : .optimisation)
@@ -293,6 +350,7 @@ enum NISEResultsLoader {
             }
         }
         snapshot.stages = stages.values.sorted { ($0.phase.rawValue, $0.cycle) < ($1.phase.rawValue, $1.cycle) }
+        snapshot.screening.sort { $0.id.localizedStandardCompare($1.id) == .orderedAscending }
         if invalidRecords > 0 { snapshot.warnings.append("\(invalidRecords) saved records could not be displayed because their metadata or structure files are missing, unreadable or outside this run. Use Reveal Run to inspect them.") }
         return snapshot
     }

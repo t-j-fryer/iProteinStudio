@@ -12,7 +12,7 @@ struct NISEResultsView: View {
     @State private var stageID = ""
     @State private var status = "all"
     @State private var search = ""
-    @State private var showStructures = false
+    @State private var section = "overview"
     @State private var loaded = false
     @State private var selectedMetric: StudioResultMetric.Kind = .ligandPLDDT
     @State private var updatedAt: Date?
@@ -64,6 +64,7 @@ struct NISEResultsView: View {
                         Text("All stages").tag("")
                         ForEach(stages) { Text($0.title).tag($0.id) }
                     }.frame(maxWidth: 320)
+                    if section != "nesso" {
                     Picker("Checks", selection: $status) {
                         Text("All candidates").tag("all")
                         if phase != .finalChecks {
@@ -74,22 +75,26 @@ struct NISEResultsView: View {
                             if phase == .optimisation { Text("Selected for next cycle").tag("advanced") }
                         }
                     }.frame(maxWidth: 280)
+                    }
                     TextField(phase == .preparation ? "Find lineage or candidate" : "Find trajectory or candidate", text: $search)
                         .textFieldStyle(.roundedBorder)
                     if status != "all" || !search.isEmpty {
                         Button("Clear filters") { status = "all"; search = "" }
                     }
                 }
-                Picker("Results section", selection: $showStructures) {
-                    Text("Overview").tag(false)
-                    Text("Structures (\(records.count))").tag(true)
+                Picker("Results section", selection: $section) {
+                    Text("Overview").tag("overview")
+                    Text("Structures (\(records.count))").tag("structures")
+                    if !snapshot.screening.isEmpty { Text("NESSO scores").tag("nesso") }
                 }.pickerStyle(.segmented)
             }.padding(14)
             Divider()
             if !snapshot.warnings.isEmpty {
                 Text(snapshot.warnings.joined(separator: "\n")).font(.caption).foregroundStyle(.orange).padding(10)
             }
-            if showStructures {
+            if section == "nesso" {
+                screeningTable
+            } else if section == "structures" {
                 if items.isEmpty { emptyState }
                 else { GroupedRunResultsBrowser(items: items) }
             } else { overview }
@@ -147,7 +152,7 @@ struct NISEResultsView: View {
                 HStack {
                     Text("\(records.count) candidates in this view").font(.headline)
                     Spacer()
-                    Button("Browse structures", systemImage: "cube.transparent") { showStructures = true }
+                    Button("Browse structures", systemImage: "cube.transparent") { section = "structures" }
                         .disabled(items.isEmpty)
                 }
                 if let metric {
@@ -203,6 +208,36 @@ struct NISEResultsView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(stageID == stage.id ? Color.accentColor : .clear))
         .contentShape(Rectangle())
         .accessibilityLabel("\(stage.title), \(stage.progressLabel). Select stage")
+    }
+
+    private var screeningTable: some View {
+        let rows = snapshot.screening.filter {
+            $0.phase == phase && (stageID.isEmpty || $0.stageID == stageID)
+                && (search.isEmpty || $0.name.localizedCaseInsensitiveContains(search))
+        }
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("NESSO screens sequences before folding. Its P(bind) and screening score are separate from Boltz P(bind) and ligand pLDDT. Sequences outside the shortlist have no Boltz structure.")
+                .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
+            Table(rows) {
+                TableColumn("Candidate", value: \.name)
+                TableColumn("P(bind)") { row in screenValue(row, .nessoBindingProbability) }
+                TableColumn("Interface entropy") { row in screenValue(row, .nessoInterfaceEntropy) }
+                TableColumn("Screening score") { row in screenValue(row, .nessoScreeningScore) }
+                TableColumn("Selection") { row in
+                    Text(row.selected.map { $0 ? "Shortlisted for Boltz" : "Not shortlisted" } ?? "Awaiting shortlist")
+                        .help(row.rejection ?? "Selection uses the saved screening policy.")
+                }
+                TableColumn("Record") { row in
+                    Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([row.receipt]) }
+                }.width(65)
+            }
+            Text("\(rows.count) screened sequences in this selection · — means not recorded")
+                .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
+        }.padding(.vertical, 12)
+    }
+
+    private func screenValue(_ row: NISEScreeningRecord, _ kind: StudioResultMetric.Kind) -> some View {
+        Text(row.metrics.first { $0.kind == kind }?.displayValue ?? "—").monospacedDigit()
     }
 
     private var emptyState: some View {

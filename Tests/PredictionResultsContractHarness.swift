@@ -343,6 +343,54 @@ struct PredictionResultsContractHarness {
                           userInfo: [NSLocalizedDescriptionKey:
                             "RFD3 browser lost backbone/holo/apo artifacts or provenance: \(rfd3Results.map { "\($0.subtitle):\($0.scoreSource):\($0.metrics)" })"])
         }
+        // A shortlist must not erase unranked but completed derivatives.
+        let unranked = rfd3.appendingPathComponent("predictions/holo/design_0001_1.pdb")
+        try "ATOM fixture".write(to: unranked, atomically: true, encoding: .utf8)
+        let holoCSV = rfd3.appendingPathComponent("predictions/holo/prediction_metrics.csv")
+        let originalHolo = try String(contentsOf: holoCSV, encoding: .utf8)
+        let parsed = CSVTable.rows(at: holoCSV)
+        precondition(!parsed.isEmpty)
+        // Preserve the actual fixture's header/columns by replacing its first data row.
+        let extra = originalHolo.split(separator: "\n").dropFirst().first!.replacingOccurrences(of: "design_0001_0", with: "design_0001_1")
+        try (originalHolo + (originalHolo.hasSuffix("\n") ? "" : "\n") + extra + "\n").write(to: holoCSV, atomically: true, encoding: .utf8)
+        let expanded = RunResultsLoader.load(root: rfd3, workflow: .rfdiffusion3)
+        precondition(expanded.contains { $0.variantID == "design_0001_1" && $0.stage == .verificationPrediction && $0.isHit == nil })
+        precondition(expanded.filter { $0.variantID == "design_0001_0" }.count == 2)
+        let filter = ResultBrowserFilter(query: "design_0001_1", stage: StudioResultStage.verificationPrediction.rawValue, source: "Boltz-2")
+        precondition(expanded.filter(filter.includes).count == 1)
+
+        // Two Boltz samples in one directory receive their own confidences, not
+        // a task-level representative score or another model's confidence.
+        let multi = root.appendingPathComponent("boltz-multiple")
+        try fm.createDirectory(at: multi, withIntermediateDirectories: true)
+        for (index, value) in [(1, 0.6), (10, 0.9)] {
+            try "data_fixture".write(to: multi.appendingPathComponent("input_model_\(index).cif"), atomically: true, encoding: .utf8)
+            try JSONSerialization.data(withJSONObject: ["iptm": value, "ligand_plddt": 81.0]).write(to: multi.appendingPathComponent("confidence_input_model_\(index).json"))
+        }
+        try "job,predictor,exit_code,output,iptm\ninput,boltz,0,\(multi.path),0.99\n".write(to: root.appendingPathComponent("predictions.csv"), atomically: true, encoding: .utf8)
+        try JSONSerialization.data(withJSONObject: ["template": ["path": "template.cif"], "jobs": [["name": "input", "chains": [["kind": "protein", "sequence": "AAAA"]]]]])
+            .write(to: root.appendingPathComponent("prediction_config.json"))
+        let samples = RunResultsLoader.load(root: root, workflow: .prediction)
+        precondition(samples.count == 2 && RunResultsLoader.groups(from: samples).count == 1)
+        precondition(Set(samples.compactMap { $0.metrics.first { $0.kind == .iptm }?.value }) == Set([0.6, 0.9]))
+        precondition(samples.allSatisfy { $0.subtitle.contains("Template-conditioned") && $0.isHit == nil })
+        precondition(samples.allSatisfy { $0.metrics.contains { $0.kind == .ligandPLDDT && $0.value == 81 } && !$0.metrics.contains { $0.kind == .plddt } })
+        // Live Predict has no final predictions.csv yet; only committed chunks
+        // may expose native files. A copied raw file without a marker is ignored.
+        let livePredict = csvRoot.appendingPathComponent("live-predict")
+        let chunk = livePredict.appendingPathComponent("boltz/bucket_128/chunk_0")
+        try fm.createDirectory(at: chunk, withIntermediateDirectories: true)
+        try "data_fixture".write(to: chunk.appendingPathComponent("input_model_0.cif"), atomically: true, encoding: .utf8)
+        precondition(RunResultsLoader.load(root: livePredict, workflow: .prediction).isEmpty)
+        try JSONSerialization.data(withJSONObject: ["predictor": "boltz", "jobs": ["input"]]).write(to: chunk.appendingPathComponent("chunk_complete.json"))
+        try JSONSerialization.data(withJSONObject: ["affinity_probability_binary": 0.78]).write(to: chunk.appendingPathComponent("affinity_input.json"))
+        let liveItems = RunResultsLoader.load(root: livePredict, workflow: .prediction)
+        precondition(liveItems.count == 1 && liveItems[0].metrics.contains { $0.kind == .bindingProbability && $0.value == 0.78 })
+        precondition(RunResultsLoader.predictionRows(root: livePredict).count == 1)
+        try "job,predictor,exit_code,output\ninput,boltz,0,\(chunk.path)\n".write(to: livePredict.appendingPathComponent("predictions.csv"), atomically: true, encoding: .utf8)
+        precondition(RunResultsLoader.load(root: livePredict, workflow: .prediction).count == 1)
+        print("PASS live Predict chunk receipts, unfinished output exclusion, CSV deduplication and unambiguous affinity attribution")
+        print("PASS unranked RFD3 preservation, shared filters, Predict input/sample grouping, template provenance and exact confidence attribution")
         print("PASS prediction result discovery contract")
     }
 }

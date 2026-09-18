@@ -157,12 +157,12 @@ private struct PredictionRunRow: View {
                 .foregroundStyle(record.state == .completed ? .blue : .orange)
                 .frame(width: 30)
             VStack(alignment: .leading, spacing: 2) {
-                Text(record.projectName).font(.body.weight(.medium))
+                Text(record.name).font(.body.weight(.medium))
                 Text("\(record.date.formatted(date: .abbreviated, time: .shortened)) · \(record.detail)")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            if record.state == .completed {
+            if record.hasViewableResults {
                 Button("View", action: open).controlSize(.small)
             }
             Button {

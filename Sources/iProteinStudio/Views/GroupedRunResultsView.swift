@@ -65,6 +65,7 @@ struct LiveGroupedRunResultsPane: View {
     let workflow: StudioWorkflow
     var hitsOnly = false
     @State private var items: [StudioResultItem]
+    @State private var filter = ResultBrowserFilter()
 
     init(root: URL, workflow: StudioWorkflow, hitsOnly: Bool = false) {
         self.root = root
@@ -74,7 +75,10 @@ struct LiveGroupedRunResultsPane: View {
     }
 
     var body: some View {
-        GroupedRunResultsBrowser(items: items, hitsOnly: hitsOnly)
+        VStack(spacing: 0) {
+            ResultBrowserControls(items: items, filter: $filter)
+            GroupedRunResultsBrowser(items: items.filter(filter.includes), hitsOnly: hitsOnly)
+        }
             .task(id: root.path) {
                 while !Task.isCancelled {
                     let loaded = await ResultsRepository.shared.load(root: root, workflow: workflow)
@@ -93,7 +97,7 @@ private struct StudioResultGroupRow: View {
         guard !group.variants.isEmpty else {
             return "\(group.items.count) structure\(group.items.count == 1 ? "" : "s")"
         }
-        let noun = group.id.hasPrefix("rfd3|") ? "MPNN derivative" : (group.id.hasPrefix("nise|") ? "candidate" : "cycle")
+        let noun = group.id.hasPrefix("rfd3|") ? "MPNN derivative" : (group.id.hasPrefix("nise|") ? "candidate" : (group.id.hasPrefix("prediction|") ? "model sample" : "cycle"))
         return "\(group.variants.count) \(noun)\(group.variants.count == 1 ? "" : "s")"
     }
 
@@ -184,7 +188,7 @@ private struct StudioResultGroupDetail: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(group.title).font(.title3.weight(.semibold))
                 if !group.variants.isEmpty {
-                    Text("\(group.variants.count) nested \(group.id.hasPrefix("rfd3|") ? "MPNN sequence derivative" : (group.id.hasPrefix("nise|") ? "candidate" : "design cycle"))\(group.variants.count == 1 ? "" : "s") · \(group.items.count) structures")
+                    Text("\(group.variants.count) nested \(group.id.hasPrefix("rfd3|") ? "MPNN sequence derivative" : (group.id.hasPrefix("nise|") ? "candidate" : (group.id.hasPrefix("prediction|") ? "model sample" : "design cycle")))\(group.variants.count == 1 ? "" : "s") · \(group.items.count) structures")
                         .font(.caption).foregroundStyle(.secondary)
                 } else {
                     Text("\(group.items.count) related structure\(group.items.count == 1 ? "" : "s")")
@@ -509,5 +513,35 @@ struct ResultFrameworkFilters: View {
                 }
             }.padding(.horizontal, 14).padding(.bottom, 8)
         }
+    }
+}
+
+
+struct ResultBrowserControls: View {
+    let items: [StudioResultItem]
+    @Binding var filter: ResultBrowserFilter
+    private var stages: [StudioResultStage] { StudioResultStage.allCases.filter { stage in items.contains { $0.stage == stage } } }
+    private var sources: [String] { Array(Set(items.map(\.scoreSource))).sorted() }
+    var body: some View {
+        HStack {
+            TextField("Find run, backbone, cycle or candidate", text: $filter.query).textFieldStyle(.roundedBorder)
+            if stages.count > 1 || !filter.stage.isEmpty {
+                Picker("Stage", selection: $filter.stage) {
+                    Text("All stages").tag("")
+                    ForEach(stages, id: \.rawValue) { Text($0.label).tag($0.rawValue) }
+                }.frame(maxWidth: 270)
+            }
+            if sources.count > 1 || !filter.source.isEmpty {
+                Picker("Score source", selection: $filter.source) {
+                    Text("All sources").tag("")
+                    ForEach(sources, id: \.self) { Text($0).tag($0) }
+                }.frame(maxWidth: 230)
+            }
+            if filter != ResultBrowserFilter() {
+                Text("\(items.filter(filter.includes).count) / \(items.count)").font(.caption).foregroundStyle(.secondary)
+                Button("Clear") { filter = ResultBrowserFilter() }
+            }
+        }.padding(.horizontal, 14).padding(.vertical, 8)
+        .accessibilityIdentifier("results-search-and-stage-filters")
     }
 }

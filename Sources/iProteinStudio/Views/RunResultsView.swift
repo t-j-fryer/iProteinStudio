@@ -22,8 +22,9 @@ struct RunResultsView: View {
     @State private var allItems: [StudioResultItem]
     @State private var frameworkFilter = ""
     @State private var engineFilter = ""
+    @State private var browserFilter = ResultBrowserFilter()
     private var items: [StudioResultItem] {
-        allItems.filter { (frameworkFilter.isEmpty || $0.frameworkID == frameworkFilter) && (engineFilter.isEmpty || $0.designEngine == engineFilter) }
+        allItems.filter { (frameworkFilter.isEmpty || $0.frameworkID == frameworkFilter) && (engineFilter.isEmpty || $0.designEngine == engineFilter) && browserFilter.includes($0) }
     }
     @State private var selectedID: String?
     @State private var section: ResultsSection = .overview
@@ -93,7 +94,14 @@ struct RunResultsView: View {
         let designs = items.filter { $0.stage == .design }.count
         let starts = items.filter { $0.stage == .startingStructure }.count
         let checks = items.filter { $0.artifactRole == .complexReprediction }.count
-        return "\(groups.count) independent trajectories · \(designs) optimized cycle outputs · \(starts) cycle-00 start\(starts == 1 ? "" : "s") · \(checks) independent check\(checks == 1 ? "" : "s")"
+        return "\(groups.filter { !$0.id.contains("nesso-verification") }.count) independent trajectories · \(designs) optimized cycle outputs · \(starts) cycle-00 start\(starts == 1 ? "" : "s") · \(checks) independent check\(checks == 1 ? "" : "s")"
+    }
+
+    private var predictionCountSummary: String? {
+        guard workflow == .prediction else { return nil }
+        let rows = RunResultsLoader.predictionRows(root: root)
+        let tasks = Dictionary(rows.map { (($0["job"] ?? "") + "|" + ($0["predictor"] ?? ""), $0) }, uniquingKeysWith: { _, last in last }).values
+        return "\(tasks.filter { $0["exit_code"] == "0" }.count) prediction tasks completed · \(tasks.filter { $0["exit_code"] != nil && $0["exit_code"] != "0" }.count) failed · \(allItems.count) model structures saved"
     }
 
     private var savedHitUnitCount: Int {
@@ -119,10 +127,11 @@ struct RunResultsView: View {
                 Label(warning, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).font(.caption).padding(.horizontal)
             }
             ResultFrameworkFilters(items: allItems, framework: $frameworkFilter, engine: $engineFilter)
+            ResultBrowserControls(items: allItems, filter: $browserFilter)
             Divider()
-            if workflow != .prediction {
+            Group {
                 Picker("Results section", selection: $section) {
-                    ForEach(ResultsSection.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(ResultsSection.allCases.filter { workflow != .prediction || $0 != .hits }) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -133,8 +142,6 @@ struct RunResultsView: View {
                 case .structures: GroupedRunResultsBrowser(items: items)
                 case .hits: GroupedRunResultsBrowser(items: items, hitsOnly: true)
                 }
-            } else {
-                GroupedRunResultsBrowser(items: items)
             }
         }
         .frame(minWidth: 760, idealWidth: 1100, minHeight: 560, idealHeight: 780)
@@ -142,15 +149,8 @@ struct RunResultsView: View {
         .task(id: root.path) {
             while !Task.isCancelled {
                 await refresh()
-                if workflow == .prediction { break }
-                if workflow == .rfdiffusion3,
-                   FileManager.default.fileExists(atPath: root.appendingPathComponent("analysis/hit_summary.json").path) {
-                    break
-                }
-                if workflow == .iterative, !FileManager.default.fileExists(atPath: root.appendingPathComponent("studio_engine_batch.json").path),
-                   FileManager.default.fileExists(atPath: root.appendingPathComponent("summary_post_boltz.csv").path) {
-                    break
-                }
+                // Continue refreshing completed/failed runs too: a saved run may
+                // resume or write a later shortlist while this window is open.
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
             }
         }
@@ -162,7 +162,7 @@ struct RunResultsView: View {
                 .font(.title2).foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline)
-                Text(iterativeCountSummary ?? "\(items.count) viewable structure\(items.count == 1 ? "" : "s")")
+                Text(predictionCountSummary ?? iterativeCountSummary ?? "\(items.count) viewable structure\(items.count == 1 ? "" : "s")")
                     .font(.caption).foregroundStyle(.secondary)
                 if let iterativeHitSummary {
                     Text(iterativeHitSummary).font(.caption2).foregroundStyle(.secondary)
@@ -171,7 +171,7 @@ struct RunResultsView: View {
                 }
             }
             Spacer()
-            if workflow == .rfdiffusion3 {
+            Group {
                 Button { Task { await refresh() } } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
@@ -249,13 +249,33 @@ struct RunResultsView: View {
     private var resultsOverview: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                if workflow == .prediction {
+                    Text("Inputs are grouped by job, with engine and model samples beneath them. Template-conditioned predictions are labelled on each structure; they are not independent validation of the template.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    let failures = RunResultsLoader.predictionRows(root: root).filter { $0["exit_code"] != nil && $0["exit_code"] != "0" }
+                    if !failures.isEmpty {
+                        DisclosureGroup("\(failures.count) recorded prediction failures · successful results remain available") {
+                            ForEach(Array(failures.enumerated()), id: \.offset) { _, row in
+                                Text((row["job"] ?? "Input") + " · " + (row["predictor"] ?? "Predictor") + " · exit " + (row["exit_code"] ?? "unknown"))
+                                    .font(.caption).textSelection(.enabled)
+                            }
+                            Text("Use Reveal Run to inspect the predictor logs or retry failed work from Predict.").font(.caption)
+                        }
+                    }
+                } else if workflow == .rfdiffusion3 {
+                    Text("Backbone → MPNN sequence derivative → complex and binder-alone checks. Completed models remain visible even when outside the ranked shortlist; only recorded filter verdicts count as hits.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text("Trajectory → starting structure and design cycles → independent checks. Use stage and score-source filters to separate design confidence from verification.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 HStack(spacing: 12) {
                     SummaryCard(value: groups.count,
-                                label: workflow == .rfdiffusion3 ? "backbones" : (workflow == .nise ? "search groups" : "trajectories"))
+                                label: workflow == .rfdiffusion3 ? "backbones" : (workflow == .prediction ? "input jobs" : "trajectories"))
                     SummaryCard(value: groups.flatMap(\.variants).count,
-                                label: workflow == .rfdiffusion3 ? "MPNN derivatives" : (workflow == .nise ? "candidates" : "cycles"))
+                                label: workflow == .rfdiffusion3 ? "MPNN derivatives" : (workflow == .prediction ? "model samples" : "cycles"))
                     SummaryCard(value: items.count, label: "related structures")
-                    SummaryCard(value: savedHitUnitCount, label: "saved hits")
+                    if workflow != .prediction { SummaryCard(value: savedHitUnitCount, label: "saved hits") }
                 }
 
                 if availableMetrics.isEmpty || effectiveDistributionMetric == nil {
@@ -268,7 +288,7 @@ struct RunResultsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Score distribution").font(.headline)
-                            Text(metric.explanation).font(.caption).foregroundStyle(.secondary)
+                            Text(metric.explanation + " Choose a score source above to compare one engine and assessment at a time.").font(.caption).foregroundStyle(.secondary)
                                 .lineLimit(2)
                         }
                         Spacer()
@@ -289,10 +309,12 @@ struct RunResultsView: View {
                         Label("Browse Structures", systemImage: "cube.transparent")
                     }
                     .buttonStyle(.borderedProminent)
+                    if workflow != .prediction {
                     Button { section = .hits } label: {
                         Label("Browse Hits", systemImage: "checkmark.seal")
                     }
                     .disabled(!groups.contains { $0.isHit == true })
+                    }
                     Spacer()
                     Text("Updates automatically while the campaign is running")
                         .font(.caption).foregroundStyle(.secondary)
