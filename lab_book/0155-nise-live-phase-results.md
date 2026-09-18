@@ -4,7 +4,7 @@ title: Show NISE structures and progress throughout preparation and optimisation
 date: 2026-09-18
 author: GPT-6 Codex
 type: bugfix
-status: in-progress
+status: complete
 machine: Apple M4 Max, 64 GB unified memory
 tags: [nise, results, ui, checkpoints]
 ---
@@ -85,5 +85,14 @@ on every UI refresh; campaign resume retains responsibility for integrity audits
 
 ## Deployment
 
-Pending packaging and app relaunch. Pipeline/MCP resources are unchanged, so no
-campaign pause or runtime replacement is required.
+Build 40 packaged from clean commit `d8e70be`. Release resource and signature
+checks passed; `hdiutil verify` validated the DMG. ZIP/DMG/checksums/provenance,
+release notes and the Sparkle-signed feed are published to `v0.2.0-beta`;
+`6cc699a` published the feed. The local app was reopened and its build number
+and running executable verified.
+
+Pipeline/MCP resources are unchanged. The campaign remained running under the
+same job, immutable plan, runner PID 60540, child PID 60546 and original start
+time throughout this UI-only deployment; no pause or restart occurred. It had
+453 cycle01 completions at the deployment check. The installed MCP remains
+contract 20. Final deployment evidence is in the artifact folder linked above.
