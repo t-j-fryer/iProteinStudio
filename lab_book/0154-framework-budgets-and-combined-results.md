@@ -4,7 +4,7 @@ title: Clarify framework budgets and retain combined batch results
 date: 2026-09-18
 author: GPT-6 Codex
 type: implementation
-status: in-progress
+status: completed
 machine: Apple M4 Max, 64 GB unified memory
 tags: [nanobody, budgets, results, mcp, release]
 ---
@@ -86,11 +86,31 @@ real-archive loader assertion. Swift fixtures use inert jobs, not GPU inference.
 No biological performance validation, new scientific campaign, VoiceOver or
 interactive GUI event automation. Numeric tests execute the same synchronous edit
 helper used by the field but do not reproduce the student's exact old click
-sequence. No new throughput claim. Packaged build, publication and local runtime
-staging remain pending below; the biotin campaign will briefly pause through the
-broker for the execution lease and resume its same immutable continuation plan.
+sequence. No new throughput claim. The published build remains a trusted,
+ad-hoc-signed beta rather than an Apple-notarized release.
 
-## Next
+## Deployment
 
-Package and verify build 39, publish source and beta assets, relaunch the app,
-verify installed MCP 20, and verify biotin checkpoint reuse after maintenance.
+Build 39 was packaged from clean source commit `e28c937`; packaged resource
+contracts and code-signature verification passed. `hdiutil verify` passed for the
+DMG. ZIP, DMG, checksums and provenance were uploaded to the existing
+`v0.2.0-beta` release; release notes now include build 39. Commit `37736af`
+published its Sparkle-signed update feed and pushed main. The local build 39 app
+was relaunched from `build/iProteinStudio.app`.
+
+The existing biotin job was briefly stopped through `job_cancel` to release the
+shared execution lease for normal app staging. It stopped at 16:51:32 UTC and
+resumed the same immutable plan at 16:52:11 UTC through installed MCP 20.
+Runtime doctor passed; installed MCP version, server and catalog hashes match
+both source and the packaged application. Already connected MCP clients may
+need reconnection to load the new server code.
+
+All 19,196 files covered by the completed checkpoint receipts verified unchanged:
+1,000 cycle00 predictions and 369 cycle01 predictions. The new resident MPS
+session loaded the model once and submitted exactly the remaining 897 of 1,266
+cycle01 inputs as one request. No scientific settings or frozen snapshot were
+changed. Packaging, publication, runtime and checkpoint evidence are alongside
+the test logs linked above.
+
+Forward progress was confirmed: `L872_c1_0` completed after resume, bringing
+cycle01 to 370 completed predictions. The run remains active.

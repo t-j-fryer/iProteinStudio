@@ -1,0 +1,11 @@
+{
+  "session": "1062c8008ac2406fa756dd4d837ff58c",
+  "worker_device": "mps",
+  "worker_model_load_count": 1,
+  "remaining_requested": 897,
+  "total_cycle01": 1266,
+  "checkpoint_reuse_verified": true,
+  "cycle01_completed_after_resume": 370,
+  "first_new_checkpoint": "L872_c1_0",
+  "verified_at": "2026-09-18T16:54:56.884994+00:00"
+}

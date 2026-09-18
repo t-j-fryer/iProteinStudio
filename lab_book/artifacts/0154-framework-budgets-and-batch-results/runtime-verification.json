@@ -1,0 +1,24 @@
+{
+  "mcp/MCP_VERSION": "5378796307535df3ec8d8b15a2e2dc5641419c3d3060cfe32238c0fa973f7aa3",
+  "mcp/server.py": "70db4da6940af53c0df931b9e9dd8ab7cce2699a94f1fad7ee7ad3863ec32123",
+  "mcp/iprotein_mcp/catalog.py": "6e733c792583013782f3557c07021ab10d38514ed07a9d03f950b55f2900ec35",
+  "doctor": {
+    "bridge_version": "20",
+    "ok": true,
+    "profiles": {
+      "admin": 10,
+      "read": 7,
+      "run": 22
+    },
+    "python": "3.12.10",
+    "runtime_root": "/Users/thomasfryer/.iproteinstudio",
+    "schemas": [
+      "iterative-design-v1.json",
+      "job-start-v1.json",
+      "nise-v1.json",
+      "prediction-v1.json",
+      "rfd3-v1.json",
+      "target-prepare-v1.json"
+    ]
+  }
+}

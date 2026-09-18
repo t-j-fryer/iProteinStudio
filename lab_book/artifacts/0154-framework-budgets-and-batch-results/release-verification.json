@@ -1,0 +1,61 @@
+{
+  "assets": [
+    {
+      "apiUrl": "https://api.github.com/repos/t-j-fryer/iProteinStudio/releases/assets/573042943",
+      "contentType": "text/plain; charset=utf-8",
+      "createdAt": "2026-09-18T16:51:10Z",
+      "digest": "sha256:6021a4dac9c01a94528ce1858dff09427721910c65bc33f3eaf70717b987fe69",
+      "downloadCount": 0,
+      "id": "RA_kwDOT0voPs4iJ_D_",
+      "label": "",
+      "name": "BUILD_PROVENANCE.txt",
+      "size": 432,
+      "state": "uploaded",
+      "updatedAt": "2026-09-18T16:51:10Z",
+      "url": "https://github.com/t-j-fryer/iProteinStudio/releases/download/v0.2.0-beta/BUILD_PROVENANCE.txt"
+    },
+    {
+      "apiUrl": "https://api.github.com/repos/t-j-fryer/iProteinStudio/releases/assets/573042942",
+      "contentType": "application/x-apple-diskimage",
+      "createdAt": "2026-09-18T16:51:10Z",
+      "digest": "sha256:4b569d14bf2a39f0e5866db64045fd4b37cf53be2182345063f80cca8d258275",
+      "downloadCount": 0,
+      "id": "RA_kwDOT0voPs4iJ_D-",
+      "label": "",
+      "name": "iProteinStudio-0.2.0-unsigned-beta-apple-silicon.dmg",
+      "size": 13959815,
+      "state": "uploaded",
+      "updatedAt": "2026-09-18T16:51:11Z",
+      "url": "https://github.com/t-j-fryer/iProteinStudio/releases/download/v0.2.0-beta/iProteinStudio-0.2.0-unsigned-beta-apple-silicon.dmg"
+    },
+    {
+      "apiUrl": "https://api.github.com/repos/t-j-fryer/iProteinStudio/releases/assets/573042938",
+      "contentType": "application/zip",
+      "createdAt": "2026-09-18T16:51:10Z",
+      "digest": "sha256:b2012f6f2aac96c32b835151385be14b5512628e96d9effb752140169eb62d8a",
+      "downloadCount": 0,
+      "id": "RA_kwDOT0voPs4iJ_D6",
+      "label": "",
+      "name": "iProteinStudio-0.2.0-unsigned-beta-apple-silicon.zip",
+      "size": 11444569,
+      "state": "uploaded",
+      "updatedAt": "2026-09-18T16:51:11Z",
+      "url": "https://github.com/t-j-fryer/iProteinStudio/releases/download/v0.2.0-beta/iProteinStudio-0.2.0-unsigned-beta-apple-silicon.zip"
+    },
+    {
+      "apiUrl": "https://api.github.com/repos/t-j-fryer/iProteinStudio/releases/assets/573042940",
+      "contentType": "text/plain; charset=utf-8",
+      "createdAt": "2026-09-18T16:51:10Z",
+      "digest": "sha256:fffb5666e6beb5e27c91e488b83fdcd276d3315c170a15bd22c7ed0d7dd6e9df",
+      "downloadCount": 0,
+      "id": "RA_kwDOT0voPs4iJ_D8",
+      "label": "",
+      "name": "SHA256SUMS.txt",
+      "size": 238,
+      "state": "uploaded",
+      "updatedAt": "2026-09-18T16:51:10Z",
+      "url": "https://github.com/t-j-fryer/iProteinStudio/releases/download/v0.2.0-beta/SHA256SUMS.txt"
+    }
+  ],
+  "url": "https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.0-beta"
+}
