@@ -4,6 +4,13 @@ Initialization-only helix-kill strength is now the sole secondary-structure cont
 
 ## 0.2.0 — updater foundation
 
+- Build 40 shows live NISE structures during Phase 0, directly from completed
+  prediction checkpoints. Separate Phase 0 preparation, Phase 1 optimisation
+  and final-check views retain earlier work, with stage progress, lineage/trajectory
+  search, check-status filters and score distributions. Pending checks and absent
+  affinity values remain explicit; saved beam selection is distinct from passing
+  geometry. NISE progress is accessible from history before scoring starts.
+
 - Build 39 makes nanobody budgets explicit: total across frameworks, the same
   number for each framework, or custom counts. Valid numeric edits apply
   immediately; invalid Protein Hunter fields block Start/Queue. The launch

@@ -421,6 +421,9 @@ forgotten one.
 
 - [0103 — Record geometry without rejection](lab_book/0103-record-geometry-without-rejection.md): requested advisory policy, MCP reports and full paired benchmark restart.
 
+| Entry | Date | Work | Summary |
+| --- | --- | --- | --- |
 | 0152 | 2026-09-17 | [Resume biotin with stage batches](lab_book/0152-resume-biotin-with-stage-batches.md) | Interruption/affinity smoke passed; original campaign continued with stage submissions and per-input checkpoints. |
 | 0153 | 2026-09-18 | [Audit student VHH budgets and results](lab_book/0153-audit-student-vhh-budgets-and-results.md) | 12 saved trajectories explain 60 cycle outputs; 756 hashes verified; dashboard aggregation and numeric commit UX remain. |
 | 0154 | 2026-09-18 | [Framework budgets and combined results](lab_book/0154-framework-budgets-and-combined-results.md) | Explicit total/per-framework budgets, immediate numeric commits, combined filtered results and MCP 20; build 39 release. |
+| 0155 | 2026-09-18 | [NISE live phase results](lab_book/0155-nise-live-phase-results.md) | Phase 0 checkpoint structures, phase/stage navigation, explicit checks and selection, and build 40. |

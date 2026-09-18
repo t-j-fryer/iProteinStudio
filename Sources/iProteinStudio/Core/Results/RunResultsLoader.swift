@@ -111,71 +111,7 @@ enum RunResultsLoader {
     }
 
     private static func niseResults(root: URL) -> [StudioResultItem] {
-        let candidates = root.appendingPathComponent("candidates")
-        let files = (try? fm.contentsOfDirectory(at: candidates, includingPropertiesForKeys: nil)) ?? []
-        let preorg = (jsonObject(at: root.appendingPathComponent("preorg.json"))?["ranked"] as? [[String: Any]]) ?? []
-        func safeURL(_ path: String) -> URL? {
-            guard !path.hasPrefix("/") else { return nil }
-            let url = root.appendingPathComponent(path).standardizedFileURL.resolvingSymlinksInPath()
-            guard url.path.hasPrefix(root.standardizedFileURL.resolvingSymlinksInPath().path + "/"), fm.fileExists(atPath: url.path) else { return nil }
-            return url
-        }
-        return files.sorted { $0.lastPathComponent < $1.lastPathComponent }.flatMap { file -> [StudioResultItem] in
-            guard file.pathExtension == "json", let row = jsonObject(at: file),
-                  let name = row["name"] as? String, let path = row["pdb"] as? String,
-                  let structure = safeURL(path) else { return [] }
-            let tid = row["trajectory"] as? Int
-            let cycle = row["cycle"] as? Int ?? 0
-            let group = tid.map { "Trajectory \($0 + 1)" } ?? "Broad search"
-            let passed = row["passed"] as? Bool == true
-            let geometryPassed = row["geometry_passed"] as? Bool ?? passed
-            var selectionStatus = geometryPassed ? "Passed geometry checks" : "Did not pass geometry checks"
-            if geometryPassed {
-                switch row["score_status"] as? String {
-                case "below_early_score_gate": selectionStatus = "Below first-refinement score gate"
-                case "score_upper_bound_below_selection_boundary": selectionStatus = "Affinity skipped · cannot enter selection"
-                case "omitted_geometry_only_stage": selectionStatus = "Geometry gate passed · affinity not required"
-                case "not_evaluated": selectionStatus = "Geometry passed · affinity not evaluated"
-                default: break
-                }
-            }
-            let mappings: [(String, StudioResultMetric.Kind)] = [("ligand_plddt", .ligandPLDDT), ("pbind", .bindingProbability),
-                ("score", .rankingScore), ("ca_rmsd", .binderBackboneRMSD), ("ligand_rmsd", .ligandRMSD)]
-            var metrics = mappings.compactMap { key, kind -> StudioResultMetric? in
-                guard let value = row[key] as? Double, value.isFinite else { return nil }
-                return StudioResultMetric(kind: kind, value: value)
-            }
-            if let nesso = row["nesso"] as? [String: Any] {
-                for (key, kind) in [("affinity_probability_binary", StudioResultMetric.Kind.nessoBindingProbability),
-                                    ("affinity_pred_value", .nessoAffinity),
-                                    ("entropy_pl", .nessoPlacementEntropy), ("entropy_crop_pl", .nessoInterfaceEntropy), ("screening_score", .nessoScreeningScore)] {
-                    if let value = nesso[key] as? Double, value.isFinite { metrics.append(StudioResultMetric(kind: kind, value: value)) }
-                }
-            }
-            let branch = row["branch"] as? String ?? "mpnn"
-            let branchLabel = branch == "masked-backbone" ? "Masked backbone · intermediate" : (branch == "partial-noising-repair" ? "Partial-noising redesign" : "MPNN")
-            let variant = "cycle-\(cycle)-\(name)"
-            var items = [StudioResultItem(id: "nise|\(name)|holo", title: name,
-                subtitle: "Cycle \(cycle) · \(branchLabel) · \(selectionStatus)",
-                structureURL: structure, sequence: row["sequence"] as? String, metrics: metrics, confidenceURL: file,
-                stage: .design, scoreSource: row["nesso"] == nil ? "Boltz 2" : "Boltz 2 · NESSO prescreen", groupID: group, groupTitle: group,
-                variantID: variant, variantTitle: "Cycle \(cycle) · \(name)", artifactRole: .designedComplex)]
-            if let check = preorg.first(where: { $0["name"] as? String == name }),
-               let path = check["apo_pdb"] as? String, let apo = safeURL(path) {
-                let apoMappings: [(String, StudioResultMetric.Kind)] = [("preorg_rmsd", .pocketPreorgRMSD),
-                    ("global_ca_rmsd", .binderRMSD), ("combined_score", .preorgScore)]
-                let apoMetrics = apoMappings.compactMap { key, kind -> StudioResultMetric? in
-                    guard let value = check[key] as? Double, value.isFinite else { return nil }
-                    return StudioResultMetric(kind: kind, value: value)
-                }
-                items.append(StudioResultItem(id: "nise|\(name)|apo", title: name + " · apo",
-                    subtitle: "Final shortlist · ligand removed", structureURL: apo, sequence: row["sequence"] as? String,
-                    metrics: apoMetrics, confidenceURL: root.appendingPathComponent("preorg.json"),
-                    stage: .design, scoreSource: "Boltz 2 apo / beta preorganisation", groupID: group, groupTitle: group,
-                    variantID: variant, variantTitle: "Cycle \(cycle) · \(name)", artifactRole: .binderAlone))
-            }
-            return items
-        }
+        NISEResultsLoader.load(root: root).items
     }
 
     // MARK: Prediction batches

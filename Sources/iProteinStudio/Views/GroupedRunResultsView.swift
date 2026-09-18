@@ -93,7 +93,7 @@ private struct StudioResultGroupRow: View {
         guard !group.variants.isEmpty else {
             return "\(group.items.count) structure\(group.items.count == 1 ? "" : "s")"
         }
-        let noun = group.id.hasPrefix("rfd3|") ? "MPNN derivative" : "cycle"
+        let noun = group.id.hasPrefix("rfd3|") ? "MPNN derivative" : (group.id.hasPrefix("nise|") ? "candidate" : "cycle")
         return "\(group.variants.count) \(noun)\(group.variants.count == 1 ? "" : "s")"
     }
 
@@ -184,7 +184,7 @@ private struct StudioResultGroupDetail: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(group.title).font(.title3.weight(.semibold))
                 if !group.variants.isEmpty {
-                    Text("\(group.variants.count) nested \(group.id.hasPrefix("rfd3|") ? "MPNN sequence derivative" : "design cycle")\(group.variants.count == 1 ? "" : "s") · \(group.items.count) structures")
+                    Text("\(group.variants.count) nested \(group.id.hasPrefix("rfd3|") ? "MPNN sequence derivative" : (group.id.hasPrefix("nise|") ? "candidate" : "design cycle"))\(group.variants.count == 1 ? "" : "s") · \(group.items.count) structures")
                         .font(.caption).foregroundStyle(.secondary)
                 } else {
                     Text("\(group.items.count) related structure\(group.items.count == 1 ? "" : "s")")

@@ -55,7 +55,7 @@ struct NISEView: View {
                             Text("RFdiffusion3 · ligand-conditioned diffusion (experimental)").tag("rfdiffusion3")
                         }.accessibilityIdentifier("nise-backbone-method")
                         budgetControl("Starting backbone attempts", value: request.num_starts, range: 1...10000)
-                        Text("100 is the default, matching the original fluorescein campaign. You can type a different number. Each attempt starts a separate lineage; some lineages may fail selection.")
+                        Text("1,000 is the default for new runs. You can type a different number. Each attempt starts a separate lineage; some lineages may fail selection.")
                             .font(.caption).foregroundStyle(.secondary)
                         budgetControl("Minimum binder length", value: request.binder_min_len, range: 60...250)
                         budgetControl("Maximum binder length", value: request.binder_max_len, range: 60...250)

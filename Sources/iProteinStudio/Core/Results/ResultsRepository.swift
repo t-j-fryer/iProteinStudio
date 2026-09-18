@@ -7,8 +7,26 @@ actor ResultsRepository {
     private struct Entry { let date: Date; let items: [StudioResultItem] }
     private var cache: [String: Entry] = [:]
     private var pending: [String: Task<[StudioResultItem], Never>] = [:]
+    private var niseCache: [String: (Date, NISESnapshot)] = [:]
+    private var nisePending: [String: Task<NISESnapshot, Never>] = [:]
+
+    func niseSnapshot(root: URL) async -> NISESnapshot {
+        let key = root.standardizedFileURL.path
+        if let task = nisePending[key] { return await task.value }
+        if let (date, snapshot) = niseCache[key], Date().timeIntervalSince(date) < 2 { return snapshot }
+        let task = Task.detached(priority: .utility) { NISEResultsLoader.load(root: root) }
+        nisePending[key] = task
+        let snapshot = await task.value
+        nisePending[key] = nil
+        niseCache[key] = (Date(), snapshot)
+        if niseCache.count > 4, let oldest = niseCache.min(by: { $0.value.0 < $1.value.0 })?.key {
+            niseCache[oldest] = nil
+        }
+        return snapshot
+    }
 
     func load(root: URL, workflow: StudioWorkflow) async -> [StudioResultItem] {
+        if workflow == .nise { return await niseSnapshot(root: root).items }
         let key = root.standardizedFileURL.path + "|" + workflow.rawValue
         if let task = pending[key] { return await task.value }
         if let entry = cache[key], Date().timeIntervalSince(entry.date) < 1 { return entry.items }

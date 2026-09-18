@@ -352,7 +352,8 @@ private struct RunHistoryLoader {
             return StudioRunRecord(projectID: project.id, projectName: project.name,
                                    workflow: .nise, name: RunNaming.read(at: candidate, fallback: candidate.lastPathComponent),
                                    root: candidate, date: fileDate(candidate), state: completed ? .completed : .interrupted,
-                                   detail: "\(count) evaluated candidates", manifestURL: config, hasViewableResults: count > 0)
+                                   detail: count > 0 ? "\(count) evaluated candidates · phase progress available" : "Preparation · view live stage progress",
+                                   manifestURL: config, hasViewableResults: true)
         }
     }
 

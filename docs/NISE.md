@@ -712,3 +712,44 @@ interruption/replay, empty/rejected branches, heavy-atom neighbourhood mapping,
 mask seeds, worker seed isolation and legacy migration. **No new real-model
 partial-noising campaign or binding-quality validation has been run.** See
 [Lab Book 0137](../lab_book/0137-nise-fixed-budgets-and-partial-noising.md).
+
+## Viewing progress and structures
+
+Open **View results** while NISE is running, or open the same run from History.
+Phase 0 does not need to finish before structures become visible. The viewer
+reads committed `completed.json` prediction receipts and later replaces their
+presentation with scored `candidates/*.json` records, using the same identity.
+Raw files without a completion receipt are not displayed as completed folds.
+
+- **Phase 0 · Preparation:** initial backbones, each pocket-refinement round,
+  the unrestrained geometry gate, and seed expansion. The stage labels follow
+  the saved number of refinement rounds. Structures are grouped by their
+  original lineage. RFdiffusion3 starts use its committed initial-backbone set;
+  the viewer does not invent Boltz confidence for generated coordinates.
+- **Phase 1 · Optimisation:** independent trajectories, with a stage for each
+  started cycle. Filter to a cycle and trajectory to inspect its candidate pool.
+  “Selected for next cycle” means membership in the saved advancement receipt,
+  rather than merely passing geometry or having a high score.
+- **Final checks:** completed apo/holo preorganisation assessments, pairing the
+  apo structure with its exact holo candidate. These are not experimental hits.
+
+Overview and Structures share phase, stage, check-status and text-search filters.
+Stage-progress rows always show the whole selected phase; distributions and the
+browser follow the filters. The initial view opens the latest stage with completed
+structures, then retains your selection while refreshing every five seconds.
+Click a stage row to choose it. Earlier phases remain accessible throughout.
+
+“Awaiting geometry checks” is expected while a folding batch is still running.
+Geometry passing, scoring eligibility and advancement are separate decisions.
+Missing affinity/ranking scores are omitted from charts, never displayed as zero.
+Initial generation and the geometry-only gate can intentionally omit affinity.
+NESSO screening counts come from saved shortlist receipts; screened-out sequences
+have no folded structure and are not counted as completed structures. The complete
+sequence-screening table remains available from the run controls when written.
+
+The viewer reads saved outputs only: it does not rerun checks, change settings,
+load predictor models, or require a campaign restart. It skips native tensor and
+batch-copy trees, loads away from the UI thread, and shares snapshots between
+windows. Missing/unreadable records or unsafe structure paths produce a visible
+warning. Copied prediction receipts relocate only through their explicit relative
+artifact inventory; the view does not follow references outside the selected run.

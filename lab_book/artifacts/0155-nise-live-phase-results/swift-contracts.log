@@ -1,0 +1,24 @@
+PASS workflow request contract
+Sources/iProteinStudio/Core/RFD3Controller.swift:172:32: warning: 'init(contentsOf:)' was deprecated in macOS 15: Use `init(contentsOf:encoding:)` instead [#DeprecatedDeclaration]
+170 |             // Compatibility for campaigns launched before the durable broker.
+171 |             // Keep polling until their recorded process has actually exited.
+172 |             if let text = try? String(contentsOf: campaign.appendingPathComponent("campaign.pid")),
+    |                                `- warning: 'init(contentsOf:)' was deprecated in macOS 15: Use `init(contentsOf:encoding:)` instead [#DeprecatedDeclaration]
+173 |                let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 1 {
+174 |                 kill(lastWasProtein ? pid : -pid, SIGTERM)
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+PASS scaffold equal/custom budgets, round-trip, exclusions and 21 engine/scaffold campaign manifests
+PASS immediate numeric edits, invalid submission gates, per-framework mode, selection changes, round-trip and batch result root
+PASS queue submission across workspaces, independent manifests, observation switching and submission guard
+PASS NISE history exposes phase progress before the first scored candidate
+PASS NISE, Predict and RFdiffusion3 queue observation, workspace switching and pending-job guards
+PASS native engine-batch preparation, saved launch records, progress routing and all-before-submit failure
+PASS Predict template request, persistence and chain/engine constraints
+PASS NISE request and existing-workspace migration contracts
+PASS StudioCore recovery, archive crash replay, lock and support report contracts
+PASS NISE live checkpoints, phase/stage separation, pending checks, scoring promotion, NESSO counts, RFD3, beam selection, final checks and portable path safety
+PASS existing biotin run: 1450 structures visible; 1000 starts, 422 initial geometry pass; 450/1266 cycle01 folds
+PASS combined batch relocation, framework identity, duplicate run numbers and trajectory playback
+PASS prediction result discovery contract
+PASS iterative command contract

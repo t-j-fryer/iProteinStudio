@@ -80,7 +80,7 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
 }
 
 @main struct EngineBatchControllerHarness {
-    @MainActor static func main() throws {
+    @MainActor static func main() async throws {
         defer { try? AppPaths.fm.removeItem(at: AppPaths.support) }
         var project = Project(name: "Engine fixture")
         project.request.designType = .minibinder
@@ -283,6 +283,21 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
         precondition(!pendingNISE.prepareNewRun() && !pendingNISE.canStartAnother)
         precondition(!pendingPredict.prepareNewRun() && !pendingPredict.canStartAnother)
         precondition(!pendingRFD3.prepareNewRun() && !pendingRFD3.canStartAnother)
+        let preparationRoot = AppPaths.projectDir(project).appendingPathComponent("nise_runs/phase0-history")
+        try FileManager.default.createDirectory(at: preparationRoot, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: preparationRoot.appendingPathComponent("nise_config.json"))
+        let history = RunHistoryStore()
+        history.refresh(projects: [project])
+        for _ in 0..<100 {
+            if history.runs.contains(where: { $0.root.path == preparationRoot.path }) { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        let historyMatch = history.runs.first { $0.root.resolvingSymlinksInPath().path == preparationRoot.resolvingSymlinksInPath().path }
+        if historyMatch?.hasViewableResults != true {
+            FileHandle.standardError.write(Data("History fixture: expected \(preparationRoot.path); found \(history.runs.map { $0.root.path + ":" + String($0.hasViewableResults) })\n".utf8))
+        }
+        precondition(historyMatch?.hasViewableResults == true)
+        print("PASS NISE history exposes phase progress before the first scored candidate")
         print("PASS NISE, Predict and RFdiffusion3 queue observation, workspace switching and pending-job guards")
         // A preparation failure in a later engine must submit nothing.
         ManagedJobSession.submissions = []

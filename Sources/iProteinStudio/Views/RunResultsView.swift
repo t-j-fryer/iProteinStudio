@@ -103,7 +103,16 @@ struct RunResultsView: View {
             : variants.filter { $0.isHit == true }.count
     }
 
+    @ViewBuilder
     var body: some View {
+        if workflow == .nise {
+            NISEResultsView(root: root, title: title, embedded: embedded)
+        } else {
+            standardBody
+        }
+    }
+
+    private var standardBody: some View {
         VStack(spacing: 0) {
             header
             if let warning = batchWarning {
@@ -327,7 +336,7 @@ private struct SummaryCard: View {
     }
 }
 
-private struct MetricDistributionChart: View {
+struct MetricDistributionChart: View {
     struct Bin: Identifiable {
         let index: Int
         let lower: Double
