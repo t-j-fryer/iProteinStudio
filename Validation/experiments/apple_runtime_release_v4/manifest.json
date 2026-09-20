@@ -1,0 +1,36 @@
+{
+  "experiment": "apple_runtime_release_v4",
+  "scope": [
+    "crystal comparisons of saved baseline/candidate outputs",
+    "explicit cached-MSA OpenFold initialization recheck",
+    "Boltz and IntelliFold Torch2.14 integration and deployment",
+    "Paired cached-MSA full-setting SUMO comparisons: Protenix v2/Constraint, IntelliFold Flash/Full, baseline versus Torch2.14",
+    "Explicit OpenFold Torch2.6 versus2.14 MSA pair, separate from initialization optimization"
+  ],
+  "fixed": {
+    "steps": "unchanged",
+    "recycles": "unchanged",
+    "seed": 42,
+    "precision": "FP32",
+    "msa": "original outputs explicitly empty; new comparisons declare and checksum a supplied alignment"
+  },
+  "crystal_policy": "verify sequence correspondence; fixed resolved reference core independent of model confidence; no claim of blind holdout",
+  "promotion": "User explicitly requests Boltz2 and both IntelliFold variants on2.14; retain baseline environments and record runtime reproducibility change",
+  "msa_protocol": {
+    "unit": "one prediction per runtime per engine, seed42",
+    "alignment": "same 8060-row cached yeast Smt3 A3M; checksum frozen per job",
+    "settings": "200 steps,10 recycles,1 sample,FP32; upstream MSA caps unchanged",
+    "evidence": "MSA tensor shapes at model entry, exact sequence/cardinality/confidence audit, fixed crystal core21\u201396",
+    "timing": "first-call diagnostic only, no steady throughput claim",
+    "openfold": "unchanged shipped OpenFold settings (200 steps, original recycles), both runtime arms; initialization optimization disabled"
+  },
+  "installed_smoke": {
+    "engines": [
+      "Boltz2",
+      "IntelliFold Flash",
+      "IntelliFold Full"
+    ],
+    "route": "Installed public prediction_plan/job_start, cached SUMO MSA, one seed/sample, ordinary production settings, Boltz potentials enabled",
+    "purpose": "Verify final managed runtime, app/MCP launcher integration and audited outputs; no timing claim"
+  }
+}

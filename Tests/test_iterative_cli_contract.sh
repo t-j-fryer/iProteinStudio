@@ -50,6 +50,8 @@ cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/find_target_m
   "${FIXTURE_ROOT}/scripts/find_target_msa.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/intellifold_predict.py" \
   "${FIXTURE_ROOT}/scripts/intellifold_predict.py"
+cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/intellifold_padding.py" \
+  "${FIXTURE_ROOT}/scripts/intellifold_padding.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/intellifold_user_template.py" \
   "${FIXTURE_ROOT}/scripts/intellifold_user_template.py"
 cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/prepare_intellifold_template.py" \

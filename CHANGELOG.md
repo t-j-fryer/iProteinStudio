@@ -4,6 +4,17 @@ Initialization-only helix-kill strength is now the sole secondary-structure cont
 
 ## 0.2.0 — updater foundation
 
+- Build 42 pins PyTorch 2.14.0 for Boltz2 and shared IntelliFold Flash/Full,
+  with hash-locked dependencies and versioned environments retaining rollback
+  copies. Existing installations are prompted to update incompatible runtimes.
+  IntelliFold random draws can differ from older Torch versions for the same seed;
+  preserve the recorded runtime when reproducing an older run.
+- NESSO reuses exact upstream ligand conformers and cloned amino-acid data within
+  its resident session. Flash avoids excess padding for inputs of at most128 tokens.
+  Neither change reduces model size, steps, recycles, precision or guidance.
+- Installer recovery now checks the requested runtime version before reusing a
+  committed environment.
+
 - Build 41 audits results across all workflows: NISE exposes NESSO sequence
   scores before folding and reads committed Boltz affinity-head results with
   structure-receipt matching. Screening scores remain separate from Boltz scores.

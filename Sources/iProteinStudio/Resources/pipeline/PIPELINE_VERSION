@@ -6,3 +6,6 @@ vendored_on:     2026-08-21T16:24:07Z
 studio_changes:  lab_book/0030-promote-authoritative-repo-and-harden-protenix.md, lab_book/0035-fail-loud-msa-and-mps-policy.md, lab_book/0036-add-conservative-ipsae-scoring.md, lab_book/0046-implement-campaign-resident-predictors.md, lab_book/0048-harden-managed-runtime-installer.md
 runner_lines:    7537
 runner_sha256:   61b5ec5a7e2726e1d3db22e3a69e786a5a525002a23800aa3bb0cdce859c0b48
+
+studio_runtime_profile: torch214-boltz-intellifold-20260919
+studio_runtime_validation: lab_book/0171-qualify-and-deploy-apple-runtime.md

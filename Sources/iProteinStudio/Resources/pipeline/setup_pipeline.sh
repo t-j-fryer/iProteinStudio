@@ -78,11 +78,13 @@ export UV_MANAGED_PYTHON=1
 # cannot recreate a run a month later, even when every output lives under the
 # managed root.
 BOLTZ_VERSION="2.2.1"
-BOLTZ_TORCH_VERSION="2.13.0"
+BOLTZ_TORCH_VERSION="2.14.0"
+BOLTZ_RUNTIME_VERSION="${BOLTZ_VERSION}-torch${BOLTZ_TORCH_VERSION}"
 LIGANDMPNN_REV="26ec57ac976ade5379920dbd43c7f97a91cf82de"
 ANTIFOLD_REV="789d46786624c01eb44f177ef4c0deeeb6e77469"
 INTELLIFOLD_REV="4e420db7482b4f50dbb86800ff710ee4ec7c7b7b"
-INTELLIFOLD_RUNTIME_VERSION="${INTELLIFOLD_REV}-studio-template1"
+INTELLIFOLD_TORCH_VERSION="2.14.0"
+INTELLIFOLD_RUNTIME_VERSION="${INTELLIFOLD_REV}-studio-template1-torch${INTELLIFOLD_TORCH_VERSION}"
 LASERMPNN_REV="5df210fced6764d83f01425d1fc4319a22b70c2a"
 OPENFOLD_REV="eeac37eb82dc2b80cf043eb26105a16d2493d052"
 RFD3_REV="47a42e8f40207e66b994d4863f9b1911f1bc36eb"
@@ -419,10 +421,12 @@ detect() {
 
   if [[ -x "${BOLTZ_VENV}/bin/python" \
      && -f "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt" \
-     && -d "${BOLTZ_MODEL_DIR}/mols" ]]; then
+     && -d "${BOLTZ_MODEL_DIR}/mols" ]] \
+     && "${BOLTZ_VENV}/bin/python" -c \
+       'import importlib.metadata as m; assert m.version("torch") == "2.14.0"' >/dev/null 2>&1; then
     state boltz ok "Boltz-2 structure environment with managed model and CCD data"
   else
-    state_absent_or_partial boltz "environment, structure weights, or CCD data absent" \
+    state_absent_or_partial boltz "environment requires PyTorch 2.14.0, structure weights, and CCD data; update from Engines" \
       "${BOLTZ_VENV}" "${BOLTZ_MODEL_DIR}"
   fi
   [[ -f "${BOLTZ_MODEL_DIR}/boltz2_aff.ckpt" ]] \
@@ -450,18 +454,20 @@ PYTHON
   [[ -x "${ANTIFOLD_VENV}/bin/python" && -d "${ANTIFOLD_REPO}" \
      && -f "${ANTIFOLD_REPO}/models/model.pt" ]] && state antifold ok "AntiFold" \
     || state_absent_or_partial antifold "environment or source is incomplete" "${ANTIFOLD_VENV}" "${ANTIFOLD_REPO}"
+  INTELLIFOLD_READY=0
   if [[ -x "${INTELLIFOLD_VENV}/bin/python" \
      && -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2_flash.pt" \
      && -f "${INTELLIFOLD_MODEL_DIR}/ccd_v2.pkl" ]] \
-     && "${INTELLIFOLD_VENV}/bin/python" -c 'import gemmi; assert gemmi.__version__ == "0.7.5"' >/dev/null 2>&1; then
+     && "${INTELLIFOLD_VENV}/bin/python" -c 'import gemmi, importlib.metadata as m; assert gemmi.__version__ == "0.7.5"; assert m.version("torch") == "2.14.0"' >/dev/null 2>&1; then
+    INTELLIFOLD_READY=1
     state intellifold ok "IntelliFold PyTorch/MPS with v2 Flash weights"
   else
-    state_absent_or_partial intellifold "environment, v2 Flash weights, CCD, or template adapter dependency absent" \
+    state_absent_or_partial intellifold "environment requires PyTorch 2.14.0, Flash weights, CCD, and template dependencies; update from Engines" \
       "${INTELLIFOLD_VENV}" "${INTELLIFOLD_REPO}" "${INTELLIFOLD_MODEL_DIR}"
   fi
-  [[ -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" ]] \
+  [[ -f "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt" && "${INTELLIFOLD_READY}" -eq 1 ]] \
     && state intellifold_full ok "optional IntelliFold full-v2 checkpoint" \
-    || state_absent_or_partial intellifold_full "optional full-v2 checkpoint absent" \
+    || state_absent_or_partial intellifold_full "optional full-v2 checkpoint or current shared IntelliFold runtime absent" \
          "${INTELLIFOLD_MODEL_DIR}/intellifold_v2.pt"
   if [[ -x "${PROTENIX_VENV}/bin/protenix" \
      && -x "${PROTENIX_VENV}/bin/kalign" \
@@ -1010,16 +1016,17 @@ PY
   # transaction marker says ready; the caller repeats health checks and writes
   # a fresh receipt before reporting success.
   if [[ -x "${final}/bin/python" && -L "${final}" ]]; then
-    local committed transaction_state transaction_component
+    local committed transaction_state transaction_component transaction_version
     committed="$(cd "$(dirname "${final}")" && cd "$(readlink "${final}")" 2>/dev/null && pwd -P || true)"
     if [[ -n "${committed}" && -f "${committed}/transaction.json" ]]; then
-      read -r transaction_state transaction_component < <(python3 - "${committed}/transaction.json" <<'PY'
+      read -r transaction_state transaction_component transaction_version < <(python3 - "${committed}/transaction.json" <<'PY'
 import json, sys
 data = json.load(open(sys.argv[1]))
-print(data.get("state", ""), data.get("component", ""))
+print(data.get("state", ""), data.get("component", ""), data.get("version", ""))
 PY
 )
-      if [[ "${transaction_state}" == "ready" && "${transaction_component}" == "${key}" ]]; then
+      if [[ "${transaction_state}" == "ready" && "${transaction_component}" == "${key}"
+            && "${transaction_version}" == "${version}" ]]; then
         TRANSACTION_VENV="${final}"
         TRANSACTION_STAGE=""
         TRANSACTION_REUSED=1
@@ -1157,7 +1164,7 @@ install_boltz() {
 if [[ "${WITH_BOLTZ}" -eq 1 ]]; then
 step boltz 8 "Installing Boltz-2"
 BOLTZ_FINAL_VENV="${BOLTZ_VENV}"
-begin_versioned_venv boltz "${BOLTZ_VERSION}" "${BOLTZ_FINAL_VENV}" "${PYTHON_BIN}"
+begin_versioned_venv boltz "${BOLTZ_RUNTIME_VERSION}" "${BOLTZ_FINAL_VENV}" "${PYTHON_BIN}"
 BOLTZ_VENV="${TRANSACTION_VENV}"
 if [[ "${TRANSACTION_REUSED}" -eq 0 ]]; then
   uv_install_locked "${BOLTZ_VENV}/bin/python" "${BOLTZ_LOCK}" \
@@ -1225,11 +1232,11 @@ else:
     (root / "mols.tar").unlink(missing_ok=True)
 PY
 "${BOLTZ_VENV}/bin/python" -c \
-  'import boltz, torch; assert torch.backends.mps.is_available()' >/dev/null \
+  'import boltz, torch; assert torch.__version__.split("+")[0] == "2.14.0"; assert torch.backends.mps.is_available()' >/dev/null \
   || fail "Boltz-2 staged runtime failed its Apple-GPU import check."
 commit_versioned_venv
 BOLTZ_VENV="${BOLTZ_FINAL_VENV}"
-write_component_receipt boltz "${BOLTZ_VERSION}" "${BOLTZ_VENV}/bin/python" \
+write_component_receipt boltz "${BOLTZ_RUNTIME_VERSION}" "${BOLTZ_VENV}/bin/python" \
   "native-mps-preferred" --lock "${BOLTZ_LOCK}" \
   --artifact "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt=090e82ac8c92f5e943fa1b39e7410a44027bea7243c0bbb3caa67a77fc1428e1" \
   --metadata "ccd_archive_sha256=39e076d96dbec6b4e86982bbda16f3a53a2a60c9bdc17828d88f6f9a0c7d1fd7"
@@ -1446,7 +1453,7 @@ download_intellifold "nucleic_acid_id_groups.json" \
   "${NANOHUNTER_ROOT}/scripts/intellifold_mps_compat.py" "${NANOHUNTER_ROOT}" \
   || fail "Could not install IntelliFold's Apple-MPS pair-lookup compatibility fix."
 PYTORCH_ENABLE_MPS_FALLBACK=0 "${INTELLIFOLD_VENV}/bin/python" -c \
-  'import torch, intellifold; assert torch.backends.mps.is_available()' >/dev/null \
+  'import torch, intellifold; assert torch.__version__.split("+")[0] == "2.14.0"; assert torch.backends.mps.is_available()' >/dev/null \
   || fail "IntelliFold staged runtime failed its native-MPS import check."
 commit_versioned_venv
 INTELLIFOLD_VENV="${INTELLIFOLD_FINAL_VENV}"

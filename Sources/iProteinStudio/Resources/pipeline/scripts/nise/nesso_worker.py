@@ -16,11 +16,23 @@ from runtime import atomic
 
 
 class Engine:
-    def __init__(self, root):
+    def __init__(self, root, *, ccd_cache=True, preprocessing_cache=True):
         if os.environ.get('PYTORCH_ENABLE_MPS_FALLBACK') != '0':
             raise RuntimeError('NESSO requires explicitly disabled MPS fallback')
         validate_installation(root)
         self.base = installation(root)
+        self.ccd_cache = None
+        if ccd_cache:
+            from nesso_ccd_cache import StandardAACache
+            from nesso.data.inference import load_standard_aa_mols
+            from rdkit import Chem
+            self.ccd_cache = StandardAACache(self.base / 'ccd.pkl', load_standard_aa_mols, Chem.Mol)
+        self.preprocessing_cache = None
+        if preprocessing_cache:
+            if not self.ccd_cache:
+                raise ValueError('NESSO preprocessing cache requires the CCD cache')
+            from nesso_preprocessing_cache import PreprocessingCache
+            self.preprocessing_cache = PreprocessingCache(self.ccd_cache)
         import torch
         from transformers import AutoModelForMaskedLM, AutoTokenizer
         from nesso.model.models.nesso1 import Nesso1
@@ -71,8 +83,11 @@ class Engine:
             {'ligand': {'id': 'B', 'smiles': smiles}}], 'properties': [{'affinity': {'binder': 'B'}}]}, sort_keys=False))
         processed = directory / 'processed'
         mol = processed / 'rdkit_conformers'; mol.mkdir(parents=True, exist_ok=True)
-        manifest, failures = preprocess_yamls([query], mol_dir=mol, ccd_pkl=self.base / 'ccd.pkl',
-            structures_dir=processed / 'structures', records_dir=processed / 'records', num_workers=1)
+        if self.preprocessing_cache:
+            manifest, failures = self.preprocessing_cache.run(query, mol, processed)
+        else:
+            manifest, failures = preprocess_yamls([query], mol_dir=mol, ccd_pkl=self.base / 'ccd.pkl',
+                structures_dir=processed / 'structures', records_dir=processed / 'records', num_workers=1)
         if failures or len(manifest.records) != 1:
             raise RuntimeError('NESSO input preprocessing failed; no candidate may be skipped')
         from ligand_atoms import audit_nesso_ligand
@@ -81,7 +96,14 @@ class Engine:
         manifest.dump(processed / 'manifest.json')
         dataset = InferenceDataset(manifest=manifest, target_dir=processed,
             featurizer=NessoFeaturizer(esm_emb_dir=esm_dir, esm_emb_dim=1280, esm_num_layers=33),
-            ligand_dir=mol, ccd_pkl=self.base / 'ccd.pkl')
+            ligand_dir=mol, ccd_pkl=None if self.ccd_cache else self.base / 'ccd.pkl')
+        if self.ccd_cache:
+            # The upstream constructor only uses ccd_pkl to populate this map.
+            # Its ordinary featurizer still receives a fresh map of molecule copies.
+            molecules = self.ccd_cache.get()
+            if not hasattr(dataset, '_standard_aa_mols') or set(dataset._standard_aa_mols) != set(molecules):
+                raise RuntimeError('NESSO standard-AA dataset contract changed')
+            dataset._standard_aa_mols = molecules
         sample = dataset[0]
         if sample.get('exception'):
             raise RuntimeError('NESSO featurization failed')
@@ -100,6 +122,10 @@ class Engine:
                       device='mps', precision='float32', recycling_steps=5, refine_protein_inference=True,
                       model_load_count=2, mps_current_bytes=torch.mps.current_allocated_memory())
         atomic(directory / 'affinity.json', result)
+        if self.ccd_cache:
+            atomic(directory / 'ccd_cache.json', self.ccd_cache.receipt())
+        if self.preprocessing_cache:
+            atomic(directory / 'preprocessing_cache.json', self.preprocessing_cache.receipt())
         return result
 
 
@@ -116,6 +142,8 @@ def serve(config_path):
     started = time.monotonic()
     engine = Engine(Path(config['root']))
     atomic(queue / 'ready.json', dict(device='mps', fallback=0, pid=os.getpid(), model_load_count=2,
+        standard_aa_cache='session-standard-aa-clones-v1' if engine.ccd_cache else 'off',
+        preprocessing_cache='fresh-worker-conformer-reuse-v1' if engine.preprocessing_cache else 'off',
         config_sha256=sha256(config_path), startup_seconds=time.monotonic()-started))
     while not (queue / 'stop.json').exists():
         try:

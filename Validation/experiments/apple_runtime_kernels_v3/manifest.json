@@ -1,0 +1,80 @@
+{
+  "experiment": "apple_runtime_kernels_v3",
+  "scope": "Same-runtime FP32 MPS kernels and integration of measured setup optimizations; no precision/model/steps/guidance changes",
+  "engines": [
+    "boltz",
+    "protenix",
+    "nesso",
+    "intellifold-flash"
+  ],
+  "fixed": {
+    "seed": 42,
+    "threads": 4,
+    "interop_threads": 1,
+    "samples": 1,
+    "msa": "explicit empty; no server",
+    "precision": "FP32, unchanged installed engine runtimes",
+    "steps": "production defaults, unchanged per engine",
+    "guidance": "unchanged"
+  },
+  "screen": {
+    "units_per_process": 3,
+    "warmups": 1,
+    "measured_inputs": [
+      "ubiquitin76",
+      "sumo96"
+    ],
+    "interpretation": "exploratory paired screen; promising contrasts need reversed-order repetition and wider fixtures before promotion"
+  },
+  "acceptance": {
+    "ca_rmsd_max": 0.5,
+    "ca_displacement_p95_max": 1.5,
+    "normalized_confidence_max": 0.02,
+    "pair_error_mae_max": 0.5,
+    "pair_error_p95_max": 2.0,
+    "nesso_scalar_absolute_max": 0.02,
+    "esm_relative_l2_max": 0.001,
+    "logit_absolute_max": 0.02,
+    "hard": [
+      "finite required outputs",
+      "identical atom identities and counts",
+      "no new backbone breaks",
+      "no forbidden CPU fallback",
+      "identical model and scientific protocol"
+    ]
+  },
+  "failure_policy": "retain failed arms; do not change tolerances or production defaults; diagnose before retry",
+  "implementation_candidates": [
+    "NESSO session-scoped standard-AA clone cache",
+    "FP32 fused sigmoid multiply/add and SiLU multiply, native GEMM and normalization retained",
+    "Profile then decide on fused LayerNorm/attention; no blanket runtime update",
+    "Adaptive non-affine LayerNorm plus gate/bias: normal and near-constant FP32 oracles, same strict gates",
+    "Direct upstream NESSO parsing diagnostic: compare saved parser arrays; do not promote request-order-dependent ligand RNG",
+    "Exact first-use upstream conformer byte cache; bounded8 entries, fresh standard-AA clones, upstream supported conformer parser path",
+    "Boltz lean wrapper: cache shader dispatch handles, avoid unnecessary same-shape broadcasting and per-shape census overhead; identical Metal arithmetic",
+    "IntelliFold Flash: prepend128 to upstream buckets, preserving every larger bucket and all Full-v2 defaults"
+  ],
+  "cases": [
+    {
+      "name": "ubiquitin",
+      "sequence": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"
+    },
+    {
+      "name": "sumo",
+      "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG"
+    }
+  ],
+  "kernel_gate": {
+    "numpy_fp64_relative_l2_max": 1e-05,
+    "stock_fp32_relative_l2_max": 1e-05,
+    "timing": "4 alternating blocks x20 calls after8 warmups, includes Python wrapper/layout; compile cost separate"
+  },
+  "confirmation": "Reversed process order; seed43; optional228-residue synthetic ubiquitin-repeat computational fixture. No biological folding interpretation for the repeat.",
+  "integration": "NESSO standard-AA cache passes exact parser/score checks, repeated requests, and broker cancellation/resume before enabled. Conformer cache additionally requires exact saved parser tensors across reused ligands/changed sequences; no change to requested scientific seed.",
+  "installed_runtimes": {
+    "boltz": "2.13.0",
+    "protenix": "2.7.1",
+    "nesso": "2.11.0",
+    "intellifold-flash": "2.6.0"
+  }
+}

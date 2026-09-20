@@ -428,3 +428,7 @@ forgotten one.
 | 0154 | 2026-09-18 | [Framework budgets and combined results](lab_book/0154-framework-budgets-and-combined-results.md) | Explicit total/per-framework budgets, immediate numeric commits, combined filtered results and MCP 20; build 39 release. |
 | 0155 | 2026-09-18 | [NISE live phase results](lab_book/0155-nise-live-phase-results.md) | Phase 0 checkpoint structures, phase/stage navigation, explicit checks and selection, and build 40. |
 | 0156 | 2026-09-18 | [Results workflow audit](lab_book/0156-results-workflow-audit.md) | NESSO sequence scores, live Predict chunks, retained RFD3 models and per-sample score provenance; build 41. |
+
+- [0169 — Test other Apple engine runtimes](lab_book/0169-test-other-apple-engines.md) (2026-09-19): completed isolated M4 Max runtime/implementation screen; 162 audited outputs, custom Metal trials, no defaults promoted.
+- [0170 — Mac Metal fusion tests](lab_book/0170-test-mac-metal-fusions.md): completed; NESSO preprocessing and short-input Flash padding integrated, custom kernels retained as experiments;129 outputs audited.
+- [0171 — Qualify and deploy Apple runtimes](lab_book/0171-qualify-and-deploy-apple-runtime.md): in progress.

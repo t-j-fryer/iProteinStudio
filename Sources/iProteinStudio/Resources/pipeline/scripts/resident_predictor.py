@@ -260,8 +260,8 @@ class IntelliFoldSession:
         self.torch = require_mps()
         if importlib.metadata.version("accelerate") != "1.1.1":
             die("resident IntelliFold requires pinned Accelerate 1.1.1")
-        if importlib.metadata.version("torch") != "2.6.0":
-            die("resident IntelliFold requires pinned PyTorch 2.6.0")
+        if importlib.metadata.version("torch") != "2.14.0":
+            die("resident IntelliFold requires pinned PyTorch 2.14.0")
 
         compatibility = load_path(
             "iproteinstudio_intellifold_mps",
@@ -282,6 +282,8 @@ class IntelliFoldSession:
         if not runner_path.is_file():
             die(f"IntelliFold runner is missing: {runner_path}")
         self.upstream = load_path("iproteinstudio_resident_intellifold", runner_path)
+        from intellifold_padding import default_buckets
+        model = option(self.arguments, "--model", config.get("model", "v2-flash"))
         self.args = Namespace(
             data="",
             out_dir="",
@@ -292,7 +294,7 @@ class IntelliFoldSession:
             recycling_iters=int(option(self.arguments, "--recycling_iters", "10")),
             num_diffusion_samples=int(option(self.arguments, "--num_diffusion_samples", "1")),
             sampling_steps=int(option(self.arguments, "--sampling_steps", "200")),
-            buckets=self.upstream.parse_buckets(option(self.arguments, "--buckets", "256,512,768,1024,1280,1536,2048,2560,3072,3584,4096,4608,5120")),
+            buckets=self.upstream.parse_buckets(option(self.arguments, "--buckets", default_buckets(model))),
             output_format=option(self.arguments, "--output_format", "mmcif"),
             override=False,
             use_msa_server=flag(self.arguments, "--use_msa_server"),
@@ -302,7 +304,7 @@ class IntelliFoldSession:
             use_template=flag(self.arguments, "--use_template"),
             only_run_data_process=False,
             return_similar_seq=False,
-            model=option(self.arguments, "--model", config.get("model", "v2-flash")),
+            model=model,
         )
         if self.args.num_workers != 0:
             die("resumable resident IntelliFold requires --num_workers 0 for deterministic input features")

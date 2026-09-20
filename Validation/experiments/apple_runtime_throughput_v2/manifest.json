@@ -1,0 +1,113 @@
+{
+  "experiment": "apple_runtime_throughput_v2",
+  "scope": "M4 Max only; isolated exploratory all-engine screen, excluding Protenix Mini and unchanged CPU MPNN",
+  "engines": [
+    "intellifold-flash",
+    "intellifold-full",
+    "protenix",
+    "constraint",
+    "openfold",
+    "nesso",
+    "rfd3",
+    "antifold"
+  ],
+  "runtime_candidates": {
+    "torch": "2.14.0",
+    "rfd3_mlx": "0.32.2"
+  },
+  "fixed": {
+    "seed": 42,
+    "threads": 4,
+    "interop_threads": 1,
+    "samples": 1,
+    "msa": "explicit empty; no server",
+    "precision": "existing production precision; FP32 Torch, existing BF16 RFD3",
+    "steps": "production defaults, unchanged per engine",
+    "guidance": "unchanged"
+  },
+  "screen": {
+    "units_per_process": 3,
+    "warmups": 1,
+    "measured_inputs": [
+      "ubiquitin76",
+      "sumo96"
+    ],
+    "interpretation": "exploratory paired screen; promising contrasts need reversed-order repetition and wider fixtures before promotion"
+  },
+  "acceptance": {
+    "ca_rmsd_max": 0.5,
+    "ca_displacement_p95_max": 1.5,
+    "normalized_confidence_max": 0.02,
+    "pair_error_mae_max": 0.5,
+    "pair_error_p95_max": 2.0,
+    "nesso_scalar_absolute_max": 0.02,
+    "esm_relative_l2_max": 0.001,
+    "logit_absolute_max": 0.02,
+    "hard": [
+      "finite required outputs",
+      "identical atom identities and counts",
+      "no new backbone breaks",
+      "no forbidden CPU fallback",
+      "identical model and scientific protocol"
+    ],
+    "rfd3_sequence_head": "Report changes, not a gate: production exports backbone and uses MPNN; this unused auxiliary head does not define exported residue identity"
+  },
+  "failure_policy": "retain failed arms; do not change tolerances or production defaults; diagnose before retry",
+  "implementation_candidates": [
+    "IntelliFold padding buckets after profile",
+    "NESSO ESM backbone without unused LM head and hidden-state history",
+    "OpenFold actual MLX dispatch and framework transfers",
+    "RFD3 attention and neighbor-index profile",
+    "CPU threads only when measured CPU work warrants",
+    "Protenix upstream diffusion shared-variable cache, reset by upstream before every prediction",
+    "NESSO cache standard-AA CCD parse; clone mutable molecules per request; unchanged preprocessing process lifetime",
+    "RFD3 sparse SDPA preserves neighbors, bias, gate; independent FP64 oracle, relative L2 limits 1e-5 FP32 /0.01 existing BF16 before trajectory gate",
+    "OpenFold existing FP32 stock attention to native Torch SDPA with scale=1 because Q is already scaled; preserve masks/biases/gate, independent FP64 oracle relative L2 <=1e-5 before trajectory gate",
+    "OpenFold skip only Linear LeCun/He truncated-normal initializers overwritten by a strict checkpoint load; verify every skipped parameter is covered and equals the checkpoint before permitting inference. No skipped non-persistent buffers.",
+    "RFD3 direct-load Metal sparse attention only after all eight synthetic shape/dtype candidates pass independent FP64 limits; rerun a local-runtime oracle before unchanged complete trajectories. Baseline MLX0.32.0 because the0.32.2 trajectory screen failed.",
+    "Distinct RFD3 rounding-preserving Metal prototype after FP32-attention trajectory failure: keep BF16 product/sum/probability boundaries. Independent NumPy reference explicitly simulates these rounding boundaries; relative L2 <=0.001 to this oracle AND existing MLX on65/128/1064-atom fixtures before inference. Original end-to-end coordinate/geometry gates unchanged."
+  ],
+  "rfd3_attention_arithmetic": "Existing BF16 weights/activations, FP32 gathered attention calculation preserves FP32 bias and softmax, output rounded back to existing activation dtype before the unchanged gate",
+  "random_tape_diagnostic": "If runtime generator streams differ, record the installed IntelliFold generator draws and replay identical draws under 2.14. Preserve call kinds/shapes/dtypes and reject incomplete replay. Transfer-instrumented times are not speed measurements; same end-to-end numerical gates remain. Protenix/Constraint use the same mechanism for their global Torch normal/uniform draws (generator=None), retaining the unchanged seeded NumPy/SciPy rotation path. Later tape jobs omit repeated warmups because timings are diagnostic only. Full IntelliFold tests its failed SUMO case only; its original ubiquitin gate passed.",
+  "antifold_steady": "After bounded screen passes, reverse arm order; warm both input shapes, then 4 repetitions per shape, same weights/seed/threads, teacher-forced logits only. Separate first-seen shape compilation from warm throughput.",
+  "metal_kernel_screen": {
+    "purpose": "Transfer the report's independent-oracle, shape-specific kernel validation approach to this M4 Max. Synthetic tensors, no model speed claim.",
+    "operator": "RFD3 sparse attention, unchanged neighbors/biases/gate; Metal gathers K/V directly rather than materializing buffers.",
+    "comparators": [
+      "existing eager MLX",
+      "mx.compile(existing)",
+      "MLX fast SDPA",
+      "custom Metal"
+    ],
+    "shapes_L_K_H_D": [
+      [
+        65,
+        33,
+        4,
+        32
+      ],
+      [
+        128,
+        128,
+        4,
+        32
+      ],
+      [
+        512,
+        128,
+        4,
+        32
+      ],
+      [
+        1064,
+        128,
+        4,
+        32
+      ]
+    ],
+    "precision": "existing FP32 and BF16 operands/output; FP32 attention arithmetic in candidate kernels",
+    "oracle": "NumPy FP64, relative L2 <=1e-5 FP32 /0.01 BF16, finite outputs; repeated/irregular neighbors and -inf masks",
+    "timing": "4 alternating-order blocks x20 synchronized calls after 10 warmups; first-call cost separately recorded; includes layout/dispatch costs",
+    "failure_reporting": "Nonfinite output aborts. Finite oracle failures are recorded per implementation, with unchanged thresholds; a baseline failure must not prevent candidate evaluation. Initial aborting trial retained. No failing candidate may proceed to model testing."
+  }
+}

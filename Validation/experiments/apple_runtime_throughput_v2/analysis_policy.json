@@ -1,0 +1,13 @@
+{
+  "revision": "sumo_core_v3",
+  "date": "2026-09-19",
+  "reason": "User requested that SUMO structural comparisons focus on its high-confidence core because its flexible N-terminus moves substantially.",
+  "sumo_core": {
+    "baseline_ca_plddt_min": 80.0,
+    "minimum_residues": 20,
+    "selection": "Conservative fixture mask: exclude residues1\u201320 regardless of predicted confidence, then select baseline CA pLDDT>=80; align and score the same indices in both outputs. This is a comparison mask, not a claimed universal SUMO domain boundary.",
+    "scope": "SUMO sequence-prediction coordinates only. RFD3's sumo-named length fixture is not SUMO and is excluded. Whole-chain identity, geometry, confidence and PAE/PDE checks remain. Whole-chain coordinate differences are retained as diagnostics.",
+    "exclude_n_terminal_residues": 20,
+    "reference": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3660650/"
+  }
+}

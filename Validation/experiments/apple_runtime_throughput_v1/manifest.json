@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "experiment": "apple_runtime_throughput_v1",
+  "status": "initial Boltz runtime and CPU-thread screening; no production promotion",
+  "engine": "boltz2",
+  "baseline_torch": "2.13.0",
+  "candidate_torch": "2.14.0",
+  "scientific_settings": {
+    "precision": "float32",
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "use_potentials": true,
+    "allocator_reset": true,
+    "msa_policy": "explicit empty, identical single-sequence monomer smoke tests",
+    "checkpoint": "managed boltz2_conf.ckpt, identical bytes for every arm"
+  },
+  "cases": [
+    {
+      "name": "ubiquitin",
+      "sequence": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"
+    },
+    {
+      "name": "sumo",
+      "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG"
+    }
+  ],
+  "seeds": [
+    42,
+    43
+  ],
+  "cpu_thread_candidates": [
+    1,
+    4,
+    8,
+    12
+  ],
+  "acceptance": {
+    "purpose": "Practical investigation gate, not clinical or experimental binding validation. Passing this small screen is not sufficient for engine promotion.",
+    "hard": [
+      "finite coordinates",
+      "exact sequence/atom identities and output counts",
+      "no new backbone discontinuities",
+      "no forbidden CPU fallback",
+      "unchanged scientific settings"
+    ],
+    "ca_aligned_rmsd_angstrom_max": 0.5,
+    "ca_displacement_p95_angstrom_max": 1.5,
+    "complex_plddt_absolute_change_max": 0.02,
+    "ptm_absolute_change_max": 0.02,
+    "pae_mae_angstrom_max": 0.5,
+    "pae_absolute_change_p95_angstrom_max": 2.0,
+    "primitive_atol": 0.0001,
+    "primitive_rtol": 0.0001,
+    "failure_policy": "Retain outputs, flag for diagnosis and do not promote. Do not widen margins after seeing candidate results."
+  },
+  "implementation_candidates": {
+    "schedule_host_once": "Read the GPU-computed sigma/gamma schedule on the CPU once per prediction instead of reading three scalars per diffusion step. Preserve all scalar values, model, steps, guidance, initial sigma tensor and RNG calls; exact source anchors required.",
+    "diffusion_bf16": {
+      "precision_exception": "Separate explicitly approximate arithmetic experiment: BF16 autocast only in diffusion score network. All weights stored FP32; outer diffusion state, guidance, alignment, confidence and trunk retain existing FP32 path. Record effective linear/output dtypes.",
+      "settings": "Identical model, checkpoint, seeds, diffusion steps, guidance and sample counts.",
+      "gate": "Same prospectively declared practical end-to-end margins; no automatic promotion."
+    }
+  }
+}

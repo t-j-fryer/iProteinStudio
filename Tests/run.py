@@ -10,6 +10,8 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FAST_PYTHON = [
+    "test_runtime_upgrade_selection.py", "test_intellifold_padding.py",
+    "test_nesso_ccd_cache.py", "test_nesso_preprocessing_cache.py",
     "test_apple_build_tools.py", "test_install_download_recovery.py",
     "test_framework_batch_results.py", "test_nise_stage_batches.py",
     "test_iterative_engine_batch.py", "test_resident_prediction_resume.py",

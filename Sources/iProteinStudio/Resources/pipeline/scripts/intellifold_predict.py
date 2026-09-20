@@ -24,7 +24,7 @@ from storage_policy import compact_detailed_confidence, json_variants
 
 
 STRICT_ACCELERATE_VERSION = "1.1.1"
-STRICT_TORCH_VERSION = "2.6.0"
+STRICT_TORCH_VERSION = "2.14.0"
 
 
 def die(message: str) -> None:
@@ -97,7 +97,8 @@ def verify_outputs(arguments: list[str]) -> None:
 
 
 def main() -> None:
-    arguments = sys.argv[1:]
+    from intellifold_padding import launcher_arguments
+    arguments = launcher_arguments(sys.argv[1:])
     configured_root = os.environ.get("NANOHUNTER_ROOT") or os.environ.get("IPROTEIN_ROOT")
     root = Path(configured_root).expanduser().resolve() if configured_root \
         else Path(__file__).resolve().parents[1]
