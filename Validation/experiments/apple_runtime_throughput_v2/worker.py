@@ -124,7 +124,7 @@ def main():
     if len(tape.events)<minimum:raise RuntimeError('Random tape did not capture the complete diffusion trajectory')
     details=dict(random_tape=req['random_tape'],draw_count=len(tape.events),timing='diagnostic only; includes RNG recording/replay transfers')
    else:
-    session.predict(source,unit/'prediction',1);details={} 
+    session.predict(source,unit/'prediction',1);details={}
   sync();seconds=time.monotonic()-t
   if engine=='nesso' and req.get('variant')=='ccd_cache':details['ccd_cache']=dict(cache_counts)
   if engine.startswith('intellifold'):details['model_input_shapes']=feature_shapes[-1:]

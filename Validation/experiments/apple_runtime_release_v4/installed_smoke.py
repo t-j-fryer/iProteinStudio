@@ -14,7 +14,7 @@ seq=json.loads((HERE.parent/'apple_runtime_throughput_v1/manifest.json').read_te
 msa=str(managed/'msa_cache/00e99841616c44295043375bc0ba6286.a3m')
 submitted=[]
 for engine,model in [('boltz',None),('intellifold','v2-flash'),('intellifold','v2')]:
- request=dict(predictors=[engine],jobs=[dict(name='sumo-msa',chains=[dict(id='A',kind='protein',sequence=seq,msa=msa)])],num_seeds=1,diffusion_samples=1,max_parallel=1,offline_only=True,use_potentials=engine=='boltz')
+ request=dict(predictors=[engine],jobs=[dict(name='sumo',chains=[dict(id='A',kind='protein',sequence=seq,msa=msa)])],num_seeds=1,diffusion_samples=1,max_parallel=1,offline_only=True,use_potentials=engine=='boltz')
  if model:request['intellifold_model']=model
  plan=s.tool_call('prediction_plan',dict(project='runtime214-release-smoke',request=request))
  name=engine+'-'+str(model);atomic(OUT/(name+'.installed-plan.json'),plan)
