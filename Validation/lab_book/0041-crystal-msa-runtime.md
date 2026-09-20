@@ -3,7 +3,7 @@ entry: 0041
 title: Crystal and MSA qualification of Apple runtime changes
 date: 2026-09-19
 author: Codex
-status: in-progress
+status: complete
 ---
 
 User requests experimental-reference comparisons, MSA diagnosis, OpenFold initialization qualification, and app/GitHub/MCP deployment including Torch2.14 for Boltz and IntelliFold. Existing raw outputs remain immutable. Manifest: Validation/experiments/apple_runtime_release_v4/manifest.json. Baseline HEAD b629789d6187af08ec046f1c8547b5ab5ffb83e1; pre-existing unrelated edits preserved.
@@ -137,3 +137,18 @@ Build42 distribution archive built from clean commit
 `c455aea960eae3c7ac4d33c5495f503de7ca97b7`; code-signature/resource checks passed.
 The existing trusted-beta channel and Sparkle EdDSA signing key are retained.
 Source checkout synchronization verified103 unrelated/local-index files unchanged.
+
+## Publication complete
+
+Build42 is live in the existing GitHub beta release, with the signed Sparkle
+feed on main. All four uploaded assets were independently checked against
+GitHub-reported SHA256 digests; appcast, installer, NESSO worker and Flash helper
+Git blobs match local source. Release: https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.0-beta
+
+App, GitHub and installed MCP now include both NESSO caches and Flash padding.
+Boltz2 and both IntelliFold models use the installed Torch2.14 environments.
+OpenFold initialization remains a qualified prototype; OpenFold and both
+Protenix runtimes remain on their previous versions. No model weights were
+committed or included in the app archives. Old app/runtime copies are retained.
+Final audit artifacts: GITHUB_PUBLICATION_AUDIT.json, INSTALLED_OUTPUT_AUDIT.json,
+installed_runtime_versions.json, installed_system_detect.json and the MSA report.
