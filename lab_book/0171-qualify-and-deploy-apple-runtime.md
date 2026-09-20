@@ -103,7 +103,7 @@ build/test logs. Executable analysis and job factories are under the correspondi
 Not tested: other Macs/chips, broad MSA-backed design/interface ranking, statistical
 hit rates, blind crystal holdouts or multi-hour memory soak. Same-seed MPS random
 draws differ across Torch versions; preserving the old runtime matters for exact
-reproduction. No smaller models, fewer steps, disabled guidance, MPNN migration or
+reproduction. No smaller models, fewer steps, disabled guidance, MPNN model/Torch upgrade or
 Protenix Mini work. Release/deployment final state will be recorded after validation.
 
 Added a separate OpenFold2.6 versus2.14 MSA pair (job-124407fde933), with initialization optimization disabled in both arms. This prevents confusing initialization qualification on2.6 with runtime-upgrade qualification. Flash MSA pair passes the original gates; core crystal RMSD2.298→2.330 Å and no geometry violations.
@@ -115,3 +115,25 @@ OpenFold runtime MSA pair completed: Torch2.6.0: core RMSD1.490 Å, mean core pL
 Build42 app installed and launched, build41 bundle retained under build/rollback-build41-20260920. Staged managed setup, locks, MCP server and all optimization helpers byte-match the release worktree. Pre-upgrade detection correctly marks Boltz/IntelliFold runtimes incomplete. Managed engine installation submitted as job-b96d6ec1ecb6 through the admin bridge.
 
 Managed installer completed successfully. Exact metadata confirms Torch2.14.0, NumPy1.26.4 and SymPy1.14.0 in both new versioned Boltz/IntelliFold environments. The ordinary installer also revalidated its unchanged base MPNN dependency environment; no MPNN version or model setting was intentionally changed. Installed public-MCP smoke jobs: Boltz job-2d05362a8239, Flash job-c6bfd238f039, Full job-a1aa0b3f507d. All use the cached MSA, offline-only preparation and one seed/sample.
+
+## Installed app/MCP qualification
+
+All three installed public-MCP prediction jobs completed and passed exact sequence,
+MSA SHA256, finite coordinates, one-model cardinality, confidence-matrix and backbone
+geometry audits. Boltz potentials enabled, offline-only preparation, full settings.
+- boltz 2: crystal core RMSD 2.111 Å; 0 backbone violations.
+- intellifold v2-flash: crystal core RMSD 2.330 Å; 0 backbone violations.
+  Installed versus isolated Torch2.14 core RMSD 0.00071831 Å; PAE MAE 0.001218 Å. These tiny differences include CLI/resident and production-thread differences; this is not a timing pair.
+- intellifold v2: crystal core RMSD 2.366 Å; 0 backbone violations.
+  Installed versus isolated Torch2.14 core RMSD 0.01100749 Å; PAE MAE 0.004175 Å. These tiny differences include CLI/resident and production-thread differences; this is not a timing pair.
+
+Installed MCP system_detect reports every engine state=ok, including NESSO, Boltz,
+Flash and Full. Completed runs were reviewed through results_overview, followed
+by results_query. NESSO installed Engine defaults explicitly enable both caches;
+its helpers byte-match the previously validated source. No new complete NISE
+design campaign was run during deployment.
+
+Build42 distribution archive built from clean commit
+`c455aea960eae3c7ac4d33c5495f503de7ca97b7`; code-signature/resource checks passed.
+The existing trusted-beta channel and Sparkle EdDSA signing key are retained.
+Source checkout synchronization verified103 unrelated/local-index files unchanged.

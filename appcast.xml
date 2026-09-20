@@ -7,6 +7,255 @@
         <language>en</language>
         <item>
             <title>0.2.0</title>
+            <pubDate>Sat, 19 Sep 2026 22:25:25 -0400</pubDate>
+            <sparkle:version>42</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# iProteinStudio release notes
+
+Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
+
+## 0.2.0 — updater foundation
+
+- Build 42 pins PyTorch 2.14.0 for Boltz2 and shared IntelliFold Flash/Full,
+  with hash-locked dependencies and versioned environments retaining rollback
+  copies. Existing installations are prompted to update incompatible runtimes.
+  IntelliFold random draws can differ from older Torch versions for the same seed;
+  preserve the recorded runtime when reproducing an older run.
+- NESSO reuses exact upstream ligand conformers and cloned amino-acid data within
+  its resident session. Flash avoids excess padding for inputs of at most128 tokens.
+  Neither change reduces model size, steps, recycles, precision or guidance.
+- Installer recovery now checks the requested runtime version before reusing a
+  committed environment.
+
+- Build 41 audits results across all workflows: NISE exposes NESSO sequence
+  scores before folding and reads committed Boltz affinity-head results with
+  structure-receipt matching. Screening scores remain separate from Boltz scores.
+- Predict results stay live, read completed chunk receipts before the final CSV,
+  and group engine/model samples by input. Template-conditioned results are
+  labelled, and per-sample confidences cannot be borrowed from another model.
+- RFdiffusion3 retains completed predictions outside its ranked shortlist.
+  Shared result views add search, stage and score-source filters; completed work
+  remains accessible while campaigns run and after failures or restarts.
+
+- Build 40 shows live NISE structures during Phase 0, directly from completed
+  prediction checkpoints. Separate Phase 0 preparation, Phase 1 optimisation
+  and final-check views retain earlier work, with stage progress, lineage/trajectory
+  search, check-status filters and score distributions. Pending checks and absent
+  affinity values remain explicit; saved beam selection is distinct from passing
+  geometry. NISE progress is accessible from history before scoring starts.
+
+- Build 39 makes nanobody budgets explicit: total across frameworks, the same
+  number for each framework, or custom counts. Valid numeric edits apply
+  immediately; invalid Protein Hunter fields block Start/Queue. The launch
+  summary distinguishes independent trajectories from optimisation-cycle outputs.
+- Combined Protein Hunter results retain earlier framework/engine campaigns,
+  with framework and design-engine filters, unique trajectory identities, and a
+  combined entry in run history. Existing saved batches work without rerunning.
+- MCP contract 20 exposes batch parents and matching result filters and budget
+  guidance. The optional NISE stage-directory continuation preserves per-input
+  checkpoints and original scientific settings; default scheduling is unchanged.
+
+- Build 38 adds NISE's optional ligand-local masking and MPNN repair branch,
+  with two ordinary sampling parents plus one reserved repaired winner at the
+  default total beam of three. New defaults are 1,000 starts, 64 proposals in
+  the first optimisation cycle, 32 per parent later, 30 cycles and four-cycle
+  patience. Geometry-first selective affinity, explicit budgets and replayable
+  sampling receipts are shared by the app and MCP. Partial noising remains
+  experimental and off by default.
+- Hardens RFdiffusion3 atom conditioning, output qualification and resume checks;
+  corrects OpenFold-3 Protein Hunter scheduling to its supported per-trajectory
+  mode. MCP version 19 includes the updated workflow guidance and contracts.
+
+- Adds in-app Apple Command Line Tools installation guidance to Setup and Engines.
+  Open Apple's installer or Software Update directly, then retry the saved engine
+  selection after the compiler check succeeds; Terminal and full Xcode are not required.
+
+- Adds a nanobody scaffold checklist with equal or custom trajectory budgets per
+  scaffold, repeated for each selected design engine. Adds the 128-residue 3EAK
+  NbBCII10-FGLA VHH with the requested purification-tail removal and recorded CDR
+  boundary provenance. Each engine–scaffold campaign has independent resume checkpoints.
+
+- Adds optional NESSO screening of completed Protein Hunter ligand campaigns
+  and RFdiffusion3 MPNN sequences, with a top-X shortlist and chosen structural
+  verifier, durable checkpoints and separate score/result reporting.
+
+- Corrects NESSO ranking to P(bind) + (1 − pocket-cropped protein–ligand
+  placement entropy), following the upstream interface-confidence guidance. Rejects missing, invalid and near-zero placement entropy
+  before shortlisting; records score components, rejection reasons and policy
+  provenance in reports and displays the combined score in results.
+
+- Adds independent initial-stage NESSO screening: per-lineage refinement shortlists,
+  an unchanged unscreened structural gate, and a total expansion shortlist capped
+  at one candidate per original lineage. Adds advanced stage-specific counts and
+  RMSD controls, calculated budgets and resumable screening reports.
+- Separates applicable Protein Hunter run settings from inactive UI restoration
+  state in new manifests, while preserving older manifest loading.
+
+- Adds NISE hotspot/exposed-atom selection with verified Boltz affinity labels,
+  matching chemical states across engines, RFdiffusion3 atom translation and
+  conditioning, and audited per-atom contact/SASA requirements before advancement.
+  Fixes the missing initial contact helper and ligand RMSD sensitivity to row order.
+
+- Makes workspace names single-click navigation buttons; Rename stays in the
+  actions menu. Resets temporary detail-view state when changing workspaces.
+- Configures matching Apple compilers and macOS SDK/libc++ headers for package
+  builds, with a compile/link/run preflight before downloads and actionable
+  Command Line Tools errors. Checks ProDy's native extension before activating
+  the sequence-designer runtime.
+
+- Adds OpenFold-3 and separate IntelliFold v2 Flash/Full design choices in
+  Protein Hunter. Both checkpoints can run in one batch with full per-engine
+  budgets, explicit saved model flags and independent checking-model controls.
+
+- Changes Protein Hunter's design engine selector to a checklist, with the full
+  trajectory budget per engine, per-campaign independent checking and separate
+  results. Saves all engine campaigns before queueing; Stop/Resume operates on
+  the durable batch and completed engines have verified artifact receipts.
+
+- Adds optional structure templates to Predict, with explicit protein-chain
+  selection and Guide mode for Boltz-2, IntelliFold and Protenix v2. Preserves
+  run-owned inputs, checksummed preparation and directory batching.
+
+- Adds a NISE initial-backbone selector: existing Protein Hunter hallucination
+  or experimental RFdiffusion3, with shared downstream refinement/optimisation,
+  visible length groups, audited diffusion batches and separate work budgets.
+- Clarifies that installing NESSO also installs its ESM-2 650M dependency, and
+  reuses exact checksum-verified ESM assets from existing Hugging Face caches.
+
+- Separates NISE's initial backbone funnel from optimisation, adds typed budgets
+  and explicit sequences-to-advance controls. The default is now 100 starts,
+  matching the original fluorescein starting population.
+- Adds optional experimental NESSO screening with a per-trajectory shortlist
+  before Boltz, durable scores and rejection records, and an isolated optional
+  engine install. Screening accuracy and throughput remain unvalidated in Studio.
+
+- Adds a dedicated small-molecule NISE tab with the fluorescein example, atomic
+  sequence/prediction checkpoints, optional final apo preorganisation, shared
+  native/MCP jobs and trajectory/candidate results. Cross-cycle Boltz structure
+  and affinity residency is available experimentally; no ligand speedup is claimed.
+- Renames the existing iterative-design tab to Protein Hunter while preserving
+  its saved workflow identity and previous campaigns.
+
+- Adds recoverable workspace saving and reversible Archive/Restore.
+- Routes native workflows through the durable shared job service, with queued
+  status, confirmed stopping, restart reattachment and saved-input verification.
+- Keeps dashboards attached to their originating workspace and saved thresholds.
+- Adds named controls, reduced-motion support and previewable support reports.
+- Moves live result/history loading off the UI thread and adds a documented
+  contract runner, core test target, CI and reviewed upstream vendoring.
+
+- Adds explicit experimental secondary-structure sequence priors to iterative
+  de-novo design: natural, anti-helix, β-oriented, and combined modes.
+- Separates cycle-00-only sequence bias from sustained MPNN-cycle bias, allowing
+  matched-seed comparisons with identical starting sequences and strand/turn
+  plans.
+- Saves each β-oriented strand/turn plan with the trajectory, including
+  solvent-friendly strand edges, alternating faces, and localized turn bias.
+- Adds a target-aligned iterative-design trajectory to Structures: cycle 00
+  through the final design cycle can be scrubbed, autoplayed and speed-adjusted
+  using py2Dmol's frame controls. Independent validation folds are excluded
+  from the optimization trajectory.
+- Organizes RFdiffusion3 results as generated backbone → MPNN sequence
+  derivative → paired complex/binder-alone validation, and iterative results as
+  run → cycle → design/complex/binder artifacts.
+- Makes no-epitope protein RFdiffusion3 design use reproducible whole-surface
+  scanning with multiple solvent-accessible outward origins. It never silently
+  falls back to the fixed target's centre of mass or invents hotspots.
+- Requires the verified RFdiffusion3 EMA checkpoint provenance across managed
+  installation, GUI and MCP runs.
+- Updates the client-neutral MCP bridge to v8. `results_overview` now exposes
+  the app-equivalent result hierarchy, saved child-level hit verdicts and
+  iterative trajectory frames before agents query raw score tables. MCP's
+  schema and workflow guidance also enforce whole-surface scanning whenever a
+  protein epitope is omitted.
+- Groups each iterative-design or RFdiffusion3 result with its generated/design
+  structure, independent complex reprediction and binder-alone fold, showing the
+  corresponding scores together in Browse Results and the live Structures/Hits
+  tabs.
+- Fixes the live iterative Hits parser silently dropping current post-check rows,
+  and uses the saved multi-metric verdict consistently across summaries and hit
+  galleries.
+- Keeps moved/shared campaign folders browseable by resolving durable artifacts
+  relative to the campaign while preserving their original recorded provenance.
+- Adds optional checksummed target-fold guidance to iterative design for Boltz,
+  Protenix v2 and IntelliFold v2 Flash/full. Independent validation and binder
+  folding remain untemplated.
+- Adds separate RFdiffusion3 de-novo, partial-diffusion and motif-scaffolding
+  workflows, including bundled p53–MDM2 examples.
+- Adds a live RFdiffusion3 results dashboard: accepted backbones and verification
+  structures appear during the run with structure browsing, score histograms,
+  summary statistics and saved hit-filter verdicts.
+- Preserves exact source-motif → designed-residue correspondence through
+  generation, MPNN and prediction, and scores recovery of every explicitly
+  constrained motif atom after one global alignment.
+- Fixes the MLX adapter dropping residue-specific motif side-chain atoms, and
+  fails motif scoring when any requested atom is absent rather than scoring a
+  misleading partial intersection.
+- Fixes RFdiffusion3 score distributions appearing empty after a live campaign
+  changes from backbone metrics to predictor metrics.
+- Reuses one resident Boltz, IntelliFold or Protenix Mini model across every
+  complex or binder-only RFdiffusion3 verification stage; full Protenix v2 uses
+  its faster measured directory-wave policy instead of reloading per design.
+
+- Adds cryptographically verified Sparkle updates for trusted betas and future
+  Developer ID releases, with a visible **Check for Updates…** command.
+- Adds update preferences for automatic checks and automatic app downloads.
+- Keeps application updates separate from scientific engines and checkpoints.
+- Adds a final, size-aware confirmation before any selected engine is installed.
+- Preserves projects, results, alignments, environments and model weights when the app is updated.
+- Fixes a clean-Mac launch crash caused by SwiftPM's generated resource accessor
+  falling back to an absolute development-build path.
+- Fixes fresh AntiFold installation by removing an unnecessary `wheel` entry
+  whose newly introduced, unhashed dependency made the locked install abort.
+- Fixes Protenix installation aborting after package installation because a
+  shared-data path was expanded before its local variable was initialized.
+- Corrects the published `filelock` hashes used by LASErMPNN's build bootstrap.
+- Lets deliberately pip-free RFdiffusion3 environments write and verify their
+  installation receipts after successful GPU/checkpoint validation.
+- Shows ProteinMPNN, SolubleMPNN, LigandMPNN and AbMPNN explicitly as the
+  automatically installed core sequence-design suite in Engines.
+- Retries transient MSA-service failures in Predict and reports the actual
+  provider/network cause plus a durable diagnostic log instead of the generic
+  and often misleading “MSA server could not be reached” message.
+- Isolates every ColabFold retry so a truncated or non-archive server response
+  cannot be mistaken for a cached MSA download and poison all later attempts.
+- Runs Boltz-2 in full FP32 on Apple GPUs and resets unused PyTorch MPS allocator
+  blocks immediately before each prediction batch. This addresses a reported
+  allocator-state-dependent silent-numerics defect in PyTorch 2.13 that can vary
+  by Apple GPU and macOS build.
+- Replaces IntelliFold v2/v2-flash's three failing Apple `GatherND` formulations
+  (pair lookup, atom compaction and atom-count repeat) with equivalent
+  order-preserving indexed lookups, retaining native MPS and forbidding a silent
+  CPU fallback.
+- Validates protein backbone geometry before any Boltz or IntelliFold output is
+  accepted or marked resumable, with a useful failure instead of a corrupted
+  structure in the library.
+- Prevents Boltz from redownloading its 1.8 GB chemical-component archive when
+  the verified extracted component library is already installed.
+- Stores Protenix and IntelliFold detailed confidence arrays as lossless,
+  SHA-256-verified gzip files after scoring and geometry checks.
+- Keeps one canonical copy of structures and batch logs while galleries,
+  selected results and per-trajectory views use durable relative references.
+- Shares exact MSAs and independently resumable pipeline snapshots through a
+  content-addressed APFS store, without changing or deleting older projects.
+- Correctly reports that automatic Protenix v2/Mini prediction uses five
+  diffusion samples while the other supported engines use one.
+- Fixes successful IntelliFold predictions being rejected after inference when
+  their canonical output followed upstream's `_inputs/predictions` directory
+  layout; staged coordinate inputs remain excluded from geometry acceptance.
+
+Trusted beta update archives are signed with the project's Sparkle EdDSA key,
+but the beta application itself is not Developer ID signed or notarized by Apple.
+
+This release does **not** download a model or checkpoint as part of the app
+update. New scientific components remain explicit choices in **Engines**.
+]]></description>
+            <enclosure url="https://github.com/t-j-fryer/iProteinStudio/releases/download/v0.2.0-beta/iProteinStudio-0.2.0-unsigned-beta-apple-silicon.zip" length="11593055" type="application/octet-stream" sparkle:edSignature="H21Cs8ekiQLFaA242MWCDiPEufQRmFg67hRRHeznTe/0n+ko/VrUDw2KuH5WPH57SRMsCUOLvXBvJgGWOycVDA=="/>
+        </item>
+        <item>
+            <title>0.2.0</title>
             <pubDate>Fri, 18 Sep 2026 14:11:48 -0400</pubDate>
             <sparkle:version>41</sparkle:version>
             <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
@@ -470,227 +719,6 @@ This release does **not** download a model or checkpoint as part of the app
 update. New scientific components remain explicit choices in **Engines**.
 ]]></description>
             <enclosure url="https://github.com/t-j-fryer/iProteinStudio/releases/download/v0.2.0-beta/iProteinStudio-0.2.0-unsigned-beta-apple-silicon.zip" length="11537250" type="application/octet-stream" sparkle:edSignature="GEUXf+/f84wLMDUwLijGA3FHGT47VMvP211lt7Prdxtkgz3F9SSTnPTpFtOeZjFJfNIm/SdAbOZGeZ5h4hSwBQ=="/>
-        </item>
-        <item>
-            <title>0.2.0</title>
-            <pubDate>Fri, 18 Sep 2026 12:51:06 -0400</pubDate>
-            <sparkle:version>39</sparkle:version>
-            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[# iProteinStudio release notes
-
-Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
-
-## 0.2.0 — updater foundation
-
-- Build 39 makes nanobody budgets explicit: total across frameworks, the same
-  number for each framework, or custom counts. Valid numeric edits apply
-  immediately; invalid Protein Hunter fields block Start/Queue. The launch
-  summary distinguishes independent trajectories from optimisation-cycle outputs.
-- Combined Protein Hunter results retain earlier framework/engine campaigns,
-  with framework and design-engine filters, unique trajectory identities, and a
-  combined entry in run history. Existing saved batches work without rerunning.
-- MCP contract 20 exposes batch parents and matching result filters and budget
-  guidance. The optional NISE stage-directory continuation preserves per-input
-  checkpoints and original scientific settings; default scheduling is unchanged.
-
-- Build 38 adds NISE's optional ligand-local masking and MPNN repair branch,
-  with two ordinary sampling parents plus one reserved repaired winner at the
-  default total beam of three. New defaults are 1,000 starts, 64 proposals in
-  the first optimisation cycle, 32 per parent later, 30 cycles and four-cycle
-  patience. Geometry-first selective affinity, explicit budgets and replayable
-  sampling receipts are shared by the app and MCP. Partial noising remains
-  experimental and off by default.
-- Hardens RFdiffusion3 atom conditioning, output qualification and resume checks;
-  corrects OpenFold-3 Protein Hunter scheduling to its supported per-trajectory
-  mode. MCP version 19 includes the updated workflow guidance and contracts.
-
-- Adds in-app Apple Command Line Tools installation guidance to Setup and Engines.
-  Open Apple's installer or Software Update directly, then retry the saved engine
-  selection after the compiler check succeeds; Terminal and full Xcode are not required.
-
-- Adds a nanobody scaffold checklist with equal or custom trajectory budgets per
-  scaffold, repeated for each selected design engine. Adds the 128-residue 3EAK
-  NbBCII10-FGLA VHH with the requested purification-tail removal and recorded CDR
-  boundary provenance. Each engine–scaffold campaign has independent resume checkpoints.
-
-- Adds optional NESSO screening of completed Protein Hunter ligand campaigns
-  and RFdiffusion3 MPNN sequences, with a top-X shortlist and chosen structural
-  verifier, durable checkpoints and separate score/result reporting.
-
-- Corrects NESSO ranking to P(bind) + (1 − pocket-cropped protein–ligand
-  placement entropy), following the upstream interface-confidence guidance. Rejects missing, invalid and near-zero placement entropy
-  before shortlisting; records score components, rejection reasons and policy
-  provenance in reports and displays the combined score in results.
-
-- Adds independent initial-stage NESSO screening: per-lineage refinement shortlists,
-  an unchanged unscreened structural gate, and a total expansion shortlist capped
-  at one candidate per original lineage. Adds advanced stage-specific counts and
-  RMSD controls, calculated budgets and resumable screening reports.
-- Separates applicable Protein Hunter run settings from inactive UI restoration
-  state in new manifests, while preserving older manifest loading.
-
-- Adds NISE hotspot/exposed-atom selection with verified Boltz affinity labels,
-  matching chemical states across engines, RFdiffusion3 atom translation and
-  conditioning, and audited per-atom contact/SASA requirements before advancement.
-  Fixes the missing initial contact helper and ligand RMSD sensitivity to row order.
-
-- Makes workspace names single-click navigation buttons; Rename stays in the
-  actions menu. Resets temporary detail-view state when changing workspaces.
-- Configures matching Apple compilers and macOS SDK/libc++ headers for package
-  builds, with a compile/link/run preflight before downloads and actionable
-  Command Line Tools errors. Checks ProDy's native extension before activating
-  the sequence-designer runtime.
-
-- Adds OpenFold-3 and separate IntelliFold v2 Flash/Full design choices in
-  Protein Hunter. Both checkpoints can run in one batch with full per-engine
-  budgets, explicit saved model flags and independent checking-model controls.
-
-- Changes Protein Hunter's design engine selector to a checklist, with the full
-  trajectory budget per engine, per-campaign independent checking and separate
-  results. Saves all engine campaigns before queueing; Stop/Resume operates on
-  the durable batch and completed engines have verified artifact receipts.
-
-- Adds optional structure templates to Predict, with explicit protein-chain
-  selection and Guide mode for Boltz-2, IntelliFold and Protenix v2. Preserves
-  run-owned inputs, checksummed preparation and directory batching.
-
-- Adds a NISE initial-backbone selector: existing Protein Hunter hallucination
-  or experimental RFdiffusion3, with shared downstream refinement/optimisation,
-  visible length groups, audited diffusion batches and separate work budgets.
-- Clarifies that installing NESSO also installs its ESM-2 650M dependency, and
-  reuses exact checksum-verified ESM assets from existing Hugging Face caches.
-
-- Separates NISE's initial backbone funnel from optimisation, adds typed budgets
-  and explicit sequences-to-advance controls. The default is now 100 starts,
-  matching the original fluorescein starting population.
-- Adds optional experimental NESSO screening with a per-trajectory shortlist
-  before Boltz, durable scores and rejection records, and an isolated optional
-  engine install. Screening accuracy and throughput remain unvalidated in Studio.
-
-- Adds a dedicated small-molecule NISE tab with the fluorescein example, atomic
-  sequence/prediction checkpoints, optional final apo preorganisation, shared
-  native/MCP jobs and trajectory/candidate results. Cross-cycle Boltz structure
-  and affinity residency is available experimentally; no ligand speedup is claimed.
-- Renames the existing iterative-design tab to Protein Hunter while preserving
-  its saved workflow identity and previous campaigns.
-
-- Adds recoverable workspace saving and reversible Archive/Restore.
-- Routes native workflows through the durable shared job service, with queued
-  status, confirmed stopping, restart reattachment and saved-input verification.
-- Keeps dashboards attached to their originating workspace and saved thresholds.
-- Adds named controls, reduced-motion support and previewable support reports.
-- Moves live result/history loading off the UI thread and adds a documented
-  contract runner, core test target, CI and reviewed upstream vendoring.
-
-- Adds explicit experimental secondary-structure sequence priors to iterative
-  de-novo design: natural, anti-helix, β-oriented, and combined modes.
-- Separates cycle-00-only sequence bias from sustained MPNN-cycle bias, allowing
-  matched-seed comparisons with identical starting sequences and strand/turn
-  plans.
-- Saves each β-oriented strand/turn plan with the trajectory, including
-  solvent-friendly strand edges, alternating faces, and localized turn bias.
-- Adds a target-aligned iterative-design trajectory to Structures: cycle 00
-  through the final design cycle can be scrubbed, autoplayed and speed-adjusted
-  using py2Dmol's frame controls. Independent validation folds are excluded
-  from the optimization trajectory.
-- Organizes RFdiffusion3 results as generated backbone → MPNN sequence
-  derivative → paired complex/binder-alone validation, and iterative results as
-  run → cycle → design/complex/binder artifacts.
-- Makes no-epitope protein RFdiffusion3 design use reproducible whole-surface
-  scanning with multiple solvent-accessible outward origins. It never silently
-  falls back to the fixed target's centre of mass or invents hotspots.
-- Requires the verified RFdiffusion3 EMA checkpoint provenance across managed
-  installation, GUI and MCP runs.
-- Updates the client-neutral MCP bridge to v8. `results_overview` now exposes
-  the app-equivalent result hierarchy, saved child-level hit verdicts and
-  iterative trajectory frames before agents query raw score tables. MCP's
-  schema and workflow guidance also enforce whole-surface scanning whenever a
-  protein epitope is omitted.
-- Groups each iterative-design or RFdiffusion3 result with its generated/design
-  structure, independent complex reprediction and binder-alone fold, showing the
-  corresponding scores together in Browse Results and the live Structures/Hits
-  tabs.
-- Fixes the live iterative Hits parser silently dropping current post-check rows,
-  and uses the saved multi-metric verdict consistently across summaries and hit
-  galleries.
-- Keeps moved/shared campaign folders browseable by resolving durable artifacts
-  relative to the campaign while preserving their original recorded provenance.
-- Adds optional checksummed target-fold guidance to iterative design for Boltz,
-  Protenix v2 and IntelliFold v2 Flash/full. Independent validation and binder
-  folding remain untemplated.
-- Adds separate RFdiffusion3 de-novo, partial-diffusion and motif-scaffolding
-  workflows, including bundled p53–MDM2 examples.
-- Adds a live RFdiffusion3 results dashboard: accepted backbones and verification
-  structures appear during the run with structure browsing, score histograms,
-  summary statistics and saved hit-filter verdicts.
-- Preserves exact source-motif → designed-residue correspondence through
-  generation, MPNN and prediction, and scores recovery of every explicitly
-  constrained motif atom after one global alignment.
-- Fixes the MLX adapter dropping residue-specific motif side-chain atoms, and
-  fails motif scoring when any requested atom is absent rather than scoring a
-  misleading partial intersection.
-- Fixes RFdiffusion3 score distributions appearing empty after a live campaign
-  changes from backbone metrics to predictor metrics.
-- Reuses one resident Boltz, IntelliFold or Protenix Mini model across every
-  complex or binder-only RFdiffusion3 verification stage; full Protenix v2 uses
-  its faster measured directory-wave policy instead of reloading per design.
-
-- Adds cryptographically verified Sparkle updates for trusted betas and future
-  Developer ID releases, with a visible **Check for Updates…** command.
-- Adds update preferences for automatic checks and automatic app downloads.
-- Keeps application updates separate from scientific engines and checkpoints.
-- Adds a final, size-aware confirmation before any selected engine is installed.
-- Preserves projects, results, alignments, environments and model weights when the app is updated.
-- Fixes a clean-Mac launch crash caused by SwiftPM's generated resource accessor
-  falling back to an absolute development-build path.
-- Fixes fresh AntiFold installation by removing an unnecessary `wheel` entry
-  whose newly introduced, unhashed dependency made the locked install abort.
-- Fixes Protenix installation aborting after package installation because a
-  shared-data path was expanded before its local variable was initialized.
-- Corrects the published `filelock` hashes used by LASErMPNN's build bootstrap.
-- Lets deliberately pip-free RFdiffusion3 environments write and verify their
-  installation receipts after successful GPU/checkpoint validation.
-- Shows ProteinMPNN, SolubleMPNN, LigandMPNN and AbMPNN explicitly as the
-  automatically installed core sequence-design suite in Engines.
-- Retries transient MSA-service failures in Predict and reports the actual
-  provider/network cause plus a durable diagnostic log instead of the generic
-  and often misleading “MSA server could not be reached” message.
-- Isolates every ColabFold retry so a truncated or non-archive server response
-  cannot be mistaken for a cached MSA download and poison all later attempts.
-- Runs Boltz-2 in full FP32 on Apple GPUs and resets unused PyTorch MPS allocator
-  blocks immediately before each prediction batch. This addresses a reported
-  allocator-state-dependent silent-numerics defect in PyTorch 2.13 that can vary
-  by Apple GPU and macOS build.
-- Replaces IntelliFold v2/v2-flash's three failing Apple `GatherND` formulations
-  (pair lookup, atom compaction and atom-count repeat) with equivalent
-  order-preserving indexed lookups, retaining native MPS and forbidding a silent
-  CPU fallback.
-- Validates protein backbone geometry before any Boltz or IntelliFold output is
-  accepted or marked resumable, with a useful failure instead of a corrupted
-  structure in the library.
-- Prevents Boltz from redownloading its 1.8 GB chemical-component archive when
-  the verified extracted component library is already installed.
-- Stores Protenix and IntelliFold detailed confidence arrays as lossless,
-  SHA-256-verified gzip files after scoring and geometry checks.
-- Keeps one canonical copy of structures and batch logs while galleries,
-  selected results and per-trajectory views use durable relative references.
-- Shares exact MSAs and independently resumable pipeline snapshots through a
-  content-addressed APFS store, without changing or deleting older projects.
-- Correctly reports that automatic Protenix v2/Mini prediction uses five
-  diffusion samples while the other supported engines use one.
-- Fixes successful IntelliFold predictions being rejected after inference when
-  their canonical output followed upstream's `_inputs/predictions` directory
-  layout; staged coordinate inputs remain excluded from geometry acceptance.
-
-Trusted beta update archives are signed with the project's Sparkle EdDSA key,
-but the beta application itself is not Developer ID signed or notarized by Apple.
-
-This release does **not** download a model or checkpoint as part of the app
-update. New scientific components remain explicit choices in **Engines**.
-]]></description>
-            <enclosure url="https://github.com/t-j-fryer/iProteinStudio/releases/download/v0.2.0-beta/iProteinStudio-0.2.0-unsigned-beta-apple-silicon.zip" length="11444569" type="application/octet-stream" sparkle:edSignature="x39stmg34jC5wT1QPUsxnXX3SfBfY5KHKge4mQT7691WoulS+/KcPehqZtiekfr5qvxy/iVjb+ia/ggCIj0FDw=="/>
         </item>
     </channel>
 </rss>
