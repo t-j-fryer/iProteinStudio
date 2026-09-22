@@ -40,6 +40,8 @@ import argparse, csv, json, os, time
 from pathlib import Path
 p=argparse.ArgumentParser(); p.add_argument('--config', required=True); a=p.parse_args()
 cfg=json.loads(Path(a.config).read_text()); root=Path(os.environ['NANOHUNTER_ROOT'])
+assert os.environ['BOLTZ_CACHE'] == str(root/'models/boltz2')
+assert Path(os.environ['TMPDIR']).is_dir() and Path(os.environ['TMPDIR']).name == 'tmp'
 name=cfg['jobs'][0]['name']
 active=root/'active-gpu-test'
 if active.exists(): (root/'concurrency-violation').write_text('overlap')

@@ -15,7 +15,10 @@ rows=list(csv.DictReader(reference.open()));print('reference columns',list(rows[
 with (f/'inputs.csv').open('w') as stream:
  w=csv.DictWriter(stream,fieldnames=['Protein','Ligand']);w.writeheader();w.writerows({k:r[k] for k in w.fieldnames} for r in rows)
 root=managed if '--installed' in sys.argv else REPO/'Validation/output/portable_runtimes_v1/installed';base=(root/'components/psichic/current').resolve();py=base/'python/bin/python3'
-cfg=dict(output=str(out),root=str(root),scripts=str(scripts),inputs=str(f/'inputs.csv'),reference=str(f/'reference.csv'));(f/'config.json').write_text(json.dumps(cfg,indent=2))
+cfg=dict(output=str(out),root=str(root),scripts=str(scripts),inputs=str(f/'inputs.csv'),reference=str(f/'reference.csv'),private_cache='--private-cache' in sys.argv,private_tmp='--private-tmp' in sys.argv,trace_cache=str(REPO/'Validation/output/portable_runtimes_v1/trace_mkdir.dylib') if '--trace-cache' in sys.argv else None)
+if cfg['trace_cache']:
+ shutil.copy2(cfg['trace_cache'],f/'trace_mkdir.dylib');cfg['trace_cache']=str(f/'trace_mkdir.dylib')
+(f/'config.json').write_text(json.dumps(cfg,indent=2))
 (out/'workflow_guide.json').write_text(json.dumps(guide,indent=2))
 files=[p for p in f.rglob('*') if p.is_file()]+[base/'runtime.json']+[p for p in (root/'models/psichic').rglob('*') if p.is_file()]
 manifest=json.loads((base/'runtime.json').read_text());files += [base/p for p,v in manifest['files'].items() if 'sha256' in v]

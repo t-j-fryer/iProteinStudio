@@ -1,6 +1,11 @@
-import csv,json,sys,time
+import csv,json,os,sys,time
 from pathlib import Path
 cfg=json.loads(Path(sys.argv[1]).read_text());output=Path(cfg['output']);scripts=Path(cfg['scripts']);sys.path.insert(0,str(scripts/'nise'))
+if cfg.get('private_cache'):
+ cache=output/'empty-python-cache';cache.mkdir();os.environ['PYTHONPYCACHEPREFIX']=str(cache)
+if cfg.get('private_tmp'):
+ scratch=output/'private-tmp';scratch.mkdir();os.environ['TMPDIR']=str(scratch)+'/'
+if cfg.get('trace_cache'):os.environ['DYLD_INSERT_LIBRARIES']=cfg['trace_cache']
 from psichic_screen import PsichicClient,score_candidates,screen
 from runtime import Journal,atomic
 from psichic_contract import SCALARS

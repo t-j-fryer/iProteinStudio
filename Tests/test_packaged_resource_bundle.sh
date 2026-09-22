@@ -14,7 +14,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
   || fail "SwiftPM resource bundle is missing its pipeline sentinel"
 [[ -s "${BUNDLE}/pipeline/scripts/storage_policy.py" ]] \
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
-for resource in prediction_resume.py resident_predictor.py validate_prediction_geometry.py; do
+for resource in prediction_resume.py resident_predictor.py validate_prediction_geometry.py runtime_package.py runtime_view.py engine_registry.py engine_registry.json engine_adapters.py setup_portable.py runtime_releases.json runtime_assets.json; do
   cmp -s "${BUNDLE}/pipeline/scripts/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/${resource}" \
     || fail "prediction resume resource is missing or differs from source: ${resource}"
 done
@@ -41,7 +41,7 @@ done
   || fail "resource bundle is missing the iterative secondary-structure prior helper"
 [[ -s "${BUNDLE}/pipeline/scripts/nise/campaign.py" ]] \
   || fail "resource bundle is missing the ligand NISE campaign"
-for resource in partial_noising.py search_policy.py contract.py nise_run.py; do
+for resource in partial_noising.py search_policy.py contract.py nise_run.py psichic_screen.py psichic_worker.py psichic_contract.py psichic_esm.py psichic_assets.json screening_registry.py; do
   cmp -s "${BUNDLE}/pipeline/scripts/nise/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/nise/${resource}" \
     || fail "NISE sampling resource is missing or differs from source: ${resource}"
 done
@@ -57,8 +57,8 @@ for resource in ligand_atoms.py atom_geometry.py nesso_worker.py nesso_screen.py
 done
 [[ -s "${BUNDLE}/pipeline/mcp/server.py" ]] \
   || fail "resource bundle is missing the MCP server"
-[[ "$(tr -d '[:space:]' < "${BUNDLE}/pipeline/mcp/MCP_VERSION")" == "20" ]] \
-  || fail "resource bundle does not contain MCP contract v20 (including framework batch result filters)"
+[[ "$(tr -d '[:space:]' < "${BUNDLE}/pipeline/mcp/MCP_VERSION")" == "$(tr -d '[:space:]' < "${ROOT}/Sources/iProteinStudio/Resources/pipeline/mcp/MCP_VERSION")" ]] \
+  || fail "resource bundle MCP contract differs from the release source"
 [[ -s "${BUNDLE}/pipeline/mcp/remote_server.py" ]] \
   || fail "resource bundle is missing the authenticated remote MCP transport"
 [[ -s "${BUNDLE}/pipeline/mcp/remote_gateway.py" ]] \

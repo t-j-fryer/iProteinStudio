@@ -92,7 +92,7 @@ def build(root,destination,bindings,code_snapshot=None):
 
 def rewrite(command,root,view):
     root=str(Path(root).resolve());view=str(view)
-    names=('venvs','src','scripts','rfd3','rfd3_scripts','rfd3_overlay','components','nanohunter_run.sh')
+    names=('venvs','src','scripts','models','rfd3','rfd3_scripts','rfd3_overlay','components','nanohunter_run.sh')
     def one(a):
         if a==root:return view
         if any(a==root+'/'+name or a.startswith(root+'/'+name+'/') for name in names):return view+a[len(root):]

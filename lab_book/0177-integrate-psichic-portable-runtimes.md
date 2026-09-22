@@ -49,3 +49,12 @@ Scripts/manifest under `Validation/experiments/portable_runtimes_v1`; packaging 
 ## Limits
 
 No fresh-Mac installation, other Apple-chip qualification, Developer ID signing/notarization, new complete NISE optimisation campaign or biological binding experiment. This remains the existing ad-hoc-signed trusted-beta channel with Sparkle EdDSA-signed app updates. Current-Mac installation and paired relocation are not evidence that every supported Mac has been tested. No diffusion/recycle reductions or model-size changes were promoted by this work.
+
+
+### Publication and final installed checks — 22 September
+
+Source commit `2264367` and [12 portable runtimes](https://github.com/t-j-fryer/iProteinStudio/releases/tag/runtimes-2026.09.20-1) published to GitHub. Remote asset digests/sizes match the final catalog. Real public downloads into an empty `empty root Ω` directory completed control/MPNN plus separate model installation with developer-tool commands blocked: exit0, no developer-tool invocation (`github_install_20260922T180045Z/result.json`). This is an empty-root test on the existing Mac, not a fresh-Mac claim. The initial retry test exposed a missing `control` whitelist entry; fixed and rerun.
+
+The final installed MCP checks exposed model-cache environment variables still pointing at live assets; these now bind to retained job data and the bridge regression suite passes18 tests. Packaged-resource checks now compare the MCP contract to release source and verify all new runtime/PSICHIC resources rather than expecting v20.
+
+Final extra Boltz/PSICHIC smokes were stopped after native Metal initialization stalled. Stack samples and a scoped diagnostic interposer identified `mkdirat` in the shared macOS `T/com.apple.MetalPerformanceShadersGraph` scratch directory; even a read-only enumeration stalls there. Small actual Metal linear/batched-matrix probes pass; private Python-cache and TMPDIR variants did not fix the full-model stall because this framework uses a separate system scratch location. These additional attempts are **not** recorded as passes. Original paired scientific qualification remains as recorded above. Automatic approval review rejected moving this shared directory aside due to possible unrelated-workload disruption; no cache files were moved or deleted. Explicit user approval has been requested for a reversible, contents-preserving cache replacement. Diagnostic interposer is not included in the app or runtime archives.

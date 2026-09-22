@@ -263,6 +263,11 @@ def _snapshot_pipeline(campaign: Path) -> Path:
 def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str]) -> int:
     from .runtime_bindings import environment
     env = {**env, **environment(_RUNTIME_BINDINGS)}
+    # Give subprocesses private temporary storage. Some Apple frameworks use
+    # their own system scratch directory independently of TMPDIR.
+    scratch = state_path(job_id).parent / "tmp"
+    scratch.mkdir(exist_ok=True)
+    env["TMPDIR"] = str(scratch) + os.sep
     if _RUNTIME_BINDINGS or _CODE_SNAPSHOT:
         support = Path(__file__).resolve().parents[1] / "runtime_support"
         sys.path.insert(0, str(support))
@@ -277,6 +282,7 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
                         raise StudioError("Retained job runtime inventory changed: " + name)
             view = build(root, destination, _RUNTIME_BINDINGS, _CODE_SNAPSHOT)
             command = bind_configs(rewrite(command, root, view), root, view, state_path(job_id).parent / "bound_configs")
+            env = {key: rewrite([value], root, view)[0] for key, value in env.items()}
             cwd = Path(rewrite([str(cwd)], root, view)[0])
             env["NANOHUNTER_ROOT"] = str(view)
             if "antifold" in _RUNTIME_BINDINGS:
