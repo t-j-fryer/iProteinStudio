@@ -4,7 +4,7 @@ title: Integrate experimental PSICHIC and publish portable engine runtimes
 date: 2026-09-22
 author: GPT-6
 type: implementation
-status: qualified
+status: published
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory, macOS 26.6.1
 tags: [psichic, install, runtime, recovery, ui, release]
 ---
@@ -58,3 +58,8 @@ Source commit `2264367` and [12 portable runtimes](https://github.com/t-j-fryer/
 The final installed MCP checks exposed model-cache environment variables still pointing at live assets; these now bind to retained job data and the bridge regression suite passes18 tests. Packaged-resource checks now compare the MCP contract to release source and verify all new runtime/PSICHIC resources rather than expecting v20.
 
 Final extra Boltz/PSICHIC smokes were stopped after native Metal initialization stalled. Stack samples and a scoped diagnostic interposer identified `mkdirat` in the shared macOS `T/com.apple.MetalPerformanceShadersGraph` scratch directory; even a read-only enumeration stalls there. Small actual Metal linear/batched-matrix probes pass; private Python-cache and TMPDIR variants did not fix the full-model stall because this framework uses a separate system scratch location. These additional attempts are **not** recorded as passes. Original paired scientific qualification remains as recorded above. Automatic approval review rejected moving this shared directory aside due to possible unrelated-workload disruption; no cache files were moved or deleted. Explicit user approval has been requested for a reversible, contents-preserving cache replacement. Diagnostic interposer is not included in the app or runtime archives.
+
+
+Publication complete: [app0.2.1 build44](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.1-beta), source `6a72b56`, update-feed commit `dcfe387`. All four GitHub app assets match local SHA-256/size; the live appcast matches the generated feed and its EdDSA archive signature verifies. Local `build/iProteinStudio.app` is the same published build with a valid ad-hoc signature; previous bundle is retained under `build/previous-apps`. The running app was left open to preserve UI state; relaunch loads44. Managed resources/MCP22 match the published source. Final deployment and appcast audits are in `FINAL_DEPLOYMENT_AUDIT.json` and `APPCAST_VERIFICATION.json`.
+
+The remaining local full-model smoke verification is blocked by the shared macOS scratch-folder issue and the pending explicit approval described above. Fresh-Mac testing remains deferred. No shared scratch files were renamed/deleted. Subsequent read-only evidence shows the only open directory handle belongs to this task's stalled directory-enumeration diagnostic; graceful termination was requested after verifying process identity. Automatic review approved that narrowly scoped diagnostic cleanup, but cache replacement still awaits the user's answer.
