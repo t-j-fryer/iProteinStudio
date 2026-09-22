@@ -6,6 +6,7 @@ No shell/executable/environment fields are accepted from this request.
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -174,7 +175,6 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
             import importlib.util
             module_path = Path(__file__).resolve().parents[2] / "scripts/nise/continuation.py"
             # Load its dependency from the same shipped script directory.
-            import sys
             script_directory = str(module_path.parent)
             sys.path.insert(0, script_directory)
             try:
@@ -210,7 +210,7 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
                               str(snapshot / "scripts/nise/campaign.py"), "--config", str(config), "--resume"],
                   "cwd": str(snapshot), "stage": "nise"}]
         if (output / "initial_restart.json").is_file():
-            import importlib.util, sys
+            import importlib.util
             sys.path.insert(0, str(snapshot / "scripts/nise"))
             try:
                 spec = importlib.util.spec_from_file_location("studio_nise_restart", snapshot / "scripts/nise/restart_initial.py")
@@ -227,7 +227,6 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
             context["submission"] = "One directory request per pending fold stage or selective-affinity selection batch; per-input checkpoints"
         if workflow == "nise_batch_test":
             import importlib.util
-            import sys
             sys.path.insert(0,str(snapshot / "scripts/nise"))
             try:
                 spec=importlib.util.spec_from_file_location("studio_nise_batch_smoke",snapshot / "scripts/nise/batch_smoke.py")

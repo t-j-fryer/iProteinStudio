@@ -10,7 +10,7 @@ and saved filter verdicts are distinct from experimental binding evidence.
 | Protein Hunter | Framework/engine campaign → independent trajectory → start and design cycles → complex/binder-alone checks | Filter the design stage separately from independent checks; use saved filter verdicts for hits. |
 | RFdiffusion3 | Generated backbone → MPNN sequence derivative → predictor complex and binder-alone structures | Compare derivatives and predictor agreement; generated-backbone geometry, motif placement and sequence-verification scores retain separate labels. |
 | Predict | Input job → engine and stochastic model sample | Compare like-for-like score sources; template-conditioned results are labelled rather than presented as independent template validation. |
-| NISE | Phase 0 stages/lineages → Phase 1 cycles/trajectories → final apo/holo checks | Separate folding completion, geometry, scoring eligibility and next-cycle selection; inspect NESSO screens separately from Boltz scoring. |
+| NISE | Phase 0 stages/lineages → Phase 1 cycles/trajectories → final apo/holo checks | Separate folding completion, geometry, scoring eligibility and next-cycle selection; inspect NESSO/PSICHIC screens separately from Boltz scoring. |
 
 Protein Hunter, RFdiffusion3 and Predict share name search, stage and score-source
 filters. Protein Hunter batches additionally filter framework and design engine.

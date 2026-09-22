@@ -17,9 +17,9 @@ MSA and analysis behaviour remains in the same scripts used by the GUI.
 
 Each client starts its own local stdio process. Durable worker processes and the
 shared `~/.iproteinstudio/agent/execution.lock` serialize environment changes
-and Apple-GPU campaigns across every MCP or `studioctl.py` client. Closing a
-client does not terminate the job. The GUI currently remains on its validated
-direct launch path, so do not overlap GUI and agent campaigns.
+and Apple-GPU campaigns across native GUI, MCP and `studioctl.py` clients.
+Closing a client does not terminate the job. Requests share the durable queue;
+normal worker startup does not probe macOS's shared GPU temporary storage.
 
 ## Configure clients
 
@@ -32,7 +32,7 @@ The commands below are retained for automation and diagnosis.
 From the staged installation:
 
 ```bash
-/usr/bin/python3 "$NANOHUNTER_ROOT/mcp/configure.py" \
+"$NANOHUNTER_ROOT/components/control/current/python/bin/python3" "$NANOHUNTER_ROOT/mcp/configure.py" \
   --client both --scope project --project-root /path/to/a/trusted/project
 ```
 
@@ -52,7 +52,7 @@ registration route.
 Verify the staged bridge without starting a model:
 
 ```bash
-/usr/bin/python3 "$NANOHUNTER_ROOT/mcp/studioctl.py" doctor
+"$NANOHUNTER_ROOT/components/control/current/python/bin/python3" "$NANOHUNTER_ROOT/mcp/studioctl.py" doctor
 ```
 
 ## Agent operating contract
@@ -109,7 +109,7 @@ printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}' \
   '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
-  | /usr/bin/python3 "$NANOHUNTER_ROOT/mcp/server.py" --profile read
+  | "$NANOHUNTER_ROOT/components/control/current/python/bin/python3" "$NANOHUNTER_ROOT/mcp/server.py" --profile read
 ```
 
 ## Safety contract
@@ -118,7 +118,7 @@ printf '%s\n' \
   RFD3 YAML tool.
 - Scientific and administration plans are separate profiles.
 - `job_start` requires the plan ID and SHA-256 digest and rechecks the installed
-  scripts before execution.
+  retained code snapshot and runtime bindings before execution.
 - Missing engines, scripts, alignments and artifacts fail rather than selecting
   a weaker route.
 - Files outside managed storage are copied into immutable content-addressed
@@ -149,12 +149,18 @@ forward the bare local port, and never expose the `admin` profile remotely.
 For diagnosis:
 
 ```bash
-/usr/bin/python3 "$NANOHUNTER_ROOT/mcp/remote_gateway.py" status
-/usr/bin/python3 "$NANOHUNTER_ROOT/mcp/remote_gateway.py" start --profile read
-/usr/bin/python3 "$NANOHUNTER_ROOT/mcp/remote_gateway.py" stop
-/usr/bin/python3 "$NANOHUNTER_ROOT/mcp/remote_gateway.py" rotate-token
+"$NANOHUNTER_ROOT/components/control/current/python/bin/python3" "$NANOHUNTER_ROOT/mcp/remote_gateway.py" status
+"$NANOHUNTER_ROOT/components/control/current/python/bin/python3" "$NANOHUNTER_ROOT/mcp/remote_gateway.py" start --profile read
+"$NANOHUNTER_ROOT/components/control/current/python/bin/python3" "$NANOHUNTER_ROOT/mcp/remote_gateway.py" stop
+"$NANOHUNTER_ROOT/components/control/current/python/bin/python3" "$NANOHUNTER_ROOT/mcp/remote_gateway.py" rotate-token
 ```
 
+
+## Request compatibility history
+
+The bundled `MCP_VERSION` is authoritative. The following entries describe
+when fields were introduced, not the current installation version. Missing new
+fields retain their saved-request defaults.
 
 MCP v9 adds `workflow_guide(workflow="nise")` and the run-profile `nise_plan`
 tool (`nise-v1.json`). Native and MCP submissions use the same ligand NISE
@@ -217,3 +223,7 @@ switches/budgets and the default NESSO behavior remain compatible. PSICHIC CSV
 results are exposed through the catalog. Plans bind installed portable package
 identities; workers retain package and model references for recovery. Legacy
 unmigrated environments are not represented as fully portable runtimes.
+
+Current portable jobs preserve immutable code/runtime bindings across app and
+engine updates. The optional GPU storage diagnostic is an explicit support
+command, never part of normal job startup.

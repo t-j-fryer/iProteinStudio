@@ -28,7 +28,7 @@ def main():
   with (OUT/'timings.csv').open('w') as f:
    w=csv.DictWriter(f,fieldnames=list(measured[0]));w.writeheader();w.writerows(measured)
  lines=['# Other-engine Apple runtime screen','','M4 Max /64GB /macOS26.6.1. Isolated exploratory experiments; installed defaults unchanged.','',
- '[Anthropic report review and Apple kernel follow-up](../../../docs/APPLE_KERNEL_REVIEW.md).','',
+ '[Anthropic report review and Apple kernel follow-up](../../../docs/research/APPLE_KERNEL_REVIEW.md).','',
  'Runtime comparisons fix checkpoints, scientific settings, seed, explicit empty MSA and outputs. One first-call warmup is excluded per process; the table sums the two measured inputs (ubiquitin76 + SUMO96). A first-seen input shape may still include graph compilation. The separate AntiFold steady test warms both shapes before four repetitions per shape. NESSO adds acetate. RFD3 generates unconditional backbones at those lengths. AntiFold measures logits on fixed monomer backbones. OpenFold timings include a model reload per input. These are small computational fixtures, not a binding benchmark or full campaign validation.','',
  '| Engine | Baseline two-input seconds | Candidate seconds | Time change | Numerical screen |','|---|---:|---:|---:|---|']
  screens={}

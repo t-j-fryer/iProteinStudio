@@ -34,8 +34,8 @@ process with an atomic file-backed request/response queue:
 Model residency is an optimization, never a new source of campaign truth.
 
 `scripts/resident_predictor.py` implements three model-owning sessions: Boltz 2,
-IntelliFold PyTorch and Protenix. The six app engine choices map to those three
-families and their fixed checkpoints. The worker remains a normal child of the
+IntelliFold PyTorch and Protenix. The six choices in the original scheduler benchmark mapped to those three
+families and their fixed checkpoints. OpenFold3 uses a separate adapter. The worker remains a normal child of the
 campaign process; double-fork daemonization was rejected after it severed access
 to macOS `MTLCompilerService`.
 
@@ -46,6 +46,7 @@ projects saved when Compatibility was still exposed in Advanced:
   Protenix Constraint use one campaign-resident worker;
 - full Protenix v2 uses one cycle-wave process per cycle because its measured
   resident run was slower under sustained MPS load;
+- OpenFold3 retains its per-input adapter;
 - the GUI no longer exposes a scheduling mode because the slower route is not a
   scientific campaign choice. Direct CLI diagnostics can still select
   `--design-scheduler run`, and Resume preserves a campaign's recorded command.
@@ -65,7 +66,7 @@ buckets must be benchmarked; more buckets reduce padded attention work but can
 increase shape warm-up overhead. Exact per-length buckets are not assumed to be
 optimal for only 12 trajectories.
 
-The current speed campaign does not test this policy: all binders are exactly
+The original fixed-length scheduler campaign did not test this policy: all binders are exactly
 80 aa and every IntelliFold arm uses the same 176-token bucket.
 
 ### Boltz 2 and Protenix
@@ -78,8 +79,9 @@ make artificial length buckets for these engines.
 
 ### Nanobodies
 
-Fixed scaffolds have the same length, so token-aware scheduling adds no useful
-partition. CDR sequence changes do not change tensor length.
+Sequences on one fixed-length scaffold share tensor length. Different scaffolds
+may have different lengths; do not assume a combined framework campaign has one
+shape. CDR substitutions alone do not change tensor length.
 
 ## Validation and promotion decision
 

@@ -33,7 +33,7 @@ class EngineBatch(unittest.TestCase):
             runner.write_text('''#!/usr/bin/python3
 import json, os, pathlib, sys, time
 args=sys.argv[1:]
-root=pathlib.Path(os.environ['NANOHUNTER_ROOT'])
+root=pathlib.Path(FIXTURE_ROOT)
 name=args[args.index('--run-name')+1]
 out=pathlib.Path(args[args.index('--out-root')+1])/name
 with (root/'calls').open('a') as f: f.write(name+'\\n')
@@ -42,7 +42,7 @@ if (root/('wait-'+name)).exists():
  (root/'waiting').touch()
  time.sleep(30)
 (out/'summary_all_runs.csv').write_text('run,score\\n1,0.5\\n')
-''')
+'''.replace('FIXTURE_ROOT', repr(str(self.root))))
             runner.chmod(0o755)
             template = child / 'design.yaml'
             template.write_text('synthetic fixture only')

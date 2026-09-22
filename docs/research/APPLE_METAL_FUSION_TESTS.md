@@ -1,5 +1,9 @@
 # Further Metal optimization candidates
 
+> Historical research snapshot (September 2026). Statements about pending work
+> describe that date. For shipped behavior, use the [current runtime guide](../PORTABLE_RUNTIME_IMPLEMENTATION.md)
+> and [release guide](../UPDATES_AND_RELEASES.md).
+
 2026-09-19. Follow-up to `APPLE_KERNEL_REVIEW.md`; measured results belong to
 Lab Book0170 / Validation0040, on this M4 Max only.
 

@@ -88,17 +88,19 @@ component count, so a fixed motif in the contig is added on. Pass `--lengths`
 **Do not name the ligand twice.** With `input:` + `ligand:`, adding it to the
 contig as well duplicates every ligand atom.
 
-**Leave the token buckets alone.** `--intellifold-buckets` and
-`--alphafold3-buckets` default to `auto`, which resolves to the exact campaign
-token count — the largest measured speed-up available. Setting them undoes it.
+**Preserve recorded batching and padding.** Use the app's qualified adapter
+settings. An explicit bucket or scheduler change needs its own measured
+comparison; do not reuse retired backend flags.
 
 ## Choosing an engine
 
 | | |
 |---|---|
-| Boltz-2 | default; fastest; the only affinity head; also generates alignments |
-| IntelliFold (PyTorch) | independent second opinion; fast batched, slow unbatched |
-| OpenFold-3 | independent check with Apple GPU kernels |
+| Boltz-2 | default structure/affinity engine; supports alignment generation |
+| IntelliFold Flash/full (PyTorch) | alternative structure predictors with qualified padding and batching |
+| Protenix v2/Mini | alternative native-MPS predictors |
+| OpenFold-3 | independent MLX predictor |
+| NESSO / PSICHIC | optional experimental ligand sequence screening |
 
 Design loops optimise against whichever engine drives them, so that engine's own
 confidence is self-scored. Always check hits with a *different* one.
@@ -108,9 +110,8 @@ confidence is self-scored. Always check hits with a *different* one.
 Do not wrap or launch MCP work manually. `job_start` creates a durable worker,
 uses the shared execution lock, and routes RFD3 and iterative validation through
 the same measured resident/cycle-wave scheduling as the app. Poll with
-`job_wait`/`job_status`; use `job_cancel` or exact-plan `job_resume`. Do not start
-a GUI campaign while an agent job is active, and do not benchmark against any
-live GPU campaign.
+`job_wait`/`job_status`; use `job_cancel` or exact-plan `job_resume`. The native app and MCP submit through the same queue. Do not benchmark against
+any other live GPU workload.
 
 ## Recording work
 

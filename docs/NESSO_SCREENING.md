@@ -1,104 +1,96 @@
-# Optional NESSO screening for small-molecule designs
+# Experimental sequence screening for small-molecule designs
 
-Enable **Screen with NESSO before structural verification** in Protein Hunter's
-model settings or RFdiffusion3's verification settings. It is off by default and
-appears only for small-molecule targets. Set **Maximum sequences to advance**
-(default 20), then choose Boltz 2, IntelliFold Flash/full, Protenix Mini/v2 or
-OpenFold3 for structural verification. Install the requested components in
-**Engines** before starting. NESSO installs its pinned ESM-2 dependency itself;
-no separate ESM installation is needed.
+Enable **Experimental sequence screening before structural verification** in
+Protein Hunter's model settings or RFdiffusion3's verification settings. It is
+off by default and appears only for small-molecule targets. Choose **Scoring
+engine**, set **Maximum sequences to advance** (default 20), then choose **Fold
+shortlist with**. Install the selected scorer and verifier in **Engines** first;
+each scorer includes its own required ESM dependency.
+
+| Scorer | Ranking, highest first | Interpretation |
+|---|---|---|
+| NESSO (experimental) | P(bind) + (1 − `entropy_crop_pl`) | Binding likelihood plus a placement-confidence proxy; not ligand pLDDT or a calibrated probability |
+| PSICHIC (experimental) | 1 − `predicted_nonbinder` | Binding-class likelihood; no placement-confidence term. Affinity and antagonist/nonbinder/agonist probabilities are saved separately |
+
+Neither ranking has established experimental accuracy for designed binders.
+Existing saved requests without an engine selection retain NESSO.
 
 ## Where the screen runs
 
-| Workflow | Candidates scored by NESSO | Shortlist scope | What happens next |
+| Workflow | Candidates | Shortlist scope | Next stage |
 |---|---|---|---|
-| Protein Hunter | Every completed optimized cycle in the campaign's `summary_all_runs.csv`; cycle 00 is excluded | Top X per selected design-engine campaign, across all its trajectories and cycles | The chosen predictor folds the selected sequences with the ligand |
-| RFdiffusion3 | All MPNN sequences, after backbone generation and inverse folding | Top X across all backbones and sequence derivatives | The chosen predictor folds the selected sequences with the ligand |
-| NISE | Its independently enabled initial and/or optimization screens | Existing stage-specific lineage and trajectory limits | Boltz performs the existing pocket, exposure and structural checks |
+| Protein Hunter | All completed optimized cycles; cycle 00 excluded | Top X per design-engine campaign, across trajectories and cycles | Selected predictor folds the shortlist with the ligand |
+| RFdiffusion3 | All MPNN sequences after backbone generation and inverse folding | Top X across backbones and sequence derivatives | Selected predictor folds the shortlist with the ligand |
+| NISE | Independently enabled initial and/or optimization screens | Stage-specific lineage and trajectory limits | Boltz performs the existing pocket, exposure and structural checks |
 
-Protein Hunter finishes its normal design cycles and any configured independent
-checks before this additional stage. NESSO does not alter those cycles or their
-hit classifications. With several design engines selected, each engine has its
-own top-X shortlist. Repeated sequences remain separate designs with their
-original run/cycle or backbone/derivative identity; this is not a sequence-diversity
-filter. There is no one-per-lineage cap in these two campaign-wide screens.
+Protein Hunter completes its normal cycles and configured independent checks
+before this additional stage. Screening does not change their hit verdicts.
+Repeated sequences retain separate run/cycle or backbone/derivative identities;
+this is not a diversity filter. These two campaign-wide screens have no
+one-per-lineage cap. NISE retains its own [stage policy](NISE.md#optional-sequence-screening-experimental).
 
-In RFdiffusion3, enabling NESSO selects a different verification route. The
+In RFdiffusion3, screening selects an alternative verification route. The
 standard all-sequence Boltz affinity folds, Boltz ranking, extra predictors and
-apo checks are inactive in this route. They reappear when NESSO is switched off.
-The saved execution payload explicitly disables these inactive stages; the
-project retains their form settings. Atom conditioning during RFdiffusion3
-backbone generation is unchanged.
+apo checks become inactive. Switching screening off restores their saved form
+settings. Backbone atom conditioning is unchanged.
 
-## Ranking and interpretation
-
-Current screening uses:
-
-`NESSO P(bind) + (1 − entropy_crop_pl)`
+## NESSO eligibility
 
 `entropy_crop_pl` is normalized, pocket-cropped protein–ligand placement entropy.
-The [NESSO output documentation](https://github.com/recursionpharma/nesso/blob/main/docs/prediction.md#output-files)
+The [upstream output guide](https://github.com/recursionpharma/nesso/blob/main/docs/prediction.md#output-files)
 recommends cropped interface entropy and identifies zero cropped entropy as an
-unreliable placement. Full `entropy_pl` remains available as a diagnostic.
-This corrects build 30's use of full entropy. The current policy is
-`nesso-pbind-placement-v2`; historical results retain their recorded policy.
+unreliable placement. Full `entropy_pl` is retained only as a diagnostic.
+Current policy is `nesso-pbind-placement-v2`; historical results retain their
+recorded policy.
 
-An eligible candidate needs finite entropy in **(0.000001, 1]** and finite P(bind)
-in [0, 1]. The lower cutoff is a Studio numerical guard, not an experimentally
-validated biological threshold. Missing, zero, near-zero or otherwise invalid
-entropy excludes the candidate before applying the shortlist limit. An invalid
-probability is an execution error. Highest combined score wins; candidate name
-breaks exact ties reproducibly. If fewer than X candidates qualify, Studio folds
-those available. If none qualify, it saves the rejection report and stops.
+Candidates need finite entropy in **(0.000001, 1]** and finite P(bind) in [0, 1].
+The lower entropy cutoff is a Studio numerical guard, not a biological
+threshold. Invalid placement excludes a candidate before the shortlist limit;
+invalid probability is an execution error. Candidate name breaks ties. Fewer
+than X eligible candidates yields a smaller shortlist; none yields a saved
+rejection report and an explicit failure. PSICHIC has no entropy term and does
+not use this placement filter.
 
-This is an experimental screening heuristic, **not NESSO ligand pLDDT**. The sum
-is not a calibrated binding probability. Accuracy on designed binders has not
-been established. Structural scores remain separate and do not automatically
-make a shortlisted design a hit.
+## Verification and saved files
 
-## Structural verification and files
+Campaign-wide verification uses the exact screening ligand SMILES, protein chain
+A, ligand chain B and explicit empty protein MSA. The chosen predictor uses its
+established adapter/settings, without pocket restraint, template, Boltz affinity
+head or apo comparison. Earlier design restraints do not establish that these
+independent folds satisfy burial/exposure requirements. NISE's separate Boltz
+checks follow its own settings.
 
-The new campaign-wide verification folds receive the exact same ligand SMILES
-as NESSO, with protein chain A, ligand chain B, and explicit empty protein MSA.
-They use the chosen predictor's established adapter and settings. They have no
-pocket restraint, structure template, Boltz affinity head or apo comparison.
-These are independent folds; earlier design restraints do not imply that these
-new predictions satisfy atom burial/exposure requirements. NISE's own Boltz
-checks remain governed by [NISE settings](NISE.md).
+For saved-run compatibility, the campaign folder remains `nesso_verification`
+for either scorer. It contains:
 
-Each campaign contains a `nesso_verification` folder:
+- `config.json`: frozen options, ligand, candidate source and dependency digest.
+- `nesso_screening.csv` or `psichic_screening.csv`: all candidates, component
+  scores, eligibility and shortlist decisions.
+- `scores/<candidate>/`: raw scorer outputs and completion receipts.
+- `selection.json`: exact ranking policy and shortlist.
+- `prediction_inputs/`, `prediction_command.json`, `prediction.log`: fold inputs and execution record.
+- `folds/`, `fold_receipts/`: structures and per-design receipts.
+- `results.json`: screening and structural scores kept separate.
 
-- `config.json`: frozen options, ligand SMILES, candidate source and dependency digest.
-- `nesso_screening.csv`: every candidate, identity, sequence, score components,
-  eligibility, rejection reason and selection decision.
-- `scores/<candidate>/`: raw NESSO outputs, ligand-identity audit and completion receipt.
-- `selection.json`: the exact ranking policy and shortlist.
-- `prediction_inputs/`, `prediction_command.json`, `prediction.log`: predictor inputs and execution record.
-- `folds/` and `fold_receipts/`: structural outputs and per-design completion receipts.
-- `results.json`: selected structures with separate NESSO and structure scores.
+Results and the MCP catalog expose screening tables, including candidates that
+were never folded. Public NISE requests use `screening_engine`; native campaign
+screening payloads use `engine`. The public iterative/RFdiffusion MCP request
+schemas do not yet expose those native screening controls. Legacy
+`nesso_screen`/`phase0_nesso_screen` names remain for saved-request compatibility.
 
-Open campaign results to see **NESSO shortlist verification**. Open the campaign
-folder to inspect the complete CSV, including candidates that were never folded.
-The MCP results catalog also lists this table. The new options are currently
-native-app settings; the public MCP iterative/RFdiffusion request schemas have
-not been extended with a NESSO option.
+## Recovery and execution
 
-## Interruption, dependencies and throughput
+The broker preflights the requested scorer and exact verifier, preserves code
+and dependency bindings, and holds the shared Apple GPU lease. Weights are not
+bundled in the app or copied into the scientific outputs.
 
-The native broker preflights the requested NESSO installation and exact verifier
-checkpoint before starting the campaign. It freezes code and a digest of model
-and script dependencies and retains the shared Apple GPU execution lease across
-the design and screening stages. No weights are copied into the run or app.
+NESSO reuses its loaded model and ESM process for pending candidates. PSICHIC's
+current adapter uses ESM MPS batches of eight and CPU graph batches of sixteen,
+with complete protein sequences up to 700 residues. It does not silently switch
+to CPU ESM or another scorer. These are execution settings, not a claim of
+measured speed on every Mac. The verifier keeps its existing engine scheduler.
 
-One resident NESSO process loads NESSO and ESM once for pending candidates, then
-closes before structure prediction. The shared predictor runner retains its
-existing measured scheduling policies: resident Boltz/IntelliFold/Protenix Mini,
-full Protenix v2 directory waves, and OpenFold3's existing per-input adapter.
-This change introduces no new throughput measurements or claims.
-
-Resume audits the candidate source, options and saved artifacts. It reuses
-completed NESSO scores and verified folds. Successful folds from a partially
-failed batch are checkpointed. Unreceipted partial fold directories are moved
-to `interrupted_folds` before retry; they are never accepted merely because a
-CIF exists. Changed inputs, dependencies or completed artifacts fail explicitly.
-Use a new campaign to change the ligand, shortlist size, model or ranking policy.
+Resume audits candidate sources, settings and receipts, then reuses completed
+scores and folds. Unreceipted partial folds move to `interrupted_folds` before
+retry. Changed inputs, dependencies or completed artifacts fail explicitly. Use
+a new campaign to change the ligand, model, shortlist size or ranking policy.

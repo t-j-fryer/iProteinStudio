@@ -20,6 +20,7 @@ class AppleBuildToolsTests(unittest.TestCase):
         self.bin.mkdir()
         self.env = dict(os.environ, PATH=str(self.bin) + ":" + os.environ["PATH"],
                         TMPDIR=str(self.root), IPROTEINSTUDIO_SETUP_CAFFEINATED="1",
+                        IPROTEINSTUDIO_BUILD_FROM_SOURCE="1",
                         NANOHUNTER_ROOT=str(self.root / "support"))
 
     def script(self, name, contents):

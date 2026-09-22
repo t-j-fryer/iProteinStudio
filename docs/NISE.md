@@ -321,7 +321,27 @@ receipt; incomplete preparation is preserved and regenerated, while completed
 ligand/fixture files are checked before reuse. A failed requested generator stops
 the run; it never substitutes Protein Hunter hallucination.
 
-## Optional NESSO screening (experimental)
+## Optional sequence screening (experimental)
+
+Choose NESSO or PSICHIC with the screening-engine selector. The stages below
+apply to the selected scorer; references to NESSO describe the original default
+and its entropy-based ranking. Both options remain experimental.
+
+### Experimental PSICHIC alternative
+
+The screening-engine selector can use PSICHIC-XL wherever the optional NESSO
+shortlist is available. Saved requests without `screening_engine` continue to
+use NESSO. PSICHIC ranks `1 − predicted_nonbinder`; its affinity and antagonist,
+nonbinder and agonist probabilities are saved separately. It supplies no
+placement-confidence term. Boltz still performs NISE structural verification
+and final selection. This is an experimental ranking option, not a validated
+binding assay. The current adapter supports complete sequences up to 700 residues,
+with ESM MPS batches of eight and CPU graph batches of sixteen.
+
+See [portable runtime rollout status](PORTABLE_RUNTIME_IMPLEMENTATION.md) for
+installation qualifications and remaining release gates.
+
+### NESSO default and stage policy
 
 Stage 1 and stage 2 have independent NESSO switches and shortlist sizes.
 Both are off by default, preserving existing saved campaigns. Install **NESSO-1 (experimental)** through **Engines** first;
@@ -342,7 +362,7 @@ amino-acid sequences. The initial Protein Hunter inputs contain about 50% X
 residues, and RFdiffusion3's initial outputs are backbone coordinates, so neither
 is a suitable direct input to this sequence-screening step.
 
-Enable **Use NESSO to shortlist initial sequences** in stage 1 for this funnel
+Enable the initial-sequence shortlist switch in stage 1 for this funnel
 (cycle numbers below assume the default two refinement rounds):
 
 1. **Cycle00 — backbone proposal.** Generate Protein Hunter X-token structures
@@ -387,7 +407,7 @@ or solvent exposure, and its probability never replaces Boltz's search score.
 
 This ports the `nesso_macos` work in iProteinHunter-beta, including the pinned
 NESSO source `6c72f66720d9d3447fd73c515cda963e39128b1f`, version-guarded MPS patch,
-hash-locked Python 3.12.10 dependencies, model v1.0.0, CCD and exact ESM-2 asset
+pinned runtime dependencies, model v1.0.0, CCD and exact ESM-2 asset
 revision. The beta Lab Book 0044 establishes native-MPS numerical and plumbing
 validation on its stated M4 Max inputs. It does **not** establish ranking accuracy
 for fluorescein or other designed binders, or a Studio throughput improvement.
@@ -822,17 +842,3 @@ imported. The stopped source is not modified. The new plan fingerprints the
 imported artifacts and uses stage-directory submissions with per-input checkpoints.
 RFdiffusion3 filtering is supported, but importing its initial generator receipts
 through this new restart option is not yet implemented.
-
-### Experimental PSICHIC alternative
-
-The screening-engine selector can use PSICHIC-XL wherever the optional NESSO
-shortlist is available. Saved requests without `screening_engine` continue to
-use NESSO. PSICHIC ranks `1 − predicted_nonbinder`; its affinity and antagonist,
-nonbinder and agonist probabilities are saved separately. It supplies no
-placement-confidence term. Boltz still performs NISE structural verification
-and final selection. This is an experimental ranking option, not a validated
-binding assay. The current adapter supports complete sequences up to 700 residues,
-with ESM MPS batches of eight and CPU graph batches of sixteen.
-
-See [portable runtime rollout status](PORTABLE_RUNTIME_IMPLEMENTATION.md) for
-installation qualifications and remaining release gates.

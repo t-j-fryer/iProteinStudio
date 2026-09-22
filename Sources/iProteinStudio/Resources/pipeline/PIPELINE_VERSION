@@ -16,5 +16,5 @@ studio_runtime_packaging_validation: lab_book/0177-integrate-psichic-portable-ru
 studio_runtime_release: runtimes-2026.09.20-1
 studio_job_preservation: runtime-and-adapter-snapshot-v1
 
-studio_gpu_storage_health: bounded-filesystem-probe-v1
-studio_gpu_storage_validation: lab_book/0178-repair-mps-scratch-stall.md
+studio_gpu_storage_health: explicit-support-diagnostic-only-v2
+studio_gpu_storage_validation: lab_book/0179-simplify-startup-and-refresh-distribution-docs.md

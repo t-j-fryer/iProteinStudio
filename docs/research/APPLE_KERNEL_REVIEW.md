@@ -1,5 +1,9 @@
 # What transfers from the Anthropic acceleration work to this Mac
 
+> Historical research snapshot (September 2026). Statements about pending work
+> describe that date. For shipped behavior, use the [current runtime guide](../PORTABLE_RUNTIME_IMPLEMENTATION.md)
+> and [release guide](../UPDATES_AND_RELEASES.md).
+
 2026-09-19. Companion to Lab Book0169 and `Validation/experiments/apple_runtime_throughput_v2`. These are M4 Max experiments; no installed engine defaults have changed.
 
 The useful lesson is to optimize the work that actually runs, then validate each change independently and in the complete prediction. Their headline gains are NVIDIA H100 measurements, with different workloads and precision settings from ours; they are not estimates for Apple hardware. Their benchmark distinguishes startup, forward calls and whole tasks, uses strong upstream baselines, and checks practical numerical changes against baseline variability and downstream accuracy. Kernel tests additionally use a float64 reference and alternating measurement order. [Technical report, Methods, SI introduction and S9](https://www-cdn.anthropic.com/c93593cb8990d6c0e2644c22b1e4e74228eeb013.pdf).
@@ -42,4 +46,4 @@ The direct-load Metal kernel passed eight independent FP64 shape/dtype cases and
 
 Native MLX SDPA passed the trajectory checks, but its apparent26% gain against an earlier control disappeared in a fresh reversed-order pair: it was5.5% slower. This directly supports the report's emphasis on a strong, contemporaneous baseline. We retain the existing RFD3 implementation; an isolated kernel speedup or an older slow reference is insufficient.
 
-The clearer current opportunities are computational waste and CPU setup: smaller IntelliFold padding tensors and cached NESSO CCD parsing. Thread tests also changed direction between Torch versions; four threads beat one on the tested2.14 Flash path, while one beat four on2.6. Tuning must be attached to the measured runtime and workload. Exact measurements, failed attempts, core masks and repeat caveats are in [the benchmark report](../Validation/output/apple_runtime_throughput_v2/REPORT.md) and Lab Book0169.
+The clearer current opportunities are computational waste and CPU setup: smaller IntelliFold padding tensors and cached NESSO CCD parsing. Thread tests also changed direction between Torch versions; four threads beat one on the tested2.14 Flash path, while one beat four on2.6. Tuning must be attached to the measured runtime and workload. Exact measurements, failed attempts, core masks and repeat caveats are in [the benchmark report](../../Validation/output/apple_runtime_throughput_v2/REPORT.md) and Lab Book0169.

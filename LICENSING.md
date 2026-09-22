@@ -38,9 +38,10 @@ into every built application at `Contents/Resources/ThirdPartyLicenses`.
 
 ## Downloaded scientific engines
 
-Model engines, Python packages, source repositories and checkpoints are not
-included in the application download. The user chooses them in the Engines
-screen, and Studio downloads them into `~/.iproteinstudio`. Each remains subject
+Engine runtimes and checkpoints are not included in the app DMG. The user
+selects them in Engines. Studio downloads portable Python/engine packages from
+versioned GitHub Releases and model assets separately from approved upstream
+providers into `~/.iproteinstudio`. Each remains subject
 to its upstream licence and any checkpoint or service-specific terms. A licence
 for iProteinStudio cannot override those terms.
 

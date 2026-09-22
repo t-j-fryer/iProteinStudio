@@ -92,7 +92,7 @@ in two frameworks stays separate. Earlier framework results remain present when
 later campaigns start. Run history includes a combined batch entry as well as
 individual campaigns. Existing saved batches work without new inference.
 
-MCP contract 20 / server 1.13 discovers `iterative_batch` parents in `runs_list`.
+The shared MCP bridge discovers `iterative_batch` parents in `runs_list`.
 Call `results_overview` on the parent with optional `framework_id` and
 `design_engine` filters. Resolve artifact paths relative to `artifact_run_id`,
 and use each `campaign_run_id` with `results_query` for raw tables. Limits apply

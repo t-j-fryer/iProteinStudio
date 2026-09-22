@@ -44,6 +44,11 @@ copy-on-write snapshot under `.studio_runtime/pipeline`; editing or deleting one
 campaign cannot change another. Resume continues to launch the exact recorded
 snapshot and fails loudly when it is missing.
 
+Managed broker plans additionally retain their bridge/adapter code and exact
+portable runtime identities, including model-data bindings. Updating the app or
+activating a new runtime does not replace a saved job's dependencies. See
+[runtime preservation and rollback](PORTABLE_RUNTIME_IMPLEMENTATION.md#recovery-and-reproducibility).
+
 ## Sampling provenance
 
 A sampling value of zero/`auto` preserves validated engine defaults; it does not

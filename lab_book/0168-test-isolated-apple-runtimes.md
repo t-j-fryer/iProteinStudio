@@ -11,7 +11,7 @@ tags: [performance, mps, numerical-accuracy, cpu-threading]
 
 ## Context
 
-User authorized testing of the [Apple throughput plan](../docs/APPLE_SILICON_THROUGHPUT_PLAN.md),
+User authorized testing of the [Apple throughput plan](../docs/research/APPLE_SILICON_THROUGHPUT_PLAN.md),
 retaining models, diffusion steps and guidance, using practical numerical
 accuracy margins and measuring CPU parallelism. MPNN CPU speed is satisfactory.
 The current baseline is a comparator, not ground truth. This entry completes

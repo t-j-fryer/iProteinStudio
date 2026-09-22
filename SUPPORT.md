@@ -16,17 +16,20 @@ iProteinStudio is alpha research software for Apple-silicon Macs running macOS
 Installer logs are retained under `~/.iproteinstudio/logs/installer`. Individual
 campaign folders contain their own commands, provenance and stage logs.
 
-## “macOS GPU temporary storage is not responding”
+## A GPU prediction appears stalled
 
-Studio checks access to Apple's temporary GPU workspace before starting a managed
-GPU job. If this message appears, save work in your applications, restart the Mac,
-then use **Resume** for the stopped job. Completed results remain available.
+Open the run log and note the last completed stage. Initial model loading can
+take time; an unchanged progress indicator alone does not establish a GPU fault.
+Use **Stop** before investigating or retrying the job. Retain its logs and saved
+outputs. If multiple previously working engines hang, save work in other apps,
+restart the Mac, then use **Resume** for the affected job.
 
-If the message returns, report the exact error and job ID using the details below.
-The job's `gpu_storage.json` records the bounded check result for support. A
-persistent failure needs investigation; restarting is a first recovery step, not
-a guaranteed repair. Avoid manually deleting shared Apple GPU folders while ML
-applications are running. Studio does not reset those folders automatically.
+If the problem persists, report the job ID and last log messages. Support can
+request the [optional GPU-storage diagnostic](docs/PORTABLE_RUNTIME_IMPLEMENTATION.md#optional-gpu-troubleshooting).
+Normal jobs do not run that diagnostic, and Studio does not automatically clear
+shared Apple temporary files. Version 0.2.2 performed a per-job check; 0.2.3
+removes it. A separately authorized repair and its limits are recorded in
+[Lab Book 0178](lab_book/0178-repair-mps-scratch-stall.md).
 
 ## Asking for help
 

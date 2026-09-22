@@ -74,7 +74,7 @@ def main():
         'not claims of native biological structure. No interface ranking, MSA-rich campaign, other Apple chip or multi-hour soak is established. '
         'SUMO coordinate gates exclude residues1–20 and use the baseline pLDDT>=80 core; insufficient core remains unassessable. '
         'A passing computational comparison is not experimental binding validation.', '',
-        '[Research and sources](../../../docs/APPLE_METAL_FUSION_TESTS.md). Project Lab Book0170; Validation0040.']
+        '[Research and sources](../../../docs/research/APPLE_METAL_FUSION_TESTS.md). Project Lab Book0170; Validation0040.']
     decisions=OUT/'DECISIONS.md'
     if decisions.exists():lines[2:2]=[decisions.read_text(),'']
     (OUT/'REPORT.md').write_text('\n'.join(lines)+'\n')

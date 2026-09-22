@@ -1,127 +1,79 @@
-# Install the unsigned iProteinStudio beta
+# Install the iProteinStudio trusted beta
 
-This beta is built for Apple-silicon Macs running macOS 14 or later. It is
-ad-hoc signed, not signed with an Apple Developer ID and not notarized by Apple.
-The extra warning below is expected, but users should override it only for an
-artifact obtained from the official iProteinStudio release location.
+Get the Apple-silicon `.dmg` from the newest **app** release on
+[GitHub Releases](https://github.com/t-j-fryer/iProteinStudio/releases).
+App tags look like `v0.2.3-beta`. The separate `runtimes-…` release is an engine
+package store used automatically by Studio, not an alternative app download.
 
-Engine requirements are shown separately from the app requirement. The current
-OpenFold3/RFdiffusion3 runtime profiles need macOS26.2 or newer; Protenix v2/Mini
-needs26.0 or newer. Released engine profiles download as portable packages and
-do not need Xcode, Command Line Tools, Git or compilation. Model weights remain
-separate downloads from their original providers. Fresh-Mac acceptance testing
-has not yet been completed for these profiles.
+These builds are ad-hoc signed and Sparkle updates are cryptographically signed,
+but Apple has not Developer ID signed or notarized the app. The first launch can
+therefore require Apple's per-app approval. See [licensing status](../LICENSING.md).
+
+## Requirements
+
+The app needs Apple Silicon and macOS 14 or later. Current Protenix v2/Mini
+packages need macOS 26.0 or later; OpenFold3/RFdiffusion3 need 26.2 or later.
+These are minimums. **Engines** disables selections incompatible with the Mac.
+
+Portable engine installation requires internet access and sufficient disk space,
+not Xcode, Command Line Tools, Git, Homebrew or your own Python. Developer
+source-build instructions are separate in [CLI](CLI.md#apple-compiler-setup-errors).
+Fresh-Mac acceptance remains outstanding; see [qualification limits](PORTABLE_RUNTIME_IMPLEMENTATION.md#qualification-and-limits).
 
 ## Install
 
-1. Download the Apple-silicon `.dmg` and its `SHA256SUMS.txt` file from the same
-   iProteinStudio release.
-2. Open the DMG and drag **iProteinStudio** onto the **Applications** shortcut.
-3. Eject the DMG, then open iProteinStudio from Applications.
-4. macOS will refuse the first launch because the developer cannot be verified.
-   Open **System Settings → Privacy & Security**, scroll to **Security**, and
-   click **Open Anyway** for iProteinStudio.
-5. Confirm **Open** in the second macOS prompt. macOS remembers this exception
-   for that copy of the app.
+1. Download the app DMG. Each release also provides `SHA256SUMS.txt` and
+   `BUILD_PROVENANCE.txt` for verification.
+2. Open the DMG and drag **iProteinStudio** to **Applications**.
+3. Eject the DMG and launch the copy in Applications.
+4. If macOS blocks the launch, open **System Settings → Privacy & Security** and
+   choose **Open Anyway** for this app, then confirm **Open**.
+5. In Studio, choose the engines needed for your work and review their download
+   and disk-space requirements before installing.
 
-Apple documents this flow at:
-<https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac>.
-Managed institutional Macs may prohibit the override; contact the local IT
-administrator rather than weakening device-wide security settings.
+Use the override only for the official release. Managed institutional Macs can
+restrict it; consult your IT administrator. Apple's
+[opening an app from an unidentified developer](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac)
+describes the system flow.
 
-## Optional checksum verification
+## Engines and interrupted setup
 
-Checksum verification is not required to operate the app, but it confirms that
-the downloaded file matches the release record. In Terminal, change into the
-download folder and run:
+The app download contains the interface and pipeline code. Engine runtimes and
+model weights are separate downloads. Their verified files, receipts, projects
+and results remain under `~/.iproteinstudio`, outside the app bundle.
 
-```bash
-shasum -a 256 -c SHA256SUMS.txt
-```
+Setup reports unfinished components and offers **Retry unfinished components**
+and **Show setup log**. Completed independent components remain available.
+Interrupted transfers retain resumable partial files; checksum failures never
+activate an unchecked runtime. Requested engines with missing prerequisites stay
+unavailable rather than silently using another model.
 
-The DMG should report `OK`. Do not install it if the checksum differs.
-
-## First launch
-
-The app itself is small. Scientific engines and model checkpoints are separate,
-often large downloads. The Engines screen states their purpose and approximate
-disk use, and nothing is installed until the user confirms it. Projects, results
-and engines are stored under `~/.iproteinstudio` rather than inside the app.
-
-### Interrupted downloads and partial setup
-
-Build 34 and later continue installing independent components when one component
-fails. The completion card names unfinished components and offers **Retry
-unfinished components** and **Show setup log**. Verified files stay on disk;
-interrupted transfers resume. A failed checksum is discarded. A retry repeats only
-unfinished components from the reviewed selection, not successful engines.
-
-Core ProteinMPNN, SolubleMPNN and LigandMPNN install independently of AbMPNN.
-AbMPNN is selected by default, but can be deselected or retried separately in
-**Engines**. If Zenodo is unavailable, Studio automatically tries the approved,
-revision-pinned Mosaic copy. Its serialization differs, so Studio checks its own
-pinned SHA-256; all tensors and checkpoint metadata were checked for exact equality
-with the original (Lab Book 0123). Each installation records which source and
-checksum it used. TLS and checksum verification are never disabled.
-
-Boltz affinity, IntelliFold full v2, and Protenix v2/Mini checkpoint downloads are
-also isolated from their shared runtimes. A failed extra does not invalidate its
-completed base runtime. Requested engines with missing dependencies remain
-unavailable; Studio never silently substitutes another model. A completed predictor
-can still be used in **Predict** if core sequence-design setup failed. After
-reopening Studio, **Engines** detects missing components and lets you install them.
-
-Failures of prerequisites needed by all components, such as missing Apple build
-tools or the shared managed-Python bootstrap, still need repair before setup can
-proceed. If no approved download source is reachable, retry after connectivity
-recovers; the app cannot manufacture missing model files.
-
-Mosaic's source attribution and CC-BY-4.0 notice:
-<https://github.com/escalante-bio/mosaic/blob/70fec525423f5f87156a1a957b4a4048f9f8e676/src/mosaic/proteinmpnn/NOTICE>.
-Studio distributes installer code and checksums, not model weights.
-
-### Apple tools needed before setup
-
-Some engine dependencies compile native code, so setup needs Apple's **Command
-Line Tools for Xcode**. The full Xcode application is not required.
-
-Build 33 and later check the tools before downloading engines. If they are absent
-or the compiler fails its check, Setup and Engines show these actions:
-
-1. **Install Apple Tools** opens Apple's installation window directly. Complete
-   that window, including Apple's license/authorization prompts.
-2. If macOS reports that the tools are already installed, choose **Open Software
-   Update** and install the applicable update. You can also open **System Settings
-   → General → Software Update** yourself.
-3. After Apple finishes, return to Studio and choose **Retry Setup**. The reviewed
-   engine selection is retained, and the compiler is checked again before any
-   engine downloads. Opening Apple's installer alone does not complete setup.
-
-Terminal is not needed for this flow. Older app builds that only show the Terminal
-instruction need an updated app to offer these buttons. Apple documents its tools
-installer in [Installing the command-line tools](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools).
-If retry still fails, use **Show log** to inspect the error; SDK selection or other
-compiler problems may require additional diagnosis.
-
-Remote MSA generation sends the submitted protein sequence to an external
-alignment service. Review the `PRIVACY.md` included in the DMG before using
-confidential sequences.
+NESSO and PSICHIC install their required ESM assets with their selected component.
+Optional checkpoints such as Boltz affinity and IntelliFold full remain separately
+selectable. No manual runtime archive extraction is needed.
 
 ## Updates
 
-Trusted unsigned betas can update the application through Sparkle. In
-**iProteinStudio → Settings → Updates**, users may disable automatic checks or
-automatic downloads and can always choose **Check for Updates…** manually.
+Choose **iProteinStudio → Check for Updates…** to check immediately. Under
+**Settings → Updates**, control automatic checking and automatic app downloads.
+With default settings, Sparkle asks permission for automatic checks on the
+second launch. If declined, manual checking still works.
 
-Every executable update archive must carry a valid EdDSA signature from the
-iProteinStudio release key embedded in this app. Sparkle rejects an archive that
-does not match. This verifies that an update came from the same project release
-key, but it does not make the app Developer ID signed or Apple notarized.
+Sparkle downloads the signed ZIP from the corresponding GitHub Release and
+verifies it against the public key embedded in Studio. It updates the running
+app copy; keep one current copy in Applications. A development build made with
+`swift run` or ordinary `build_app.sh` does not enable this distribution channel.
+Older builds without the updater need one manual app installation.
 
-Application updates replace the interface and bundled pipeline code only. They
-do not delete the managed runtime, workspaces, results, alignments or models, and
-they never install large engines or checkpoints without separate confirmation.
+App updates preserve projects, results and installed engines. New or changed
+engine packages require separate confirmation in **Engines**. See
+[Application and engine updates](UPDATES_AND_RELEASES.md).
 
-Once a Developer ID-signed and notarized release exists, it will provide a normal
-Gatekeeper launch while retaining the cryptographically verified Sparkle update
-channel.
+## Optional checksum verification
+
+In Terminal, calculate the downloaded DMG's SHA-256 and compare it with its entry
+in `SHA256SUMS.txt`. The manifest also lists the ZIP; checking the entire manifest
+requires both downloaded files. Do not install an artifact whose digest differs.
+
+Remote MSA requests disclose the submitted sequences to the selected alignment
+service. Review [Privacy](../PRIVACY.md) before using confidential inputs.

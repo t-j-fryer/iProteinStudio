@@ -10,245 +10,36 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ## Current status
 
-_Last updated: 2026-09-17_
+_Last reviewed: 22 September 2026._
 
-| | |
-|---|---|
-| **Stage** | Alpha. Debug and release builds pass; a standalone managed install has completed acceptance folds. Signed-update code and release automation are implemented, but no Developer ID certificate is installed and no notarised public build has shipped. |
-| **Platform** | macOS 14+, Apple Silicon only. Developed on M4 Max / 64 GB / macOS 26.x. |
-| **Repo** | Public — `github.com/t-j-fryer/iProteinStudio` (renamed from NanoHunterStudio) |
-| **Runtime** | `~/.iproteinstudio` — **not** Application Support: a space in the path breaks every Python console-script shebang |
+- **Distribution:** trusted-beta app releases and immutable portable engine
+  archives are published on GitHub. Sparkle delivers signed app updates through
+  `appcast.xml`; engine/model downloads are separately confirmed. `VERSION` and
+  `BUILD_NUMBER` identify the current app source.
+- **Platform:** Apple Silicon, app minimum macOS 14. Current Protenix v2/Mini
+  packages require 26.0; OpenFold3/RFdiffusion3 require 26.2. These are minimums.
+- **Workflows:** Protein Hunter, ligand NISE, RFdiffusion3 and Predict share the
+  durable app/MCP queue. NESSO and PSICHIC are optional experimental ligand screens.
+- **Installation:** portable packages require no end-user compiler, Git or
+  separate Python. Jobs retain exact code/runtime/model references across updates.
+- **GPU incident:** the affected temporary folder was preserved and replaced;
+  repeated Boltz/PSICHIC checks passed (0178). Normal-job folder probing is removed;
+  an explicit support diagnostic remains (0179).
+- **Limits:** fresh-Mac/cross-chip and long-term acceptance remain separate from
+  current-M4-Max qualification. Developer ID/notarization and institutional
+  licensing review remain outstanding. No biological binding validation is implied.
 
-**Installer:** Build 34 adds a checksum-verified AbMPNN fallback and continues independent components after installation failures. Partial setup reports unfinished components for retry; completed engines remain available (Entry 0124).
+Current guides: [Documentation](docs/README.md),
+[Architecture](ARCHITECTURE.md), [Runtime qualification](docs/PORTABLE_RUNTIME_IMPLEMENTATION.md),
+[Updates](docs/UPDATES_AND_RELEASES.md), [Validation](Validation/README.md).
 
-**Resume:** Build 35 adds verified per-prediction checkpoints to resident IntelliFold Full/Flash and live completed/reused counts. Software interruption fixtures pass; existing campaigns retain their older frozen runtime (Entry 0127).
-
-**Queue:** Build 36 allows queued submissions from Protein Hunter, NISE,
-RFdiffusion3 and Predict across workspaces, with a global queue popover and
-observation-only New run navigation. Inert mixed-workflow serialization and
-startup cancellation fixtures pass (Entry 0129).
-
-**Atom controls and names:** Build 37 fixes lost atom-selector edits and hidden
-molecule highlights, and adds optional names beside Start/Add to Queue in all
-four tabs (Entry 0130).
-
-**RFdiffusion3 audit:** Source fixes cover optional atom selections, verified
-resume and output qualification. Software regression tests and the app build pass;
-new real-model smoke testing and deployment remain outstanding (Entry 0132).
-
-**OpenFold queue fix:** The app now uses OpenFold-3's supported per-trajectory
-scheduler and rejects unsupported residency during batch preflight. The three
-affected Bgx batches have 4,500 completed optimized structures and 750 outstanding;
-the ten unfinished OpenFold campaigns have now been submitted as corrected
-immutable jobs (one running and nine queued at restart). Rebuilt local app;
-historic failed plans and completed results are preserved (Entries 0133, 0136).
-
-**Working:** NISE now offers Protein Hunter hallucination or experimental
-RFdiffusion3 initial backbones (Entry 0103), now with 1,000 starts by default
-(Entry 0135).
-NESSO installs its required ESM-2 650M assets automatically and can reuse exact
-verified cache files. NISE separates initial backbone generation from optimisation,
-with typed budgets, explicit sequences-to-advance and optional experimental
-NESSO sequence screening before Boltz (Entry 0102). Its worker and screening contracts have fixture coverage. The resident 50-design
-fluorescein benchmark (Entry 0118) found NESSO 6.16× faster but weak Boltz rank
-agreement; full NISE screening-campaign acceptance remains pending.
-
-**NISE search policy:** New requests use 1,000 starts, 30 maximum cycles,
-four-cycle patience and beam three. Sampling is 64 proposals from the starting
-seed, then 32 per parent (up to 96 per trajectory). Adaptive stays off. Optional
-ligand-local X-token masking adds a separately scored/repaired branch from cycle
-2 and replaces one ordinary sampling parent and advancement place, using an
-experimental 6 Å / 25% starting setting (64 ordinary + 32 masked + 32 repair
-predictions per later trajectory-cycle). Software route/replay checks pass;
-a five-start biotin pilot stopped at first-refinement exposure/score filters,
-so guarded continuation holds the large campaign. Build 38 / MCP 19 are deployed
-and published on GitHub; all six XCTest cases now pass after Xcode setup
-(Entries 0137, 0140, 0143, 0144).
-
-Setup wizard with per-engine choice, worked examples (α-cobratoxin
-with its alignment included, and fluorescein), workspace management, a
-prediction-only tab that reuses every alignment on the machine, nanobody/mini-binder/peptide design form,
-live metrics dashboard, hits gallery, offline py2Dmol structure viewer with visual controls, target prep,
-predictions library, a unified in-app structure/metric browser for completed
-Predict, iterative and RFdiffusion3 runs in movable, resizable result windows,
-persistent hierarchical result groups: RFdiffusion3 backbones contain their
-MPNN derivatives and iterative runs contain their cycles; every child keeps its
-design/complex/binder-alone structures and scores together. Compact cards use
-control-free previews and one spacious selected py2Dmol viewer (Entry 0082).
-Iterative run viewers additionally offer a target-fitted cycle trajectory with
-labelled scrubbing, autoplay and playback-speed controls (Entry 0083).
-The shipped client-neutral MCP bridge is now v10 (including NISE/NESSO): its read/run profiles expose
-the same run→cycle and backbone→MPNN-derivative result hierarchy through
-`results_overview`, keep hit verdicts on checked children, and instruct every
-client to use outward whole-surface ORI coverage when a protein epitope is
-omitted (Entry 0084).
-Iterative de-novo design now offers explicit natural, anti-helix, β-oriented,
-and mixed sequence priors. β-oriented trajectories save a deterministic
-strand/turn plan and can apply it either to cycle 00 only or to cycle 00 plus
-every MPNN redesign, enabling matched-scope experiments. The controls remain
-labelled experimental until predicted-coordinate validation is completed
-(Entry 0085).
-Unconditioned monomers can now opt into bounded initialization refinement through
-the shared CLI/MCP runner. Separate assessment, regional resampling and scheduler
-handoff preserve originals and explicit exhaustion, with synthetic lifecycle and
-integration coverage. This path currently uses the per-run scheduler and has no
-new GUI controls or measured real-model effectiveness (Entry 0095).
-A paired 90-residue Boltz-2 monomer screen now covers 22 declared control
-conditions with ten trajectories of five cycles each and β-only inspection.
-The 22-condition monomer screen is complete: 214/220 trajectories completed
-five cycles, with five budget exhaustions and one geometry rejection retained.
-Full output inspection reproduces coordinate assignments and initialization
-decisions. Proline suppression strongly favors helices; no sheet-enrichment
-advantage over baseline is resolved by the paired intervals. No control is
-promoted (Entry 0100).
-One saved multi-filter hit definition is shared by Browse Results and live Hits,
-persistent per-workspace run history and
-a global Activity panel with exact checkpoint Resume for newly recorded iterative campaigns.
-Iterative protein design can optionally guide target chains from a checksummed
-PDB/CIF with Boltz, full Protenix v2, or IntelliFold v2 Flash/full; stronger
-Boltz coordinate restraint is disabled after reproducible Apple-GPU geometry
-failures, while binder and independent validation folds stay untemplated.
-Protenix template support includes a pinned managed Kalign build (Entry 0080).
-Protein multimers now report conservative PAE-derived ipSAE(min) from Boltz,
-IntelliFold or Protenix in saved outputs and the GUI; OpenFold is excluded because
-its current output is PDE rather than PAE.
-Protenix masked-residue handoffs are chain-aware and chemically normalized before
-inverse folding: its generic `CG` pseudo-atom is removed before `UNK` becomes
-alanine, while backbone coordinates are preserved exactly.
-Protein sequence fields share one colon-separated multimer syntax and display the
-resolved chain map. Predict uses A/B/C input order; binder-design workflows reserve
-A and keep targets as B/C/D, with distinct query-validated MSAs per target subunit.
-RFdiffusion3 normalizes selected external PDB/mmCIF chains into that convention.
-Its live and completed result browser retains generated MLX backbones alongside
-complex and binder-alone predictions, with the emitting engine identified.
-The bundled alpha-cobratoxin example now uses complete experimental RCSB 1CTX
-coordinates, and the MLX exporter retains all residue-specific target atoms
-instead of dropping atom14 side-chain slots before name conversion (Entry 0078).
-Protein de-novo campaigns now use explicit whole-surface, broad-region,
-targeted-epitope, or advanced manual-XYZ placement. An unspecified site maps to
-reproducible solvent-surface coverage, never the fixed protein centre of mass;
-broad-region residues are positioning anchors rather than hidden hotspots
-(Entry 0077).
-
-**Also working:** Ligand Intelligence — chemistry QA, recognition-core vs linker
-separation, conformer ensembles weighed against experimental PDB structures, and a
-design budget split across the shapes a molecule actually adopts, with directed
-core-to-linker bonds, annotated RFD atom names, reviewed condition suggestions and
-stereochemistry-safe PDB evidence; choice of design predictor (Boltz-2 ± potentials,
-experimental Protenix Constraint v0.5 pocket proposals, Protenix v2/Mini, or
-IntelliFold PyTorch v2-flash/full v2)
-with IntelliFold or OpenFold-3 orthogonal checking; automatic measured-optimum
-scheduling that keeps five design engines resident and uses cycle waves for full
-Protenix v2; a pinned standalone installation that does not
-need a sibling checkout, with explicit reuse of an existing NanoHunter/RFD3
-install as an option; an RFdiffusion3 tab that drives the
-validated production pipeline, survives quitting the app, resumes protein stages
-and small-molecule stages from checkpoints, and presents generated backbones,
-verification structures, score distributions and hit verdicts while they arrive.
-Partial diffusion and motif scaffolding include runnable p53–MDM2 examples;
-motif provenance follows exact functional atoms from source residues through
-generated positions, sequence design and independent-prediction recovery.
-Codex and Claude can use the same local least-privilege MCP bridge to inspect
-managed projects, freeze reproducible plans and run resumable workflows without
-an arbitrary shell; immutable runner provenance and one shared agent execution
-lock protect cross-client campaigns (Entry 0069).
-The run profile now includes its own read/result tools, and MCP result queries
-surface generated MLX backbones, complex predictions, binder-alone predictions
-and their engine/context provenance, including bounded compatibility labels for
-older Studio runs (Entry 0075).
-The bridge now serves universal workflow guidance, derives protein de-novo
-contigs inside the pinned MLX adapter boundary, enforces protein/small-molecule
-model routing and returns the real pipeline and RFdiffusion3 stage errors instead
-of inviting agents to guess or request arbitrary folder access (Entry 0071).
-The cross-modal executable audit in Entry 0073 additionally makes ligand
-campaign startup same-file-safe, stores Foundry fixtures with each campaign,
-and separates same-length conformer queues while preserving exact design quotas.
-The app now installs or removes Codex and Claude Desktop access with explicit
-buttons, and an opt-in capability-authenticated loopback gateway provides the
-local half of ChatGPT/phone delegation without silently publishing the Mac
-(Entry 0070).
-Protenix uses native MPS with no CPU fallback, owns its upstream public MSA-server
-route, preserves explicit single-sequence requests without contacting that route,
-and is a removable managed component rather than a hidden Boltz dependency.
-IntelliFold runs through a pinned native-MPS launcher that rejects Accelerate CPU
-fallback and incomplete seed/sample output sets. Managed engines retain separate
-dependency contracts while sharing APFS-cloned package payloads, Git objects and
-one checksum-verified Protenix chemical dataset; the Engines screen can safely
-consolidate matching assets from an older install.
-New runs retain dense Protenix/IntelliFold confidence data as checksum-verified
-gzip, keep one canonical copy of selected structures and batch logs, and share
-exact A3Ms plus independently resumable pipeline snapshots through a
-content-addressed APFS store (Entry 0064).
-
-Build 10's post-macOS-update M1 Pro acceptance produced valid Boltz and IntelliFold
-structures with both compatibility boundaries active. IntelliFold was nevertheless
-reported as failed because the post-run validator excluded its upstream
-`_inputs/predictions` output path. Build 11 fixes that bookkeeping defect without
-admitting arbitrary staged coordinate inputs (Entry 0065).
-
-Controlled unsigned-beta packaging now produces versioned Apple-Silicon DMG and
-ZIP artifacts with checksums, provenance, embedded notices and a trusted Sparkle
-update boundary. Beta archives require the project's EdDSA signature even though
-the application remains ad-hoc signed and unnotarised by Apple. The notarised
-release route remains intact, and privacy, support, security and the unresolved
-MIT licensing review are documented explicitly.
-
-The first external build exposed and build 3 fixes a clean-Mac startup crash in
-SwiftPM's executable-resource accessor. Packaged resources now use the sealed
-`Contents/Resources` location through an app-aware resolver, and the shipped
-binary contains no absolute checkout path. Release validation launches the app
-outside the source checkout before handoff.
-
-**Known gaps, in priority order:**
-
-The source findings from [0087](lab_book/0087-review-repository-product-reliability.md)
-are addressed by the implementation in
-[0088](lab_book/0088-implement-product-reliability.md): recoverable workspace
-saving/archive, shared durable native/MCP jobs, saved dashboard context,
-accessibility controls, asynchronous result loading and an explicit test runner.
-The app builds and fixture suites pass apart from the unavailable XCTest module
-in this Command Line Tools installation. Full GUI/VoiceOver, crash/relaunch and
-release acceptance remain outstanding; the implementation is not a certification
-of those behaviours.
-
-1. Exact-manifest Resume is implemented, but still needs a deliberate
-   interrupt/relaunch/resume acceptance run from GUI controls. Complete RFD3 and
-   nanobody routes were exercised through their production entry points rather
-   than a heavy GUI click — see [0016](lab_book/0016-complete-campaigns-and-run-recovery.md).
-2. Accessibility labels now cover examples, primary Start actions, navigation
-   and the active-run banner, but the remaining forms have not had a complete
-   VoiceOver, keyboard-focus, large-text or contrast pass.
-3. The new RFdiffusion3 partial/motif examples have single-backbone 200-step MLX
-   acceptance, exact motif-atom recovery and an MPNN handoff test. Their complete
-   multi-predictor campaigns and experimental enrichment are not yet calibrated.
-4. OpenFold-3 complex pLDDT has an unresolved scale problem — see
-   [0002](lab_book/0002-inherited-speed-lessons.md) §7.
-5. No app icon. Sparkle self-update, size-aware engine consent, signed-release automation and a trusted unsigned-beta route are implemented, but Developer ID signing/notarisation and an old-to-new update acceptance on a second Mac remain blocked on Apple distribution credentials. The unsigned path still needs its first second-Mac Gatekeeper/install test and a real beta-to-beta Sparkle acceptance test.
-
-**Deliberately out of scope:** protein/cross-reactive NISE; RFdiffusion3
-against DNA/RNA (no `rfd3na` checkpoint obtainable on this machine — see
-[0001](lab_book/0001-repository-genesis-and-audit.md) Finding 4).
-
----
-
-## Where the science lives
-
-Studio is a front end. The implementations it drives originate in sibling
-repositories, which remain the development references for scientific behaviour.
-They are not runtime dependencies of a standalone install:
-
-- **NanoHunter / iProteinHunter** — `/Users/thomasfryer/NanoHunter` — iterative design
-  runner, Boltz-2 / IntelliFold PyTorch / OpenFold-3, MPNN + AntiFold designers,
-  MSA handling, device throughput calibration.
-- **RFD3** — `/Users/thomasfryer/RFD3` — RFdiffusion3 backbone generation on MLX, ligand
-  conditioning, length-binned batching, and the production
-  RFD3 → LASErMPNN → Boltz-2 affinity/apo campaign that the RFdiffusion3 tab drives.
-  `scripts/design_from_yaml.py` is the entry point; it owns the binder-length
-  arithmetic and the atom preflight, and Studio must not duplicate either.
-
----
+Entries below are historical records of what was known at their date. Their old
+version numbers, failed approaches and local experiment paths are retained as
+provenance, not current setup instructions or a live job queue.
 
 ## Entries
+
+- [0179 — Simplify startup and refresh distribution documentation](lab_book/0179-simplify-startup-and-refresh-distribution-docs.md)
 
 Newest first.
 

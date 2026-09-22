@@ -16,7 +16,7 @@ Code should read `CLAUDE.md` first, which is more detailed; the skill at
 
 iProteinStudio is a native macOS front end to an Apple-Silicon protein design and
 structure-prediction suite. It contains almost no science of its own: the science
-lives in sibling repositories, and this app makes it reachable and hard to
+originates in upstream repositories, and this app makes it reachable and hard to
 misuse. When a capability exists upstream, **port the validated behaviour — do
 not reinvent it, and do not silently diverge from its defaults**.
 

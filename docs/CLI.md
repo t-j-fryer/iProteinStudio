@@ -11,8 +11,11 @@ export ROOT="$HOME/.iproteinstudio"        # created by the app on first launch
 export NANOHUNTER_ROOT="$ROOT"             # the pipeline reads this
 ```
 
-Every environment lives in `$ROOT/venvs/`, every model repo in `$ROOT/src/`,
-weights in `$ROOT/models/`, and RFdiffusion3 in `$ROOT/rfd3/`.
+Portable runtimes live in versioned `$ROOT/components/` directories. Compatibility
+links under `$ROOT/venvs/`, `$ROOT/src/` and `$ROOT/rfd3/` resolve the selected
+versions; weights live under `$ROOT/models/`. Jobs retain exact runtime and code
+bindings for resume. The managed control Python below is installed by Setup;
+normal use does not depend on Apple's `/usr/bin/python3` or developer tools.
 
 ## AI agents: Model Context Protocol
 
@@ -36,11 +39,11 @@ utility remains the reproducible automation and troubleshooting route.
 
 ```bash
 # Preview both changes first.
-/usr/bin/python3 "$ROOT/mcp/configure.py" \
+"$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/configure.py" \
   --client both --scope project --project-root /path/to/trusted/project
 
 # Apply after review.
-/usr/bin/python3 "$ROOT/mcp/configure.py" \
+"$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/configure.py" \
   --client both --scope project --project-root /path/to/trusted/project --write
 ```
 
@@ -49,7 +52,7 @@ both an explicit profile and an environment opt-in:
 
 ```bash
 IPROTEINSTUDIO_ENABLE_ADMIN_MCP=1 \
-  /usr/bin/python3 "$ROOT/mcp/configure.py" \
+  "$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/configure.py" \
   --client codex --scope project --project-root /path/to/trusted/project \
   --profiles read,run,admin --write
 ```
@@ -84,10 +87,10 @@ failed job returns the actionable message plus `pipeline_log_tail` and
 Read those fields before changing scientific parameters, and do not ask the user
 for arbitrary folder access to diagnose a managed run.
 
-Plans are immutable. `job_start` recalculates the plan digest and verifies every
-recorded runner before launching. If an app update changed a script after
-preflight, the job fails and requires a new plan rather than silently using new
-scientific code.
+Plans are immutable. `job_start` recalculates the plan digest and verifies the
+recorded code snapshot and runtime bindings before launching. An app update does
+not silently replace a queued job's scientific code. Missing or altered pinned
+files fail verification; resume preserves the original plan.
 
 Each MCP client has its own local stdio server process, but every scientific or
 administration worker uses `$ROOT/agent/execution.lock`. Codex, Claude and the
@@ -96,11 +99,9 @@ The lock serializes jobs conservatively; scheduling *within* an iterative or
 RFD3 verification campaign remains the validated resident/cycle-wave policy of
 the underlying runner.
 
-The existing GUI launch path is intentionally unchanged and does not acquire
-this agent lock. Do not start a GUI campaign while an agent job is active (or
-vice versa); `studioctl.py jobs` is the authoritative agent-job check. Moving
-the GUI itself behind the broker would change validated interactive launch
-semantics and requires a separate migration and performance validation.
+The native GUI submits through the same broker and execution lock. GUI, CLI and
+MCP requests can be queued together; scientific execution remains serialized.
+The Activity view and `studioctl.py jobs` show the shared registry.
 
 The detached worker, plan, status, logs and audit records live under
 `$ROOT/agent/`. Closing the MCP client does not stop the job. Cancellation sends
@@ -147,11 +148,11 @@ added explicitly to `$ROOT/agent/policy.json`.
 The same implementation has a direct JSON CLI for diagnostics and automation:
 
 ```bash
-/usr/bin/python3 "$ROOT/mcp/studioctl.py" doctor
-/usr/bin/python3 "$ROOT/mcp/studioctl.py" detect
-/usr/bin/python3 "$ROOT/mcp/studioctl.py" projects
-/usr/bin/python3 "$ROOT/mcp/studioctl.py" runs --project my-project
-/usr/bin/python3 "$ROOT/mcp/studioctl.py" jobs
+"$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/studioctl.py" doctor
+"$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/studioctl.py" detect
+"$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/studioctl.py" projects
+"$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/studioctl.py" runs --project my-project
+"$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/studioctl.py" jobs
 ```
 
 `doctor` is offline and checks that all three privilege profiles and every
@@ -186,6 +187,13 @@ while retaining account authentication and revocation.
 
 ## Install
 
+The default route downloads checksum-verified portable packages from GitHub
+Releases, then separate model assets from their providers. It requires no Xcode,
+Command Line Tools, Git, Homebrew or system Python. Start with `--detect`.
+The [runtime guide](PORTABLE_RUNTIME_IMPLEMENTATION.md) records platform minimums,
+activation recovery and exact-runtime preservation. These are minimum macOS
+versions, not exact-version requirements.
+
 ```bash
 # Everything
 bash "$ROOT/setup_pipeline.sh" --all
@@ -206,12 +214,6 @@ bash "$ROOT/setup_pipeline.sh" --detect
 # List every supported component and its scope
 bash "$ROOT/setup_pipeline.sh" --help
 
-# Reuse an existing NanoHunter installation instead of downloading again
-bash "$ROOT/setup_pipeline.sh" --link-existing ~/NanoHunter --link-rfd3 ~/RFD3
-
-# Turn links into real local copies
-bash "$ROOT/setup_pipeline.sh" --materialise
-
 # Consolidate only checksum-verified duplicate managed assets
 bash "$ROOT/setup_pipeline.sh" --minimize-storage
 ```
@@ -221,30 +223,18 @@ their old flags explicitly; IntelliFold's supported backend is PyTorch/Metal.
 
 ### Apple compiler setup errors
 
-Setup compiles, links and runs a small Apple-Silicon C++ program before downloading
-Python, packages or models. It uses `xcrun` to select matching Apple compilers and
-the macOS SDK, and passes that SDK's libc++ headers to dependency builds. The log
-records these paths. Read-only detection and storage maintenance do not require
-the compiler check.
+This section applies only to the explicit developer source-build route:
+`IPROTEINSTUDIO_BUILD_FROM_SOURCE=1 bash "$ROOT/setup_pipeline.sh" …`.
+Portable installation does not compile dependencies and does not request Apple
+Tools. Do not enable source builds to repair a normal download failure.
 
-A `fatal error: 'cmath' file not found` during the ProDy build means its compiler
-could not find the C++ standard-library headers; it is not a model-weight error.
-Update Studio and retry Setup from **Engines**. Existing verified downloads are
-reused. A failed staged sequence-designer environment is rebuilt before it is
-activated; completed NESSO/ESM assets do not need to be deleted.
-
-If the new compiler check still fails, install available **Command Line Tools
-for Xcode** updates in **System Settings → General → Software Update**, then retry.
-On a Mac that has never installed these tools, choose **Install Apple Tools** in
-Studio, complete Apple's installer, then choose **Retry Setup**. The full Xcode
-app and Terminal are not required. For CLI-only use, `xcode-select --install`
-opens the same Apple installer. If no update is offered,
-keep the setup log: its selected SDK/compiler paths and compiler output are needed
-to diagnose an incomplete or incorrectly selected developer-tools installation.
-Studio delegates the tools download to Apple rather than choosing a fixed Xcode
-version, and does not change the Mac's global Xcode selection. Use Apple's
-[compatibility guidance](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools)
-for the Mac's installed macOS release.
+Source builds compile, link and execute a C++ preflight through `xcrun` and the
+selected macOS SDK. A missing `cmath` usually indicates mismatched compiler/SDK
+headers. Select a compatible developer toolchain, retain the setup log, and use
+Apple's [Command Line Tools guidance](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools).
+Studio does not change the system's global Xcode selection. Legacy
+`--link-existing`, `--link-rfd3` and `--materialise` options remain migration tools,
+not the normal installation path.
 
 ### Engine installation details
 
@@ -270,23 +260,17 @@ final checkpoint is exposed before its pinned digest passes. GUI installs write 
 distinguishes an absent component from an incomplete install or broken link, and
 reports a runtime-contract update where a component has a comprehensive receipt.
 
-The installer runs a checksum-pinned uv build and exact CPython patch versions
-from `$ROOT/toolchains`, never an ambient developer Python. Studio-managed
-engine environments use complete hash-locked package graphs. RFdiffusion3's
-upstream nested environment retains exact direct pins plus a pinned Foundry
-commit, but does not yet have a fully hashed transitive graph. New environments are built and health-
-checked under `$ROOT/components/<engine>/versions/`, then atomically switched into
-the familiar `$ROOT/venvs/` path; the prior environment is retained if a switch
-fails. Receipts under `$ROOT/receipts/` record Python, the complete resolved
-package graph, source revision plus validated patch state, artifacts and device
-policy. Protenix v2/Mini and Constraint keep isolated imports while referring to
-one verified chemical-data copy under `$ROOT/shared/protenix-common/`. Package
-installation uses uv's macOS copy-on-write clone mode and a Studio-owned cache;
-clearing that cache cannot invalidate an environment. Pinned source checkouts
-share a managed Git object store while retaining independent patched worktrees.
-The Engines screen's **Minimize duplicate assets** action migrates older
-Protenix installs only when the complete generated file set matches the pinned
-SHA-256 manifest; modified or unknown files are retained.
+Portable archives contain pinned Python, resolved dependencies, native libraries,
+validated upstream patches, notices and receipts. Setup verifies archive hashes,
+checks platform requirements and stages each version under
+`$ROOT/components/<engine>/versions/` before activation. Interrupted activation
+is recoverable, and previous versions are retained. Model files remain separate,
+verified downloads. The runtime catalog is shipped with the app; Studio never
+selects arbitrary newer dependency versions during installation.
+
+The explicit developer source-build route uses pinned toolchains and managed
+caches. See the runtime guide for package construction and qualification. Storage
+maintenance removes only verified duplicates; unknown or modified files remain.
 
 Before a GUI install starts, Studio shows the aggregate approximate installed
 footprint and requires that amount plus a 3 GB operating-system/temporary-file
@@ -829,9 +813,9 @@ Call `workflow_guide` with `workflow=nise`, then `system_detect`, before plannin
 The run profile exposes `nise_plan`; the read and admin profiles do not.
 
 ```bash
-python3 "$ROOT/mcp/studioctl.py" plan-nise request.json
-python3 "$ROOT/mcp/studioctl.py" start PLAN_ID PLAN_SHA256
-python3 "$ROOT/mcp/studioctl.py" job-status JOB_ID
+"$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/studioctl.py" plan-nise request.json
+"$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/studioctl.py" start PLAN_ID PLAN_SHA256
+"$ROOT/components/control/current/python/bin/python3" "$ROOT/mcp/studioctl.py" job-status JOB_ID
 ```
 
 `request.json` contains `project` and `request` (with at least `smiles`). Optional
@@ -867,7 +851,8 @@ not alter saved runs. See [framework budgets](NANOBODY_DESIGN.md#framework-budge
 Experimental PSICHIC screening uses `screening_engine: "psichic"` in a NISE
 request, retaining the existing `nesso_screen` / `phase0_nesso_screen` switches
 for saved-request compatibility. The default engine remains `"nesso"`. Optional
-Protein Hunter/RFdiffusion3 ligand-screening options use `engine: "psichic"`.
+native Protein Hunter/RFdiffusion3 ligand-screening payloads use `engine: "psichic"`;
+these controls are not yet exposed by their public MCP request schemas.
 PSICHIC requires its managed package and hashed model assets; it never silently
 falls back to NESSO or CPU ESM. Use the usual preflight/job-start path.
 

@@ -1,239 +1,102 @@
 # iProteinStudio
 
-A native macOS app for designing protein binders on Apple Silicon — with a
-guided setup, clean design forms, and a **live dashboard** showing metrics
-updating in real time and the 3D structure of every hit.
+A native macOS application for protein structure prediction and design on Apple
+Silicon. Choose a workflow, install its engines, and run it locally through guided
+forms, a shared job queue and an interactive structure/results browser.
 
-Built for people who want to design binders without touching a terminal.
+**[Download the app](https://github.com/t-j-fryer/iProteinStudio/releases)** ·
+**[Install](docs/INSTALL_UNSIGNED_BETA.md)** ·
+**[Documentation](docs/README.md)** · **[Updates](docs/UPDATES_AND_RELEASES.md)**
 
-![status](https://img.shields.io/badge/status-alpha-orange)
+## Install and update
 
-## What it does
+Download the Apple-silicon DMG from the newest **app** release (`v…-beta`), move
+**iProteinStudio** to Applications, and follow the [first-launch guide](docs/INSTALL_UNSIGNED_BETA.md).
+The separate `runtimes-…` release holds engine packages for Studio to download;
+users do not install those archives manually.
 
-**Protein Hunter** — paste a target sequence or SMILES, pick a validated
-nanobody scaffold or a de-novo binder size, choose your design engine, and watch
-iPTM climb per cycle. Designs that pass your hit threshold are re-folded with an
-independent model, because a design engine scoring its own designs is marking its
-own homework. Protein interfaces also report conservative `ipSAE(min)` whenever
-the selected predictor emits PAE (Boltz, IntelliFold, or Protenix). Choose multiple [design engines](docs/PROTEIN_HUNTER_ENGINES.md) to run the full trajectory budget with each.
+Current releases are trusted betas: ad-hoc signed, with Sparkle-signed update
+archives, but not Apple Developer ID signed or notarized. See [licensing status](LICENSING.md).
 
-**NISE** — search for small-molecule binding pockets with LASErMPNN and Boltz
-structure/affinity scoring. Independent trajectories expand and select sequences;
-an optional final apo/holo analysis compares pocket preorganisation. The
-fluorescein example, resumable checkpoints and experimental cross-cycle model
-reuse are described in [NISE](docs/NISE.md). Separate backbone/optimisation
-budgets, per-trajectory advancement and optional experimental NESSO sequence
-screening are available in the NISE tab. Initial backbones can use Protein Hunter
-X-token hallucination or experimental RFdiffusion3, with 100 starts by default. NESSO is an optional Engines download.
+- **App:** macOS 14 or later, Apple Silicon.
+- **Protenix v2/Mini packages:** macOS 26.0 or later.
+- **OpenFold3/RFdiffusion3 packages:** macOS 26.2 or later.
+- **Setup:** internet access and disk space for the engines and weights selected
+  in **Engines**. Released portable packages do not require Xcode, Command Line
+  Tools, Git, Homebrew or a separately installed Python.
 
-**RFdiffusion3** — generate binders de novo, locally explore an existing bound
-structure with partial diffusion, or scaffold explicit functional motif atoms
-into a new binder. Mode-specific worked p53–MDM2 examples make the two
-structure-guided workflows directly runnable. Motif campaigns retain the exact
-source-residue → designed-residue map, protect those residues through MPNN, and
-score recovery of the selected atoms after independent prediction. For small
-molecules, click ligand atoms to request burial, exposure or hydrogen bonding;
-the full pipeline runs backbones → LASErMPNN → Boltz-2 affinity/apo checks.
+The app contains its interface and pipeline adapters. Python runtimes and engine
+software download from versioned GitHub Releases; model weights download
+separately from their approved upstream hosts. Studio verifies checksums before
+activation and offers retry for incomplete components.
 
-**Predict** — fold sequences you already have, with no design involved. Paste
-them, or bring a FASTA or CSV; fold as monomers, all against one partner, or each
-with its own. Alignments are per chain, so a de-novo binder can be folded from its
-single sequence while its target gets a deep MSA — and every alignment this
-machine has ever made is reused rather than re-fetched. Multimers retain the
-directional and pairwise ipSAE values behind the displayed `ipSAE(min)` summary;
-OpenFold is left blank because its current detailed output is PDE rather than PAE. Optional [structure templates](docs/PREDICTION_TEMPLATES.md) guide selected protein chains with Boltz-2, IntelliFold or Protenix v2.
+After installing a distribution build, use **iProteinStudio → Check for Updates…**
+or enable automatic checks in **Settings → Updates**. Sparkle reads the update
+feed and downloads the signed app archive from GitHub Releases. Engines and model
+weights remain separate, explicitly selected downloads. See
+[how releases reach users](docs/UPDATES_AND_RELEASES.md).
 
-Across all protein inputs, a colon separates subunits: `SEQUENCE_A:SEQUENCE_B`.
-Studio immediately shows the detected chain map. Plain prediction assigns A, B,
-C… in input order. Design workflows reserve A for the new binder and assign the
-fixed target B, C, D…. External RFdiffusion3 PDB/mmCIF chains are read using
-their original names and copied into that backend-safe convention automatically.
+## Workflows
 
-**One-click setup** — installs pinned engine revisions and verified model weights
-under iProteinStudio's own managed root. A new user does not need NanoHunter or
-any developer-machine Python or model cache. Environments are hash-locked,
-staged and health-checked before an atomic version switch; interrupted model
-downloads resume, and optional large checkpoints can be installed or removed
-independently. Reusing an existing NanoHunter remains an explicit disk-saving
-option.
+| Workflow | Purpose |
+| --- | --- |
+| **Protein Hunter** | Iterative minibinder, nanobody and peptide design, with selectable prediction engines and independent verification. |
+| **NISE** | Ligand-focused sequence search with Boltz structural/affinity checks and optional experimental NESSO or PSICHIC screening. |
+| **RFdiffusion3** | Backbone generation, partial diffusion and motif scaffolding, followed by sequence design and prediction. |
+| **Predict** | Structure prediction from sequences, FASTA or CSV, with explicit per-chain alignment and optional template settings. |
+
+Colon-separated protein sequences define separate chains. Natural targets can
+use cached or requested MSAs; de-novo chains use explicit single-sequence inputs.
+Missing requested inputs cause an error rather than a silent change of method.
+Remote MSA requests send the relevant sequences to an external service; see
+[Privacy](PRIVACY.md).
 
 ## Engines
 
-| | |
-|---|---|
-| Structure prediction | Boltz-2 (± steering potentials), Protenix v2/Mini on native MPS, IntelliFold PyTorch/Metal, OpenFold-3/MLX |
-| Epitope-guided iterative proposals | Boltz-2 steering potentials; experimental Protenix Constraint v0.5 pocket guidance on native MPS |
-| Sequence design | AntiFold, AbMPNN, ProteinMPNN, SolubleMPNN, LigandMPNN, LASErMPNN |
-| Backbone generation | RFdiffusion3 on MLX |
+| Role | Available choices |
+| --- | --- |
+| Structure prediction | Boltz-2, IntelliFold Flash/full, Protenix v2/Mini, OpenFold3/MLX |
+| Experimental guided proposals | Protenix Constraint, separate from unconstrained validation |
+| Sequence design | ProteinMPNN, SolubleMPNN, LigandMPNN, AbMPNN, AntiFold, LASErMPNN |
+| Backbone generation | RFdiffusion3/MLX |
+| Experimental ligand screening | NESSO-1 and PSICHIC-XL |
 
-Boltz-2 is the default design engine: on the reference benchmark it is roughly
-3.4× cheaper per design than the slowest alternative and needs only one process.
-The others are offered with their real measured cost shown, so the trade is
-visible rather than guessed at.
+Engine settings and schedules follow the app's qualified profiles. Confidence
+scores remain engine-specific; they are not experimental evidence of binding.
+[Screening policies](docs/NESSO_SCREENING.md) explain the distinct NESSO and
+PSICHIC scores. [Runtime documentation](docs/PORTABLE_RUNTIME_IMPLEMENTATION.md)
+records package identities, compatibility, recovery and qualification limits.
 
-Protenix v2 is the accuracy-first option and Mini is a faster preview. They
-share one install and the same cached A3Ms, run only on the Apple GPU, and never
-fall back to CPU. Protenix can acquire a missing MSA through its own public
-server client; it does not require Boltz or local genetic databases.
+## Jobs and results
 
-**Protenix Constraint v0.5 is separate and experimental.** It is an optional,
-design-only checkpoint for proposing protein binders toward a selected epitope;
-it is not installed with Protenix v2/Mini and cannot be used as an independent
-structure checker. Setup gives it an isolated ESM-free environment, downloads
-and verifies the exact constraint checkpoint, and refuses CPU fallback. Its
-upstream 8 Å setting is a learned token-centre pocket prior—not a heavy-atom
-contact cutoff—and the first paired acceptance showed weak alternative-pocket
-steering. Final sequences should therefore be re-folded with an independent
-unconstrained model rather than treated as validated binders.
-Existing installs may show this component as needing an update after upgrading
-Studio: repair reapplies the pinned native-MPS source patches and reuses a valid
-1.48-GB checkpoint rather than downloading it again.
+All four workflows and MCP clients use the same managed execution queue.
+Submitted jobs continue when the app closes. Completed checkpoints remain on
+disk; supported **Resume** actions use the saved settings and retained runtime.
+Projects, alignments and results live under `~/.iproteinstudio`, outside the app.
 
-AlphaFold 3 and IntelliFold's JAX/Metal path are deliberately not offered. Both
-failed same-input Apple-GPU quality control while IntelliFold PyTorch produced a
-credible structure from the same alignment. Historical results remain readable;
-the evidence and retirement boundary are recorded in [Lab Book 0029](lab_book/0029-retire-untrusted-jax-metal-predictors.md).
+Results keep trajectories, cycles, backbones and sequence derivatives together.
+A saved hit belongs to its independently checked output. Cycle 00 is an initial
+structure, not an optimized design. See [Job queue](docs/JOB_QUEUE.md),
+[Results](docs/RESULTS.md) and [Storage](docs/OUTPUT_STORAGE.md).
 
-## Requirements
+## Development
 
-- macOS 14+ on Apple Silicon
-- Xcode Command Line Tools (`xcode-select --install`)
-- Internet access for first-run setup (downloads are several GB)
-
-Click a workspace's name, icon or row space to switch to it. Its saved workflow
-and settings open immediately; running jobs continue in Activity. Use the
-workspace's **…** menu to rename, reveal or archive it.
-
-If setup fails while building a package with a missing `cmath` header, see
-[setup troubleshooting](docs/CLI.md#apple-compiler-setup-errors). Setup checks
-Apple's compiler and SDK before starting downloads.
-
-## Unsigned beta installation
-
-Until a Developer ID-signed release is available, controlled second-Mac builds
-are distributed as an explicitly labelled unsigned beta DMG. macOS requires a
-one-time **Privacy & Security → Open Anyway** confirmation; after that, the app
-can receive update archives verified with the project's Sparkle EdDSA key. See
-[Install the unsigned beta](docs/INSTALL_UNSIGNED_BETA.md)
-before opening one.
-
-Every beta release includes SHA-256 checksums and build provenance. Model engines
-and checkpoints are not embedded in the DMG; the user reviews and confirms those
-separate downloads in the app.
-
-## Build & run
+Building Studio from source requires the macOS Swift toolchain and SDK; this is
+separate from running a downloaded app or installing portable engines.
 
 ```bash
 ./build_app.sh
-open "build/iProteinStudio.app"
+open build/iProteinStudio.app
 ```
 
-Or during development:
+Start with [Architecture](ARCHITECTURE.md), [Testing](docs/TESTING.md) and
+[CLI/MCP](docs/CLI.md). Scientific implementations originate upstream; Studio
+owns integration, reproducible requests, installation, job management and UI.
 
-```bash
-swift build && swift run
-```
+Current-machine qualification is recorded in the [Lab Book](LAB_BOOK.md).
+Fresh-Mac, other-chip and long-term acceptance remain distinct checks; their
+absence is not hidden by successful local tests. Historical experiments are
+retained as evidence, with dated research separated from current user guides.
 
-To work on it in Xcode, `open Package.swift`.
-
-## How it works
-
-Studio is a front end: the scientific implementations originate in NanoHunter
-and upstream engine repositories, and Studio ports their validated behaviour
-rather than reimplementing it. The app bundle contains the pipeline, the
-IntelliFold PyTorch/Metal, Protenix v2/Mini and Protenix Constraint MPS patches
-and dependency locks, RFdiffusion3's complete script overlay, worked examples,
-seven nanobody scaffolds, and their sequence-validated deep MSAs.
-Setup clones pinned upstream revisions and installs everything beneath the
-space-free managed root `~/.iproteinstudio/`; no sibling checkout is required.
-
-Runs are written to separate, durable directories. The global Activity panel and
-per-project history show completed, failed, active and interrupted work after a
-restart, with Reveal and checkpoint Resume where the recorded command supports
-it. RFdiffusion3 campaigns can run for days, so Studio also reattaches to their
-live PID after relaunch. Accepted RFdiffusion3 backbones and verification folds
-appear in a live structure browser as they are written, alongside score
-histograms, saved hit-filter verdicts and motif correspondence. Every workload
-is launched under `caffeinate` for its actual lifetime so a sleeping Mac does
-not strand a GPU campaign.
-
-Protein Hunter, NISE, RFdiffusion3 and Predict share one job queue across all
-workspaces. While work is active, use **Add to Queue** to save another run, or
-**New run** above the tabs to return to the form. The queue icon at the top right
-shows running and waiting jobs, with **Show run**, **Cancel** for waiting work,
-and **Stop** for active work. Submitted jobs continue when you change workspaces
-or close Studio. See [Job queue](docs/JOB_QUEUE.md) for scheduling and recovery.
-
-Large confidence arrays are retained losslessly as checksum-verified gzip files;
-selected structures, galleries and batch logs use references rather than duplicate
-copies. Exact MSAs and campaign policy snapshots share content-addressed APFS
-storage while every run remains independently resumable. See
-[Output storage and retention](docs/OUTPUT_STORAGE.md).
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the design, and
-**[LAB_BOOK.md](LAB_BOOK.md) for why things are the way they are** — every
-measurement, decision and dead end is recorded there.
-
-Distribution and support documents: [Privacy](PRIVACY.md),
-[Security](SECURITY.md), [Support](SUPPORT.md),
-[Licensing status](LICENSING.md), and
-[Third-party notices](THIRD_PARTY_NOTICES.md).
-
-## What a fresh install gets, and how updates reach people
-
-Everything needed to run is shipped **inside the app bundle** and written out on
-first launch:
-
-| Layer | What it is | Where it comes from |
-|---|---|---|
-| Pipeline | `nanohunter_run.sh` and its helper scripts | vendored from NanoHunter by `tools/sync_pipeline.sh` |
-| Studio helpers | prediction batching, ligand analysis, campaign preparation | written here |
-| Engine profiles | pinned Apple-MPS patches and dependency locks, including the isolated Protenix Constraint v0.5 profile | shipped in the app bundle and staged before setup |
-| RFdiffusion3 overlay | the whole RFD3 script layer — campaign orchestrators, ligand preparation, predictor adapters, length binning | vendored by `tools/sync_rfd3.sh` |
-
-The last one matters more than it sounds: **none of it is upstream**. A clean
-clone of the RFdiffusion3 MLX port contains zero of those scripts, so without the
-overlay a new user gets a checkout that cannot run anything. The installer
-applies it straight after cloning, before RFdiffusion3's own installer runs —
-which is necessary, because that installer calls scripts the overlay provides.
-
-The heavy parts — Python environments and model weights — are downloaded by
-`setup_pipeline.sh` on first run. Source revisions, critical package versions,
-checkpoint sizes and downloaded hashes are pinned; an incomplete or changed
-artifact fails setup. The optional Protenix Constraint component owns a separate
-environment, source checkout and model directory so its ESM-free checkpoint
-contract cannot contaminate Protenix v2/Mini. Existing NanoHunter/RFD3
-installations can be linked explicitly, then materialised into real local copies
-when a fully standalone root is wanted; all three constraint directories follow
-that reuse/materialisation path too.
-
-**Updates.** Version 0.2 introduces Sparkle-based application updates with clear
-release notes and user controls for automatic checking/downloading. The bundled
-scripts are re-staged after an app update, while environments and weights remain
-untouched. Engines and checkpoints are never automatic: Studio shows their
-purpose and approximate footprint and requires a final confirmation before any
-large download. Copies older than 0.2 require one manual upgrade to the first
-trusted beta or signed release. Trusted betas verify update archives with the
-project's Sparkle EdDSA key but remain ad-hoc signed and unnotarized by Apple.
-Public delivery remains blocked until a Developer ID certificate is installed
-and the first notarized cross-version update is accepted on a second Mac. See
-[Application and engine updates](docs/UPDATES_AND_RELEASES.md).
-
-## Working on this repo
-
-Read [CLAUDE.md](CLAUDE.md) first. Any AI agent working here is required to
-record what it did in the Lab Book, including what it did not test.
-
-## Status
-
-Alpha. Builds and runs. Complete protein RFdiffusion3 and nanobody routes have
-local Apple-GPU acceptance evidence, but the app is not signed or notarised; see
-the Known gaps list at the top of [LAB_BOOK.md](LAB_BOOK.md).
-
-## Contributing and validation
-
-Start with [Architecture](ARCHITECTURE.md) and [Testing](docs/TESTING.md). Run
-`python3 Tests/run.py` for the deterministic contracts; its report distinguishes
-executed checks from GUI, scientific and release acceptance.
-
-Optional small-molecule sequence screening in Protein Hunter and RFdiffusion3 is described in [NESSO screening](docs/NESSO_SCREENING.md).
+[Support](SUPPORT.md) · [Security](SECURITY.md) · [Licensing](LICENSING.md) ·
+[Third-party notices](THIRD_PARTY_NOTICES.md)

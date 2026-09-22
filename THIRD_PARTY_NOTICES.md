@@ -15,7 +15,8 @@ terms.
 
 The exact upstream `LICENSE` from the pinned Swift package checkout is copied to
 `Contents/Resources/ThirdPartyLicenses/Sparkle-LICENSE.txt` during every build.
-Unsigned betas explicitly disable Sparkle updates.
+Trusted distribution betas enable Sparkle with EdDSA-signed archives; local
+development builds disable updates.
 
 ## py2Dmol
 
@@ -71,11 +72,13 @@ remain in `Sources/iProteinStudio/Resources/pipeline/THIRD_PARTY_NOTICES.md`.
 
 The managed installer can retrieve pinned versions of Boltz, LigandMPNN,
 AntiFold, IntelliFold, Protenix, LASErMPNN, OpenFold-3 MLX, RFdiffusion3 MLX,
+NESSO and PSICHIC,
 their Python dependencies, model checkpoints and chemical reference data.
 Those payloads are stored outside the app in `~/.iproteinstudio`; they are not
-redistributed in the DMG or ZIP. The source URLs and immutable pins are defined
-in `Sources/iProteinStudio/Resources/pipeline/setup_pipeline.sh` and
-`Sources/iProteinStudio/Resources/rfd3_overlay/install_rfd3.sh`.
+redistributed in the DMG or ZIP. The shipped portable runtime catalog and model-asset manifests record immutable
+archive identities, upstream revisions and download checksums. Runtime packages
+retain their upstream licences and notices; model assets download separately.
+The explicit source-build route also retains its upstream pins in the installer.
 
 The ability to download an artifact does not grant additional rights to it.
 Users remain responsible for the upstream licence, model licence, acceptable-use

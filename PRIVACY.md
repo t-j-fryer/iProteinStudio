@@ -1,6 +1,6 @@
 # Privacy
 
-Last updated: 1 September 2026
+Last updated: 22 September 2026
 
 iProteinStudio is a local macOS application. It has no user account, advertising,
 analytics SDK or application telemetry. Protein structures, design campaigns,
@@ -24,8 +24,10 @@ the app does not remove projects, results or alignments.
 
 Network access is used only for user-visible functionality:
 
-- **Installation:** source code, packages, chemical reference data and selected
-  model checkpoints are downloaded from their documented upstream hosts.
+- **Installation:** portable engine archives download from GitHub Releases;
+  chemical reference data and selected model checkpoints download from approved
+  upstream hosts. Developer-only source builds additionally fetch upstream source
+  and package dependencies.
 - **MSA generation:** when the user requests a remote alignment and no valid
   cached alignment exists, the relevant protein sequence is sent to the
   selected ColabFold or Protenix-operated MSA service. Protein sequences may be

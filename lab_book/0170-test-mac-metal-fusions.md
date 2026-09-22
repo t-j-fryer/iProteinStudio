@@ -95,7 +95,7 @@ guidance, MPNN work or Protenix Mini change.
 ## Outputs and research
 - `Validation/output/apple_runtime_kernels_v3/REPORT.md`, `DECISIONS.md`,
   `OVERVIEW.svg`, `measurements.json`, `timings.csv`, `FINAL_AUDIT.json`.
-- `docs/APPLE_METAL_FUSION_TESTS.md`: primary Anthropic, PyTorch, Apple, MLX,
+- `docs/research/APPLE_METAL_FUSION_TESTS.md`: primary Anthropic, PyTorch, Apple, MLX,
   NESSO and RDKit sources; explains transfer to MPS and rejected approaches.
 
 ## Final padding confirmation and integration

@@ -1,6 +1,6 @@
 # Testing Studio
 
-Run from the canonical iProteinStudio checkout:
+Run from the canonical iProteinStudio checkout or an isolated development worktree:
 
 ```bash
 python3 Tests/run.py --list
@@ -63,7 +63,9 @@ controls. These fixture suites make no real-model efficacy claim.
 Fake-worker integration checks exercise native/MCP serialization, queued
 provenance rejection, cancellation of a resistant descendant, fixed iterative
 commands and saved RFdiffusion3 preparation. Temporary directories isolate these
-from installed engines and existing campaigns. Source-based UI contracts verify
+from installed engines and existing campaigns. Queue fixtures also verify that
+app-owned code updates preserve the frozen adapter while changed scientific
+inputs are rejected. Source-based UI contracts verify
 wiring only; they do not establish accessibility or usability.
 
 `Tests/test_desktop_jobs.py` also submits inert jobs through all four native
@@ -101,7 +103,8 @@ search with beam two and screening, checking first-cycle/later-cycle sampling
 and exact replay. These are fixture tests; they do not validate NESSO ranking
 accuracy or establish a throughput improvement.
 
-`test_apple_build_tools.py` executes the real C++ compile/link/run probe, missing
+These compiler checks cover the explicit developer source-build fallback, not
+portable end-user installation. `test_apple_build_tools.py` executes the real C++ compile/link/run probe, missing
 tool and compiler-failure fixtures, and recovery after tools become available.
 `test_apple_build_tools_ui.sh` runs the real native installer controller with a
 mock process boundary: it checks explicit Apple installer requests, failed
@@ -122,3 +125,10 @@ NANOHUNTER_ROOT="$HOME/.iproteinstudio" \
 Run `Tests/test_nise_rfd3.py` in that same environment for the real ligand-preparation
 handoff and conditioned/unconditioned resume fixtures. Model generation remains
 stubbed. These installed-engine checks are separate from the generic fast suite.
+
+The fast suite also executes portable archive installation/recovery, runtime and
+code binding preservation, shared adapter, PSICHIC scoring/replay and bounded GPU
+diagnostic fixtures. The normal-worker fixture asserts the diagnostic is never
+called. Current-guide local links are checked separately from historical
+ignored output artifacts. These tests use isolated directories and synthetic
+outputs; they do not qualify a fresh Mac or new model accuracy.

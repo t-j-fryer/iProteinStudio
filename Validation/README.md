@@ -1,28 +1,34 @@
-# iProteinStudio Validation
+# Validation
 
-This tree separates reproducible settings experiments from application code and
-from user projects. Experiment code, manifests, compact result tables, SVGs and
-captions are tracked. Large predictor outputs and caches are ignored.
+This tree records reproducible scientific, runtime and performance experiments.
+Read [AGENTS.md](AGENTS.md) before modifying an experiment. Use the
+[Validation Lab Book](LAB_BOOK.md) for the dated index and the
+[project Lab Book](../LAB_BOOK.md) for promotion decisions.
 
-The first campaign, `resident_design_v1`, is one controlled three-arm question:
-how much end-to-end time is saved by cycle waves and true cross-cycle residency
-relative to the current per-trajectory implementation? It runs six design
-engines with 12 trajectories, five design cycles, fixed 80-aa binders, one
-predictor seed/sample and an exact cached SUMO MSA. Helix suppression and
-experimental IntelliFold padding are excluded so they cannot confound speed.
+| Location | Contents |
+| --- | --- |
+| `experiments/` | Declared manifests, executable harnesses and compact qualification records |
+| `lab_book/` | Hardware, settings, measurements, failures and untested conditions |
+| `output/`, `cache/` | Ignored local raw outputs and caches; links there describe reproducible local artifacts, not files included in a GitHub clone |
 
-The resident worker is implemented but validation-gated. It is not exposed as
-an app default until the full output audit and lifecycle gates in
-`docs/RESIDENT_INFERENCE.md` pass.
+## Recent qualification
 
-Start with `python3 Validation/experiments/resident_design_v1/campaign.py plan`.
-The generated manifest records all commands before GPU time is spent.
+- [Portable runtimes](lab_book/0047-portable-runtime-qualification.md): package
+  relocation, scientific equivalence, installation and preservation contracts.
+- [GPU scratch recovery](lab_book/0048-mps-scratch-recovery.md): the local
+  filesystem incident, reversible repair and repeated Boltz/PSICHIC checks.
+- [Apple runtime profiles](lab_book/0041-crystal-msa-runtime.md): paired runtime
+  comparisons with stated structure/MSA policies and limits.
+- [Resident inference](../docs/RESIDENT_INFERENCE.md): terminology, measured
+  scheduling decisions and the original qualification boundaries.
 
-`boltz_mps_allocator_v1` is a smaller paired correctness/performance experiment:
-it runs the same short-protein fold in fresh processes with the build-8 FP32
-wrapper and the build-9 pre-batch MPS allocator reset, holding every scientific
-input constant.
+Earlier experiment folders are retained as immutable methodology/evidence.
+Their README files describe the campaign at that time; they are not the current
+installer or app defaults. Use the [current documentation](../docs/README.md)
+for those. No neural inference starts merely by opening or reading this tree.
 
-`runtime_consolidation_v1` statically compares every shipped dependency lock and
-creates disposable candidate environments under ignored Validation output. It
-never upgrades or writes into the installed `~/.iproteinstudio` runtime.
+A performance experiment keeps sequences, seeds, sample counts, diffusion steps,
+recycles and alignment inputs fixed. Every promoted setting needs an audited
+output comparison and lifecycle/memory checks, not just a faster elapsed time.
+New model runs go through Studio's immutable preflight/job broker and shared
+execution lease. Fresh-Mac and cross-chip acceptance must be recorded explicitly.

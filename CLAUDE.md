@@ -10,11 +10,11 @@ design tool suite**. It is a SwiftUI app. It contains almost no science of its o
 the science lives in sibling repositories, and this app's job is to make that science
 reachable, reproducible and hard to misuse for someone who has never opened a terminal.
 
-The sibling repos and what we take from each:
+The upstream projects and what Studio integrates:
 
 | Repo | What Studio uses it for |
 |---|---|
-| NanoHunter / iProteinHunter | The iterative design runner (`nanohunter_run.sh`), all four structure predictors, every MPNN/AntiFold designer, MSA handling, device calibration |
+| NanoHunter / iProteinHunter | The iterative design runner (`nanohunter_run.sh`), the structure predictors, every MPNN/AntiFold designer, MSA handling, device calibration |
 | RFD3 | RFdiffusion3 backbone generation on MLX, ligand conditioning, length-binned batching |
 
 Both are **vendored into this repo** — the NanoHunter pipeline by
@@ -94,9 +94,10 @@ results are worth as much as positive ones** — an entry saying "we tried X, it
   contention makes individual jobs look slow while total throughput improves.
 - **Memory.** Judge feasibility by macOS *physical footprint* and live available memory,
   never by RSS alone. Keep a reserve so the user's machine stays usable.
-- **Local vs. distributed installs.** On this machine, reuse the already-installed
-  NanoHunter and RFD3 rather than duplicating multi-GB environments. For anyone else,
-  the install path must work from a clean checkout. Both must be true at once.
+- **Installed runtimes.** Detect the managed installation rather than assuming a
+  developer checkout exists. Released profiles use verified portable packages;
+  legacy source installs remain an explicit compatibility path. Preserve versions
+  and model assets referenced by saved jobs.
 - **Weights are never committed or redistributed.** `models/` and weight files stay ignored.
 - **Build check.** `swift build` must pass before you commit. `./build_app.sh` produces
   the runnable app bundle.
@@ -123,8 +124,13 @@ keeps iterative cycles and RFdiffusion3 sequence derivatives attached to their
 design/complex/binder-alone structures and saved verdicts; do not flatten them
 into unrelated predictions or promote a parent from an unchecked artifact.
 
-## Scope note
+## Scope
 
-NISE (Neural Iterative Selection–Expansion) is deliberately **out of scope** for this
-app for now. It is still experimental and lives in NanoHunter. Do not wire it in
-without being asked.
+Ligand NISE is supported through its dedicated Studio tab and versioned upstream
+port; see [NISE](docs/NISE.md). Protein/cross-reactive NISE remains upstream.
+RFdiffusion3 against DNA/RNA is out of scope because its checkpoint is unavailable.
+
+Current installation and update behavior is documented in
+[portable runtimes](docs/PORTABLE_RUNTIME_IMPLEMENTATION.md) and
+[GitHub/Sparkle releases](docs/UPDATES_AND_RELEASES.md). Research proposals and Lab
+Book entries are dated evidence, not replacements for current runtime contracts.

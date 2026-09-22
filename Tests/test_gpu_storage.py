@@ -22,22 +22,13 @@ class GPUStorageTests(unittest.TestCase):
  def test_stalled_child_is_bounded_and_actionable(self):
   start=time.monotonic();r=check(.1,command=[sys.executable,'-c','import time; time.sleep(60)'])
   self.assertEqual(r['status'],'timeout');self.assertLess(time.monotonic()-start,3)
-  self.assertIn('resume',failure_message(r));self.assertIn('preserved',failure_message(r))
+  self.assertIn('retry',failure_message(r));self.assertIn('preserved',failure_message(r))
  def test_success_and_failure_child(self):
   ok=check(command=[sys.executable,'-c','print(\'{"status":"ok"}\')'])
   self.assertIsNone(failure_message(ok))
   r=check(command=[sys.executable,'-c','raise OSError("disk inaccessible")'])
   self.assertEqual(r['status'],'error');self.assertIn('disk inaccessible',r['detail'])
- def test_broker_records_failure_before_dispatch(self):
-  from iprotein_mcp import broker
-  from iprotein_mcp.common import StudioError
-  with tempfile.TemporaryDirectory() as d, patch.dict(os.environ,{'IPROTEINSTUDIO_AGENT_ROOT':d}):
-   with patch('iprotein_mcp.gpu_storage.check',return_value={'status':'timeout','probe_pid':123}):
-    with self.assertRaisesRegex(StudioError,'Restart your Mac'):
-     broker._gpu_storage_preflight('job-storage-test')
-   recorded=json.loads((Path(d)/'jobs/job-storage-test/gpu_storage.json').read_text())
-   self.assertEqual(recorded['status'],'timeout')
- def test_worker_blocks_dispatch_then_can_retry(self):
+ def test_normal_worker_never_probes_shared_storage(self):
   from iprotein_mcp import broker,common
   with tempfile.TemporaryDirectory() as d, patch.dict(os.environ,{'IPROTEINSTUDIO_AGENT_ROOT':d}):
    jid='job-storage-worker';path=broker.state_path(jid)
@@ -45,13 +36,15 @@ class GPUStorageTests(unittest.TestCase):
    common.atomic_json(path,{'id':jid,'pid':os.getpid(),'status':'running'})
    common.atomic_json(path.parent/'plan.json',plan)
    with patch.object(broker,'load_plan',return_value=plan), patch.object(broker.signal,'signal'), patch.object(broker,'_finish_manifest'), patch.object(broker,'_execute_prediction',return_value=0) as execute:
-    with patch('iprotein_mcp.gpu_storage.check',return_value={'status':'timeout'}):
-     self.assertEqual(broker.run_worker(jid),1)
-    execute.assert_not_called()
-    self.assertEqual(common.load_json(path)['status'],'failed')
-    with patch('iprotein_mcp.gpu_storage.check',return_value={'status':'ok'}):
+    with patch('iprotein_mcp.gpu_storage.check',side_effect=AssertionError('Normal jobs must not probe')) as check_mock:
      self.assertEqual(broker.run_worker(jid),0)
-    execute.assert_called_once()
-    self.assertEqual(common.load_json(path)['status'],'completed')
+    check_mock.assert_not_called();execute.assert_called_once()
+   self.assertFalse((path.parent/'gpu_storage.json').exists())
+ def test_explicit_diagnostic_reports_failure(self):
+  import contextlib,io
+  from iprotein_mcp.gpu_storage import main
+  with patch('iprotein_mcp.gpu_storage.check',return_value={'status':'timeout'}), contextlib.redirect_stdout(io.StringIO()) as output:
+   self.assertEqual(main(['--diagnose']),1)
+  self.assertEqual(json.loads(output.getvalue())['status'],'timeout')
 
 if __name__=='__main__':unittest.main()

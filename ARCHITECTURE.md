@@ -58,9 +58,10 @@ updates. Workers from before this lifecycle contract must be stopped with their
 originating client; the new bridge refuses to signal them using incompatible
 semantics.
 
-Iterative runs use their content-addressed pipeline snapshot. Prediction and
-RFdiffusion3 record script/input hashes and reject changes while queued or at
-resume. RFdiffusion3 also records prepared config/assets after successful
+Iterative runs use their content-addressed pipeline snapshot. New prediction and RFdiffusion3 plans retain adapter/bridge code, portable
+runtime identities and independent model-data copies before entering the queue.
+Resume verifies those retained files; changing the installed app does not silently
+replace a queued job's implementation. RFdiffusion3 also records prepared config/assets after successful
 preflight, verifies them and skips preparation on Retry. Completed work stays on
 disk. This does not make arbitrary external runtime modifications safe.
 
@@ -101,7 +102,11 @@ workspace-transfer.json                 present only during a transfer/recovery
 projects/<slug>/...                      original run paths
 archived-workspaces/<UUID>/...
 agent/{plans,jobs,execution.lock,registry.lock}
-agent/jobs/<job>/bridge/                  copied worker implementation
+agent/code/<digest>/                     retained adapters and bridge
+agent/runtime_views/<id>/                job-bound paths and model copies
+runtime_pins/                            references that prevent runtime removal
+components/<engine>/versions/            verified immutable package installations
+agent/jobs/<job>/bridge/                  retained worker implementation
 agent/jobs/<job>/{state.json,plan.json,pipeline.log,job.log}
 target_predictions/<key>/prediction-<UUID>/
 target_predictions/<key>/current-result.json
@@ -112,6 +117,15 @@ msa_cache/, scaffold_msa_cache/
 Target preparation and calibration also submit managed jobs. Target preparation
 uses a new attempt folder and only promotes a completed result. Old cache files
 are retained across a failed new attempt. Legacy target caches remain readable.
+
+Portable engine archives come from versioned GitHub Releases; the app's trusted
+catalog specifies hashes, mappings and OS minimums. Model weights are separate.
+The shared registry and adapters retain scientific defaults; installation journals
+cover activation/recovery/rollback. See [Portable runtimes](docs/PORTABLE_RUNTIME_IMPLEMENTATION.md).
+
+Sparkle updates the app from GitHub release assets through the appcast on `main`.
+Engine updates remain separately confirmed. Normal job startup performs no shared
+GPU temporary-folder probe; that support diagnostic is explicitly invoked only.
 
 ## Upstream refresh and validation
 

@@ -2,6 +2,18 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.3 — simpler startup and current distribution guides
+
+- Normal job startup no longer probes macOS's shared GPU temporary folder. The
+  bounded diagnostic is available only when explicitly requested for support.
+- Portable-install, runtime recovery, experimental screening and update guides
+  now describe the released behavior. Dated acceleration proposals are archived
+  separately from current instructions.
+- Fixed a Python import-scope error in native Predict submission.
+- Expanded regression coverage checks job dispatch without the probe, portable
+  runtime preservation, experimental PSICHIC and documentation links.
+- Engine packages, models and scientific settings are unchanged.
+
 ## 0.2.2 — GPU startup reliability
 
 - Managed GPU jobs check macOS temporary-storage access before starting models.

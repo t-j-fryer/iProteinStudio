@@ -1,4 +1,6 @@
-"""Bounded health check for Apple's shared MPSGraph temporary storage.
+"""Explicit support diagnostic for Apple's shared MPSGraph temporary storage.
+
+Normal job startup never imports or invokes this diagnostic.
 
 Never enumerate, rename or clear the shared directory. The child only creates
 and removes a uniquely named empty probe directory. Isolating filesystem calls
@@ -62,15 +64,25 @@ def failure_message(result: dict) -> str | None:
     if result["status"] in {"ok", "not_created", "not_applicable"}:
         return None
     return ("macOS GPU temporary storage is not responding or is inaccessible. "
-            "This job stopped before starting predictions. Restart your Mac, then resume the job. "
+            "Save other work, restart your Mac, then retry the affected job. "
             "Completed results are preserved. If this continues, share the job diagnostic with support; "
             "Studio has not cleared or changed shared GPU files.")
 
 
-if __name__ == "__main__":
-    if sys.argv[1:] != ["--probe"]:
-        raise SystemExit("Expected --probe")
+def main(arguments=None) -> int:
+    arguments = sys.argv[1:] if arguments is None else arguments
+    if arguments == ["--diagnose"]:
+        result = check()
+        print(json.dumps(result))
+        return 0 if failure_message(result) is None else 1
+    if arguments != ["--probe"]:
+        raise SystemExit("Use --diagnose for the bounded support diagnostic")
     temporary = subprocess.check_output(["/usr/bin/getconf", "DARWIN_USER_TEMP_DIR"], text=True, timeout=2).strip()
     if not temporary or not Path(temporary).is_absolute():
         raise RuntimeError("macOS did not return its user temporary directory")
     print(json.dumps(probe(Path(temporary)/"com.apple.MetalPerformanceShadersGraph")))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,7 +1,11 @@
 # Apple Silicon throughput research and validation plan
 
+> Historical research snapshot (September 2026). Statements about pending work
+> describe that date. For shipped behavior, use the [current runtime guide](../PORTABLE_RUNTIME_IMPLEMENTATION.md)
+> and [release guide](../UPDATES_AND_RELEASES.md).
+
 Research date: **19 September 2026**. The research snapshot below is followed by
-the initial isolated Boltz measurements in [Lab Book0168](../lab_book/0168-test-isolated-apple-runtimes.md).
+the initial isolated Boltz measurements in [Lab Book0168](../../lab_book/0168-test-isolated-apple-runtimes.md).
 **No production performance profile has been promoted.**
 
 The objective is more completed, numerically valid work per hour across M1–M5
@@ -24,8 +28,8 @@ reflect protein-design decisions, not require bitwise identity. Avoid assuming
 that agreement with the current baseline establishes accuracy.
 
 The declared first Boltz screen and execution record are in
-[experiment manifest](../Validation/experiments/apple_runtime_throughput_v1/manifest.json)
-and [Lab Book0168](../lab_book/0168-test-isolated-apple-runtimes.md).
+[experiment manifest](../../Validation/experiments/apple_runtime_throughput_v1/manifest.json)
+and [Lab Book0168](../../lab_book/0168-test-isolated-apple-runtimes.md).
 Its provisional margins are 0.5 A aligned C-alpha RMSD, 1.5 A displacement p95,
 0.02 normalized confidence change, 0.5 A PAE MAE and 2 A PAE-error p95, alongside
 hard identity/finite-output/cardinality/no-new-backbone-break gates. These are
@@ -60,10 +64,10 @@ bridge; its audit location was redirected into the repository because the
 default runtime audit location was outside writable roots. No job was started
 during that research phase; subsequent benchmark jobs are documented separately.
 
-The reproducible [inventory](../lab_book/artifacts/0166-apple-throughput-research/inventory.json)
+The reproducible inventory (local artifact: `lab_book/artifacts/0166-apple-throughput-research/inventory.json`)
 records 17 source-file hashes and bounded evidence excerpts, plus 39 installed
 package metadata records. It does not import models or read weights. Companion
-[inventory.py](../lab_book/artifacts/0166-apple-throughput-research/inventory.py)
+inventory.py (local artifact: `lab_book/artifacts/0166-apple-throughput-research/inventory.py`)
 can repeat the audit. Source observations establish candidate work, not which
 operator dominates runtime: actual dispatch and timing require profiling.
 
@@ -177,7 +181,7 @@ reproducer, not a demonstrated root fix. Later, compare mitigation retained
 versus removed only after allocator stress tests, especially on M1. Retain
 IntelliFold's index-selection workarounds until their replacements independently
 pass. [PyTorch issue 193487](https://github.com/pytorch/pytorch/issues/193487),
-[local M1 correction record](../lab_book/0061-finish-m1-predictor-correctness.md).
+[local M1 correction record](../../lab_book/0061-finish-m1-predictor-correctness.md).
 
 Native SVD deserves a separate Boltz microbenchmark using actual small alignment
 matrix shapes. Test singular/near-degenerate cases, rotation handedness and
@@ -190,7 +194,7 @@ Keep existing predictor residency and test changes against that baseline.
 Earlier work already selected different schedules for full Protenix and Mini;
 do not assume a permanent worker always wins. New Torch/OS versions may change
 that result. Repeat on actual campaigns as well as fixed-input replay.
-[Existing resident architecture and measured evidence](RESIDENT_INFERENCE.md).
+[Existing resident architecture and measured evidence](../RESIDENT_INFERENCE.md).
 
 For NESSO, source shows `AutoModelForMaskedLM(..., output_hidden_states=True)`
 while only the final embedding is consumed. Investigate avoiding the unused

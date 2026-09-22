@@ -30,7 +30,7 @@ class DesktopJobTests(unittest.TestCase):
         self.script.write_text('''import argparse, json, os, pathlib, signal, subprocess, sys, time
 p=argparse.ArgumentParser(); p.add_argument('--config'); a=p.parse_args()
 c=json.loads(pathlib.Path(a.config).read_text()); out=pathlib.Path(c['output']); out.mkdir(parents=True,exist_ok=True)
-r=pathlib.Path(os.environ['NANOHUNTER_ROOT'])
+r=pathlib.Path(FIXTURE_ROOT)
 if c.get('descendant'):
  child=subprocess.Popen([sys.executable,'-c','import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(30)'])
  (out/'child.pid').write_text(str(child.pid))
@@ -43,7 +43,7 @@ else:
  (r/'active').rmdir()
  (out/'run_summary.json').write_text('{}')
 print('PBSTAGE|done|100|Finished',flush=True)
-''')
+'''.replace('FIXTURE_ROOT', repr(str(self.root))))
         self.jobs = []
 
     def tearDown(self):
@@ -96,7 +96,9 @@ print('PBSTAGE|done|100|Finished',flush=True)
         for plan, expected in [(mcp, imported), (native, source)]:
             paths = {item["path"] for item in plan["provenance"]}
             self.assertIn(str(expected), paths)
-            self.assertIn(str(helper), paths)
+            frozen_helper = Path(plan["code_snapshot"]["path"]) / "scripts/prediction_templates.py"
+            self.assertIn(str(frozen_helper), paths)
+            self.assertEqual(frozen_helper.read_bytes(), helper.read_bytes())
         request["predictors"] = ["protenix-mini"]
         with self.assertRaisesRegex(common.StudioError, "supports"):
             plans.prediction_plan({"project": "demo", "request": request})
@@ -143,14 +145,14 @@ print('PBSTAGE|done|100|Finished',flush=True)
             runner.write_text('''#!/usr/bin/python3
 import os, pathlib, sys, time
 a=sys.argv; out=pathlib.Path(a[a.index('--out-root')+1])/a[a.index('--run-name')+1]
-root=pathlib.Path(os.environ['NANOHUNTER_ROOT'])
+root=pathlib.Path(FIXTURE_ROOT)
 try: (root/'active').mkdir()
 except FileExistsError: (root/'overlap').touch()
 (out/'started').touch()
 while not (out/'release').exists(): time.sleep(.05)
 (out/'summary_all_runs.csv').write_text('fixture,value\\n1,1\\n')
 (root/'active').rmdir()
-''')
+'''.replace('FIXTURE_ROOT', repr(str(self.root))))
             runner.chmod(0o755)
             template = output / 'input.yaml'; template.write_text('inert queue fixture')
             common.atomic_json(output / 'studio_run.json', {
@@ -269,15 +271,15 @@ while not (out/'release').exists(): time.sleep(.05)
         with patch.object(broker, '_spawn', side_effect=spawn):
             self.assertEqual(broker.resume_job(identifier)['status'], 'queued')
 
-    def test_code_change_while_queued_fails_before_execution(self):
+    def test_code_update_while_queued_preserves_original_execution(self):
         with (common.agent_root() / "execution.lock").open("a+") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             job, output = self.native()
-            self.script.write_text(self.script.read_text() + "\n# changed after planning\n")
+            self.script.write_text("raise AssertionError('New adapter must not replace queued code')\n")
         result = self.wait(job["id"])
-        self.assertEqual(result["status"], "failed")
-        self.assertIn("changed after preflight", result["message"])
-        self.assertFalse((output / "started").exists())
+        self.assertEqual(result["status"], "completed", result)
+        self.assertTrue((output / "started").exists())
+        self.assertTrue((output / "run_summary.json").exists())
 
     def test_queued_input_edit_fails_before_execution(self):
         with (common.agent_root() / "execution.lock").open("a+") as lock:
