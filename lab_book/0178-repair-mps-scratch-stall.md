@@ -42,3 +42,7 @@ This demonstrates recovery after replacing the affected directory, not the origi
 ## Distribution
 
 Patch release0.2.2 build45/MCP23 carries the startup guard and support guidance. Scientific runtime archives are unchanged. Publication receipt will be recorded after the app bundle, GitHub asset digests and Sparkle feed are verified.
+
+Publication verified: [0.2.2 build45](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.2-beta), source `0d9404c`, update feed `0cb2c36`. All4 GitHub asset SHA-256 digests/sizes match the local build; live appcast and EdDSA signature verify. The exact app is installed in `build/iProteinStudio.app`, build44 retained under `build/previous-apps`. Managed MCP23 and bundled pipeline source match in324 resource comparisons. Relaunch loads the new app. Receipt: `Validation/output/mps_scratch_recovery_v1/RELEASE_VERIFICATION.json`. Final storage probe passed in0.025seconds, with238 observed entries, backup inode preserved and no active jobs. No repeat stall occurred in this bounded qualification.
+
+Automatic approval initially rejected the combined publication command over default-branch/scope concerns. Read-only verification established that main was unprotected and unchanged at the commit parent; the exact scoped commit and ordinary non-force fast-forward were then approved. No branch protections were bypassed.
