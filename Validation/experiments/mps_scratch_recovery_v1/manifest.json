@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "purpose": "Diagnose and repair MPSGraph filesystem stalls without changing scientific settings",
+  "hardware": "Apple M4 Max, 64 GB, macOS 26.6.1",
+  "paired_control": "Previously qualified Boltz torch2.14 interpreter versus published portable interpreter using the same frozen adapter and request",
+  "fixture": "Ubiquitin76, empty MSA, seed42, 3 recycles, 200 diffusion steps, potentials enabled",
+  "timeout_seconds": 120,
+  "post_repair": "Repeat full Boltz inference across fresh processes and within a resident process; repeat PSICHIC64 reference checks",
+  "gates": {"finite": true, "ca_rmsd_max": 0.5, "confidence_mae_max": 0.02, "psichic_score_absolute_max": 0.001},
+  "repair": "Only if reproduced: preserve shared temporary folder by atomic rename under Studio execution lease, create empty same-permission replacement; never delete contents",
+  "not_tested": ["fresh Mac", "other Apple chips", "long-term multi-day recurrence"]
+}

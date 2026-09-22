@@ -41,3 +41,5 @@
 - [0041 — Crystal/MSA runtime qualification](lab_book/0041-crystal-msa-runtime.md): complete; build42 deployed to app, GitHub and MCP.
 
 - [0047 — Portable runtime qualification](lab_book/0047-portable-runtime-qualification.md)
+
+- [0048 — MPSGraph scratch recovery](lab_book/0048-mps-scratch-recovery.md)

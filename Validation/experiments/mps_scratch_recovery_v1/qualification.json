@@ -1,0 +1,284 @@
+{
+  "boltz": {
+    "passed": true,
+    "count": 12,
+    "all_cifs_byte_identical": true,
+    "rows": [
+      {
+        "arm": "previous-0",
+        "unit": 0,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "previous-0",
+        "unit": 1,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "previous-0",
+        "unit": 2,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "previous-1",
+        "unit": 0,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "previous-1",
+        "unit": 1,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "previous-1",
+        "unit": 2,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "published-0",
+        "unit": 0,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "published-0",
+        "unit": 1,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "published-0",
+        "unit": 2,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "published-1",
+        "unit": 0,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "published-1",
+        "unit": 1,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      },
+      {
+        "arm": "published-1",
+        "unit": 2,
+        "name": "ubiquitin",
+        "warmup": false,
+        "passed": true,
+        "failures": [],
+        "metrics": {
+          "ca_rmsd": 4.240096750726714e-15,
+          "ca_displacement_p95": 7.266377445762114e-15,
+          "baseline_breaks": 0,
+          "candidate_breaks": 0,
+          "pae_mae": 0.0,
+          "pae_p95": 0.0,
+          "pde_mae": 0.0,
+          "pde_p95": 0.0,
+          "delta_complex_plddt": 0.0,
+          "delta_ptm": 0.0
+        }
+      }
+    ]
+  },
+  "psichic_first": {
+    "completed_resume_without_inference": true,
+    "count": 64,
+    "max_absolute_errors": {
+      "predicted_agonist": 6.337463855743408e-05,
+      "predicted_antagonist": 0.0003612041473388672,
+      "predicted_binding_affinity": 0.0003814548522953487,
+      "predicted_nonbinder": 0.00039693713188171387
+    },
+    "passed": true
+  },
+  "scope": "Current M4 Max / macOS26.6.1 only; no controlled throughput claim",
+  "psichic_second": {
+    "completed_resume_without_inference": true,
+    "count": 64,
+    "max_absolute_errors": {
+      "predicted_agonist": 6.337463855743408e-05,
+      "predicted_antagonist": 0.0003612041473388672,
+      "predicted_binding_affinity": 0.0003814548522953487,
+      "predicted_nonbinder": 0.00039693713188171387
+    },
+    "passed": true
+  },
+  "installed_public_prediction": {
+    "job": "job-cc3c4f3ce390",
+    "completed": true,
+    "predictions": 1,
+    "failures": 0,
+    "gpu_storage_check": "ok"
+  },
+  "installed_psichic": {
+    "job": "job-6483113da27a",
+    "completed": true,
+    "gpu_storage_check": "ok"
+  }
+}

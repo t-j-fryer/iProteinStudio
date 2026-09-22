@@ -434,3 +434,5 @@ forgotten one.
 - [0171 — Qualify and deploy Apple runtimes](lab_book/0171-qualify-and-deploy-apple-runtime.md): complete; build42 deployed to app, GitHub and MCP.
 
 - [0177 — Experimental PSICHIC and portable engine distribution](lab_book/0177-integrate-psichic-portable-runtimes.md)
+
+- [0178 — Repair MPSGraph scratch stalls](lab_book/0178-repair-mps-scratch-stall.md)

@@ -551,6 +551,15 @@ def _execute_admin(job_id: str, plan: Dict[str, Any]) -> int:
     return _run_logged(job_id, command, root, stable_environment())
 
 
+def _gpu_storage_preflight(job_id: str) -> None:
+    from .gpu_storage import check, failure_message
+    result = check()
+    atomic_json(state_path(job_id).parent / "gpu_storage.json", result)
+    message = failure_message(result)
+    if message:
+        raise StudioError(message)
+
+
 def run_worker(job_id: str) -> int:
     global _CANCEL_REQUESTED, _EXECUTION_FD, _RUNTIME_BINDINGS, _CODE_SNAPSHOT, _PREPARED_RUNTIME_VIEW
     _CANCEL_REQUESTED = False
@@ -590,6 +599,9 @@ def run_worker(job_id: str) -> int:
             verify_runtime_bindings(_RUNTIME_BINDINGS)
             _update(job_id, status="running", started_at=utc_now(), stage="starting", message="Acquired the shared iProteinStudio execution lock.")
             kind = plan["kind"]
+            if plan.get("resource_class") == "apple_gpu_exclusive":
+                _update(job_id, stage="gpu-storage-check", message="Checking macOS GPU temporary storage.")
+                _gpu_storage_preflight(job_id)
             if kind.startswith("desktop_"):
                 code = _execute_desktop(job_id, plan)
             elif kind in {"prediction", "target_prepare"}:

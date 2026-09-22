@@ -84,4 +84,6 @@ fi
 codesign --verify --deep --strict "${APP}" \
   || fail "packaged app signature is invalid"
 
+[[ -f "${BUNDLE}/pipeline/mcp/iprotein_mcp/gpu_storage.py" ]] || fail "Missing bounded GPU storage check"
+
 echo "PASS packaged SwiftPM resource bundle contract"

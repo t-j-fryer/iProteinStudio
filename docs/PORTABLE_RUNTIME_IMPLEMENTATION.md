@@ -29,3 +29,9 @@ Fresh-Mac/no-developer-tools acceptance testing is explicitly deferred. This Mac
 ## Extending the system
 
 Add a registry descriptor and validated adapter; freeze its code, dependencies and model contracts; qualify relocation and scientific outputs; publish a new immutable runtime identity; then update the app's trusted catalog. Never overwrite an archive or delete a version retained by a job. New model or hardware-specific acceleration profiles receive distinct identities. Exposing a new capability still requires explicit native UI and versioned request-schema changes.
+
+## GPU temporary-storage health
+
+Before a managed GPU job launches, the bridge checks Apple's per-user MPSGraph temporary directory in a separate, bounded subprocess. It only creates/removes its own empty probe directory. It never lists, clears or renames shared contents. A filesystem stall or inaccessible directory produces a durable diagnostic and a recoverable job error within approximately six seconds instead of starting a model that may hang. Restarting macOS and resuming the job is the first user-facing recovery instruction; persistent cases need support investigation. This check detects filesystem access problems, not every possible GPU/driver hang.
+
+The repair investigated in Lab Book0178 is a separately authorized, one-time contents-preserving operation. It is not an automatic installer or prediction action. No model settings or numerical precision are changed.

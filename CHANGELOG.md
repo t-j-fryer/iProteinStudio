@@ -2,6 +2,14 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.2 — GPU startup reliability
+
+- Managed GPU jobs check macOS temporary-storage access before starting models.
+  If the filesystem is unresponsive, Studio stops with a recoverable message
+  and preserves completed results instead of leaving the prediction hanging.
+- The check is bounded and never clears or resets shared GPU files. Model
+  settings, runtime packages and numerical precision are unchanged.
+
 ## 0.2.1 — portable engines and experimental PSICHIC
 
 - Engines install from versioned, checksum-verified GitHub runtime archives.
