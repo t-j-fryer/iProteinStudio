@@ -4,7 +4,7 @@ title: Simplify GPU startup and refresh distribution documentation
 date: 2026-09-22
 author: Codex
 type: implementation
-status: in-progress
+status: complete
 machine: Apple M4 Max, macOS 26.6.1
 tags: [runtime, distribution, documentation, updates]
 ---
@@ -55,8 +55,25 @@ The current-guide check verified **118 local targets across 28 guides**.
 Initial failures and their corrections are described above; full logs are kept
 locally under `build/release-verification-0179/`.
 
-Release publication and signature/asset verification follow this source commit;
-the final receipt will be recorded before closing the entry.
+Published [v0.2.3-beta](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.3-beta),
+build 46 from source `3b44fcc`; feed commit `62b2802`. Downloaded all four public
+assets and matched their bytes, SHA-256 and GitHub asset digests to the local
+release. Verified the downloaded ZIP's Sparkle EdDSA signature and live appcast
+build/version/URL/length. The previous build 45 retains the same bundle ID,
+HTTPS feed and public key, so it is eligible to discover build 46.
+
+Installed that exact downloaded ZIP into the local build location after checking
+its code signature, preserving the previous app. Staged app-owned resources with
+a dated backup under the shared execution lock; no active/queued managed jobs
+were present. All **324** source-to-app/managed pipeline file comparisons passed.
+Managed `studioctl.py doctor` reports **ok, bridge 24** using control Python
+3.11.13; installed-component detection ended `NHDONE|ok`. Existing model/runtime
+archives remain unchanged. Relaunch is needed for already-running app/client
+processes to load updated code.
+
+Full verification receipt: local `build/release-verification-0179/RELEASE_VERIFICATION.json`.
+The source sync retains unrelated canonical working files and merges user-only
+Lab Book entries rather than discarding them.
 
 ## Decision and rationale
 
