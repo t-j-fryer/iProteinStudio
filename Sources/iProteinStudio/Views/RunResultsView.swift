@@ -657,7 +657,7 @@ private struct MetricTile: View {
              .motifInsertionRMSD, .motifPredictionRMSD, .motifMaximumDrift: return .orange
         case .pocketFractionWithinCutoff: return .indigo
         case .bindingProbability: return .purple
-        case .nessoBindingProbability, .nessoAffinity, .nessoPlacementEntropy, .nessoInterfaceEntropy, .nessoScreeningScore: return .indigo
+        case .psichicBindingProxy, .psichicAffinity, .psichicNonbinder, .psichicAntagonist, .psichicAgonist, .nessoBindingProbability, .nessoAffinity, .nessoPlacementEntropy, .nessoInterfaceEntropy, .nessoScreeningScore: return .indigo
         case .backboneCAValidity: return .cyan
         case .rankingScore: return .secondary
         }

@@ -606,14 +606,8 @@ class ProtenixSession:
 
 
 def make_session(config: dict[str, Any]) -> Any:
-    engine = config["engine"]
-    if engine == "boltz":
-        return BoltzSession(config)
-    if engine == "intellifold":
-        return IntelliFoldSession(config)
-    if engine in {"protenix-v2", "protenix-mini", "protenix-constraint-v0.5"}:
-        return ProtenixSession(config)
-    die(f"unsupported resident engine {engine}")
+    from engine_registry import make_session as registered_session
+    return registered_session(config, {"BoltzSession": BoltzSession, "IntelliFoldSession": IntelliFoldSession, "ProtenixSession": ProtenixSession})
 
 
 def allocated_mps_bytes(torch_module: Any) -> int | None:

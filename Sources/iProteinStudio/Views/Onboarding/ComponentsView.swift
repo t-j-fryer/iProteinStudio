@@ -351,11 +351,17 @@ struct EngineInstallReview: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            ForEach(plan.components.filter { !$0.canInstallRuntime }) { component in
+                Text("\(component.label): \(component.runtimeRequirement) Update macOS to install this engine.")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+
             HStack {
                 Button("Cancel", role: .cancel, action: onCancel)
                     .keyboardShortcut(.cancelAction)
                 Spacer()
                 Button("Install now", action: onConfirm)
+                    .disabled(plan.components.contains { !$0.canInstallRuntime })
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
             }

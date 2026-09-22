@@ -25,12 +25,12 @@ DEFAULTS = dict(search_policy_version=3, early_score_gate=0.80, selective_affini
                 max_cycles=30, patience=4, binder_min_len=65, binder_max_len=150,
                 seed=0, preorganisation=False, top_x=8, scheduler="cycle-wave",
                 phase0_refine_cycles=2, phase0_seqs1=3, phase0_seqs2=5, beam=3,
-                nesso_screen=False, nesso_top_k=16, phase0_nesso_screen=False,
+                screening_engine="nesso", nesso_screen=False, nesso_top_k=16, phase0_nesso_screen=False,
                 phase0_nesso_refine_top_k=1, phase0_nesso_expand_top_k=20, phase0_gate_seqs=3,
                 phase0_sc_ca=2.0, nise_sc_ca=2.5, nise_sc_lig=2.5, nise_ligand_sc_from_cycle=3, backbone_method="protein-hunter", rfd3_num_bins=5,
-                hotspot_atoms=[], exposed_atoms=[], hotspot_distance=6.0, exposure_min_fraction=0.5,
+                exposure_mode="sasa", geometry_workers=0, hotspot_atoms=[], exposed_atoms=[], hotspot_distance=6.0, exposure_min_fraction=0.5,
                 ligand_atom_signature="", ligand_atoms_generated_for="")
-BOUNDS = dict(search_policy_version=(1, 3), first_cycle_seqs=(1, 4096), noise_predictions=(1, 1024), noise_mpnn_seqs=(1, 4096), noise_advance=(1, 63), initial_proposals=(1, 4096), affinity_batch_size=(1, 128), num_starts=(1, 10000), trajectories=(1, 1000), nise_seqs=(1, 4096),
+BOUNDS = dict(geometry_workers=(0, 64), search_policy_version=(1, 3), first_cycle_seqs=(1, 4096), noise_predictions=(1, 1024), noise_mpnn_seqs=(1, 4096), noise_advance=(1, 63), initial_proposals=(1, 4096), affinity_batch_size=(1, 128), num_starts=(1, 10000), trajectories=(1, 1000), nise_seqs=(1, 4096),
               max_cycles=(1, 1000), patience=(1, 1000), binder_min_len=(60, 250),
               binder_max_len=(60, 250), seed=(0, 2147483647), top_x=(1, 64),
               phase0_refine_cycles=(0, 20), phase0_seqs1=(1, 1024), phase0_seqs2=(1, 1024),
@@ -51,6 +51,10 @@ def normalize(request):
     cfg["phase0_gate_seqs"] = request.get("phase0_gate_seqs", cfg["phase0_seqs1"])
     if cfg["backbone_method"] not in ("protein-hunter", "rfdiffusion3"):
         raise ValueError("Choose Protein Hunter or RFdiffusion3 for initial backbone generation.")
+    if cfg["exposure_mode"] not in ("sasa", "biotin-carboxamide-v1"):
+        raise ValueError("Unknown ligand exposure policy.")
+    if cfg["exposure_mode"] != "sasa" and not cfg["selective_affinity"]:
+        raise ValueError("Biotin exit filtering requires geometry-before-affinity scoring.")
     for key, (low, high) in BOUNDS.items():
         value = cfg[key]
         if type(value) is not int or not low <= value <= high:
@@ -98,6 +102,10 @@ def normalize(request):
         raise ValueError("Initial NESSO refinement shortlist cannot exceed sequences sampled per lineage.")
     if cfg["phase0_nesso_screen"] and cfg["phase0_nesso_expand_top_k"] < cfg["trajectories"]:
         raise ValueError("Initial NESSO expansion shortlist must allow at least the requested number of trajectories.")
+    if cfg["screening_engine"] not in ("nesso", "psichic"):
+        raise ValueError("Unknown experimental screening engine.")
+    if cfg["screening_engine"] == "psichic" and (cfg["nesso_screen"] or cfg["phase0_nesso_screen"]) and cfg["binder_max_len"] > 700:
+        raise ValueError("Experimental PSICHIC supports sequences up to 700 residues.")
     if type(cfg["nesso_screen"]) is not bool:
         raise ValueError("nesso_screen must be true or false.")
     if cfg["nesso_screen"] and not cfg["beam"] <= cfg["nesso_top_k"] <= cfg["nise_seqs"]:
@@ -115,6 +123,14 @@ def normalize(request):
     return cfg
 
 
+def scoring_contract(request):
+    if request.get("screening_engine", "nesso") == "nesso":
+        return nesso_contract()
+    spec = importlib.util.spec_from_file_location("studio_psichic_contract", Path(__file__).with_name("psichic_contract.py"))
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
+
+
 def required_files(root, request=None):
     root = Path(root)
     files = [root / p for p in (
@@ -123,7 +139,7 @@ def required_files(root, request=None):
         "src/LASErMPNN/model_weights/laser_weights_0p1A_nothing_heldout.pt",
         "scripts/lasermpnn_prepare_input.py")]
     if request and (request.get("nesso_screen") or request.get("phase0_nesso_screen")):
-        files += nesso_contract().installation_files(root)
+        files += scoring_contract(request).installation_files(root)
     if request and request.get("backbone_method") == "rfdiffusion3":
         files += [root / p for p in (
             "rfd3/.venv/bin/python", "rfd3/weights/rfd3_core.safetensors",
@@ -142,8 +158,15 @@ def preflight(root, request):
         missing.append("Boltz molecular dictionary (models/boltz2/mols)")
     if missing:
         raise ValueError("Install Boltz, its affinity checkpoint, LASErMPNN, and any selected optional engines in Engines. Missing: " + ", ".join(missing))
+    if cfg["exposure_mode"] == "biotin-carboxamide-v1":
+        import subprocess, json
+        result = subprocess.run([str(Path(root) / "venvs/NanoHunter_boltz/bin/python"),
+                                 str(Path(__file__).with_name("biotin_exit.py"))],
+                                input=json.dumps(cfg), text=True, capture_output=True, timeout=90)
+        if result.returncode:
+            raise ValueError("Biotin exit preflight failed: " + result.stderr[-2000:])
     if cfg["nesso_screen"] or cfg["phase0_nesso_screen"]:
-        nesso_contract().validate_installation(root)
+        scoring_contract(cfg).validate_installation(root)
     return cfg
 
 

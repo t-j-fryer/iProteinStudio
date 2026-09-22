@@ -141,6 +141,9 @@ if [[ "${MODE}" == "--unsigned-beta" || "${MODE}" == "--publish-unsigned-beta" ]
     || echo "Do not publish this dirty-local-test build. Rebuild from a committed clean tree first."
 
   if [[ "${MODE}" == "--publish-unsigned-beta" ]]; then
+    if gh release view "${UNSIGNED_TAG}" >/dev/null 2>&1; then
+      fail "${UNSIGNED_TAG} is already published. Increment VERSION and BUILD_NUMBER; published archives must not be replaced."
+    fi
     [[ "${SOURCE_STATE}" == "clean" ]] \
       || fail "A dirty local-test beta cannot be published."
     command -v gh >/dev/null || fail "GitHub CLI is required for --publish-unsigned-beta."
@@ -161,7 +164,7 @@ if [[ "${MODE}" == "--unsigned-beta" || "${MODE}" == "--publish-unsigned-beta" ]
       git add appcast.xml
       git commit -m "Publish iProteinStudio ${VERSION} trusted beta update feed"
     fi
-    git push origin main
+    git push origin HEAD:main
     echo "Published ${UNSIGNED_TAG}; trusted-beta appcast is live on main."
   fi
   exit 0
@@ -261,5 +264,5 @@ if ! git diff --quiet -- appcast.xml; then
   git add appcast.xml
   git commit -m "Publish iProteinStudio ${VERSION} update feed"
 fi
-git push origin main
+git push origin HEAD:main
 echo "Published ${TAG}; signed appcast is live on main."

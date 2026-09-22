@@ -195,7 +195,8 @@ enum NISEResultsLoader {
                 return
             }
             let file = directory.appendingPathComponent("selection.json")
-            if directory.lastPathComponent == "nesso" {
+            if ["nesso", "psichic"].contains(directory.lastPathComponent) {
+                let engine = directory.lastPathComponent
                 let receipt = object(file)
                 let input = receipt?["input"] as? [String: Any] ?? [:]
                 let selected = (receipt?["result"] as? [String]).map(Set.init)
@@ -216,11 +217,12 @@ enum NISEResultsLoader {
                 for (name, raw) in savedScores {
                     guard let sequence = sequences[name] else { continue }
                     var values = raw
+                    values["engine"] = engine
                     // Display the recorded assessment; never recompute old policies.
                     if let score = assessments[name]?["score"] { values["screening_score"] = score }
                     screeningScores[name] = (sequence, values)
                     snapshot.screening.append(NISEScreeningRecord(name: name, phase: phase, cycle: cycle,
-                        sequence: sequence, metrics: metrics(["nesso": values]), selected: selected.map { $0.contains(name) },
+                        sequence: sequence, metrics: metrics([engine: values]), selected: selected.map { $0.contains(name) },
                         rejection: assessments[name]?["rejection_reason"] as? String, receipt: receipts[name] ?? file))
                 }
                 stages[key]?.screened += max(savedScores.count, selected == nil ? 0 : sequences.count)
@@ -285,7 +287,7 @@ enum NISEResultsLoader {
                 invalidRecords += 1; continue
             }
             if row["nesso"] == nil, let screening = screeningScores[name], row["sequence"] as? String == screening.sequence {
-                row["nesso"] = screening.values
+                row[screening.values["engine"] as? String ?? "nesso"] = screening.values
             }
             let tid = row["trajectory"] as? Int ?? trajectory(name)
             let phase = provenance[name]?.0 ?? (tid == nil ? .preparation : .optimisation)
@@ -309,6 +311,10 @@ enum NISEResultsLoader {
             }
             if selection[name] == true { label = "Selected for the next cycle" }
             else if selection[name] == false, eligible == true { label += " · not selected for next cycle" }
+            let atomChecks = row["atom_checks"] as? [String: Any] ?? initialAtoms[name] as? [String: Any]
+            if let exit = atomChecks?["linker_exit"] as? [String: Any], let exitLabel = exit["label"] as? String {
+                label += " · linker exit: " + exitLabel
+            }
             let branch = row["branch"] as? String ?? "mpnn"
             let branchLabel = isInitial ? (row["generator"] as? String ?? "Protein Hunter start") :
                 (branch == "masked-backbone" ? "Masked backbone · intermediate" : (branch == "partial-noising-repair" ? "Partial-noising redesign" : "MPNN"))
@@ -320,7 +326,7 @@ enum NISEResultsLoader {
                 subtitle: "\(stages[key]!.title) · \(branchLabel) · \(label)", structureURL: structure,
                 sequence: row["sequence"] as? String, metrics: metrics, confidenceURL: rowFiles[name],
                 stage: isInitial ? .startingStructure : .design,
-                scoreSource: row["generator"] as? String ?? (row["nesso"] == nil ? "Boltz 2" : "Boltz 2 · NESSO prescreen"),
+                scoreSource: row["generator"] as? String ?? (row["psichic"] != nil ? "Boltz 2 · PSICHIC prescreen (experimental)" : (row["nesso"] == nil ? "Boltz 2" : "Boltz 2 · NESSO prescreen")),
                 failedFilters: ((row["atom_checks"] as? [String: Any] ?? initialAtoms[name] as? [String: Any])?["failures"] as? [String]) ?? [],
                 groupID: groupID, groupTitle: groupTitle, variantID: "cycle-\(cycle)-\(name)",
                 variantTitle: "Cycle \(cycle) · \(name)", artifactRole: isInitial ? .startingStructure : .designedComplex)
@@ -360,6 +366,11 @@ enum NISEResultsLoader {
             ("score", .rankingScore), ("ca_rmsd", .binderBackboneRMSD), ("ligand_rmsd", .ligandRMSD), ("complex_plddt", .plddt), ("iptm", .iptm)]
         var values = mappings.compactMap { key, kind -> StudioResultMetric? in
             guard let value = row[key] as? Double, value.isFinite else { return nil }; return .init(kind: kind, value: value)
+        }
+        if let psichic = row["psichic"] as? [String: Any] {
+            for (key, kind) in [("binding_probability_proxy", StudioResultMetric.Kind.psichicBindingProxy), ("predicted_binding_affinity", .psichicAffinity), ("predicted_nonbinder", .psichicNonbinder), ("predicted_antagonist", .psichicAntagonist), ("predicted_agonist", .psichicAgonist)] {
+                if let value = psichic[key] as? Double, value.isFinite { values.append(.init(kind: kind, value: value)) }
+            }
         }
         if let nesso = row["nesso"] as? [String: Any] {
             for (key, kind) in [("affinity_probability_binary", StudioResultMetric.Kind.nessoBindingProbability), ("affinity_pred_value", .nessoAffinity), ("entropy_pl", .nessoPlacementEntropy), ("entropy_crop_pl", .nessoInterfaceEntropy), ("screening_score", .nessoScreeningScore)] {

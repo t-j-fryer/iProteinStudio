@@ -45,6 +45,11 @@ def generate(backend, smiles, directory):
                 ligand_conformers=1, atom_signature=manifest['signature'],
                 hotspot_atoms=cfg.get('hotspot_atoms', []), exposed_atoms=cfg.get('exposed_atoms', []),
                 resume_protocol='audited-batches-v1')
+    if cfg.get('exposure_mode') == 'biotin-carboxamide-v1':
+        from biotin_exit import roles
+        terminal = roles(manifest)
+        spec['exposure_mode'] = cfg['exposure_mode']
+        spec['exposed_atoms'] = [n for n in spec['exposed_atoms'] if n not in (terminal['oxygen'], terminal['leaving'])]
     spec_path = directory / 'generation.json'
     if spec_path.exists() and json.loads(spec_path.read_text()) != spec:
         raise RuntimeError('Saved RFdiffusion3 generation settings changed')

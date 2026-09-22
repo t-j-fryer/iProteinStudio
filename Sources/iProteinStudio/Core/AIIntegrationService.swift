@@ -246,7 +246,7 @@ final class AIIntegrationService: ObservableObject {
             let process = Process()
             let standardOutput = Pipe()
             let standardError = Pipe()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+            process.executableURL = ControlPython.executable(root: AppPaths.support)
             process.arguments = [script.path] + arguments
             var environment = ProcessInfo.processInfo.environment
             environment["NANOHUNTER_ROOT"] = AppPaths.support.path

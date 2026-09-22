@@ -304,8 +304,36 @@
           "type": "boolean",
           "default": false,
           "description": "Experimental ligand-local X-mask branch from cycle 2; replaces noise_advance ordinary sampling parents and advancement places. Default: two ordinary parents plus one repaired winner, three total places. Requires Boltz for masked predictions."
+        },
+        "exposure_mode": {
+          "enum": [
+            "sasa",
+            "biotin-carboxamide-v1"
+          ],
+          "default": "sasa",
+          "description": "Biotin protocol accepts open/restricted exits, rejects unresolved/blocked; no rotation rescue. Replaces terminal acid oxygen SASA only."
+        },
+        "geometry_workers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64,
+          "default": 0,
+          "description": "0 selects bounded automatic CPU parallelism; explicit requests are clamped to memory and core limits."
+        },
+        "screening_engine": {
+          "type": "string",
+          "enum": [
+            "nesso",
+            "psichic"
+          ],
+          "default": "nesso",
+          "description": "Experimental sequence shortlist engine. PSICHIC ranks 1\u2212nonbinder; Boltz still performs structural verification and final selection."
         }
       }
+    },
+    "restart_from": {
+      "type": "string",
+      "description": "Optional source NISE directory name in this project. Import audited matching cycle00 Protein Hunter structures into a new immutable campaign; recalculate all geometry and advancement."
     }
   }
 }

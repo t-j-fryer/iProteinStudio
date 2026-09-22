@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "purpose": "Portable runtime relocation and production experimental PSICHIC adapter qualification",
+  "hardware": "current M4 Max only",
+  "fresh_mac": "deferred by user",
+  "psichic": {
+    "esm_device": "mps",
+    "esm_batch": 8,
+    "graph_device": "cpu",
+    "graph_batch": 16,
+    "threads": 4,
+    "implicit_fallback": false,
+    "seed": 17,
+    "reference": "qualified CPU replay cases",
+    "max_absolute_score_error": 0.001
+  },
+  "publication": "User authorized GitHub trusted-beta publication; no weights",
+  "relocation_test": {
+    "fixture": "ubiquitin76 for fixed prediction; benign bundled backbones for sequence tools; unconditional RFD3 76 residues",
+    "paired": "unchanged installed runtime vs relocated same-version closure",
+    "settings": "same seeds, full production diffusion steps/recycles, no change in precision or guidance",
+    "gates": {
+      "finite": true,
+      "same_output_cardinality": true,
+      "ca_rmsd_max": 0.5,
+      "confidence_mae_max": 0.02,
+      "score_abs_max": 0.001
+    },
+    "fresh_mac": "deferred by user",
+    "host": "M4 Max, macOS26.6.1"
+  }
+}

@@ -9,3 +9,9 @@ runner_sha256:   61b5ec5a7e2726e1d3db22e3a69e786a5a525002a23800aa3bb0cdce859c0b4
 
 studio_runtime_profile: torch214-boltz-intellifold-20260919
 studio_runtime_validation: lab_book/0171-qualify-and-deploy-apple-runtime.md
+
+studio_experimental_screening: psichic-xl-binding-proxy-v1
+studio_runtime_packaging: standalone-cpython-inventory-v2
+studio_runtime_packaging_validation: lab_book/0177-integrate-psichic-portable-runtimes.md
+studio_runtime_release: runtimes-2026.09.20-1
+studio_job_preservation: runtime-and-adapter-snapshot-v1

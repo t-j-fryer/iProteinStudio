@@ -64,6 +64,7 @@ final class PipelineInstaller: ObservableObject {
     private var cancelRequested = false
 
     init() {
+        optionalSelection = Set(optionalSelection.filter { $0.canInstallRuntime })
         detectExistingCheckouts()
         repairRelocatedVenvsIfNeeded()
         refreshSafeCacheSize()
@@ -148,6 +149,12 @@ final class PipelineInstaller: ObservableObject {
             currentMessage = "The managed runtime is busy."
             return
         }
+        let pins = AppPaths.support.appendingPathComponent("runtime_pins/" + component.rawValue)
+        if let references = try? AppPaths.fm.contentsOfDirectory(atPath: pins.path), !references.isEmpty {
+            failure = "Saved jobs retain this runtime for reproducibility. It cannot be removed while their runtime references exist."
+            currentMessage = "Runtime retained for saved jobs."
+            return
+        }
         guard !engineAppearsBusy(component) else {
             failure = "\(component.label) appears to be in use. Stop its active prediction or design run before uninstalling it."
             currentMessage = "Could not remove an engine that is running."
@@ -211,6 +218,8 @@ final class PipelineInstaller: ObservableObject {
         case .antifold:
             relative = ["venvs/NanoHunter_antifold", "src/AntiFold",
                         "components/antifold", "receipts/antifold.json"]
+        case .psichic:
+            relative = ["components/psichic", "models/psichic"]
         case .nesso:
             relative = ["components/nesso"]
         case .lasermpnn:
@@ -315,6 +324,12 @@ final class PipelineInstaller: ObservableObject {
     func install() {
         var requested = expandedSelection(optionalSelection)
         requested.insert(.mpnn)
+        let incompatible = requested.filter { !$0.canInstallRuntime }
+        guard incompatible.isEmpty else {
+            failure = incompatible.sorted { $0.rawValue < $1.rawValue }
+                .map { "\($0.label): \($0.runtimeRequirement)" }.joined(separator: "\n")
+            return
+        }
         let requiredBytes = requested
             .filter { !isUsable($0) }
             .reduce(Int64(0)) { total, component in
@@ -326,6 +341,10 @@ final class PipelineInstaller: ObservableObject {
             if let flag = component.installFlag { extra.append(flag) }
         }
         if !requested.contains(.abmpnn) { extra.append("--without-abmpnn") }
+        let pending = requested.filter { !isUsable($0) }
+        if pending == Set([InstallComponent.psichic]) {
+            extra += ["--retry-components", "psichic"]
+        }
         launch(extraArguments: extra, startMessage: "Preparing…")
     }
 

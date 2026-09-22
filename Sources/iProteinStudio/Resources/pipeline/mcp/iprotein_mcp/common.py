@@ -245,6 +245,8 @@ def stable_environment(overrides: Optional[Dict[str, str]] = None) -> Dict[str, 
             "NUMBA_CACHE_DIR": str(root / "numba_cache"),
             "INTELLIFOLD_CACHE": str(root / "models" / "intellifold"),
             "PYTORCH_ENABLE_MPS_FALLBACK": "0",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONNOUSERSITE": "1",
             "PATH": os.pathsep.join(
                 [str(Path.home() / ".local" / "bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
             ),

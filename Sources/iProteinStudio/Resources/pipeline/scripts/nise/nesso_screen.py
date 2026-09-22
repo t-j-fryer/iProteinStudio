@@ -49,6 +49,9 @@ class NessoClient(ResidentClient):
 
 
 def screen(backend, sequences, smiles, directory, *, owners=None, per_lineage=None, total=None, allow_empty=False):
+    if backend.settings.get('screening_engine', 'nesso') == 'psichic':
+        from psichic_screen import screen as psichic_screen
+        return psichic_screen(backend, sequences, smiles, directory, owners=owners, per_lineage=per_lineage, total=total, allow_empty=allow_empty)
     directory = Path(directory)
     scores = {}
     try:

@@ -27,6 +27,14 @@ struct NISERequestContractHarness {
         precondition(request.num_starts == 1000 && request.backbone_method == "protein-hunter")
         precondition(request.nise_seqs == 32 && request.first_cycle_seqs == 64 && !request.partial_noising)
         precondition(request.firstCyclePredictionBudget == 8 * 64 && request.cyclePredictionBudget == 8 * 96)
+        request.exposure_mode = "biotin-carboxamide-v1"
+        request.geometry_workers = 4
+        let exitRoundTrip = try JSONDecoder().decode(NISERequest.self, from: JSONEncoder().encode(request))
+        precondition(exitRoundTrip.exposure_mode == request.exposure_mode && exitRoundTrip.geometry_workers == 4)
+        request.selective_affinity = false
+        precondition(!request.validationIssues.isEmpty)
+        request.selective_affinity = true
+        request.exposure_mode = "sasa"
         request.partial_noising = true
         precondition(request.validationIssues.isEmpty && request.normalParentCount == 2 && request.cyclePredictionBudget == 8 * 128)
         request.nesso_screen = true

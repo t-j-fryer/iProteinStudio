@@ -42,10 +42,19 @@ def measure(path, settings, manifest):
             raise ValueError('Solvent accessibility calculation returned invalid areas.')
         return dict(zip(indices, values))
 
+    exit_result = None
+    exposed = settings.get('exposed_atoms', [])
+    if settings.get('exposure_mode', 'sasa') == 'biotin-carboxamide-v1':
+        from biotin_exit import roles, case_from_structure, classify
+        terminal = roles(manifest)
+        # The exit test replaces only the terminal acid oxygen SASA requirements.
+        # Additional exposed atoms continue to use their explicitly requested SASA.
+        exposed = [n for n in exposed if n not in (terminal['oxygen'], terminal['leaving'])]
+        exit_result = classify(case_from_structure(path, manifest))
     exposure = {}
-    if settings.get('exposed_atoms'):
+    if exposed:
         complex_sasa, free_sasa = sasa(range(len(atoms))), sasa(ligand)
-        for name in settings['exposed_atoms']:
+        for name in exposed:
             index = by_name[name]
             free, bound = free_sasa[index], complex_sasa[index]
             # An internally inaccessible ligand atom cannot satisfy an exposure request.
@@ -56,5 +65,7 @@ def measure(path, settings, manifest):
                 for name, distance in contacts.items() if distance > settings['hotspot_distance']]
     failures += [f'{name}: retains less than {settings["exposure_min_fraction"]:.0%} of unbound accessibility'
                  for name, row in exposure.items() if row['retained_fraction'] < settings['exposure_min_fraction']]
-    return dict(passed=not failures, failures=failures, hotspot_distance_a=contacts, exposure=exposure,
+    if exit_result is not None and not exit_result['passed']:
+        failures.append('Biotin linker exit: ' + exit_result['label'])
+    return dict(linker_exit=exit_result, passed=not failures, failures=failures, hotspot_distance_a=contacts, exposure=exposure,
                 protocol='rdkit-freesasa-shrake-rupley-heavy-v1', probe_radius_a=1.4)

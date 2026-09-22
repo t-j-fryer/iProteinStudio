@@ -34,6 +34,7 @@ struct NISERequest: Codable, Hashable {
     var phase0_seqs1 = 3
     var phase0_seqs2 = 5
     var beam = 3
+    var screening_engine = "nesso"
     var nesso_screen = false
     var nesso_top_k = 16
     var phase0_nesso_screen = false
@@ -48,6 +49,8 @@ struct NISERequest: Codable, Hashable {
     var exposed_atoms: [String] = []
     var hotspot_distance = 6.0
     var exposure_min_fraction = 0.5
+    var exposure_mode = "sasa"
+    var geometry_workers = 0
     var ligand_atom_signature = ""
     var ligand_atoms_generated_for = ""
 
@@ -59,10 +62,10 @@ struct NISERequest: Codable, Hashable {
         case first_cycle_seqs, partial_noising, noise_radius, noise_percent, noise_predictions, noise_mpnn_seqs, noise_advance
         case smiles, num_starts, trajectories, nise_seqs, max_cycles, patience
         case binder_min_len, binder_max_len, seed, preorganisation, top_x, scheduler
-        case phase0_refine_cycles, phase0_seqs1, phase0_seqs2, beam, nesso_screen, nesso_top_k
+        case screening_engine, phase0_refine_cycles, phase0_seqs1, phase0_seqs2, beam, nesso_screen, nesso_top_k
         case phase0_nesso_screen, phase0_nesso_refine_top_k, phase0_nesso_expand_top_k, phase0_gate_seqs, phase0_sc_ca, nise_sc_ca, nise_sc_lig, nise_ligand_sc_from_cycle
         case backbone_method, rfd3_num_bins
-        case hotspot_atoms, exposed_atoms, hotspot_distance, exposure_min_fraction
+        case hotspot_atoms, exposed_atoms, hotspot_distance, exposure_min_fraction, exposure_mode, geometry_workers
         case ligand_atom_signature, ligand_atoms_generated_for
     }
 
@@ -80,6 +83,8 @@ struct NISERequest: Codable, Hashable {
         initial_proposals = try c.decodeIfPresent(Int.self, forKey: .initial_proposals) ?? initial_proposals
         affinity_batch_size = try c.decodeIfPresent(Int.self, forKey: .affinity_batch_size) ?? affinity_batch_size
         min_improvement = try c.decodeIfPresent(Double.self, forKey: .min_improvement) ?? min_improvement
+        exposure_mode = try c.decodeIfPresent(String.self, forKey: .exposure_mode) ?? "sasa"
+        geometry_workers = try c.decodeIfPresent(Int.self, forKey: .geometry_workers) ?? 0
         hotspot_atoms = try c.decodeIfPresent([String].self, forKey: .hotspot_atoms) ?? hotspot_atoms
         exposed_atoms = try c.decodeIfPresent([String].self, forKey: .exposed_atoms) ?? exposed_atoms
         hotspot_distance = try c.decodeIfPresent(Double.self, forKey: .hotspot_distance) ?? hotspot_distance
@@ -111,6 +116,7 @@ struct NISERequest: Codable, Hashable {
         phase0_seqs1 = try c.decodeIfPresent(Int.self, forKey: .phase0_seqs1) ?? phase0_seqs1
         phase0_seqs2 = try c.decodeIfPresent(Int.self, forKey: .phase0_seqs2) ?? phase0_seqs2
         beam = try c.decodeIfPresent(Int.self, forKey: .beam) ?? beam
+        screening_engine = try c.decodeIfPresent(String.self, forKey: .screening_engine) ?? "nesso"
         nesso_screen = try c.decodeIfPresent(Bool.self, forKey: .nesso_screen) ?? nesso_screen
         nesso_top_k = try c.decodeIfPresent(Int.self, forKey: .nesso_top_k) ?? nesso_top_k
         phase0_nesso_screen = try c.decodeIfPresent(Bool.self, forKey: .phase0_nesso_screen) ?? phase0_nesso_screen
@@ -123,6 +129,7 @@ struct NISERequest: Codable, Hashable {
         nise_ligand_sc_from_cycle = try c.decodeIfPresent(Int.self, forKey: .nise_ligand_sc_from_cycle) ?? nise_ligand_sc_from_cycle
     }
 
+    var screeningLabel: String { screening_engine == "psichic" ? "PSICHIC" : "NESSO" }
     var usesNesso: Bool { nesso_screen || phase0_nesso_screen }
 
     var hasAtomSelections: Bool { !hotspot_atoms.isEmpty || !exposed_atoms.isEmpty }
@@ -156,6 +163,12 @@ struct NISERequest: Codable, Hashable {
 
     var validationIssues: [String] {
         var issues: [String] = []
+        if !["sasa", "biotin-carboxamide-v1"].contains(exposure_mode) || !(0...64).contains(geometry_workers) {
+            issues.append("Choose a supported exposure policy and 0–64 geometry workers (0 means automatic).")
+        }
+        if exposure_mode == "biotin-carboxamide-v1" && !selective_affinity {
+            issues.append("Biotin exit filtering requires geometry-before-affinity scoring.")
+        }
         if !(1...3).contains(search_policy_version) || !early_score_gate.isFinite || !(0...2).contains(early_score_gate)
             || !min_improvement.isFinite || !(0...1).contains(min_improvement)
             || !(1...128).contains(affinity_batch_size) || !(1...4096).contains(initial_proposals) {
@@ -228,6 +241,8 @@ struct NISERequest: Codable, Hashable {
         if !(1...64).contains(beam) || beam > nise_seqs {
             issues.append("Advance 1–64 sequences per trajectory, no more than you sample per parent.")
         }
+        if !["nesso", "psichic"].contains(screening_engine) { issues.append("Choose a supported experimental screening engine.") }
+        if usesNesso && screening_engine == "psichic" && binder_max_len > 700 { issues.append("Experimental PSICHIC supports sequences up to 700 residues.") }
         if !(1...4096).contains(nesso_top_k) || (nesso_screen && (nesso_top_k < beam || nesso_top_k > nise_seqs)) {
             issues.append("The NESSO shortlist must be between the number to advance and the number sampled per parent.")
         }

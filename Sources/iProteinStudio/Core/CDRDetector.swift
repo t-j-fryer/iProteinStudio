@@ -31,7 +31,7 @@ enum CDRDetector {
 
     private static func pythonExecutable() -> URL? {
         let candidates = [
-            "/usr/bin/python3",
+            ControlPython.executable(root: AppPaths.support).path,
             AppPaths.support.appendingPathComponent("venvs/NanoHunter_boltz/bin/python3").path,
             "/opt/homebrew/bin/python3",
             "/usr/local/bin/python3",

@@ -73,7 +73,7 @@ class PredictorSafetyTests(unittest.TestCase):
         launchers = {
             "plain prediction": RESOURCES / "rfd3/predict_batch.py",
             "RFD3 target prep": RESOURCES / "rfd3/rfd3_protein_campaign.py",
-            "RFD3 predictor": RESOURCES / "rfd3_overlay/scripts/run_predictors.py",
+            "shared RFD3 predictor adapter": SCRIPTS / "engine_adapters.py",
             "RFD3 affinity": RESOURCES / "rfd3_overlay/scripts/studio_runtime.py",
             "iterative design": RESOURCES / "pipeline/nanohunter_run.sh",
             "resident design": SCRIPTS / "resident_predictor.py",

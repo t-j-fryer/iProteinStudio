@@ -92,6 +92,16 @@ struct NISEAtomTargetingView: View {
                     Text(atoms.displaySmiles).font(.caption.monospaced()).textSelection(.enabled)
                 }
             }
+            Picker("Linker accessibility check", selection: $request.exposure_mode) {
+                Text("Selected atom accessibility (SASA)").tag("sasa")
+                Text("Biotin amide linker exit").tag("biotin-carboxamide-v1")
+            }
+            if request.exposure_mode == "biotin-carboxamide-v1" {
+                Text("For free biotin: accept open or restricted exits; reject unresolved or blocked exits. Rechecked after each fold before affinity scoring. Terminal acid oxygen SASA is replaced; other selected atom requirements remain. No rotation rescue. Molecular identity is verified before starting.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("CPU geometry workers: automatic, with memory and core limits. Predictions retain their existing GPU scheduling.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             if !request.hotspot_atoms.isEmpty {
                 HStack {
                     Text("Maximum hotspot contact distance")
@@ -111,8 +121,11 @@ struct NISEAtomTargetingView: View {
             Text("RFdiffusion3 also receives hotspot and exposure conditioning. Protein Hunter uses hotspots during initial pocket formation; Boltz has no exposure restraint. All later selection remains unrestrained and checks the requested contacts/exposure. Without explicit hotspots, automatic contacts exclude exposed atoms.")
                 .font(.caption).foregroundStyle(.secondary)
         }
+        .onChange(of: request.exposure_mode) { _, mode in
+            if mode == "biotin-carboxamide-v1" { request.selective_affinity = true }
+        }
         .onChange(of: request.smiles) { _, _ in
-            request.clearAtomSelections(); atoms.reset(); verified = false; depictionError = nil
+            request.clearAtomSelections(); request.exposure_mode = "sasa"; atoms.reset(); verified = false; depictionError = nil
         }
     }
 }

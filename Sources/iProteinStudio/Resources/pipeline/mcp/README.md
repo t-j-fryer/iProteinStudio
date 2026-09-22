@@ -210,3 +210,10 @@ combined score. Both initial and optimisation shortlists use it. Reports retain
 invalid-placement rejections and historical probability-only score provenance.
 
 Native Protein Hunter and RFdiffusion3 ligand campaigns can opt into a broker-owned NESSO shortlist and chosen structural verifier. Protein Hunter screens completed optimized cycles; RFdiffusion3 screens MPNN derivatives before folding. These options are not yet part of the public iterative/RFdiffusion MCP schemas. The results catalog includes `nesso_verification/nesso_screening.csv`.
+
+MCP v21 adds `screening_engine: "psichic"` to ligand NISE. It is experimental,
+ranks 1−nonbinder and preserves all four upstream outputs. Existing screening
+switches/budgets and the default NESSO behavior remain compatible. PSICHIC CSV
+results are exposed through the catalog. Plans bind installed portable package
+identities; workers retain package and model references for recovery. Legacy
+unmigrated environments are not represented as fully portable runtimes.

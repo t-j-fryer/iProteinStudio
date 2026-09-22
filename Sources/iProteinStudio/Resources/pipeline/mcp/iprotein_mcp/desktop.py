@@ -195,6 +195,7 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
         # All model bytes remain in the managed installation; plans fingerprint
         # them and the executed engine code without copying or shipping weights.
         inputs = [config] + continuation_assets + contract.required_files(root, normalized_request)
+        inputs += sorted(p for p in (snapshot / "scripts").rglob("*.json") if p.is_file())
         inputs += sorted(p for p in (snapshot / "scripts/nise/nesso_assets").glob("*") if p.is_file())
         inputs += sorted((root / "src/LASErMPNN").rglob("*.py"))
         inputs += sorted((root / "venvs/NanoHunter_boltz/lib").glob("python*/site-packages/boltz/**/*.py"))
@@ -208,6 +209,16 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
                               str(root / "venvs/NanoHunter_boltz/bin/python"),
                               str(snapshot / "scripts/nise/campaign.py"), "--config", str(config), "--resume"],
                   "cwd": str(snapshot), "stage": "nise"}]
+        if (output / "initial_restart.json").is_file():
+            import importlib.util, sys
+            sys.path.insert(0, str(snapshot / "scripts/nise"))
+            try:
+                spec = importlib.util.spec_from_file_location("studio_nise_restart", snapshot / "scripts/nise/restart_initial.py")
+                restart = importlib.util.module_from_spec(spec); spec.loader.exec_module(restart)
+                inputs += restart.validate_import(output)
+            finally:
+                sys.path.remove(str(snapshot / "scripts/nise"))
+            steps[0]["command"].append("--stage-batches")
         context = {"pipeline_snapshot": str(snapshot), "request": normalized_request,
                    "prediction_budget": contract.prediction_budget(normalized_request)}
         if workflow == "nise_continuation":
@@ -273,7 +284,7 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
                 if msa and msa.lower() not in {"auto", "empty"}:
                     inputs.append(Path(msa))
         scripts = [root / "rfd3_scripts/predict_batch.py"] + sorted((root / "rfd3_scripts").rglob("*.py"))
-        steps = [{"command": ["/usr/bin/caffeinate", "-dimsu", "/usr/bin/python3",
+        steps = [{"command": ["/usr/bin/caffeinate", "-dimsu", sys.executable,
                               str(root / "rfd3_scripts/predict_batch.py"), "--config", str(config)],
                   "cwd": str(root), "stage": "prediction"}]
     elif workflow == "rfdiffusion3":

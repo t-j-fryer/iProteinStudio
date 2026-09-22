@@ -1,0 +1,31 @@
+{
+  "upstream_commit": "cc445aa28d044c6212023705208b1a7704a00622",
+  "torch": "2.11.0",
+  "assets": {
+    "config.json": {
+      "sha256": "c4a917766b2c742def6c2c548c7f51140e1d2eee2e2d0ebf1855f1d5780662a6",
+      "size": 1049,
+      "url": "https://raw.githubusercontent.com/huankoh/PSICHIC/cc445aa28d044c6212023705208b1a7704a00622/trained_weights/multitask_PSICHIC/config.json"
+    },
+    "degree.pt": {
+      "sha256": "decf55cc8c8e8600b0d492e84e79d4e5088e830a06c0736c4c69c38926f9c6de",
+      "size": 2403,
+      "url": "https://raw.githubusercontent.com/huankoh/PSICHIC/cc445aa28d044c6212023705208b1a7704a00622/trained_weights/multitask_PSICHIC/degree.pt"
+    },
+    "model.pt": {
+      "sha256": "e36336b94baadd817cbe7ec54e0ff8e3e9a43675b1cdb6a6162896856dfd1c23",
+      "size": 23977503,
+      "url": "https://raw.githubusercontent.com/huankoh/PSICHIC/cc445aa28d044c6212023705208b1a7704a00622/trained_weights/multitask_PSICHIC/model.pt"
+    },
+    "esm2_t33_650M_UR50D.pt": {
+      "sha256": "ea9d0522b335a8778dea6535a65301f10208dece28cd5865482b0b1fc446168c",
+      "size": 2604537549,
+      "url": "https://dl.fbaipublicfiles.com/fair-esm/models/esm2_t33_650M_UR50D.pt"
+    },
+    "esm2_t33_650M_UR50D-contact-regression.pt": {
+      "sha256": "8ffe6edbd4173dc8d45c2cd5cb27d43aad77ec26b4c768200c58ae1f96693575",
+      "size": 3687,
+      "url": "https://dl.fbaipublicfiles.com/fair-esm/regression/esm2_t33_650M_UR50D-contact-regression.pt"
+    }
+  }
+}

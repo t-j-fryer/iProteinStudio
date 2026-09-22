@@ -206,6 +206,15 @@ def write(args: argparse.Namespace) -> None:
 
 def verify(receipt: Path, verify_packages: bool) -> None:
     data = json.loads(receipt.read_text(encoding="utf-8"))
+    if data.get("schema_version") == 2 and data.get("portable"):
+        from runtime_package import verify as verify_runtime, relative
+        root=receipt.resolve().parent.parent
+        base=root/relative(data["runtime_path"])
+        verify_runtime(base,data["runtime_manifest_sha256"],data["runtime_component"],full=verify_packages)
+        for name,expected in data.get("assets",{}).items():
+            path=root/relative(name)
+            if not path.is_file() or sha256(path)!=expected:raise ValueError("Portable asset changed: "+name)
+        return
     if data.get("schema_version") != 1:
         raise ValueError(f"unsupported receipt schema: {receipt}")
     for raw_path, expected in data.get("artifacts", {}).items():

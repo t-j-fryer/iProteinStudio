@@ -109,12 +109,14 @@ WITH_OPENFOLD3=0
 WITH_RFD3=0
 WITH_LASERMPNN=0
 WITH_NESSO=0
+WITH_PSICHIC=0
 MATERIALISE=0
 REPAIR_VENVS=0
 MINIMIZE_STORAGE=0
 LINK_EXISTING=""
 LINK_RFD3=""
 DETECT_ONLY=0
+BOOTSTRAP_ONLY=0
 
 usage() {
   cat <<'EOF'
@@ -138,6 +140,7 @@ Components (combine as needed):
   --with-abmpnn                Include AbMPNN (default)
   --with-lasermpnn             LASErMPNN ligand sequence design
   --with-nesso                 Experimental NESSO-1 sequence-affinity screening
+  --with-psichic               Experimental PSICHIC-XL ligand screening
   --with-rfd3                  RFdiffusion3/MLX (also selects Boltz)
   --all                        Install every supported component
 
@@ -164,7 +167,7 @@ while [[ $# -gt 0 ]]; do
       IFS=',' read -r -a retry_keys <<< "${INSTALL_ONLY}"
       for retry_key in "${retry_keys[@]}"; do
         case "${retry_key}" in
-          mpnn|abmpnn|boltz|boltz_affinity|antifold|intellifold|intellifold_full|protenix|protenix_v2|protenix_mini|protenix_constraint|nesso|lasermpnn|openfold3|rfd3) ;;
+          mpnn|abmpnn|boltz|boltz_affinity|antifold|intellifold|intellifold_full|protenix|protenix_v2|protenix_mini|protenix_constraint|nesso|psichic|lasermpnn|openfold3|rfd3) ;;
           *) echo "NHFAIL|Unknown retry component: ${retry_key}"; exit 2 ;;
         esac
       done
@@ -190,10 +193,12 @@ while [[ $# -gt 0 ]]; do
                             WITH_INTELLIFOLD=1; WITH_INTELLIFOLD_FULL=1
                             WITH_OPENFOLD3=1; WITH_PROTENIX_RUNTIME=1
                             WITH_PROTENIX_V2=1; WITH_PROTENIX_MINI=1; WITH_PROTENIX_CONSTRAINT=1
-                            WITH_LASERMPNN=1; WITH_RFD3=1; WITH_NESSO=1; shift ;;
+                            WITH_LASERMPNN=1; WITH_RFD3=1; WITH_NESSO=1; WITH_PSICHIC=1; shift ;;
+    --with-psichic)         WITH_PSICHIC=1; shift ;;
     --with-nesso)           WITH_NESSO=1; shift ;;
     --with-lasermpnn)       WITH_LASERMPNN=1; shift ;;
     --link-rfd3)            LINK_RFD3="$2"; shift 2 ;;
+    --bootstrap-control) BOOTSTRAP_ONLY=1; shift ;;
     --detect)               DETECT_ONLY=1; shift ;;
     --repair-venvs)         REPAIR_VENVS=1; shift ;;
     --minimize-storage)     MINIMIZE_STORAGE=1; shift ;;
@@ -367,7 +372,7 @@ uv_install_editable() {
 
 assert_runtime_idle() {
   if command -v pgrep >/dev/null 2>&1 \
-     && pgrep -f "${NANOHUNTER_ROOT}/(venvs/|components/nesso/)" >/dev/null 2>&1; then
+     && pgrep -f "${NANOHUNTER_ROOT}/(venvs/|components/|agent/jobs/[^/]+/runtime_view/)" >/dev/null 2>&1; then
     fail "A Studio prediction or design process is using the managed runtime. Let it finish before installing or updating engines."
   fi
 }
@@ -382,7 +387,7 @@ check_sha256() {
 rfd3_ema_weights_current() {
   [[ -f "${RFD3_ROOT}/rfd3_weight_set.py" \
      && -f "${RFD3_WEIGHTS_PATH}" ]] || return 1
-  python3 "${RFD3_ROOT}/rfd3_weight_set.py" \
+  "${RFD3_ROOT}/.venv/bin/python" "${RFD3_ROOT}/rfd3_weight_set.py" \
     --check-artifact "${RFD3_WEIGHTS_PATH}" >/dev/null 2>&1
 }
 
@@ -397,7 +402,7 @@ constraint_runtime_current() {
      && -f "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" \
      && -f "${PROTENIX_CONSTRAINT_PATCH}" \
      && -f "${PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH}" ]] || return 1
-  python3 - "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" \
+  "${PROTENIX_CONSTRAINT_VENV}/bin/python" - "${PROTENIX_CONSTRAINT_MODEL_DIR}/install_receipt.json" \
     "${PROTENIX_CONSTRAINT_PATCH}" "${PROTENIX_CONSTRAINT_ZERO_SUBSTRUCTURE_PATCH}" \
     "${PROTENIX_CONSTRAINT_REPO}/protenix/model/modules/embedders.py" <<'PY'
 import hashlib, json, pathlib, sys
@@ -416,8 +421,70 @@ if not source.is_file() or data.get("substructure_source_sha256") != digest(sour
 PY
 }
 
+ensure_uv() {
+  if [[ -x "${UV_BIN}" ]] \
+     && [[ "$("${UV_BIN}" --version 2>/dev/null | awk '{print $2}')" == "${UV_VERSION}" ]]; then
+    return 0
+  fi
+  command -v curl >/dev/null 2>&1 || fail "curl is required to install the managed Python toolchain."
+  local archive stage extracted actual
+  mkdir -p "${TOOLCHAIN_DIR}/uv"
+  stage="$(mktemp -d "${TOOLCHAIN_DIR}/uv/.uv-${UV_VERSION}.XXXXXX")" \
+    || fail "Could not create the uv staging directory."
+  archive="${stage}/uv.tar.gz"
+  curl --proto '=https' --tlsv1.2 --fail --location --retry 3 \
+    --connect-timeout 20 --output "${archive}" \
+    "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-aarch64-apple-darwin.tar.gz" \
+    || { rm -rf "${stage}"; fail "Could not download pinned uv ${UV_VERSION}."; }
+  actual="$(shasum -a 256 "${archive}" | awk '{print $1}')"
+  [[ "${actual}" == "${UV_SHA256}" ]] \
+    || { rm -rf "${stage}"; fail "Pinned uv archive checksum mismatch; refusing to execute it."; }
+  tar -xzf "${archive}" -C "${stage}" \
+    || { rm -rf "${stage}"; fail "Could not extract pinned uv ${UV_VERSION}."; }
+  extracted="$(find "${stage}" -type f -name uv -perm -111 -print -quit)"
+  [[ -n "${extracted}" ]] \
+    || { rm -rf "${stage}"; fail "The verified uv archive contained no executable."; }
+  mkdir -p "${UV_HOME}"
+  cp "${extracted}" "${UV_HOME}/uv.new" || fail "Could not stage the uv executable."
+  chmod 755 "${UV_HOME}/uv.new"
+  mv -f "${UV_HOME}/uv.new" "${UV_BIN}"
+  rm -rf "${stage}"
+  [[ "$("${UV_BIN}" --version | awk '{print $2}')" == "${UV_VERSION}" ]] \
+    || fail "Managed uv version verification failed."
+}
+
+ensure_python() {
+  local want="$1" var="$2"
+  ensure_uv
+  mkdir -p "${UV_PYTHON_INSTALL_DIR}" "${UV_PYTHON_BIN_DIR}" "${UV_CACHE_DIR}" "${PIP_CACHE_DIR}"
+  "${UV_BIN}" python install --managed-python "${want}" \
+    || fail "Could not install exact managed CPython ${want}."
+  local resolved
+  resolved="$("${UV_BIN}" python find --managed-python "${want}" 2>/dev/null)" \
+    || fail "Could not locate exact managed CPython ${want}."
+  case "${resolved}" in
+    "${UV_PYTHON_INSTALL_DIR}"/*) ;;
+    *) fail "uv resolved Python ${want} outside Studio's managed toolchain: ${resolved}" ;;
+  esac
+  [[ "$("${resolved}" -c 'import platform; print(platform.python_version())')" == "${want}" ]] \
+    || fail "Managed CPython resolved to the wrong patch version (wanted ${want})."
+  printf -v "$var" '%s' "${resolved}"
+}
+
+
 detect() {
-  /usr/bin/python3 "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_nesso.py" --root "${NANOHUNTER_ROOT}" --detect
+  local detector="${NANOHUNTER_ROOT}/toolchains/python/cpython-${PYTHON_311_VERSION}-macos-aarch64-none/bin/python3"
+  if [[ -x "${NANOHUNTER_ROOT}/components/control/current/python/bin/python3" ]]; then
+    detector="${NANOHUNTER_ROOT}/components/control/current/python/bin/python3"
+  fi
+  if [[ ! -x "${detector}" ]]; then
+    for key in mpnn abmpnn boltz boltz_affinity antifold intellifold intellifold_full protenix protenix_v2 protenix_mini protenix_constraint openfold3 lasermpnn nesso psichic rfd3; do
+      state "$key" missing "Run Setup to install the managed runtime."
+    done
+    return
+  fi
+  "${detector}" "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_psichic.py" --root "${NANOHUNTER_ROOT}" --detect
+  "${detector}" "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_nesso.py" --root "${NANOHUNTER_ROOT}" --detect
 
   if [[ -x "${BOLTZ_VENV}/bin/python" \
      && -f "${BOLTZ_MODEL_DIR}/boltz2_conf.ckpt" \
@@ -534,6 +601,13 @@ PYTHON
     state_absent_or_partial rfd3 "environment, checkpoint, or exported weights absent" "${RFD3_ROOT}"
   fi
 }
+
+if [[ "${BOOTSTRAP_ONLY}" -eq 1 ]]; then
+  acquire_install_lock
+  ensure_python "${PYTHON_311_VERSION}" PYTHON_BIN
+  echo "NHDONE|ok"
+  exit 0
+fi
 
 if [[ "${DETECT_ONLY}" -eq 1 ]]; then
   detect
@@ -875,55 +949,6 @@ fi
 
 # --------------------------------------------------------------- toolchain ---
 
-ensure_uv() {
-  if [[ -x "${UV_BIN}" ]] \
-     && [[ "$("${UV_BIN}" --version 2>/dev/null | awk '{print $2}')" == "${UV_VERSION}" ]]; then
-    return 0
-  fi
-  command -v curl >/dev/null 2>&1 || fail "curl is required to install the managed Python toolchain."
-  local archive stage extracted actual
-  mkdir -p "${TOOLCHAIN_DIR}/uv"
-  stage="$(mktemp -d "${TOOLCHAIN_DIR}/uv/.uv-${UV_VERSION}.XXXXXX")" \
-    || fail "Could not create the uv staging directory."
-  archive="${stage}/uv.tar.gz"
-  curl --proto '=https' --tlsv1.2 --fail --location --retry 3 \
-    --connect-timeout 20 --output "${archive}" \
-    "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-aarch64-apple-darwin.tar.gz" \
-    || { rm -rf "${stage}"; fail "Could not download pinned uv ${UV_VERSION}."; }
-  actual="$(shasum -a 256 "${archive}" | awk '{print $1}')"
-  [[ "${actual}" == "${UV_SHA256}" ]] \
-    || { rm -rf "${stage}"; fail "Pinned uv archive checksum mismatch; refusing to execute it."; }
-  tar -xzf "${archive}" -C "${stage}" \
-    || { rm -rf "${stage}"; fail "Could not extract pinned uv ${UV_VERSION}."; }
-  extracted="$(find "${stage}" -type f -name uv -perm -111 -print -quit)"
-  [[ -n "${extracted}" ]] \
-    || { rm -rf "${stage}"; fail "The verified uv archive contained no executable."; }
-  mkdir -p "${UV_HOME}"
-  cp "${extracted}" "${UV_HOME}/uv.new" || fail "Could not stage the uv executable."
-  chmod 755 "${UV_HOME}/uv.new"
-  mv -f "${UV_HOME}/uv.new" "${UV_BIN}"
-  rm -rf "${stage}"
-  [[ "$("${UV_BIN}" --version | awk '{print $2}')" == "${UV_VERSION}" ]] \
-    || fail "Managed uv version verification failed."
-}
-
-ensure_python() {
-  local want="$1" var="$2"
-  ensure_uv
-  mkdir -p "${UV_PYTHON_INSTALL_DIR}" "${UV_PYTHON_BIN_DIR}" "${UV_CACHE_DIR}" "${PIP_CACHE_DIR}"
-  "${UV_BIN}" python install --managed-python "${want}" \
-    || fail "Could not install exact managed CPython ${want}."
-  local resolved
-  resolved="$("${UV_BIN}" python find --managed-python "${want}" 2>/dev/null)" \
-    || fail "Could not locate exact managed CPython ${want}."
-  case "${resolved}" in
-    "${UV_PYTHON_INSTALL_DIR}"/*) ;;
-    *) fail "uv resolved Python ${want} outside Studio's managed toolchain: ${resolved}" ;;
-  esac
-  [[ "$("${resolved}" -c 'import platform; print(platform.python_version())')" == "${want}" ]] \
-    || fail "Managed CPython resolved to the wrong patch version (wanted ${want})."
-  printf -v "$var" '%s' "${resolved}"
-}
 
 download_verified_artifact() {
   local python="$1" output="$2" url="$3" checksum="$4" label="$5"
@@ -1109,6 +1134,26 @@ EOF
     && echo "  retained recoverable pre-migration Protenix data at ${backup}"
 }
 
+# Published engine profiles are portable. Source builders below are retained
+# only for an explicit developer opt-in, never as an automatic fallback.
+if [[ "${IPROTEINSTUDIO_BUILD_FROM_SOURCE:-0}" != "1" ]]; then
+  ensure_python "${PYTHON_311_VERSION}" PYTHON_BIN
+  if [[ -n "${INSTALL_ONLY}" ]]; then
+    PORTABLE_COMPONENTS="${INSTALL_ONLY}"
+  else
+    PORTABLE_COMPONENTS="control,mpnn"
+    for pair in "abmpnn:$WITH_ABMPNN" "boltz:$WITH_BOLTZ" "boltz_affinity:$WITH_BOLTZ_AFFINITY" \
+      "antifold:$WITH_ANTIFOLD" "intellifold:$WITH_INTELLIFOLD" "intellifold_full:$WITH_INTELLIFOLD_FULL" \
+      "protenix:$WITH_PROTENIX_RUNTIME" "protenix_v2:$WITH_PROTENIX_V2" "protenix_mini:$WITH_PROTENIX_MINI" \
+      "protenix_constraint:$WITH_PROTENIX_CONSTRAINT" "openfold3:$WITH_OPENFOLD3" "rfd3:$WITH_RFD3" \
+      "lasermpnn:$WITH_LASERMPNN" "nesso:$WITH_NESSO" "psichic:$WITH_PSICHIC"; do
+      [[ "${pair##*:}" == "1" ]] && PORTABLE_COMPONENTS="${PORTABLE_COMPONENTS},${pair%%:*}"
+    done
+  fi
+  "${PYTHON_BIN}" "${NESSO_SCRIPT_ROOT}/scripts/setup_portable.py" --root "${NANOHUNTER_ROOT}" --components "${PORTABLE_COMPONENTS}"
+  exit $?
+fi
+
 # A shebang line cannot contain a space: the kernel splits on whitespace, so a
 # console script installed under ".../Application Support/..." fails with
 # "bad interpreter". Every venv pip creates here would be quietly broken.
@@ -1145,6 +1190,16 @@ source "${NESSO_SCRIPT_ROOT}/scripts/install_components.sh" \
       --progress-key protenix --progress-start "${start}" --progress-end "${end}" \
       || fail "Could not download or verify ${label}. Interrupted transfers can resume; invalid checksums are discarded."
   }
+
+# PSICHIC consumes a prebuilt runtime; no pip, git or compiler work.
+install_psichic() {
+if [[ "${WITH_PSICHIC}" -eq 1 ]]; then
+  "${PYTHON_BIN}" "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_psichic.py" --root "${NANOHUNTER_ROOT}" \
+    || fail "PSICHIC portable installation failed. See the component log."
+fi
+return 0
+}
+run_install_component psichic install_psichic
 
 # ---- Experimental NESSO-1 (isolated runtime) ----
 install_nesso() {

@@ -89,6 +89,11 @@ enum RunResultsLoader {
             guard let name = row["candidate"] as? String, let path = row["structure"] as? String,
                   let structure = artifact(path), let predictor = row["predictor"] as? String else { return nil }
             var metrics: [StudioResultMetric] = []
+            let screeningLabel = row["screening_engine"] as? String == "psichic" ? "PSICHIC (experimental)" : "NESSO"
+            let psichic = row["psichic"] as? [String: Any] ?? [:]
+            for (key, kind) in [("binding_probability_proxy", StudioResultMetric.Kind.psichicBindingProxy), ("predicted_binding_affinity", .psichicAffinity), ("predicted_nonbinder", .psichicNonbinder), ("predicted_antagonist", .psichicAntagonist), ("predicted_agonist", .psichicAgonist)] {
+                if let value = psichic[key] as? Double, value.isFinite { metrics.append(.init(kind: kind, value: value)) }
+            }
             let nesso = row["nesso"] as? [String: Any] ?? [:]
             for (key, kind) in [("affinity_probability_binary", StudioResultMetric.Kind.nessoBindingProbability),
                                 ("entropy_crop_pl", .nessoInterfaceEntropy), ("entropy_pl", .nessoPlacementEntropy),
@@ -101,11 +106,11 @@ enum RunResultsLoader {
             }
             let model = predictor == "intellifold" ? predictor + " " + (row["intellifold_model"] as? String ?? "") : predictor
             return StudioResultItem(id: "nesso-verification|" + name, title: name,
-                subtitle: "NESSO shortlist · " + model, structureURL: structure,
+                subtitle: screeningLabel + " shortlist · " + model, structureURL: structure,
                 sequence: row["sequence"] as? String, metrics: metrics,
                 confidenceURL: (row["confidence_json"] as? String).flatMap(artifact),
-                stage: .postPrediction, scoreSource: "NESSO screen / " + model + " structure",
-                groupID: "nesso-verification", groupTitle: "NESSO shortlist verification",
+                stage: .postPrediction, scoreSource: screeningLabel + " screen / " + model + " structure",
+                groupID: "nesso-verification", groupTitle: screeningLabel + " shortlist verification",
                 variantID: name, variantTitle: name, artifactRole: .complexReprediction)
         }
     }

@@ -39,7 +39,7 @@ final class PredictionController: ObservableObject {
     /// Turn pasted text or a chosen file into jobs, without running anything.
     func buildJobs(request: PredictionRequest, workDir: URL,
                    completion: @escaping ([FoldJob], [String], String?) -> Void) {
-        let python = URL(fileURLWithPath: "/usr/bin/python3")
+        let python = ControlPython.executable(root: AppPaths.support)
         guard AppPaths.fm.fileExists(atPath: python.path) else {
             completion([], [], "The macOS Python runtime is unavailable. Re-run Setup so the command-line tools can be repaired.")
             return
@@ -144,9 +144,9 @@ final class PredictionController: ObservableObject {
         guard request.validationIssues.isEmpty else {
             phase = .failed(request.validationIssues[0]); return
         }
-        let python = URL(fileURLWithPath: "/usr/bin/python3")
+        let python = ControlPython.executable(root: AppPaths.support)
         guard AppPaths.fm.fileExists(atPath: python.path) else {
-            phase = .failed("The macOS Python runtime is unavailable. Re-run Setup."); return
+            phase = .failed("The managed Python runtime is not installed. Run Setup from Engines."); return
         }
         AppPaths.stageRFD3Scripts()
         let runDir = uniqueRunDirectory(in: outputDir)

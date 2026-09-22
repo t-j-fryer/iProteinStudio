@@ -6,6 +6,7 @@ import math
 import re
 import secrets
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -55,6 +56,8 @@ RESERVED_ITERATIVE_FLAGS = {
     "--target-template", "--target-template-mode", "--target-template-threshold",
 }
 INSTALL_COMPONENTS = {
+    "nesso": "--with-nesso",
+    "psichic": "--with-psichic",
     "boltz": "--with-boltz",
     "boltz-affinity": "--with-boltz-affinity",
     "intellifold": "--with-intellifold",
@@ -112,7 +115,7 @@ def _script_provenance(paths: List[Path]) -> List[Dict[str, Any]]:
     for path in paths:
         if not path.is_file():
             raise StudioError(f"Required installed script is missing: {path}")
-        result.append({"path": str(path), "sha256": file_digest(path)})
+        result.append({"path": str(path.resolve()), "sha256": file_digest(path)})
     return result
 
 
@@ -136,6 +139,26 @@ def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[
         "resource_class": resource_class,
         "provenance": provenance,
     }
+    if resource_class != "environment_install":
+        from .runtime_bindings import capture
+        bindings = capture(provenance=provenance, normalized=normalized)
+        if bindings: body["runtime_bindings"] = bindings
+        from .code_snapshot import capture as capture_code, provenance as code_provenance
+        snapshot = capture_code(runtime_root(), agent_root() / "code")
+        body["code_snapshot"] = snapshot
+        body["provenance"] = code_provenance(runtime_root(), snapshot, provenance)
+        if bindings:
+            # Retain model data before a queued job can be overtaken by an
+            # installer. Independent APFS clones avoid copying physical blocks.
+            import uuid
+            support = Path(snapshot["path"]) / "mcp/runtime_support"
+            sys.path.insert(0, str(support))
+            try:
+                from runtime_view import build
+                view = build(runtime_root(), agent_root() / "runtime_views" / uuid.uuid4().hex, bindings, snapshot)
+            finally: sys.path.remove(str(support))
+            body["prepared_runtime_view"] = dict(path=str(view),
+                assets_sha256=file_digest(view / "assets.json"), view_sha256=file_digest(view / "view.json"))
     digest = canonical_digest(body)
     plan_id = f"plan-{digest[:16]}"
     plan = {**body, "id": plan_id, "sha256": digest, "created_at": utc_now()}
@@ -146,6 +169,8 @@ def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[
             raise StudioError(f"Plan collision at {path}")
         return existing
     atomic_json(path, plan)
+    from .runtime_bindings import retain
+    retain(plan)
     return plan
 
 
@@ -244,7 +269,7 @@ def _prediction_plan(arguments: Dict[str, Any], kind: str, output_folder: str, p
             raise StudioError(str(exc)) from exc
         template_inputs = [Path(metadata["path"])] + sorted((root / "scripts").glob("*.py"))
     script = root / "rfd3_scripts" / "predict_batch.py"
-    preview = ["/usr/bin/caffeinate", "-dimsu", "/usr/bin/python3", str(script), "--config", str(output / "prediction_config.json")]
+    preview = ["/usr/bin/caffeinate", "-dimsu", sys.executable, str(script), "--config", str(output / "prediction_config.json")]
     return _persist(kind, project, {"config": config, "output": str(output)}, preview, "apple_gpu_exclusive", _script_provenance([script] + template_inputs))
 
 
@@ -755,6 +780,9 @@ def load_plan(plan_id: str, expected_sha256: str) -> Dict[str, Any]:
     actual_sha = canonical_digest(body)
     if stored_sha != actual_sha or expected_sha256 != stored_sha:
         raise StudioError("Plan digest mismatch; re-run preflight instead of executing changed settings.")
+    if plan.get("code_snapshot"):
+        from .code_snapshot import verify as verify_code
+        verify_code(plan["code_snapshot"])
     for item in plan.get("provenance", []):
         path = Path(item.get("path", ""))
         if not path.is_file() or file_digest(path) != item.get("sha256"):

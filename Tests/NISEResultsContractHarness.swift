@@ -36,12 +36,13 @@ struct NISEResultsContractHarness {
         try structure("phase0/cycle00/L002/out/unfinished.pdb")
         try receipt("phase0/cycle00/_batches/structure-copy/L000", "duplicate-must-not-appear")
         try write("phase0/cycle00/initial_geometry.json", ["passed": ["L000": true, "L001": false],
-                "atom_checks": ["L001": ["failures": ["terminal atom not exposed"]]]])
+                "atom_checks": ["L000": ["linker_exit": ["label": "restricted"]], "L001": ["failures": ["terminal atom not exposed"]]]])
         try receipt("phase0/cycle01/fold/L000_c1_0", "L000_c1_0")
         try structure("phase0/cycle01/fold/L000_c1_1/yaml/input.yaml")
         try write("phase0/cycle01/nesso/selection.json", ["input": ["sequences": ["a": "AAA", "b": "ACA", "c": "ADA"]], "result": ["a", "b"]])
         var snapshot = NISEResultsLoader.load(root: root)
         precondition(snapshot.records.count == 3)
+        precondition(snapshot.records.first { $0.item.title == "L000" }!.item.subtitle.contains("linker exit: restricted"))
         let initial = snapshot.stages.first { $0.id == "0|0" }!
         precondition(initial.planned == 3 && initial.completed == 2 && initial.geometryPassed == 1 && initial.geometryFailed == 1)
         let refinement = snapshot.stages.first { $0.id == "0|1" }!
@@ -142,6 +143,15 @@ struct NISEResultsContractHarness {
         precondition(snapshot.stages.first { $0.id == "1|1" }?.completed == 2)
         precondition(snapshot.items.allSatisfy { $0.isHit == nil })
         print("PASS NISE live checkpoints, phase/stage separation, pending checks, scoring promotion, NESSO counts, RFD3, beam selection, final checks and portable path safety")
+
+        let ps: [String: Any] = ["binding_probability_proxy": 0.8, "predicted_nonbinder": 0.2, "predicted_antagonist": 0.5, "predicted_agonist": 0.3, "predicted_binding_affinity": 7.1]
+        try write("cycle02/psichic/selection.json", ["input": ["sequences": ["ps-screened": "ACDE"], "scores": ["ps-screened": ps]], "result": ["ps-screened"]])
+        snapshot = NISEResultsLoader.load(root: root)
+        let psRow = snapshot.screening.first { $0.name == "ps-screened" }!
+        precondition(psRow.selected == true)
+        precondition(psRow.metrics.contains { $0.kind == .psichicBindingProxy && $0.value == 0.8 })
+        precondition(!psRow.metrics.contains { $0.kind == .nessoBindingProbability || $0.kind == .nessoInterfaceEntropy })
+        print("PASS experimental PSICHIC result identity, probabilities and no invented entropy")
 
         if let path = ProcessInfo.processInfo.environment["STUDIO_NISE_LIVE_RUN"] {
             let live = NISEResultsLoader.load(root: URL(fileURLWithPath: path))

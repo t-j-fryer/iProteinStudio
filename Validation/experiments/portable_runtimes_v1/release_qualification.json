@@ -1,0 +1,340 @@
+{
+  "passed": true,
+  "pairs": [
+    {
+      "name": "ubiquitin",
+      "warmup": false,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "ca_rmsd": 4.240096750726714e-15,
+        "ca_displacement_p95": 7.266377445762114e-15,
+        "baseline_breaks": 0,
+        "candidate_breaks": 0,
+        "pae_mae": 0.0,
+        "pae_p95": 0.0,
+        "pde_mae": 0.0,
+        "pde_p95": 0.0,
+        "delta_complex_plddt": 0.0,
+        "delta_ptm": 0.0
+      },
+      "engine": "boltz",
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "name": "ubiquitin",
+      "warmup": false,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "ca_rmsd": 3.754612554401349e-15,
+        "ca_displacement_p95": 5.425203848235227e-15,
+        "baseline_breaks": 0,
+        "candidate_breaks": 0,
+        "pae_mae": 0.0,
+        "pae_p95": 0.0,
+        "delta_plddt": 0.0,
+        "delta_ptm": 0.0
+      },
+      "engine": "intellifold-flash",
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "name": "ubiquitin",
+      "warmup": false,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "ca_rmsd": 4.997169990602885e-15,
+        "ca_displacement_p95": 8.530675149520015e-15,
+        "baseline_breaks": 0,
+        "candidate_breaks": 0,
+        "pae_mae": 0.0,
+        "pae_p95": 0.0,
+        "delta_plddt": 0.0,
+        "delta_ptm": 0.0
+      },
+      "engine": "intellifold-full",
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "name": "ubiquitin",
+      "warmup": false,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "ca_rmsd": 4.758571537565369e-06,
+        "ca_displacement_p95": 1.0102432465686926e-05,
+        "baseline_breaks": 0,
+        "candidate_breaks": 0,
+        "pae_mae": 1.7313002879599786e-06,
+        "pae_p95": 0.0,
+        "pde_mae": 0.0,
+        "pde_p95": 0.0,
+        "delta_plddt": 2.2888183592861822e-07,
+        "delta_ptm": 0.0
+      },
+      "engine": "protenix",
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "name": "ubiquitin",
+      "warmup": false,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "ca_rmsd": 1.2191567009716139e-05,
+        "ca_displacement_p95": 1.7903103211196918e-05,
+        "baseline_breaks": 0,
+        "candidate_breaks": 0,
+        "pae_mae": 1.385044358113466e-05,
+        "pae_p95": 0.0,
+        "pde_mae": 3.462600575919957e-06,
+        "pde_p95": 0.0,
+        "delta_plddt": 1.5258789065608624e-07,
+        "delta_ptm": 0.0
+      },
+      "engine": "constraint",
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "name": "ubiquitin",
+      "warmup": false,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "ca_rmsd": 8.7469610664782e-05,
+        "ca_displacement_p95": 0.00015291777052011876,
+        "baseline_breaks": 139,
+        "candidate_breaks": 139,
+        "pde_mae": 9.614499569599649e-07,
+        "pde_p95": 2.86102294921875e-06,
+        "delta_ptm": 0.0,
+        "delta_avg_plddt": 7.629394532804312e-08
+      },
+      "engine": "openfold",
+      "source": "relocation_20260922T173805Z"
+    },
+    {
+      "name": "ubiquitin",
+      "warmup": false,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "ca_rmsd": 2.312534800192536e-07,
+        "ca_displacement_p95": 3.9026550348721405e-07,
+        "baseline_breaks": 0,
+        "candidate_breaks": 0,
+        "sequence_index_changes": 0
+      },
+      "engine": "rfd3",
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "name": "ubiquitin",
+      "warmup": false,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "logit_max_absolute": 1.6689300537109375e-05
+      },
+      "engine": "antifold",
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "name": "ubiquitin",
+      "warmup": false,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "esm_relative_l2": 0.0,
+        "score_delta_affinity_logits_binary": 0.0,
+        "score_delta_affinity_pred_value": 0.0,
+        "score_delta_affinity_pred_value1": 0.0,
+        "score_delta_affinity_pred_value2": 0.0,
+        "score_delta_affinity_probability_binary": 0.0,
+        "score_delta_entropy_crop_ll": 0.0,
+        "score_delta_entropy_crop_pl": 0.0,
+        "score_delta_entropy_crop_pp": 0.0,
+        "score_delta_entropy_ll": 0.0,
+        "score_delta_entropy_pl": 0.0,
+        "score_delta_entropy_pp": 0.0
+      },
+      "engine": "nesso",
+      "source": "relocation_20260922T173857Z"
+    },
+    {
+      "engine": "protein_mpnn",
+      "passed": true,
+      "exact": true,
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "engine": "soluble_mpnn",
+      "passed": true,
+      "exact": true,
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "engine": "ligand_mpnn",
+      "passed": true,
+      "exact": true,
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "engine": "abmpnn",
+      "passed": true,
+      "exact": true,
+      "source": "relocation_20260920T160128Z"
+    },
+    {
+      "engine": "lasermpnn",
+      "passed": true,
+      "exact": true,
+      "source": "lasermpnn_final_20260922T174319Z"
+    }
+  ],
+  "timing_scope": "Diagnostic elapsed times only; concurrent packaging/builds, not a throughput comparison",
+  "hardware": "Apple M4 Max, 64 GB unified memory, macOS 26.6.1",
+  "source_baseline": "72792adb6edf0df1a33ffecc60795cca963ef5c5",
+  "fresh_mac_test": "explicitly deferred",
+  "runtime_release": "runtimes-2026.09.20-1",
+  "packages": [
+    {
+      "engine": "antifold",
+      "files": 23464,
+      "archive_bytes": 186167193,
+      "archive_sha256": "4831fc16edcdeecba8722f2067ace4afdc3b1f1ac9ad08ce02a4dd348c3a95a3",
+      "manifest_sha256": "e94aa03ca20ae4b0ca61051f8ed7f0483051af9924950024ece3e890301f48f3",
+      "minimum_macos": "12.3",
+      "static_data_files": [],
+      "model_weight_files": []
+    },
+    {
+      "engine": "boltz",
+      "files": 28255,
+      "archive_bytes": 301891892,
+      "archive_sha256": "93f3fdebd9260590c6b65c242c07286c2216170f6773b61ba42bca910b8f751b",
+      "manifest_sha256": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+      "minimum_macos": "14.0",
+      "static_data_files": [],
+      "model_weight_files": []
+    },
+    {
+      "engine": "control",
+      "files": 2370,
+      "archive_bytes": 19024198,
+      "archive_sha256": "d3895279da2f359a48aad6564fbd1960989af1ea1d45b9968786f116376b8ccc",
+      "manifest_sha256": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+      "minimum_macos": "11.0",
+      "static_data_files": [],
+      "model_weight_files": []
+    },
+    {
+      "engine": "intellifold",
+      "files": 27249,
+      "archive_bytes": 283493446,
+      "archive_sha256": "a593026523119e684df6220b0cf9a8884926e39c19fa109e80f6a82eec077225",
+      "manifest_sha256": "c761ea7dda8a3f24bba3f911491057d22cb6d0bed3c2c1600f102f7ed5f41b35",
+      "minimum_macos": "14.0",
+      "static_data_files": [],
+      "model_weight_files": []
+    },
+    {
+      "engine": "lasermpnn",
+      "files": 24244,
+      "archive_bytes": 245547923,
+      "archive_sha256": "3c634aeefe6fd3dabf9001bd7cab5531291f0b989365104b0f69482decc2b61a",
+      "manifest_sha256": "7330602e85f977f7f10799b8c6e88e4fc0f63d38802848023e93b78c048deb7f",
+      "minimum_macos": "14.0",
+      "static_data_files": [
+        "sources/LASErMPNN/files/ideal_aa_coords_prot.pt",
+        "sources/LASErMPNN/files/ligandmpnn_test_sm_pdb_codes.pt",
+        "sources/LASErMPNN/files/ligandmpnn_training_pdb_codes.pt",
+        "sources/LASErMPNN/files/ligandmpnn_validation_pdb_codes.pt",
+        "sources/LASErMPNN/files/new_ideal_bond_angles.pt",
+        "sources/LASErMPNN/files/new_ideal_bond_lengths.pt",
+        "sources/LASErMPNN/files/new_ideal_coords.pt",
+        "sources/LASErMPNN/files/rotamer_alignment.pt"
+      ],
+      "model_weight_files": []
+    },
+    {
+      "engine": "mpnn",
+      "files": 18720,
+      "archive_bytes": 152360845,
+      "archive_sha256": "4320981eb6cb5969622c2605803489cc4c59cdc41feed97fb17956b3351f0e33",
+      "manifest_sha256": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56",
+      "minimum_macos": "12.3",
+      "static_data_files": [],
+      "model_weight_files": []
+    },
+    {
+      "engine": "nesso",
+      "files": 25332,
+      "archive_bytes": 179624972,
+      "archive_sha256": "f4937e6e307aea3cf6c965f62344c557b987921a34c40bba6ece728da3291fe9",
+      "manifest_sha256": "f2089cea3357f52f49fb8fa6096ee8fb935dc2edb4fed801ae2026fc3aad5f88",
+      "minimum_macos": "14.0",
+      "static_data_files": [],
+      "model_weight_files": []
+    },
+    {
+      "engine": "openfold3",
+      "files": 35773,
+      "archive_bytes": 353929622,
+      "archive_sha256": "66b8a6f9a3072aba7626a1ef77ecb0804383b4538442d3ca16df1cc8d5ca623b",
+      "manifest_sha256": "890f3bc613b7904c22157435caac16480e3d6276006351258f5f5571b6dc9b58",
+      "minimum_macos": "26.2",
+      "static_data_files": [],
+      "model_weight_files": []
+    },
+    {
+      "engine": "protenix",
+      "files": 26076,
+      "archive_bytes": 302877777,
+      "archive_sha256": "3e12cd20245bbcfd1741f9e333baa596cce6f24ef64431667eb3f708f57288ed",
+      "manifest_sha256": "845b59fa436d0e950a37ef9e6a4f6df29e68fa35669aeac05b2361d2557751a4",
+      "minimum_macos": "26.0",
+      "static_data_files": [],
+      "model_weight_files": []
+    },
+    {
+      "engine": "protenix_constraint",
+      "files": 25992,
+      "archive_bytes": 300783253,
+      "archive_sha256": "8bc9fe1a0513d94adf5ee62f29345c3f348bd9d680a0e2f8ced5185facbf36a9",
+      "manifest_sha256": "0385c1eafa5c23e62d69b535101db17358e97cc95566df6e31d234940c688617",
+      "minimum_macos": "14.0",
+      "static_data_files": [],
+      "model_weight_files": []
+    },
+    {
+      "engine": "psichic",
+      "files": 27451,
+      "archive_bytes": 216230735,
+      "archive_sha256": "d4b45d8a17aad727bbe31cfc05a82a3d8b01a8ab8964e075dae0d1730de8aea0",
+      "manifest_sha256": "df77df5d056a17e9c628e27c082de939fbb30c0724edfe9532f5d2e903b2f305",
+      "minimum_macos": "14.0",
+      "static_data_files": [],
+      "model_weight_files": []
+    },
+    {
+      "engine": "rfd3",
+      "files": 36896,
+      "archive_bytes": 396215434,
+      "archive_sha256": "3e89579282fe8f24aa118ad6ebf67563812dc87769d06a5563b28829becddbe4",
+      "manifest_sha256": "8884e6a8503e962332d1bd4bf91b54f49d62e69cf61d7d973ea9367a8e4c0603",
+      "minimum_macos": "26.2",
+      "static_data_files": [],
+      "model_weight_files": []
+    }
+  ],
+  "psichic": {
+    "cases": 64,
+    "job": "job-464a74702499",
+    "max_absolute_error": 0.000396937,
+    "threshold": 0.001,
+    "passed": true
+  }
+}

@@ -5,6 +5,13 @@ ad-hoc signed, not signed with an Apple Developer ID and not notarized by Apple.
 The extra warning below is expected, but users should override it only for an
 artifact obtained from the official iProteinStudio release location.
 
+Engine requirements are shown separately from the app requirement. The current
+OpenFold3/RFdiffusion3 runtime profiles need macOS26.2 or newer; Protenix v2/Mini
+needs26.0 or newer. Released engine profiles download as portable packages and
+do not need Xcode, Command Line Tools, Git or compilation. Model weights remain
+separate downloads from their original providers. Fresh-Mac acceptance testing
+has not yet been completed for these profiles.
+
 ## Install
 
 1. Download the Apple-silicon `.dmg` and its `SHA256SUMS.txt` file from the same

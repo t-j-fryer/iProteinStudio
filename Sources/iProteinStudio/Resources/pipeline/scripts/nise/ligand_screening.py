@@ -7,6 +7,7 @@ Run through Studio's broker, which freezes this config and holds the GPU lease.
 """
 from __future__ import annotations
 import argparse
+import os
 import csv
 import json
 import math
@@ -27,6 +28,8 @@ PREDICTORS = {'boltz': 'boltz', 'intellifold': 'intellifold',
 def options(value):
     if not isinstance(value, dict) or value.get('enabled') is not True:
         raise ValueError('NESSO screening must be explicitly enabled.')
+    from screening_registry import descriptor
+    engine = value.get('engine', 'nesso'); descriptor(engine)
     top = value.get('topK')
     if type(top) is not int or not 1 <= top <= 100000:
         raise ValueError('NESSO shortlist size must be an integer from 1 to 100,000.')
@@ -36,7 +39,7 @@ def options(value):
     model = value.get('intellifoldModel', 'v2-flash')
     if model not in {'v2-flash', 'v2'}:
         raise ValueError('Unsupported IntelliFold checkpoint.')
-    return dict(enabled=True, topK=top, predictor=predictor, intellifoldModel=model)
+    return dict(enabled=True, engine=engine, topK=top, predictor=predictor, intellifoldModel=model)
 
 
 def candidates(source, workflow):
@@ -78,6 +81,8 @@ def candidates(source, workflow):
 def csv_report(path, rows):
     fields = ['candidate', 'sequence', 'origin', 'selected', 'pbind', 'interface_entropy',
               'full_pl_entropy', 'screening_score', 'eligible', 'rejection_reason', 'ranking_policy']
+    if rows and 'predicted_binding_affinity' in rows[0]:
+        fields += ['predicted_binding_affinity', 'predicted_antagonist', 'predicted_nonbinder', 'predicted_agonist']
     temp = path.with_suffix('.csv.part')
     with temp.open('w', newline='') as stream:
         writer = csv.DictWriter(stream, fieldnames=fields); writer.writeheader(); writer.writerows(rows)
@@ -87,9 +92,14 @@ def csv_report(path, rows):
 def run(config, *, client_class=NessoClient, predictor_run=subprocess.run):
     cfg = json.loads(Path(config).read_text())
     opts = options(cfg['options'])
+    from screening_registry import contract as scorer_contract, client as scorer_client
+    engine = opts['engine']; module = scorer_contract(engine)
+    RANKING_POLICY = module.RANKING_POLICY; placement_score = module.placement_score
+    validate_scores = module.validate_scores; installation = module.installation
+    if engine == 'psichic' and client_class is NessoClient: client_class = scorer_client(engine)
     if not isinstance(cfg.get('smiles'), str) or not cfg['smiles'] or any(c.isspace() for c in cfg['smiles']) or "'" in cfg['smiles']:
         raise ValueError('Supply a single ligand SMILES without whitespace or quote characters.')
-    root = Path(cfg['root']).resolve()
+    root = Path(os.environ.get('NANOHUNTER_ROOT',cfg['root']) if json.loads(os.environ.get('IPROTEINSTUDIO_RUNTIME_BINDINGS','{}')) else cfg['root']).resolve()
     output = Path(cfg['output']).resolve()
     output.mkdir(parents=True, exist_ok=True)
     journal = Journal(output)
@@ -103,26 +113,37 @@ def run(config, *, client_class=NessoClient, predictor_run=subprocess.run):
     complete = output / 'completed.json'
     if journal.load(complete, spec) is not None:
         return json.loads((output / 'results.json').read_text())
-    scores = {}; worker = None
-    try:
-        for name, entry in entries.items():
-            unit = output / 'scores' / name
-            score_spec = dict(sequence=entry['sequence'], smiles=cfg['smiles'], seed=0,
-                              installation_sha256=digest(installation(root) / 'receipt.json'),
-                              protocol='nesso-v1.0.0-mps-float32-refined-5')
-            receipt = unit / 'completed.json'
-            saved = journal.load(receipt, score_spec)
-            if saved is None:
-                if worker is None:
-                    worker = client_class(root, output, cfg['scripts'], 0)
-                saved = worker.score(entry['sequence'], cfg['smiles'], unit)
-                validate_scores(saved['scores'])
-                journal.save(receipt, score_spec, saved, [p for p in unit.rglob('*') if p.is_file() and p != receipt])
-            scores[name] = validate_scores(saved['scores'])
-            print(f'NHSTEP|nesso-screen|0|NESSO screened {name}', flush=True)
-    finally:
-        if worker is not None:
-            worker.close()
+    if engine == 'psichic':
+        from psichic_screen import score_candidates
+        worker_holder = []
+        def factory():
+            if not worker_holder: worker_holder.append(client_class(root, output, cfg['scripts'], 0))
+            return worker_holder[0]
+        try:
+            scores = score_candidates({n:v['sequence'] for n,v in entries.items()}, cfg['smiles'], output/'scores', journal, factory, root, 0)
+        finally:
+            for worker in worker_holder: worker.close()
+    else:
+        scores = {}; worker = None
+        try:
+            for name, entry in entries.items():
+                unit = output / 'scores' / name
+                score_spec = dict(sequence=entry['sequence'], smiles=cfg['smiles'], seed=0,
+                                  installation_sha256=digest(installation(root) / 'receipt.json'),
+                                  protocol='nesso-v1.0.0-mps-float32-refined-5')
+                receipt = unit / 'completed.json'
+                saved = journal.load(receipt, score_spec)
+                if saved is None:
+                    if worker is None:
+                        worker = client_class(root, output, cfg['scripts'], 0)
+                    saved = worker.score(entry['sequence'], cfg['smiles'], unit)
+                    validate_scores(saved['scores'])
+                    journal.save(receipt, score_spec, saved, [p for p in unit.rglob('*') if p.is_file() and p != receipt])
+                scores[name] = validate_scores(saved['scores'])
+                print(f'NHSTEP|nesso-screen|0|NESSO screened {name}', flush=True)
+        finally:
+            if worker is not None:
+                worker.close()
     assessments = {name: placement_score(score) for name, score in scores.items()}
     selected = sorted((name for name in entries if assessments[name]['eligible']),
                       key=lambda name: (-assessments[name]['score'], name))[:opts['topK']]
@@ -133,12 +154,12 @@ def run(config, *, client_class=NessoClient, predictor_run=subprocess.run):
         journal.save(receipt, spec, selection, [output / 'scores' / name / 'completed.json' for name in entries])
     elif prior != selection:
         raise RuntimeError('NESSO ranking differs from the recorded shortlist.')
-    csv_report(output / 'nesso_screening.csv', [dict(candidate=name, sequence=entry['sequence'],
+    csv_report(output / (engine + '_screening.csv'), [dict(candidate=name, sequence=entry['sequence'],
         origin=json.dumps(entry['origin'], sort_keys=True), selected=name in selected,
-        pbind=scores[name]['affinity_probability_binary'], interface_entropy=scores[name]['entropy_crop_pl'],
-        full_pl_entropy=scores[name]['entropy_pl'], screening_score=assessments[name]['score'],
+        pbind=scores[name].get('affinity_probability_binary', scores[name].get('binding_probability_proxy')), interface_entropy=scores[name].get('entropy_crop_pl'),
+        full_pl_entropy=scores[name].get('entropy_pl'), screening_score=assessments[name]['score'],
         eligible=assessments[name]['eligible'], rejection_reason=assessments[name]['rejection_reason'],
-        ranking_policy=RANKING_POLICY['version']) for name, entry in entries.items()])
+        ranking_policy=RANKING_POLICY['version'], **({k:scores[name][k] for k in module.SCALARS} if engine == 'psichic' else {})) for name, entry in entries.items()])
     if not selected:
         raise RuntimeError('NESSO rejected every placement; see nesso_screening.csv. No structures were folded.')
 
@@ -214,8 +235,9 @@ def run(config, *, client_class=NessoClient, predictor_run=subprocess.run):
                     structural[key] = value
             result = dict(candidate=name, **entries[name], predictor=predictor, intellifold_model=opts['intellifoldModel'],
                           structure=str(artifacts[0].relative_to(output)), confidence_json=str(artifacts[1].relative_to(output)),
-                          nesso={**scores[name], 'screening_score': assessments[name]['score']},
+                          screening_engine=engine, screening={**scores[name], 'screening_score': assessments[name]['score']},
                           ranking_policy=dict(RANKING_POLICY), structure_scores=structural)
+            result[engine] = result['screening']
             unit_spec = dict(**fold_spec, candidate=name, sequence=entries[name]['sequence'])
             journal.save(output / 'fold_receipts' / (name + '.json'), unit_spec, result, artifacts + [inputs / (name + '.yaml')])
             results.append(result)
@@ -225,7 +247,7 @@ def run(config, *, client_class=NessoClient, predictor_run=subprocess.run):
     results.sort(key=lambda r: selected.index(r['candidate']))
     atomic(output / 'results.json', results)
     # Include nested artifacts, so even a completed invocation is audited on resume.
-    files = [output / 'results.json', output / 'nesso_screening.csv', receipt, begin]
+    files = [output / 'results.json', output / (engine + '_screening.csv'), receipt, begin]
     files += [p for p in (output / 'scores').rglob('*') if p.is_file()]
     for name in selected:
         fold_receipt = output / 'fold_receipts' / (name + '.json')

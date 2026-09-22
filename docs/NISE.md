@@ -769,3 +769,70 @@ runs, initial generation and the geometry-only gate omit affinity; refinement
 and optimisation finish folding before checks and selective affinity scoring.
 A blank P(bind) can therefore mean pending, deliberately omitted, or ineligible
 for scoring; it is never interpreted as zero.
+
+## Biotin linker-exit policy
+
+For a free-biotin campaign, choose **Biotin amide linker exit** under binding
+hotspots/linker exposure (`exposure_mode: biotin-carboxamide-v1` in MCP).
+This versioned protocol accepts **open** and **restricted** exits and rejects
+**unresolved** and **blocked** predictions. It does not rotate the ligand to
+rescue a candidate. The molecular graph and stereochemistry are verified before
+execution; it must not be applied to arbitrary molecules or conjugated biotin.
+
+The test places a short generic amide extension at the terminal acid, checks
+steric fit and connection to exterior solvent, and refines ambiguous calculations
+with denser sampling and a curved-path grid. It replaces the terminal acid oxygen
+SASA requirements only. Other explicitly selected exposed atoms and all binding
+hotspots remain enforced. RFdiffusion3 does not receive obsolete terminal-oxygen
+exposure conditioning in this mode. Without explicit hotspots, automatic contacts
+exclude the terminal attachment group.
+
+The shared NISE selection path checks initial backbones and every subsequent
+predicted candidate, whether initial backbones came from Protein Hunter or RFD3,
+and whether NESSO screened the sequences. Backbone/ligand self-consistency is
+checked first; candidates already failing it skip exit calculation. Exit failures
+never enter selective Boltz affinity scoring. NESSO screening precedes folding
+and cannot perform this coordinate check. Initial X residues lack complete side
+chains, so a passed initial backbone is always checked again after refolding.
+
+Independent structures use a bounded pool of CPU processes, each with one
+numerical-library thread. `geometry_workers: 0` selects automatic limits based on
+performance cores and memory; explicit counts are clamped to the same safety
+limits. GPU inference remains under the shared execution lock. Geometry receipts
+include coordinate, settings, implementation and dependency identities; completed
+checks are reused on resume and saved after each structure. Changed structures
+or filters are recalculated. Exit labels are displayed in result subtitles and
+stored in candidate JSON and `atom_checks.csv`.
+
+The calibration and production-port validation are recorded under
+`Validation/experiments/biotin_exit_filter_trial_v1` and
+`Validation/experiments/biotin_exit_production_v1`. These checks establish static
+geometric accessibility under stated assumptions, not experimental binding or
+compatibility with every linker. Existing saved requests retain their SASA policy;
+this is an explicit choice for the biotin workflow.
+
+### Restart before initial selection
+
+MCP `nise_plan` accepts optional `restart_from`, the source NISE directory name
+within the same project. It creates a **new** campaign, imports audited matching
+Protein Hunter cycle00 operations, and recalculates selection. Initial generation
+inputs, molecular identity, sequence, cardinality, confidence and receipt hashes
+must match. No old pass/fail decisions, advancement or later-stage operations are
+imported. The stopped source is not modified. The new plan fingerprints the
+imported artifacts and uses stage-directory submissions with per-input checkpoints.
+RFdiffusion3 filtering is supported, but importing its initial generator receipts
+through this new restart option is not yet implemented.
+
+### Experimental PSICHIC alternative
+
+The screening-engine selector can use PSICHIC-XL wherever the optional NESSO
+shortlist is available. Saved requests without `screening_engine` continue to
+use NESSO. PSICHIC ranks `1 − predicted_nonbinder`; its affinity and antagonist,
+nonbinder and agonist probabilities are saved separately. It supplies no
+placement-confidence term. Boltz still performs NISE structural verification
+and final selection. This is an experimental ranking option, not a validated
+binding assay. The current adapter supports complete sequences up to 700 residues,
+with ESM MPS batches of eight and CPU graph batches of sixteen.
+
+See [portable runtime rollout status](PORTABLE_RUNTIME_IMPLEMENTATION.md) for
+installation qualifications and remaining release gates.

@@ -146,6 +146,33 @@ class ScreeningTests(unittest.TestCase):
         ligand = json.loads(destination.read_text())['queries']['fixture']['chains'][1]
         self.assertEqual(ligand['smiles'], self.cfg['smiles'])
 
+    def test_psichic_shortlist_uses_binding_proxy_and_keeps_separate_scores(self):
+        import psichic_contract
+        base = psichic_contract.installation(self.root); base.mkdir(parents=True)
+        (base / 'runtime.json').write_text('{}')
+        self.cfg['options']['engine'] = 'psichic'; atomic(self.config,self.cfg)
+        class PSClient:
+            calls = 0
+            def __init__(self,*args): pass
+            def close(self): pass
+            def score_many(self,items,smiles):
+                type(self).calls += 1
+                result = []
+                for item in items:
+                    p = {'A':.6,'C':.9,'G':.8}[item['sequence'][0]]
+                    v = dict(predicted_nonbinder=1-p,predicted_antagonist=p/2,predicted_agonist=p/2,predicted_binding_affinity=7.)
+                    saved = dict(scores=v,sequence=item['sequence'],smiles=smiles)
+                    atomic(Path(item['directory'])/'affinity.json',saved); result.append(saved)
+                return result
+        result=screen.run(self.config,client_class=PSClient,predictor_run=self.predict)
+        self.assertEqual([r['candidate'] for r in result],['design_0001_2','design_0002_1'])
+        self.assertEqual(result[0]['screening_engine'],'psichic')
+        self.assertNotIn('nesso',result[0]);self.assertNotIn('entropy_crop_pl',result[0]['psichic'])
+        self.assertAlmostEqual(result[0]['psichic']['binding_probability_proxy'],.9)
+        self.assertTrue((self.output/'psichic_screening.csv').is_file())
+        self.assertEqual(screen.run(self.config,client_class=PSClient,predictor_run=self.predict),result)
+        self.assertEqual(PSClient.calls,1)
+
     def test_invalid_options_fail_before_worker(self):
         for key, value in [('topK',0),('topK',True),('predictor','alphafold3'),('intellifoldModel','unknown')]:
             with self.subTest(key=key), self.assertRaises(ValueError):
@@ -163,6 +190,8 @@ class PreflightTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw).resolve(); out = root / 'campaign'
             shutil.copytree(SCRIPTS / 'nise', root / 'scripts/nise', ignore=shutil.ignore_patterns('__pycache__'))
+            for name in ('engine_registry.py', 'engine_registry.json'):
+                shutil.copy2(SCRIPTS / name, root / 'scripts' / name)
             adapters = root / 'rfd3_overlay/scripts'; adapters.mkdir(parents=True)
             (adapters / 'run_predictors.py').write_text('# fixture adapter')
             asset = root / 'model'; asset.write_text('fixture checkpoint')

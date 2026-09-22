@@ -155,6 +155,7 @@ private struct InnerSetup: View {
                     }
                 }
                 .toggleStyle(.checkbox)
+                .disabled(!component.canInstallRuntime)
             }
         }
         .padding(.top, 10)

@@ -50,7 +50,7 @@ enum BrokerClient {
         return try await Task.detached(priority: .utility) {
             let process = Process()
             let pipe = Pipe()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+            process.executableURL = ControlPython.executable(root: AppPaths.support)
             process.arguments = [script.path] + arguments
             process.environment = environment
             process.standardOutput = pipe

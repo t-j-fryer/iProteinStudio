@@ -21,6 +21,9 @@ TERMINAL = {"completed", "failed", "cancelled"}
 _DETACHED: Dict[str, subprocess.Popen] = {}
 _CANCEL_REQUESTED = False
 _EXECUTION_FD = None
+_RUNTIME_BINDINGS = {}
+_CODE_SNAPSHOT = None
+_PREPARED_RUNTIME_VIEW = None
 
 
 @contextmanager
@@ -95,13 +98,24 @@ def _spawn(job_id: str) -> Dict[str, Any]:
     directory = state_path(job_id).parent
     log_path = directory / "job.log"
     server_root = directory / "bridge"
+    plan = load_json(directory / "plan.json")
+    snapshot = plan.get("code_snapshot")
+    source_bridge = Path(snapshot["path"]) / "mcp" if snapshot else Path(__file__).resolve().parents[1]
     if not server_root.exists():
-        shutil.copytree(Path(__file__).resolve().parents[1], server_root,
+        shutil.copytree(source_bridge, server_root,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    support = server_root / "runtime_support"
+    if not support.exists():
+        support.mkdir()
+        source = Path(snapshot["path"]) / "scripts" if snapshot else Path(__file__).resolve().parents[2] / "scripts"
+        for name in ("runtime_package.py", "runtime_transaction.py", "runtime_view.py", "engine_registry.py", "engine_registry.json"):
+            if (source / name).is_file(): shutil.copy2(source / name, support / name)
     studioctl = server_root / "studioctl.py"
+    control = plan.get("runtime_bindings", {}).get("control")
+    worker_python = str(Path(control["path"]) / "python/bin/python3") if control else str(Path(sys.executable).resolve())
     with log_path.open("ab", buffering=0) as log:
         process = subprocess.Popen(
-            [sys.executable, str(studioctl), "_run-job", "--job-id", job_id],
+            [worker_python, str(studioctl), "_run-job", "--job-id", job_id],
             cwd=str(server_root),
             stdin=subprocess.DEVNULL,
             stdout=log,
@@ -223,7 +237,7 @@ def _update(job_id: str, **changes: Any) -> Dict[str, Any]:
 
 
 def _snapshot_pipeline(campaign: Path) -> Path:
-    root = runtime_root()
+    root = Path(_CODE_SNAPSHOT["path"]) if _CODE_SNAPSHOT else runtime_root()
     destination = campaign / ".studio_runtime" / "pipeline"
     if destination.is_dir() and (destination / "nanohunter_run.sh").is_file():
         return destination
@@ -247,6 +261,29 @@ def _snapshot_pipeline(campaign: Path) -> Path:
 
 
 def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str]) -> int:
+    from .runtime_bindings import environment
+    env = {**env, **environment(_RUNTIME_BINDINGS)}
+    if _RUNTIME_BINDINGS or _CODE_SNAPSHOT:
+        support = Path(__file__).resolve().parents[1] / "runtime_support"
+        sys.path.insert(0, str(support))
+        try:
+            from runtime_view import build, rewrite, bind_configs
+            root = runtime_root()
+            destination = state_path(job_id).parent / "runtime_view"
+            if _PREPARED_RUNTIME_VIEW:
+                destination = Path(_PREPARED_RUNTIME_VIEW["path"])
+                for name, key in (("assets.json", "assets_sha256"), ("view.json", "view_sha256")):
+                    if file_digest(destination / name) != _PREPARED_RUNTIME_VIEW[key]:
+                        raise StudioError("Retained job runtime inventory changed: " + name)
+            view = build(root, destination, _RUNTIME_BINDINGS, _CODE_SNAPSHOT)
+            command = bind_configs(rewrite(command, root, view), root, view, state_path(job_id).parent / "bound_configs")
+            cwd = Path(rewrite([str(cwd)], root, view)[0])
+            env["NANOHUNTER_ROOT"] = str(view)
+            if "antifold" in _RUNTIME_BINDINGS:
+                # Upstream AntiFold locates its checkpoint beside imported
+                # source. Import through the view so it uses retained job data.
+                env["PYTHONPATH"] = str(view / "src/AntiFold")
+        finally: sys.path.remove(str(support))
     log_path = state_path(job_id).parent / "pipeline.log"
     explicit_failure = None
     with log_path.open("a", encoding="utf-8") as log, log_path.open(encoding="utf-8") as reader:
@@ -425,7 +462,7 @@ def _execute_prediction(job_id: str, plan: Dict[str, Any]) -> int:
     atomic_json(config_path, normalized["config"])
     manifest = {"schema_version": 1, "workflow": "prediction", "plan_id": plan["id"], "plan_sha256": plan["sha256"], "created_at": utc_now(), "config": str(config_path), "provenance": plan["provenance"]}
     atomic_json(output / "studio_agent_run.json", manifest)
-    command = ["/usr/bin/caffeinate", "-dimsu", "/usr/bin/python3", str(runtime_root() / "rfd3_scripts" / "predict_batch.py"), "--config", str(config_path)]
+    command = ["/usr/bin/caffeinate", "-dimsu", sys.executable, str(runtime_root() / "rfd3_scripts" / "predict_batch.py"), "--config", str(config_path)]
     _update(job_id, output_root=str(output), stage="prediction", message="Running the durable prediction batch.")
     return _run_logged(job_id, command, runtime_root(), stable_environment())
 
@@ -509,7 +546,7 @@ def _execute_admin(job_id: str, plan: Dict[str, Any]) -> int:
 
 
 def run_worker(job_id: str) -> int:
-    global _CANCEL_REQUESTED, _EXECUTION_FD
+    global _CANCEL_REQUESTED, _EXECUTION_FD, _RUNTIME_BINDINGS, _CODE_SNAPSHOT, _PREPARED_RUNTIME_VIEW
     _CANCEL_REQUESTED = False
     def request_stop(signum, frame):
         global _CANCEL_REQUESTED
@@ -540,6 +577,11 @@ def run_worker(job_id: str) -> int:
             plan = load_plan(recorded["id"], recorded["sha256"])
             if plan != recorded:
                 raise StudioError("The job's plan copy does not match the immutable plan registry.")
+            from .runtime_bindings import verify as verify_runtime_bindings
+            _RUNTIME_BINDINGS = plan.get("runtime_bindings", {})
+            _CODE_SNAPSHOT = plan.get("code_snapshot")
+            _PREPARED_RUNTIME_VIEW = plan.get("prepared_runtime_view")
+            verify_runtime_bindings(_RUNTIME_BINDINGS)
             _update(job_id, status="running", started_at=utc_now(), stage="starting", message="Acquired the shared iProteinStudio execution lock.")
             kind = plan["kind"]
             if kind.startswith("desktop_"):

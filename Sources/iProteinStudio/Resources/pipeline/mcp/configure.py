@@ -44,7 +44,7 @@ def codex_block(profiles: List[str]) -> str:
         blocks.extend(
             [
                 f"[mcp_servers.iproteinstudio-{profile}]",
-                'command = "/usr/bin/python3"',
+                'command = ' + json.dumps(sys.executable),
                 f'args = [{json.dumps(str(server_path()))}, "--profile", "{profile}"]',
                 (
                     f'env = {{ NANOHUNTER_ROOT = {json.dumps(str(root_path()))}, '
@@ -122,7 +122,7 @@ def claude_servers(profiles: List[str], include_type: bool = True) -> Dict[str, 
         if profile == "admin":
             environment["IPROTEINSTUDIO_ENABLE_ADMIN_MCP"] = "1"
         record: Dict[str, object] = {
-            "command": "/usr/bin/python3",
+            "command": sys.executable,
             "args": [str(server_path()), "--profile", profile],
             "env": environment,
         }
@@ -182,7 +182,7 @@ def configure_claude_user(profiles: List[str], write: bool, remove: bool = False
             command = [executable or "claude", "mcp", "add", "--scope", "user", f"iproteinstudio-{profile}", "--env", f"NANOHUNTER_ROOT={root_path()}"]
             if profile == "admin":
                 command += ["--env", "IPROTEINSTUDIO_ENABLE_ADMIN_MCP=1"]
-            commands.append(command + ["--", "/usr/bin/python3", str(server_path()), "--profile", profile])
+            commands.append(command + ["--", sys.executable, str(server_path()), "--profile", profile])
     if not write:
         for command in commands:
             print("Would run: " + " ".join(json.dumps(value) for value in command))

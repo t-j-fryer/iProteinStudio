@@ -4,7 +4,7 @@ import Foundation
 /// markers emitted by `setup_pipeline.sh`.
 enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     case boltz, boltzAffinity = "boltz_affinity"
-    case mpnn, abmpnn, antifold, lasermpnn, nesso
+    case mpnn, abmpnn, antifold, lasermpnn, nesso, psichic
     case intellifold, intellifoldFull = "intellifold_full"
     case protenix, protenixV2 = "protenix_v2", protenixMini = "protenix_mini"
     case openfold3, alphafold3
@@ -15,7 +15,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     /// AlphaFold 3 and IntelliFold JAX remain decodable so old projects and
     /// run manifests still open, but they are not installable components.
     static var allCases: [InstallComponent] {
-        [.boltz, .boltzAffinity, .mpnn, .abmpnn, .antifold, .lasermpnn, .nesso,
+        [.boltz, .boltzAffinity, .mpnn, .abmpnn, .antifold, .lasermpnn, .nesso, .psichic,
          .intellifold, .intellifoldFull, .protenix, .protenixV2,
          .protenixMini, .protenixConstraint, .openfold3, .rfd3]
     }
@@ -34,6 +34,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .mpnn:           return "Core sequence designers"
         case .antifold:       return "AntiFold"
         case .lasermpnn:      return "LASErMPNN"
+        case .psichic:        return "PSICHIC-XL (experimental)"
         case .nesso:          return "NESSO-1 (experimental)"
         case .intellifold:    return "IntelliFold v2 Flash"
         case .intellifoldFull:return "IntelliFold full v2 checkpoint"
@@ -70,6 +71,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openfold3:      return "--with-openfold3"
         case .alphafold3, .intellifoldJAX: return nil
         case .lasermpnn:      return "--with-lasermpnn"
+        case .psichic:        return "--with-psichic"
         case .nesso:          return "--with-nesso"
         case .rfd3:           return "--with-rfd3"
         }
@@ -92,6 +94,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openfold3:      return "~4 GB"
         case .alphafold3, .intellifoldJAX: return "retired"
         case .lasermpnn:      return "~2 GB"
+        case .psichic:        return "~6 GB budget"
         case .nesso:          return "~6 GB budget"
         case .rfd3:           return "~5 GB"
         }
@@ -116,6 +119,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .protenixConstraint:  return 3 * gib
         case .openfold3:           return 4 * gib
         case .lasermpnn:           return 2 * gib
+        case .psichic:             return 6 * gib
         case .nesso:               return 6 * gib
         case .rfd3:                return 5 * gib
         case .alphafold3, .intellifoldJAX: return 0
@@ -141,6 +145,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openfold3:      return "Another independent folding engine, with Apple GPU kernels."
         case .alphafold3:     return "Retired after a same-input quality-control failure on Metal."
         case .lasermpnn:      return "Ligand-aware sequence design that also places side chains."
+        case .psichic:        return "Experimental small-molecule sequence screening. Ranks 1 − nonbinder; does not generate structures. Binding accuracy for designed proteins is unvalidated."
         case .nesso:          return "Optional small-molecule sequence screening in NISE, RFdiffusion3 and Protein Hunter. Predicts small-molecule affinity; does not generate structures. Ranking accuracy for designed binders is unvalidated."
         case .rfd3:           return "The RFdiffusion3 tab — generating binder backbones from scratch."
         }
@@ -160,20 +165,38 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         }
     }
 
+    var minimumRuntimeMacOS: OperatingSystemVersion {
+        switch self {
+        case .openfold3, .rfd3: return OperatingSystemVersion(majorVersion: 26, minorVersion: 2, patchVersion: 0)
+        case .protenix, .protenixV2, .protenixMini: return OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0)
+        default: return OperatingSystemVersion(majorVersion: 14, minorVersion: 0, patchVersion: 0)
+        }
+    }
+
+    var canInstallRuntime: Bool {
+        ProcessInfo.processInfo.isOperatingSystemAtLeast(minimumRuntimeMacOS)
+    }
+
+    var runtimeRequirement: String {
+        let version = minimumRuntimeMacOS
+        return "Requires macOS \(version.majorVersion).\(version.minorVersion) or newer."
+    }
+
     var downloadNote: String? {
         switch self {
+        case .psichic:        return "Uses ESM-2 on the Apple GPU and graph scoring on CPU. Model assets download separately from the portable runtime; no developer tools are required for a released package."
         case .nesso:          return "Automatically installs NESSO and its required ESM-2 650M model and tokenizer; no separate ESM setup is needed. Exact cached ESM files are reused after checksum verification. Native Apple GPU, float32, no CPU fallback. Optional and experimental."
         case .lasermpnn:      return "Ligand-aware inverse folding. Runs on CPU — there is no Apple GPU build."
-        case .openfold3:      return "Downloads a ~2 GB checkpoint."
+        case .openfold3:      return "Requires macOS 26.2 or newer. Downloads a ~2 GB checkpoint."
         case .boltzAffinity:  return "Optional ~2.06 GB checkpoint for small-molecule affinity prediction."
         case .intellifoldFull:return "Optional ~3.40 GB checkpoint; v2 Flash remains available without it."
-        case .protenix:       return "Installed automatically with a Protenix checkpoint. GPU-only: Apple Metal is required; CPU fallback is refused."
+        case .protenix:       return "Requires macOS 26.0 or newer. Installed automatically with a Protenix checkpoint. GPU-only: Apple Metal is required; CPU fallback is refused."
         case .protenixV2:     return "Optional ~1.86 GB full checkpoint. Uses the shared Protenix runtime and chemical data."
         case .protenixMini:   return "Optional ~537 MB compact checkpoint. Uses the shared Protenix runtime and chemical data."
         case .protenixConstraint:
             return "Experimental, design-only checkpoint (~1.5 GB). Native Apple GPU, strict weights, no ESM download and no CPU fallback."
         case .alphafold3, .intellifoldJAX: return "No longer installable or runnable in Studio."
-        case .rfd3:           return "Downloads a ~1.3 GB checkpoint."
+        case .rfd3:           return "Requires macOS 26.2 or newer. Downloads a ~1.3 GB checkpoint."
         default:              return nil
         }
     }
@@ -533,6 +556,18 @@ enum SpeedMode: String, CaseIterable, Codable, Identifiable, Hashable {
 
 /// Shared sequence screening settings. Structural confidence remains separate.
 struct LigandNessoOptions: Codable, Hashable {
+    var engine = "nesso"
+    init() {}
+    enum CodingKeys: String, CodingKey { case engine, enabled, topK, predictor, intellifoldModel }
+    init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        engine = try c.decodeIfPresent(String.self, forKey: .engine) ?? "nesso"
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        topK = try c.decodeIfPresent(Int.self, forKey: .topK) ?? 20
+        predictor = try c.decodeIfPresent(Predictor.self, forKey: .predictor) ?? .boltz
+        intellifoldModel = try c.decodeIfPresent(IntelliFoldModel.self, forKey: .intellifoldModel) ?? .v2flash
+    }
     var enabled = false
     var topK = 20
     var predictor: Predictor = .boltz
@@ -540,13 +575,14 @@ struct LigandNessoOptions: Codable, Hashable {
     static let predictors: [Predictor] = [.boltz, .intellifold, .protenixMini, .protenixV2, .openfold3]
     var validationError: String? {
         guard enabled else { return nil }
+        if !["nesso", "psichic"].contains(engine) { return "Choose a supported experimental screening engine." }
         if !(1...100000).contains(topK) { return "Choose between 1 and 100,000 sequences to advance from NESSO." }
         if !Self.predictors.contains(predictor) { return "Choose a supported predictor for the NESSO shortlist." }
         return nil
     }
     var requiredComponents: [InstallComponent] {
         guard enabled else { return [] }
-        var result: [InstallComponent] = [.nesso, predictor.component]
+        var result: [InstallComponent] = [engine == "psichic" ? .psichic : .nesso, predictor.component]
         if predictor == .intellifold && intellifoldModel == .v2 { result.append(.intellifoldFull) }
         return result
     }

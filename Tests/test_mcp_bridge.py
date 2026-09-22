@@ -46,7 +46,7 @@ if active.exists(): (root/'concurrency-violation').write_text('overlap')
 active.write_text(str(os.getpid())); print('PBSTAGE|predict|50|fake prediction', flush=True)
 if name == 'slow': time.sleep(10)
 else: time.sleep(0.25)
-if name == 'retry' and not (root/'retry-ready').exists():
+if name == 'retry' and not (root/'projects/retry-ready').exists():
  active.unlink(); raise SystemExit(3)
 out=Path(cfg['output']); out.mkdir(parents=True, exist_ok=True)
 with (out/'predictions.csv').open('w', newline='') as h:
@@ -133,13 +133,36 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         self.assertNotEqual(denied.returncode, 0)
         self.assertIn("requires IPROTEINSTUDIO_ENABLE_ADMIN_MCP=1", denied.stderr)
 
+    def test_preflight_retains_models_before_queued_runtime_update(self):
+        base = self.root / "components/boltz/versions/old"
+        base.mkdir(parents=True)
+        (base / "runtime.json").write_text(json.dumps(dict(schema_version=1, engine="boltz", contains_weights=False, files={})))
+        (self.root / "components/boltz/current").symlink_to(base)
+        model = self.root / "models/boltz2/fixture.data"
+        model.parent.mkdir(parents=True)
+        model.write_bytes(b"accepted model")
+        plan = plans.prediction_plan(self.prediction_arguments())
+        view = Path(plan["prepared_runtime_view"]["path"])
+        model.write_bytes(b"subsequent installation")
+        self.fake_predictor.write_text("raise RuntimeError('new adapter must not run')")
+        self.assertEqual((view / "models/boltz2/fixture.data").read_bytes(), b"accepted model")
+        job = broker.start_job(plan["id"], plan["sha256"])
+        completed = self.wait_terminal(job["id"])
+        self.assertEqual(completed["status"], "completed", completed)
+
     def test_prediction_plan_is_immutable_and_provenance_checked(self):
         plan = plans.prediction_plan(self.prediction_arguments())
         self.assertEqual(plan["normalized_request"]["config"]["jobs"][0]["chains"][0]["msa"], "empty")
         self.assertTrue(plan["normalized_request"]["output"].startswith(str(self.root / "projects" / "demo")))
         plans.load_plan(plan["id"], plan["sha256"])
         self.fake_predictor.write_text(self.fake_predictor.read_text() + "\n# changed\n")
-        with self.assertRaisesRegex(common.StudioError, "changed after preflight"):
+        plans.load_plan(plan["id"], plan["sha256"])
+        frozen = Path(plan["code_snapshot"]["path"]) / "rfd3_scripts/predict_batch.py"
+        self.assertNotIn("# changed", frozen.read_text())
+        job = broker.start_job(plan["id"], plan["sha256"])
+        self.assertEqual(self.wait_terminal(job["id"])["status"], "completed")
+        frozen.write_text("# tampered")
+        with self.assertRaisesRegex(common.StudioError, "Retained adapter changed"):
             plans.load_plan(plan["id"], plan["sha256"])
 
     def test_iterative_target_template_plan_is_staged_and_fail_closed(self):
@@ -166,11 +189,12 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
             "arguments": arguments,
         })
         normalized = plan["normalized_request"]
-        self.assertIn(str(helper), [item["path"] for item in plan["provenance"]])
+        self.assertIn(str(Path(plan["code_snapshot"]["path"]) / "scripts/secondary_structure_control.py"), [item["path"] for item in plan["provenance"]])
         plans.load_plan(plan["id"], plan["sha256"])
         helper.write_text("# modified helper fixture\n", encoding="utf-8")
-        with self.assertRaisesRegex(common.StudioError, "changed after preflight"):
-            plans.load_plan(plan["id"], plan["sha256"])
+        plans.load_plan(plan["id"], plan["sha256"])
+        retained = Path(plan["code_snapshot"]["path"]) / "scripts/secondary_structure_control.py"
+        self.assertEqual(retained.read_text(), "# seed helper fixture\n")
         staged = self.root / "projects" / "demo" / "guided" / "inputs" / "target_template.pdb"
         self.assertEqual(normalized["arguments"][normalized["arguments"].index("--target-template") + 1], str(staged))
         self.assertEqual(normalized["target_template_artifact"]["sha256"], common.file_digest(structure))
@@ -287,7 +311,7 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         saved["message"] = "Workflow exited with status 3."
         broker.state_path(retry_job["id"]).write_text(json.dumps(saved))
         self.assertIn("PBSTAGE|predict", broker.load_state(retry_job["id"])["message"])
-        (self.root / "retry-ready").write_text("ready\n")
+        (self.root / "projects/retry-ready").write_text("ready\n")
         resumed = broker.resume_job(retry_job["id"])
         self.assertIn(resumed["status"], {"queued", "running"})
         completed = self.wait_terminal(retry_job["id"])

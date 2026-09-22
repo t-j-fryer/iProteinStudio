@@ -50,6 +50,9 @@ def resolve(smiles):
 
 
 def validate_selection(settings, manifest):
+    if settings.get('exposure_mode', 'sasa') == 'biotin-carboxamide-v1':
+        from biotin_exit import roles
+        roles(manifest)  # Fail before model loading for incompatible molecules.
     names = {a['name'] for a in manifest['atoms']}
     selected = set(settings.get('hotspot_atoms', [])) | set(settings.get('exposed_atoms', []))
     if selected and settings.get('ligand_atom_signature') != manifest['signature']:

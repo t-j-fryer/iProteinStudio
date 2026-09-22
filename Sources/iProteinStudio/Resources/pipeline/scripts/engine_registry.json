@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "engines": {
+    "boltz": {
+      "component": "boltz",
+      "label": "Boltz 2",
+      "capabilities": [
+        "structure",
+        "ligand-affinity"
+      ],
+      "schedule": "resident",
+      "session": "BoltzSession",
+      "mappings": {
+        "venvs/NanoHunter_boltz": "python"
+      },
+      "model_paths": [
+        "models/boltz2"
+      ],
+      "command_family": "boltz"
+    },
+    "intellifold": {
+      "component": "intellifold",
+      "label": "IntelliFold",
+      "capabilities": [
+        "structure"
+      ],
+      "schedule": "resident",
+      "session": "IntelliFoldSession",
+      "mappings": {
+        "venvs/NanoHunter_intellifold": "python",
+        "src/IntelliFold": "sources/IntelliFold"
+      },
+      "model_paths": [
+        "models/intellifold"
+      ],
+      "command_family": "intellifold"
+    },
+    "protenix-v2": {
+      "component": "protenix",
+      "label": "Protenix v2",
+      "capabilities": [
+        "structure"
+      ],
+      "schedule": "cycle-wave",
+      "session": "ProtenixSession",
+      "mappings": {
+        "venvs/NanoHunter_protenix": "python",
+        "src/Protenix": "sources/Protenix"
+      },
+      "model_paths": [
+        "models/protenix"
+      ],
+      "command_family": "protenix"
+    },
+    "protenix-mini": {
+      "component": "protenix",
+      "label": "Protenix Mini",
+      "capabilities": [
+        "structure"
+      ],
+      "schedule": "resident",
+      "session": "ProtenixSession",
+      "mappings": {
+        "venvs/NanoHunter_protenix": "python",
+        "src/Protenix": "sources/Protenix"
+      },
+      "model_paths": [
+        "models/protenix"
+      ],
+      "command_family": "protenix"
+    },
+    "protenix-constraint-v0.5": {
+      "component": "protenix_constraint",
+      "label": "Protenix Constraint",
+      "capabilities": [
+        "guided-design"
+      ],
+      "schedule": "cycle-wave",
+      "session": "ProtenixSession",
+      "experimental": true,
+      "mappings": {
+        "venvs/NanoHunter_protenix_constraint": "python",
+        "src/ProtenixConstraint": "sources/ProtenixConstraint"
+      },
+      "model_paths": [
+        "models/protenix_constraint"
+      ]
+    },
+    "openfold-3-mlx": {
+      "component": "openfold3",
+      "label": "OpenFold 3 MLX",
+      "capabilities": [
+        "structure"
+      ],
+      "schedule": "per-input",
+      "mappings": {
+        "venvs/NanoHunter_openfold3_mlx": "python",
+        "src/openfold-3-mlx": "sources/openfold-3-mlx"
+      },
+      "model_paths": [
+        "models/openfold3"
+      ],
+      "command_family": "openfold3"
+    },
+    "mpnn": {
+      "component": "mpnn",
+      "label": "MPNN family",
+      "capabilities": [
+        "sequence"
+      ],
+      "schedule": "cpu",
+      "mappings": {
+        "venvs/NanoHunter_ligandmpnn": "python",
+        "src/LigandMPNN": "sources/LigandMPNN"
+      },
+      "model_paths": [
+        "src/LigandMPNN/model_params"
+      ],
+      "aliases": [
+        "proteinmpnn",
+        "solublempnn",
+        "ligandmpnn",
+        "abmpnn",
+        "protein_mpnn",
+        "soluble_mpnn",
+        "ligand_mpnn"
+      ]
+    },
+    "lasermpnn": {
+      "component": "lasermpnn",
+      "label": "LASErMPNN",
+      "capabilities": [
+        "ligand-sequence"
+      ],
+      "schedule": "cpu",
+      "mappings": {
+        "venvs/NanoHunter_lasermpnn": "python",
+        "src/LASErMPNN": "sources/LASErMPNN"
+      },
+      "model_paths": [
+        "src/LASErMPNN/model_weights"
+      ]
+    },
+    "antifold": {
+      "component": "antifold",
+      "label": "AntiFold",
+      "capabilities": [
+        "nanobody-sequence"
+      ],
+      "schedule": "cpu",
+      "mappings": {
+        "venvs/NanoHunter_antifold": "python",
+        "src/AntiFold": "sources/AntiFold"
+      },
+      "model_paths": [
+        "src/AntiFold/models"
+      ]
+    },
+    "rfd3": {
+      "component": "rfd3",
+      "label": "RFdiffusion3",
+      "capabilities": [
+        "backbone"
+      ],
+      "schedule": "per-input",
+      "mappings": {
+        "rfd3": "sources/RFD3"
+      },
+      "model_paths": [
+        "rfd3/checkpoints",
+        "rfd3/weights"
+      ]
+    },
+    "nesso": {
+      "component": "nesso",
+      "label": "NESSO-1 (experimental)",
+      "capabilities": [
+        "sequence-ligand-screening"
+      ],
+      "schedule": "resident",
+      "experimental": true,
+      "contract": "nesso_contract",
+      "client": "nesso_screen",
+      "class_name": "NessoClient",
+      "receipt": "receipt.json",
+      "protocol": "nesso-v1.0.0-mps-float32-refined-5",
+      "mappings": {
+        "components/nesso/v1.0.0-mps-1/venv": "python"
+      },
+      "model_paths": [
+        "components/nesso/v1.0.0-mps-1/model",
+        "components/nesso/v1.0.0-mps-1/esm",
+        "components/nesso/v1.0.0-mps-1/ccd.pkl",
+        "components/nesso/v1.0.0-mps-1/receipt.json",
+        "components/nesso/v1.0.0-mps-1/LICENSE"
+      ]
+    },
+    "psichic": {
+      "component": "psichic",
+      "label": "PSICHIC-XL (experimental)",
+      "capabilities": [
+        "sequence-ligand-screening"
+      ],
+      "schedule": "resident",
+      "experimental": true,
+      "contract": "psichic_contract",
+      "client": "psichic_screen",
+      "class_name": "PsichicClient",
+      "receipt": "runtime.json",
+      "protocol": "psichic-xl-esm-mps-batch8-cpu-graph16-fp32-v1",
+      "mappings": {},
+      "model_paths": [
+        "models/psichic"
+      ]
+    },
+    "control": {
+      "component": "control",
+      "label": "Studio control runtime",
+      "capabilities": [
+        "control"
+      ],
+      "schedule": "cpu",
+      "mappings": {},
+      "model_paths": []
+    }
+  }
+}

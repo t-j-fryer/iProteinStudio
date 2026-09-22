@@ -93,16 +93,22 @@ def fold_and_score(seq_by_name, smiles, work_dir, args, pocket=None):
 def evaluate_candidates(preds, seq_by_name, ref_by_name, args, cycle, ca_thresh, lig_thresh):
     """Turn predictions into self-consistent Nodes."""
     nodes = []
-    for name, pred in preds.items():
-        ref = ref_by_name[name]
+    consistency = {}
+    for name,pred in preds.items():
         try:
-            sc = L.self_consistency(pred.pdb, ref, ca_thresh=ca_thresh, lig_thresh=lig_thresh)
+            consistency[name] = L.self_consistency(pred.pdb, ref_by_name[name], ca_thresh=ca_thresh, lig_thresh=lig_thresh)
         except Exception as e:
             raise RuntimeError(f"{name}: self-consistency could not be measured") from e
+    eligible = {name:pred for name,pred in preds.items() if consistency[name].ok}
+    atom_pass = {}
+    if args.backend is not None and hasattr(args.backend, "check_atom_requirements_batch"):
+        atom_pass = args.backend.check_atom_requirements_batch(eligible)
+    elif args.backend is not None and hasattr(args.backend, "check_atom_requirements"):
+        atom_pass = {name:args.backend.check_atom_requirements(pred) for name,pred in eligible.items()}
+    for name, pred in preds.items():
+        ref, sc = ref_by_name[name], consistency[name]
         score = None if getattr(args, "selective_affinity", False) else L.rank_score(pred, args.rank_metric)
-        passed = sc.ok
-        if args.backend is not None and hasattr(args.backend, "check_atom_requirements"):
-            passed = args.backend.check_atom_requirements(pred) and passed
+        passed = sc.ok and atom_pass.get(name, True)
         # optional ligand-SASA filter (buried-ligand enrichment)
         if passed and args.ligand_sasa_max is not None:
             lsasa = L.ligand_sasa(pred.pdb)
@@ -495,8 +501,11 @@ def main(argv=None, backend=None):
         if getattr(args, "selective_affinity", False):
             from types import SimpleNamespace
             from runtime import atomic
-            checks = {name: backend.check_atom_requirements(SimpleNamespace(name=name, pdb=pdb))
-                      for name, pdb in lineages.items()}
+            initial_predictions = {name: SimpleNamespace(name=name, pdb=pdb) for name,pdb in lineages.items()}
+            if hasattr(backend, "check_atom_requirements_batch"):
+                checks = backend.check_atom_requirements_batch(initial_predictions)
+            else:
+                checks = {name: backend.check_atom_requirements(pred) for name,pred in initial_predictions.items()}
             atomic(p0dir(0, "initial_geometry.json"), dict(passed=checks,
                    atom_checks=getattr(backend, "atom_checks", {}), affinity="omitted"))
             lineages = {name: pdb for name, pdb in lineages.items() if checks[name]}

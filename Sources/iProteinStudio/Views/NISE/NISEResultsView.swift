@@ -85,7 +85,7 @@ struct NISEResultsView: View {
                 Picker("Results section", selection: $section) {
                     Text("Overview").tag("overview")
                     Text("Structures (\(records.count))").tag("structures")
-                    if !snapshot.screening.isEmpty { Text("NESSO scores").tag("nesso") }
+                    if !snapshot.screening.isEmpty { Text("Screening scores").tag("nesso") }
                 }.pickerStyle(.segmented)
             }.padding(14)
             Divider()
@@ -199,7 +199,7 @@ struct NISEResultsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             if stage.screened > 0 {
-                Text("NESSO: \(stage.screened) sequences screened · \(stage.shortlisted) shortlisted for folding")
+                Text("Screening: \(stage.screened) sequences screened · \(stage.shortlisted) shortlisted for folding")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -216,13 +216,13 @@ struct NISEResultsView: View {
                 && (search.isEmpty || $0.name.localizedCaseInsensitiveContains(search))
         }
         return VStack(alignment: .leading, spacing: 10) {
-            Text("NESSO screens sequences before folding. Its P(bind) and screening score are separate from Boltz P(bind) and ligand pLDDT. Sequences outside the shortlist have no Boltz structure.")
+            Text("Experimental NESSO or PSICHIC screens sequences before folding. Screening scores are separate from Boltz P(bind) and ligand pLDDT. Sequences outside the shortlist have no Boltz structure.")
                 .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
             Table(rows) {
                 TableColumn("Candidate", value: \.name)
-                TableColumn("P(bind)") { row in screenValue(row, .nessoBindingProbability) }
+                TableColumn("Binding likelihood") { row in screenValue(row, row.metrics.contains { $0.kind == .psichicBindingProxy } ? .psichicBindingProxy : .nessoBindingProbability) }
                 TableColumn("Interface entropy") { row in screenValue(row, .nessoInterfaceEntropy) }
-                TableColumn("Screening score") { row in screenValue(row, .nessoScreeningScore) }
+                TableColumn("Screening score") { row in screenValue(row, row.metrics.contains { $0.kind == .psichicBindingProxy } ? .psichicBindingProxy : .nessoScreeningScore) }
                 TableColumn("Selection") { row in
                     Text(row.selected.map { $0 ? "Shortlisted for Boltz" : "Not shortlisted" } ?? "Awaiting shortlist")
                         .help(row.rejection ?? "Selection uses the saved screening policy.")

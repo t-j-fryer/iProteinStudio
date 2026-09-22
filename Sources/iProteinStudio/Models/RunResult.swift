@@ -280,6 +280,7 @@ struct StudioResultMetric: Identifiable, Hashable {
         case minimumIPTM
         case meanIPTM
         case bindingProbability, nessoBindingProbability, nessoAffinity, nessoPlacementEntropy, nessoInterfaceEntropy, nessoScreeningScore
+        case psichicBindingProxy, psichicAffinity, psichicNonbinder, psichicAntagonist, psichicAgonist
         case rankingScore
         case pocketMeanDistance
         case pocketFractionWithinCutoff
@@ -307,6 +308,11 @@ struct StudioResultMetric: Identifiable, Hashable {
             case .minimumIPTM: return "minimum iPTM"
             case .meanIPTM: return "mean iPTM"
             case .bindingProbability: return "P(bind)"
+            case .psichicBindingProxy: return "PSICHIC 1 − nonbinder"
+            case .psichicAffinity: return "PSICHIC affinity"
+            case .psichicNonbinder: return "PSICHIC nonbinder"
+            case .psichicAntagonist: return "PSICHIC antagonist"
+            case .psichicAgonist: return "PSICHIC agonist"
             case .nessoBindingProbability: return "NESSO P(bind)"
             case .nessoAffinity: return "NESSO log10(IC50/µM)"
             case .nessoPlacementEntropy: return "NESSO full PL entropy"
@@ -343,6 +349,9 @@ struct StudioResultMetric: Identifiable, Hashable {
                 return "Boltz interface predicted distance error, in Å. This is not relabelled as PAE. Lower is better."
             case .minimumIPTM: return "The weakest iPTM across the verification engines; higher is better."
             case .meanIPTM: return "Mean iPTM across the verification engines; higher is better."
+            case .psichicBindingProxy: return "Experimental PSICHIC binding-likelihood proxy, 1 − nonbinder probability. Used for screening only; not calibrated against Boltz or NESSO."
+            case .psichicAffinity: return "Experimental PSICHIC predicted affinity, retained separately from screening and structural scores."
+            case .psichicNonbinder, .psichicAntagonist, .psichicAgonist: return "Experimental PSICHIC multiclass probability; these three class probabilities sum to one."
             case .nessoBindingProbability: return "NESSO binding probability, one component of its screening score; not calibrated against Boltz probabilities."
             case .nessoPlacementEntropy: return "Full protein–ligand distogram entropy (entropy_pl), retained for historical scores and diagnostics. Current screening uses pocket-cropped entropy."
             case .nessoInterfaceEntropy: return "Pocket-cropped protein–ligand distogram entropy (entropy_crop_pl). Current screening requires a finite value greater than 0.000001 and at most 1; zero can indicate failed ligand placement."

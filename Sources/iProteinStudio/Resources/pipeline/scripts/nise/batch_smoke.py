@@ -56,10 +56,16 @@ def run(config_path):
     backend=BatchBackend(root,output,settings,scripts)
     try:
         predictions=backend.fold(sequences,manifest['smiles_used'],directory,args,pocket)
-        scored=backend.affinity(predictions,directory,args)
+        geometry=backend.check_atom_requirements_batch(predictions)
+        eligible={name:pred for name,pred in predictions.items() if geometry[name]}
+        if not eligible:
+            raise RuntimeError('No smoke structures passed the requested geometry; inspect before launching a campaign')
+        scored=backend.affinity(eligible,directory,args)
         receipts={str(p.relative_to(output)):digest(p) for p in directory.rglob('*completed.json')}
         again=backend.fold(sequences,manifest['smiles_used'],directory,args,pocket)
-        rescored=backend.affinity(again,directory,args)
+        rechecked=backend.check_atom_requirements_batch(again)
+        if rechecked!=geometry:raise RuntimeError('Resume changed geometry acceptance')
+        rescored=backend.affinity({name:pred for name,pred in again.items() if rechecked[name]},directory,args)
         if {str(p.relative_to(output)):digest(p) for p in directory.rglob('*completed.json')}!=receipts:
             raise RuntimeError('Resume changed completed operation receipts')
         if [p.pbind for p in scored.values()]!=[p.pbind for p in rescored.values()]:
@@ -67,7 +73,8 @@ def run(config_path):
         counts={name:len(list((directory/'_batches').glob(f'structure-*/items/{name}.json'))) for name in sequences}
         if any(n!=1 for n in counts.values()):raise RuntimeError('Completed native input was folded twice')
         atomic(output/'summary.json',dict(status='completed',structures=len(predictions),affinities=len(scored),
-            recovery_verified=True,repeat_resume_reused_all=True,native_completion_counts=counts))
+            recovery_verified=True,repeat_resume_reused_all=True,native_completion_counts=counts,
+            geometry=geometry,geometry_before_affinity=True,affinity_ids=sorted(scored)))
     finally:backend.close()
 
 

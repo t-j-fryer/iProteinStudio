@@ -16,17 +16,18 @@ def prepare(root, output, workflow, value, smiles, *, detected=None):
         spec = importlib.util.spec_from_file_location('studio_ligand_screening', module_dir / 'ligand_screening.py')
         module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
         opts = module.options(value)
-        import nesso_contract
-        nesso_contract.validate_installation(root)
-        assets = list(nesso_contract.installation_files(root))
+        from screening_registry import contract as scorer_contract
+        selected = scorer_contract(opts['engine'])
+        selected.validate_installation(root)
+        assets = list(selected.installation_files(root))
     except (ValueError, OSError) as exc:
         raise StudioError(str(exc)) from exc
     finally:
         sys.path.remove(str(module_dir))
     if not isinstance(smiles, str) or not smiles.strip() or any(c.isspace() for c in smiles.strip()) or "'" in smiles:
-        raise StudioError('NESSO screening needs the ligand SMILES, without a name or whitespace.')
+        raise StudioError('Experimental screening needs the ligand SMILES, without a name or whitespace.')
     if workflow not in {'iterative', 'rfdiffusion3'}:
-        raise StudioError('NESSO screening is restricted to ligand design campaigns.')
+        raise StudioError('Experimental screening is restricted to ligand design campaigns.')
     if detected is None:
         from .catalog import detect_engines
         detected = detect_engines()['engines']
@@ -37,7 +38,7 @@ def prepare(root, output, workflow, value, smiles, *, detected=None):
         required.append('intellifold_full')
     missing = [key for key in required if detected.get(key, {}).get('state') != 'ok']
     if missing:
-        raise StudioError('Install or repair NESSO verification components before running: ' + ', '.join(missing))
+        raise StudioError('Install or repair Screening verification components before running: ' + ', '.join(missing))
     stage = output / 'nesso_verification'
     snapshot = stage / 'runtime'
     if not snapshot.exists():
@@ -46,11 +47,12 @@ def prepare(root, output, workflow, value, smiles, *, detected=None):
             shutil.rmtree(temp)
         for source_root, relative in ((root / 'scripts', Path('scripts')),
                                       (root / 'rfd3_overlay/scripts', Path('predictors'))):
-            for source in source_root.rglob('*.py'):
+            for source in source_root.rglob('*'):
+                if not source.is_file() or source.suffix not in ('.py','.json'): continue
                 target = temp / relative / source.relative_to(source_root)
                 target.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(source, target)
         # Pinned source patches and installation protocol, never model weights.
-        shutil.copytree(root / 'scripts/nise/nesso_assets', temp / 'scripts/nise/nesso_assets')
+        shutil.copytree(root / 'scripts/nise/nesso_assets', temp / 'scripts/nise/nesso_assets', dirs_exist_ok=True)
         if not (temp / 'predictors/run_predictors.py').is_file():
             raise StudioError('The shared predictor adapters have not been staged. Repair the app runtime.')
         temp.rename(snapshot)
@@ -76,7 +78,7 @@ def prepare(root, output, workflow, value, smiles, *, detected=None):
     package = {'boltz2': 'boltz', 'openfold3': 'openfold'}.get(family, family)
     assets += list((venv / 'lib').glob('python*/site-packages/' + package + '/**/*.py'))
     assets += list((root / 'scripts').rglob('*.py'))
-    assets += list(snapshot.rglob('*.py'))
+    assets += [p for p in snapshot.rglob('*') if p.is_file() and p.suffix in ('.py','.json')]
     assets += [p for p in (snapshot / 'scripts/nise/nesso_assets').iterdir() if p.is_file()]
     from .plans import _script_provenance
     from hashlib import sha256
@@ -90,10 +92,10 @@ def prepare(root, output, workflow, value, smiles, *, detected=None):
     path = stage / 'config.json'
     if path.exists():
         if json.loads(path.read_text()) != config:
-            raise StudioError('The recorded NESSO settings or dependencies changed. Create a new campaign to change its shortlist or model.')
+            raise StudioError('The recorded screening settings or dependencies changed. Create a new campaign to change its shortlist or model.')
     else:
         temp = path.with_suffix('.json.part'); temp.write_text(json.dumps(config, indent=2) + '\n'); temp.replace(path)
     assets += [path]
-    return ({'command': ['/usr/bin/caffeinate', '-dimsu', '/usr/bin/python3',
+    return ({'command': ['/usr/bin/caffeinate', '-dimsu', sys.executable,
                         str(snapshot / 'scripts/nise/ligand_screening.py'), '--config', str(path)],
              'cwd': str(snapshot), 'stage': 'nesso-verification'}, assets)

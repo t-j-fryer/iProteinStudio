@@ -39,3 +39,5 @@
 - [0039 — Other Apple runtime comparisons](lab_book/0039-other-apple-engines.md) (2026-09-19): complete; 162 audited output units, retained failures, no defaults promoted.
 - [0040 — Mac Metal fusions](lab_book/0040-mac-metal-fusions.md): completed;129 outputs and57 operator cases, exact NESSO caches, short-input Flash padding, rejected kernel/parser shortcuts.
 - [0041 — Crystal/MSA runtime qualification](lab_book/0041-crystal-msa-runtime.md): complete; build42 deployed to app, GitHub and MCP.
+
+- [0047 — Portable runtime qualification](lab_book/0047-portable-runtime-qualification.md)

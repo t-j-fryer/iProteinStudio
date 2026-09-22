@@ -158,6 +158,12 @@ struct WorkflowRequestContractHarness {
         testRFD3Contracts(structure: structure)
         try testLigandAttachmentContract()
         testPredictionContracts()
+        let oldScreening = try JSONDecoder().decode(LigandNessoOptions.self, from: Data("{\"enabled\":true,\"topK\":8,\"predictor\":\"boltz\",\"intellifoldModel\":\"v2-flash\"}".utf8))
+        expect(oldScreening.engine == "nesso", "old screening request changed engine")
+        var psichic = LigandNessoOptions(); psichic.enabled = true; psichic.engine = "psichic"
+        expect(psichic.requiredComponents.contains(.psichic) && !psichic.requiredComponents.contains(.nesso), "PSICHIC install dependencies incorrect")
+        let restoredPS = try JSONDecoder().decode(LigandNessoOptions.self, from: JSONEncoder().encode(psichic))
+        expect(restoredPS.engine == "psichic", "PSICHIC selection was not persisted")
         if failures.isEmpty {
             print("PASS workflow request contract")
         } else {

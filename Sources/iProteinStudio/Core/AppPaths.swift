@@ -586,6 +586,12 @@ enum AppPaths {
         let root = rfd3Root
         // Nothing to overlay onto until RFdiffusion3 is installed or linked.
         guard fm.fileExists(atPath: root.path) else { return false }
+        // Portable profiles contain a qualified overlay already. Updating their
+        // code in place would invalidate retained jobs and the signed inventory.
+        // Ship a new runtime identity when that overlay changes.
+        if fm.fileExists(atPath: support.appendingPathComponent("components/rfd3/current/runtime.json").path) {
+            return false
+        }
 
         let installedStamp = root.appendingPathComponent(".studio_overlay_version")
         let installed = (try? String(contentsOf: installedStamp, encoding: .utf8)) ?? ""

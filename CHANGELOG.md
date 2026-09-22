@@ -2,6 +2,24 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.1 — portable engines and experimental PSICHIC
+
+- Engines install from versioned, checksum-verified GitHub runtime archives.
+  Released profiles need no Xcode, Command Line Tools, Git or package builds on
+  the user's Mac. Model weights download separately from their original providers.
+- Experimental PSICHIC is available beside NESSO for ligand screening. It reports
+  affinity and three class probabilities, ranks by 1 − predicted nonbinder, and
+  retains Boltz structural verification. Existing saved settings still use NESSO.
+- Interrupted runtime switches recover; earlier versions remain available for
+  rollback. Managed jobs pin their runtime and retain private model-data copies.
+- Shared adapters preserve existing engine settings, including the qualified
+  Torch2.14 Boltz/IntelliFold profiles, NESSO caches and Flash padding optimization.
+- These OpenFold3 and RFdiffusion3 runtime profiles require macOS26.2 or newer;
+  Protenix v2/Mini requires26.0 or newer. These are minimums;26.6.1 qualifies.
+- Current-machine qualification only. Fresh-Mac and cross-chip acceptance testing
+  remain deferred. This uses the existing Sparkle-signed trusted-beta channel;
+  the app and runtimes are not Developer ID signed or Apple notarized.
+
 ## 0.2.0 — updater foundation
 
 - Build 42 pins PyTorch 2.14.0 for Boltz2 and shared IntelliFold Flash/Full,

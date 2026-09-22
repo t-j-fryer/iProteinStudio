@@ -35,6 +35,7 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
             SOURCE + "Core/MetricsWatcher.swift", SOURCE + "Core/Results/RunResultsLoader.swift", SOURCE + "Core/Results/NISEResults.swift", "Tests/IterativeCommandContractHarness.swift"],
     }
     for name, sources in cases.items():
+        sources += [SOURCE + "Core/ControlPython.swift"]
         binary = tmp / name
         subprocess.run(flags + ["-parse-as-library"] + sources + ["-o", str(binary)], cwd=ROOT, check=True)
         subprocess.run([str(binary)], cwd=ROOT, check=True)

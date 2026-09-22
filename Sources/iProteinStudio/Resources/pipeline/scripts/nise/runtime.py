@@ -145,8 +145,11 @@ class Backend:
         self.nesso_scores = {}
         self.ligand_manifest = None
         self.atom_checks = {}
+        self.geometry_executor = None
 
     def close(self):
+        if self.geometry_executor is not None:
+            self.geometry_executor.close(); self.geometry_executor = None
         if self.nesso_worker is not None:
             self.nesso_worker.close(); self.nesso_worker = None
         if self.worker is not None:
@@ -183,16 +186,33 @@ class Backend:
     def initial_contacts(self, smiles, count):
         from ligand_atoms import contact_atoms
         manifest = self.atom_manifest(smiles)
-        return self.settings.get("hotspot_atoms") or contact_atoms(
-            manifest, count, self.settings.get("exposed_atoms", []))
+        excluded = list(self.settings.get("exposed_atoms", []))
+        if self.settings.get("exposure_mode") == "biotin-carboxamide-v1":
+            from biotin_exit import roles
+            terminal = roles(manifest)
+            excluded += [terminal[k] for k in ("carbonyl", "oxygen", "leaving")]
+        return self.settings.get("hotspot_atoms") or contact_atoms(manifest, count, excluded)
+
+    def check_atom_requirements_batch(self, predictions):
+        if (not self.settings.get("hotspot_atoms") and not self.settings.get("exposed_atoms")
+                and self.settings.get("exposure_mode", "sasa") == "sasa"):
+            return {name: True for name in predictions}
+        # Preserve the lightweight legacy route. The new exit calculations use
+        # reusable CPU processes, per-structure receipts and bounded memory.
+        if self.settings.get("exposure_mode", "sasa") == "sasa":
+            from atom_geometry import measure
+            results = {name: measure(pred.pdb, self.settings, self.atom_manifest())
+                       for name, pred in predictions.items()}
+        else:
+            from geometry_runtime import GeometryExecutor
+            if self.geometry_executor is None:
+                self.geometry_executor = GeometryExecutor(self.output, self.settings, self.atom_manifest())
+            results = self.geometry_executor.check(predictions)
+        self.atom_checks.update(results)
+        return {name: result["passed"] for name,result in results.items()}
 
     def check_atom_requirements(self, prediction):
-        if not self.settings.get("hotspot_atoms") and not self.settings.get("exposed_atoms"):
-            return True
-        from atom_geometry import measure
-        result = measure(prediction.pdb, self.settings, self.atom_manifest())
-        self.atom_checks[prediction.name] = result
-        return result["passed"]
+        return self.check_atom_requirements_batch({prediction.name: prediction})[prediction.name]
 
     def initial_backbones(self, smiles, directory, args):
         from rfd3_initial import generate
@@ -365,7 +385,7 @@ class Backend:
         if node.name in getattr(self, "atom_checks", {}):
             row["atom_checks"] = self.atom_checks[node.name]
         if node.name in getattr(self, "nesso_scores", {}):
-            row["nesso"] = self.nesso_scores[node.name]
+            row[self.nesso_scores[node.name].get("engine", "nesso")] = self.nesso_scores[node.name]
         row["pdb"] = str(Path(node.pdb).resolve().relative_to(self.output.resolve()))
         row["ref_pdb"] = str(Path(node.ref_pdb).resolve().relative_to(self.output.resolve()))
         atomic(self.output / "candidates" / (node.name + ".json"), row)
@@ -400,16 +420,16 @@ class Backend:
         self.write_atom_report()
 
     def write_atom_report(self):
-        if self.settings.get("hotspot_atoms") or self.settings.get("exposed_atoms"):
+        if self.settings.get("hotspot_atoms") or self.settings.get("exposed_atoms") or self.settings.get("exposure_mode", "sasa") != "sasa":
             import csv, io
             table = io.StringIO()
             writer = csv.writer(table)
-            writer.writerow(["candidate", "cycle", "passed_all_checks", "atom_checks_passed", "failures", "hotspot_distances_A", "exposure"])
+            writer.writerow(["candidate", "cycle", "passed_all_checks", "atom_checks_passed", "failures", "hotspot_distances_A", "exposure", "linker_exit"])
             for path in sorted((self.output / "candidates").glob("*.json")):
                 row = json.loads(path.read_text()); checks = row.get("atom_checks", {})
                 writer.writerow([row["name"], row["cycle"], row["passed"], checks.get("passed"),
                                  "; ".join(checks.get("failures", [])), json.dumps(checks.get("hotspot_distance_a", {})),
-                                 json.dumps(checks.get("exposure", {}))])
+                                 json.dumps(checks.get("exposure", {})), json.dumps(checks.get("linker_exit"))])
             target = self.output / "atom_checks.csv"
             temporary = target.with_suffix(".csv.part")
             temporary.write_text(table.getvalue()); temporary.replace(target)

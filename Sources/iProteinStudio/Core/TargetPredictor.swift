@@ -154,9 +154,9 @@ final class TargetPredictor: ObservableObject {
             return
         }
 
-        let python = URL(fileURLWithPath: "/usr/bin/python3")
+        let python = ControlPython.executable(root: AppPaths.support)
         guard FileManager.default.fileExists(atPath: python.path) else {
-            phase = .failed("The macOS Python runtime is unavailable. Re-run Setup.")
+            phase = .failed("The managed Python runtime is not installed. Run Setup from Engines.")
             return
         }
         start()

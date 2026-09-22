@@ -235,11 +235,16 @@ activated; completed NESSO/ESM assets do not need to be deleted.
 
 If the new compiler check still fails, install available **Command Line Tools
 for Xcode** updates in **System Settings → General → Software Update**, then retry.
-On a Mac that has never installed these tools, open Terminal and run
-`xcode-select --install`, then follow Apple's installer. If no update is offered,
+On a Mac that has never installed these tools, choose **Install Apple Tools** in
+Studio, complete Apple's installer, then choose **Retry Setup**. The full Xcode
+app and Terminal are not required. For CLI-only use, `xcode-select --install`
+opens the same Apple installer. If no update is offered,
 keep the setup log: its selected SDK/compiler paths and compiler output are needed
 to diagnose an incomplete or incorrectly selected developer-tools installation.
-Studio does not change the Mac's global Xcode selection.
+Studio delegates the tools download to Apple rather than choosing a fixed Xcode
+version, and does not change the Mac's global Xcode selection. Use Apple's
+[compatibility guidance](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools)
+for the Mac's installed macOS release.
 
 ### Engine installation details
 
@@ -858,3 +863,15 @@ trajectory → cycle identities and reports requested trajectories separately fr
 expected optimized cycle outputs. Each group carries `campaign_run_id` for raw
 queries and `artifact_run_id` for resolving its relative artifacts. Filters do
 not alter saved runs. See [framework budgets](NANOBODY_DESIGN.md#framework-budgets-and-combined-results-build-39).
+
+Experimental PSICHIC screening uses `screening_engine: "psichic"` in a NISE
+request, retaining the existing `nesso_screen` / `phase0_nesso_screen` switches
+for saved-request compatibility. The default engine remains `"nesso"`. Optional
+Protein Hunter/RFdiffusion3 ligand-screening options use `engine: "psichic"`.
+PSICHIC requires its managed package and hashed model assets; it never silently
+falls back to NESSO or CPU ESM. Use the usual preflight/job-start path.
+
+The managed control Python can be bootstrapped without compiler tools using
+`bash "$NANOHUNTER_ROOT/setup_pipeline.sh" --bootstrap-control`. Portable runtime
+release/rollback details and remaining qualification gates are documented in
+[PORTABLE_RUNTIME_IMPLEMENTATION.md](PORTABLE_RUNTIME_IMPLEMENTATION.md).

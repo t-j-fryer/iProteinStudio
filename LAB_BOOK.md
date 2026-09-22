@@ -432,3 +432,5 @@ forgotten one.
 - [0169 — Test other Apple engine runtimes](lab_book/0169-test-other-apple-engines.md) (2026-09-19): completed isolated M4 Max runtime/implementation screen; 162 audited outputs, custom Metal trials, no defaults promoted.
 - [0170 — Mac Metal fusion tests](lab_book/0170-test-mac-metal-fusions.md): completed; NESSO preprocessing and short-input Flash padding integrated, custom kernels retained as experiments;129 outputs audited.
 - [0171 — Qualify and deploy Apple runtimes](lab_book/0171-qualify-and-deploy-apple-runtime.md): complete; build42 deployed to app, GitHub and MCP.
+
+- [0177 — Experimental PSICHIC and portable engine distribution](lab_book/0177-integrate-psichic-portable-runtimes.md)
