@@ -13,3 +13,5 @@ Acceptance uses fixed seeds, production steps/recycles/guidance, explicit empty 
 Native minimums26.0/26.2 are enforced by UI and installer;26.6.1 qualifies. No claim of fresh-Mac, other-chip or notarization acceptance. Publication and final installed-bridge receipts are recorded in project0177.
 
 App0.2.1 build44 and all12 runtime archives are published. GitHub checksum/size and Sparkle signature verification passed; empty-root public control/MPNN installation passed without invoking blocked developer tools. Additional final installed full-model checks encountered a shared macOS MPSGraph scratch-folder stall and are not passes. Cache repair awaits explicit user approval after automatic approval review rejected the shared-directory operation. See project0177 for the exact limit and recorded attempts.
+
+Follow-up: user-authorized repair and additional local GPU checks completed in [0048](0048-mps-scratch-recovery.md). Both previous/published Boltz runtimes and repeated PSICHIC scoring passed after preserving/replacing the affected temporary directory. Version0.2.2 adds a bounded storage health check; scientific runtime archives are unchanged.
