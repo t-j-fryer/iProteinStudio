@@ -54,6 +54,9 @@ def main() -> int:
     cancel.add_argument("job_id")
     resume = sub.add_parser("resume")
     resume.add_argument("job_id")
+    for name in ("job-recovery-check", "job-cleanup", "job-log"):
+        command = sub.add_parser(name)
+        command.add_argument("job_id")
     worker = sub.add_parser("_run-job")
     worker.add_argument("--job-id", required=True)
     args = parser.parse_args()
@@ -84,6 +87,19 @@ def main() -> int:
             emit({"jobs": list_jobs()})
         elif args.command == "job-status":
             emit(load_state(args.job_id))
+        elif args.command == "job-recovery-check":
+            from iprotein_mcp.recovery import inspect_job
+            emit(inspect_job(args.job_id))
+        elif args.command == "job-cleanup":
+            from iprotein_mcp.recovery import cleanup_job
+            emit(cleanup_job(args.job_id))
+        elif args.command == "job-log":
+            from iprotein_mcp.broker import state_path
+            from iprotein_mcp.common import tail_text
+            state = load_state(args.job_id)
+            directory = state_path(args.job_id).parent
+            emit(dict(job=state, lines=tail_text(directory / "pipeline.log", 500),
+                      worker_lines=tail_text(directory / "job.log", 100)))
         elif args.command == "results":
             emit(query_results(args.run_id, args.dataset, args.metric, args.hit_only, args.limit))
         elif args.command == "import":

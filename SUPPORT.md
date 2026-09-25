@@ -24,6 +24,13 @@ Use **Stop** before investigating or retrying the job. Retain its logs and saved
 outputs. If multiple previously working engines hang, save work in other apps,
 restart the Mac, then use **Resume** for the affected job.
 
+Version 0.2.5 and later include **Progress & logs → Check & clean up…** in the
+job queue and Activity/history. It can stop a live job or clean up identity-verified
+leftover processes while preserving results. For an older job whose process
+ownership cannot be established, follow the restart guidance in the viewer. To
+adopt updated worker fixes, make a new submission after recovery; Resume keeps the
+old job's code. See [job cleanup](docs/JOB_QUEUE.md#progress-viewer-and-job-cleanup).
+
 If the problem persists, report the job ID and last log messages. Support can
 request the [optional GPU-storage diagnostic](docs/PORTABLE_RUNTIME_IMPLEMENTATION.md#optional-gpu-troubleshooting).
 Normal jobs do not run that diagnostic, and Studio does not automatically clear

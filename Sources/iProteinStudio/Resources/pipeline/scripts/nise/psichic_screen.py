@@ -12,6 +12,14 @@ class PsichicClient(ResidentClient):
         self.stream=self.log.open('w')
         env=dict(os.environ,PYTORCH_ENABLE_MPS_FALLBACK='0',PYTHONNOUSERSITE='1',PYTHONDONTWRITEBYTECODE='1',OMP_NUM_THREADS='4',MKL_NUM_THREADS='4',OPENBLAS_NUM_THREADS='4',VECLIB_MAXIMUM_THREADS='4')
         for key in ('PYTHONPATH','PYTHONHOME','PYTORCH_MPS_FAST_MATH','PYTORCH_MPS_PREFER_METAL'):env.pop(key,None)
+        # Re-add only this job's trusted observer after removing inherited paths.
+        # Keep the screening runtime isolated from unrelated user Python packages.
+        import importlib.util
+        progress_path=Path(scripts)/'engine_progress.py'
+        if progress_path.is_file():
+            spec=importlib.util.spec_from_file_location('studio_psichic_progress',progress_path)
+            progress=importlib.util.module_from_spec(spec);spec.loader.exec_module(progress)
+            env=progress.environment(env,Path(scripts))
         self.process=subprocess.Popen([str(contract.installation(root)/'python/bin/python3'),str(Path(scripts)/'nise/psichic_worker.py'),'--config',str(self.config)],env=env,stdout=self.stream,stderr=subprocess.STDOUT)
         try:
             self.ready=self.wait(self.queue/'ready.json')

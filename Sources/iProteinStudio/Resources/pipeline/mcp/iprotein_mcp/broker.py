@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import fcntl
+import importlib.util
 from contextlib import contextmanager
 import json
 import os
@@ -213,6 +214,12 @@ def _resume_job(job_id: str) -> Dict[str, Any]:
         return state
     if process_alive(state.get("pid")):
         raise StudioError("The previous worker is still alive; wait before resuming.")
+    receipt = state_path(job_id).parent / "processes.json"
+    if receipt.is_file():
+        from .recovery import owned_processes
+        from .process_tree import snapshot
+        if owned_processes(load_json(receipt), snapshot()):
+            raise StudioError("This job still has recorded processes. Use Check & clean up before resuming.")
     (state_path(job_id).parent / "cancel.json").unlink(missing_ok=True)
     state.update({"status": "queued", "stage": "queued", "message": "Waiting to resume from durable outputs.", "finished_at": None, "error": None, "updated_at": utc_now(), "pid": None, "process_group": None})
     atomic_json(state_path(job_id), state)
@@ -294,6 +301,15 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
                 env["PYTHONPATH"] = str(view / "src/AntiFold")
         finally: sys.path.remove(str(support))
     log_path = state_path(job_id).parent / "pipeline.log"
+    # Opt in this job's descendants only. Read hooks from retained job code,
+    # so Resume cannot acquire different instrumentation after an app update.
+    pipeline = Path(env.get("IPROTEINSTUDIO_PIPELINE_SNAPSHOT") or env.get("NANOHUNTER_ROOT") or runtime_root())
+    progress = pipeline / "scripts" / "engine_progress.py"
+    if progress.is_file():
+        spec = importlib.util.spec_from_file_location("studio_job_progress", progress)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        env = module.environment(env, progress.parent, log_path)
     explicit_failure = None
     with log_path.open("a", encoding="utf-8") as log, log_path.open(encoding="utf-8") as reader:
         reader.seek(0, os.SEEK_END)
@@ -304,11 +320,18 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
         _update(job_id, child_pid=process.pid, child_process_group=process.pid)
         from .process_tree import ProcessTree
         family = ProcessTree(process.pid)
+        recorded_processes = None
         stopping_at = None
         killed = False
         abandoned_children = False
         while True:
             family.refresh()
+            if family.known != recorded_processes:
+                atomic_json(state_path(job_id).parent / "processes.json", {
+                    "schema": 1, "leader": process.pid,
+                    "known": {str(pid): born for pid, born in family.known.items()},
+                })
+                recorded_processes = dict(family.known)
             for line in reader.readlines():
                 parts = line.rstrip("\n").split("|", 3)
                 if len(parts) >= 4 and parts[0] in {"PBSTAGE", "RFSTAGE", "NHSTEP"} and stopping_at is None:
@@ -574,7 +597,9 @@ def run_worker(job_id: str) -> int:
         if int(load_json(state_path(job_id)).get("pid") or 0) == os.getpid():
             break
         time.sleep(0.01)
-    atomic_json(state_path(job_id).parent / "worker_ready.json", {"pid": os.getpid()})
+    from .process_tree import snapshot
+    born = snapshot().get(os.getpid(), {}).get("born")
+    atomic_json(state_path(job_id).parent / "worker_ready.json", {"pid": os.getpid(), "born": born})
     plan = None
     try:
         recorded = load_json(state_path(job_id).parent / "plan.json")

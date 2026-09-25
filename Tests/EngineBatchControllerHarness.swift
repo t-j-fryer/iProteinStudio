@@ -103,6 +103,7 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
         for (index, path) in paths.enumerated() {
             let root = URL(fileURLWithPath: path)
             let manifest = try JSONDecoder().decode(StudioRunManifest.self, from: Data(contentsOf: root.appendingPathComponent("studio_run.json")))
+            precondition(manifest.state == .prepared)
             let metadata = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("studio_run.json"))) as! [String: Any]
             let active = metadata["request"] as! [String: Any]
             let form = metadata["savedFormState"] as! [String: Any]
@@ -175,6 +176,7 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
             let manifest = try JSONDecoder().decode(StudioRunManifest.self,
                 from: Data(contentsOf: URL(fileURLWithPath: path).appendingPathComponent("studio_run.json")))
             let selected = nanobody.request.allocatedScaffolds[index % 7]
+            precondition(manifest.state == .prepared)
             precondition(manifest.request?.scaffoldID == selected.id)
             precondition(manifest.request?.scaffoldSequence == selected.sequence)
             precondition(manifest.request?.scaffoldSelections == nil)

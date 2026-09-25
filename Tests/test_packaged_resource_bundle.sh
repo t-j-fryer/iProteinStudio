@@ -14,7 +14,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
   || fail "SwiftPM resource bundle is missing its pipeline sentinel"
 [[ -s "${BUNDLE}/pipeline/scripts/storage_policy.py" ]] \
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
-for resource in prediction_resume.py resident_predictor.py validate_prediction_geometry.py runtime_package.py runtime_view.py engine_registry.py engine_registry.json engine_adapters.py setup_portable.py runtime_releases.json runtime_assets.json; do
+for resource in prediction_resume.py resident_predictor.py validate_prediction_geometry.py runtime_package.py runtime_view.py engine_registry.py engine_registry.json engine_adapters.py engine_progress.py progress_bootstrap/sitecustomize.py setup_portable.py runtime_releases.json runtime_assets.json; do
   cmp -s "${BUNDLE}/pipeline/scripts/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/${resource}" \
     || fail "prediction resume resource is missing or differs from source: ${resource}"
 done
@@ -86,7 +86,7 @@ codesign --verify --deep --strict "${APP}" \
 
 [[ -f "${BUNDLE}/pipeline/mcp/iprotein_mcp/gpu_storage.py" ]] || fail "Missing optional GPU storage support diagnostic"
 
-for resource in broker.py plans.py process_tree.py; do
+for resource in broker.py plans.py process_tree.py recovery.py; do
   cmp -s "${BUNDLE}/pipeline/mcp/iprotein_mcp/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/mcp/iprotein_mcp/${resource}" \
     || fail "job supervision resource is missing or differs from source: ${resource}"
 done

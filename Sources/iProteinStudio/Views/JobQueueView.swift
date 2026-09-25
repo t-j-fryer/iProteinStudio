@@ -9,6 +9,8 @@ struct JobQueueView: View {
     @ObservedObject var rfd3: RFD3Controller
     @ObservedObject var prediction: PredictionController
     @ObservedObject var nise: NISEController
+    @State private var selectedJob: ManagedJob?
+    private var recent: [ManagedJob] { Array(jobs.jobs.filter { !$0.isActive }.prefix(12)) }
 
     private var running: [ManagedJob] { jobs.active.filter { $0.status != "queued" } }
     private var waiting: [ManagedJob] {
@@ -32,7 +34,7 @@ struct JobQueueView: View {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .font(.caption).foregroundStyle(.orange)
             }
-            if jobs.active.isEmpty {
+            if jobs.jobs.isEmpty {
                 ContentUnavailableView("No active jobs", systemImage: "tray",
                     description: Text("Start a run from Protein Hunter, NISE, RFdiffusion3, or Predict. Further runs can be queued while work continues."))
             } else {
@@ -48,6 +50,10 @@ struct JobQueueView: View {
                                 .font(.caption2).foregroundStyle(.secondary)
                             ForEach(waiting) { row($0) }
                         }
+                        if !recent.isEmpty {
+                            Text("Recent jobs").font(.headline)
+                            ForEach(recent) { row($0) }
+                        }
                     }
                 }
             }
@@ -55,8 +61,9 @@ struct JobQueueView: View {
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(16)
-        .frame(width: 520, height: 480)
+        .frame(width: 580, height: 560)
         .task { jobs.start(); await jobs.refresh() }
+        .sheet(item: $selectedJob) { job in JobProgressView(job: job) }
         .accessibilityIdentifier("job-queue-panel")
     }
 
@@ -80,6 +87,7 @@ struct JobQueueView: View {
                 Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             HStack {
+                Button("Progress & logs") { selectedJob = job }
                 if let project {
                     Button("Show run") { show(job, project: project) }
                     .disabled(!canShow(job))
@@ -88,11 +96,13 @@ struct JobQueueView: View {
                     Button("Show files") { NSWorkspace.shared.activateFileViewerSelecting([root]) }
                 }
                 Spacer()
-                Button(job.status == "queued" ? "Cancel" : "Stop", role: .destructive) {
-                    jobs.cancel(job)
+                if job.isActive {
+                    Button(job.status == "queued" ? "Cancel" : "Stop", role: .destructive) {
+                        jobs.cancel(job)
+                    }
+                    .disabled(job.status == "stopping")
+                    .help(job.status == "queued" ? "Remove this waiting job without running it" : "Stop this job and keep completed checkpoints")
                 }
-                .disabled(job.status == "stopping")
-                .help(job.status == "queued" ? "Remove this waiting job without running it" : "Stop this job and keep completed checkpoints")
             }
             .controlSize(.small)
         }

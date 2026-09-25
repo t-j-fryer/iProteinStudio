@@ -19,6 +19,46 @@ workspace. You can submit another run while existing work continues.
    retaining completed checkpoints. Activity/history provides supported Resume
    actions for stopped or failed work.
 
+## Progress viewer and job cleanup
+
+In version 0.2.5 and later, choose **Progress & logs** in the queue, or **Logs**
+beside a run in Activity/history. The viewer refreshes every two seconds and shows
+the latest engine stage, elapsed time, readable engine events, ordinary job output
+and worker diagnostics. **Follow latest** can be disabled while reading. The
+queue also lists recent finished, stopped and failed jobs so their diagnostics
+remain accessible.
+
+**Engine progress** explains the difference between computation milestones and
+heartbeats. A quiet log does not prove a hang, and a heartbeat does not prove GPU
+progress. The viewer shows the latest 500 job-log lines and 100 worker-log lines;
+older saved jobs may only have ordinary logs.
+
+For a job that needs attention:
+
+1. Open its viewer and click **Check & clean up…**.
+2. Review the explanation. For a live compatible worker, Studio offers Stop. For
+   a crashed worker with recorded leftovers, it offers cleanup of those processes.
+   A stale active state with no live recorded worker can be cleared.
+3. Confirm **Continue & keep saved results**. Inputs, results, checkpoints, runtime
+   packages and the execution lock file are retained. Other jobs are not selected.
+4. Use Activity's Resume when appropriate, or create a new submission to adopt
+   fixes from an updated app. Resume preserves the original job's worker code.
+
+New workers save process IDs **and process start identities**, so cleanup rejects
+reused PIDs and does not infer ownership from an open lock file or a process name.
+It requests termination, then force-stops only verified leftovers that resist it.
+If macOS will not terminate a process, the app explains that a restart is needed.
+Older jobs without these identity records cannot always be cleaned automatically;
+save work and restart the Mac when directed. Never delete `execution.lock` to
+unblock a job.
+
+**Copy support report** omits raw logs, sequences and file paths. **Copy visible
+log** is a separate action; review that text for sensitive content before sharing.
+No report is uploaded automatically.
+
+Detailed log semantics: [Engine progress](ENGINE_PROGRESS.md).
+Implementation and fixture coverage: [Lab Book 0189](../lab_book/0189-add-job-progress-viewer-and-recovery.md).
+
 Changing tabs, workspaces or the displayed run does not stop a submitted job.
 **New run** leaves it in the queue. Queued settings are saved independently;
 later edits to the form apply to the next submission. Externally referenced

@@ -21,3 +21,7 @@ studio_gpu_storage_validation: lab_book/0179-simplify-startup-and-refresh-distri
 
 studio_job_submission: stable-preparation-and-descendant-supervision-v2
 studio_job_submission_validation: lab_book/0186-repair-submission-retries-and-cancellation.md
+
+studio_job_progress: retained-observer-and-native-viewer-v1
+studio_job_recovery: persisted-process-identities-v1
+studio_job_progress_validation: lab_book/0188-add-engine-progress-logging.md, lab_book/0189-add-job-progress-viewer-and-recovery.md

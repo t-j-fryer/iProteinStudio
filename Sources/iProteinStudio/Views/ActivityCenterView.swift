@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Combine
 
 /// One place to answer “what is my Mac doing?” across every project and model.
 /// Durable history comes from disk; live controller state is layered on top so
@@ -13,6 +14,7 @@ struct ActivityCenterView: View {
     @ObservedObject var prediction: PredictionController
     @ObservedObject var history: RunHistoryStore
     let projectFilter: Project.ID?
+    @State private var progressJob: ManagedJob?
 
     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
@@ -41,9 +43,12 @@ struct ActivityCenterView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Active and queued work").font(.headline)
                     ForEach(visibleJobs) { job in
-                        liveRow(title: job.display_name ?? job.project, message: job.message ?? job.status,
-                                image: "waveform.path", stop: { jobs.cancel(job) })
-                            .disabled(job.status == "stopping")
+                        VStack(alignment: .leading, spacing: 4) {
+                            liveRow(title: job.display_name ?? job.project, message: job.message ?? job.status,
+                                    image: "waveform.path", stop: { jobs.cancel(job) })
+                                .disabled(job.status == "stopping")
+                            Button("Progress & logs") { progressJob = job }.controlSize(.small)
+                        }
                     }
                 }
                 Divider()
@@ -66,6 +71,7 @@ struct ActivityCenterView: View {
         .frame(width: 500, height: 520, alignment: .topLeading)
         .onAppear { refresh() }
         .onReceive(refreshTimer) { _ in refresh() }
+        .sheet(item: $progressJob) { job in JobProgressView(job: job) }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(projectFilter == nil ? "Global activity centre" : "Workspace run history")
     }
@@ -114,6 +120,14 @@ struct ActivityCenterView: View {
                 Text(record.date, style: .relative).font(.caption2).foregroundStyle(.tertiary)
             }
             Spacer()
+            if let id = record.managedJobID {
+                Button("Logs") {
+                    Task {
+                        do { progressJob = try await BrokerClient.call(["job-status", id], as: ManagedJob.self) }
+                        catch { jobs.reportOperationError(error.localizedDescription) }
+                    }
+                }.controlSize(.small)
+            }
             if record.isResumable {
                 Button(isEngineBatch(record) ? "Resume batch" : "Resume") { resume(record) }
                     .controlSize(.small)
@@ -174,6 +188,8 @@ struct ActivityCenterView: View {
 
     private func tint(_ state: StudioRunState) -> Color {
         switch state {
+        case .prepared, .queued: return .secondary
+        case .stopping: return .orange
         case .running: return .green
         case .completed: return .blue
         case .failed: return .orange

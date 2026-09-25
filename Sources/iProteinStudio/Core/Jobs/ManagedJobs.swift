@@ -19,6 +19,7 @@ struct ManagedJob: Decodable, Identifiable {
     let exit_code: Int32?
     let created_at: String?
     let display_name: String?
+    let error: String?
     var isActive: Bool { ["queued", "running", "stopping"].contains(status) }
     var output: URL? { output_root.map { URL(fileURLWithPath: $0) } }
     var workflowLabel: String {
@@ -35,6 +36,65 @@ struct ManagedJob: Decodable, Identifiable {
         case "stopping": return "Stopping"
         default: return status.capitalized
         }
+    }
+}
+
+struct JobLogResponse: Decodable {
+    let job: ManagedJob
+    let lines: [String]
+    let worker_lines: [String]
+}
+
+struct JobRecoveryReport: Decodable {
+    let job_id: String
+    let action: String
+    let message: String
+    let process_ids: [Int]
+    let worker_alive: Bool
+    let execution_lock_busy: Bool
+    let identity_records_available: Bool
+    let checked_at: String
+}
+
+@MainActor
+final class JobDetailModel: ObservableObject {
+    @Published private(set) var job: ManagedJob
+    @Published private(set) var lines: [String] = []
+    @Published private(set) var workerLines: [String] = []
+    @Published private(set) var recovery: JobRecoveryReport?
+    @Published private(set) var refreshError: String?
+    @Published private(set) var operationError: String?
+    var error: String? { operationError ?? refreshError }
+    @Published private(set) var busy = false
+
+    init(job: ManagedJob) { self.job = job; self.lines = job.pipeline_log_tail ?? [] }
+
+    func refresh() async {
+        do {
+            let reply = try await BrokerClient.call(["job-log", job.id], as: JobLogResponse.self)
+            job = reply.job; lines = reply.lines; workerLines = reply.worker_lines
+            refreshError = nil
+        } catch { self.refreshError = error.localizedDescription }
+    }
+
+    func checkRecovery() async {
+        guard !busy else { return }
+        busy = true; defer { busy = false }
+        recovery = nil
+        do {
+            recovery = try await BrokerClient.call(["job-recovery-check", job.id], as: JobRecoveryReport.self)
+            operationError = nil
+        } catch { self.operationError = error.localizedDescription }
+    }
+
+    func cleanUp() async {
+        guard !busy else { return }
+        busy = true; defer { busy = false }
+        do {
+            recovery = try await BrokerClient.call(["job-cleanup", job.id], as: JobRecoveryReport.self)
+            operationError = nil
+            await refresh(); await JobCenter.shared.refresh()
+        } catch { self.operationError = error.localizedDescription }
     }
 }
 

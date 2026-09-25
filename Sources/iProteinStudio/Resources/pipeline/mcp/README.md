@@ -227,3 +227,12 @@ unmigrated environments are not represented as fully portable runtimes.
 Current portable jobs preserve immutable code/runtime bindings across app and
 engine updates. The optional GPU storage diagnostic is an explicit support
 command, never part of normal job startup.
+
+
+MCP v26 adds retained engine progress instrumentation and durable process-identity
+receipts for new jobs. `job_status.pipeline_log_tail` exposes the same events as
+the native Progress & logs viewer. Native CLI `job-log`, `job-recovery-check` and
+`job-cleanup` implement bounded viewing and identity-checked recovery; they do
+not expand the externally exposed MCP tool profiles. Existing saved workers stay
+immutable. See [engine progress](../../../../../docs/ENGINE_PROGRESS.md) and
+[job recovery](../../../../../docs/JOB_QUEUE.md#progress-viewer-and-job-cleanup).

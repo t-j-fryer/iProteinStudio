@@ -27,6 +27,9 @@ enum StudioWorkflow: String, Codable, CaseIterable {
 }
 
 enum StudioRunState: String, Codable {
+    case prepared
+    case queued
+    case stopping
     case running
     case completed
     case failed
@@ -35,6 +38,9 @@ enum StudioRunState: String, Codable {
 
     var label: String {
         switch self {
+        case .prepared: return "Prepared"
+        case .queued: return "Waiting"
+        case .stopping: return "Stopping"
         case .running: return "Running"
         case .completed: return "Completed"
         case .failed: return "Needs attention"
@@ -45,6 +51,9 @@ enum StudioRunState: String, Codable {
 
     var systemImage: String {
         switch self {
+        case .prepared: return "doc.badge.clock"
+        case .queued: return "hourglass"
+        case .stopping: return "stop.circle"
         case .running: return "waveform.path"
         case .completed: return "checkmark.circle.fill"
         case .failed: return "exclamationmark.triangle.fill"
@@ -65,7 +74,7 @@ struct StudioRunManifest: Codable {
     var runName: String
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
-    var state: StudioRunState = .running
+    var state: StudioRunState = .prepared
     var arguments: [String]
     var environmentOverrides: [String: String]? = nil
     /// Redundant human-readable budget provenance. The command remains
@@ -256,13 +265,15 @@ private struct RunHistoryLoader {
                 if job.child_outputs?.contains(item.root.path) == true && item.state == .completed { return item }
                 item.managedJobID = job.id
                 if job.child_outputs?.contains(item.root.path) == true && job.active_output != item.root.path {
-                    item.state = job.isActive ? .running : .interrupted
+                    item.state = job.isActive ? .queued : .prepared
                     item.detail = job.isActive ? "Queued in this engine batch" : "Not started; resume the engine batch to continue"
                     return item
                 }
                 item.detail = job.message ?? item.detail
                 switch job.status {
-                case "queued", "running", "stopping": item.state = .running
+                case "queued": item.state = .queued
+                case "running": item.state = .running
+                case "stopping": item.state = .stopping
                 case "completed": item.state = .completed
                 case "cancelled": item.state = .stopped
                 default: item.state = .failed

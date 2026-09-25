@@ -2,6 +2,23 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.5 — job progress viewer and safe recovery
+
+- Open **Progress & logs** from Jobs or Activity to follow engine stages, elapsed
+  time and live logs, or copy a privacy-filtered support report.
+- New managed jobs record engine milestones and 30-second heartbeats. Heartbeats
+  report elapsed time, not proof of GPU progress or an estimated completion time.
+- **Check & clean up** can stop a live job or recover recorded child processes
+  after its worker crashes. Process identities are verified; saved results,
+  retained runtimes and shared lock files are preserved.
+- Prepared, waiting, running and stopping campaigns now have distinct labels.
+- MCP 26 includes the same broker logging and recovery implementation. Existing
+  saved jobs keep their frozen code; submit a new job to adopt the new logging
+  and process-identity receipts. Older unidentifiable leftovers may require a
+  Mac restart; cleanup never guesses ownership from process names.
+- Model weights, runtime packages, scientific settings and numerical precision
+  are unchanged. Full-engine inference and fresh-Mac acceptance remain separate.
+
 ## 0.2.4 — reliable submission retries and cancellation
 
 - Retrying the same saved submission reuses its plan and retained runtime rather

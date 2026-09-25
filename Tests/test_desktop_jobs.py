@@ -3,6 +3,7 @@ import fcntl
 import json
 import os
 import shutil
+import signal
 from pathlib import Path
 import sys
 import tempfile
@@ -309,6 +310,33 @@ while not (out/'release').exists(): time.sleep(.05)
 
     def test_stop_reaps_new_session_descendant_with_inherited_lease(self):
         self.check_descendant_cancellation(detached=True, inherit_lease=True)
+
+    def test_recovery_after_worker_crash_releases_inherited_lease(self):
+        from iprotein_mcp.recovery import cleanup_job
+        job, output = self.native(descendant=True, detached=True, inherit_lease=True)
+        receipt = broker.state_path(job['id']).parent / 'processes.json'
+        deadline = time.monotonic() + 6
+        child = None
+        while time.monotonic() < deadline:
+            if (output / 'child.pid').exists():
+                child = int((output / 'child.pid').read_text())
+                if receipt.exists() and str(child) in common.load_json(receipt).get('known', {}):
+                    break
+            time.sleep(.05)
+        self.assertIsNotNone(child)
+        self.assertIn(str(child), common.load_json(receipt)['known'])
+        worker = broker._DETACHED[job['id']]
+        worker.kill()  # This test's worker only; simulate a crash, not a user Stop.
+        worker.wait(timeout=5)
+        self.assertEqual(broker.load_state(job['id'])['status'], 'failed')
+        following, next_output = self.native('after-crash')
+        time.sleep(.2)
+        self.assertFalse((next_output / 'started').exists())
+        report = cleanup_job(job['id'])
+        self.assertFalse(report['process_ids'])
+        self.assertFalse(common.process_alive(child))
+        self.assertTrue(output.exists())
+        self.assertEqual(self.wait(following['id'])['status'], 'completed')
 
     def check_descendant_cancellation(self, **options):
         job, output = self.native(descendant=True, **options)

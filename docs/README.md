@@ -5,6 +5,7 @@
 - [Install the trusted beta](INSTALL_UNSIGNED_BETA.md)
 - [Application updates and GitHub Releases](UPDATES_AND_RELEASES.md)
 - [Jobs, queueing and resume](JOB_QUEUE.md)
+- [Engine progress logs](ENGINE_PROGRESS.md)
 - [Browse results](RESULTS.md)
 - [Output storage and retention](OUTPUT_STORAGE.md)
 - [Protein Hunter engine selection](PROTEIN_HUNTER_ENGINES.md)

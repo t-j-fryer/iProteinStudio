@@ -185,7 +185,7 @@ final class RunController: ObservableObject {
         // Clicking Resume is an explicit request to reuse durable checkpoints,
         // even if the original form's optional auto-resume toggle was off.
         manifest.arguments = ResumeContract.arguments(from: manifest.arguments)
-        manifest.state = .running
+        manifest.state = .prepared
         manifest.updatedAt = Date()
         manifestURL = url
         campaignRoot = record.root
@@ -327,7 +327,7 @@ final class RunController: ObservableObject {
         guard let url = manifestURL else { throw NHError.message("The launch record is missing.") }
         var manifest = try JSONDecoder().decode(StudioRunManifest.self, from: Data(contentsOf: url))
         manifest.arguments = arguments
-        manifest.state = .running
+        manifest.state = .prepared
         manifest.updatedAt = Date()
         try writeManifest(manifest)
     }

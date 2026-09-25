@@ -8,6 +8,12 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ---
 
+Newest release: [0190 — Publish job progress and recovery](lab_book/0190-publish-job-progress-recovery.md) (release qualification in progress).
+
+- [0189 — Job progress viewer and safe recovery](lab_book/0189-add-job-progress-viewer-and-recovery.md)
+- [0188 — Engine progress logging](lab_book/0188-add-engine-progress-logging.md)
+- [0187 — Student run archive audit](lab_book/0187-inspect-student-run-archive.md)
+
 ## Current status
 
 _Last reviewed: 22 September 2026._
