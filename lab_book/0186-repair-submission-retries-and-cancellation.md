@@ -4,7 +4,7 @@ title: Repair repeated submission identity and escaped-child cancellation
 date: 2026-09-25
 author: Codex
 type: bugfix
-status: in-progress
+status: complete
 machine: Apple Silicon development Mac; inert software fixtures only
 tags: [queue, cancellation, runtime, distribution]
 ---
@@ -64,7 +64,18 @@ serialization. **54/54 fast-suite commands passed**, including six plan-reuse
 cases, three process-tree identity cases and nineteen native-job cases. Six
 XCTest cases and executable Swift harnesses passed; `swift build` passed. The
 two optional dependency-specific resident fixtures retain their explicit skips
-in the generic Python environment. Publication verification follows below.
+in the generic Python environment. Published [0.2.4 build 47](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.4-beta),
+MCP 25, source `eb14165`, appcast `290a79d`. Downloaded all four GitHub release
+assets and verified their sizes/SHA-256 against local artifacts and GitHub
+metadata. Verified Sparkle's EdDSA signature, live feed version/URL/length, the
+extracted app's code signature and all **163** bundled pipeline files against
+release source. Feed, bundle ID and public key match the previous distribution.
+Receipt: local `build/release-verification-0186/RELEASE_VERIFICATION.json`.
+An actual in-app Sparkle installation on the student's Mac was not performed.
+
+Local managed resources/app replacement were deferred because a separate managed
+campaign was running. Its processes and retained code were not changed. The
+canonical source sync preserves unrelated uncommitted work and Lab Book entries.
 
 The execution lock is acquired only after a queued job record is written. A
 leftover holder can block execution, but cannot by itself account for plans
