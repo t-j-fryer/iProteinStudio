@@ -1,0 +1,14 @@
+[
+  {
+    "implementation": "released_0.2.3",
+    "exit_code": 130,
+    "child_survived": true,
+    "execution_lock_still_blocked": true
+  },
+  {
+    "implementation": "candidate",
+    "exit_code": 130,
+    "child_survived": false,
+    "execution_lock_still_blocked": false
+  }
+]

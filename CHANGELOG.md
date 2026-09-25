@@ -2,6 +2,19 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.4 — reliable submission retries and cancellation
+
+- Retrying the same saved submission reuses its plan and retained runtime rather
+  than creating a new randomly named copy. Concurrent retries share preparation.
+- Expensive pre-start verification no longer holds the global job registry lock.
+- Stop tracks owned child processes across process-group changes and waits for
+  their exit before releasing the GPU lease. Crash-protection lock inheritance
+  remains enabled.
+- Existing jobs keep their frozen workers and results. Create a new submission
+  after updating to use the corrected worker; restart an already affected Mac
+  first if an older orphaned process is holding the lease.
+- No engine, model, scientific setting or numerical precision changed.
+
 ## 0.2.3 — simpler startup and current distribution guides
 
 - Normal job startup no longer probes macOS's shared GPU temporary folder. The

@@ -132,12 +132,15 @@ def _spawn(job_id: str) -> Dict[str, Any]:
 
 
 def start_job(plan_id: str, plan_sha256: str) -> Dict[str, Any]:
-    with registry_lock():
-        return _start_job(plan_id, plan_sha256)
-
-
-def _start_job(plan_id: str, plan_sha256: str) -> Dict[str, Any]:
+    # Potentially large provenance reads must not block cancellation/resume
+    # and other submissions behind the global registry lock. Workers recheck
+    # the immutable plan after acquiring the execution lease.
     plan = load_plan(plan_id, plan_sha256)
+    with registry_lock():
+        return _start_job(plan_id, plan_sha256, plan)
+
+
+def _start_job(plan_id: str, plan_sha256: str, plan: Dict[str, Any]) -> Dict[str, Any]:
     existing = _existing_for_plan(plan_id)
     if existing:
         return existing
@@ -299,30 +302,37 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
                                    stderr=subprocess.STDOUT, start_new_session=True,
                                    pass_fds=(() if _EXECUTION_FD is None else (_EXECUTION_FD,)))
         _update(job_id, child_pid=process.pid, child_process_group=process.pid)
+        from .process_tree import ProcessTree
+        family = ProcessTree(process.pid)
         stopping_at = None
         killed = False
+        abandoned_children = False
         while True:
+            family.refresh()
             for line in reader.readlines():
                 parts = line.rstrip("\n").split("|", 3)
                 if len(parts) >= 4 and parts[0] in {"PBSTAGE", "RFSTAGE", "NHSTEP"} and stopping_at is None:
                     _update(job_id, stage=parts[1], message=parts[3])
                 elif len(parts) >= 2 and parts[0] in {"PBFAIL", "RFFAIL", "NHFAIL", "PREPFAIL"}:
                     explicit_failure = "|".join(parts[1:])
-            if _cancelled(job_id) and stopping_at is None:
-                stopping_at = time.monotonic()
-                try: os.killpg(process.pid, signal.SIGTERM)
-                except ProcessLookupError: pass
-            if stopping_at is not None and not killed and time.monotonic() - stopping_at >= 3:
-                # Even if caffeinate exited first, its resistant descendants
-                # still belong to the isolated group. Keep the lease until here.
-                try: os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError: pass
-                killed = True
             code = process.poll()
-            if code is not None and (stopping_at is None or killed):
+            if code is not None:
+                family.refresh(force=True)
+            if stopping_at is None and (_cancelled(job_id) or (code is not None and family.alive())):
+                abandoned_children = not _cancelled(job_id)
+                stopping_at = time.monotonic()
+                _update(job_id, stage="stopping", message="Stopping; waiting for the workflow's child processes to exit.")
+                family.send(signal.SIGTERM)
+            if stopping_at is not None and time.monotonic() - stopping_at >= 3:
+                family.send(signal.SIGKILL)
+                killed = True
+            if code is not None and (stopping_at is None or (killed and not family.alive())):
                 break
             time.sleep(0.1)
         code = process.wait()
+    if abandoned_children:
+        _update(job_id, message="Workflow exited while child processes were still running; they were stopped before releasing the GPU lease.")
+        return 1
     if stopping_at is not None:
         return 130
     if code != 0:

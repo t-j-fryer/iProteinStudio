@@ -132,3 +132,10 @@ diagnostic fixtures. The normal-worker fixture asserts the diagnostic is never
 called. Current-guide local links are checked separately from historical
 ignored output artifacts. These tests use isolated directories and synthetic
 outputs; they do not qualify a fresh Mac or new model accuracy.
+
+`test_plan_reuse.py` executes simultaneous identical preflights and interruption
+recovery with inert portable runtimes. `test_process_tree.py` checks process
+identity, reparenting and unrelated-process exclusion. Native-job fixtures also
+stop a separate-session child that ignores TERM and inherits the execution lease,
+then require the next queued job to run. These are process-control regressions,
+not engine throughput or student-machine qualification.

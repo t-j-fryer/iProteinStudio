@@ -86,4 +86,9 @@ codesign --verify --deep --strict "${APP}" \
 
 [[ -f "${BUNDLE}/pipeline/mcp/iprotein_mcp/gpu_storage.py" ]] || fail "Missing optional GPU storage support diagnostic"
 
+for resource in broker.py plans.py process_tree.py; do
+  cmp -s "${BUNDLE}/pipeline/mcp/iprotein_mcp/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/mcp/iprotein_mcp/${resource}" \
+    || fail "job supervision resource is missing or differs from source: ${resource}"
+done
+
 echo "PASS packaged SwiftPM resource bundle contract"

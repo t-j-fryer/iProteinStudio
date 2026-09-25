@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import fcntl
 import json
 import math
 import re
@@ -147,31 +148,49 @@ def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[
         snapshot = capture_code(runtime_root(), agent_root() / "code")
         body["code_snapshot"] = snapshot
         body["provenance"] = code_provenance(runtime_root(), snapshot, provenance)
-        if bindings:
-            # Retain model data before a queued job can be overtaken by an
-            # installer. Independent APFS clones avoid copying physical blocks.
-            import uuid
+    # Identity is derived before assigning a view path. A random path here made
+    # repeated desktop submissions distinct plans and cloned weights each time.
+    request_digest = canonical_digest(body)
+    requests = agent_root() / "plan_requests"
+    requests.mkdir(exist_ok=True)
+    reference = requests / (request_digest + ".json")
+    # Serialize only identical preparation, never the global job registry.
+    with (requests / (request_digest + ".lock")).open("a+") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if reference.exists():
+            saved = json.loads(reference.read_text())
+            existing = load_plan(saved["id"], saved["sha256"])
+            identity_body = {k: v for k, v in existing.items()
+                             if k not in {"id", "sha256", "created_at", "prepared_runtime_view"}}
+            if canonical_digest(identity_body) != request_digest:
+                raise StudioError("Saved preparation identity changed; restore the plan registry.")
+            return existing
+        if body.get("runtime_bindings"):
+            # The saved campaign keeps its first accepted model data. A new
+            # output/settings/code/runtime identity creates a separate view.
+            snapshot = body["code_snapshot"]
             support = Path(snapshot["path"]) / "mcp/runtime_support"
             sys.path.insert(0, str(support))
             try:
                 from runtime_view import build
-                view = build(runtime_root(), agent_root() / "runtime_views" / uuid.uuid4().hex, bindings, snapshot)
-            finally: sys.path.remove(str(support))
+                view = build(runtime_root(), agent_root() / "runtime_views" / request_digest,
+                             body["runtime_bindings"], snapshot)
+            finally:
+                sys.path.remove(str(support))
             body["prepared_runtime_view"] = dict(path=str(view),
                 assets_sha256=file_digest(view / "assets.json"), view_sha256=file_digest(view / "view.json"))
-    digest = canonical_digest(body)
-    plan_id = f"plan-{digest[:16]}"
-    plan = {**body, "id": plan_id, "sha256": digest, "created_at": utc_now()}
-    path = agent_root() / "plans" / f"{plan_id}.json"
-    if path.exists():
-        existing = json.loads(path.read_text(encoding="utf-8"))
-        if existing.get("sha256") != digest:
-            raise StudioError(f"Plan collision at {path}")
-        return existing
-    atomic_json(path, plan)
-    from .runtime_bindings import retain
-    retain(plan)
-    return plan
+        digest = canonical_digest(body)
+        plan_id = f"plan-{digest[:16]}"
+        plan = {**body, "id": plan_id, "sha256": digest, "created_at": utc_now()}
+        path = agent_root() / "plans" / f"{plan_id}.json"
+        if path.exists():
+            plan = load_plan(plan_id, digest)
+        else:
+            atomic_json(path, plan)
+        from .runtime_bindings import retain
+        retain(plan)
+        atomic_json(reference, {"id": plan_id, "sha256": digest})
+        return plan
 
 
 def _prediction_plan(arguments: Dict[str, Any], kind: str, output_folder: str, prefix: str) -> Dict[str, Any]:

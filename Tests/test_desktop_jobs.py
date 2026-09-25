@@ -32,7 +32,7 @@ p=argparse.ArgumentParser(); p.add_argument('--config'); a=p.parse_args()
 c=json.loads(pathlib.Path(a.config).read_text()); out=pathlib.Path(c['output']); out.mkdir(parents=True,exist_ok=True)
 r=pathlib.Path(FIXTURE_ROOT)
 if c.get('descendant'):
- child=subprocess.Popen([sys.executable,'-c','import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(30)'])
+ child=subprocess.Popen([sys.executable,'-c','import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(30)'], start_new_session=c.get('detached', False), close_fds=not c.get('inherit_lease', False))
  (out/'child.pid').write_text(str(child.pid))
  time.sleep(30)
 else:
@@ -305,7 +305,13 @@ while not (out/'release').exists(): time.sleep(.05)
         self.assertFalse((output / 'started').exists())
 
     def test_stop_waits_for_resistant_descendant_before_next_job(self):
-        job, output = self.native(descendant=True)
+        self.check_descendant_cancellation()
+
+    def test_stop_reaps_new_session_descendant_with_inherited_lease(self):
+        self.check_descendant_cancellation(detached=True, inherit_lease=True)
+
+    def check_descendant_cancellation(self, **options):
+        job, output = self.native(descendant=True, **options)
         deadline = time.monotonic() + 5
         while not (output / "child.pid").exists() and time.monotonic() < deadline:
             time.sleep(0.05)

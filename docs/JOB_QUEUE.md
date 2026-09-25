@@ -50,3 +50,23 @@ the app reports the error; it does not silently discard the job.
 
 The implementation and fixture coverage are recorded in
 [Lab Book 0129](../lab_book/0129-queue-all-studio-workflows.md).
+
+## Submission retries and stopping
+
+Retrying the same saved submission reuses completed preflight preparation and
+its immutable plan. Concurrent identical requests serialize against that request,
+not against the entire job registry. Different saved run folders remain separate
+runs even when their scientific settings match. Initial preparation may still
+need to preserve and verify large model assets; the native app waits for it and
+does not automatically create another request every few minutes.
+
+Stop follows observed workflow descendants across process-group changes. The
+GPU lease remains held while they exit; resistant children are terminated after
+the grace period. A child stuck in an operating-system operation can keep Stop
+pending. Studio never treats an open lock file alone as authority to kill a process.
+
+App updates preserve old jobs' frozen worker code. To use the corrected 0.2.4
+submission/cancellation behavior, create a new submission. On a Mac already
+blocked by an orphan from an older worker, save other work and restart macOS
+before updating/retrying. Keep existing results; deleting the lock file can let
+incompatible workers overlap and is not a recovery procedure.

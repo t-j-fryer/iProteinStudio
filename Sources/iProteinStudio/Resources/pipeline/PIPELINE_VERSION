@@ -18,3 +18,6 @@ studio_job_preservation: runtime-and-adapter-snapshot-v1
 
 studio_gpu_storage_health: explicit-support-diagnostic-only-v2
 studio_gpu_storage_validation: lab_book/0179-simplify-startup-and-refresh-distribution-docs.md
+
+studio_job_submission: stable-preparation-and-descendant-supervision-v2
+studio_job_submission_validation: lab_book/0186-repair-submission-retries-and-cancellation.md
