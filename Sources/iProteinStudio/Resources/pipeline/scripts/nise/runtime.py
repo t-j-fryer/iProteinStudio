@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import time
 import uuid
 
@@ -63,7 +64,7 @@ class Journal:
 
 class ResidentClient:
     worker_script = "resident_predictor.py"
-    def __init__(self, root, output, scripts, seed, potentials, allow_affinity):
+    def __init__(self, root, output, scripts, seed, potentials, allow_affinity, cpu_threads=None):
         self.queue = Path(output) / "sessions" / uuid.uuid4().hex
         self.queue.mkdir(parents=True)
         self.log = self.queue / "worker.log"
@@ -72,11 +73,17 @@ class ResidentClient:
                       engine_args=["--accelerator", "gpu", "--devices", "1", "--num_workers", "0",
                                    "--output_format", "pdb", "--cache", str(root / "models/boltz2"),
                                    "--seed", str(seed)])
+        if cpu_threads is not None:
+            config["cpu_threads"] = cpu_threads
+            config["engine_args"] += ["--preprocessing-threads", "1"]
         self.config = self.queue / "config.json"
         atomic(self.config, config)
         env = dict(os.environ, PYTORCH_ENABLE_MPS_FALLBACK="0", BOLTZ_CACHE=str(root / "models/boltz2"))
+        if cpu_threads is not None:
+            env.update({k: str(cpu_threads) for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS")})
+            env["TORCH_INTEROP_THREADS"] = "1"
         self.stream = self.log.open("w")
-        self.process = subprocess.Popen([str(root / "venvs/NanoHunter_boltz/bin/python"),
+        self.process = subprocess.Popen([sys.executable if cpu_threads is not None else str(root / "venvs/NanoHunter_boltz/bin/python"),
                                          str(scripts / self.worker_script), "--config", str(self.config)],
                                         stdout=self.stream, stderr=subprocess.STDOUT, env=env)
         self.loaded_affinity = False
@@ -143,6 +150,8 @@ class Backend:
         self.worker = None
         self.nesso_worker = None
         self.nesso_scores = {}
+        from contract import objective
+        self.objective = objective(settings)
         self.ligand_manifest = None
         self.atom_checks = {}
         self.geometry_executor = None
@@ -155,7 +164,24 @@ class Backend:
         if self.worker is not None:
             self.worker.close(); self.worker = None
 
+    def objective_score(self, name):
+        from screening_registry import contract
+        values = self.nesso_scores.get(name)
+        if values is None:
+            raise RuntimeError("Missing saved objective score for " + name)
+        assessment = contract(self.settings["screening_engine"]).placement_score(values)
+        if not assessment["eligible"]:
+            raise RuntimeError("Invalid objective score reached structure selection: " + name)
+        return assessment["score"]
+
+    @property
+    def allow_boltz_affinity(self):
+        return self.settings.get("scoring_mode", "boltz") == "boltz"
+
     def freeze_config(self, cfg):
+        if not self.allow_boltz_affinity:
+            cfg = {**cfg, "scoring_mode": "screening", "objective": self.objective}
+
         path = self.output / "config.json"
         if path.exists() and self.settings.get("search_policy_version") == 1:
             prior = json.loads(path.read_text())
@@ -257,6 +283,8 @@ class Backend:
         directory = Path(directory)
         predictions = {}
         phase = "complete" if apo else getattr(args, "boltz_phase", "complete")
+        if not apo and not self.allow_boltz_affinity and phase != "structure":
+            raise RuntimeError("Screening-objective runs require structure-only Boltz requests")
         if self.settings.get("nesso_screen") and not getattr(args, "skip_nesso", False) and not apo and sequences and all(
                 re.fullmatch(r"c\d+_t\d+_n\d+_s\d+", name) for name in sequences):
             from nesso_screen import screen
@@ -291,7 +319,7 @@ class Backend:
                     self.science.write_boltz_yaml(yaml, sequence, smiles, affinity=True, pocket=pocket)
                 if self.worker is None:
                     self.worker = ResidentClient(self.root, self.output, self.scripts, args.seed,
-                                                 not apo and args.use_potentials, not apo)
+                                                 not apo and args.use_potentials, not apo and self.allow_boltz_affinity)
                 seed_options = {"prediction_seed": seed_override} if seed_override is not None else {}
                 timing = (self.worker.predict(source, out, False, phase="structure", **seed_options) if phase == "structure"
                           else self.worker.predict(source, out, not apo, **seed_options))
@@ -325,6 +353,8 @@ class Backend:
     def affinity(self, predictions, directory, args):
         """Evaluate only the affinity head on verified structure-stage artifacts."""
         from types import SimpleNamespace
+        if not self.allow_boltz_affinity:
+            raise RuntimeError("Boltz affinity is disabled for screening-objective runs")
         result = {}
         for name, prediction in predictions.items():
             unit = Path(directory) / name
@@ -377,6 +407,7 @@ class Backend:
 
     def record_candidate(self, node, passed, prediction):
         row = asdict(node)
+        row["objective"] = self.objective
         match = re.search(r"_t(\d+)_", node.name)
         row["trajectory"] = int(match.group(1)) if match else None
         row["intermediate_passed"] = passed if row.get("branch") == "masked-backbone" else None
@@ -392,7 +423,7 @@ class Backend:
 
     def record_advancement(self, cycle, trajectories):
         atomic(self.output / f"cycle{cycle:02d}" / "advancement.json", {
-            "beam": self.settings["beam"], "selection": "Reserved normal/noising places after Boltz scoring and self-consistency" if self.settings.get("partial_noising") and cycle >= 2 else "Boltz combined score after self-consistency",
+            "objective": self.objective, "beam": self.settings["beam"], "selection": self.objective["formula"] + " after geometry checks" if not self.allow_boltz_affinity else "Reserved normal/noising places after Boltz scoring and self-consistency" if self.settings.get("partial_noising") and cycle >= 2 else "Boltz combined score after self-consistency",
             "trajectories": [dict(trajectory=t["tid"], alive=t["alive"], no_improve=t["no_improve"],
                 selected=[n.name for n in t["current"]] if t["alive"] else [],
                 current_beam=[asdict(n) for n in t["current"]],
@@ -416,6 +447,7 @@ class Backend:
                     rollback=False, rescue=False)
         atomic(self.output / "search_cost.json", cost)
         summary["evaluation_cost"] = cost
+        summary["objective"] = self.objective
         atomic(self.output / "search_summary.json", summary)
         self.write_atom_report()
 

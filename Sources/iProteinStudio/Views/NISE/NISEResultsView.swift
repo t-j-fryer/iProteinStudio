@@ -137,6 +137,7 @@ struct NISEResultsView: View {
     private var overview: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                Text(snapshot.objectiveDescription).font(.callout)
                 Text("Stage progress").font(.headline)
                 Text("Counts below cover the whole phase. The filters above apply to the score distribution and structure browser.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -216,7 +217,7 @@ struct NISEResultsView: View {
                 && (search.isEmpty || $0.name.localizedCaseInsensitiveContains(search))
         }
         return VStack(alignment: .leading, spacing: 10) {
-            Text("Experimental NESSO or PSICHIC screens sequences before folding. Screening scores are separate from Boltz P(bind) and ligand pLDDT. Sequences outside the shortlist have no Boltz structure.")
+            Text("Experimental NESSO or PSICHIC screens sequences before folding. These values are separate from Boltz P(bind) and ligand pLDDT; the recorded selection objective determines whether they also drive advancement. Newly generated sequences outside the shortlist are not folded.")
                 .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
             Table(rows) {
                 TableColumn("Candidate", value: \.name)

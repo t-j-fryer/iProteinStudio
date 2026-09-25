@@ -10,7 +10,7 @@ from contract import preflight, saved_request
 from runtime import Backend, atomic, digest
 
 
-def run(config_path, branch_test=False, stage_batches=False):
+def run(config_path, branch_test=False, stage_batches=False, resident_workers=None):
     config_path = Path(config_path).resolve()
     config = json.loads(config_path.read_text())
     if ("branch_test" in config) != branch_test:
@@ -33,7 +33,11 @@ def run(config_path, branch_test=False, stage_batches=False):
     if not map_path.exists():
         atomic(map_path, manifest)
     scripts = Path(__file__).resolve().parent.parent
-    if stage_batches:
+    if resident_workers is not None:
+        if not stage_batches: raise ValueError("Resident pool requires stage-directory checkpoints")
+        from batch_runtime import PoolBackend
+        backend = PoolBackend(root, output, settings, scripts, workers=resident_workers)
+    elif stage_batches:
         from batch_runtime import BatchBackend
         backend = BatchBackend(root, output, settings, scripts)
     else:
@@ -45,6 +49,9 @@ def run(config_path, branch_test=False, stage_batches=False):
         raise ValueError("NISE request changed after the campaign was created")
     if not fingerprint.exists():
         fingerprint.write_text(request_hash + "\n")
+    if "cohort" in config:
+        from cohort_transfer import materialize
+        backend.imported_candidates = materialize(output, config)
     template = output / "ligand.yaml"
     import nise_lib
     import nise_run
@@ -103,5 +110,6 @@ if __name__ == "__main__":
     parser.add_argument("--resume", action="store_true", help="Audited operations are always resumed")
     parser.add_argument("--branch-test", action="store_true", help="Validate only the partial-noising branch from a recorded parent")
     parser.add_argument("--stage-batches", action="store_true", help="Submit stage inputs together with per-input durable checkpoints")
+    parser.add_argument("--resident-workers", type=int, choices=(1,2), help="Explicit experimental pool; per-input RNG policy")
     args = parser.parse_args()
-    run(args.config, branch_test=args.branch_test, stage_batches=args.stage_batches)
+    run(args.config, branch_test=args.branch_test, stage_batches=args.stage_batches, resident_workers=args.resident_workers)

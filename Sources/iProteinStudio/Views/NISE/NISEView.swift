@@ -7,6 +7,10 @@ struct NISEView: View {
     @ObservedObject private var jobs = JobCenter.shared
     @StateObject private var ligandAtoms = BoltzLigandAtoms()
     @State private var atomMapVerified = false
+    @State private var cohortURL: URL?
+    @State private var cohortSummary: String?
+    @State private var cohortError: String?
+    @State private var cohortLineages: Int?
     let project: Project
     @ObservedObject var controller: NISEController
     @ObservedObject var installer: PipelineInstaller
@@ -17,7 +21,7 @@ struct NISEView: View {
     }
     private var ready: Bool { installer.isUsable(.boltz) && installer.isUsable(.boltzAffinity) && installer.isUsable(.lasermpnn) && (request.wrappedValue.backbone_method != "rfdiffusion3" || installer.isUsable(.rfd3)) && (!request.wrappedValue.usesNesso || installer.isUsable(request.wrappedValue.screening_engine == "psichic" ? .psichic : .nesso)) }
     private var atomChoicesReady: Bool {
-        !request.wrappedValue.hasAtomSelections || (atomMapVerified
+        cohortURL != nil || !request.wrappedValue.hasAtomSelections || (atomMapVerified
             && ligandAtoms.signature == request.wrappedValue.ligand_atom_signature
             && request.wrappedValue.exposed_atoms.count < ligandAtoms.atoms.count)
     }
@@ -30,7 +34,27 @@ struct NISEView: View {
                 Text("NISE").font(.largeTitle.bold())
                 Text("Design small-molecule binding pockets through selection and expansion.")
                     .font(.title3).foregroundStyle(.secondary)
-                Text("Boltz scores ligand-bound structures; LASErMPNN expands each surviving trajectory. Computed scores prioritize candidates for experiments.")
+                Text("Boltz generates structures and checks geometry; LASErMPNN expands surviving trajectories. Choose which model score drives selection below.")
+                GroupBox("Starting point") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Button("Import Phase 0 cohort…", action: chooseCohort)
+                            if cohortURL != nil {
+                                Button("Use a new backbone search") { cohortURL = nil; cohortSummary = nil; cohortError = nil; cohortLineages = nil }
+                            }
+                        }
+                        if let cohortSummary {
+                            Text(cohortSummary).font(.headline)
+                            Text("Resume after first-refinement geometry checks. Screen every imported sequence with the selected engine; reuse saved Boltz folds, repeat geometry checks, then select using the chosen objective. Continue remaining refinement, the unrestrained gate and seed selection. Earlier affinity scores and decisions are not imported.").font(.caption)
+                            Text("Ligand: \(request.wrappedValue.smiles)").textSelection(.enabled).font(.caption)
+                            Text("Saved hotspot and exposure requirements are preserved. Choose NESSO or PSICHIC below; optimisation screening remains independently configurable.").font(.caption)
+                        } else {
+                            Text("Generate new backbones, or choose an unzipped iProteinStudio cohort folder containing cohort.json.").font(.caption).foregroundStyle(.secondary)
+                        }
+                        if let cohortError { Text(cohortError).foregroundStyle(.red) }
+                    }.padding(8)
+                }
+                if cohortURL == nil {
                 GroupBox("Small molecule") {
                     VStack(alignment: .leading, spacing: 10) {
                         TextField("SMILES", text: request.smiles, axis: .vertical)
@@ -47,8 +71,10 @@ struct NISEView: View {
                         request.wrappedValue = NISERequest(); request.wrappedValue.smiles = smiles
                     }
                 }
+                }
                 GroupBox("1 · Initial backbone generation") {
                     VStack(alignment: .leading, spacing: 10) {
+                        if cohortURL == nil {
                         Text("Create independent starting structures around the ligand, refine their pockets, then remove the pocket restraint and test structural consistency.")
                         Picker("Backbone generator", selection: request.backbone_method) {
                             Text("Protein Hunter · X-token hallucination").tag("protein-hunter")
@@ -71,22 +97,37 @@ struct NISEView: View {
                             Text("\(request.wrappedValue.num_starts.formatted()) RFdiffusion3 backbones, followed by the initial Boltz funnel below.")
                                 .font(.callout.bold())
                         }
+                        }
                         Picker("Experimental screening engine", selection: request.screening_engine) {
                             Text("NESSO-1 (experimental)").tag("nesso")
                             Text("PSICHIC-XL (experimental)").tag("psichic")
                         }
+                        Picker("How to use this score", selection: request.scoring_mode) {
+                            Text("Prefilter only · Boltz selects").tag("boltz")
+                            Text("Optimisation objective · \(request.wrappedValue.screeningLabel) selects").tag("screening")
+                        }
+                        .accessibilityIdentifier("nise-scoring-mode")
+                        if request.wrappedValue.usesScreeningObjective {
+                            Text("\(request.wrappedValue.screeningLabel) drives refinement, seed selection, beams, best-so-far and patience using \(request.wrappedValue.objectiveFormula). Boltz generates structures and checks geometry; its affinity head is disabled. Both stages use the selected engine, with separate folding shortlist budgets. The cycle01 baseline is 0.4 for NESSO and 0.2 for PSICHIC; adjust it under Advanced · initial sampling and selection. Experimental objective; not calibrated evidence of binding.").font(.callout)
+                        } else {
+                            Text("Optional sequence shortlists reduce Boltz work. Boltz ligand pLDDT/100 + P(bind) determines advancement and patience.").font(.caption)
+                        }
                         if request.wrappedValue.screening_engine == "psichic" {
-                            Text("PSICHIC ranks 1 − nonbinder; affinity and class probabilities are saved. Experimental, with unvalidated binding accuracy. Boltz still supplies all structural checks and final selection. Maximum sequence length: 700 residues.").font(.caption)
+                            Text("PSICHIC ranks 1 − nonbinder; affinity and class probabilities are saved. Experimental, with unvalidated binding accuracy. Boltz supplies structural checks. The score-use selector determines final selection. Maximum sequence length: 700 residues.").font(.caption)
                         }
                         Toggle("Use \(request.wrappedValue.screeningLabel) to shortlist initial sequences (experimental)", isOn: request.phase0_nesso_screen)
+                            .disabled(cohortURL != nil || request.wrappedValue.usesScreeningObjective)
                             .accessibilityIdentifier("nise-initial-nesso-screen")
                         if request.wrappedValue.phase0_nesso_screen {
-                            Text("Each refinement round: LASErMPNN samples \(request.wrappedValue.phase0_seqs1) sequences per lineage → \(request.wrappedValue.screeningLabel) selects up to \(request.wrappedValue.phase0_nesso_refine_top_k) → Boltz folds with the pocket restraint → atom checks → one best structure advances.")
+                            if cohortURL != nil {
+                                Text("The imported round reuses saved sequences and folds. Sampling below applies to subsequent rounds.").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Text("Each refinement round: LASErMPNN samples \(request.wrappedValue.phase0_seqs1) sequences per lineage → \(request.wrappedValue.screeningLabel) selects up to \(request.wrappedValue.phase0_nesso_refine_top_k) → Boltz folds with the pocket restraint → atom checks → the best passing candidate by the chosen objective advances.")
                                 .font(.callout)
-                            Text("After the unrestrained gate, \(request.wrappedValue.screeningLabel) scores every expansion sequence and shortlists up to \(request.wrappedValue.phase0_nesso_expand_top_k) in total, at most one per original lineage. Boltz then folds and scores them to select the stage 2 seeds.")
+                            Text("After the unrestrained gate, \(request.wrappedValue.screeningLabel) scores every expansion sequence and shortlists up to \(request.wrappedValue.phase0_nesso_expand_top_k) in total, at most one per original lineage. Boltz then folds them, checks geometry and the chosen objective selects the stage 2 seeds.")
                                 .font(.callout)
                             if request.wrappedValue.screening_engine == "nesso" {
-                            Text("NESSO ranks by P(bind) + (1 − pocket-cropped protein–ligand entropy). Missing, out-of-range or near-zero entropy (≤ 0.000001) is rejected. Boltz still supplies ligand pLDDT + P(bind) and all structural/atom checks. Failed shortlist candidates are not automatically replaced.")
+                            Text("NESSO ranks by P(bind) + (1 − pocket-cropped protein–ligand entropy). Missing, out-of-range or near-zero entropy (≤ 0.000001) is rejected. Boltz supplies structural/atom checks; its affinity score is used only in prefilter mode. Failed shortlist candidates are not automatically replaced.")
                                 .font(.caption).foregroundStyle(.secondary)
                             }
                         }
@@ -94,14 +135,14 @@ struct NISEView: View {
                             .font(.caption).foregroundStyle(.secondary)
                         DisclosureGroup("Advanced · initial sampling and selection") {
                             VStack(alignment: .leading, spacing: 10) {
-                                budgetControl("Pocket refinement rounds", value: request.phase0_refine_cycles, range: 0...20)
+                                budgetControl("Pocket refinement rounds", value: request.phase0_refine_cycles, range: (cohortURL == nil ? 0 : 1)...20)
                                 HStack {
-                                    Text("First refinement minimum Boltz score (0 disables)")
+                                    Text("First refinement minimum \(request.wrappedValue.objectiveLabel) score (0 disables)")
                                     Spacer()
-                                    TextField("0.80", value: request.early_score_gate, format: .number)
+                                    TextField("0 disables", value: request.objectiveEarlyGate, format: .number)
                                         .textFieldStyle(.roundedBorder).frame(width: 90)
                                 }
-                                Text("After geometry checks, retain lineage winners with ligand pLDDT/100 + P(bind) at or above this value. Applies only to the first refinement, including \(request.wrappedValue.screeningLabel)-screened candidates. The 0.80 pilot threshold is not validated across ligands.")
+                                Text(request.wrappedValue.usesScreeningObjective ? "Applies only to cycle01, after geometry checks, using \(request.wrappedValue.objectiveFormula). Defaults: NESSO 0.4; PSICHIC 0.2. These are configurable baseline cutoffs, not calibrated binding probabilities. NESSO uses 0–2; PSICHIC uses 0–1. Each engine retains its own cutoff. Geometry and shortlist limits remain active." : "After geometry checks, retain lineage winners with ligand pLDDT/100 + P(bind) at or above this value. Applies only to the first refinement. The 0.80 pilot threshold is not validated across ligands.")
                                     .font(.caption).foregroundStyle(.secondary)
                                 budgetControl("Sequences sampled per lineage per refinement", value: request.phase0_seqs1, range: 1...1024)
                                 if request.wrappedValue.phase0_nesso_screen {
@@ -119,13 +160,17 @@ struct NISEView: View {
                                     .font(.caption).foregroundStyle(.secondary)
                             }.padding(.top, 8)
                         }
-                        Text("Up to \(request.wrappedValue.initialPredictionBudget.formatted()) initial Boltz predictions.").font(.callout.bold())
+                        if cohortURL == nil {
+                            Text("Up to \(request.wrappedValue.initialPredictionBudget.formatted()) initial Boltz predictions.").font(.callout.bold())
+                        } else {
+                            Text("Initial backbone generation and first-refinement folding are reused. Later prediction counts depend on shortlist and geometry survival.").font(.caption)
+                        }
                     }.padding(8)
                 }
                 GroupBox("2 · NISE optimisation") {
                     VStack(alignment: .leading, spacing: 10) {
                         budgetControl("Independent trajectories to optimise", value: request.trajectories,
-                                      range: 1...max(1, min(1000, request.wrappedValue.num_starts)))
+                                      range: 1...max(1, min(1000, cohortLineages ?? request.wrappedValue.num_starts)))
                         budgetControl("First cycle · proposals from the starting seed", value: request.first_cycle_seqs,
                                       range: max(1, request.wrappedValue.beam)...4096)
                         budgetControl("Later cycles · proposals per parent", value: request.nise_seqs, range: 1...4096)
@@ -134,12 +179,13 @@ struct NISEView: View {
                         Text("Each trajectory starts with one parent. After folding, up to this many passing sequences become its next parents. Later cycles sample the per-parent count above; trajectories never share their survivors.")
                             .font(.caption).foregroundStyle(.secondary)
                         Toggle("Screen sequences with \(request.wrappedValue.screeningLabel) before folding (experimental)", isOn: request.nesso_screen)
+                            .disabled(request.wrappedValue.usesScreeningObjective)
                             .accessibilityIdentifier("nise-nesso-screen")
                         if request.wrappedValue.nesso_screen {
                             budgetControl("\(request.wrappedValue.screeningLabel) shortlist per trajectory per proposal round", value: request.nesso_top_k,
                                           range: max(1, request.wrappedValue.beam)...max(request.wrappedValue.beam, request.wrappedValue.nise_seqs))
                             if request.wrappedValue.screening_engine == "nesso" {
-                            Text("NESSO ranks the sampled sequences from all parents within each trajectory by P(bind) + (1 − pocket-cropped protein–ligand entropy). Invalid or near-zero entropy (≤ 0.000001) is rejected before selection. Only the shortlist goes to Boltz. Boltz scores and structural checks then decide which sequences advance. This switch controls optimisation independently of initial-stage NESSO screening.")
+                            Text("NESSO ranks the sampled sequences from all parents within each trajectory by P(bind) + (1 − pocket-cropped protein–ligand entropy). Invalid or near-zero entropy (≤ 0.000001) is rejected before selection. Only the shortlist goes to Boltz. Geometry checks and the chosen objective decide which sequences advance. In prefilter mode, this switch controls optimisation independently of initial-stage screening.")
                                 .font(.caption).foregroundStyle(.secondary)
                             }
                             Text("Ranking accuracy for these designs is unvalidated; screening can discard useful candidates.")
@@ -148,7 +194,8 @@ struct NISEView: View {
                                 Label("Install \(request.wrappedValue.screeningLabel) from Engines; its required ESM model is included automatically.", systemImage: "shippingbox")
                             }
                         }
-                        partialNoisingControls
+                        partialNoisingControls.disabled(request.wrappedValue.usesScreeningObjective)
+                        if request.wrappedValue.usesScreeningObjective { Text("Partial noising is unavailable with a complete-sequence objective.").font(.caption) }
                         Toggle("Adaptive proposals · experimental", isOn: request.adaptive_proposals)
                             .disabled(request.wrappedValue.partial_noising)
                         if request.wrappedValue.adaptive_proposals {
@@ -158,12 +205,14 @@ struct NISEView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         HStack {
-                            Text("Minimum improvement to reset patience / stop top-ups")
+                            Text("Minimum \(request.wrappedValue.objectiveLabel) score improvement to reset patience / stop top-ups")
                             Spacer()
                             TextField("0.01", value: request.min_improvement, format: .number)
                                 .textFieldStyle(.roundedBorder).frame(width: 90)
                         }
+                        if !request.wrappedValue.usesScreeningObjective {
                         Toggle("Selective Boltz affinity evaluation (experimental)", isOn: request.selective_affinity)
+                            .disabled(cohortURL != nil)
                         if request.wrappedValue.selective_affinity {
                             Text("Skip affinity for initial backbones and the geometry-only gate. Elsewhere, check geometry first, then evaluate affinity in ligand-confidence order until the remaining score bounds cannot enter the selected beam. \(request.wrappedValue.screeningLabel) screening still runs before folding. Software checks pass; run a small trial before a large campaign.")
                                 .font(.caption).foregroundStyle(.secondary)
@@ -171,6 +220,7 @@ struct NISEView: View {
                                 budgetControl("Affinity candidates per selection batch", value: request.affinity_batch_size, range: 1...128)
                                 Text("Smaller batches allow earlier stopping. Workers retain their models within each scoring stage; this is not a GPU parallelism setting.").font(.caption)
                             }
+                        }
                         }
                         DisclosureGroup("Advanced · optimisation structural filters") {
                             VStack(alignment: .leading, spacing: 10) {
@@ -204,8 +254,9 @@ struct NISEView: View {
                             Text("Within each cycle").tag("cycle-wave")
                             Text("Across cycles (experimental)").tag("resident")
                         }
-                        Text("Within-cycle reuse loads each selected model once per scoring batch. Across-cycle reuse also retains \(request.wrappedValue.screeningLabel)/ESM when enabled, alongside Boltz structure and affinity models, and uses more memory. Ligand throughput validation is still pending.").font(.caption)
+                        Text("Within-cycle reuse loads each selected model once per scoring batch. Across-cycle reuse also retains \(request.wrappedValue.screeningLabel)/ESM when enabled, alongside the Boltz structure model (and affinity model only for Boltz selection), and uses more memory. Ligand throughput validation is still pending.").font(.caption)
                         TextField("Generation and folding seed", value: request.seed, format: .number)
+                            .disabled(cohortURL != nil)
                         Text("LASErMPNN has no upstream seed control. Studio saves the exact sampled sequences and audited predictions for resume.").font(.caption)
                     }
                 }
@@ -222,7 +273,7 @@ struct NISEView: View {
                     Button(busy ? "Add to Queue" : "Start NISE") {
                         let current = app.projects.first(where: { $0.id == project.id }) ?? project
                         controller.start(request: request.wrappedValue, project: current,
-                                         name: current.runNames[WorkspaceMode.nise.rawValue] ?? "")
+                                         name: current.runNames[WorkspaceMode.nise.rawValue] ?? "", cohort: cohortURL)
                     }
                         .buttonStyle(.borderedProminent).disabled(!ready || !controller.canStartAnother || !request.wrappedValue.validationIssues.isEmpty || !atomChoicesReady)
                         .accessibilityIdentifier("nise-start")
@@ -255,6 +306,12 @@ struct NISEView: View {
                 }
             }.padding(24).frame(maxWidth: 860, alignment: .leading).frame(maxWidth: .infinity)
         }
+        .onChange(of: request.wrappedValue.scoring_mode) { _, mode in
+            if mode == "screening" { request.wrappedValue.enableScreeningObjective() }
+        }
+        .onChange(of: project.id) { _, _ in
+            cohortURL = nil; cohortSummary = nil; cohortError = nil; cohortLineages = nil
+        }
         .onChange(of: request.wrappedValue.phase0_seqs1) { _, count in
             request.wrappedValue.phase0_nesso_refine_top_k = min(request.wrappedValue.phase0_nesso_refine_top_k, max(1, count))
         }
@@ -281,6 +338,43 @@ struct NISEView: View {
         }
         .onChange(of: request.wrappedValue.binder_max_len) { _, maximum in
             request.wrappedValue.binder_min_len = min(request.wrappedValue.binder_min_len, maximum)
+        }
+    }
+
+    private func chooseCohort() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose the unzipped NISE cohort folder containing cohort.json."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            struct Manifest: Decodable {
+                let format: String; let schema: Int; let boundary: String
+                let candidate_count: Int; let lineage_count: Int; let request: NISERequest
+            }
+            let file = url.appendingPathComponent("cohort.json")
+            let metadata = try file.resourceValues(forKeys: [.fileSizeKey, .isSymbolicLinkKey])
+            guard metadata.isSymbolicLink != true, (metadata.fileSize ?? 0) < 100_000_000 else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: file))
+            guard manifest.format == "iproteinstudio-nise-cohort", manifest.schema == 1,
+                  manifest.boundary == "phase0.cycle01.after_geometry.before_affinity",
+                  (1...30000).contains(manifest.candidate_count),
+                  (1...10000).contains(manifest.lineage_count) else { throw CocoaError(.fileReadCorruptFile) }
+            var settings = manifest.request
+            settings.phase0_nesso_screen = true; settings.nesso_screen = true
+            settings.selective_affinity = true; settings.phase0_refine_cycles = max(1, settings.phase0_refine_cycles)
+            settings.trajectories = min(settings.trajectories, manifest.lineage_count)
+            guard settings.validationIssues.isEmpty else {
+                cohortError = settings.validationIssues.joined(separator: " "); return
+            }
+            request.wrappedValue = settings
+            cohortURL = url; cohortLineages = manifest.lineage_count
+            cohortSummary = "\(manifest.candidate_count.formatted()) candidates · \(manifest.lineage_count.formatted()) original lineages"
+            cohortError = nil
+        } catch {
+            cohortError = "Could not read this NISE cohort. Choose the unzipped package folder containing cohort.json. \(error.localizedDescription)"
         }
     }
 

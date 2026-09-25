@@ -24,9 +24,14 @@ class FixtureBackend:
     """Model-boundary fake; use the real search, ranking and operation journal."""
     def __init__(self, root, fail_after=None):
         self.output = root
+        from contract import objective
+        self.settings = {}
+        self.objective = objective({})
         self.journal = Journal(root)
         self.design_calls = self.fold_calls = 0
         self.fail_after = fail_after
+
+    allow_boltz_affinity = Backend.allow_boltz_affinity
 
     def freeze_config(self, cfg):
         pass

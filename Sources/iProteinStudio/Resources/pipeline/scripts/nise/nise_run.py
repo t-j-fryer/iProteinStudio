@@ -55,6 +55,8 @@ class Node:
     score_status: str = "scored"
     geometry_passed: bool = True
     branch: str = "mpnn"
+    score_engine: str = "boltz"
+    score_formula: str = "ligand_plddt / 100 + pbind"
 
 
 def design_sequences(designer, struct_pdb, out_dir, n, smiles, args,
@@ -120,6 +122,8 @@ def evaluate_candidates(preds, seq_by_name, ref_by_name, args, cycle, ca_thresh,
             ligand_plddt=pred.ligand_plddt, pbind=pred.pbind, score=score, cycle=cycle,
             score_status="not_evaluated" if getattr(args, "selective_affinity", False) else "scored",
             geometry_passed=passed, branch=getattr(args, "candidate_branch", "mpnn"),
+            score_engine=getattr(args.backend, "objective", {}).get("engine", "boltz"),
+            score_formula=getattr(args.backend, "objective", {}).get("formula", "ligand_plddt / 100 + pbind"),
         )
         if args.backend is not None:
             args.backend.record_candidate(node, passed, pred)
@@ -131,6 +135,20 @@ def evaluate_candidates(preds, seq_by_name, ref_by_name, args, cycle, ca_thresh,
 def select_scores(nodes, preds, args, directory, owners, *, per_group=1,
                   total_groups=None, minimum=0.0, previous=(), geometry_only=False):
     """Shared by both backbone sources and by NESSO-screened/Boltz-only routes."""
+    if getattr(args.backend, "settings", {}).get("scoring_mode", "boltz") == "screening":
+        try:
+            for node in nodes:
+                # Geometry-only stages intentionally have no sequence score.
+                if geometry_only:
+                    node.score_status = "omitted_geometry_only_stage"
+                else:
+                    node.score = args.backend.objective_score(node.name)
+                    node.pbind = None  # This column is exclusively Boltz P(bind).
+                    node.score_status = "scored" if node.score >= minimum else "below_early_score_gate"
+                args.backend.record_candidate(node, geometry_only or node.score >= minimum, preds[node.name])
+            return nodes if geometry_only else [n for n in nodes if n.score >= minimum]
+        finally:
+            args.backend.finish_scoring_stage()
     if not getattr(args, "selective_affinity", False):
         for node in nodes:
             if node.score < minimum:
@@ -168,7 +186,7 @@ def write_trajectory_row(writer, phase, node: Node, passed=True):
         phase, node.cycle, node.traj, node.origin, node.name,
         f"{node.ca_rmsd:.3f}", f"{node.ligand_rmsd:.3f}",
         f"{node.ligand_plddt:.2f}", "" if node.pbind is None else f"{node.pbind:.3f}",
-        "" if node.score is None else f"{node.score:.4f}", int(passed), node.sequence,
+        "" if node.score is None else f"{node.score:.4f}", int(passed), node.sequence, node.score_engine, node.score_formula,
     ])
 
 
@@ -201,6 +219,8 @@ def _node_from_row(row, out):
         ligand_plddt=float(row["ligand_plddt"]), pbind=float(pb) if pb not in ("", None) else None,
         score=float(row["score"]), cycle=int(row["cycle"]),
         traj=int(row["trajectory"]), origin=row["origin"],
+        score_engine=row.get("score_engine", "boltz"),
+        score_formula=row.get("score_formula", "ligand_plddt / 100 + pbind"),
     )
 
 
@@ -440,7 +460,7 @@ def main(argv=None, backend=None):
     tw = csv.writer(traj)
     if not args.resume:
         tw.writerow(["phase", "cycle", "trajectory", "origin", "name", "ca_rmsd", "ligand_rmsd",
-                     "ligand_plddt", "pbind", "score", "passed", "sequence"])
+                     "ligand_plddt", "pbind", "score", "passed", "sequence", "score_engine", "score_formula"])
 
     def origin_of(nm):
         return nm.split("_d1")[0]
@@ -480,7 +500,11 @@ def main(argv=None, backend=None):
         start_cycle, ingest_cycle = 1, None
 
     if not args.resume:
-        if args.backbone_method == "rfdiffusion3":
+        imported = getattr(backend, "imported_candidates", None)
+        if imported:
+            lineages = {e["origin"]: str(out / e["ref_pdb"]) for e in imported}
+            log(f"Imported {len(imported)} first-refinement candidates from {len(lineages)} lineages before affinity selection")
+        elif args.backbone_method == "rfdiffusion3":
             log(f"Phase 0 cycle00: generating {args.num_starts} RFdiffusion3 backbones")
             lineages = backend.initial_backbones(smiles, p0dir(0), args)
             if len(lineages) != args.num_starts:
@@ -498,7 +522,7 @@ def main(argv=None, backend=None):
                 lineages[name] = str(ref)
             if getattr(args, "selective_affinity", False):
                 backend.finish_scoring_stage()
-        if getattr(args, "selective_affinity", False):
+        if getattr(args, "selective_affinity", False) and not imported:
             from types import SimpleNamespace
             from runtime import atomic
             initial_predictions = {name: SimpleNamespace(name=name, pdb=pdb) for name,pdb in lineages.items()}
@@ -517,7 +541,11 @@ def main(argv=None, backend=None):
         for cyc in range(1, args.phase0_refine_cycles + 1):
             log(f"Phase 0 cycle{cyc:02d}: {args.phase0_seqs1} seqs/lineage, fold (pocket=on), keep best-1/lineage")
             seq_by_name, ref_by_name, owner = {}, {}, {}
-            for lid, pdb in lineages.items():
+            if cyc == 1 and imported:
+                seq_by_name = {e["name"]: e["sequence"] for e in imported}
+                ref_by_name = {e["name"]: str(out / e["ref_pdb"]) for e in imported}
+                owner = {e["name"]: e["origin"] for e in imported}
+            for lid, pdb in ([] if cyc == 1 and imported else lineages.items()):
                 seqs = design_sequences(args.designer, pdb, p0dir(cyc, "design", lid),
                                         args.phase0_seqs1, smiles, args,
                                         seq_temp=args.phase0_temp, fs_temp=args.phase0_temp,
@@ -532,7 +560,8 @@ def main(argv=None, backend=None):
             preds = fold_and_score(seq_by_name, smiles, p0dir(cyc, "fold"), args, pocket=phase0_pocket)
             nodes = evaluate_candidates(preds, seq_by_name, ref_by_name, args, cyc, 1e9, 1e9)  # no gate
             nodes = select_scores(nodes, preds, args, p0dir(cyc, "fold"), owner,
-                                  minimum=args.early_score_gate if cyc == 1 else 0.0)
+                                  minimum=(backend.objective["early_gate"] if getattr(backend, "settings", {}).get("scoring_mode") == "screening"
+                                           else args.early_score_gate) if cyc == 1 else 0.0)
             best = {}
             for n in nodes:
                 lid = owner[n.name]; n.origin = lid

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import CryptoKit
 
 @MainActor
 final class NISEController: ObservableObject {
@@ -22,7 +23,7 @@ final class NISEController: ObservableObject {
         return true
     }
 
-    func start(request: NISERequest, project: Project, name: String = "") {
+    func start(request: NISERequest, project: Project, name: String = "", cohort: URL? = nil) {
         guard canStartAnother, !isRunning || request.validationIssues.isEmpty else { return }
         guard prepareNewRun() else { return }
         guard request.validationIssues.isEmpty else { phase = .failed(request.validationIssues[0]); return }
@@ -31,9 +32,17 @@ final class NISEController: ObservableObject {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try RunNaming.write(name, to: directory)
             _ = try AppPaths.createPipelineSnapshot(in: directory)
-            struct Config: Encodable { let output: String; let request: NISERequest }
+            struct Cohort: Encodable { let path: String; let sha256: String }
+            struct Config: Encodable { let output: String; let request: NISERequest; let cohort: Cohort? }
+            var imported: Cohort?
+            if let cohort {
+                let target = directory.appendingPathComponent("cohort")
+                try FileManager.default.copyItem(at: cohort, to: target)
+                let data = try Data(contentsOf: target.appendingPathComponent("cohort.json"))
+                imported = Cohort(path: "cohort", sha256: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined())
+            }
             let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(Config(output: directory.path, request: request))
+            try encoder.encode(Config(output: directory.path, request: request, cohort: imported))
                 .write(to: directory.appendingPathComponent("nise_config.json"), options: .atomic)
             outputRoot = directory; projectSlug = project.slug
             phase = .running; log = []; currentMessage = "Checking inputs and engine provenance…"

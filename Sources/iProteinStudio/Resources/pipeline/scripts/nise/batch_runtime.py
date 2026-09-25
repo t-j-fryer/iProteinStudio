@@ -8,6 +8,8 @@ import shutil
 import time
 from types import SimpleNamespace
 import uuid
+import threading
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_EXCEPTION
 
 from runtime import Backend, ResidentClient, atomic, digest, input_digest
 
@@ -84,23 +86,27 @@ def verify_event(marker, spec):
 class BatchBackend(Backend):
     def _worker(self,args,apo=False):
         if self.worker is None:
-            self.worker=BatchClient(self.root,self.output,self.scripts,args.seed,not apo and args.use_potentials,not apo)
+            self.worker=BatchClient(self.root,self.output,self.scripts,args.seed,not apo and args.use_potentials,not apo and self.allow_boltz_affinity)
         if not isinstance(self.worker,BatchClient):
             raise RuntimeError('Stage-directory execution requires its checkpoint-aware worker')
         return self.worker
 
     def _execute(self, directory, pending, args, phase, affinity, checkpoint, apo=False):
+        return self._execute_batch(directory, pending, args, phase, affinity, checkpoint, apo)
+
+    def _execute_batch(self, directory, pending, args, phase, affinity, checkpoint, apo=False, client=None):
         if not pending:
             return
         seeds={spec.get('prediction_seed') for spec in pending.values()}
-        if len(seeds)!=1:
+        if len(seeds)!=1 and not getattr(self, 'per_input_rng', False):
             raise ValueError('Stage-directory execution does not support mixed per-input seed overrides')
         batch=directory/'_batches'/(phase+'-'+uuid.uuid4().hex)
         source=batch/'yaml';source.mkdir(parents=True)
         processed=batch/'out/boltz_results_yaml/processed'
         # Freeze membership and operation specs before the worker sees inputs.
         atomic(batch/'batch.json',dict(schema=1,phase=phase,affinity=affinity,
-            specifications=pending,seed=args.seed,rng_policy='Boltz request stream; membership and preprocessing retained'))
+            specifications=pending,seed=args.seed,
+            rng_policy='per-input-v1' if getattr(self, 'per_input_rng', False) else 'Boltz request stream; membership and preprocessing retained'))
         for name,spec in pending.items():
             unit=directory/name
             shutil.copy2(unit/'yaml'/f'{name}.yaml',source/f'{name}.yaml')
@@ -117,13 +123,16 @@ class BatchBackend(Backend):
                     cache=previous.parent/'out/boltz_results_yaml/processed'
                     if old['specifications'].get(name)==spec and (cache/'manifest.json').is_file():
                         copy_processed(cache,processed,name);break
-        self._worker(args,apo).predict_many(batch,len(pending),affinity,phase,checkpoint,next(iter(seeds)))
+        (client or self._worker(args,apo)).predict_many(batch,len(pending),affinity,phase,checkpoint,
+            next(iter(seeds)) if len(seeds)==1 else None)
 
     def fold(self,sequences,smiles,directory,args,pocket=None,apo=False):
         import preorg
         from ligand_atoms import audit_atoms
         directory=Path(directory);predictions={};pending={}
         phase='complete' if apo else getattr(args,'boltz_phase','complete')
+        if not apo and not self.allow_boltz_affinity and phase != "structure":
+            raise RuntimeError("Screening-objective runs require structure-only Boltz requests")
         if self.settings.get('nesso_screen') and not getattr(args,'skip_nesso',False) and not apo and sequences and all(
                 re.fullmatch(r'c\d+_t\d+_n\d+_s\d+',name) for name in sequences):
             from nesso_screen import screen
@@ -182,6 +191,8 @@ class BatchBackend(Backend):
         return {name:predictions[name] for name in sequences}
 
     def affinity(self,predictions,directory,args):
+        if not self.allow_boltz_affinity:
+            raise RuntimeError("Boltz affinity is disabled for screening-objective runs")
         directory=Path(directory);result={};pending={};structures={}
         for name in predictions:
             unit=directory/name;saved=json.loads((unit/'completed.json').read_text())
@@ -207,3 +218,75 @@ class BatchBackend(Backend):
                     commit(marker);del pending[name];break
         self._execute(directory,pending,args,'affinity',True,commit)
         return {name:result[name] for name in predictions}
+
+
+def partition_inputs(pending, workers):
+    """Deterministic longest-first length-squared balancing; each input exactly once."""
+    groups = [{} for _ in range(min(workers, len(pending)))]
+    loads = [0] * len(groups)
+    for name in sorted(pending, key=lambda n: (-len(pending[n].get('sequence', '')), n)):
+        index = min(range(len(groups)), key=lambda i: (loads[i], len(groups[i]), i))
+        groups[index][name] = pending[name]
+        loads[index] += max(1, len(pending[name].get('sequence', '')))**2
+    return groups
+
+
+class PoolBackend(BatchBackend):
+    """Explicit two-process pool under ONE broker lease; opt-in continuation only.
+
+    Threads only dispatch subprocess requests. All native models and RNGs remain
+    process-local. Main-thread failure/cancellation closes both workers before
+    joining dispatch threads. Checkpoint commits are serialized.
+    """
+    per_input_rng = True
+
+    def __init__(self, *args, workers=2, **kwargs):
+        if type(workers) is not int or workers not in (1, 2):
+            raise ValueError('Qualified NISE pool supports one or two workers')
+        super().__init__(*args, **kwargs)
+        self.pool_size = workers
+        self.pool = []
+        self.pool_apo = None
+
+    def close(self):
+        pool, self.pool = self.pool, []
+        for client in pool:
+            client.close()
+        self.pool_apo = None
+        super().close()
+
+    def _execute(self, directory, pending, args, phase, affinity, checkpoint, apo=False):
+        if not pending:
+            return
+        if self.pool and self.pool_apo != apo:
+            self.close()
+        groups = partition_inputs(pending, self.pool_size)
+        try:
+            while len(self.pool) < len(groups):
+                self.pool.append(BatchClient(self.root, self.output, self.scripts, args.seed,
+                    not apo and args.use_potentials, not apo and self.allow_boltz_affinity, cpu_threads=4))
+                self.pool_apo = apo
+            lock = threading.Lock()
+            def commit(marker):
+                with lock:
+                    checkpoint(marker)
+            executor = ThreadPoolExecutor(max_workers=len(groups))
+            futures = []
+            try:
+                for group, client in zip(groups, self.pool):
+                    futures.append(executor.submit(self._execute_batch, directory, group, args,
+                        phase, affinity, commit, apo, client))
+                while True:
+                    done, unfinished = wait(futures, timeout=.2, return_when=FIRST_EXCEPTION)
+                    for future in done:
+                        future.result()
+                    if not unfinished:
+                        break
+            except BaseException:
+                self.close()
+                raise
+            finally:
+                executor.shutdown(wait=True, cancel_futures=True)
+        except BaseException:
+            self.close()
+            raise

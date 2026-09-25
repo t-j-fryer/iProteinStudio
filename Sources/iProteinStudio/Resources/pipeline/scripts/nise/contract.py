@@ -12,6 +12,9 @@ def nesso_contract():
 
 def saved_request(request):
     """A saved pre-v2 request is different from a new minimal MCP request."""
+    if isinstance(request, dict) and request.get("scoring_mode") == "screening":
+        # Saved objective runs from before engine-specific baselines used zero.
+        request = {"nesso_early_score_gate": 0.0, "psichic_early_score_gate": 0.0, **request}
     if isinstance(request, dict) and "search_policy_version" not in request:
         return {**LEGACY_POLICY, "num_starts": 100, "max_cycles": 30, "patience": 5, "trajectories": 6, "beam": 1, **request}
     return request
@@ -19,7 +22,7 @@ def saved_request(request):
 # Studio defaults; historical saved runs retain their explicit settings.
 LEGACY_POLICY = dict(search_policy_version=1, early_score_gate=0.0, selective_affinity=False,
                      adaptive_proposals=False, initial_proposals=16, affinity_batch_size=8, min_improvement=0.0001)
-DEFAULTS = dict(search_policy_version=3, early_score_gate=0.80, selective_affinity=True,
+DEFAULTS = dict(scoring_mode="boltz", nesso_early_score_gate=0.4, psichic_early_score_gate=0.2, search_policy_version=3, early_score_gate=0.80, selective_affinity=True,
                 adaptive_proposals=False, initial_proposals=16, affinity_batch_size=8, min_improvement=0.01, smiles="", num_starts=1000, trajectories=8, nise_seqs=32, first_cycle_seqs=64,
                 partial_noising=False, noise_radius=6.0, noise_percent=25.0, noise_predictions=32, noise_mpnn_seqs=32, noise_advance=1,
                 max_cycles=30, patience=4, binder_min_len=65, binder_max_len=150,
@@ -42,6 +45,15 @@ def normalize(request):
     if not isinstance(request, dict) or set(request) - set(DEFAULTS):
         raise ValueError("Unknown NISE settings; use the versioned NISE request.")
     cfg = {**DEFAULTS, **request}
+    if cfg["scoring_mode"] not in ("boltz", "screening"):
+        raise ValueError("Choose Boltz selection or the screening engine as the optimisation objective.")
+    if cfg["scoring_mode"] == "screening":
+        if type(cfg["search_policy_version"]) is not int or cfg["search_policy_version"] < 3:
+            raise ValueError("Screening-objective mode requires search policy version 3.")
+        if not cfg["nesso_screen"] or not cfg["phase0_nesso_screen"] or not cfg["selective_affinity"]:
+            raise ValueError("Screening-objective mode requires both stage screens and geometry-first structure prediction.")
+        if cfg["partial_noising"]:
+            raise ValueError("Partial noising has no complete-sequence objective; turn it off for screening-objective mode.")
     if cfg["search_policy_version"] == 1:
         cfg = {**DEFAULTS, "num_starts": 100, "max_cycles": 30, "patience": 5, "trajectories": 6, "beam": 1, **LEGACY_POLICY, **request}
     if cfg["search_policy_version"] < 3:
@@ -84,7 +96,7 @@ def normalize(request):
     if set(cfg["hotspot_atoms"]) & set(cfg["exposed_atoms"]):
         raise ValueError("An atom cannot be both a hotspot and an exposed atom.")
     for key, low, high in (("noise_radius", 3, 15), ("noise_percent", 1, 100), ("hotspot_distance", 3, 10), ("exposure_min_fraction", 0.1, 1),
-                           ("early_score_gate", 0, 2), ("min_improvement", 0, 1), ("phase0_sc_ca", 0.1, 10), ("nise_sc_ca", 0.1, 10), ("nise_sc_lig", 0.1, 10)):
+                           ("nesso_early_score_gate", 0, 2), ("psichic_early_score_gate", 0, 1), ("early_score_gate", 0, 2), ("min_improvement", 0, 1), ("phase0_sc_ca", 0.1, 10), ("nise_sc_ca", 0.1, 10), ("nise_sc_lig", 0.1, 10)):
         if type(cfg[key]) not in (int, float) or not math.isfinite(cfg[key]) or not low <= cfg[key] <= high:
             raise ValueError(f"{key} must be between {low} and {high}.")
     if not isinstance(cfg["ligand_atom_signature"], str) or not isinstance(cfg["ligand_atoms_generated_for"], str):
@@ -188,7 +200,21 @@ def prediction_budget(request):
     later = cfg["trajectories"] * (min(shortlist, normal_parents * cfg["nise_seqs"]) if cfg["nesso_screen"] else normal_parents * cfg["nise_seqs"])
     noise = cfg["trajectories"] * (cfg["noise_predictions"] + (min(cfg["noise_mpnn_seqs"], cfg["nesso_top_k"]) if cfg["nesso_screen"] else cfg["noise_mpnn_seqs"])) if cfg["partial_noising"] else 0
     later += noise
-    return dict(noising_boltz_per_later_cycle_max=noise, initial_boltz_max=initial, initial_rfd3_backbones=cfg["num_starts"] if rfd3 else 0,
+    return dict(objective=objective(cfg), boltz_affinity_enabled=cfg["scoring_mode"] == "boltz",
+                noising_boltz_per_later_cycle_max=noise, initial_boltz_max=initial, initial_rfd3_backbones=cfg["num_starts"] if rfd3 else 0,
                 first_cycle_boltz_max=first, later_cycle_boltz_max=later,
                 optimization_boltz_max=first + (cfg["max_cycles"] - 1) * later,
                 interpretation="Calculated upper bounds, not runtime estimates; fewer survivors and early stopping reduce work.")
+
+
+def objective(request):
+    """Persist score identity separately from raw model metrics; legacy = Boltz."""
+    if request.get("scoring_mode", "boltz") == "boltz":
+        return dict(engine="boltz", version="boltz-ligand-confidence-pbind-v1",
+                    formula="ligand_plddt / 100 + pbind", maximum=2.0,
+                    early_gate=request.get("early_score_gate", 0.0))
+    engine=request["screening_engine"]
+    policy=scoring_contract(request).RANKING_POLICY
+    return dict(engine=engine, version=policy["version"], formula=policy["formula"],
+                maximum=1.0 if engine=="psichic" else 2.0,
+                early_gate=request.get(engine+"_early_score_gate", DEFAULTS[engine+"_early_score_gate"]))

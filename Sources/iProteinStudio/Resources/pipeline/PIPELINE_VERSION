@@ -25,3 +25,12 @@ studio_job_submission_validation: lab_book/0186-repair-submission-retries-and-ca
 studio_job_progress: retained-observer-and-native-viewer-v1
 studio_job_recovery: persisted-process-identities-v1
 studio_job_progress_validation: lab_book/0188-add-engine-progress-logging.md, lab_book/0189-add-job-progress-viewer-and-recovery.md
+
+studio_nise_cohort_transfer: phase0-cycle01-pre-affinity-v1
+studio_nise_cohort_validation: lab_book/0191-port-phase0-cohort.md
+
+studio_nise_objective: explicit-boltz-or-sequence-scorer-v1
+studio_nise_objective_validation: lab_book/0192-add-nise-objective-choice.md
+
+studio_nise_objective_baselines: nesso-0.4-psichic-0.2
+studio_nise_objective_baselines_validation: lab_book/0193-set-nise-objective-baselines.md

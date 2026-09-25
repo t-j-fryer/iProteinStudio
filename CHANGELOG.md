@@ -2,6 +2,22 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.7 — NISE objectives and portable Phase 0 cohorts
+
+- Choose whether NESSO/PSICHIC is a prefilter for Boltz or the optimisation
+  objective. Objective mode uses Boltz for structures and geometry checks without
+  running its affinity head; results identify the score source explicitly.
+- New objective-mode cycle01 gates default to NESSO 0.4 (P(bind) + 1 minus
+  placement entropy) and PSICHIC 0.2 (1 minus nonbinder). Both are adjustable;
+  saved requests retain their settings. These are search cutoffs, not calibrated
+  experimental binding probabilities.
+- Export/import a portable Phase 0 cohort at the cycle01 pre-affinity boundary,
+  preserving structures, sequences, lineage, geometry and cache checksums.
+- Preserve explicit two-resident continuation policy and per-input seeding.
+  This does not change worker counts or scientific settings of existing runs.
+- MCP 28 exposes the same objective controls. Shared runtime staging defers while
+  a campaign holds the execution lease; existing jobs retain their recorded code.
+
 ## 0.2.6 — preserve the packaged app signature
 
 - Includes the job progress viewer, logging and safe recovery from 0.2.5.

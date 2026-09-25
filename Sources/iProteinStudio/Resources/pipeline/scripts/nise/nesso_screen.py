@@ -1,4 +1,4 @@
-"""Durable screening adapter; NESSO never replaces a Boltz search score."""
+"""Durable sequence scoring and shortlisting; the selected objective controls final advancement."""
 import csv
 import json
 import os

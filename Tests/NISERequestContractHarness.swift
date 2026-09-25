@@ -101,6 +101,27 @@ struct NISERequestContractHarness {
         precondition(oldCustom.phase0_gate_seqs == 7 && !oldCustom.phase0_nesso_screen)
         let oldCustomAgain = try JSONDecoder().decode(NISERequest.self, from: JSONEncoder().encode(oldCustom))
         precondition(oldCustomAgain == oldCustom)
+        var objective = NISERequest(); objective.smiles = "CCO"
+        precondition(objective.scoring_mode == "boltz" && objective.objectiveEarlyGate == 0.8)
+        objective.enableScreeningObjective()
+        precondition(objective.validationIssues.isEmpty && objective.objectiveEarlyGate == 0.4)
+        objective.objectiveEarlyGate = 1.25
+        objective.screening_engine = "psichic"
+        precondition(objective.objectiveEarlyGate == 0.2 && objective.objectiveFormula == "1 − predicted_nonbinder")
+        objective.objectiveEarlyGate = 0.4
+        objective.screening_engine = "nesso"
+        precondition(objective.objectiveEarlyGate == 1.25)
+        objective.scoring_mode = "boltz"
+        precondition(objective.objectiveEarlyGate == 0.8)
+        let copy = try JSONDecoder().decode(NISERequest.self, from: JSONEncoder().encode(objective))
+        precondition(copy == objective)
+        objective.enableScreeningObjective(); objective.nesso_screen = false
+        precondition(!objective.validationIssues.isEmpty)
+        precondition(oldCustom.scoring_mode == "boltz")
+        precondition(oldCustom.nesso_early_score_gate == 0.4 && oldCustom.psichic_early_score_gate == 0.2)
+        let historicalObjective = try JSONDecoder().decode(NISERequest.self, from: Data(#"{"scoring_mode":"screening","search_policy_version":3,"smiles":"CCO"}"#.utf8))
+        precondition(historicalObjective.nesso_early_score_gate == 0 && historicalObjective.psichic_early_score_gate == 0)
+
         print("PASS NISE request and existing-workspace migration contracts")
     }
 }

@@ -235,3 +235,9 @@ forgotten one.
 - [0177 — Experimental PSICHIC and portable engine distribution](lab_book/0177-integrate-psichic-portable-runtimes.md)
 
 - [0178 — Repair MPSGraph scratch stalls](lab_book/0178-repair-mps-scratch-stall.md)
+
+- [0191 — Portable pre-affinity NISE cohort](lab_book/0191-port-phase0-cohort.md): exact 1,491-candidate/712-lineage biotin export; app import resumes Phase 0 with NESSO or PSICHIC screening; 61 tests and full native-cache relocation audit.
+- [0192 — Explicit NISE objective choice](lab_book/0192-add-nise-objective-choice.md): choose Boltz selection or NESSO/PSICHIC objective with Boltz geometry only; independent early gates and objective-labelled results; no scoring-model inference benchmark.
+- [0193 — NISE objective baseline gates](lab_book/0193-set-nise-objective-baselines.md): user-selected NESSO 0.4 / PSICHIC 0.2 defaults, saved-run compatibility, and exact affinity-bound explanation.
+
+- [0194 — Publish NISE objectives](lab_book/0194-publish-nise-objectives.md): 0.2.7/build53/MCP28 release and safe local deployment.

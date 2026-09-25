@@ -106,7 +106,7 @@ class PartialNoisingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             root=Path(raw);prior=dict(nise_seqs=17)
             atomic(root/'config.json',prior)
-            backend=NS(output=root,settings={'search_policy_version':2})
+            backend=NS(output=root,settings={'search_policy_version':2},allow_boltz_affinity=True)
             cfg=dict(prior,first_cycle_seqs=17,partial_noising=False,noise_radius=6.0,
                      noise_percent=25.0,noise_predictions=32,noise_mpnn_seqs=32,noise_advance=1)
             Backend.freeze_config(backend,cfg)

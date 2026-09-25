@@ -53,6 +53,7 @@ struct NISEStageProgress: Identifiable {
 }
 
 struct NISESnapshot {
+    var objectiveDescription = "Selection: Boltz ligand pLDDT/100 + P(bind)"
     var records: [NISERecord] = []
     var stages: [NISEStageProgress] = []
     var warnings: [String] = []
@@ -97,6 +98,12 @@ enum NISEResultsLoader {
             ?? (object(root.appendingPathComponent("nise_config.json"))?["request"] as? [String: Any]) ?? [:]
         let refinements = max(0, min(100, settings["phase0_refine_cycles"] as? Int ?? 2))
         var snapshot = NISESnapshot()
+        let objective = settings["objective"] as? [String: Any]
+        let objectiveEngine = objective?["engine"] as? String ?? ((settings["scoring_mode"] as? String == "screening") ? (settings["screening_engine"] as? String ?? "nesso") : "boltz")
+        if objectiveEngine != "boltz" {
+            let formula = objective?["formula"] as? String ?? (objectiveEngine == "psichic" ? "1 − predicted_nonbinder" : "P(bind) + (1 − entropy_crop_pl)")
+            snapshot.objectiveDescription = "Selection: \(objectiveEngine.uppercased()) · \(formula). Boltz supplies structures and geometry; Boltz affinity is not evaluated."
+        }
         var rows: [String: [String: Any]] = [:]
         var rowFiles: [String: URL] = [:]
         var stages: [String: NISEStageProgress] = [:]
@@ -326,7 +333,7 @@ enum NISEResultsLoader {
                 subtitle: "\(stages[key]!.title) · \(branchLabel) · \(label)", structureURL: structure,
                 sequence: row["sequence"] as? String, metrics: metrics, confidenceURL: rowFiles[name],
                 stage: isInitial ? .startingStructure : .design,
-                scoreSource: row["generator"] as? String ?? (row["psichic"] != nil ? "Boltz 2 · PSICHIC prescreen (experimental)" : (row["nesso"] == nil ? "Boltz 2" : "Boltz 2 · NESSO prescreen")),
+                scoreSource: row["generator"] as? String ?? (objectiveEngine != "boltz" ? "\(objectiveEngine.uppercased()) objective · Boltz geometry" : (row["psichic"] != nil ? "Boltz 2 · PSICHIC prescreen (experimental)" : (row["nesso"] == nil ? "Boltz 2" : "Boltz 2 · NESSO prescreen"))),
                 failedFilters: ((row["atom_checks"] as? [String: Any] ?? initialAtoms[name] as? [String: Any])?["failures"] as? [String]) ?? [],
                 groupID: groupID, groupTitle: groupTitle, variantID: "cycle-\(cycle)-\(name)",
                 variantTitle: "Cycle \(cycle) · \(name)", artifactRole: isInitial ? .startingStructure : .designedComplex)

@@ -209,6 +209,19 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
                               str(root / "venvs/NanoHunter_boltz/bin/python"),
                               str(snapshot / "scripts/nise/campaign.py"), "--config", str(config), "--resume"],
                   "cwd": str(snapshot), "stage": "nise"}]
+        if "cohort" in settings:
+            if workflow != "nise" or (output / "initial_restart.json").exists():
+                raise StudioError("Cohort import cannot be combined with another restart or test workflow.")
+            import importlib.util
+            cohort_path = snapshot / "scripts/nise/cohort_transfer.py"
+            spec = importlib.util.spec_from_file_location("studio_nise_cohort", cohort_path)
+            cohort = importlib.util.module_from_spec(spec); spec.loader.exec_module(cohort)
+            try:
+                cohort_data, cohort_assets = cohort.validate_import(output, {**settings, "request": normalized_request})
+            except (ValueError, OSError, KeyError) as exc:
+                raise StudioError("Invalid NISE cohort: " + str(exc)) from exc
+            inputs += cohort_assets
+            steps[0]["command"].append("--stage-batches")
         if (output / "initial_restart.json").is_file():
             import importlib.util
             sys.path.insert(0, str(snapshot / "scripts/nise"))
@@ -221,8 +234,15 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
             steps[0]["command"].append("--stage-batches")
         context = {"pipeline_snapshot": str(snapshot), "request": normalized_request,
                    "prediction_budget": contract.prediction_budget(normalized_request)}
+        if "cohort" in settings:
+            context["imported_cohort"] = {"candidates": cohort_data["candidate_count"],
+                "lineages": cohort_data["lineage_count"], "boundary": cohort_data["boundary"],
+                "structure_reuse": True, "affinity_selection_imported": False}
+            context["prediction_budget"]["note"] = "Conservative upper bound; imported cycle00/01 folding is skipped."
         if workflow == "nise_continuation":
             steps[0]["command"].append("--stage-batches")
+            if continuation_descriptor.get("schema") == 2:
+                steps[0]["command"] += ["--resident-workers", str(continuation_descriptor["execution"]["resident_workers"])]
             context["continuation"] = continuation_descriptor
             context["submission"] = "One directory request per pending fold stage or selective-affinity selection batch; per-input checkpoints"
         if workflow == "nise_batch_test":

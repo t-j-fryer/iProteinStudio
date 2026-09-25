@@ -153,6 +153,17 @@ struct NISEResultsContractHarness {
         precondition(!psRow.metrics.contains { $0.kind == .nessoBindingProbability || $0.kind == .nessoInterfaceEntropy })
         print("PASS experimental PSICHIC result identity, probabilities and no invented entropy")
 
+        try write("objectiveTrial/config.json", ["scoring_mode": "screening", "objective": ["engine": "psichic", "formula": "1 - predicted_nonbinder"]])
+        try structure("objectiveTrial/cycle01/fold/c01_t0_n0_s1/model.pdb")
+        try write("objectiveTrial/candidates/c01_t0_n0_s1.json", ["name": "c01_t0_n0_s1", "sequence": "ACDE", "pdb": "cycle01/fold/c01_t0_n0_s1/model.pdb", "cycle": 1, "geometry_passed": true, "passed": true, "score_status": "scored", "score": 0.8, "pbind": NSNull(), "psichic": ps])
+        let objectiveResult = NISEResultsLoader.load(root: root.appendingPathComponent("objectiveTrial"))
+        precondition(objectiveResult.objectiveDescription.contains("PSICHIC"))
+        precondition(objectiveResult.records.count == 1)
+        precondition(objectiveResult.items[0].scoreSource.contains("PSICHIC objective"))
+        precondition(objectiveResult.items[0].metrics.contains { $0.kind == .rankingScore && $0.value == 0.8 })
+        precondition(!objectiveResult.items[0].metrics.contains { $0.kind == .bindingProbability })
+        print("PASS scorer objective identity and absent Boltz affinity in results")
+
         if let path = ProcessInfo.processInfo.environment["STUDIO_NISE_LIVE_RUN"] {
             let live = NISEResultsLoader.load(root: URL(fileURLWithPath: path))
             let stage = live.stages.first { $0.id == "0|0" }!

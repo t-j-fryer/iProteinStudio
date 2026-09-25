@@ -7,8 +7,14 @@ from runtime import Journal, digest
 def validate(output):
     output=Path(output).resolve();path=output/'nise_continuation.json'
     descriptor=json.loads(path.read_text())
-    if descriptor.get('schema')!=1 or descriptor.get('submission')!='stage-directory':
+    if descriptor.get('schema') not in (1,2) or descriptor.get('submission')!='stage-directory':
         raise ValueError('Unknown NISE continuation policy')
+    if descriptor['schema'] == 2:
+        execution = descriptor.get('execution', {})
+        if (set(execution) != {'resident_workers', 'rng_policy', 'cpu_threads'}
+                or type(execution['resident_workers']) is not int or execution['resident_workers'] not in (1,2)
+                or execution['rng_policy'] != 'per-input-v1' or execution['cpu_threads'] != 4):
+            raise ValueError('Invalid explicit resident-pool execution policy')
     config=output/'nise_config.json'
     if digest(config)!=descriptor['base_config_sha256']:
         raise ValueError('Continuation changed the original scientific request')

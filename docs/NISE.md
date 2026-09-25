@@ -7,6 +7,10 @@ request and campaign identity. It searches for small-molecule-binding proteins;
 initial backbones can come from Protein Hunter hallucination or RFdiffusion3.
 Beta's protein/cross-reactivity optimiser remains upstream.
 
+**Score-use choice:** the protocol below describes the default Boltz-selection route.
+The experimental [optimisation objective option](#choose-the-optimisation-objective)
+lets NESSO or PSICHIC drive selection with Boltz geometry only.
+
 ## What the fluorescein work established
 
 The work spans two source repositories:
@@ -68,7 +72,7 @@ user-adjustable. The initial recipe remains two
 three-proposal pocket refinements, a three-proposal unrestrained gate and five-proposal
 survivor expansion. No rollback or rescue is implemented.
 
-The first refinement now requires a winning Boltz score of **at least 0.80** after
+With Boltz selection, the first refinement requires a winning Boltz score of **at least 0.80** after
 requested geometry checks. Set `early_score_gate` to zero to disable this extra gate;
 zero refinement rounds also bypass it. The threshold always means
 `ligand_pLDDT/100 + Boltz P(bind)`, including when NESSO supplied the shortlist.
@@ -403,7 +407,7 @@ accessibility remain in the Small molecule section and apply after folding.
 The current NESSO adapter does **not** expose ligand pLDDT. Its screening
 criterion is its binding probability plus one minus normalized pocket-cropped protein–ligand
 distogram entropy (`entropy_crop_pl`). It does not certify pocket geometry
-or solvent exposure, and its probability never replaces Boltz's search score.
+or solvent exposure. In default prefilter mode it does not replace the Boltz search score; the explicit objective mode below selects directly on the NESSO composite.
 
 This ports the `nesso_macos` work in iProteinHunter-beta, including the pinned
 NESSO source `6c72f66720d9d3447fd73c515cda963e39128b1f`, version-guarded MPS patch,
@@ -429,7 +433,7 @@ fails with an actionable error. Invalid/non-finite affinity outputs still stop
 the worker as model-output errors. Candidate
 name breaks ties deterministically. During optimisation, rankings are separate for each trajectory,
 with no cross-trajectory pooling. Initial refinement groups by original lineage;
-initial expansion pools only after enforcing its one-per-lineage limit. Boltz subsequently applies the unchanged ligand
+initial expansion pools only after enforcing its one-per-lineage limit. In default prefilter mode, Boltz subsequently applies the unchanged ligand
 objective and structural filters. NESSO's probability is never substituted for
 Boltz's probability or added to the Boltz search score. NESSO's separate
 `affinity_pred_value` is log10(IC50/µM), lower predicting stronger binding; it is
@@ -533,6 +537,23 @@ membership/order can change unfinished predictions, so this does not promise
 bitwise equality with singleton submissions. It does not enable early exposure
 termination. The feature remains opt-in; see [Lab Book 0152](../lab_book/0152-resume-biotin-with-stage-batches.md)
 for interruption/affinity validation and untested cases.
+
+An explicit two-worker continuation can use `PoolBackend` with a version-2
+`nise_continuation.json` descriptor. This preserves the original scientific
+request and all audited operation receipts while binding a separate code snapshot
+and portable runtime. Two process-local Boltz sessions remain under one exclusive
+broker GPU lease, with four CPU threads and one interop thread each. Both structure
+and geometry-eligible selective-affinity batches can be partitioned. Completed
+input checkpoints are committed serially; worker failure closes its sibling.
+
+The `per-input-v1` execution policy resets feature and prediction RNGs per input,
+using a recorded override or a stable hash of campaign seed and input name. Input
+feature hashes and model identities accompany native-writer events. This changes
+the random stream for unfinished predictions relative to the legacy directory
+route; it does not relabel old predictions or promise identical old-stream output.
+A paused app job does not automatically adopt this scheduler. See the bounded
+acceptance and migration record in Lab Book0181; it remains an explicit campaign
+option, not a general scheduling default.
 
 To promote a new default, run a declared paired ligand campaign holding inputs,
 seeds, recycles, diffusion samples/steps, restraints and shortlist policy fixed.
@@ -842,3 +863,112 @@ imported. The stopped source is not modified. The new plan fingerprints the
 imported artifacts and uses stage-directory submissions with per-input checkpoints.
 RFdiffusion3 filtering is supported, but importing its initial generator receipts
 through this new restart option is not yet implemented.
+
+### Transfer a first-refinement cohort to another Mac
+
+NISE's **Import Phase 0 cohort…** button accepts an unzipped, versioned cohort
+folder containing `cohort.json`. This boundary is after cycle01 geometry checks
+and before affinity selection. It does not jump to Phase 1. The import loads the
+source settings, locks ligand chemistry, atom selection and geometry requirements,
+and lets you choose NESSO or PSICHIC and adjust subsequent search budgets.
+
+Every imported sequence is screened; the selected per-lineage shortlist reuses
+its saved Boltz structure. Geometry is checked again before selection. In default
+prefilter mode, this uses selective Boltz affinity and the Boltz early gate. In
+objective mode it uses the chosen scorer and that engine's separate early gate. Remaining refinement, the
+unrestrained gate, expansion and independent-lineage seed selection proceed
+normally. By default both screening engines are proposal filters and Boltz ligand pLDDT/100 +
+P(bind) is the final objective. The explicit objective option changes this as
+described below. Import does not inherit previous affinity
+values or advancement decisions. Screening can reject an otherwise promising
+candidate; a shortlist is an experimental compute/coverage trade-off.
+
+The transfer includes sequences, structures, parent references, ligand identity,
+source checkpoint digests and pre-affinity caches. All paths are relative and all
+required assets are hashed into the broker plan. Molecules use RDKit binary JSON;
+portable numeric caches contain no pickled objects. Locally regenerated native
+caches and per-candidate receipts support interrupted imports and resume.
+Tampered data or incompatible settings fail explicitly. The package contains no
+weights: the receiving Mac needs Boltz2, LASErMPNN and its chosen screening engine
+installed through **Engines**. Existing app versions without this button need the
+matching updated app.
+
+To export trusted locally generated cycle01 outputs, use the managed Boltz Python
+with `scripts/nise/cohort_transfer.py export SOURCE EMPTY_DESTINATION`. The
+`verify PACKAGE_FOLDER` command audits file hashes, identities, geometry eligibility
+and counts without starting models. This initial schema supports Protein Hunter
+cycle01 cohorts with explicit ligand hotspots; it does not imply generic import
+support for every upstream or RFdiffusion3 checkpoint format.
+
+### Choose the optimisation objective
+
+**How to use this score** offers two explicit modes:
+
+- **Prefilter only · Boltz selects** (existing/default behaviour): optional NESSO
+  or PSICHIC shortlists go to Boltz; advancement and patience use
+  `ligand_plddt / 100 + Boltz P(bind)`.
+- **Optimisation objective · NESSO/PSICHIC selects** (experimental): the selected
+  sequence score controls first-refinement winners, subsequent refinement, seed
+  selection, optimisation beams, retained best designs and patience. Boltz
+  supplies structures for LASErMPNN and the unchanged geometry/self-consistency
+  checks. **Boltz affinity is not executed or loaded.** Ligand pLDDT is retained
+  as a diagnostic and does not contribute to this objective.
+
+NESSO uses `P(bind) + 1 - entropy_crop_pl` (range 0–2), with the existing finite,
+non-degenerate normalized-entropy eligibility rule. PSICHIC uses
+`1 - predicted_nonbinder` (range 0–1), with no invented confidence term or
+contribution from its separate affinity prediction. Their score magnitudes are
+not interchangeable and are not calibrated experimental binding probabilities.
+
+Objective mode enables the selected scorer in both stages; their folding
+shortlist sizes remain independently adjustable. Score every complete proposal,
+shortlist, generate/reuse Boltz structures, reject geometry failures, then rank
+passing candidates by the selected objective. Shortlisting does not guarantee
+that a full beam will pass geometry, and there is no automatic backfill beyond
+its configured folding budget. Increase the folding shortlist if necessary.
+Cycle00 and the unrestrained geometry-only gate remain unscored; masked initial
+sequences are never sent to sequence scorers. Protein Hunter, RFD3 and portable
+cycle01 cohort starts share this same selection path.
+
+**Early gate:** the existing Boltz `early_score_gate` defaults to 0.80.
+Objective mode instead uses separate `nesso_early_score_gate` (0–2, default **0.4**)
+and `psichic_early_score_gate` (0–1, default **0.2**), as requested by the user.
+These are baseline search cutoffs, not calibrated binding probabilities or a
+validated conversion from Boltz's 0.80. NESSO's cutoff applies to its full
+P(bind) + 1 - entropy_crop_pl score, not P(bind) alone. The UI retains each
+engine's cutoff independently; zero still disables the additional gate. Cutoffs
+apply inclusively only to first-refinement advancement after geometry checks,
+including new imports. Explicit saved values (including zero) remain unchanged.
+Historical saved objective requests missing the fields retain their former zero
+gates; new requests and older Boltz-only cohort imports receive the new baselines.
+
+The exact Boltz affinity bound remains exclusive to Boltz-objective selection:
+`ligand_plddt/100 + 1` is compared with the best eligible score in that lineage,
+the distinct-lineage seed boundary, or the kth eligible score in that trajectory's
+beam. Strictly lower bounds skip affinity; ties are evaluated. Checks run between
+configured affinity batches. Geometry-failing candidates never contribute to
+the selection boundary. Objective-mode sequence scores are already complete
+before folding and do not use this bound; the current implementation folds the
+configured shortlist before choosing its geometry-passing winners. It does not
+yet stop that folding batch early after finding enough higher-ranked passes.
+
+`min_improvement` stays in units of the chosen score, defaults to 0.01 and remains
+editable. A score must improve by more than this to reset patience; best-so-far
+still retains smaller numerical improvements. No automatic rescaling is applied.
+
+Saved requests lacking `scoring_mode` retain Boltz selection. MCP accepts
+`scoring_mode: "boltz" | "screening"`; objective mode requires
+`search_policy_version: 3`, `nesso_screen: true`, `phase0_nesso_screen: true`,
+`selective_affinity: true` (the legacy field naming geometry-first execution),
+and `partial_noising: false`. The UI configures these dependencies explicitly.
+Partial noising is disabled for this mode because masked sequences do not have
+an eligible complete-sequence objective; no fallback to Boltz scoring is allowed.
+Adaptive top-ups, if explicitly enabled, use the chosen score for improvement.
+
+Candidate records, summaries, advancement receipts and CSV exports identify the
+objective. The Boltz `pbind` field stays null/blank in objective runs. Result views
+identify the selected score and retain raw NESSO/PSICHIC and Boltz structural
+metrics separately. The request digest and saved objective prevent changing
+objective/gate midway through resume; start a new cohort import for another arm.
+This implementation has deterministic model-boundary and native contract tests,
+not a prospective scoring-model or cross-Mac inference qualification.

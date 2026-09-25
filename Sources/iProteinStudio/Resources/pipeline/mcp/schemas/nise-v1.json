@@ -328,6 +328,29 @@
           ],
           "default": "nesso",
           "description": "Experimental sequence shortlist engine. PSICHIC ranks 1\u2212nonbinder; Boltz still performs structural verification and final selection."
+        },
+        "scoring_mode": {
+          "type": "string",
+          "enum": [
+            "boltz",
+            "screening"
+          ],
+          "default": "boltz",
+          "description": "Boltz selection after optional prescreen, or selected sequence scorer as objective with Boltz geometry only."
+        },
+        "nesso_early_score_gate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.4,
+          "description": "NESSO-objective cycle01 cutoff; zero disables. No calibrated replacement for Boltz 0.80."
+        },
+        "psichic_early_score_gate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.2,
+          "description": "PSICHIC-objective cycle01 cutoff; zero disables. Independent of NESSO/Boltz gates."
         }
       }
     },

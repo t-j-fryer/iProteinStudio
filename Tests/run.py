@@ -42,6 +42,7 @@ FAST_SHELL = [
 SCIENCE = [
     "test_rfd3_audit_regressions.py",
     "test_prediction_templates.py", "test_ligand_screening.py",
+    "test_nise_cohort_transfer.py", "test_nise_objective.py", "test_nise_pool.py",
     "test_nise_science.py", "test_nise_rfd3.py", "test_nise_search_policy.py", "test_nise_partial_noising.py",
     "test_monomer_initialization_pipeline.py",
     "test_workflow_pipelines.py", "test_rfd3_partial_validation.py", "test_rfd3_motif_scoring.py",

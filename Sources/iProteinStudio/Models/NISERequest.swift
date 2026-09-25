@@ -3,6 +3,9 @@ import Foundation
 /// Ligand NISE has a separate, versioned request; historical iterative IDs stay stable.
 struct NISERequest: Codable, Hashable {
     var search_policy_version = 3
+    var scoring_mode = "boltz"
+    var nesso_early_score_gate = 0.4
+    var psichic_early_score_gate = 0.2
     var early_score_gate = 0.80
     var selective_affinity = true
     var adaptive_proposals = false
@@ -58,6 +61,7 @@ struct NISERequest: Codable, Hashable {
 
     // New controls must not discard existing saved NISE requests.
     enum CodingKeys: String, CodingKey {
+        case scoring_mode, nesso_early_score_gate, psichic_early_score_gate
         case search_policy_version, early_score_gate, selective_affinity, adaptive_proposals, initial_proposals, affinity_batch_size, min_improvement
         case first_cycle_seqs, partial_noising, noise_radius, noise_percent, noise_predictions, noise_mpnn_seqs, noise_advance
         case smiles, num_starts, trajectories, nise_seqs, max_cycles, patience
@@ -77,6 +81,9 @@ struct NISERequest: Codable, Hashable {
             num_starts = 100; max_cycles = 30; patience = 5; trajectories = 6; beam = 1
             early_score_gate = 0; selective_affinity = false; min_improvement = 0.0001
         }
+        scoring_mode = try c.decodeIfPresent(String.self, forKey: .scoring_mode) ?? "boltz"
+        nesso_early_score_gate = try c.decodeIfPresent(Double.self, forKey: .nesso_early_score_gate) ?? (scoring_mode == "screening" ? 0 : nesso_early_score_gate)
+        psichic_early_score_gate = try c.decodeIfPresent(Double.self, forKey: .psichic_early_score_gate) ?? (scoring_mode == "screening" ? 0 : psichic_early_score_gate)
         early_score_gate = try c.decodeIfPresent(Double.self, forKey: .early_score_gate) ?? early_score_gate
         selective_affinity = try c.decodeIfPresent(Bool.self, forKey: .selective_affinity) ?? selective_affinity
         adaptive_proposals = try c.decodeIfPresent(Bool.self, forKey: .adaptive_proposals) ?? adaptive_proposals
@@ -130,6 +137,24 @@ struct NISERequest: Codable, Hashable {
     }
 
     var screeningLabel: String { screening_engine == "psichic" ? "PSICHIC" : "NESSO" }
+    var usesScreeningObjective: Bool { scoring_mode == "screening" }
+    var objectiveLabel: String { usesScreeningObjective ? screeningLabel : "Boltz" }
+    var objectiveFormula: String {
+        usesScreeningObjective ? (screening_engine == "psichic" ? "1 − predicted_nonbinder" : "P(bind) + (1 − entropy_crop_pl)") : "ligand pLDDT/100 + P(bind)"
+    }
+    var objectiveEarlyGate: Double {
+        get { usesScreeningObjective ? (screening_engine == "psichic" ? psichic_early_score_gate : nesso_early_score_gate) : early_score_gate }
+        set {
+            if !usesScreeningObjective { early_score_gate = newValue }
+            else if screening_engine == "psichic" { psichic_early_score_gate = newValue }
+            else { nesso_early_score_gate = newValue }
+        }
+    }
+    mutating func enableScreeningObjective() {
+        scoring_mode = "screening"; search_policy_version = 3
+        nesso_screen = true; phase0_nesso_screen = true; selective_affinity = true
+        partial_noising = false
+    }
     var usesNesso: Bool { nesso_screen || phase0_nesso_screen }
 
     var hasAtomSelections: Bool { !hotspot_atoms.isEmpty || !exposed_atoms.isEmpty }
@@ -163,6 +188,15 @@ struct NISERequest: Codable, Hashable {
 
     var validationIssues: [String] {
         var issues: [String] = []
+        if !["boltz", "screening"].contains(scoring_mode)
+            || !nesso_early_score_gate.isFinite || !(0...2).contains(nesso_early_score_gate)
+            || !psichic_early_score_gate.isFinite || !(0...1).contains(psichic_early_score_gate) {
+            issues.append("Choose a valid objective and separate NESSO (0–2) / PSICHIC (0–1) early gates; 0 disables a gate.")
+        }
+        if usesScreeningObjective && (search_policy_version < 3 || !nesso_screen || !phase0_nesso_screen || !selective_affinity || partial_noising) {
+            issues.append("Screening-objective mode requires both stage screens, geometry-first prediction and no partial noising.")
+        }
+
         if !["sasa", "biotin-carboxamide-v1"].contains(exposure_mode) || !(0...64).contains(geometry_workers) {
             issues.append("Choose a supported exposure policy and 0–64 geometry workers (0 means automatic).")
         }
