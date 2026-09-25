@@ -23,7 +23,11 @@ Release receipts remain local under build/release-verification-0194/.
 
 ## Validation and limits
 
-Verification pending. No new model inference, benchmark, fresh-Mac install or
+All 57 fast-suite commands passed: 48 in the sandbox, and nine process/localhost
+fixtures passed on targeted rerun with required system access. All 64 NISE tests
+passed in the clean checkout, as did the release Swift build, eight XCTest cases
+and executable Swift contract harnesses. A copied module cache was cleared after
+its embedded source path prevented the first worktree build. No new model inference, benchmark, fresh-Mac install or
 biological calibration. No model weights or campaign outputs are distributed.
 
 ## Local deployment
