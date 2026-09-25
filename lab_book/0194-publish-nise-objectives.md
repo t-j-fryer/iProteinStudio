@@ -4,7 +4,7 @@ title: Publish NISE objectives and cohort transfer
 date: 2026-09-25
 author: Codex
 type: implementation
-status: in-progress
+status: complete
 machine: Apple-silicon development Mac; no inference benchmark
 tags: [release, nise, mcp]
 ---
@@ -36,3 +36,27 @@ The current biotin campaign is active with retained code and two workers.
 Do not stop or modify it. Shared workflow/MCP staging must respect its execution
 lease; the updated app bundles MCP28 immediately, with shared staging deferred
 until idle through the existing app refresh path.
+
+## Published and installed
+
+Published [0.2.7/build53](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.7-beta),
+MCP28, source commit 601d119; signed feed commit 775cf2b. Downloaded all four
+release assets and matched sizes/hashes to local artifacts and GitHub metadata.
+The live build53 feed archive signature verifies against the existing Keychain
+identity. The DMG checksum, packaged resources and deep strict app signature pass.
+All 235 source resource files match the downloaded app.
+
+Installed the exact downloaded app at the existing local build/iProteinStudio.app
+location, retaining build52 under build/previous-apps. The app is running and
+its bundled doctor reports MCP28. Byte-for-byte signed-resource inventory is
+unchanged after doctor execution; signature remains valid after GUI launch.
+The original campaign PID84576 and resident PIDs3938/3968 remain unchanged.
+
+Shared MCP remains24 while the active campaign holds the execution lease.
+The running updated app uses its existing deferred staging path to install MCP28
+and matching workflow resources when idle. Reconnect assistant MCP sessions
+then. No campaign stop, setting change, resource-lock bypass or engine update.
+The distribution retains the existing ad-hoc signed trusted-beta channel; it is
+not Apple Developer ID notarized. Receiving-Mac and real Sparkle upgrade tests
+remain unperformed. Receipts are local under build/release-verification-0194/ in
+the release checkout, with deployment receipts in the canonical build directory.
