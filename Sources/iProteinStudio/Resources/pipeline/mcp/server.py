@@ -6,6 +6,10 @@ import copy
 import json
 import os
 import sys
+
+# Entry points may run directly from a sealed application bundle.
+# Never create Python caches beside the signed resources.
+sys.dont_write_bytecode = True
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 

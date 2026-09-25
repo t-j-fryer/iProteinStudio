@@ -8,6 +8,10 @@ import os
 import secrets
 import signal
 import sys
+
+# Entry points may run directly from a sealed application bundle.
+# Never create Python caches beside the signed resources.
+sys.dont_write_bytecode = True
 import time
 import urllib.request
 from pathlib import Path

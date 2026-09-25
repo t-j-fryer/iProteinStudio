@@ -2,6 +2,16 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.6 — preserve the packaged app signature
+
+- Includes the job progress viewer, logging and safe recovery from 0.2.5.
+- Bundled Python entry points suppress bytecode caches before importing bridge
+  modules. Opening Jobs or using the bridge therefore leaves the signed app
+  resources unchanged. The native job service also launches Python with `-B`.
+- MCP 27 carries this correction; runtime packages and scientific settings are
+  unchanged. This supersedes 0.2.5, whose post-download smoke check exposed the
+  writable-bundle cache issue before local deployment.
+
 ## 0.2.5 — job progress viewer and safe recovery
 
 - Open **Progress & logs** from Jobs or Activity to follow engine stages, elapsed

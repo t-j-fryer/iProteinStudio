@@ -236,3 +236,7 @@ the native Progress & logs viewer. Native CLI `job-log`, `job-recovery-check` an
 not expand the externally exposed MCP tool profiles. Existing saved workers stay
 immutable. See [engine progress](../../../../../docs/ENGINE_PROGRESS.md) and
 [job recovery](../../../../../docs/JOB_QUEUE.md#progress-viewer-and-job-cleanup).
+
+MCP v27 prevents bundled entry points from writing Python bytecode beside signed
+app resources. Native job-service launches additionally use Python's `-B` flag.
+The protocol, profile permissions and scientific settings are unchanged.

@@ -14,6 +14,10 @@ import json
 import os
 import stat
 import sys
+
+# Entry points may run directly from a sealed application bundle.
+# Never create Python caches beside the signed resources.
+sys.dont_write_bytecode = True
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer

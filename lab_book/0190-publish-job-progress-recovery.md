@@ -60,3 +60,23 @@ The distribution remains ad-hoc signed, not Apple Developer ID notarized.
 ## Next
 
 Complete tests, publication, archive/feed verification and safe local deployment.
+
+## Post-download correction
+
+0.2.5/build48/MCP26 was published and its four downloaded assets, EdDSA signature,
+feed and 234 resource files verified. A subsequent signature recheck after the
+bundled doctor command detected new `__pycache__` files inside the extracted app.
+This exposed an existing native-broker packaging problem: its writable signed
+resource directory was not protected against Python's default cache writes.
+The local app was not replaced. Published archives remain immutable.
+
+Prepare corrective 0.2.6/build49/MCP27: suppress bytecode at every bridge entry
+point before local imports, and add `-B` to the native broker invocation. Add
+real subprocess coverage of CLI, stdio MCP and the other bridge entry points,
+verifying byte-for-byte resource inventories after use. Verify the new extracted
+app's signature both before and after its bundled bridge smoke check.
+
+The corrective entry-point test passed for all five executable bridge scripts;
+18 MCP integration tests and 11 recovery tests passed again. `swift build` passed.
+The test invokes actual scripts with bytecode-related environment variables
+removed and compares complete before/after file inventories, not just syntax.

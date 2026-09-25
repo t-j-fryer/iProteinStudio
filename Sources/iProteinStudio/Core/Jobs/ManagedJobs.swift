@@ -111,7 +111,7 @@ enum BrokerClient {
             let process = Process()
             let pipe = Pipe()
             process.executableURL = ControlPython.executable(root: AppPaths.support)
-            process.arguments = [script.path] + arguments
+            process.arguments = ["-B", script.path] + arguments
             process.environment = environment
             process.standardOutput = pipe
             process.standardError = pipe

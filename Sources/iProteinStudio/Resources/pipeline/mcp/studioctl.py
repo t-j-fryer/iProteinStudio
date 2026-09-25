@@ -4,6 +4,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+
+# Entry points may run directly from a sealed application bundle.
+# Never create Python caches beside the signed resources.
+sys.dont_write_bytecode = True
 from pathlib import Path
 
 from server import MCPServer
