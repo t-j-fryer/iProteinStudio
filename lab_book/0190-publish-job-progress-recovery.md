@@ -4,7 +4,7 @@ title: Publish job progress and recovery
 date: 2026-09-25
 author: Codex
 type: implementation
-status: in-progress
+status: complete
 machine: Apple Silicon development Mac; software fixtures and packaging
 tags: [release, mcp, progress, recovery]
 ---
@@ -59,7 +59,7 @@ The distribution remains ad-hoc signed, not Apple Developer ID notarized.
 
 ## Next
 
-Complete tests, publication, archive/feed verification and safe local deployment.
+Keep the updated app open for automatic shared-resource staging after the active campaign finishes, then reconnect existing MCP clients. Fresh-Mac/full-engine acceptance remains separate.
 
 ## Post-download correction
 
@@ -80,3 +80,38 @@ The corrective entry-point test passed for all five executable bridge scripts;
 18 MCP integration tests and 11 recovery tests passed again. `swift build` passed.
 The test invokes actual scripts with bytecode-related environment variables
 removed and compares complete before/after file inventories, not just syntax.
+
+## Final publication and local deployment
+
+Published [0.2.6/build49](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.6-beta),
+**MCP27**, source `32f0eb6`, signed-feed commit `c6fc695`. Marked the 0.2.5 release
+as superseded without replacing its immutable assets. Downloaded all four 0.2.6
+assets and matched each SHA-256/size to both local artifacts and GitHub metadata.
+The live feed points to build49 and its EdDSA ZIP signature verifies with the
+unchanged project key. All **234** packaged resource files match source. The
+extracted app's code signature verifies before and after its bundled MCP doctor
+command, with no bytecode caches created. Packaged-resource checks passed.
+
+Installed that exact downloaded app at the existing local `build/iProteinStudio.app`
+location; the old build46 bundle is retained under `build/previous-apps`. App
+launch succeeded. The installed broker's doctor reports MCP27; bounded log reading
+returned 500 lines, and a read-only recovery check correctly declined to clean up
+the older live worker. Code-signature verification still passes after app/bridge
+use. The existing managed campaign stayed running with the same worker PID.
+No actual cleanup, stop, resume, scientific settings or runtime migration occurred.
+
+**Deferred local shared staging:** the active campaign holds the execution lease,
+so the installed shared MCP remains24. The app's existing deferred-refresh path
+will stage its MCP27/workflow resources after jobs finish while the app stays open
+(or on a subsequent idle launch). Existing assistant sessions must reconnect
+then. No bypass of the execution lock was used. Bundled native broker/viewer use
+MCP27 immediately; frozen older jobs keep their original logging/worker code.
+
+Receipts (local, not shipped): `build/release-verification-0190/LOCAL_DEPLOYMENT.json`
+and `INSTALLED_SMOKE.json`; downloaded-asset receipt and logs under the release
+checkout's `build/release-verification-0190-0.2.6/`. The live GUI displayed the
+standard Applications-folder notice. Further native UI navigation could not be
+verified because the computer-use pipe closed; the earlier isolated viewer render
+and this installed CLI/service smoke remain the UI's recorded acceptance scope.
+An actual Sparkle installation on another Mac and full-engine inference were not
+performed. The canonical workspace synchronization preserves unrelated edits.

@@ -8,7 +8,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ---
 
-Newest release: [0190 — Publish job progress and recovery](lab_book/0190-publish-job-progress-recovery.md) (release qualification in progress).
+Newest release: [0190 — Publish job progress and recovery](lab_book/0190-publish-job-progress-recovery.md) (0.2.6/build49/MCP27 published and local app installed; shared MCP staging safely deferred behind the active campaign).
 
 - [0189 — Job progress viewer and safe recovery](lab_book/0189-add-job-progress-viewer-and-recovery.md)
 - [0188 — Engine progress logging](lab_book/0188-add-engine-progress-logging.md)
