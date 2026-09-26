@@ -8,7 +8,7 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ---
 
-Newest release: [0190 — Publish job progress and recovery](lab_book/0190-publish-job-progress-recovery.md) (0.2.6/build49/MCP27 published and local app installed; shared MCP staging safely deferred behind the active campaign).
+Newest release: [0199 — Qualify portable workflow launches](lab_book/0199-qualify-portable-workflow-launches.md) (0.2.8/build54/MCP29 published and installed; 23 launch checks audited; original biotin job resumed at cycle7).
 
 - [0189 — Job progress viewer and safe recovery](lab_book/0189-add-job-progress-viewer-and-recovery.md)
 - [0188 — Engine progress logging](lab_book/0188-add-engine-progress-logging.md)
@@ -241,5 +241,5 @@ forgotten one.
 - [0193 — NISE objective baseline gates](lab_book/0193-set-nise-objective-baselines.md): user-selected NESSO 0.4 / PSICHIC 0.2 defaults, saved-run compatibility, and exact affinity-bound explanation.
 
 - [0194 — Publish NISE objectives](lab_book/0194-publish-nise-objectives.md): 0.2.7/build53/MCP28 release and safe local deployment.
-Newest fix: [0198 — Portable iterative launcher and student archive](lab_book/0198-fix-portable-iterative-engine-launch.md) (missing activation-file defect reproduced; source correction tested, not yet released; student exception awaits central log).
-- [Portable workflow launch acceptance](lab_book/0199-qualify-portable-workflow-launches.md) — 2026-09-26, in progress; biotin safely stopped, public engine/workflow matrix then release and resume.
+Newest fix: [0198 — Portable iterative launcher and student archive](lab_book/0198-fix-portable-iterative-engine-launch.md) (activation-file defect reproduced and fixed; shipped in 0.2.8; the student’s exact exception remains unconfirmed without its central log).
+- [Portable workflow launch acceptance](lab_book/0199-qualify-portable-workflow-launches.md) — 2026-09-26, complete; 23 checks audited, 0.2.8/MCP29 deployed, original biotin resumed with checkpoints preserved.

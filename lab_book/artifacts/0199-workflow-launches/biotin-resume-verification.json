@@ -1,0 +1,13 @@
+{
+  "job_id": "job-221c7d6db092",
+  "status": "running",
+  "plan_id": "plan-221c7d6db0924d4b",
+  "old_receipts_unchanged": 10403,
+  "new_completion_receipts": [
+    "cycle07/fold/c07_t0_n2_s28/completed.json",
+    "cycle07/fold/c07_t7_n1_s22/completed.json"
+  ],
+  "new_progress_lines": 0,
+  "verified_at": "2026-09-26T20:17:18.983474+00:00",
+  "plan_sha256": "221c7d6db0924d4b26c662e3fd386bac3daaec211e3dc5d9c4a41426ef8e115a"
+}

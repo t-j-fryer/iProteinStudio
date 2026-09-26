@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "purpose": "Public/native workflow engine launch acceptance after portable activation correction",
-  "status": "launch_checks_complete_deployment_pending",
+  "status": "complete",
   "biotin_job_id": "job-221c7d6db092",
   "workflows": [
     "iterative_design",
@@ -1459,5 +1459,14 @@
     "scientific_gate_stops": 2,
     "all_output_audits_passed": true,
     "retained_attempts": 39
+  },
+  "deployment": {
+    "version": "0.2.8",
+    "build": 54,
+    "mcp": 29,
+    "release": "https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.8-beta",
+    "biotin_resumed_same_plan": true,
+    "old_completion_receipts_unchanged": 10403,
+    "new_completion_receipts_at_check": 2
   }
 }

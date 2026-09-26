@@ -1,0 +1,35 @@
+{
+  "assets": [
+    {
+      "name": "BUILD_PROVENANCE.txt",
+      "size": 432,
+      "sha256": "3fc9e5949f2634719a2bc0fb5ac73772b24cf9ad1edf5f8dfea4c1272a3068ad"
+    },
+    {
+      "name": "iProteinStudio-0.2.8-unsigned-beta-apple-silicon.dmg",
+      "size": 14450259,
+      "sha256": "76949eb8cbeb2eaf84e4b04a2efafa5d91a00449238ed1c860e8b4b148cafa8e"
+    },
+    {
+      "name": "iProteinStudio-0.2.8-unsigned-beta-apple-silicon.zip",
+      "size": 11832396,
+      "sha256": "983dbd0688de2cc27761d8c1031f1527884969d9a92812eff6acca3a1d43c692"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "size": 238,
+      "sha256": "41623a5afe165ef34b74fc4133719bb6e3859a57484cbad07b272c9274b8b675"
+    }
+  ],
+  "packaged_source_files": 235,
+  "version": "0.2.8",
+  "build": 54,
+  "release_url": "https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.8-beta",
+  "source_commit": "377850c2baeaac6dc265ef63a2891423c32b6bfb",
+  "feed_commit": "f134a95",
+  "sparkle_signature_verified": true,
+  "app_codesign_verified": true,
+  "disk_image_verified": true,
+  "managed_mcp": 29,
+  "local_installed_bundle_matches": true
+}

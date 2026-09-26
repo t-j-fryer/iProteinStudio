@@ -16,4 +16,5 @@ for r in rows:
     label='scientific gate: no survivors' if r['scientific_rejection'] else r['status']
     text.append(f"| {r['case']} | {label} | {verdict} | {r['structure_count']} |")
 text+=['','Original failures and cancelled-before-execution attempts are retained in `current-summary.json`, with their immutable plans and raw outputs. A zero-survivor NISE structural gate is a scientific rejection, not permission to relax the gate.','', 'The production biotin job remains separate; see pause/resume receipts.']
+if m.get('deployment',{}).get('biotin_resumed_same_plan'): text+=['', 'Deployed app 0.2.8/build 54 and MCP 29. The original biotin job resumed at cycle 7; 10,403 previous completion receipts remained unchanged and two new completions were verified.']
 (out/'REPORT.md').write_text('\n'.join(text)+'\n');print(json.dumps(collections.Counter(r['status'] for r in rows if not r['superseded'])))

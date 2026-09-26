@@ -4,7 +4,7 @@ title: Qualify portable engines through public workflows
 date: 2026-09-26
 author: Codex
 type: experiment
-status: in-progress
+status: complete
 machine: Apple M4 Max, 64 GiB unified memory, macOS 26.6.1
 ---
 
@@ -25,7 +25,7 @@ Review result overviews and audit structure cardinality, sequences, finite
 coordinates and confidence files. Preserve failed attempts. No student-target
 rerun or high-budget new campaign. Never mutate retained biotin code/settings.
 
-## Status
+## Pause checkpoint
 
 Biotin job `job-221c7d6db092` stopped through the broker; state cancelled,
 no error, execution lease free. 10,403 existing completion receipts hashed
@@ -34,7 +34,7 @@ Engine detection reports all supported components installed.
 
 ## Limits
 
-In progress. No broad success claim until the declared coverage matrix passes.
+The final launch outcome is recorded below.
 Fresh-Mac/cross-chip performance and long-run science acceptance are separate.
 
 ## Additional integration defect found
@@ -77,3 +77,8 @@ and production-resume receipts. Public evidence:
 This is one-Mac integration acceptance. Fresh-Mac installation, other chips, large
 inputs, memory soak and experimental design quality were not qualified. OpenFold
 random-binder geometry warnings are retained rather than hidden.
+
+App0.2.8/build54/MCP29 is published, downloaded/verified and installed. The same
+production biotin job resumed at cycle7: two new completion receipts were observed
+with all 10,403 old receipt hashes unchanged. Publication and resume evidence are
+linked in project0199. The campaign was left running.

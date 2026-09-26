@@ -127,11 +127,12 @@ need a new submission to adopt a future packaged correction.
 
 ## Limits and next steps
 
-Source fix complete; not yet packaged, installed or published. No full neural
-inference, fresh-Mac test, cross-device check or rerun of the student's target.
+The source-only stage described above is now superseded by the real-engine
+qualification and publication in [0199](0199-qualify-portable-workflow-launches.md):
+0.2.8/build54/MCP29 is published and installed. There was no fresh-Mac test,
+cross-device check or rerun of the student's target.
 Obtain Jobs → Progress & logs → All output → Copy visible log for the saved job;
 the Worker log is the second useful source. The exact central records are under
 `~/.iproteinstudio/agent/jobs/job-1cc638955342/`. The privacy-filtered support report
-alone intentionally omits raw diagnostic content. Package/release the correction
-before advising a fresh submission; resuming the frozen failed job retains the
-faulty launch code.
+alone intentionally omits raw diagnostic content. After updating, create a fresh submission to use the corrected runner; resuming
+the frozen failed job retains the faulty launch code.

@@ -4,7 +4,7 @@ title: Qualify real engine launches before release and resume biotin
 date: 2026-09-26
 author: Codex
 type: experiment
-status: in-progress
+status: complete
 machine: Apple M4 Max, 64 GiB unified memory, macOS 26.6.1
 ---
 
@@ -25,7 +25,7 @@ Review result overviews and audit structure cardinality, sequences, finite
 coordinates and confidence files. Preserve failed attempts. No student-target
 rerun or high-budget new campaign. Never mutate retained biotin code/settings.
 
-## Status
+## Pause checkpoint
 
 Biotin job `job-221c7d6db092` stopped through the broker; state cancelled,
 no error, execution lease free. 10,403 existing completion receipts hashed
@@ -196,5 +196,35 @@ above remain visible; a passed file audit is not a claim of experimental quality
 
 Runtime published and anonymously downloadable:
 [runtimes-2026.09.26-1](https://github.com/t-j-fryer/iProteinStudio/releases/tag/runtimes-2026.09.26-1).
-The app publication, installed-bundle verification and exact production resume
-are the remaining deployment steps; append their observed receipts below.
+The completed app publication, installed-bundle verification and exact production
+resume are recorded below.
+
+## Publication, installed acceptance and production resume
+
+Published [0.2.8 trusted beta, build54](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.8-beta)
+from source `377850c`; feed commit `f134a95` is on GitHub main. MCP29 / bridge1.13.1
+is included. Downloaded all four assets from GitHub and matched their bytes,
+SHA256 and sizes. Verified the live feed's Sparkle EdDSA signature, disk image,
+app code signature and all 235 packaged source files. This remains the existing
+ad-hoc signed trusted-beta channel, not an Apple-notarized release.
+
+Installed that downloaded bundle at `build/iProteinStudio.app`, retained the old
+bundle under `build/previous-apps`, and reopened it. Packaged/staged pipeline and
+RFdiffusion3 helpers/overlay match; the managed MCP doctor reports29. Normal
+installer acceptance completed earlier and the published bundle contains those
+same scripts and runtime catalog.
+[Release verification](artifacts/0199-workflow-launches/release-verification.json).
+
+Resumed the original `job-221c7d6db092`, plan `plan-221c7d6db0924d4b`, digest
+`221c7d6db0924d4b26c662e3fd386bac3daaec211e3dc5d9c4a41426ef8e115a`.
+Recovery reused the cached initial stages and cycles1–6, then completed new work
+in cycle7. At the recorded check, two new completion receipts existed and all
+10,403 pre-pause receipts had unchanged hashes. The job was running without a
+reported error; it was left running. No production settings or frozen scientific
+code were migrated.
+[Resume verification](artifacts/0199-workflow-launches/biotin-resume-verification.json).
+
+The canonical checkout was advanced to the published history with a mixed reset
+of an empty index; unrelated working-tree research edits were preserved. No
+model weights or the student's private archive were committed. Fresh-Mac
+installation, other chips and long-term reliability remain untested.

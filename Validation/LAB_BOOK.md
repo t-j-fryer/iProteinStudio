@@ -43,4 +43,4 @@
 - [0047 — Portable runtime qualification](lab_book/0047-portable-runtime-qualification.md)
 
 - [0048 — MPSGraph scratch recovery](lab_book/0048-mps-scratch-recovery.md)
-- [Portable workflow launch acceptance](lab_book/0052-portable-workflow-launches.md) — 2026-09-26, in progress; biotin safely stopped, public engine/workflow matrix then release and resume.
+- [0052 — Portable workflow launches](lab_book/0052-portable-workflow-launches.md) — 23 audited checks; 0.2.8/MCP29 published; biotin resumed with preserved checkpoints.
