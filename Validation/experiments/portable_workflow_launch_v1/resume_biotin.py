@@ -7,6 +7,7 @@ from server import MCPServer
 server=MCPServer('run');job_id='job-221c7d6db092';before=server.tool_call('job_status',{'job_id':job_id})
 assert before['status']=='cancelled',before['status']
 assert before['plan_id']=='plan-221c7d6db0924d4b'
+assert before['plan_sha256']=='221c7d6db0924d4b26c662e3fd386bac3daaec211e3dc5d9c4a41426ef8e115a'
 root=Path(before['output_root']);saved=json.loads((out/'biotin-stopped-checkpoints.json').read_text())['receipts']
 changed=[name for name,h in saved.items() if not (root/name).is_file() or hashlib.sha256((root/name).read_bytes()).hexdigest()!=h]
 assert not changed,changed

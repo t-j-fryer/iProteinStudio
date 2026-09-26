@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "purpose": "Public/native workflow engine launch acceptance after portable activation correction",
-  "status": "running",
+  "status": "launch_checks_complete_deployment_pending",
   "biotin_job_id": "job-221c7d6db092",
   "workflows": [
     "iterative_design",
@@ -1386,6 +1386,47 @@
       "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults; a recorded zero-survivor scientific gate is an acceptable diagnostic stop if the requested engines completed and their saved outputs pass audit, but does not establish optimization-cycle coverage",
       "supersedes": "nise-boltz",
       "retry_reason": "The one-start launch reached the scientific structural gate but had no survivor. Three starts test downstream affinity/optimization without weakening any geometry gate."
+    },
+    {
+      "id": "hunter-protenix-constraint-v0.5-repaired",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-protenix-constraint-v0.5-repaired",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "protenix-constraint-v0.5",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement",
+      "supersedes": "hunter-protenix-constraint-v0.5-fixed",
+      "retry_reason": "Normal portable installer repairs missing required contract receipt; same verified runtime and scientific inputs"
     }
   ],
   "output_budget": "One prediction sample; scientific steps, recycles and precision unchanged. Further design cases are appended before submission.",
@@ -1403,5 +1444,20 @@
   "diagnostic_overrides": [
     "One output sample/backbone/trajectory; one redesign cycle",
     "NISE score gates zero only in disposable smoke cases so every scoring branch executes; default diffusion/recycle/precision and guidance retained"
-  ]
+  ],
+  "hardware_and_source": {
+    "system": "macOS-26.6.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "hardware": "Apple M4 Max",
+    "memory_bytes": 68719476736,
+    "git_commit": "7d29499a8eef8813e3e6ebe7c0bd9f51f08e3e05",
+    "launcher_sha256": "db9cb8578039edd975697440574dbb54b8253937deb5d3f322c6f0e3fa2f2043"
+  },
+  "outcome": {
+    "current_cases": 23,
+    "completed": 21,
+    "scientific_gate_stops": 2,
+    "all_output_audits_passed": true,
+    "retained_attempts": 39
+  }
 }

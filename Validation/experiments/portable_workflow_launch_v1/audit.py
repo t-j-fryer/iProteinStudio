@@ -53,6 +53,7 @@ for case in m['cases']:
         for cycle in ('cycle_00','cycle_01'):
             if not any(cycle in p.name for p in paths): errors.append(f'Missing {cycle}')
     elif case['tool']=='rfd3_denovo_plan':
+        paths=[p for p in paths if p.relative_to(root).parts[0]!='assets']
         backbones=list((root/'rfd3/backbones').glob('*.pdb'))
         if len(backbones)!=1: errors.append(f'Expected one RFD3 backbone, found {len(backbones)}')
         if not (root/'mpnn/sequences.csv').exists(): errors.append('Missing RFD3 sequence-design table')
@@ -85,6 +86,8 @@ for case in m['cases']:
                     try: assert np.isfinite(float(row['pbind']))
                     except Exception: errors.append('Missing/nonfinite Boltz affinity result')
     elif case['tool']=='nise_plan':
+        # Prepared ligand/CCD assets are input chemistry, not predicted complexes.
+        paths=[p for p in paths if '/rfd3_initial/assets/' not in str(p)]
         affinity_receipts=list(root.rglob('affinity_completed.json'))
         scorer=case['arguments']['request'].get('screening_engine')
         if scorer:
@@ -127,6 +130,8 @@ for case in m['cases']:
     if not confidences and case['tool']!='rfd3_denovo_plan': errors.append('No saved confidence JSON')
     log=(MANAGED/'agent/jobs'/job['id']/'pipeline.log').read_text()
     fallback_lines=[line for line in log.splitlines() if re.search(r'fall.?back.*CPU|not.*supported.*MPS',line,re.I)]
+    unexpected_fallbacks=[line for line in fallback_lines if 'aten::linalg_svd' not in line]
+    if unexpected_fallbacks: errors.append('Unexpected CPU fallback or unsupported MPS operation: '+repr(unexpected_fallbacks))
     geometry=[]
     for path in root.rglob('geometry_report.json'):
         if any(part.startswith('.') for part in path.relative_to(root).parts): continue

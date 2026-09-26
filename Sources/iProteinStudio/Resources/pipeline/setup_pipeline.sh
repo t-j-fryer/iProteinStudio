@@ -425,6 +425,8 @@ try:
     data = json.loads(receipt.read_text())
 except (OSError, json.JSONDecodeError):
     raise SystemExit(1)
+if data.get("zero_substructure") != "checkpoint-equivalent-single-token-broadcast":
+    raise SystemExit(1)
 digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 if data.get("patch_sha256") != digest(base_patch):
     raise SystemExit(1)

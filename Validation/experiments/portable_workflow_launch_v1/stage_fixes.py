@@ -15,6 +15,7 @@ out = ROOT/'Validation/output/portable_workflow_launch_v1'/('staging-'+stamp)
 out.mkdir()
 files = [('pipeline/'+p,p) for p in [
     'nanohunter_run.sh','PIPELINE_VERSION','mcp/MCP_VERSION','scripts/openfold_query_json.py',
+    'setup_pipeline.sh','scripts/runtime_releases.json','scripts/setup_portable.py',
     'mcp/iprotein_mcp/__init__.py','mcp/iprotein_mcp/plans.py',
     'mcp/iprotein_mcp/broker.py','mcp/schemas/rfd3-v1.json']]
 files += [('rfd3/prepare_campaign.py','rfd3_scripts/prepare_campaign.py')]

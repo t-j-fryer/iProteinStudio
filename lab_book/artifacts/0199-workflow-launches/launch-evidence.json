@@ -1,0 +1,376 @@
+{
+  "scope": "Integration launch acceptance on M4 Max 64 GiB / macOS 26.6.1; not design-quality or speed qualification",
+  "cases": [
+    {
+      "case": "predict-boltz",
+      "job_id": "job-cd8421dc2d21",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 1,
+      "plan_sha256": "cd8421dc2d211093bb9d7dac66481ad71e47ae8cb3efb701a32be2160b467aec",
+      "code_snapshot_sha256": "9e1abd106609e0e3d84a36c03e07d52501fce763b9e8fe883712781a4d000571",
+      "runtimes": {
+        "boltz": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e"
+      }
+    },
+    {
+      "case": "predict-intellifold-v2-flash",
+      "job_id": "job-02b3d8146ca5",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 1,
+      "plan_sha256": "02b3d8146ca54b96a8eb132fe3974f872cc23c960661b89e864e4a455f92c828",
+      "code_snapshot_sha256": "9e1abd106609e0e3d84a36c03e07d52501fce763b9e8fe883712781a4d000571",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "intellifold": "c761ea7dda8a3f24bba3f911491057d22cb6d0bed3c2c1600f102f7ed5f41b35"
+      }
+    },
+    {
+      "case": "predict-intellifold-v2",
+      "job_id": "job-df352b927d32",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 1,
+      "plan_sha256": "df352b927d32951347a567b127a5130008c2211b1783c160c242a4aa4d4f907e",
+      "code_snapshot_sha256": "9e1abd106609e0e3d84a36c03e07d52501fce763b9e8fe883712781a4d000571",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "intellifold": "c761ea7dda8a3f24bba3f911491057d22cb6d0bed3c2c1600f102f7ed5f41b35"
+      }
+    },
+    {
+      "case": "predict-protenix-v2",
+      "job_id": "job-735acaffbccd",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 1,
+      "plan_sha256": "735acaffbccd3b88d894fb640e7cce60e3e040a30b02ba9efabec420597c3fc3",
+      "code_snapshot_sha256": "9e1abd106609e0e3d84a36c03e07d52501fce763b9e8fe883712781a4d000571",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "protenix": "845b59fa436d0e950a37ef9e6a4f6df29e68fa35669aeac05b2361d2557751a4"
+      }
+    },
+    {
+      "case": "predict-protenix-mini",
+      "job_id": "job-6923dc5d478d",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 1,
+      "plan_sha256": "6923dc5d478d5318ad92788f3de952303985e089335d02f04d251e0792454e00",
+      "code_snapshot_sha256": "9e1abd106609e0e3d84a36c03e07d52501fce763b9e8fe883712781a4d000571",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "protenix": "845b59fa436d0e950a37ef9e6a4f6df29e68fa35669aeac05b2361d2557751a4"
+      }
+    },
+    {
+      "case": "nanobody-antifold",
+      "job_id": "job-77d728b5a3ab",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "77d728b5a3ab62dacb1176f7496ca2c80932ef103a704894054f691ea009d142",
+      "code_snapshot_sha256": "9e1abd106609e0e3d84a36c03e07d52501fce763b9e8fe883712781a4d000571",
+      "runtimes": {
+        "antifold": "e94aa03ca20ae4b0ca61051f8ed7f0483051af9924950024ece3e890301f48f3",
+        "boltz": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e"
+      }
+    },
+    {
+      "case": "hunter-ligandmpnn",
+      "job_id": "job-a2778a79051e",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "a2778a79051ed406ba207f6efbdf5a47b38efba8c1dff0972855d33fc8df4a4d",
+      "code_snapshot_sha256": "9e1abd106609e0e3d84a36c03e07d52501fce763b9e8fe883712781a4d000571",
+      "runtimes": {
+        "boltz": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56"
+      }
+    },
+    {
+      "case": "rfd3-protein-full-mini",
+      "job_id": "job-f1318220bc93",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 17,
+      "plan_sha256": "f1318220bc93147ee3dfdc45f6e4e8168b5e3b76586d0b63c897a43e177a413b",
+      "code_snapshot_sha256": "9e1abd106609e0e3d84a36c03e07d52501fce763b9e8fe883712781a4d000571",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "intellifold": "c761ea7dda8a3f24bba3f911491057d22cb6d0bed3c2c1600f102f7ed5f41b35",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56",
+        "protenix": "845b59fa436d0e950a37ef9e6a4f6df29e68fa35669aeac05b2361d2557751a4",
+        "rfd3": "8884e6a8503e962332d1bd4bf91b54f49d62e69cf61d7d973ea9367a8e4c0603"
+      }
+    },
+    {
+      "case": "nanobody-antifold-template",
+      "job_id": "job-5855fbf24e4c",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "5855fbf24e4c0e838b3974dfaffa7c84da0f77f9db1dd2f640bd607c94ed975a",
+      "code_snapshot_sha256": "9e1abd106609e0e3d84a36c03e07d52501fce763b9e8fe883712781a4d000571",
+      "runtimes": {
+        "antifold": "e94aa03ca20ae4b0ca61051f8ed7f0483051af9924950024ece3e890301f48f3",
+        "boltz": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e"
+      }
+    },
+    {
+      "case": "hunter-boltz-fixed",
+      "job_id": "job-bd22e06b45ee",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "bd22e06b45eef3aeb2e58262eda3b8410ffdfb34436e38edc6f217f68f94d15f",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "boltz": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56"
+      }
+    },
+    {
+      "case": "hunter-intellifold-v2-fixed",
+      "job_id": "job-0d4d93330830",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "0d4d9333083020558824f74a50a9825c445b1173aa7b5a932d10e71ef99e9a5e",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "intellifold": "c761ea7dda8a3f24bba3f911491057d22cb6d0bed3c2c1600f102f7ed5f41b35",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56"
+      }
+    },
+    {
+      "case": "hunter-intellifold-v2-flash-fixed",
+      "job_id": "job-3091acf936a5",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "3091acf936a5d6e56bf4ad13ead9baa18355747a7a3ce137275eee24f0a9eb36",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "intellifold": "c761ea7dda8a3f24bba3f911491057d22cb6d0bed3c2c1600f102f7ed5f41b35",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56"
+      }
+    },
+    {
+      "case": "hunter-protenix-mini-fixed",
+      "job_id": "job-8309ddeb64bb",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "8309ddeb64bbe6487930c8aec4981ef59bdacc83dc21b5d05972fea1e9f4cabc",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56",
+        "protenix": "845b59fa436d0e950a37ef9e6a4f6df29e68fa35669aeac05b2361d2557751a4"
+      }
+    },
+    {
+      "case": "hunter-protenix-v2-fixed",
+      "job_id": "job-2ee146b25d53",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "2ee146b25d53c65156c9f35de7466ae0954347fd0ec27b0d15da23e39264c0cd",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56",
+        "protenix": "845b59fa436d0e950a37ef9e6a4f6df29e68fa35669aeac05b2361d2557751a4"
+      }
+    },
+    {
+      "case": "nanobody-abmpnn-fixed",
+      "job_id": "job-fd030d5c4909",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "fd030d5c4909c8ae5f03eea88ff0a91be200a0ab1e4715a82768f740fe71b1f1",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "boltz": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56"
+      }
+    },
+    {
+      "case": "nise-psichic-fixed",
+      "job_id": "job-24ce7248e7b6",
+      "status": "failed",
+      "scientific_rejection": true,
+      "audit_passed": true,
+      "structure_count": 6,
+      "plan_sha256": "24ce7248e7b6b5cd27b230582f39e9e01624d46e7ff3a1e7ab84aa4ec6468d7b",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "boltz": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "lasermpnn": "7330602e85f977f7f10799b8c6e88e4fc0f63d38802848023e93b78c048deb7f",
+        "psichic": "df77df5d056a17e9c628e27c082de939fbb30c0724edfe9532f5d2e903b2f305"
+      }
+    },
+    {
+      "case": "predict-openfold-3-mlx-fixed",
+      "job_id": "job-669643e72459",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 1,
+      "plan_sha256": "669643e724592ab905ac2157d3181100d774f4f4dfbcd9aca20c4f6ff3307e9e",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "openfold3": "890f3bc613b7904c22157435caac16480e3d6276006351258f5f5571b6dc9b58"
+      }
+    },
+    {
+      "case": "rfd3-ligand-retry-fixed",
+      "job_id": "job-d2e783583c6d",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 5,
+      "plan_sha256": "d2e783583c6d2f46fc2ffda48ba2d79594e2827377720f423b552e55160e6a54",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56",
+        "rfd3": "c9fc19327d6b15b5a14b83b3d99c914e1dc52d2b2d1eb9e87b6cf0be49d27a3a"
+      }
+    },
+    {
+      "case": "hunter-openfold-3-mlx-fixed",
+      "job_id": "job-efc305621ea1",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "efc305621ea1494043ba6159ea5a41f0257223ee7d6d5e0fba2f0cea8050e38a",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56",
+        "openfold3": "890f3bc613b7904c22157435caac16480e3d6276006351258f5f5571b6dc9b58"
+      }
+    },
+    {
+      "case": "rfd3-protein-flash-fixed",
+      "job_id": "job-48f3137f53cf",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 23,
+      "plan_sha256": "48f3137f53cf2ce939ab4a316caba4539a5d9865fbe00651270990783738bc1d",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "boltz": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "intellifold": "c761ea7dda8a3f24bba3f911491057d22cb6d0bed3c2c1600f102f7ed5f41b35",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56",
+        "openfold3": "890f3bc613b7904c22157435caac16480e3d6276006351258f5f5571b6dc9b58",
+        "protenix": "845b59fa436d0e950a37ef9e6a4f6df29e68fa35669aeac05b2361d2557751a4",
+        "rfd3": "c9fc19327d6b15b5a14b83b3d99c914e1dc52d2b2d1eb9e87b6cf0be49d27a3a"
+      }
+    },
+    {
+      "case": "nise-nesso-fixed",
+      "job_id": "job-cd384125cb4a",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 12,
+      "plan_sha256": "cd384125cb4afa2eaad8f538e19985c66d10c449c0dac90b6e322bbbaaf1c4d8",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "boltz": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "lasermpnn": "7330602e85f977f7f10799b8c6e88e4fc0f63d38802848023e93b78c048deb7f",
+        "nesso": "f2089cea3357f52f49fb8fa6096ee8fb935dc2edb4fed801ae2026fc3aad5f88",
+        "rfd3": "c9fc19327d6b15b5a14b83b3d99c914e1dc52d2b2d1eb9e87b6cf0be49d27a3a"
+      }
+    },
+    {
+      "case": "nise-boltz-three-starts",
+      "job_id": "job-df061a9a19bf",
+      "status": "failed",
+      "scientific_rejection": true,
+      "audit_passed": true,
+      "structure_count": 18,
+      "plan_sha256": "df061a9a19bff0470f5fdd7e785756739f6c1193294961de3595de9c597da787",
+      "code_snapshot_sha256": "2c823d8ea38666b3b9f6e48e9df85e788872c35c04d1f034a21975bdb71002d6",
+      "runtimes": {
+        "boltz": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "lasermpnn": "7330602e85f977f7f10799b8c6e88e4fc0f63d38802848023e93b78c048deb7f",
+        "nesso": "f2089cea3357f52f49fb8fa6096ee8fb935dc2edb4fed801ae2026fc3aad5f88"
+      }
+    },
+    {
+      "case": "hunter-protenix-constraint-v0.5-repaired",
+      "job_id": "job-ebaeff102eff",
+      "status": "completed",
+      "scientific_rejection": false,
+      "audit_passed": true,
+      "structure_count": 2,
+      "plan_sha256": "ebaeff102effe74c2b8ac3d5f590e681767050051e5d9d79f7c8c5c64c488548",
+      "code_snapshot_sha256": "01a2ed8ff4c407badf039a6a07af05383598ad7f34cc285e0f8e0c1f0668cd89",
+      "runtimes": {
+        "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+        "mpnn": "268a2c5e2550bab91c9642dc12bc60f035bdc420b96ef10232b7e0d16604fc56",
+        "protenix_constraint": "0385c1eafa5c23e62d69b535101db17358e97cc95566df6e31d234940c688617"
+      }
+    }
+  ],
+  "preserved_attempt_count": 39,
+  "runtime_export_comparison": {
+    "unchanged_input_arrays": 44,
+    "changed_input_arrays": [],
+    "added_export_arrays": [
+      "export_atom_names",
+      "export_elements"
+    ],
+    "atoms": 276,
+    "max_coordinate_difference_angstrom": 0.0,
+    "coordinate_rms_difference_angstrom": 0.0,
+    "protein_pdb_lines_identical": true,
+    "ligand_unique_names_match_prepared_molecule": true
+  },
+  "biotin_existing_completion_receipts": 10403,
+  "not_tested": [
+    "fresh Mac without developer tools",
+    "other Apple chips",
+    "large inputs",
+    "long memory soak",
+    "all scientific input combinations"
+  ]
+}

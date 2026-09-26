@@ -66,7 +66,7 @@ def install(root,key,local=None):
     if key=='psichic':run([python,HERE/'nise/setup_psichic.py','--root',root])
     if key=='protenix_constraint':
         source=root/'src/ProtenixConstraint'
-        atomic_json(root/'models/protenix_constraint/install_receipt.json',dict(product='Protenix Constraint v0.5 — Experimental',model='protenix_base_constraint_v0.5.0',source_commit='4c355be4553512f72453ecbfb65e69f4c35d1413',patch_sha256=digest(root/'patches/protenix_constraint_mps.patch'),zero_substructure_patch_sha256=digest(root/'patches/protenix_constraint_zero_substructure.patch'),substructure_source_sha256=digest(source/'protenix/model/modules/embedders.py'),checkpoint_sha256=ASSETS[key][0]['sha256'],device_policy='native-mps-fp32-no-cpu-fallback',esm='disabled-and-not-installed'))
+        atomic_json(root/'models/protenix_constraint/install_receipt.json',dict(product='Protenix Constraint v0.5 — Experimental',model='protenix_base_constraint_v0.5.0',source_commit='4c355be4553512f72453ecbfb65e69f4c35d1413',patch_sha256=digest(root/'patches/protenix_constraint_mps.patch'),zero_substructure_patch_sha256=digest(root/'patches/protenix_constraint_zero_substructure.patch'),substructure_source_sha256=digest(source/'protenix/model/modules/embedders.py'),checkpoint_sha256=ASSETS[key][0]['sha256'],device_policy='native-mps-fp32-no-cpu-fallback',esm='disabled-and-not-installed',zero_substructure='checkpoint-equivalent-single-token-broadcast'))
     if key=='rfd3':
         source=root/'rfd3';weights=source/'weights/rfd3_core.safetensors';expected='736e6f5e11ec70dea58903deb2290031e366d2b0b2478e63208a2541650a04d6'
         if not weights.is_file() or digest(weights)!=expected:

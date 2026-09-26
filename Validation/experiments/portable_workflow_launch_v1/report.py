@@ -9,7 +9,7 @@ for c in m['cases']:
     j=json.loads(p.read_text());s=json.loads((Path.home()/'.iproteinstudio/agent/jobs'/j['id']/'state.json').read_text());a=audit.get(c['id'],{})
     rows.append(dict(case=c['id'],job_id=j['id'],status=s['status'],message=s.get('message'),superseded=c['id'] in superseded,scientific_rejection=a.get('scientific_rejection',False),audit_passed=a.get('passed',False),structure_count=len(a.get('structures',[])),errors=a.get('errors',[])))
 (out/'current-summary.json').write_text(json.dumps(rows,indent=2)+'\n')
-text=['# Portable workflow launch checks','','These are launch/integration checks on one M4 Max, macOS26.6.1. They do not establish design quality, speed improvements, fresh-Mac compatibility or results on other chips.','','| Case | Job state | Output audit | Structures |','|---|---|---|---:|']
+text=['# Portable workflow launch checks','','These are launch/integration checks on one M4 Max, macOS26.6.1. They do not establish design quality, speed improvements, fresh-Mac compatibility or results on other chips.','','| Case | Job state | Output audit | Structure files |','|---|---|---|---:|']
 for r in rows:
     if r['superseded']:continue
     verdict='passed' if r['audit_passed'] else ('pending' if r['status'] in ('queued','running') else 'needs review')

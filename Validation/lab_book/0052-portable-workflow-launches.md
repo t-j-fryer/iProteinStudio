@@ -5,7 +5,7 @@ date: 2026-09-26
 author: Codex
 type: experiment
 status: in-progress
-machine: Local Apple Silicon Mac; exact hardware captured in campaign manifest
+machine: Apple M4 Max, 64 GiB unified memory, macOS 26.6.1
 ---
 
 ## Context
@@ -55,3 +55,25 @@ checks the launcher against the installed-version lockfile (currently2.14).
 All58 fast-suite commands passed, including ten sandbox-blocked checks rerun with
 normal process/local-network/compiler access. `swift build` passed in the main
 and isolated release worktrees. No throughput claim.
+
+## Launch outcome
+
+The final matrix has 23 current cases: 21 completed, with Boltz and PSICHIC NISE
+scoring followed by the unchanged zero-survivor structural gate in the other two.
+All 23 output audits pass within that declared launch scope. NESSO completed an
+optimization cycle. The repaired constrained-Protenix case completed through the
+normal portable installer. All 39 attempts are retained, including original
+software failures.
+
+Additional defects fixed: portable activation, redundant Boltz extra verifier,
+OpenFold mixed-MSA input, orderly child shutdown, RFdiffusion3 ligand atom export,
+installer process classification, and a missing constrained-Protenix receipt
+marker. The paired export fix leaves all 44 model input arrays and 276 output atom
+coordinates unchanged. See [project Lab Book 0199](../../lab_book/0199-qualify-portable-workflow-launches.md)
+for individual failures, executable regressions, runtime identity, publication
+and production-resume receipts. Public evidence:
+[launch-evidence.json](../../lab_book/artifacts/0199-workflow-launches/launch-evidence.json).
+
+This is one-Mac integration acceptance. Fresh-Mac installation, other chips, large
+inputs, memory soak and experimental design quality were not qualified. OpenFold
+random-binder geometry warnings are retained rather than hidden.
