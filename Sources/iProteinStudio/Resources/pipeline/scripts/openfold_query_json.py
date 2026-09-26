@@ -114,6 +114,7 @@ entries = parse_yaml_sequences(template)
 out_chains = []
 need_server = False
 has_real_msa = False
+explicit_empty_chains = []
 
 for e in entries:
     kind = str(e.get("kind", "")).lower()
@@ -150,6 +151,8 @@ for e in entries:
                 has_real_msa = True
             elif not msa_was_explicit:
                 need_server = True
+            else:
+                explicit_empty_chains.append(row)
         out_chains.append(row)
         continue
 
@@ -170,6 +173,19 @@ for e in entries:
             continue
         out_chains.append(row)
 
+# In a mixed request OpenFold enables its MSA pipeline for every chain. Its
+# default dummy NPZ uses a source key excluded by the main-MSA concatenator.
+# Materialize the explicitly requested query-only alignment in the supported
+# raw A3M slot, retaining the target alignment and avoiding any server search.
+if has_real_msa or need_server:
+    for row in explicit_empty_chains:
+        cid = row["chain_ids"][0]
+        safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in cid) or "chain"
+        path = Path(out_json).parent / "_openfold_msas" / safe / "colabfold_main.a3m"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(">query\n" + row["sequence"] + "\n")
+        row["main_msa_file_paths"] = [str(path)]
+
 payload = {
     "seeds": [base_seed],
     "queries": {
@@ -178,8 +194,7 @@ payload = {
             # OpenFold supports MSA-free inference directly.  Enable its MSA
             # feature pipeline only when at least one real alignment is present
             # or a genuinely unspecified chain still needs the server.  Mixed
-            # folds are supported: chains with no MSA path are intentionally
-            # skipped by OpenFold's inference MSA parser.
+            # folds carry an explicit query-only A3M for empty chains.
             "use_msas": has_real_msa or need_server,
             "use_main_msas": has_real_msa or need_server,
             "use_paired_msas": False,

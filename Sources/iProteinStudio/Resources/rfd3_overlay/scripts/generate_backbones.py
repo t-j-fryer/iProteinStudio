@@ -56,6 +56,8 @@ class Fixture:
         with np.load(path) as z:
             self.feats = {k[6:]: z[k] for k in z.files if k.startswith("feats/")}
             self.coord = np.asarray(z["coord_to_be_noised"], dtype=np.float32)
+            self.export_names = np.asarray(z["export_atom_names"], dtype=str) if "export_atom_names" in z else None
+            self.export_elements = np.asarray(z["export_elements"], dtype=str) if "export_elements" in z else None
         self.tok = np.asarray(self.feats["atom_to_token_map"], dtype=int)
         self.names = decode_atom_names(self.feats["ref_atom_name_chars"])
         self.fixed_atoms = np.asarray(self.feats["is_motif_atom_with_fixed_coord"], dtype=bool)
@@ -97,11 +99,29 @@ class Fixture:
         self.target_protein_tokens = np.where(
             self.protein_mask & self.fixed_tokens & ~self.unindexed_mask)[0]
         self.ligand_tokens = np.where(self.ligand_mask)[0]
+        self._validate_ligand_export()
         partial = self.feats.get("partial_t")
         self.is_partial = partial is not None and np.isfinite(np.asarray(partial, dtype=float)).any()
         if len(self.design_tokens) == 0:
             raise ValueError("Fixture has no diffused design tokens")
         self._normalize_unindexed_atom_masks()
+
+    def _validate_ligand_export(self):
+        ligand_atoms = np.where(np.isin(self.tok, self.ligand_tokens))[0]
+        if not len(ligand_atoms):
+            return
+        if self.export_names is None or self.export_elements is None:
+            raise ValueError("Ligand fixture lacks atom identity metadata. Regenerate fixtures with the updated RFdiffusion3 runtime in a new run.")
+        if self.export_names.shape != (self.n_atoms,) or self.export_elements.shape != (self.n_atoms,):
+            raise ValueError("Ligand export metadata does not match the feature atom count")
+        names = self.export_names[ligand_atoms].tolist()
+        if len(set(names)) != len(names) or any(not n or len(n) > 4 or not n.isascii() or any(c.isspace() for c in n) for n in names):
+            raise ValueError("Ligand export atom names must be unique valid PDB identifiers")
+        # The model's ligand name features are element labels; verify that
+        # export metadata addresses those same ordered atoms.
+        for atom in ligand_atoms:
+            if self.names[atom].upper() != self.export_elements[atom].upper():
+                raise ValueError("Ligand export element order differs from model features")
 
     def _slot_maps(self, token: int) -> tuple[dict[str, str], dict[str, str]]:
         restype = int(self.restype[token])
@@ -252,12 +272,15 @@ class Fixture:
                                           target_num[token])
                 resname = AA3[ri] if 0 <= ri < len(AA3) else "UNK"
             elif token in ligand_num:
+                output_name = self.export_names[atom_idx]
                 record, chain, resnum, resname = "HETATM", "B", 1, self.ligand_code
             else:
                 continue
             element = "".join(c for c in output_name if c.isalpha())[:2].strip().upper() or "C"
             if element not in {"CL", "BR"}:
                 element = element[:1]
+            if token in ligand_num:
+                element = self.export_elements[atom_idx].upper()
             atom_field = pdb_atom_field(output_name, element)
             lines.append(
                 f"{record}{serial:5d} {atom_field}{' ':1}{resname:>3} {chain}{resnum:4d}{' ':1}   "

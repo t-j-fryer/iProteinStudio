@@ -36,7 +36,7 @@ class MCPBridgeTests(unittest.TestCase):
         self.fake_predictor = self.root / "rfd3_scripts" / "predict_batch.py"
         self.fake_predictor.write_text(
             """#!/usr/bin/env python3
-import argparse, csv, json, os, time
+import argparse, csv, json, os, time, subprocess, sys
 from pathlib import Path
 p=argparse.ArgumentParser(); p.add_argument('--config', required=True); a=p.parse_args()
 cfg=json.loads(Path(a.config).read_text()); root=Path(os.environ['NANOHUNTER_ROOT'])
@@ -46,6 +46,14 @@ name=cfg['jobs'][0]['name']
 active=root/'active-gpu-test'
 if active.exists(): (root/'concurrency-violation').write_text('overlap')
 active.write_text(str(os.getpid())); print('PBSTAGE|predict|50|fake prediction', flush=True)
+if name in ('child-tail', 'orphan', 'failed-orphan'):
+ markers=Path(cfg['output']); markers.mkdir(parents=True, exist_ok=True)
+ child_script = 'import time; from pathlib import Path; time.sleep(%s); Path(%r).write_text("done")' % (1.5 if name == 'child-tail' else 30, str(markers/'child-completed'))
+ child = subprocess.Popen([sys.executable, '-c', child_script], start_new_session=True)
+ (markers/'child-pid').write_text(str(child.pid))
+ time.sleep(0.7)
+if name == 'failed-orphan':
+ active.unlink(); print('PBFAIL|Original prediction failure', flush=True); raise SystemExit(7)
 if name == 'slow': time.sleep(10)
 else: time.sleep(0.25)
 if name == 'retry' and not (root/'projects/retry-ready').exists():
@@ -339,6 +347,49 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
             broker.load_state(slow_job["id"], refresh=False)
             time.sleep(0.05)
         self.assertFalse(common.process_alive(pid))
+
+    def test_normal_child_shutdown_keeps_success_and_execution_lease(self):
+        plan = plans.prediction_plan(self.prediction_arguments('child-tail'))
+        job = broker.start_job(plan['id'], plan['sha256'])
+        final = self.wait_terminal(job['id'])
+        self.assertEqual(final['status'], 'completed', final)
+        self.assertTrue((Path(final['output_root'])/'child-completed').exists())
+        self.assertFalse((broker.state_path(job['id']).parent/'lingering_processes.json').exists())
+
+    def test_lingering_child_still_fails_and_is_cleaned(self):
+        plan = plans.prediction_plan(self.prediction_arguments('orphan'))
+        job = broker.start_job(plan['id'], plan['sha256'])
+        final = self.wait_terminal(job['id'])
+        self.assertEqual(final['status'], 'failed', final)
+        self.assertIn('child processes',final['message'])
+        receipt = json.loads((broker.state_path(job['id']).parent/'lingering_processes.json').read_text())
+        child = int((Path(final['output_root'])/'child-pid').read_text())
+        self.assertIn(str(child), receipt['processes'])
+        self.assertFalse(common.process_alive(child))
+        self.assertFalse((Path(final['output_root'])/'child-completed').exists())
+
+    def test_child_cleanup_does_not_hide_original_prediction_error(self):
+        plan = plans.prediction_plan(self.prediction_arguments('failed-orphan'))
+        job = broker.start_job(plan['id'], plan['sha256'])
+        final = self.wait_terminal(job['id'])
+        self.assertEqual(final['status'], 'failed', final)
+        self.assertIn('Original prediction failure', final['message'])
+        self.assertIn('Remaining workflow children', final['message'])
+        self.assertIn('Original prediction failure', final['error'])
+
+    def test_ligand_plan_keeps_boltz_as_primary_not_extra(self):
+        (self.root / 'rfd3_scripts/prepare_campaign.py').write_text('# prepare\n')
+        scripts = self.root / 'rfd3/scripts'
+        scripts.mkdir()
+        (scripts / 'run_rfd3_nise_campaign.py').write_text('# runner\n')
+        request = {'target_kind':'small_molecule','smiles':'CCO',
+                   'extra_predictors':['boltz','intellifold','boltz']}
+        plan = importlib.import_module('server').MCPServer('run').tool_call(
+            'rfd3_denovo_plan', {'project':'demo','request':request})
+        normalized = plan['normalized_request']['request']
+        self.assertEqual(normalized['extra_predictors'], ['intellifold'])
+        self.assertTrue(normalized['run_affinity'])
+        self.assertEqual(request['extra_predictors'], ['boltz','intellifold','boltz'])
 
     def test_partial_and_motif_plans_are_distinct_and_fail_closed(self):
         target = self.root / "projects" / "demo" / "inputs" / "complex.pdb"

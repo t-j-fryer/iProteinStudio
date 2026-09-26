@@ -587,7 +587,10 @@ PYTHON
     # sheet; that makes detection take many seconds on an otherwise ready app.
     if [[ -f "${RFD3_CHECKPOINT_PATH}" && -f "${RFD3_WEIGHTS_PATH}" ]] \
        && rfd3_ema_weights_current; then
-      if [[ -f "${RECEIPTS_DIR}/rfd3.json" ]]; then
+      if ! grep -Fq 'CAP["export_atom_names"]' "${RFD3_ROOT}/milestone0_oracle.py" \
+         || ! grep -Fq 'self.export_names[atom_idx]' "${RFD3_ROOT}/scripts/generate_backbones.py"; then
+        state rfd3 update "Update RFdiffusion3 in Engines to preserve ligand atom identities; existing saved jobs keep their recorded runtime."
+      elif [[ -f "${RECEIPTS_DIR}/rfd3.json" ]]; then
         state rfd3 ok "RFdiffusion3 MLX with checkpoint and verified EMA weights"
       else
         state rfd3 update "engine is usable; installation provenance still needs finalizing"

@@ -245,6 +245,12 @@ class FeatureOnlyCaptureEngine(CaptureEngine):
 
         CAP["feats"] = {k: cpu(v) for k, v in pipeline_output["feats"].items()}
         CAP["coord_to_be_noised"] = cpu(pipeline_output["coord_atom_lvl_to_be_noised"])
+        # Reference features deliberately replace atomized ligand names with
+        # element labels. Preserve identities separately for structure export;
+        # these arrays are never passed to the neural model.
+        atoms = pipeline_output["atom_array"]
+        CAP["export_atom_names"] = np.asarray(atoms.atom_name, dtype=str)
+        CAP["export_elements"] = np.asarray(atoms.element, dtype=str)
         raise FeaturesCaptured
 
 
@@ -311,7 +317,7 @@ def main():
     # -------- serialize fixtures --------
     arrays, meta = {}, {}
     for key in ["feats", "Xn", "coord_to_be_noised", "t", "init_out", "dm_out",
-                "blocks", "dt_indices", "dtok_internal"]:
+                "blocks", "dt_indices", "dtok_internal", "export_atom_names", "export_elements"]:
         if key in CAP:
             flatten(CAP[key], key, arrays, meta)
     for key in ["rollout_coords", "rollout_resname", "rollout_atom_name"]:

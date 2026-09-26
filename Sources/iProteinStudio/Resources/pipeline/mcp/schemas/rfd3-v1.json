@@ -42,7 +42,7 @@
             "maximum_binder_rmsd": {"type": ["number", "null"]}, "maximum_motif_rmsd": {"type": ["number", "null"]}
           }
         },
-        "extra_predictors": {"type": "array", "description": "Independent verification engines. For protein binders choose at least one; Boltz is the normal first verifier. Every generated candidate is predicted before ranking.", "items": {"enum": ["boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"]}},
+        "extra_predictors": {"type": "array", "description": "Independent verification engines. For protein binders choose at least one; Boltz is the normal first verifier. For small molecules Boltz always runs as the primary scorer; listing it here is redundant and it is removed from the extra list. Every generated candidate is predicted before ranking.", "items": {"enum": ["boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"]}},
         "intellifold_model": {"enum": ["v2-flash", "v2"]},
         "conformers": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
         "mpnn_max_parallel": {"type": "integer", "minimum": 1}, "boltz_chunk_size": {"type": "integer", "minimum": 1},

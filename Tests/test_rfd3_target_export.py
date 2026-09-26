@@ -72,6 +72,48 @@ class TargetExportTests(unittest.TestCase):
         self.assertEqual(atoms, ["N", "CA", "C", "O", "CB", "SG"])
         self.assertNotIn("V1", atoms)
 
+    def ligand_fixture(self):
+        module = load_writer()
+        f = module.Fixture.__new__(module.Fixture)
+        f.names = ["C", "C", "O", "CL"]
+        f.export_names = np.array(["C7", "C2", "O3", "CL1"])
+        f.export_elements = np.array(["C", "C", "O", "CL"])
+        f.tok = np.arange(4)
+        f.n_atoms = 4
+        f.asym_id = np.ones(4, dtype=int)
+        f.restype = np.zeros(4, dtype=int)
+        f.target_protein_tokens = f.design_tokens = f.unindexed_tokens = np.array([], dtype=int)
+        f.ligand_tokens = np.arange(4)
+        f.fixed_atoms = np.ones(4, dtype=bool)
+        f.motif_source_residues = []
+        f.requested_motif_atoms = {}
+        f.ligand_code = "LG1"
+        return f
+
+    def test_ligand_identities_and_coordinates_preserved_without_changing_features(self):
+        f = self.ligand_fixture()
+        f._validate_ligand_export()
+        coords = np.arange(12, dtype=float).reshape(4, 3)
+        before_names = f.names.copy()
+        with tempfile.TemporaryDirectory() as raw:
+            output = Path(raw) / "ligand.pdb"
+            f.write_pdb(coords, output)
+            lines = [line for line in output.read_text().splitlines() if line.startswith("HETATM")]
+        self.assertEqual([line[12:16].strip() for line in lines], ["C7", "C2", "O3", "CL1"])
+        self.assertEqual([line[76:78].strip() for line in lines], ["C", "C", "O", "CL"])
+        np.testing.assert_array_equal([[float(line[a:a+8]) for a in (30, 38, 46)] for line in lines], coords)
+        self.assertEqual(f.names, before_names)
+
+    def test_ambiguous_or_misaligned_ligand_metadata_fails_closed(self):
+        for field, value in [("export_names", None), ("export_names", np.array(["C1"])),
+                             ("export_names", np.array(["C1", "C1", "O1", "CL1"])),
+                             ("export_elements", np.array(["O", "C", "O", "CL"]))]:
+            with self.subTest(field=field, value=value):
+                f = self.ligand_fixture()
+                setattr(f, field, value)
+                with self.assertRaises(ValueError):
+                    f._validate_ligand_export()
+
 
 if __name__ == "__main__":
     unittest.main()

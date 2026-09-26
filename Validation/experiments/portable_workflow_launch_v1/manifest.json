@@ -1,0 +1,1407 @@
+{
+  "schema": 1,
+  "purpose": "Public/native workflow engine launch acceptance after portable activation correction",
+  "status": "running",
+  "biotin_job_id": "job-221c7d6db092",
+  "workflows": [
+    "iterative_design",
+    "rfd3_protein_binder",
+    "nise",
+    "prediction"
+  ],
+  "scope": "All installed compatible engine integrations; small output budgets, real defaults for diffusion/recycles; no speed claims",
+  "rules": [
+    "Managed preflight and immutable job_start for every GPU task",
+    "No model or precision changes",
+    "Preserve raw failures and audit outputs",
+    "Publish after acceptance; resume same biotin job and plan after installed smoke"
+  ],
+  "matrix_pending": false,
+  "project": "portable-launch-acceptance",
+  "fixture": {
+    "name": "SUMO",
+    "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+    "msa": "/Users/thomasfryer/.iproteinstudio/msa_cache/00e99841616c44295043375bc0ba6286.a3m",
+    "msa_sha256": "c5c2ee22f8430f0144c602338fdb250d6ce69e1f851753bf8a8ce5046702f0ff"
+  },
+  "cases": [
+    {
+      "id": "predict-boltz",
+      "workflow": "prediction",
+      "tool": "prediction_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "predictors": [
+            "boltz"
+          ],
+          "jobs": [
+            {
+              "name": "sumo",
+              "chains": [
+                {
+                  "id": "A",
+                  "kind": "protein",
+                  "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+                  "msa": "/Users/thomasfryer/.iproteinstudio/msa_cache/00e99841616c44295043375bc0ba6286.a3m"
+                }
+              ]
+            }
+          ],
+          "num_seeds": 1,
+          "diffusion_samples": 1,
+          "max_parallel": 1,
+          "offline_only": true
+        }
+      },
+      "expected": "one complete finite SUMO structure with requested sequence and confidence artifacts"
+    },
+    {
+      "id": "predict-intellifold-v2-flash",
+      "workflow": "prediction",
+      "tool": "prediction_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "predictors": [
+            "intellifold"
+          ],
+          "jobs": [
+            {
+              "name": "sumo",
+              "chains": [
+                {
+                  "id": "A",
+                  "kind": "protein",
+                  "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+                  "msa": "/Users/thomasfryer/.iproteinstudio/msa_cache/00e99841616c44295043375bc0ba6286.a3m"
+                }
+              ]
+            }
+          ],
+          "num_seeds": 1,
+          "diffusion_samples": 1,
+          "max_parallel": 1,
+          "offline_only": true,
+          "intellifold_model": "v2-flash"
+        }
+      },
+      "expected": "one complete finite SUMO structure with requested sequence and confidence artifacts"
+    },
+    {
+      "id": "predict-intellifold-v2",
+      "workflow": "prediction",
+      "tool": "prediction_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "predictors": [
+            "intellifold"
+          ],
+          "jobs": [
+            {
+              "name": "sumo",
+              "chains": [
+                {
+                  "id": "A",
+                  "kind": "protein",
+                  "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+                  "msa": "/Users/thomasfryer/.iproteinstudio/msa_cache/00e99841616c44295043375bc0ba6286.a3m"
+                }
+              ]
+            }
+          ],
+          "num_seeds": 1,
+          "diffusion_samples": 1,
+          "max_parallel": 1,
+          "offline_only": true,
+          "intellifold_model": "v2"
+        }
+      },
+      "expected": "one complete finite SUMO structure with requested sequence and confidence artifacts"
+    },
+    {
+      "id": "predict-protenix-v2",
+      "workflow": "prediction",
+      "tool": "prediction_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "predictors": [
+            "protenix-v2"
+          ],
+          "jobs": [
+            {
+              "name": "sumo",
+              "chains": [
+                {
+                  "id": "A",
+                  "kind": "protein",
+                  "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+                  "msa": "/Users/thomasfryer/.iproteinstudio/msa_cache/00e99841616c44295043375bc0ba6286.a3m"
+                }
+              ]
+            }
+          ],
+          "num_seeds": 1,
+          "diffusion_samples": 1,
+          "max_parallel": 1,
+          "offline_only": true
+        }
+      },
+      "expected": "one complete finite SUMO structure with requested sequence and confidence artifacts"
+    },
+    {
+      "id": "predict-protenix-mini",
+      "workflow": "prediction",
+      "tool": "prediction_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "predictors": [
+            "protenix-mini"
+          ],
+          "jobs": [
+            {
+              "name": "sumo",
+              "chains": [
+                {
+                  "id": "A",
+                  "kind": "protein",
+                  "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+                  "msa": "/Users/thomasfryer/.iproteinstudio/msa_cache/00e99841616c44295043375bc0ba6286.a3m"
+                }
+              ]
+            }
+          ],
+          "num_seeds": 1,
+          "diffusion_samples": 1,
+          "max_parallel": 1,
+          "offline_only": true
+        }
+      },
+      "expected": "one complete finite SUMO structure with requested sequence and confidence artifacts"
+    },
+    {
+      "id": "predict-openfold-3-mlx",
+      "workflow": "prediction",
+      "tool": "prediction_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "predictors": [
+            "openfold-3-mlx"
+          ],
+          "jobs": [
+            {
+              "name": "sumo",
+              "chains": [
+                {
+                  "id": "A",
+                  "kind": "protein",
+                  "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+                  "msa": "/Users/thomasfryer/.iproteinstudio/msa_cache/00e99841616c44295043375bc0ba6286.a3m"
+                }
+              ]
+            }
+          ],
+          "num_seeds": 1,
+          "diffusion_samples": 1,
+          "max_parallel": 1,
+          "offline_only": true
+        }
+      },
+      "expected": "one complete finite SUMO structure with requested sequence and confidence artifacts"
+    },
+    {
+      "id": "hunter-boltz",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-boltz",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "boltz",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement"
+    },
+    {
+      "id": "hunter-intellifold-v2-flash",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-intellifold-v2-flash",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "intellifold",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--model",
+          "v2-flash",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement"
+    },
+    {
+      "id": "hunter-intellifold-v2",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-intellifold-v2",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "intellifold",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--model",
+          "v2",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement"
+    },
+    {
+      "id": "hunter-protenix-v2",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-protenix-v2",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "protenix-v2",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement"
+    },
+    {
+      "id": "hunter-protenix-mini",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-protenix-mini",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "protenix-mini",
+          "--sequence-designer",
+          "proteinmpnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement"
+    },
+    {
+      "id": "hunter-protenix-constraint-v0.5",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-protenix-constraint-v0.5",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "protenix-constraint-v0.5",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement"
+    },
+    {
+      "id": "hunter-openfold-3-mlx",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-openfold-3-mlx",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "openfold-3-mlx",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement"
+    },
+    {
+      "id": "nanobody-antifold",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "nanobody-antifold",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/nanobody.yaml",
+        "arguments": [
+          "--workflow",
+          "nanobody",
+          "--predictor",
+          "boltz",
+          "--sequence-designer",
+          "antifold",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement"
+    },
+    {
+      "id": "nanobody-abmpnn",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "nanobody-abmpnn",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/nanobody.yaml",
+        "arguments": [
+          "--workflow",
+          "nanobody",
+          "--predictor",
+          "boltz",
+          "--sequence-designer",
+          "abmpnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement"
+    },
+    {
+      "id": "hunter-ligandmpnn",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-ligandmpnn",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/ligand.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "boltz",
+          "--sequence-designer",
+          "ligandmpnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement"
+    },
+    {
+      "id": "rfd3-protein-flash",
+      "workflow": "rfd3_protein_binder",
+      "tool": "rfd3_denovo_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "rfd3-protein-flash",
+        "request": {
+          "target_kind": "protein",
+          "target_structure": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/sumo.cif",
+          "target_sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+          "target_chain": "A",
+          "target_chains": [
+            "A"
+          ],
+          "binding_site_mode": "surface_scan",
+          "sequence_model": "solublempnn",
+          "extra_predictors": [
+            "boltz",
+            "intellifold",
+            "protenix-v2",
+            "openfold-3-mlx"
+          ],
+          "intellifold_model": "v2-flash",
+          "lengths": [
+            65
+          ],
+          "num_backbones": 1,
+          "sequences_per_backbone": 1,
+          "top_n": 1,
+          "batch_size": 1,
+          "queues_per_bin": 1,
+          "boltz_calibrate_n": 1
+        }
+      },
+      "expected": "one backbone and sequence derivative; complete requested independent verification, including binder-alone for protein; affinity for ligand"
+    },
+    {
+      "id": "rfd3-protein-full-mini",
+      "workflow": "rfd3_protein_binder",
+      "tool": "rfd3_denovo_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "rfd3-protein-full-mini",
+        "request": {
+          "target_kind": "protein",
+          "target_structure": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/sumo.cif",
+          "target_sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+          "target_chain": "A",
+          "target_chains": [
+            "A"
+          ],
+          "binding_site_mode": "surface_scan",
+          "sequence_model": "proteinmpnn",
+          "extra_predictors": [
+            "intellifold",
+            "protenix-mini"
+          ],
+          "intellifold_model": "v2",
+          "lengths": [
+            65
+          ],
+          "num_backbones": 1,
+          "sequences_per_backbone": 1,
+          "top_n": 1,
+          "batch_size": 1,
+          "queues_per_bin": 1,
+          "boltz_calibrate_n": 1
+        }
+      },
+      "expected": "one backbone and sequence derivative; complete requested independent verification, including binder-alone for protein; affinity for ligand"
+    },
+    {
+      "id": "rfd3-ligand",
+      "workflow": "rfd3_protein_binder",
+      "tool": "rfd3_denovo_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "rfd3-ligand",
+        "request": {
+          "target_kind": "small_molecule",
+          "smiles": "O=C(O)CCCCC1SCC2NC(=O)NC12",
+          "sequence_model": "ligandmpnn",
+          "extra_predictors": [
+            "boltz"
+          ],
+          "lengths": [
+            65
+          ],
+          "num_backbones": 1,
+          "sequences_per_backbone": 1,
+          "top_n": 1,
+          "batch_size": 1,
+          "queues_per_bin": 1,
+          "boltz_calibrate_n": 1
+        }
+      },
+      "expected": "one backbone and sequence derivative; complete requested independent verification, including binder-alone for protein; affinity for ligand"
+    },
+    {
+      "id": "nise-boltz",
+      "workflow": "nise",
+      "tool": "nise_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "smiles": "O=C(O)CCCCC1SCC2NC(=O)NC12",
+          "num_starts": 1,
+          "trajectories": 1,
+          "max_cycles": 1,
+          "binder_min_len": 65,
+          "binder_max_len": 65,
+          "top_x": 1,
+          "phase0_refine_cycles": 1,
+          "phase0_seqs1": 1,
+          "phase0_gate_seqs": 1,
+          "phase0_seqs2": 1,
+          "first_cycle_seqs": 1,
+          "nise_seqs": 1,
+          "beam": 1,
+          "backbone_method": "protein-hunter",
+          "rfd3_num_bins": 1,
+          "early_score_gate": 0.0
+        }
+      },
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults"
+    },
+    {
+      "id": "nise-nesso",
+      "workflow": "nise",
+      "tool": "nise_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "smiles": "O=C(O)CCCCC1SCC2NC(=O)NC12",
+          "num_starts": 1,
+          "trajectories": 1,
+          "max_cycles": 1,
+          "binder_min_len": 65,
+          "binder_max_len": 65,
+          "top_x": 1,
+          "phase0_refine_cycles": 1,
+          "phase0_seqs1": 1,
+          "phase0_gate_seqs": 1,
+          "phase0_seqs2": 1,
+          "first_cycle_seqs": 1,
+          "nise_seqs": 1,
+          "beam": 1,
+          "backbone_method": "rfdiffusion3",
+          "rfd3_num_bins": 1,
+          "early_score_gate": 0.0,
+          "scoring_mode": "screening",
+          "screening_engine": "nesso",
+          "nesso_screen": true,
+          "phase0_nesso_screen": true,
+          "nesso_top_k": 1,
+          "phase0_nesso_expand_top_k": 1,
+          "nesso_early_score_gate": 0.0,
+          "psichic_early_score_gate": 0.0
+        }
+      },
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults"
+    },
+    {
+      "id": "nise-psichic",
+      "workflow": "nise",
+      "tool": "nise_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "smiles": "O=C(O)CCCCC1SCC2NC(=O)NC12",
+          "num_starts": 1,
+          "trajectories": 1,
+          "max_cycles": 1,
+          "binder_min_len": 65,
+          "binder_max_len": 65,
+          "top_x": 1,
+          "phase0_refine_cycles": 1,
+          "phase0_seqs1": 1,
+          "phase0_gate_seqs": 1,
+          "phase0_seqs2": 1,
+          "first_cycle_seqs": 1,
+          "nise_seqs": 1,
+          "beam": 1,
+          "backbone_method": "protein-hunter",
+          "rfd3_num_bins": 1,
+          "early_score_gate": 0.0,
+          "scoring_mode": "screening",
+          "screening_engine": "psichic",
+          "nesso_screen": true,
+          "phase0_nesso_screen": true,
+          "nesso_top_k": 1,
+          "phase0_nesso_expand_top_k": 1,
+          "nesso_early_score_gate": 0.0,
+          "psichic_early_score_gate": 0.0
+        }
+      },
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults"
+    },
+    {
+      "id": "nanobody-antifold-template",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "nanobody-antifold-template",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/nanobody.yaml",
+        "arguments": [
+          "--workflow",
+          "nanobody",
+          "--predictor",
+          "boltz",
+          "--sequence-designer",
+          "antifold",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--require-target-msa"
+        ],
+        "target_template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/sumo.cif",
+        "target_template_mode": "guide"
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement; target-only template guidance exercises the student-like request path"
+    },
+    {
+      "id": "rfd3-ligand-retry",
+      "workflow": "rfd3_protein_binder",
+      "tool": "rfd3_denovo_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "rfd3-ligand-retry",
+        "request": {
+          "target_kind": "small_molecule",
+          "smiles": "O=C(O)CCCCC1SCC2NC(=O)NC12",
+          "sequence_model": "ligandmpnn",
+          "extra_predictors": [
+            "boltz"
+          ],
+          "lengths": [
+            65
+          ],
+          "num_backbones": 1,
+          "sequences_per_backbone": 1,
+          "top_n": 1,
+          "batch_size": 1,
+          "queues_per_bin": 1,
+          "boltz_calibrate_n": 1
+        }
+      },
+      "expected": "one backbone and sequence derivative; complete requested independent verification, including binder-alone for protein; affinity for ligand",
+      "supersedes": "rfd3-ligand",
+      "bridge": "source MCP29 with primary-Boltz normalization"
+    },
+    {
+      "id": "hunter-boltz-fixed",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-boltz-fixed",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "boltz",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement",
+      "supersedes": "hunter-boltz",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "hunter-intellifold-v2-fixed",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-intellifold-v2-fixed",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "intellifold",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--model",
+          "v2",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement",
+      "supersedes": "hunter-intellifold-v2",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "hunter-intellifold-v2-flash-fixed",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-intellifold-v2-flash-fixed",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "intellifold",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--model",
+          "v2-flash",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement",
+      "supersedes": "hunter-intellifold-v2-flash",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "hunter-protenix-constraint-v0.5-fixed",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-protenix-constraint-v0.5-fixed",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "protenix-constraint-v0.5",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement",
+      "supersedes": "hunter-protenix-constraint-v0.5",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "hunter-protenix-mini-fixed",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-protenix-mini-fixed",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "protenix-mini",
+          "--sequence-designer",
+          "proteinmpnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement",
+      "supersedes": "hunter-protenix-mini",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "hunter-protenix-v2-fixed",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-protenix-v2-fixed",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "protenix-v2",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement",
+      "supersedes": "hunter-protenix-v2",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "nanobody-abmpnn-fixed",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "nanobody-abmpnn-fixed",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/nanobody.yaml",
+        "arguments": [
+          "--workflow",
+          "nanobody",
+          "--predictor",
+          "boltz",
+          "--sequence-designer",
+          "abmpnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement",
+      "supersedes": "nanobody-abmpnn",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "nise-psichic-fixed",
+      "workflow": "nise",
+      "tool": "nise_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "smiles": "O=C(O)CCCCC1SCC2NC(=O)NC12",
+          "num_starts": 1,
+          "trajectories": 1,
+          "max_cycles": 1,
+          "binder_min_len": 65,
+          "binder_max_len": 65,
+          "top_x": 1,
+          "phase0_refine_cycles": 1,
+          "phase0_seqs1": 1,
+          "phase0_gate_seqs": 1,
+          "phase0_seqs2": 1,
+          "first_cycle_seqs": 1,
+          "nise_seqs": 1,
+          "beam": 1,
+          "backbone_method": "protein-hunter",
+          "rfd3_num_bins": 1,
+          "early_score_gate": 0.0,
+          "scoring_mode": "screening",
+          "screening_engine": "psichic",
+          "nesso_screen": true,
+          "phase0_nesso_screen": true,
+          "nesso_top_k": 1,
+          "phase0_nesso_expand_top_k": 1,
+          "nesso_early_score_gate": 0.0,
+          "psichic_early_score_gate": 0.0
+        }
+      },
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults",
+      "supersedes": "nise-psichic",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "predict-openfold-3-mlx-fixed",
+      "workflow": "prediction",
+      "tool": "prediction_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "predictors": [
+            "openfold-3-mlx"
+          ],
+          "jobs": [
+            {
+              "name": "sumo",
+              "chains": [
+                {
+                  "id": "A",
+                  "kind": "protein",
+                  "sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+                  "msa": "/Users/thomasfryer/.iproteinstudio/msa_cache/00e99841616c44295043375bc0ba6286.a3m"
+                }
+              ]
+            }
+          ],
+          "num_seeds": 1,
+          "diffusion_samples": 1,
+          "max_parallel": 1,
+          "offline_only": true
+        }
+      },
+      "expected": "one complete finite SUMO structure with requested sequence and confidence artifacts",
+      "supersedes": "predict-openfold-3-mlx",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "rfd3-ligand-retry-fixed",
+      "workflow": "rfd3_protein_binder",
+      "tool": "rfd3_denovo_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "rfd3-ligand-retry-fixed",
+        "request": {
+          "target_kind": "small_molecule",
+          "smiles": "O=C(O)CCCCC1SCC2NC(=O)NC12",
+          "sequence_model": "ligandmpnn",
+          "extra_predictors": [
+            "boltz"
+          ],
+          "lengths": [
+            65
+          ],
+          "num_backbones": 1,
+          "sequences_per_backbone": 1,
+          "top_n": 1,
+          "batch_size": 1,
+          "queues_per_bin": 1,
+          "boltz_calibrate_n": 1
+        }
+      },
+      "expected": "one backbone and sequence derivative; complete requested independent verification, including binder-alone for protein; affinity for ligand",
+      "supersedes": "rfd3-ligand-retry",
+      "bridge": "source MCP29 with primary-Boltz normalization",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "hunter-openfold-3-mlx-fixed",
+      "workflow": "iterative_design",
+      "tool": "iterative_design_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "hunter-openfold-3-mlx-fixed",
+        "template_path": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/protein.yaml",
+        "arguments": [
+          "--workflow",
+          "protein",
+          "--predictor",
+          "openfold-3-mlx",
+          "--sequence-designer",
+          "solublempnn",
+          "--num-runs",
+          "1",
+          "--num-opt-cycles",
+          "1",
+          "--iptm-threshold",
+          "0.8",
+          "--predictor-samples",
+          "1",
+          "--post-predictor",
+          "none",
+          "--post-mode",
+          "none",
+          "--random-binder",
+          "--binder-min-len",
+          "65",
+          "--binder-max-len",
+          "65",
+          "--binder-random-seed",
+          "42",
+          "--require-target-msa"
+        ]
+      },
+      "expected": "successful calibration, cycle00 and cycle01 structures and sequence-design output; hit status is not an acceptance requirement",
+      "supersedes": "hunter-openfold-3-mlx",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "rfd3-protein-flash-fixed",
+      "workflow": "rfd3_protein_binder",
+      "tool": "rfd3_denovo_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "run_name": "rfd3-protein-flash-fixed",
+        "request": {
+          "target_kind": "protein",
+          "target_structure": "/Users/thomasfryer/.iproteinstudio/projects/portable-launch-acceptance/acceptance-inputs/sumo.cif",
+          "target_sequence": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG",
+          "target_chain": "A",
+          "target_chains": [
+            "A"
+          ],
+          "binding_site_mode": "surface_scan",
+          "sequence_model": "solublempnn",
+          "extra_predictors": [
+            "boltz",
+            "intellifold",
+            "protenix-v2",
+            "openfold-3-mlx"
+          ],
+          "intellifold_model": "v2-flash",
+          "lengths": [
+            65
+          ],
+          "num_backbones": 1,
+          "sequences_per_backbone": 1,
+          "top_n": 1,
+          "batch_size": 1,
+          "queues_per_bin": 1,
+          "boltz_calibrate_n": 1
+        }
+      },
+      "expected": "one backbone and sequence derivative; complete requested independent verification, including binder-alone for protein; affinity for ligand",
+      "supersedes": "rfd3-protein-flash",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "nise-nesso-fixed",
+      "workflow": "nise",
+      "tool": "nise_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "smiles": "O=C(O)CCCCC1SCC2NC(=O)NC12",
+          "num_starts": 1,
+          "trajectories": 1,
+          "max_cycles": 1,
+          "binder_min_len": 65,
+          "binder_max_len": 65,
+          "top_x": 1,
+          "phase0_refine_cycles": 1,
+          "phase0_seqs1": 1,
+          "phase0_gate_seqs": 1,
+          "phase0_seqs2": 1,
+          "first_cycle_seqs": 1,
+          "nise_seqs": 1,
+          "beam": 1,
+          "backbone_method": "rfdiffusion3",
+          "rfd3_num_bins": 1,
+          "early_score_gate": 0.0,
+          "scoring_mode": "screening",
+          "screening_engine": "nesso",
+          "nesso_screen": true,
+          "phase0_nesso_screen": true,
+          "nesso_top_k": 1,
+          "phase0_nesso_expand_top_k": 1,
+          "nesso_early_score_gate": 0.0,
+          "psichic_early_score_gate": 0.0
+        }
+      },
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults",
+      "supersedes": "nise-nesso",
+      "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
+    },
+    {
+      "id": "nise-boltz-three-starts",
+      "workflow": "nise",
+      "tool": "nise_plan",
+      "arguments": {
+        "project": "portable-launch-acceptance",
+        "request": {
+          "smiles": "O=C(O)CCCCC1SCC2NC(=O)NC12",
+          "num_starts": 3,
+          "trajectories": 1,
+          "max_cycles": 1,
+          "binder_min_len": 65,
+          "binder_max_len": 65,
+          "top_x": 1,
+          "phase0_refine_cycles": 1,
+          "phase0_seqs1": 1,
+          "phase0_gate_seqs": 1,
+          "phase0_seqs2": 1,
+          "first_cycle_seqs": 1,
+          "nise_seqs": 1,
+          "beam": 1,
+          "backbone_method": "protein-hunter",
+          "rfd3_num_bins": 1,
+          "early_score_gate": 0.0
+        }
+      },
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults",
+      "supersedes": "nise-boltz",
+      "retry_reason": "The one-start launch reached the scientific structural gate but had no survivor. Three starts test downstream affinity/optimization without weakening any geometry gate."
+    }
+  ],
+  "output_budget": "One prediction sample; scientific steps, recycles and precision unchanged. Further design cases are appended before submission.",
+  "acceptance_scope": "Launch/integration acceptance on this Mac, not a scientific-performance or fresh-Mac qualification",
+  "fixture_hashes": {
+    "protein.yaml": "bcdf45457800fa379d38046067312cc16adf4b99fece5b7317d8e2ac090f9e21",
+    "nanobody.yaml": "ce137e05057a299ffe042aaa111bcade69f2af3130b279eef7a02fe5e92eb1ab",
+    "ligand.yaml": "3baa10567be92a8615854e6797b4df3102c23f0152d994641705fc67ddc82d9f",
+    "sumo.cif": "dc8887a6a60d2f917b8a430e1df004a51215e5cb38eda7cd7aaf5c1dd3af610a"
+  },
+  "unsupported": [
+    "Protenix Constraint is a guided designer, not an independent Predict/RFD3 verifier",
+    "No unsupported engine/workflow combinations requested"
+  ],
+  "diagnostic_overrides": [
+    "One output sample/backbone/trajectory; one redesign cycle",
+    "NISE score gates zero only in disposable smoke cases so every scoring branch executes; default diffusion/recycle/precision and guidance retained"
+  ]
+}

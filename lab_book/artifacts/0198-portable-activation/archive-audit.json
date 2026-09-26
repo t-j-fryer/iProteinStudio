@@ -1,0 +1,223 @@
+{
+  "archive_sha256": "2ac914bb0b29979b4a8011dc6fed9ebe57fb97ed74098118a52b5a447c25f788",
+  "files": 1385,
+  "batches": [
+    {
+      "campaigns": 8,
+      "budgets": [
+        13,
+        13,
+        13,
+        13,
+        12,
+        12,
+        12,
+        12
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "scaffold": "8z8v_ozoralizumab_alb8",
+      "state": "prepared",
+      "predictor": "boltz",
+      "designer": "antifold",
+      "trajectories": 13,
+      "cycles": 5,
+      "created_at": "2026-09-26T01:17:51.239898+00:00",
+      "updated_at": "2026-09-26T01:17:51.239898+00:00",
+      "creation_to_update_seconds": 0.0
+    },
+    {
+      "scaffold": "8coh_gefurulimab",
+      "state": "prepared",
+      "predictor": "boltz",
+      "designer": "antifold",
+      "trajectories": 13,
+      "cycles": 5,
+      "created_at": "2026-09-26T01:17:50.770351+00:00",
+      "updated_at": "2026-09-26T01:17:50.770351+00:00",
+      "creation_to_update_seconds": 0.0
+    },
+    {
+      "scaffold": "isecarosmab",
+      "state": "prepared",
+      "predictor": "boltz",
+      "designer": "antifold",
+      "trajectories": 12,
+      "cycles": 5,
+      "created_at": "2026-09-26T01:17:52.825739+00:00",
+      "updated_at": "2026-09-26T01:17:52.825739+00:00",
+      "creation_to_update_seconds": 0.0
+    },
+    {
+      "scaffold": "sonelokimab",
+      "state": "prepared",
+      "predictor": "boltz",
+      "designer": "antifold",
+      "trajectories": 12,
+      "cycles": 5,
+      "created_at": "2026-09-26T01:17:53.322648+00:00",
+      "updated_at": "2026-09-26T01:17:53.322648+00:00",
+      "creation_to_update_seconds": 0.0
+    },
+    {
+      "scaffold": "7eow_caplacizumab",
+      "state": "prepared",
+      "predictor": "boltz",
+      "designer": "antifold",
+      "trajectories": 13,
+      "cycles": 5,
+      "created_at": "2026-09-26T01:17:49.691037+00:00",
+      "updated_at": "2026-09-26T01:17:49.691038+00:00",
+      "creation_to_update_seconds": 9.5367431640625e-07
+    },
+    {
+      "scaffold": "3eak_nbbcii10_fgla",
+      "state": "prepared",
+      "predictor": "boltz",
+      "designer": "antifold",
+      "trajectories": 12,
+      "cycles": 5,
+      "created_at": "2026-09-26T01:17:54.055211+00:00",
+      "updated_at": "2026-09-26T01:17:54.055211+00:00",
+      "creation_to_update_seconds": 0.0
+    },
+    {
+      "scaffold": "gontivimab",
+      "state": "prepared",
+      "predictor": "boltz",
+      "designer": "antifold",
+      "trajectories": 12,
+      "cycles": 5,
+      "created_at": "2026-09-26T01:17:52.086275+00:00",
+      "updated_at": "2026-09-26T01:17:52.086275+00:00",
+      "creation_to_update_seconds": 0.0
+    },
+    {
+      "scaffold": "7xl0_vobarilizumab",
+      "state": "failed",
+      "predictor": "boltz",
+      "designer": "antifold",
+      "trajectories": 13,
+      "cycles": 5,
+      "created_at": "2026-09-26T01:17:49.257543+00:00",
+      "updated_at": "2026-09-26T01:53:13.892400+00:00",
+      "creation_to_update_seconds": 2124.634857058525
+    }
+  ],
+  "app_version": "0.2.6",
+  "mcp_version": "27",
+  "logs": [],
+  "job": {
+    "id": "job-1cc638955342",
+    "plan_id": "plan-1cc6389553423a0e",
+    "sha256": "1cc6389553423a0ed4a6bf6f12930ce7c7789a6b0364e45864d044a98e48a10c"
+  },
+  "calibration_files": [
+    "cycle_00/calibration_context.tsv",
+    "cycle_00/calibration_binder_length.txt",
+    "cycle_00/nanobody_scaffold_masked.a3m",
+    "cycle_00/boltz_input.yaml",
+    "cycle_00/nanobody_seed_calibration.json"
+  ],
+  "calibration_directory_entries": [
+    {
+      "path": "",
+      "zip_local_time": [
+        2026,
+        9,
+        25,
+        21,
+        53,
+        12
+      ],
+      "bytes": 0
+    },
+    {
+      "path": "cycle_00/",
+      "zip_local_time": [
+        2026,
+        9,
+        25,
+        21,
+        53,
+        12
+      ],
+      "bytes": 0
+    },
+    {
+      "path": "cycle_00/calibration_context.tsv",
+      "zip_local_time": [
+        2026,
+        9,
+        25,
+        21,
+        53,
+        12
+      ],
+      "bytes": 86
+    },
+    {
+      "path": "cycle_00/boltz/",
+      "zip_local_time": [
+        2026,
+        9,
+        25,
+        21,
+        53,
+        12
+      ],
+      "bytes": 0
+    },
+    {
+      "path": "cycle_00/calibration_binder_length.txt",
+      "zip_local_time": [
+        2026,
+        9,
+        25,
+        21,
+        53,
+        12
+      ],
+      "bytes": 4
+    },
+    {
+      "path": "cycle_00/nanobody_scaffold_masked.a3m",
+      "zip_local_time": [
+        2026,
+        9,
+        25,
+        21,
+        53,
+        12
+      ],
+      "bytes": 35868
+    },
+    {
+      "path": "cycle_00/boltz_input.yaml",
+      "zip_local_time": [
+        2026,
+        9,
+        25,
+        21,
+        53,
+        12
+      ],
+      "bytes": 1407
+    },
+    {
+      "path": "cycle_00/nanobody_seed_calibration.json",
+      "zip_local_time": [
+        2026,
+        9,
+        25,
+        21,
+        53,
+        12
+      ],
+      "bytes": 2049
+    }
+  ],
+  "timing_caution": "ZIP timestamps are local, two-second-resolution filesystem metadata, not a precise job execution timeline."
+}

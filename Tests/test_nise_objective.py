@@ -1,9 +1,10 @@
 """Execute scorer-objective selection, geometry exclusion and durable replay; no models."""
-import csv,json,re,sys,tempfile,unittest
+import csv,json,os,re,sys,tempfile,unittest
 from pathlib import Path
 from types import SimpleNamespace as NS
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
+os.environ.setdefault('NANOHUNTER_ROOT', str(ROOT))
 SCRIPTS=ROOT/'Sources/iProteinStudio/Resources/pipeline/scripts'
 sys.path[:0]=[str(SCRIPTS/'nise'),str(SCRIPTS),str(ROOT/'Tests')]
 import contract,nise_run,nise_lib,nesso_screen,psichic_screen,psichic_contract

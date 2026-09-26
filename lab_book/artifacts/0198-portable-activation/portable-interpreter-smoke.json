@@ -1,0 +1,7 @@
+{
+  "portable_interpreter_smoke": true,
+  "activation_script_present": false,
+  "python_version": "3.11.13",
+  "same_requested_interpreter_and_prefix": true,
+  "models_imported": false
+}

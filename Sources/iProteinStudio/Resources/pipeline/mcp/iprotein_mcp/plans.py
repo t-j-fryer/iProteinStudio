@@ -597,6 +597,10 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
     if not isinstance(extras, list) or any(value not in PREDICTORS for value in extras):
         raise StudioError("extra_predictors contains an unsupported engine.")
     request["extra_predictors"] = list(dict.fromkeys(extras))
+    if target_kind == "small_molecule":
+        # Match the native app: Boltz is already the mandatory primary scorer.
+        # It must not be passed to the independent-second-opinion adapter.
+        request["extra_predictors"] = [p for p in request["extra_predictors"] if p != "boltz"]
     if sum(value.startswith("protenix-") for value in request["extra_predictors"]) > 1:
         raise StudioError("Choose either Protenix v2 or Mini, not both.")
     allowed_conditions = {"buried", "exposed", "hbondDonor", "hbondAcceptor", "hotspot"}

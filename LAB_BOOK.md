@@ -241,3 +241,5 @@ forgotten one.
 - [0193 — NISE objective baseline gates](lab_book/0193-set-nise-objective-baselines.md): user-selected NESSO 0.4 / PSICHIC 0.2 defaults, saved-run compatibility, and exact affinity-bound explanation.
 
 - [0194 — Publish NISE objectives](lab_book/0194-publish-nise-objectives.md): 0.2.7/build53/MCP28 release and safe local deployment.
+Newest fix: [0198 — Portable iterative launcher and student archive](lab_book/0198-fix-portable-iterative-engine-launch.md) (missing activation-file defect reproduced; source correction tested, not yet released; student exception awaits central log).
+- [Portable workflow launch acceptance](lab_book/0199-qualify-portable-workflow-launches.md) — 2026-09-26, in progress; biotin safely stopped, public engine/workflow matrix then release and resume.

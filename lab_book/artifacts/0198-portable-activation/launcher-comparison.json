@@ -1,0 +1,20 @@
+[
+  {
+    "source": "released-0.2.6",
+    "runner_sha256": "8d30c38f35e7f699f583574102a7fada2f845b50a9464152b2bff21f8ce02a88",
+    "exit_code": 1,
+    "engine_invoked": false,
+    "log_created": false,
+    "output_directory_created": true,
+    "stderr": "fixture: line 25: <fixture>/python/bin/activate: No such file or directory\n"
+  },
+  {
+    "source": "patched-source",
+    "runner_sha256": "db9cb8578039edd975697440574dbb54b8253937deb5d3f322c6f0e3fa2f2043",
+    "exit_code": 0,
+    "engine_invoked": true,
+    "log_created": true,
+    "output_directory_created": true,
+    "stderr": ""
+  }
+]

@@ -2,6 +2,30 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.8 — portable engine launches
+
+- Fix Protein Hunter and nanobody launches with downloaded portable Python
+  runtimes. These runtimes do not include a virtual-environment activation
+  script; Studio now selects the recorded engine interpreter directly and
+  restores the caller's environment after each engine invocation.
+- Missing engine interpreters fail with an explicit repair message. There is
+  no substitution of system Python or a different installed engine.
+- RFdiffusion3 ligand requests now treat Boltz consistently as the built-in
+  primary scorer. Listing it among extra verifiers no longer causes a late
+  failure after prediction; independent extra engines remain selected.
+- OpenFold now handles mixed target-MSA / query-only binder requests without
+  losing the target alignment or contacting an MSA server for the binder.
+- RFdiffusion3 preserves original ligand atom names separately from model
+  features. Update RFdiffusion3 from Engines to install its new portable runtime;
+  model inputs, coordinates and weights are unchanged by this export fix.
+- Jobs allow a short orderly child-process shutdown while retaining the GPU
+  lease. Abandoned children are still stopped, and cleanup retains the original
+  prediction failure in the job diagnostics.
+- MCP 29 ships the same corrected runner. Existing jobs keep their frozen code
+  and runtimes: submit a new campaign to adopt this launcher correction.
+- Model weights, precision, diffusion/recycle defaults and saved campaign
+  settings are unchanged.
+
 ## 0.2.7 — NISE objectives and portable Phase 0 cohorts
 
 - Choose whether NESSO/PSICHIC is a prefilter for Boltz or the optimisation

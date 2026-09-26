@@ -365,6 +365,11 @@ def validate_request(req: dict) -> None:
     unknown = [p for p in req.get("extra_predictors", []) if p not in allowed_predictors]
     if unknown:
         fail("Unsupported verification predictor(s): " + ", ".join(unknown))
+    if kind == "small_molecule":
+        # Boltz always runs as the primary ligand scorer, never as a second
+        # opinion. Normalize saved/direct requests just like native Studio.
+        selected = [p for p in selected if p != "boltz"]
+        req["extra_predictors"] = selected
     if sum(predictor.startswith("protenix-") for predictor in selected) > 1:
         fail("Choose either Protenix v2 or Mini, not both; they are one model family.")
     if req.get("precision") not in {"bf16", "fp32"}:

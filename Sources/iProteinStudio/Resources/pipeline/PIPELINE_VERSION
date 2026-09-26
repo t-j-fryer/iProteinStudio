@@ -34,3 +34,11 @@ studio_nise_objective_validation: lab_book/0192-add-nise-objective-choice.md
 
 studio_nise_objective_baselines: nesso-0.4-psichic-0.2
 studio_nise_objective_baselines_validation: lab_book/0193-set-nise-objective-baselines.md
+
+studio_engine_launch: explicit-python-environment-v1
+studio_engine_launch_validation: lab_book/0198-fix-portable-iterative-engine-launch.md
+
+studio_workflow_launch_acceptance: lab_book/0199-qualify-portable-workflow-launches.md
+studio_openfold_mixed_msa: explicit-query-only-a3m-v1
+studio_child_shutdown: bounded-grace-retained-lease-v1
+studio_rfd3_runtime_release: runtimes-2026.09.26-1

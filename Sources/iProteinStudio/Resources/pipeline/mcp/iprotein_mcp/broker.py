@@ -25,6 +25,9 @@ _EXECUTION_FD = None
 _RUNTIME_BINDINGS = {}
 _CODE_SNAPSHOT = None
 _PREPARED_RUNTIME_VIEW = None
+# Multiprocessing/resource-monitor children may finish just after their parent.
+# Keep the execution lease throughout this grace period; never overlap jobs.
+CHILD_EXIT_GRACE_SECONDS = 2.0
 
 
 @contextmanager
@@ -322,7 +325,7 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
         family = ProcessTree(process.pid)
         recorded_processes = None
         stopping_at = None
-        killed = False
+        exited_at = None
         abandoned_children = False
         while True:
             family.refresh()
@@ -341,28 +344,40 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
             code = process.poll()
             if code is not None:
                 family.refresh(force=True)
-            if stopping_at is None and (_cancelled(job_id) or (code is not None and family.alive())):
+                if exited_at is None:
+                    exited_at = time.monotonic()
+            live_children = family.alive() if code is not None else None
+            lingering = (code is not None and live_children
+                         and time.monotonic() - exited_at >= CHILD_EXIT_GRACE_SECONDS)
+            if stopping_at is None and (_cancelled(job_id) or lingering):
                 abandoned_children = not _cancelled(job_id)
                 stopping_at = time.monotonic()
+                if abandoned_children:
+                    atomic_json(state_path(job_id).parent / "lingering_processes.json", {
+                        "schema": 1, "recorded_at": utc_now(), "workflow_exit_code": code,
+                        "grace_seconds": CHILD_EXIT_GRACE_SECONDS,
+                        "processes": {str(pid): row for pid, row in live_children.items()},
+                    })
                 _update(job_id, stage="stopping", message="Stopping; waiting for the workflow's child processes to exit.")
                 family.send(signal.SIGTERM)
             if stopping_at is not None and time.monotonic() - stopping_at >= 3:
                 family.send(signal.SIGKILL)
-                killed = True
-            if code is not None and (stopping_at is None or (killed and not family.alive())):
+            if code is not None and not family.alive():
                 break
             time.sleep(0.1)
         code = process.wait()
-    if abandoned_children:
+    if abandoned_children and code == 0:
         _update(job_id, message="Workflow exited while child processes were still running; they were stopped before releasing the GPU lease.")
         return 1
-    if stopping_at is not None:
+    if stopping_at is not None and not abandoned_children:
         return 130
     if code != 0:
         diagnostic = tail_text(log_path, 80)
         message = explicit_failure or f"Workflow command exited with status {code}."
         if not explicit_failure and diagnostic:
             message += f" Last output: {diagnostic[-1]}"
+        if abandoned_children:
+            message += " Remaining workflow children were stopped before releasing the GPU lease."
         _update(job_id, message=message, error="\n".join(diagnostic) if diagnostic else None)
     return code
 

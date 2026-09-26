@@ -5,6 +5,51 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${PROTEINHUNTER_ROOT:-${IPROTEINHUNTER_ROOT:-${NANOHUNTER_ROOT:-$SCRIPT_DIR}}}"
 PIPELINE_CODE_ROOT="${IPROTEINSTUDIO_PIPELINE_SNAPSHOT:-${REPO_ROOT}}"
 
+# Select the requested Python without requiring a venv activation script.
+# Portable standalone CPython has bin/python but intentionally no bin/activate.
+# Keep this shell's original environment intact between engine calls, including
+# an outer activated environment. Do not substitute any other interpreter.
+studio_activate_engine() {
+  local engine_root="$1"
+  if [[ ! -x "${engine_root}/bin/python" ]]; then
+    echo "ERROR: Requested engine Python is missing or not executable: ${engine_root}/bin/python. Repair this engine in Studio." >&2
+    return 1
+  fi
+  if [[ "${_STUDIO_ENGINE_ENV_ACTIVE:-0}" == 1 ]]; then
+    echo "ERROR: An engine environment is already selected; refusing a nested switch." >&2
+    return 1
+  fi
+  _STUDIO_ENGINE_OLD_PATH="${PATH}"
+  _STUDIO_ENGINE_OLD_HOME_SET="${PYTHONHOME+x}"
+  _STUDIO_ENGINE_OLD_HOME="${PYTHONHOME-}"
+  _STUDIO_ENGINE_OLD_VENV_SET="${VIRTUAL_ENV+x}"
+  _STUDIO_ENGINE_OLD_VENV="${VIRTUAL_ENV-}"
+  _STUDIO_ENGINE_ENV_ACTIVE=1
+  export VIRTUAL_ENV="${engine_root}"
+  export PATH="${engine_root}/bin:${PATH}"
+  unset PYTHONHOME
+  hash -r
+}
+
+studio_deactivate_engine() {
+  [[ "${_STUDIO_ENGINE_ENV_ACTIVE:-0}" == 1 ]] || return 0
+  export PATH="${_STUDIO_ENGINE_OLD_PATH}"
+  if [[ -n "${_STUDIO_ENGINE_OLD_HOME_SET}" ]]; then
+    export PYTHONHOME="${_STUDIO_ENGINE_OLD_HOME}"
+  else
+    unset PYTHONHOME
+  fi
+  if [[ -n "${_STUDIO_ENGINE_OLD_VENV_SET}" ]]; then
+    export VIRTUAL_ENV="${_STUDIO_ENGINE_OLD_VENV}"
+  else
+    unset VIRTUAL_ENV
+  fi
+  unset _STUDIO_ENGINE_ENV_ACTIVE _STUDIO_ENGINE_OLD_PATH
+  unset _STUDIO_ENGINE_OLD_HOME_SET _STUDIO_ENGINE_OLD_HOME
+  unset _STUDIO_ENGINE_OLD_VENV_SET _STUDIO_ENGINE_OLD_VENV
+  hash -r
+}
+
 # One implementation serves both the original iProteinHunter protein-binder
 # workflow and NanoHunter fixed-scaffold nanobody design.  Resolve the workflow
 # before assigning defaults so `--workflow protein` receives protein-safe
@@ -3508,7 +3553,7 @@ Path(out_yaml).write_text(
 PY
 
   for attempt in $(seq 1 "${attempts}"); do
-    source "${BOLTZ_VENV}/bin/activate"
+    studio_activate_engine "${BOLTZ_VENV}" || return $?
     set +e
     "${BOLTZ_CLI[@]}" predict "${yaml_path}" \
       --out_dir "${out_dir}" \
@@ -3517,7 +3562,7 @@ PY
       > "${log_path}" 2>&1
     local rc=$?
     set -e
-    deactivate || true
+    studio_deactivate_engine
 
     local raw_csv
     raw_csv="$(find "${out_dir}" -type f -path '*/msa/*.csv' | sort | head -n 1 || true)"
@@ -3631,7 +3676,7 @@ Path(out_yaml).write_text(
 )
 PY
 
-  source "${INTELLIFOLD_VENV}/bin/activate"
+  studio_activate_engine "${INTELLIFOLD_VENV}" || return $?
   set +e
   OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml_path}" \
     --out_dir "${out_dir}" \
@@ -3641,7 +3686,7 @@ PY
     > "${log_path}" 2>&1
   local rc=$?
   set -e
-  deactivate || true
+  studio_deactivate_engine
 
   raw_a3m="$(find "${out_dir}" -type f -name '*_unpaired.a3m' | sort | head -n 1 || true)"
   raw_csv="$(find "${out_dir}" -type f -name '*_0.csv' | sort | head -n 1 || true)"
@@ -4159,7 +4204,7 @@ with open(out_json, "w") as f:
     json.dump(payload, f, indent=2)
 PY
 
-  source "${OPENFOLD_VENV}/bin/activate"
+  studio_activate_engine "${OPENFOLD_VENV}" || return $?
   set +e
   KMP_USE_SHM=0 "${OPENFOLD_CLI}" align-msa-server \
     --query_json "${query_json}" \
@@ -4167,7 +4212,7 @@ PY
     >"${log_file}" 2>&1
   rc=$?
   set -e
-  deactivate || true
+  studio_deactivate_engine
   if [[ "${rc}" -ne 0 ]]; then
     tail -n 120 "${log_file}" >&2 || true
     die "OpenFold ${cache_label} MSA calibration failed (rc=${rc})."
@@ -4533,7 +4578,7 @@ run_predict_boltz() {
       cmd+=("--use_potentials")
     fi
   fi
-  source "${BOLTZ_VENV}/bin/activate"
+  studio_activate_engine "${BOLTZ_VENV}" || return $?
   "${cmd[@]}" >"${predict_log}" 2>&1 &
   local pid=$!
   local baseline_avail_kb min_avail_kb
@@ -4567,7 +4612,7 @@ run_predict_boltz() {
   wait "${pid}"
   local rc=$?
   set -e
-  deactivate || true
+  studio_deactivate_engine
   if [[ "${rc}" -ne 0 ]]; then
     echo "ERROR: Boltz prediction failed (rc=${rc}) for ${input_yaml}" >&2
     tail -n 80 "${predict_log}" >&2 || true
@@ -4627,7 +4672,7 @@ run_boltz_predict_monitored() {
       cmd+=("--use_potentials")
     fi
   fi
-  source "${BOLTZ_VENV}/bin/activate"
+  studio_activate_engine "${BOLTZ_VENV}" || return $?
   "${cmd[@]}" >"${predict_log}" 2>&1 &
   local pid=$!
 
@@ -4679,7 +4724,7 @@ run_boltz_predict_monitored() {
   wait "${pid}"
   local rc=$?
   set -e
-  deactivate || true
+  studio_deactivate_engine
 
   local peak_rss_mb peak_footprint_mb peak_sys_delta_mb peak_effective_mb
   peak_rss_mb="$(python3 - "${peak_rss_kb}" <<'PY'
@@ -4732,7 +4777,7 @@ run_intellifold_predict_monitored() {
     template_environment=("IPROTEINSTUDIO_INTELLIFOLD_TEMPLATE_MANIFEST=${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}")
   fi
 
-  source "${INTELLIFOLD_VENV}/bin/activate"
+  studio_activate_engine "${INTELLIFOLD_VENV}" || return $?
   if [[ "${CPU_ONLY}" -eq 1 ]]; then
     env ${template_environment[@]+"${template_environment[@]}"} ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" ${template_flags[@]+"${template_flags[@]}"} >"${predict_log}" 2>&1 &
   else
@@ -4788,7 +4833,7 @@ run_intellifold_predict_monitored() {
   wait "${pid}"
   local rc=$?
   set -e
-  deactivate || true
+  studio_deactivate_engine
 
   local peak_rss_mb peak_footprint_mb peak_sys_delta_mb peak_effective_mb
   peak_rss_mb="$(python3 - "${peak_rss_kb}" <<'PY'
@@ -4843,7 +4888,7 @@ run_predict_intellifold() {
     template_flags=(--use_template)
     template_environment=("IPROTEINSTUDIO_INTELLIFOLD_TEMPLATE_MANIFEST=${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}")
   fi
-  source "${INTELLIFOLD_VENV}/bin/activate"
+  studio_activate_engine "${INTELLIFOLD_VENV}" || return $?
   set +e
   if [[ "${CPU_ONLY}" -eq 1 ]]; then
     env ${template_environment[@]+"${template_environment[@]}"} ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_yaml}" --out_dir "${out_dir}" "${INTELLIFOLD_EXTRA_FLAGS[@]}" ${template_flags[@]+"${template_flags[@]}"} >"${predict_log}" 2>&1
@@ -4852,7 +4897,7 @@ run_predict_intellifold() {
   fi
   rc=$?
   set -e
-  deactivate || true
+  studio_deactivate_engine
   if [[ "${rc}" -ne 0 ]]; then
     echo "ERROR: IntelliFold prediction failed (rc=${rc}) for ${input_yaml}" >&2
     tail -n 80 "${predict_log}" >&2 || true
@@ -4969,7 +5014,7 @@ run_predict_openfold() {
   # Avoid interactive checkpoint prompts by ensuring weights are present first.
   ensure_openfold_checkpoint_noninteractive
 
-  source "${OPENFOLD_VENV}/bin/activate"
+  studio_activate_engine "${OPENFOLD_VENV}" || return $?
   set +e
   OPENFOLD_CACHE="${OPENFOLD_CACHE_DIR}" KMP_USE_SHM=0 "${OPENFOLD_CLI}" predict \
     --query_json "${query_json}" \
@@ -4981,7 +5026,7 @@ run_predict_openfold() {
     >"${predict_log}" 2>&1
   rc=$?
   set -e
-  deactivate || true
+  studio_deactivate_engine
   if [[ "${rc}" -ne 0 ]]; then
     echo "ERROR: OpenFold prediction failed (rc=${rc}) for ${input_yaml}" >&2
     tail -n 80 "${predict_log}" >&2 || true
@@ -5333,7 +5378,7 @@ PY
     secondary_bias_flags=(--bias_AA_per_residue "${secondary_bias_json}")
   fi
 
-  source "${LIGAND_VENV}/bin/activate"
+  studio_activate_engine "${LIGAND_VENV}" || return $?
   pushd "${LIGANDMPNN_REPO}" >/dev/null
   # LigandMPNN can fail on macOS CPU when OpenMP shared memory is unavailable.
   if [[ -n "${bias_aa}" ]]; then
@@ -5365,7 +5410,7 @@ PY
       > "${ligand_out}/ligandmpnn.log" 2>&1
   fi
   popd >/dev/null
-  deactivate
+  studio_deactivate_engine
 
   local seqs_dir fasta
   seqs_dir="${ligand_out}/seqs"
@@ -5554,7 +5599,7 @@ run_antifold_redesign() {
   if [[ -n "${antigen_chain}" ]]; then
     antigen_flags=(--antigen_chain "${antigen_chain}")
   fi
-  source "${ANTIFOLD_VENV}/bin/activate"
+  studio_activate_engine "${ANTIFOLD_VENV}" || return $?
   pushd "${ANTIFOLD_REPO}" >/dev/null
   set +e
   PYTORCH_ENABLE_MPS_FALLBACK=1 KMP_USE_SHM=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 ${ANTIFOLD_RUN} \
@@ -5573,7 +5618,7 @@ run_antifold_redesign() {
   local rc=$?
   set -e
   popd >/dev/null
-  deactivate
+  studio_deactivate_engine
 
   if [[ "${rc}" -ne 0 ]]; then
     echo "ERROR: AntiFold redesign failed (rc=${rc}) for ${antifold_input}" >&2
@@ -6180,7 +6225,7 @@ run_cycle_wave_predictor_batch() {
       if [[ "${BOLTZ_USE_POTENTIALS_DEFAULT}" -eq 1 ]]; then
         use_potential_flags=(--use_potentials)
       fi
-      source "${BOLTZ_VENV}/bin/activate"
+      studio_activate_engine "${BOLTZ_VENV}" || return $?
       "${BOLTZ_CLI[@]}" predict "${input_dir}" \
         --out_dir "${output_dir}" \
         "${BOLTZ_EXTRA_FLAGS[@]}" \
@@ -6188,7 +6233,7 @@ run_cycle_wave_predictor_batch() {
         --override \
         > "${log_path}" 2>&1
       rc=$?
-      deactivate || true
+      studio_deactivate_engine
       ;;
     protenix-v2|protenix-mini|protenix-constraint-v0.5)
       local protenix_model="v2"
@@ -6220,7 +6265,7 @@ run_cycle_wave_predictor_batch() {
         intellifold_template_flags=(--use_template)
         intellifold_template_environment=("IPROTEINSTUDIO_INTELLIFOLD_TEMPLATE_MANIFEST=${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}")
       fi
-      source "${INTELLIFOLD_VENV}/bin/activate"
+      studio_activate_engine "${INTELLIFOLD_VENV}" || return $?
       if [[ "${CPU_ONLY}" -eq 1 ]]; then
         env ${intellifold_template_environment[@]+"${intellifold_template_environment[@]}"} ACCELERATE_USE_CPU=true OMP_NUM_THREADS="${INTELLIFOLD_OMP_NUM_THREADS}" VECLIB_MAXIMUM_THREADS="${INTELLIFOLD_VECLIB_MAXIMUM_THREADS}" KMP_USE_SHM=0 python "${INTELLIFOLD_RUNNER}" "${input_dir}" \
           --out_dir "${output_dir}" \
@@ -6235,7 +6280,7 @@ run_cycle_wave_predictor_batch() {
           > "${log_path}" 2>&1
       fi
       rc=$?
-      deactivate || true
+      studio_deactivate_engine
       ;;
     openfold-3-mlx)
       local of_query_dir="${batch_root}/openfold_queries"
@@ -6273,7 +6318,7 @@ run_cycle_wave_predictor_batch() {
       if [[ "${rc}" -eq 0 ]]; then
         write_openfold_runner_yaml "${of_runner}"
         ensure_openfold_checkpoint_noninteractive
-        source "${OPENFOLD_VENV}/bin/activate"
+        studio_activate_engine "${OPENFOLD_VENV}" || return $?
         OPENFOLD_CACHE="${OPENFOLD_CACHE_DIR}" KMP_USE_SHM=0 "${OPENFOLD_CLI}" predict \
           --query_json "${of_batch_query}" \
           --output_dir "${output_dir}" \
@@ -6283,7 +6328,7 @@ run_cycle_wave_predictor_batch() {
           "${OPENFOLD_EXTRA_FLAGS[@]}" \
           > "${log_path}" 2>&1
         rc=$?
-        deactivate || true
+        studio_deactivate_engine
       fi
       ;;
     esac
@@ -6434,7 +6479,7 @@ run_cycle_wave_antifold_batch() {
 
   local start_ts end_ts duration rc
   start_ts="$(now_epoch)"
-  source "${ANTIFOLD_VENV}/bin/activate"
+  studio_activate_engine "${ANTIFOLD_VENV}" || return $?
   pushd "${ANTIFOLD_REPO}" >/dev/null
   set +e
   PYTORCH_ENABLE_MPS_FALLBACK=1 KMP_USE_SHM=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 ${ANTIFOLD_RUN} \
@@ -6452,7 +6497,7 @@ run_cycle_wave_antifold_batch() {
   rc=$?
   set -e
   popd >/dev/null
-  deactivate || true
+  studio_deactivate_engine
   end_ts="$(now_epoch)"
   duration="$(calc_duration "${start_ts}" "${end_ts}")"
   echo "${cycle_idx},${N_RUNS},${start_ts},${end_ts},${duration}" >> "${wave_root}/antifold_batches.csv"

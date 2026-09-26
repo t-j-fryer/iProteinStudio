@@ -265,7 +265,7 @@ def main() -> None:
         mixed_msa = Path(mixed_payload["chains"][1]["main_msa_file_paths"][0])
         expect(built.stdout.strip() == "false" and mixed_payload["use_msas"],
                "OpenFold mixed-chain policy did not retain the real alignment")
-        expect("main_msa_file_paths" not in mixed_payload["chains"][0]
+        expect(Path(mixed_payload["chains"][0]["main_msa_file_paths"][0]).read_text() == ">query\nACDEFG\n"
                and mixed_msa.name == "colabfold_main.a3m"
                and mixed_msa.read_bytes() == cached.read_bytes(),
                "OpenFold mixed-chain MSA policy crossed chain boundaries")
@@ -621,8 +621,9 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
             pass
         else:
             raise AssertionError("IntelliFold missing output was silently accepted")
-        expect(intellifold.STRICT_ACCELERATE_VERSION == "1.1.1"
-               and intellifold.STRICT_TORCH_VERSION == "2.6.0",
+        lock = (ROOT / 'Sources/iProteinStudio/Resources/pipeline/locks/intellifold.txt').read_text()
+        expect(('accelerate==' + intellifold.STRICT_ACCELERATE_VERSION + ' ') in lock
+               and ('torch==' + intellifold.STRICT_TORCH_VERSION + ' ') in lock,
                "IntelliFold strict launcher drifted from the installed version pins")
 
         try:
@@ -776,6 +777,12 @@ ATOM C CG  UNK B 2 1 1 UNK B CG  1 .
             "smiles": "CCO", "ligand_source": "smiles",
             "extra_predictors": [], "precision": "float32",
         }
+        ligand_with_primary = {**invalid_precision, "precision":"bf16",
+                               "extra_predictors":["boltz","intellifold"],
+                               "intellifold_model":"v2-flash"}
+        prepare.validate_request(ligand_with_primary)
+        expect(ligand_with_primary["extra_predictors"] == ["intellifold"],
+               "small-molecule primary Boltz leaked into independent extra verifiers")
         captured = io.StringIO()
         try:
             with contextlib.redirect_stdout(captured):
