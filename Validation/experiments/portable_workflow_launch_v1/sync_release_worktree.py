@@ -2,7 +2,7 @@
 from pathlib import Path
 import shutil,subprocess
 root=Path(__file__).resolve().parents[3];target=root/'.worktrees/portable-launch-release'
-files=['VERSION','BUILD_NUMBER','CHANGELOG.md','Tests/run.py','Tests/test_engine_environment.py','Tests/test_mcp_bridge.py','Tests/test_workflow_pipelines.py','Tests/test_rfd3_target_export.py','Tests/test_nise_objective.py','lab_book/0198-fix-portable-iterative-engine-launch.md','lab_book/0199-qualify-portable-workflow-launches.md','Validation/lab_book/0052-portable-workflow-launches.md']
+files=['VERSION','BUILD_NUMBER','CHANGELOG.md','Tests/run.py','Tests/test_engine_environment.py','Tests/test_mcp_bridge.py','Tests/test_workflow_pipelines.py','Tests/test_rfd3_target_export.py','Tests/test_nise_objective.py','Tests/test_installer_process_guard.py','lab_book/0198-fix-portable-iterative-engine-launch.md','lab_book/0199-qualify-portable-workflow-launches.md','Validation/lab_book/0052-portable-workflow-launches.md']
 changed=subprocess.check_output(['git','diff','--name-only','--','Sources'],cwd=root,text=True).splitlines();files+=changed
 for folder in ['Validation/experiments/portable_workflow_launch_v1','lab_book/artifacts/0198-portable-activation']:
  files += [str(p.relative_to(root)) for p in (root/folder).rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix!='.pyc']

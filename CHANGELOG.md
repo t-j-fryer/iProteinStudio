@@ -8,6 +8,8 @@ Initialization-only helix-kill strength is now the sole secondary-structure cont
   runtimes. These runtimes do not include a virtual-environment activation
   script; Studio now selects the recorded engine interpreter directly and
   restores the caller's environment after each engine invocation.
+- MCP engine installation now distinguishes its control Python from active
+  prediction processes; real engine workloads still prevent concurrent updates.
 - Missing engine interpreters fail with an explicit repair message. There is
   no substitution of system Python or a different installed engine.
 - RFdiffusion3 ligand requests now treat Boltz consistently as the built-in

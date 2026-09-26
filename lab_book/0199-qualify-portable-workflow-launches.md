@@ -103,3 +103,14 @@ issues were isolated: objective test lacked its own NANOHUNTER_ROOT setup, and
 RFD3/NISE ligand tests require Boltz imports absent from the Protenix test Python.
 The objective test now declares its source root; both files pass (three tests
 each) under the installed Boltz/RDKit Python. No model inference in these tests.
+
+## Installer process classification
+
+Code review of the final managed update path exposed the old `pgrep` expression
+matching all `components/` processes, including the MCP installer worker's own
+control Python. Replace the broad expression with literal managed-path checks
+from one process snapshot: ignore the control interpreter, retain guards for
+engine components (including future names), legacy venvs, and live runtime views.
+Two executable regressions use owned inert child processes and a managed path
+with spaces and regex characters: control is allowed; all three computation
+path classes are blocked. No unrelated processes are signalled or changed.

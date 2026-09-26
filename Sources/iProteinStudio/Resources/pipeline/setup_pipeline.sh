@@ -371,10 +371,24 @@ uv_install_editable() {
 }
 
 assert_runtime_idle() {
-  if command -v pgrep >/dev/null 2>&1 \
-     && pgrep -f "${NANOHUNTER_ROOT}/(venvs/|components/|agent/jobs/[^/]+/runtime_view/)" >/dev/null 2>&1; then
-    fail "A Studio prediction or design process is using the managed runtime. Let it finish before installing or updating engines."
-  fi
+  local processes pid command component rest busy=0
+  processes="$(/bin/ps -axo pid=,command=)" \
+    || fail "Could not check whether a Studio engine is running; retry installation."
+  while read -r pid command; do
+    case "${command}" in
+      *"${NANOHUNTER_ROOT}/venvs/"*|*"${NANOHUNTER_ROOT}/agent/runtime_views/"*|*"${NANOHUNTER_ROOT}/agent/jobs/"*"/runtime_view/"*) busy=1 ;;
+      *"${NANOHUNTER_ROOT}/components/"*)
+        rest="${command#*"${NANOHUNTER_ROOT}/components/"}"
+        component="${rest%%/*}"
+        # The MCP installer itself and queued brokers use control Python.
+        # They are not engine workloads. New engine components remain guarded.
+        [[ "${component}" == control ]] || busy=1
+        ;;
+    esac
+    if [[ "${busy}" -eq 1 ]]; then
+      fail "A Studio prediction or design process is using the managed runtime. Let it finish before installing or updating engines."
+    fi
+  done <<< "${processes}"
 }
 
 check_sha256() {

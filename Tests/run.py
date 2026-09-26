@@ -29,7 +29,7 @@ FAST_PYTHON = [
     "test_runtime_transaction.py", "test_storage_policy.py", "test_mcp_bridge.py",
     "test_desktop_jobs.py", "test_vendor_pipeline.py", "test_verified_downloader.py",
     "test_prediction_engine_safety.py", "test_prediction_msa_reliability.py",
-    "test_installer_lock_contract.py", "test_managed_storage.py",
+    "test_installer_lock_contract.py", "test_installer_process_guard.py", "test_managed_storage.py",
     "test_rfd3_predictor_scheduling.py", "test_rfd3_weight_provenance.py",
 ]
 FAST_SHELL = [

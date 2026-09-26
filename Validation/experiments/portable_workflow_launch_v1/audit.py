@@ -39,12 +39,13 @@ for case in m['cases']:
     directory=OUT/case['id']; jobfile=directory/'job.json'
     if not jobfile.exists(): continue
     job=json.loads(jobfile.read_text()); state=json.loads((MANAGED/'agent/jobs'/job['id']/'state.json').read_text())
-    if state['status']!='completed':
+    scientific_rejection = (case['tool']=='nise_plan' and state['status']=='failed' and 'Phase 0 gate produced no designs passing structural and requested atom checks' in state.get('message',''))
+    if state['status']!='completed' and not scientific_rejection:
         rows.append({'case':case['id'],'job_status':state['status'],'passed':False,'pending':state['status'] in ('queued','running')}); continue
     root=Path(state['output_root']); errors=[]; records=[]
     paths=[p for p in root.rglob('*') if p.suffix in ('.cif','.pdb') and not any(part.startswith('.') for part in p.relative_to(root).parts)]
     if case['tool']=='prediction_plan':
-        paths=[p for p in paths if '/predictions/' in str(p) or '/output/' in str(p)]
+        paths=[p for p in paths if '/predictions/' in str(p) or '/output/' in str(p) or ('/openfold3/' in str(p) and p.name.endswith('_model.cif'))]
         if len(paths)!=1: errors.append(f'Expected one predicted structure, found {len(paths)}')
     elif case['tool']=='iterative_design_plan':
         paths=sorted((root/'cifs_all').glob('*.cif'))
@@ -84,7 +85,19 @@ for case in m['cases']:
                     try: assert np.isfinite(float(row['pbind']))
                     except Exception: errors.append('Missing/nonfinite Boltz affinity result')
     elif case['tool']=='nise_plan':
-        if not (root/'trajectory.csv').exists(): errors.append('Missing NISE optimization trajectory table')
+        affinity_receipts=list(root.rglob('affinity_completed.json'))
+        scorer=case['arguments']['request'].get('screening_engine')
+        if scorer:
+            table=root/(scorer+'_screening.csv')
+            scores=list(csv.DictReader(table.open())) if table.is_file() else []
+            if not scores: errors.append('No saved '+scorer+' screening scores')
+            field='nesso_pbind' if scorer=='nesso' else 'binding_probability_proxy'
+            for score in scores:
+                try: assert np.isfinite(float(score[field]))
+                except Exception: errors.append('Missing/nonfinite '+scorer+' binding score')
+        elif not affinity_receipts: errors.append('No completed Boltz affinity evaluation')
+        trajectory=root/('trajectory.csv.part' if scientific_rejection else 'trajectory.csv')
+        if not trajectory.exists(): errors.append('Missing NISE trajectory evidence')
     for path in paths:
         try:
             record=structure(path); records.append(record)
@@ -119,6 +132,6 @@ for case in m['cases']:
         if any(part.startswith('.') for part in path.relative_to(root).parts): continue
         report=json.loads(path.read_text())
         geometry.append({'path':str(path.relative_to(root)), **{key:report.get(key) for key in ('policy','violation_count','error_count','coordinate_input_usable')}})
-    rows.append({'case':case['id'],'job_id':job['id'],'job_status':state['status'],'passed':not errors,'errors':errors,'structures':records,'confidence_json_count':len(confidences),'geometry_reports':geometry,'fallback_lines':fallback_lines,'progress_messages':log.count('IPROTEINSTUDIO_PROGRESS|'),'output_root':str(root)})
+    rows.append({'case':case['id'],'job_id':job['id'],'job_status':state['status'],'scientific_rejection':scientific_rejection,'passed':not errors,'errors':errors,'structures':records,'confidence_json_count':len(confidences),'geometry_reports':geometry,'fallback_lines':fallback_lines,'progress_messages':log.count('IPROTEINSTUDIO_PROGRESS|'),'output_root':str(root)})
 (OUT/'output-audit.json').write_text(json.dumps(rows,indent=2)+'\n')
 for row in rows: print(json.dumps({k:row[k] for k in ('case','job_status','passed','errors') if k in row}))

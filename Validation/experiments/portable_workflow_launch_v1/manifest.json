@@ -717,7 +717,7 @@
           "early_score_gate": 0.0
         }
       },
-      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults"
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults; a recorded zero-survivor scientific gate is an acceptable diagnostic stop if the requested engines completed and their saved outputs pass audit, but does not establish optimization-cycle coverage"
     },
     {
       "id": "nise-nesso",
@@ -753,7 +753,7 @@
           "psichic_early_score_gate": 0.0
         }
       },
-      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults"
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults; a recorded zero-survivor scientific gate is an acceptable diagnostic stop if the requested engines completed and their saved outputs pass audit, but does not establish optimization-cycle coverage"
     },
     {
       "id": "nise-psichic",
@@ -789,7 +789,7 @@
           "psichic_early_score_gate": 0.0
         }
       },
-      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults"
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults; a recorded zero-survivor scientific gate is an acceptable diagnostic stop if the requested engines completed and their saved outputs pass audit, but does not establish optimization-cycle coverage"
     },
     {
       "id": "nanobody-antifold-template",
@@ -1172,7 +1172,7 @@
           "psichic_early_score_gate": 0.0
         }
       },
-      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults",
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults; a recorded zero-survivor scientific gate is an acceptable diagnostic stop if the requested engines completed and their saved outputs pass audit, but does not establish optimization-cycle coverage",
       "supersedes": "nise-psichic",
       "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
     },
@@ -1353,7 +1353,7 @@
           "psichic_early_score_gate": 0.0
         }
       },
-      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults",
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults; a recorded zero-survivor scientific gate is an acceptable diagnostic stop if the requested engines completed and their saved outputs pass audit, but does not establish optimization-cycle coverage",
       "supersedes": "nise-nesso",
       "retry_reason": "Fresh plan with staged broker, shared adapters and ligand export runtime; identical scientific inputs"
     },
@@ -1383,7 +1383,7 @@
           "early_score_gate": 0.0
         }
       },
-      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults",
+      "expected": "initialization, LASErMPNN redesign, selected scoring engine and one optimization cycle; zero diagnostic score gates exercise plumbing, never promoted as scientific defaults; a recorded zero-survivor scientific gate is an acceptable diagnostic stop if the requested engines completed and their saved outputs pass audit, but does not establish optimization-cycle coverage",
       "supersedes": "nise-boltz",
       "retry_reason": "The one-start launch reached the scientific structural gate but had no survivor. Three starts test downstream affinity/optimization without weakening any geometry gate."
     }
