@@ -2,6 +2,19 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.9 — NISE RFdiffusion3 conditioning
+
+- NISE exposes independent RFD3 generation contacts, buried/partly buried/exposed
+  atoms and hydrogen-bond donors/acceptors. Explicit terminal exposure can guide
+  biotin generation without reinstating a terminal SASA rejection rule.
+- Atom-map identity, chemical donor/acceptor roles and incompatible accessibility
+  selections are checked before inference. Generation settings are checkpointed;
+  old saved requests retain inherited conditioning.
+- Fresh NISE runs can explicitly use one or two resident Boltz workers with
+  stage-directory submissions. RFD3 generation completes before those workers
+  start. Worker count is recorded in the immutable plan; existing defaults remain.
+- MCP 30 includes the same settings and optional NISE run names.
+
 ## 0.2.8 — portable engine launches
 
 - Fix Protein Hunter and nanobody launches with downloaded portable Python

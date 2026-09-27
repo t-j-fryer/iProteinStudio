@@ -33,6 +33,11 @@ def run(config_path, branch_test=False, stage_batches=False, resident_workers=No
     if not map_path.exists():
         atomic(map_path, manifest)
     scripts = Path(__file__).resolve().parent.parent
+    if settings.get("resident_workers", 0):
+        if resident_workers is not None and resident_workers != settings["resident_workers"]:
+            raise ValueError("Worker count differs from the saved request")
+        resident_workers = settings["resident_workers"]
+        stage_batches = True
     if resident_workers is not None:
         if not stage_batches: raise ValueError("Resident pool requires stage-directory checkpoints")
         from batch_runtime import PoolBackend

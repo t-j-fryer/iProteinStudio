@@ -88,6 +88,9 @@ struct NISEAtomTargetingView: View {
                     Label("The saved labels belong to a different atom map. Clear the choices and select them again.", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(.orange)
                 }
+                if request.backbone_method == "rfdiffusion3" {
+                    generationControls
+                }
                 DisclosureGroup("SMILES used by the engines") {
                     Text(atoms.displaySmiles).font(.caption.monospaced()).textSelection(.enabled)
                 }
@@ -118,14 +121,76 @@ struct NISEAtomTargetingView: View {
                 Text("50% means each selected atom keeps at least half of its solvent-accessible area compared with the same ligand conformation without protein. This is a predicted-geometry filter, not experimental confirmation of linker accessibility.")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Text("RFdiffusion3 also receives hotspot and exposure conditioning. Protein Hunter uses hotspots during initial pocket formation; Boltz has no exposure restraint. All later selection remains unrestrained and checks the requested contacts/exposure. Without explicit hotspots, automatic contacts exclude exposed atoms.")
+            Text("Unless customised above, RFdiffusion3 inherits hotspot and exposure conditioning, except terminal acid oxygen exposure in biotin linker-exit mode. Custom generation labels do not change these acceptance filters. Protein Hunter uses hotspots during initial pocket formation; Boltz has no exposure restraint. All later selection remains unrestrained and checks the requested contacts/exposure. Without explicit hotspots, automatic contacts exclude exposed atoms.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .onChange(of: request.exposure_mode) { _, mode in
             if mode == "biotin-carboxamide-v1" { request.selective_affinity = true }
         }
+        .onChange(of: request.backbone_method) { _, method in
+            if method != "rfdiffusion3" { request.rfd3_conditioning = nil }
+        }
         .onChange(of: request.smiles) { _, _ in
             request.clearAtomSelections(); request.exposure_mode = "sasa"; atoms.reset(); verified = false; depictionError = nil
         }
     }
+    private var generationControls: some View {
+        DisclosureGroup("RFdiffusion3 generation conditioning") {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Customise generation separately from acceptance filters", isOn: Binding(
+                    get: { request.rfd3_conditioning != nil },
+                    set: { enabled in
+                        var updated = request
+                        updated.rfd3_conditioning = enabled ? [
+                            "hotspot_atoms": updated.hotspot_atoms,
+                            "exposed_atoms": updated.exposure_mode == "sasa" ? updated.exposed_atoms : []
+                        ] : nil
+                        stamp(&updated); request = updated
+                    }))
+                Text("These labels guide initial RFD3 generation only. They do not add SASA, burial or hydrogen-bond pass/fail tests to NISE. Contact and hydrogen-bond labels can coexist with one accessibility choice per atom. Donor/acceptor refers to the ligand atom's chemical role.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if request.rfd3_conditioning != nil {
+                    ForEach(atoms.atoms) { atom in
+                        HStack(spacing: 10) {
+                            Text(atom.name).font(.caption.monospaced()).frame(width: 42, alignment: .leading)
+                            Picker("Generation accessibility for \(atom.name)", selection: Binding(
+                                get: { ["buried_atoms", "partially_buried_atoms", "exposed_atoms"].first { request.rfd3_conditioning?[$0]?.contains(atom.name) == true } ?? "none" },
+                                set: { choice in
+                                    var updated = request
+                                    for key in ["buried_atoms", "partially_buried_atoms", "exposed_atoms"] {
+                                        updated.rfd3_conditioning?[key]?.removeAll { $0 == atom.name }
+                                    }
+                                    if choice != "none" { updated.rfd3_conditioning?[choice, default: []].append(atom.name) }
+                                    stamp(&updated); request = updated
+                                })) {
+                                    Text("Unspecified").tag("none")
+                                    Text("Buried").tag("buried_atoms")
+                                    Text("Partly buried").tag("partially_buried_atoms")
+                                    Text("Exposed").tag("exposed_atoms")
+                                }.labelsHidden().frame(width: 145)
+                            Toggle("Contact", isOn: generationBinding("hotspot_atoms", atom.name))
+                            Toggle("Donor", isOn: generationBinding("hbond_donor_atoms", atom.name))
+                            Toggle("Acceptor", isOn: generationBinding("hbond_acceptor_atoms", atom.name))
+                        }.font(.caption).toggleStyle(.checkbox)
+                    }
+                    Text("Exposure conditioning also applies to terminal biotin atoms when explicitly selected here. The separate biotin linker-exit filter still determines advancement.").font(.caption).foregroundStyle(.secondary)
+                }
+            }.disabled(!verified || (request.hasAtomSelections && request.ligand_atom_signature != atoms.signature))
+        }
+    }
+
+    private func stamp(_ updated: inout NISERequest) {
+        updated.ligand_atom_signature = atoms.signature
+        updated.ligand_atoms_generated_for = updated.smiles.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func generationBinding(_ field: String, _ name: String) -> Binding<Bool> {
+        Binding(get: { request.rfd3_conditioning?[field]?.contains(name) == true }, set: { selected in
+            var updated = request
+            updated.rfd3_conditioning?[field, default: []].removeAll { $0 == name }
+            if selected { updated.rfd3_conditioning?[field, default: []].append(name) }
+            stamp(&updated); request = updated
+        })
+    }
+
 }

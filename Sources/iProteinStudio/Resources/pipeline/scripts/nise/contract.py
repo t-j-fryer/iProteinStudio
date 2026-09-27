@@ -26,14 +26,14 @@ DEFAULTS = dict(scoring_mode="boltz", nesso_early_score_gate=0.4, psichic_early_
                 adaptive_proposals=False, initial_proposals=16, affinity_batch_size=8, min_improvement=0.01, smiles="", num_starts=1000, trajectories=8, nise_seqs=32, first_cycle_seqs=64,
                 partial_noising=False, noise_radius=6.0, noise_percent=25.0, noise_predictions=32, noise_mpnn_seqs=32, noise_advance=1,
                 max_cycles=30, patience=4, binder_min_len=65, binder_max_len=150,
-                seed=0, preorganisation=False, top_x=8, scheduler="cycle-wave",
+                seed=0, preorganisation=False, top_x=8, scheduler="cycle-wave", resident_workers=0, rfd3_conditioning=None,
                 phase0_refine_cycles=2, phase0_seqs1=3, phase0_seqs2=5, beam=3,
                 screening_engine="nesso", nesso_screen=False, nesso_top_k=16, phase0_nesso_screen=False,
                 phase0_nesso_refine_top_k=1, phase0_nesso_expand_top_k=20, phase0_gate_seqs=3,
                 phase0_sc_ca=2.0, nise_sc_ca=2.5, nise_sc_lig=2.5, nise_ligand_sc_from_cycle=3, backbone_method="protein-hunter", rfd3_num_bins=5,
                 exposure_mode="sasa", geometry_workers=0, hotspot_atoms=[], exposed_atoms=[], hotspot_distance=6.0, exposure_min_fraction=0.5,
                 ligand_atom_signature="", ligand_atoms_generated_for="")
-BOUNDS = dict(geometry_workers=(0, 64), search_policy_version=(1, 3), first_cycle_seqs=(1, 4096), noise_predictions=(1, 1024), noise_mpnn_seqs=(1, 4096), noise_advance=(1, 63), initial_proposals=(1, 4096), affinity_batch_size=(1, 128), num_starts=(1, 10000), trajectories=(1, 1000), nise_seqs=(1, 4096),
+BOUNDS = dict(resident_workers=(0, 2), geometry_workers=(0, 64), search_policy_version=(1, 3), first_cycle_seqs=(1, 4096), noise_predictions=(1, 1024), noise_mpnn_seqs=(1, 4096), noise_advance=(1, 63), initial_proposals=(1, 4096), affinity_batch_size=(1, 128), num_starts=(1, 10000), trajectories=(1, 1000), nise_seqs=(1, 4096),
               max_cycles=(1, 1000), patience=(1, 1000), binder_min_len=(60, 250),
               binder_max_len=(60, 250), seed=(0, 2147483647), top_x=(1, 64),
               phase0_refine_cycles=(0, 20), phase0_seqs1=(1, 1024), phase0_seqs2=(1, 1024),
@@ -86,13 +86,25 @@ def normalize(request):
         if cfg["nesso_screen"] and cfg["noise_advance"] > cfg["nesso_top_k"]:
             raise ValueError("The NESSO shortlist must cover the reserved noising places.")
     import re, math
-    for key in ("hotspot_atoms", "exposed_atoms"):
-        values = cfg[key]
+    conditioning = cfg["rfd3_conditioning"]
+    generation_lists = {}
+    if conditioning is not None:
+        fields = ("hotspot_atoms", "buried_atoms", "partially_buried_atoms", "exposed_atoms", "hbond_donor_atoms", "hbond_acceptor_atoms")
+        if not isinstance(conditioning, dict) or set(conditioning) - set(fields):
+            raise ValueError("Unknown RFdiffusion3 generation conditioning fields.")
+        if cfg["backbone_method"] != "rfdiffusion3":
+            raise ValueError("Custom RFdiffusion3 conditioning requires the RFdiffusion3 backbone generator.")
+        generation_lists = {key: conditioning.get(key, []) for key in fields}
+        cfg["rfd3_conditioning"] = generation_lists
+    for key, values in [(key, cfg[key]) for key in ("hotspot_atoms", "exposed_atoms")] + list(generation_lists.items()):
         if not isinstance(values, list) or len(values) > 256 or any(not isinstance(v, str) or not re.fullmatch(r"[A-Z]{1,2}[1-9][0-9]{0,2}", v) or len(v) > 4 for v in values):
             raise ValueError("Choose ligand atoms from the resolved molecule; invalid " + key)
         if len(values) != len(set(values)):
             raise ValueError("Duplicate ligand atom selections are not allowed.")
-        cfg[key] = list(values)
+    if generation_lists:
+        rasa = [set(generation_lists[key]) for key in ("buried_atoms", "partially_buried_atoms", "exposed_atoms")]
+        if any(rasa[i] & rasa[j] for i in range(3) for j in range(i)):
+            raise ValueError("RFdiffusion3 buried, partially buried and exposed selections must be disjoint.")
     if set(cfg["hotspot_atoms"]) & set(cfg["exposed_atoms"]):
         raise ValueError("An atom cannot be both a hotspot and an exposed atom.")
     for key, low, high in (("noise_radius", 3, 15), ("noise_percent", 1, 100), ("hotspot_distance", 3, 10), ("exposure_min_fraction", 0.1, 1),
@@ -101,7 +113,7 @@ def normalize(request):
             raise ValueError(f"{key} must be between {low} and {high}.")
     if not isinstance(cfg["ligand_atom_signature"], str) or not isinstance(cfg["ligand_atoms_generated_for"], str):
         raise ValueError("Invalid saved ligand atom identity.")
-    if cfg["hotspot_atoms"] or cfg["exposed_atoms"]:
+    if cfg["hotspot_atoms"] or cfg["exposed_atoms"] or any(generation_lists.values()):
         if not re.fullmatch(r"[0-9a-f]{64}", cfg["ligand_atom_signature"]) or cfg["ligand_atoms_generated_for"] != str(cfg["smiles"]).strip():
             raise ValueError("Reload the ligand atoms after changing the SMILES, then reselect the desired atoms.")
     if cfg["trajectories"] > cfg["num_starts"]:
@@ -132,6 +144,8 @@ def normalize(request):
         raise ValueError("preorganisation must be true or false.")
     if cfg["scheduler"] not in {"cycle-wave", "resident"}:
         raise ValueError("Unknown NISE scheduler.")
+    if cfg["resident_workers"] and cfg["scheduler"] != "resident":
+        raise ValueError("Explicit resident workers require across-cycle resident scheduling.")
     return cfg
 
 
@@ -177,6 +191,13 @@ def preflight(root, request):
                                 input=json.dumps(cfg), text=True, capture_output=True, timeout=90)
         if result.returncode:
             raise ValueError("Biotin exit preflight failed: " + result.stderr[-2000:])
+    if cfg["rfd3_conditioning"] is not None and cfg["exposure_mode"] != "biotin-carboxamide-v1":
+        import subprocess, json
+        result = subprocess.run([str(Path(root) / "venvs/NanoHunter_boltz/bin/python"),
+                                 str(Path(__file__).with_name("ligand_atoms.py")), "--validate"],
+                                input=json.dumps(cfg), text=True, capture_output=True, timeout=90)
+        if result.returncode:
+            raise ValueError("RFdiffusion3 atom conditioning preflight failed: " + result.stdout[-2000:] + result.stderr[-1000:])
     if cfg["nesso_screen"] or cfg["phase0_nesso_screen"]:
         scoring_contract(cfg).validate_installation(root)
     return cfg

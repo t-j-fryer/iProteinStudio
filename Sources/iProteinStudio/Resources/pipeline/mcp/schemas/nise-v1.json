@@ -351,12 +351,95 @@
           "maximum": 1,
           "default": 0.2,
           "description": "PSICHIC-objective cycle01 cutoff; zero disables. Independent of NESSO/Boltz gates."
+        },
+        "resident_workers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0,
+          "description": "0 retains legacy scheduling. 1 or 2 uses stage-batched resident Boltz workers; requires scheduler=resident. RFD3 generation runs before this pool."
+        },
+        "rfd3_conditioning": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "description": "Null preserves inherited legacy conditioning. An explicit object replaces generator labels only, independently of NISE geometry filters, including biotin terminal exposure. Empty lists mean no conditioning. Atom names require the shared ligand signature. RASA selections must be disjoint.",
+          "properties": {
+            "hotspot_atoms": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z]{1,2}[1-9][0-9]{0,2}$",
+                "maxLength": 4
+              },
+              "maxItems": 256,
+              "uniqueItems": true
+            },
+            "buried_atoms": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z]{1,2}[1-9][0-9]{0,2}$",
+                "maxLength": 4
+              },
+              "maxItems": 256,
+              "uniqueItems": true
+            },
+            "partially_buried_atoms": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z]{1,2}[1-9][0-9]{0,2}$",
+                "maxLength": 4
+              },
+              "maxItems": 256,
+              "uniqueItems": true
+            },
+            "exposed_atoms": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z]{1,2}[1-9][0-9]{0,2}$",
+                "maxLength": 4
+              },
+              "maxItems": 256,
+              "uniqueItems": true
+            },
+            "hbond_donor_atoms": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z]{1,2}[1-9][0-9]{0,2}$",
+                "maxLength": 4
+              },
+              "maxItems": 256,
+              "uniqueItems": true
+            },
+            "hbond_acceptor_atoms": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z]{1,2}[1-9][0-9]{0,2}$",
+                "maxLength": 4
+              },
+              "maxItems": 256,
+              "uniqueItems": true
+            }
+          }
         }
       }
     },
     "restart_from": {
       "type": "string",
       "description": "Optional source NISE directory name in this project. Import audited matching cycle00 Protein Hunter structures into a new immutable campaign; recalculate all geometry and advancement."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Display name shown in the queue and run history."
     }
   }
 }

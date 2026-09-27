@@ -62,6 +62,21 @@ class NISEContracts(unittest.TestCase):
         with self.assertRaises(ValueError):
             contract.normalize({'smiles': 'CCO', 'backbone_method': 'unsupported'})
 
+    def test_generator_conditioning_validation_and_explicit_workers(self):
+        base = dict(smiles='CCO', backbone_method='rfdiffusion3', ligand_atoms_generated_for='CCO', ligand_atom_signature='a'*64)
+        cfg = contract.normalize(dict(base, rfd3_conditioning=dict(hotspot_atoms=['C1'], buried_atoms=['C1'], exposed_atoms=['O3'])))
+        self.assertEqual(cfg['rfd3_conditioning']['hbond_donor_atoms'], [])
+        for changes in [dict(rfd3_conditioning={'wrong': []}), dict(rfd3_conditioning=[]),
+                        dict(rfd3_conditioning={'buried_atoms':['C1'], 'exposed_atoms':['C1']}),
+                        dict(rfd3_conditioning={'buried_atoms':['C1','C1']}),
+                        dict(rfd3_conditioning={'exposed_atoms':['O3']}, ligand_atom_signature=''),
+                        dict(rfd3_conditioning={}, backbone_method='protein-hunter'),
+                        dict(resident_workers=2), dict(resident_workers=True), dict(resident_workers=3)]:
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                contract.normalize(dict(base, **changes))
+        self.assertEqual(contract.normalize(dict(base, scheduler='resident', resident_workers=2))['resident_workers'], 2)
+        self.assertIsNone(contract.normalize({'smiles':'CCO'})['rfd3_conditioning'])
+
     def test_completed_sequences_replay_and_corruption_fails(self):
         artifact = self.root / "sample.fasta"; artifact.write_text(">sample\nACDEF\n")
         journal = Journal(self.root); receipt = self.root / "receipt.json"
@@ -146,13 +161,16 @@ class NISEContracts(unittest.TestCase):
 
     def test_rfd3_plan_freezes_the_generator_and_its_weights(self):
         (self.root / 'projects/demo').mkdir(parents=True)
-        cfg = contract.normalize({'smiles': 'CCO', 'backbone_method': 'rfdiffusion3'})
+        cfg = contract.normalize({'smiles': 'CCO', 'backbone_method': 'rfdiffusion3', 'scheduler':'resident', 'resident_workers':2})
         for path in contract.required_files(self.root, cfg):
             path.parent.mkdir(parents=True, exist_ok=True); path.write_text('fixture\n')
         (self.root / 'models/boltz2/mols').mkdir()
         plan = nise_plan({'project': 'demo', 'request': cfg})
         self.assertEqual(plan['normalized_request']['prediction_budget']['initial_rfd3_backbones'], 1000)
         self.assertEqual(load_plan(plan['id'], plan['sha256']), plan)
+        command = plan['normalized_request']['steps'][0]['command']
+        self.assertIn('--stage-batches', command)
+        self.assertEqual(command[command.index('--resident-workers')+1], '2')
         generator = self.root / 'rfd3/scripts/generate_backbones.py'
         generator.write_text('changed code\n')
         with self.assertRaises(common.StudioError):

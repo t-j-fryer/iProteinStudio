@@ -55,12 +55,27 @@ def validate_selection(settings, manifest):
         roles(manifest)  # Fail before model loading for incompatible molecules.
     names = {a['name'] for a in manifest['atoms']}
     selected = set(settings.get('hotspot_atoms', [])) | set(settings.get('exposed_atoms', []))
+    for values in (settings.get('rfd3_conditioning') or {}).values():
+        selected.update(values)
     if selected and settings.get('ligand_atom_signature') != manifest['signature']:
         raise ValueError('Saved NISE atom selections are stale. Reload the molecule and select its atoms again.')
     if set(settings.get('exposed_atoms', [])) == names:
         raise ValueError('Leave at least one ligand atom available for binding.')
     if selected - names:
         raise ValueError('Unknown NISE ligand atoms: ' + ', '.join(sorted(selected - names)))
+
+    conditioning = settings.get('rfd3_conditioning') or {}
+    if conditioning.get('hbond_donor_atoms') or conditioning.get('hbond_acceptor_atoms'):
+        from rdkit import Chem, RDConfig
+        from rdkit.Chem import ChemicalFeatures
+        factory = ChemicalFeatures.BuildFeatureFactory(str(Path(RDConfig.RDDataDir) / 'BaseFeatures.fdef'))
+        features = factory.GetFeaturesForMol(Chem.MolFromSmiles(manifest['smiles_used']))
+        by_index = {a['index']: a['name'] for a in manifest['atoms']}
+        for field, family in (('hbond_donor_atoms', 'Donor'), ('hbond_acceptor_atoms', 'Acceptor')):
+            allowed = {by_index[i] for feature in features if feature.GetFamily() == family for i in feature.GetAtomIds()}
+            invalid = set(conditioning.get(field, [])) - allowed
+            if invalid:
+                raise ValueError('Selected ligand atoms are not recognised as hydrogen-bond ' + family.lower() + 's: ' + ', '.join(sorted(invalid)))
 
 
 def contact_atoms(manifest, k=5, excluded=()):
@@ -114,7 +129,13 @@ def audit_nesso_ligand(smiles, directory, assign_names):
 
 if __name__ == '__main__':
     try:
-        print(json.dumps(resolve(sys.argv[1])))
+        if sys.argv[1] == '--validate':
+            settings = json.load(sys.stdin)
+            manifest = resolve(settings['smiles'])
+            validate_selection(settings, manifest)
+            print(json.dumps({'valid': True, 'signature': manifest['signature']}))
+        else:
+            print(json.dumps(resolve(sys.argv[1])))
     except Exception as exc:
         print(json.dumps({'error': str(exc)}))
         sys.exit(1)

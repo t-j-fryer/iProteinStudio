@@ -972,3 +972,34 @@ metrics separately. The request digest and saved objective prevent changing
 objective/gate midway through resume; start a new cohort import for another arm.
 This implementation has deterministic model-boundary and native contract tests,
 not a prospective scoring-model or cross-Mac inference qualification.
+
+
+### RFdiffusion3 generation conditioning
+
+Under the ligand atom controls, expand **RFdiffusion3 generation conditioning**
+and enable **Customise generation separately from acceptance filters**. For each
+atom, choose one accessibility label (unspecified, buried, partly buried or
+exposed) and independently choose contact, hydrogen-bond donor or acceptor.
+Donor/acceptor describes the ligand atom, not its desired protein partner.
+The molecular graph and shared atom-map signature are verified before starting.
+
+These are generator inputs, not new pass/fail criteria. Keep binding contacts and
+linker accessibility in the separate acceptance controls. In particular, an
+explicitly exposed terminal biotin atom remains exposed during RFD3 generation
+while **Biotin amide linker exit** still determines advancement after generation
+and subsequent folds. Exposure alone does not establish room for a linker.
+
+MCP `nise_plan.request.rfd3_conditioning` accepts `hotspot_atoms`, `buried_atoms`,
+`partially_buried_atoms`, `exposed_atoms`, `hbond_donor_atoms`, and
+`hbond_acceptor_atoms` arrays in the verified Boltz atom vocabulary. An explicit
+object replaces all inherited generation selections; omitted arrays are empty.
+Omitting the object or passing null preserves legacy inheritance, including its
+terminal-oxygen suppression in biotin exit mode. Accessibility sets must be
+disjoint. Changing the molecule clears both generation and acceptance selections.
+
+For stage-directory submissions, choose across-cycle reuse and explicitly select
+one or two Boltz resident workers (`scheduler="resident", resident_workers=1|2`).
+Zero retains previous scheduling. RFD3 completes before this pool loads; this is
+not multiple concurrent RFD3 models. Two-worker speed benefit was measured on a
+64 GB M4 Max (Lab Book 0179 and 0182); memory use and throughput on other Macs
+remain workload dependent. No default worker-count promotion is implied.

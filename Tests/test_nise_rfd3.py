@@ -32,6 +32,9 @@ class RFD3IntegrationTests(unittest.TestCase):
     def test_selected_hotspots_and_exposure_reach_diffusion_and_survive_resume(self):
         self.exercise_adapter(True)
 
+    def test_custom_biotin_conditioning_is_independent_and_resumable(self):
+        self.exercise_adapter("biotin")
+
     def exercise_adapter(self, conditioned):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw).resolve()
@@ -47,6 +50,20 @@ class RFD3IntegrationTests(unittest.TestCase):
                 cfg.update(smiles='CC[NH3+]', hotspot_atoms=[mapping['atoms'][0]['name']],
                            exposed_atoms=[mapping['atoms'][-1]['name']], ligand_atom_signature=mapping['signature'],
                            ligand_atoms_generated_for='CC[NH3+]')
+            if conditioned == 'biotin':
+                from ligand_atoms import resolve
+                smiles = 'C1[C@H]2[C@@H]([C@@H](S1)CCCCC(=O)O)NC(=O)N2'
+                mapping = resolve(smiles)
+                from biotin_exit import roles
+                role = roles(mapping)
+                name_by_index = {a['index']: a['name'] for a in mapping['atoms']}
+                cfg.update(smiles=smiles, ligand_atoms_generated_for=smiles, ligand_atom_signature=mapping['signature'],
+                           exposure_mode='biotin-carboxamide-v1', hotspot_atoms=[name_by_index[7]],
+                           exposed_atoms=[role['oxygen'], role['leaving']],
+                           rfd3_conditioning=dict(hotspot_atoms=[name_by_index[7]], buried_atoms=[name_by_index[7]],
+                               partially_buried_atoms=[name_by_index[8]], exposed_atoms=[role['leaving']],
+                               hbond_donor_atoms=[name_by_index[11]], hbond_acceptor_atoms=[name_by_index[13]]))
+                cfg = contract.normalize(cfg)
             backend = Backend(root, output, cfg, scripts)
             directory = output / 'phase0/cycle00'
             calls = []
@@ -85,9 +102,18 @@ class RFD3IntegrationTests(unittest.TestCase):
                 self.assertEqual(len(calls), 4)
                 document = json.loads((directory / 'rfd3_initial/design.yaml').read_text())['nise_initial']
                 self.assertNotIn('contig', document)
-                self.assertNotIn('select_buried', document)
+                if conditioned != 'biotin': self.assertNotIn('select_buried', document)
                 self.assertEqual(document['select_fixed_atoms'], {'NIS': 'ALL'})
-                if conditioned:
+                if conditioned == 'biotin':
+                    translation = json.loads((directory / 'rfd3_initial/atom_translation.json').read_text())
+                    for key, field in [('hotspot_atoms','select_hotspots'), ('buried_atoms','select_buried'), ('partially_buried_atoms','select_partially_buried'), ('exposed_atoms','select_exposed'), ('hbond_donor_atoms','select_hbond_donor'), ('hbond_acceptor_atoms','select_hbond_acceptor')]:
+                        self.assertEqual([translation[n] for n in document[field]['NIS'].split(',')], cfg['rfd3_conditioning'][key])
+                    changed = dict(cfg['rfd3_conditioning'], exposed_atoms=[])
+                    backend.settings = dict(cfg, rfd3_conditioning=changed)
+                    with self.assertRaisesRegex(RuntimeError, 'generation settings changed'):
+                        backend.initial_backbones(cfg['smiles'], directory, None)
+                    backend.settings = cfg
+                elif conditioned:
                     translation = json.loads((directory / 'rfd3_initial/atom_translation.json').read_text())
                     self.assertEqual(translation[document['select_hotspots']['NIS']], cfg['hotspot_atoms'][0])
                     self.assertEqual(translation[document['select_exposed']['NIS']], cfg['exposed_atoms'][0])

@@ -122,6 +122,18 @@ struct NISERequestContractHarness {
         let historicalObjective = try JSONDecoder().decode(NISERequest.self, from: Data(#"{"scoring_mode":"screening","search_policy_version":3,"smiles":"CCO"}"#.utf8))
         precondition(historicalObjective.nesso_early_score_gate == 0 && historicalObjective.psichic_early_score_gate == 0)
 
+        var conditioned = NISERequest(); conditioned.smiles = "CCO"; conditioned.backbone_method = "rfdiffusion3"
+        conditioned.rfd3_conditioning = ["hotspot_atoms": ["C1"], "buried_atoms": ["C1"], "exposed_atoms": ["O3"]]
+        precondition(!conditioned.validationIssues.isEmpty)
+        conditioned.ligand_atom_signature = String(repeating: "a", count: 64); conditioned.ligand_atoms_generated_for = "CCO"
+        precondition(conditioned.validationIssues.isEmpty)
+        conditioned.scheduler = "resident"; conditioned.resident_workers = 2
+        let conditionedCopy = try JSONDecoder().decode(NISERequest.self, from: JSONEncoder().encode(conditioned))
+        precondition(conditionedCopy == conditioned)
+        conditioned.rfd3_conditioning?["partially_buried_atoms"] = ["O3"]
+        precondition(!conditioned.validationIssues.isEmpty)
+        conditioned.clearAtomSelections(); precondition(conditioned.rfd3_conditioning == nil)
+        precondition(oldCustom.rfd3_conditioning == nil && oldCustom.resident_workers == 0)
         print("PASS NISE request and existing-workspace migration contracts")
     }
 }

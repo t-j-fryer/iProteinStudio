@@ -232,6 +232,10 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
             finally:
                 sys.path.remove(str(snapshot / "scripts/nise"))
             steps[0]["command"].append("--stage-batches")
+        if normalized_request.get("resident_workers", 0) and workflow != "nise_continuation":
+            if "--stage-batches" not in steps[0]["command"]:
+                steps[0]["command"].append("--stage-batches")
+            steps[0]["command"] += ["--resident-workers", str(normalized_request["resident_workers"])]
         context = {"pipeline_snapshot": str(snapshot), "request": normalized_request,
                    "prediction_budget": contract.prediction_budget(normalized_request)}
         if "cohort" in settings:

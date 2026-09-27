@@ -17,15 +17,20 @@ def contract():
 
 def nise_plan(arguments):
     from .desktop import desktop_plan
-    if set(arguments) - {"project", "request", "restart_from"}:
-        raise StudioError("NISE plans accept project, request and optional restart_from.")
+    if set(arguments) - {"project", "request", "restart_from", "name"}:
+        raise StudioError("NISE plans accept project, request and optional name/restart_from.")
     project = validate_slug(arguments.get("project", ""))
     try:
         settings = contract().preflight(runtime_root(), arguments.get("request"))
     except ValueError as exc:
         raise StudioError(str(exc)) from exc
+    name = arguments.get("name")
+    if name is not None and (not isinstance(name, str) or not name.strip() or len(name) > 120):
+        raise StudioError("Run name must contain 1–120 characters.")
     output = project_root(project) / "nise_runs" / ("nise-" + secrets.token_hex(8))
     output.mkdir(parents=True)
+    if name is not None:
+        atomic_json(output / "studio_run_label.json", {"name": name.strip()})
     pipeline = Path(__file__).resolve().parents[2]
     snapshot = output / ".studio_runtime/pipeline"
     # This ships code only. Model files are resolved and fingerprinted in the

@@ -16,6 +16,9 @@ struct NISERequest: Codable, Hashable {
     var num_starts = 1000
     var backbone_method = "protein-hunter"
     var rfd3_num_bins = 5
+    var rfd3_conditioning: [String: [String]]? = nil
+    var resident_workers = 0
+    static let generationFields = ["hotspot_atoms", "buried_atoms", "partially_buried_atoms", "exposed_atoms", "hbond_donor_atoms", "hbond_acceptor_atoms"]
     var trajectories = 8
     var nise_seqs = 32
     var first_cycle_seqs = 64
@@ -68,7 +71,7 @@ struct NISERequest: Codable, Hashable {
         case binder_min_len, binder_max_len, seed, preorganisation, top_x, scheduler
         case screening_engine, phase0_refine_cycles, phase0_seqs1, phase0_seqs2, beam, nesso_screen, nesso_top_k
         case phase0_nesso_screen, phase0_nesso_refine_top_k, phase0_nesso_expand_top_k, phase0_gate_seqs, phase0_sc_ca, nise_sc_ca, nise_sc_lig, nise_ligand_sc_from_cycle
-        case backbone_method, rfd3_num_bins
+        case backbone_method, rfd3_num_bins, rfd3_conditioning, resident_workers
         case hotspot_atoms, exposed_atoms, hotspot_distance, exposure_min_fraction, exposure_mode, geometry_workers
         case ligand_atom_signature, ligand_atoms_generated_for
     }
@@ -101,6 +104,8 @@ struct NISERequest: Codable, Hashable {
         smiles = try c.decodeIfPresent(String.self, forKey: .smiles) ?? smiles
         num_starts = try c.decodeIfPresent(Int.self, forKey: .num_starts) ?? num_starts
         backbone_method = try c.decodeIfPresent(String.self, forKey: .backbone_method) ?? backbone_method
+        rfd3_conditioning = try c.decodeIfPresent([String: [String]].self, forKey: .rfd3_conditioning)
+        resident_workers = try c.decodeIfPresent(Int.self, forKey: .resident_workers) ?? 0
         rfd3_num_bins = try c.decodeIfPresent(Int.self, forKey: .rfd3_num_bins) ?? rfd3_num_bins
         trajectories = try c.decodeIfPresent(Int.self, forKey: .trajectories) ?? trajectories
         nise_seqs = try c.decodeIfPresent(Int.self, forKey: .nise_seqs) ?? (search_policy_version < 3 ? 64 : nise_seqs)
@@ -157,9 +162,9 @@ struct NISERequest: Codable, Hashable {
     }
     var usesNesso: Bool { nesso_screen || phase0_nesso_screen }
 
-    var hasAtomSelections: Bool { !hotspot_atoms.isEmpty || !exposed_atoms.isEmpty }
+    var hasAtomSelections: Bool { !hotspot_atoms.isEmpty || !exposed_atoms.isEmpty || (rfd3_conditioning?.values.contains { !$0.isEmpty } ?? false) }
     mutating func clearAtomSelections() {
-        hotspot_atoms = []; exposed_atoms = []; ligand_atom_signature = ""; ligand_atoms_generated_for = ""
+        hotspot_atoms = []; exposed_atoms = []; rfd3_conditioning = nil; ligand_atom_signature = ""; ligand_atoms_generated_for = ""
     }
 
     var initialPredictionBudget: Int {
@@ -229,10 +234,22 @@ struct NISERequest: Codable, Hashable {
             || ligand_atom_signature.range(of: "^[0-9a-f]{64}$", options: .regularExpression) == nil) {
             issues.append("Reload the molecule and reselect atoms after changing its SMILES.")
         }
-        for names in [hotspot_atoms, exposed_atoms] {
+        for names in [hotspot_atoms, exposed_atoms] + Array((rfd3_conditioning ?? [:]).values) {
             if names.count > 256 || names.count != Set(names).count || names.contains(where: {
                 $0.count > 4 || $0.range(of: "^[A-Z]{1,2}[1-9][0-9]{0,2}$", options: .regularExpression) == nil
             }) { issues.append("Choose valid atoms from the molecule diagram or list.") }
+        }
+        if let conditioning = rfd3_conditioning {
+            if backbone_method != "rfdiffusion3" || !Set(conditioning.keys).isSubset(of: Set(Self.generationFields)) {
+                issues.append("Custom generation conditioning requires RFdiffusion3 and supported atom selections.")
+            }
+            let rasa = ["buried_atoms", "partially_buried_atoms", "exposed_atoms"].map { Set(conditioning[$0] ?? []) }
+            if !rasa[0].isDisjoint(with: rasa[1]) || !rasa[0].isDisjoint(with: rasa[2]) || !rasa[1].isDisjoint(with: rasa[2]) {
+                issues.append("RFdiffusion3 buried, partially buried and exposed selections must not overlap.")
+            }
+        }
+        if !(0...2).contains(resident_workers) || (resident_workers > 0 && scheduler != "resident") {
+            issues.append("One or two resident workers require across-cycle model reuse.")
         }
         if !hotspot_distance.isFinite || !(3...10).contains(hotspot_distance)
             || !exposure_min_fraction.isFinite || !(0.1...1).contains(exposure_min_fraction) {

@@ -253,8 +253,18 @@ struct NISEView: View {
                         Picker("Model reuse", selection: request.scheduler) {
                             Text("Within each cycle").tag("cycle-wave")
                             Text("Across cycles (experimental)").tag("resident")
+                        }.onChange(of: request.wrappedValue.scheduler) { _, value in
+                            if value != "resident" { request.wrappedValue.resident_workers = 0 }
                         }
                         Text("Within-cycle reuse loads each selected model once per scoring batch. Across-cycle reuse also retains \(request.wrappedValue.screeningLabel)/ESM when enabled, alongside the Boltz structure model (and affinity model only for Boltz selection), and uses more memory. Ligand throughput validation is still pending.").font(.caption)
+                        if request.wrappedValue.scheduler == "resident" {
+                            Picker("Boltz worker scheduling", selection: request.resident_workers) {
+                                Text("Existing scheduling").tag(0)
+                                Text("One resident worker, stage batches").tag(1)
+                                Text("Two resident workers, stage batches").tag(2)
+                            }
+                            Text("RFD3 generation finishes before the Boltz pool starts. Two workers use more memory; the throughput benefit was measured on our 64 GB M4 Max and is not guaranteed on other Macs.").font(.caption)
+                        }
                         TextField("Generation and folding seed", value: request.seed, format: .number)
                             .disabled(cohortURL != nil)
                         Text("LASErMPNN has no upstream seed control. Studio saves the exact sampled sequences and audited predictions for resume.").font(.caption)

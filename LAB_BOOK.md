@@ -243,3 +243,9 @@ forgotten one.
 - [0194 — Publish NISE objectives](lab_book/0194-publish-nise-objectives.md): 0.2.7/build53/MCP28 release and safe local deployment.
 Newest fix: [0198 — Portable iterative launcher and student archive](lab_book/0198-fix-portable-iterative-engine-launch.md) (activation-file defect reproduced and fixed; shipped in 0.2.8; the student’s exact exception remains unconfirmed without its central log).
 - [Portable workflow launch acceptance](lab_book/0199-qualify-portable-workflow-launches.md) — 2026-09-26, complete; 23 checks audited, 0.2.8/MCP29 deployed, original biotin resumed with checkpoints preserved.
+
+- [0203 — Biotin RFdiffusion3 history](lab_book/0203-review-biotin-rfd3-history.md): distinguishes failed100-start conditioned attempt, successful one-backbone launch tests, and current1000-start Boltz campaign.
+
+- [0204 — Matched RFdiffusion3 biotin NISE proposal](lab_book/0204-plan-matched-rfd3-biotin-nise.md): 1,000 starts with shared downstream search; records length/conformer differences and fresh-run scheduler qualification needed before launch.
+
+- [0205 — Independent NISE RFD3 conditioning](lab_book/0205-add-nise-rfd3-conditioning.md): native/MCP generation labels, explicit fresh-run worker pool, and planned 1,000-start biotin campaign.

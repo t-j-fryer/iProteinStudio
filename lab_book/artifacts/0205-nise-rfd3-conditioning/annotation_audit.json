@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "inference": false,
+  "conditioning": {
+    "hotspot_atoms": [
+      "C21",
+      "C29",
+      "C30",
+      "C31",
+      "C32",
+      "N23",
+      "N24",
+      "O17",
+      "S20"
+    ],
+    "buried_atoms": [
+      "C29",
+      "C30",
+      "C31",
+      "C32",
+      "S20"
+    ],
+    "partially_buried_atoms": [],
+    "exposed_atoms": [
+      "O19"
+    ],
+    "hbond_donor_atoms": [
+      "N23",
+      "N24"
+    ],
+    "hbond_acceptor_atoms": [
+      "O17"
+    ]
+  }
+}

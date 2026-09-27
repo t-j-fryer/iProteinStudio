@@ -50,6 +50,9 @@ def generate(backend, smiles, directory):
         terminal = roles(manifest)
         spec['exposure_mode'] = cfg['exposure_mode']
         spec['exposed_atoms'] = [n for n in spec['exposed_atoms'] if n not in (terminal['oxygen'], terminal['leaving'])]
+    if cfg.get('rfd3_conditioning') is not None:
+        # Explicit generation labels are independent of postprediction filters.
+        spec['conditioning'] = cfg['rfd3_conditioning']
     spec_path = directory / 'generation.json'
     if spec_path.exists() and json.loads(spec_path.read_text()) != spec:
         raise RuntimeError('Saved RFdiffusion3 generation settings changed')
@@ -85,7 +88,11 @@ def generate(backend, smiles, directory):
         design = {'nise_initial': {'input': str(assets / 'NIS.pdb'), 'ligand': 'NIS',
                   'select_fixed_atoms': {'NIS': 'ALL'}, 'infer_ori_strategy': 'com',
                   'redesign_motif_sidechains': False}}
-        for field, selected in (('select_hotspots', spec['hotspot_atoms']), ('select_exposed', spec['exposed_atoms'])):
+        conditioning = spec.get('conditioning', dict(hotspot_atoms=spec['hotspot_atoms'], exposed_atoms=spec['exposed_atoms']))
+        fields = dict(hotspot_atoms='select_hotspots', buried_atoms='select_buried', partially_buried_atoms='select_partially_buried',
+                      exposed_atoms='select_exposed', hbond_donor_atoms='select_hbond_donor', hbond_acceptor_atoms='select_hbond_acceptor')
+        for key, field in fields.items():
+            selected = conditioning.get(key, [])
             if selected:
                 design['nise_initial'][field] = {'NIS': ','.join(to_rfd3[name] for name in selected)}
         atomic(work / 'design.yaml', design)  # JSON is valid YAML; no quoting ambiguity.
