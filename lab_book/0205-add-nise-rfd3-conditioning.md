@@ -4,7 +4,7 @@ title: Expose independent NISE RFdiffusion3 conditioning and queue biotin
 date: 2026-09-27
 author: Codex
 type: implementation
-status: in-progress
+status: complete
 machine: Apple M4 Max, 64 GB unified memory
 tags: [nise, rfd3, mcp, release]
 ---
@@ -80,3 +80,18 @@ lease. No weights are committed or redistributed.
 
 Publish 0.2.9/build55/MCP30 after release checks; deploy and queue through the
 immutable managed plan/job_start path, recording identities and final state.
+
+
+## Release verification
+
+Published version0.2.9, build55, MCP30 through the existing trusted-beta channel.
+Downloaded ZIP and DMG checksums match the published assets. The update archive's
+Sparkle signature verifies against the existing release identity. All235 packaged
+resource files match the release source, and deep strict app signature checks
+pass before and after launch. Packaged and shared MCP doctors both report30.
+The downloaded release was installed and opened, retaining the previous app.
+
+The authorized conditioned NISE campaign was submitted through an immutable plan
+and the shared broker. Its running state was visible in the updated app queue.
+No completed-campaign or improved-yield result is claimed. Detailed local launch
+receipts remain local rather than being included in this publication.
