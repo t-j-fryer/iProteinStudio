@@ -115,7 +115,7 @@ ENGINE_INSTALL = {
     "properties": {
         "components": {
             "type": "array", "minItems": 1, "uniqueItems": True,
-            "items": {"enum": ["boltz", "boltz-affinity", "intellifold", "intellifold-full", "protenix-v2", "protenix-mini", "protenix-constraint", "openfold-3", "antifold", "lasermpnn", "rfd3"]},
+            "items": {"enum": ["boltz", "boltz-affinity", "intellifold", "intellifold-full", "protenix-v2", "protenix-mini", "protenix-constraint", "openfold-3", "esmfold2-full", "esmfold2-fast", "antifold", "lasermpnn", "rfd3"]},
         }
     },
 }

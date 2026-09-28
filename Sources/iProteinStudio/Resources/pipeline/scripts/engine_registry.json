@@ -222,6 +222,40 @@
       "schedule": "cpu",
       "mappings": {},
       "model_paths": []
+    },
+    "esmfold2-full-mlx": {
+      "component": "esmfold2",
+      "label": "ESMFold2 Full MLX",
+      "capabilities": [
+        "structure"
+      ],
+      "schedule": "directory",
+      "mappings": {
+        "venvs/NanoHunter_esmfold2": "python"
+      },
+      "model_paths": [
+        "models/esmfold2"
+      ],
+      "command_family": "esmfold2",
+      "experimental": true,
+      "session": "ESMFold2Session"
+    },
+    "esmfold2-fast-mlx": {
+      "component": "esmfold2",
+      "label": "ESMFold2 Fast MLX",
+      "capabilities": [
+        "structure"
+      ],
+      "schedule": "directory",
+      "mappings": {
+        "venvs/NanoHunter_esmfold2": "python"
+      },
+      "model_paths": [
+        "models/esmfold2"
+      ],
+      "command_family": "esmfold2",
+      "experimental": true,
+      "session": "ESMFold2Session"
     }
   }
 }

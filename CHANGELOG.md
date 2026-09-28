@@ -2,6 +2,23 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.12 — ESMFold2 Fast and Full MLX
+
+- Experimental Fast/Full structure prediction in Predict, target preparation,
+  RFdiffusion3 verification and Protein Hunter completed-sequence checks.
+  Protein Hunter X-token hallucination retains the existing engines.
+- NISE adds optional final refolds and complete-sequence ESMFold2 folding when
+  NESSO or PSICHIC is the optimisation objective. Atom identity, geometry checks,
+  per-input checkpoints and live structures are retained; ESMFold2 provides no
+  Boltz affinity head or pocket/template guidance.
+- Fast is sequence-only; Full accepts alignments in prediction workflows.
+  Model details explain the measured speed comparison and different budgets.
+- Self-contained runtime for Apple silicon/macOS 26.2+, with shared ESMC-6B and
+  separately verified Biohub checkpoints. No external tools or Python installs.
+- Credits to Fausto Milletari and contributors for the unofficial MLX port,
+  Biohub for ESMFold2/ESMC, and Apple and contributors for MLX/MLX-LM.
+- MCP 33 exposes the same engine choices and explicit NISE folding contract.
+
 ## 0.2.11 — resilient job monitoring and live Mac resources
 
 - Temporary macOS process-inspection failures no longer abandon a running job.

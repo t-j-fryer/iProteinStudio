@@ -137,6 +137,17 @@
       "mappings": {
         "rfd3": "sources/RFD3"
       }
+    },
+    "esmfold2": {
+      "archive_sha256": "539e742a71dd8dd13c7e8b1d6371622d0aca4250137b2fb1316853beab75b748",
+      "manifest_sha256": "e01c09cc34165e20cf6252a8f6fd75d09d0878f11ee7fc01322b1d4e67f3b61f",
+      "bytes": 348893027,
+      "url": "https://github.com/t-j-fryer/iProteinStudio/releases/download/runtimes-2026.09.28-1/esmfold2-e01c09cc34165e20cf62-macos-arm64.tar.gz",
+      "minimum_macos": "26.2",
+      "architecture": "arm64",
+      "mappings": {
+        "venvs/NanoHunter_esmfold2": "python"
+      }
     }
   }
 }

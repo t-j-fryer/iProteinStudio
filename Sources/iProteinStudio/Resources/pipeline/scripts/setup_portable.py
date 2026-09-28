@@ -11,7 +11,7 @@ from runtime_transaction import atomic_json
 from engine_registry import engines
 HERE=Path(__file__).resolve().parent
 ASSETS=json.loads((HERE/'runtime_assets.json').read_text())['assets']
-DEPENDENCIES={'abmpnn':['mpnn'],'boltz_affinity':['boltz'],'intellifold_full':['intellifold'],'protenix_v2':['protenix'],'protenix_mini':['protenix']}
+DEPENDENCIES={'esmfold2_full':['esmfold2'],'esmfold2_fast':['esmfold2'],'abmpnn':['mpnn'],'boltz_affinity':['boltz'],'intellifold_full':['intellifold'],'protenix_v2':['protenix'],'protenix_mini':['protenix']}
 
 def run(command,**kw):subprocess.run([str(v) for v in command],check=True,**kw)
 def download(root,item,key):

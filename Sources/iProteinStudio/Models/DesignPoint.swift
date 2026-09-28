@@ -59,6 +59,8 @@ struct DesignPoint: Identifiable, Hashable {
         case "boltz": return "Boltz-2"
         case "intellifold": return "IntelliFold"
         case "protenix", "protenix-v2": return "Protenix v2"
+        case "esmfold2-full-mlx": return "ESMFold2 Full MLX"
+        case "esmfold2-fast-mlx": return "ESMFold2 Fast MLX"
         case "protenix-mini": return "Protenix Mini"
         case "protenix-constraint-v0.5": return "Protenix Constraint v0.5"
         case "alphafold3": return "AlphaFold 3 (retired)"

@@ -615,9 +615,30 @@ class ProtenixSession:
                   f"for {len(receipt['failures'])} file(s).", file=sys.stderr)
 
 
+class ESMFold2Session:
+    """The exact portable MLX session, retained across later producer requests."""
+    device = 'mlx'
+    def __init__(self, config):
+        import torch
+        from esmfold2_predict import Session
+        self.torch, self.config = torch, config
+        self.profile = 'fast' if config['engine'] == 'esmfold2-fast-mlx' else 'full'
+        self.session = Session(Path(config['root']), self.profile)
+        self.model_load_count = 1  # One folding session, including its shared ESMC encoder.
+
+    def predict(self, source, output, expected):
+        from esmfold2_predict import run
+        paths = sorted(source.glob('*.yaml'))
+        if len(paths) != expected: raise ValueError('ESMFold2 input count mismatch')
+        run(Path(self.config['root']), self.profile, paths, output,
+            [int(s) for s in str(self.config.get('seed', '42')).split(',')],
+            int(self.config.get('samples', 1)), self.config.get('unrestrained_check', False),
+            session=self.session, progress=getattr(self, 'report_progress', None))
+
+
 def make_session(config: dict[str, Any]) -> Any:
     from engine_registry import make_session as registered_session
-    return registered_session(config, {"BoltzSession": BoltzSession, "IntelliFoldSession": IntelliFoldSession, "ProtenixSession": ProtenixSession})
+    return registered_session(config, {"BoltzSession": BoltzSession, "IntelliFoldSession": IntelliFoldSession, "ProtenixSession": ProtenixSession, "ESMFold2Session": ESMFold2Session})
 
 
 def allocated_mps_bytes(torch_module: Any) -> int | None:
@@ -641,7 +662,7 @@ def serve(config_path: Path) -> None:
         "pid": os.getpid(),
         "engine": config["engine"],
         "model": config.get("model"),
-        "device": "mps",
+        "device": getattr(session, "device", "mps"),
         "fallback": 0,
         "model_load_count": session.model_load_count,
         "config_sha256": sha256(config_path),

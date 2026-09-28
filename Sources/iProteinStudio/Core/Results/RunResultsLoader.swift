@@ -1111,6 +1111,8 @@ enum RunResultsLoader {
         case "openfold3", "openfold-3", "openfold-3-mlx": return "OpenFold-3"
         case "intellifold": return "IntelliFold PyTorch"
         case "protenix", "protenix-v2": return "Protenix v2"
+        case "esmfold2-full-mlx": return "ESMFold2 Full MLX"
+        case "esmfold2-fast-mlx": return "ESMFold2 Fast MLX"
         case "protenix-mini": return "Protenix Mini"
         case "protenix-constraint-v0.5": return "Protenix Constraint v0.5"
         case "intellifold-jax", "intellifold_jax": return "IntelliFold JAX/Metal (retired)"

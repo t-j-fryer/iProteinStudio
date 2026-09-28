@@ -1,0 +1,12 @@
+{
+  "experiment": "esmfold2_app_v1",
+  "status": "predeclared",
+  "date": "2026-09-28",
+  "purpose": "Qualify the portable Studio adapter; not a new cross-model speed benchmark or a default promotion",
+  "profiles": {"fast": [3, 50], "full": [20, 100]},
+  "settings": {"seed": 42, "samples": 1, "fold_dtype": "float32", "esmc_dtype": "bfloat16", "mlx": "0.32.2", "torch": "2.11.0"},
+  "port_revision": "c26b9af872158d822a8c95589708eedd3b9c0831",
+  "msa_policy": "Explicit sequence-only for matched monomer/complex/biotin input checks; separate Full cached-MSA check",
+  "acceptance": ["Portable runtime full hash inventory", "Exact output sequences and ligand heavy-atom counts", "Finite coordinates and confidence", "One model load per directory", "Live publication per completed input", "Terminate after one atomic unit and resume without changing it", "Changed input and changed saved output rejected", "No external tools or runtime downloads", "CPU feature/decode and upstream tiny CPU SVD explicit"],
+  "limits": "Opt-in experimental integration. No new accuracy claim, broad ligand calibration, long-campaign equivalence or universal throughput claim. Full and Fast are not independent of one another."
+}

@@ -101,6 +101,9 @@ INSTALL_ONLY=""
 WITH_ANTIFOLD=0
 WITH_INTELLIFOLD=0
 WITH_INTELLIFOLD_FULL=0
+WITH_ESMFOLD2=0
+WITH_ESMFOLD2_FULL=0
+WITH_ESMFOLD2_FAST=0
 WITH_PROTENIX_RUNTIME=0
 WITH_PROTENIX_V2=0
 WITH_PROTENIX_MINI=0
@@ -135,6 +138,8 @@ Components (combine as needed):
   --with-protenix-constraint   Experimental Protenix Constraint v0.5
                                protein-epitope design checkpoint (separate,
                                native MPS, design-only, no CPU fallback)
+  --with-esmfold2-full         ESMFold2 Full MLX (portable only)
+  --with-esmfold2-fast         ESMFold2 Fast MLX, sequence-only (portable only)
   --with-openfold3             OpenFold-3/MLX
   --without-abmpnn             Skip the separately retryable antibody checkpoint
   --with-abmpnn                Include AbMPNN (default)
@@ -167,7 +172,7 @@ while [[ $# -gt 0 ]]; do
       IFS=',' read -r -a retry_keys <<< "${INSTALL_ONLY}"
       for retry_key in "${retry_keys[@]}"; do
         case "${retry_key}" in
-          control|mpnn|abmpnn|boltz|boltz_affinity|antifold|intellifold|intellifold_full|protenix|protenix_v2|protenix_mini|protenix_constraint|nesso|psichic|lasermpnn|openfold3|rfd3) ;;
+          esmfold2|esmfold2_full|esmfold2_fast|control|mpnn|abmpnn|boltz|boltz_affinity|antifold|intellifold|intellifold_full|protenix|protenix_v2|protenix_mini|protenix_constraint|nesso|psichic|lasermpnn|openfold3|rfd3) ;;
           *) echo "NHFAIL|Unknown retry component: ${retry_key}"; exit 2 ;;
         esac
       done
@@ -177,6 +182,9 @@ while [[ $# -gt 0 ]]; do
     --with-antifold)        WITH_ANTIFOLD=1; shift ;;
     --with-intellifold)     WITH_INTELLIFOLD=1; shift ;;
     --with-intellifold-full) WITH_INTELLIFOLD=1; WITH_INTELLIFOLD_FULL=1; shift ;;
+    --with-esmfold2-runtime) WITH_ESMFOLD2=1; shift ;;
+    --with-esmfold2-full) WITH_ESMFOLD2=1; WITH_ESMFOLD2_FULL=1; shift ;;
+    --with-esmfold2-fast) WITH_ESMFOLD2=1; WITH_ESMFOLD2_FAST=1; shift ;;
     --with-protenix-runtime) WITH_PROTENIX_RUNTIME=1; shift ;;
     --with-protenix-v2)     WITH_PROTENIX_RUNTIME=1; WITH_PROTENIX_V2=1; shift ;;
     --with-protenix-mini)   WITH_PROTENIX_RUNTIME=1; WITH_PROTENIX_MINI=1; shift ;;
@@ -494,11 +502,12 @@ detect() {
     detector="${NANOHUNTER_ROOT}/components/control/current/python/bin/python3"
   fi
   if [[ ! -x "${detector}" ]]; then
-    for key in mpnn abmpnn boltz boltz_affinity antifold intellifold intellifold_full protenix protenix_v2 protenix_mini protenix_constraint openfold3 lasermpnn nesso psichic rfd3; do
+    for key in esmfold2 esmfold2_full esmfold2_fast mpnn abmpnn boltz boltz_affinity antifold intellifold intellifold_full protenix protenix_v2 protenix_mini protenix_constraint openfold3 lasermpnn nesso psichic rfd3; do
       state "$key" missing "Run Setup to install the managed runtime."
     done
     return
   fi
+  "${detector}" "${NESSO_SCRIPT_ROOT}/scripts/esmfold2_status.py" "${NANOHUNTER_ROOT}"
   "${detector}" "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_psichic.py" --root "${NANOHUNTER_ROOT}" --detect
   "${detector}" "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_nesso.py" --root "${NANOHUNTER_ROOT}" --detect
 
@@ -1161,7 +1170,7 @@ if [[ "${IPROTEINSTUDIO_BUILD_FROM_SOURCE:-0}" != "1" ]]; then
     PORTABLE_COMPONENTS="${INSTALL_ONLY}"
   else
     PORTABLE_COMPONENTS="control,mpnn"
-    for pair in "abmpnn:$WITH_ABMPNN" "boltz:$WITH_BOLTZ" "boltz_affinity:$WITH_BOLTZ_AFFINITY" \
+    for pair in "esmfold2:$WITH_ESMFOLD2" "esmfold2_full:$WITH_ESMFOLD2_FULL" "esmfold2_fast:$WITH_ESMFOLD2_FAST" "abmpnn:$WITH_ABMPNN" "boltz:$WITH_BOLTZ" "boltz_affinity:$WITH_BOLTZ_AFFINITY" \
       "antifold:$WITH_ANTIFOLD" "intellifold:$WITH_INTELLIFOLD" "intellifold_full:$WITH_INTELLIFOLD_FULL" \
       "protenix:$WITH_PROTENIX_RUNTIME" "protenix_v2:$WITH_PROTENIX_V2" "protenix_mini:$WITH_PROTENIX_MINI" \
       "protenix_constraint:$WITH_PROTENIX_CONSTRAINT" "openfold3:$WITH_OPENFOLD3" "rfd3:$WITH_RFD3" \
@@ -1171,6 +1180,10 @@ if [[ "${IPROTEINSTUDIO_BUILD_FROM_SOURCE:-0}" != "1" ]]; then
   fi
   "${PYTHON_BIN}" "${NESSO_SCRIPT_ROOT}/scripts/setup_portable.py" --root "${NANOHUNTER_ROOT}" --components "${PORTABLE_COMPONENTS}"
   exit $?
+fi
+
+if [[ "$WITH_ESMFOLD2" == 1 ]]; then
+  fail "ESMFold2 is distributed as a portable runtime. Disable the developer source-build override."
 fi
 
 # A shebang line cannot contain a space: the kernel splits on whitespace, so a

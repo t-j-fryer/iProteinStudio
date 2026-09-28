@@ -679,7 +679,7 @@ def _nise_overview(root, limit):
                 prediction = receipt.get('result', {}).get('prediction')
                 if not prediction: continue
                 row = dict(prediction, sequence=receipt.get('input', {}).get('sequence'),
-                           passed=None, score_status='awaiting_checks')
+                           passed=None, score_status='awaiting_checks', folding_engine=receipt.get('input', {}).get('folding_engine', 'boltz'))
                 cycles = [part[5:] for part in path.relative_to(root).parts if part.startswith('cycle') and part[5:].isdigit()]
                 row['cycle'] = int(cycles[-1]) if cycles else 0
                 tid = re.search(r'(?:^|_)t(\d+)(?:_|$)', row['name'])
@@ -709,7 +709,7 @@ def _nise_overview(root, limit):
         key = f"trajectory-{tid}" if tid is not None else "broad-search"
         group = groups.setdefault(key, {"id": key, "title": f"Trajectory {tid + 1}" if tid is not None else "Broad search", "variants": [], "is_hit": None})
         masked = row.get("branch") == "masked-backbone"
-        artifacts = [{"role": "masked_backbone" if masked else "designed_complex", "path": structure, "predictor": row.get("generator", "boltz")}]
+        artifacts = [{"role": "masked_backbone" if masked else "designed_complex", "path": structure, "predictor": row.get("generator", row.get("folding_engine", "boltz"))}]
         check = checks.get(row["name"])
         if check:
             apo = _run_artifact_reference(root, check.get("apo_pdb"))
@@ -724,6 +724,16 @@ def _nise_overview(root, limit):
             "psichic_screening_scores": row.get("psichic"),
             "metrics": {k: row.get(k) for k in ("ligand_plddt", "pbind", "score", "ca_rmsd", "ligand_rmsd")}, "artifacts": artifacts})
         count += 1
+    final = []
+    for native in live_records(root):
+        if 'final_checks' not in Path(native['structure_path']).parts: continue
+        if count >= max(1, min(limit, 500)):
+            truncated = True; break
+        final.append(dict(id=native['job']+'|'+native['predictor']+'|'+native['sample'],
+            is_hit=None, artifacts=[dict(role='independent_refold', path=native['structure_path'],
+                predictor=native['predictor'], confidence_json=native['confidence_json'], metrics=native['metrics'])]))
+        count += 1
+    if final: groups['final-checks'] = dict(id='final-checks', title='Independent final refolds', is_hit=None, variants=final)
     return {"organization": "trajectory → cycle/candidate → holo/apo artifacts", "groups": list(groups.values()),
             "candidate_limit": limit, "returned_candidates": count, "truncated": truncated,
             "note": "Self-consistency is a search filter, not an independently validated binding hit. Preorganisation reranks only the final apo-tested shortlist."}
@@ -827,7 +837,7 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
     Claude skill: desktop clients receive the same scientific routing rules.
     """
     if workflow == "nise":
-        return {"workflow": "nise", "tool": "nise_plan", "designer": "lasermpnn", "predictor": "boltz",
+        return {"folding_options": "folding_engine defaults to boltz. ESMFold2 Fast/Full MLX require scoring_mode=screening and resident_workers=0. Complete sequences use unrestrained sequence-only folding with the same postfold geometry filters; initial Protein Hunter X generation stays Boltz. No ESMFold2 affinity or pocket guidance. Optional final_predictors provide independent refolds without changing optimisation. Fast/Full are one family.", "workflow": "nise", "tool": "nise_plan", "designer": "lasermpnn", "predictor": "boltz",
                 "objective": "ligand_pLDDT/100 + affinity_probability_binary; missing affinity fails",
                 "order": ["system_detect", "nise_plan", "job_start with plan digest", "job_status", "results_overview", "results_query"],
                 "scope": "Small molecules only. Apo preorganisation is an optional final shortlist analysis.",
@@ -934,7 +944,8 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
     }
     if workflow not in guides:
         raise StudioError(f"Unknown workflow guide: {workflow}")
-    return {"workflow": workflow, **common, **guides[workflow]}
+    return {"workflow": workflow, **common, **guides[workflow],
+            "esmfold2": "Experimental esmfold2-fast-mlx / esmfold2-full-mlx support complete-sequence protein and SMILES-ligand prediction. Fast has no MSA encoder; Full uses the requested MSA. No template/pocket guidance, affinity head or Protein Hunter X-token generation. Available for independent completed-sequence checks. Portable runtime on Apple silicon/macOS 26.2+, separate pinned weights; no external installs. Credits: Fausto Milletari and contributors' MLX port, Biohub ESMFold2/ESMC and Apple MLX. docs/ESMFOLD2.md records measured Fast/Full comparisons and limits."}
 
 
 def read_resource(uri: str) -> Dict[str, Any]:

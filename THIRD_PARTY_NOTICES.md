@@ -98,3 +98,17 @@ retains the upstream package's additional licence notices. NESSO v1.0.0 and
 ESM-2 weights are downloaded separately into the managed component directory;
 no model weights are distributed with Studio. Pins and provenance are recorded
 in the bundled `nesso_assets/protocol.json` and the NISE `UPSTREAM.json`.
+
+## ESMFold2 / ESMC MLX (optional portable runtime)
+
+- MLX port: Fausto Milletari and contributors, <https://github.com/faustomilletari/mlx-lm>
+- Pinned revision: `c26b9af872158d822a8c95589708eedd3b9c0831`
+- Upstream proposal: <https://github.com/ml-explore/mlx-lm/pull/1484> (unofficial port)
+- Original ESMFold2/ESMC models and CPU input/output helpers: Biohub, <https://github.com/Biohub/esm>
+- MLX and MLX-LM: Apple and contributors. Port code: MIT; retained dependency licences include Transformers Apache-2.0.
+
+The portable runtime retains upstream source and licence notices. Studio adds
+orchestration and I/O adapters. Checkpoints are downloaded separately from pinned
+Biohub revisions, never redistributed in the app or runtime archive. Model use
+remains subject to the applicable upstream terms. See docs/ESMFOLD2.md for model
+choices, measured speed scope and experimental limitations.

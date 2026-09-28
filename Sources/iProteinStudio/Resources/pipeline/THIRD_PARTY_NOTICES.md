@@ -33,3 +33,17 @@ the portable runtime retains its LICENSE. The Studio adapter preserves the
 upstream graph model and contact head and uses a validated blocking-transfer
 MPS ESM batching path. Model assets are downloaded separately from their
 approved upstream endpoints and are not included in Studio or runtime archives.
+
+## ESMFold2 / ESMC MLX (optional portable runtime)
+
+- MLX port: Fausto Milletari and contributors, <https://github.com/faustomilletari/mlx-lm>
+- Pinned revision: `c26b9af872158d822a8c95589708eedd3b9c0831`
+- Upstream proposal: <https://github.com/ml-explore/mlx-lm/pull/1484> (unofficial port)
+- Original ESMFold2/ESMC models and CPU input/output helpers: Biohub, <https://github.com/Biohub/esm>
+- MLX and MLX-LM: Apple and contributors. Port code: MIT; retained dependency licences include Transformers Apache-2.0.
+
+The portable runtime retains upstream source and licence notices. Studio adds
+orchestration and I/O adapters. Checkpoints are downloaded separately from pinned
+Biohub revisions, never redistributed in the app or runtime archive. Model use
+remains subject to the applicable upstream terms. See docs/ESMFOLD2.md for model
+choices, measured speed scope and experimental limitations.

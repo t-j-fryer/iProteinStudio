@@ -100,3 +100,5 @@ retained as evidence, with dated research separated from current user guides.
 
 [Support](SUPPORT.md) · [Security](SECURITY.md) · [Licensing](LICENSING.md) ·
 [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+ESMFold2 Fast and Full MLX prediction options: [model guide](docs/ESMFOLD2.md).

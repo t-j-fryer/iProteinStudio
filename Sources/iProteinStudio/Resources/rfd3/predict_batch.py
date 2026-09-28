@@ -44,6 +44,8 @@ from pathlib import Path
 # backends that is sequential model reuse, not a tensor batch, and it is what
 # amortises model load and shape compilation.
 SCHEDULE = {
+    "esmfold2-full-mlx": {"processes": 1, "batch": 100000},
+    "esmfold2-fast-mlx": {"processes": 1, "batch": 100000},
     "boltz":            {"processes": 1, "batch": 8},
     "boltz_potentials": {"processes": 2, "batch": 4},
     "intellifold":      {"processes": 4, "batch": 16},
@@ -55,7 +57,7 @@ SCHEDULE = {
 }
 # Backends that accept a directory of inputs and load the model once.
 DIRECTORY_CAPABLE = {"boltz", "boltz_potentials", "intellifold",
-                     "protenix-v2", "protenix-mini"}
+                     "protenix-v2", "protenix-mini", "esmfold2-full-mlx", "esmfold2-fast-mlx"}
 BUCKETS = (128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096)
 
 
@@ -107,7 +109,15 @@ def validate_config(cfg: dict, jobs: list) -> list[str]:
     if any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", name)
            for name in names):
         die("Fold names must be 1–80 safe filename characters and start with a letter or number.")
+    if any(p.startswith("esmfold2-") for p in predictors) and cfg.get("recycles"):
+        die("ESMFold2 uses its documented Fast/Full refinement profile; set shared recycle overrides to Automatic.")
     for job in jobs:
+        if any(p.startswith("esmfold2-") for p in predictors):
+            for c in job.get("chains", []):
+                if c.get("kind") == "protein" and set(canonical(c.get("sequence", ""))) - set("ACDEFGHIKLMNPQRSTVWY"):
+                    die("ESMFold2 requires complete protein sequences, with no X tokens.")
+                if predictors == ["esmfold2-fast-mlx"] and c.get("kind") == "protein" and c.get("msa", "auto") not in {"auto", "empty"}:
+                    die("An imported MSA cannot be used by sequence-only ESMFold2 Fast. Select Full or remove the MSA.")
         chains = job.get("chains") or []
         if not chains:
             die(f"{job['name']} has no chains.")
@@ -543,6 +553,14 @@ def run_directory_batch(predictor: str, yamls: list, out_dir: Path, root: Path,
                    "--cache", str(root / "models" / "intellifold")]
         if cfg.get("template") is not None:
             command += ["--use_template"]
+    elif predictor.startswith("esmfold2-"):
+        venv = root / "venvs" / "NanoHunter_esmfold2"
+        seed = int(cfg.get("seed", 42))
+        seeds = ",".join(str(seed + n) for n in range(int(cfg.get("num_seeds", 1))))
+        command = [str(venv / "bin/python"), str(root / "scripts/esmfold2_predict.py"),
+                   "--inputs", str(batch_dir), "--output", str(out_dir), "--nanohunter-root", str(root),
+                   "--model", "fast" if predictor == "esmfold2-fast-mlx" else "full",
+                   "--seeds", seeds, "--samples", str(int(cfg.get("diffusion_samples", 0)) or 1)]
     else:
         venv = root / "venvs" / "NanoHunter_protenix"
         model = "v2" if predictor == "protenix-v2" else "mini"
@@ -660,7 +678,10 @@ def main() -> None:
     env["NUMBA_CACHE_DIR"] = str(root / "numba_cache")
     Path(env["NUMBA_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
 
-    resolved = resolve_msas(jobs, cfg, root, env)
+    fast_only = predictors == ["esmfold2-fast-mlx"]
+    resolved = {} if fast_only else resolve_msas(jobs, cfg, root, env)
+    if fast_only:
+        info("ESMFold2 Fast is sequence-only; no MSA search is performed.")
 
     stage("plan", 32, "Preparing inputs")
     yaml_dir = output / "inputs"
@@ -680,6 +701,18 @@ def main() -> None:
                 + ", ".join(oversized[:5]))
 
     template_inputs = {}
+    for engine in predictors:
+        if engine.startswith("esmfold2-"):
+            directory = output / "engine_inputs" / engine
+            directory.mkdir(parents=True, exist_ok=True)
+            for job in jobs:
+                selected = json.loads(json.dumps(job))
+                if engine == "esmfold2-fast-mlx":
+                    for chain in selected["chains"]:
+                        if chain["kind"] == "protein": chain["msa"] = "empty"
+                (directory / (job["name"] + ".yaml")).write_text(job_yaml(selected, resolved, False))
+            template_inputs[engine] = [{**item, "yaml": directory / (item["name"] + ".yaml")} for item in prepared]
+
     if cfg.get("template") is not None:
         for engine in predictors:
             prepared_dir = output / "template_inputs" / engine
@@ -706,10 +739,12 @@ def main() -> None:
         processes = cfg.get("max_parallel") or plan["processes"]
         batch = cfg.get("batch_size") or plan["batch"]
 
+        if predictor.startswith("esmfold2-") and processes != 1:
+            die("ESMFold2 uses one shared ESMC-6B resident per directory; set concurrency to Automatic or 1.")
         # Group by token bucket: a batch of one shape compiles once and reuses it.
         groups: dict = {}
         for item in template_inputs.get(predictor, prepared):
-            groups.setdefault(item["bucket"], []).append(item)
+            groups.setdefault(0 if predictor.startswith("esmfold2-") else item["bucket"], []).append(item)
         info(f"{predictor}: {len(prepared)} fold(s) in {len(groups)} shape group(s), "
              f"{processes} process(es) x {batch} input(s) each")
 
@@ -732,7 +767,10 @@ def main() -> None:
                     log_path = output / "logs" / f"{tag}.log"
                     marker = out_dir / "chunk_complete.json"
                     names = [member["name"] for member in chunk]
-                    if completed_chunk(marker, names, out_dir):
+                    # ESMFold2 must revalidate its per-input identity/inventory, even
+                    # when the outer chunk completed. Its adapter reuses valid units
+                    # without loading a model; a changed input is never silently reused.
+                    if not predictor.startswith("esmfold2-") and completed_chunk(marker, names, out_dir):
                         if validate_geometry(root, out_dir, log_path):
                             marker.unlink(missing_ok=True)
                             info(f"{tag}: saved output failed geometry validation; recomputing")

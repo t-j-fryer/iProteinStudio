@@ -428,6 +428,18 @@
               "uniqueItems": true
             }
           }
+        },
+        "final_predictors": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "esmfold2-full-mlx",
+              "esmfold2-fast-mlx"
+            ]
+          },
+          "default": [],
+          "description": "Optional final unrestrained ligand-complex refolds, up to top_x candidates. Neither replaces the NISE objective or supplies affinity. Both use single sequence for designed binders."
         }
       }
     },
@@ -440,6 +452,16 @@
       "minLength": 1,
       "maxLength": 120,
       "description": "Display name shown in the queue and run history."
+    },
+    "folding_engine": {
+      "type": "string",
+      "enum": [
+        "boltz",
+        "esmfold2-fast-mlx",
+        "esmfold2-full-mlx"
+      ],
+      "default": "boltz",
+      "description": "Complete-sequence structure engine. ESMFold2 requires screening-objective mode, has no pocket restraints/MSA/affinity; initial X-token generation remains Boltz."
     }
   }
 }

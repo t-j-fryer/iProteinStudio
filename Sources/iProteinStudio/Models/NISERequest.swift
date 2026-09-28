@@ -3,6 +3,7 @@ import Foundation
 /// Ligand NISE has a separate, versioned request; historical iterative IDs stay stable.
 struct NISERequest: Codable, Hashable {
     var search_policy_version = 3
+    var folding_engine = "boltz"
     var scoring_mode = "boltz"
     var nesso_early_score_gate = 0.4
     var psichic_early_score_gate = 0.2
@@ -33,6 +34,7 @@ struct NISERequest: Codable, Hashable {
     var binder_min_len = 65
     var binder_max_len = 150
     var seed = 0
+    var final_predictors: [String] = []
     var preorganisation = false
     var top_x = 8
     var scheduler = "cycle-wave"
@@ -64,6 +66,7 @@ struct NISERequest: Codable, Hashable {
 
     // New controls must not discard existing saved NISE requests.
     enum CodingKeys: String, CodingKey {
+        case final_predictors, folding_engine
         case scoring_mode, nesso_early_score_gate, psichic_early_score_gate
         case search_policy_version, early_score_gate, selective_affinity, adaptive_proposals, initial_proposals, affinity_batch_size, min_improvement
         case first_cycle_seqs, partial_noising, noise_radius, noise_percent, noise_predictions, noise_mpnn_seqs, noise_advance
@@ -84,6 +87,8 @@ struct NISERequest: Codable, Hashable {
             num_starts = 100; max_cycles = 30; patience = 5; trajectories = 6; beam = 1
             early_score_gate = 0; selective_affinity = false; min_improvement = 0.0001
         }
+        folding_engine = try c.decodeIfPresent(String.self, forKey: .folding_engine) ?? "boltz"
+        final_predictors = try c.decodeIfPresent([String].self, forKey: .final_predictors) ?? []
         scoring_mode = try c.decodeIfPresent(String.self, forKey: .scoring_mode) ?? "boltz"
         nesso_early_score_gate = try c.decodeIfPresent(Double.self, forKey: .nesso_early_score_gate) ?? (scoring_mode == "screening" ? 0 : nesso_early_score_gate)
         psichic_early_score_gate = try c.decodeIfPresent(Double.self, forKey: .psichic_early_score_gate) ?? (scoring_mode == "screening" ? 0 : psichic_early_score_gate)
@@ -141,6 +146,9 @@ struct NISERequest: Codable, Hashable {
         nise_ligand_sc_from_cycle = try c.decodeIfPresent(Int.self, forKey: .nise_ligand_sc_from_cycle) ?? nise_ligand_sc_from_cycle
     }
 
+    var foldingLabel: String { folding_engine == "esmfold2-fast-mlx" ? "ESMFold2 Fast" : folding_engine == "esmfold2-full-mlx" ? "ESMFold2 Full" : "Boltz" }
+    var usesESMFolding: Bool { folding_engine != "boltz" }
+    var esmEngines: [String] { Array(Set(final_predictors + (usesESMFolding ? [folding_engine] : []))).sorted() }
     var screeningLabel: String { screening_engine == "psichic" ? "PSICHIC" : "NESSO" }
     var usesScreeningObjective: Bool { scoring_mode == "screening" }
     var objectiveLabel: String { usesScreeningObjective ? screeningLabel : "Boltz" }
@@ -193,6 +201,12 @@ struct NISERequest: Codable, Hashable {
 
     var validationIssues: [String] {
         var issues: [String] = []
+        if !["boltz", "esmfold2-fast-mlx", "esmfold2-full-mlx"].contains(folding_engine) || (usesESMFolding && (!usesScreeningObjective || resident_workers != 0)) {
+            issues.append("ESMFold2 folding requires NESSO/PSICHIC as the objective and a single managed ESMFold2 session.")
+        }
+        if final_predictors.contains(where: { !["esmfold2-fast-mlx", "esmfold2-full-mlx"].contains($0) }) || Set(final_predictors).count != final_predictors.count {
+            issues.append("Choose distinct ESMFold2 Fast/Full final checks.")
+        }
         if !["boltz", "screening"].contains(scoring_mode)
             || !nesso_early_score_gate.isFinite || !(0...2).contains(nesso_early_score_gate)
             || !psichic_early_score_gate.isFinite || !(0...1).contains(psichic_early_score_gate) {

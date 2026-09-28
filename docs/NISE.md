@@ -1003,3 +1003,12 @@ Zero retains previous scheduling. RFD3 completes before this pool loads; this is
 not multiple concurrent RFD3 models. Two-worker speed benefit was measured on a
 64 GB M4 Max (Lab Book 0179 and 0182); memory use and throughput on other Macs
 remain workload dependent. No default worker-count promotion is implied.
+
+### Optional ESMFold2 structure generation
+
+For NESSO/PSICHIC optimisation objectives, complete sequences can be folded with
+ESMFold2 Fast or Full. Initial X-token backbones still use Boltz; RFD3 generation
+is unchanged. This explicit experimental route has no pocket restraints, MSA or
+Boltz affinity head. Existing geometry checks and the chosen sequence objective
+remain authoritative. Final ESMFold2 refolds are also available independently.
+See the [ESMFold2 guide](ESMFOLD2.md).

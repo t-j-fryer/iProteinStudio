@@ -104,8 +104,8 @@ struct TargetPrepView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Prediction engine").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     Picker("", selection: $engine) {
-                        ForEach(TargetEngine.allCases) { Text($0.label).tag($0) }
-                    }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: .infinity)
+                        ForEach(TargetEngine.allCases.filter { !isLigand || ($0 != .esmfold2Fast && $0 != .esmfold2Full) }) { Text($0.label).tag($0) }
+                    }.pickerStyle(.menu).labelsHidden().frame(maxWidth: .infinity)
                         .accessibilityLabel("Target prediction engine")
                 }
                 if engine == .intellifold {
@@ -154,7 +154,9 @@ struct TargetPrepView: View {
                     .font(.callout).foregroundStyle(.orange).multilineTextAlignment(.center).frame(maxWidth: 480)
             } else if cachedCIF == nil {
                 Text(isLigand ? "Boltz is verified for ligand-only prediction; IntelliFold may also work."
-                              : "Studio checks the shared MSA cache first and generates a real alignment only when it is missing. v2-flash is the fastest option.")
+                              : engine == .esmfold2Fast ? "Fast is sequence-only: no MSA search. Experimental MLX port; no template guidance."
+                              : engine == .esmfold2Full ? "Full uses the shared MSA cache and Boltz’s alignment client for missing MSAs. Install Boltz in Engines, or use Predict for single-sequence Full predictions."
+                              : "Studio checks the shared MSA cache first and generates a real alignment only when it is missing.")
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             Spacer()

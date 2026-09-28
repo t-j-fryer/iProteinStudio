@@ -562,6 +562,7 @@ norm_predictor() {
   local raw
   raw="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
   case "${raw}" in
+    esmfold2-full-mlx|esmfold2-fast-mlx) echo "${raw}" ;;
     boltz) echo "boltz" ;;
     intellifold) echo "intellifold" ;;
     protenix-v2|protenixv2|protenix_v2) echo "protenix-v2" ;;
@@ -779,6 +780,8 @@ safe_predictor_name() {
     protenix-v2) echo "protenix_v2" ;;
     protenix-mini) echo "protenix_mini" ;;
     protenix-constraint-v0.5) echo "protenix_constraint_v0_5" ;;
+    esmfold2-full-mlx) echo "esmfold2_full" ;;
+    esmfold2-fast-mlx) echo "esmfold2_fast" ;;
     openfold-3-mlx) echo "openfold3" ;;
     none) echo "none" ;;
     *) return 1 ;;
@@ -1031,6 +1034,7 @@ case "${WORKFLOW}" in
   *) die "--workflow must be protein or nanobody" ;;
 esac
 PREDICTOR="$(norm_predictor "$PREDICTOR")" || die "Unsupported --predictor: ${PREDICTOR}"
+case "${PREDICTOR}" in esmfold2-*) die "ESMFold2 is available for completed-sequence checks, not ProteinHunter X-token hallucination." ;; esac
 SEQUENCE_DESIGNER="$(norm_sequence_designer "$SEQUENCE_DESIGNER")" || die "Unsupported --sequence-designer: ${SEQUENCE_DESIGNER}"
 ANTIFOLD_REGIONS_RAW="${ANTIFOLD_REGIONS}"
 ANTIFOLD_REGIONS="$(normalize_antifold_regions "${ANTIFOLD_REGIONS_RAW}")" || die "Invalid --nanobody-cdrs: ${ANTIFOLD_REGIONS_RAW}. Use CDR1, CDR2, and/or CDR3."
@@ -1618,6 +1622,8 @@ fi
 # boltz + intellifold.
 require_predictor_venv() {
   case "$1" in
+    esmfold2-full-mlx|esmfold2-fast-mlx)
+      [[ -x "${REPO_ROOT}/venvs/NanoHunter_esmfold2/bin/python" ]] || die "Install ESMFold2 in Engines." ;;
     boltz)
       [[ -x "${BOLTZ_VENV}/bin/python" ]] || die "Boltz venv not found: ${BOLTZ_VENV}" ;;
     intellifold)
@@ -3306,6 +3312,7 @@ resolve_a3m_from_msa_path() {
 pick_target_msa_for_predictor() {
   local msa_path="$1"
   local predictor="$2"
+  if [[ "${predictor}" == "esmfold2-fast-mlx" ]]; then echo ""; return 0; fi
 
   if [[ -z "${msa_path}" ]]; then
     echo ""
@@ -3328,7 +3335,7 @@ pick_target_msa_for_predictor() {
       fi
       return 0
       ;;
-    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5)
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|esmfold2-full-mlx)
       if [[ "${msa_path##*.}" == "npz" ]]; then
         local a3m_path
         a3m_path="$(resolve_a3m_from_msa_path "${msa_path}")"
@@ -3871,7 +3878,7 @@ make_masked_nanobody_scaffold_msa() {
     return 0
   fi
   case "${predictor}" in
-    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx) : ;;
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx|esmfold2-full-mlx) : ;;
     *) echo ""; return 0 ;;
   esac
   [[ -n "${NANOBODY_SCAFFOLD_MSA_BASE_A3M}" ]] || { echo ""; return 0; }
@@ -5231,6 +5238,21 @@ run_predictor_once() {
       ;;
     protenix-v2|protenix-mini|protenix-constraint-v0.5)
       run_predict_protenix "${predictor}" "${cycle_yaml}" "${cycle_dir}/${predictor}" "${pred_min}"
+      ;;
+    esmfold2-full-mlx|esmfold2-fast-mlx)
+      local esm_model="full" esm_out="${cycle_dir}/${predictor}"
+      [[ "${predictor}" == "esmfold2-fast-mlx" ]] && esm_model="fast"
+      mkdir -p "${esm_out}" "${pred_min}"
+      "${REPO_ROOT}/venvs/NanoHunter_esmfold2/bin/python" "${PIPELINE_CODE_ROOT}/scripts/esmfold2_predict.py" \
+        --yaml "${cycle_yaml}" --output "${esm_out}" --nanohunter-root "${REPO_ROOT}" \
+        --model "${esm_model}" --seeds "${PREDICTOR_SEED}" --unrestrained-check >"${esm_out}/predict.log" 2>&1 \
+        || { tail -n 40 "${esm_out}/predict.log" >&2; die "ESMFold2 verification failed."; }
+      local esm_leaf="${esm_out}/$(basename "${cycle_yaml%.*}")/pred_min"
+      materialize_output_reference "${esm_leaf}/model_0.cif" "${pred_min}/model_0.cif"
+      materialize_output_reference "${esm_leaf}/confidence.json" "${pred_min}/confidence.json"
+      local esm_iptm esm_plddt
+      IFS=',' read -r esm_iptm esm_plddt <<< "$(extract_metrics_from_conf_json "${pred_min}/confidence.json")"
+      echo "${pred_min}/model_0.cif|${pred_min}/confidence.json|${esm_iptm}|${esm_plddt}"
       ;;
     openfold-3-mlx)
       run_predict_openfold "${cycle_yaml}" "${binder_seq}" "${query_name}" "${cycle_dir}/openfold3" "${pred_min}" "${target_msa_path}"
@@ -7203,6 +7225,7 @@ post_score_python() {
     boltz) echo "${BOLTZ_VENV}/bin/python" ;;
     intellifold) echo "${INTELLIFOLD_VENV}/bin/python" ;;
     protenix-v2|protenix-mini) echo "${PROTENIX_VENV}/bin/python" ;;
+    esmfold2-full-mlx|esmfold2-fast-mlx) echo "${REPO_ROOT}/venvs/NanoHunter_esmfold2/bin/python" ;;
     openfold-3-mlx) echo "${OPENFOLD_VENV}/bin/python" ;;
     *) die "No managed scoring interpreter is defined for post-predictor ${predictor}." ;;
   esac

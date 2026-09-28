@@ -31,3 +31,5 @@ The [project Lab Book](../LAB_BOOK.md) and
 records. [Dated research](research/README.md) records earlier distribution and
 acceleration proposals; those documents are not current installation instructions
 or promises about supported hardware.
+
+ESMFold2 Fast and Full MLX prediction options: [model guide](ESMFOLD2.md).

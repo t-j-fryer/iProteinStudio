@@ -360,7 +360,7 @@ def validate_request(req: dict) -> None:
     if blocked:
         fail("Retired verification predictor(s): " + ", ".join(blocked))
     allowed_predictors = {
-        "boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"
+        "boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx"
     }
     unknown = [p for p in req.get("extra_predictors", []) if p not in allowed_predictors]
     if unknown:

@@ -13,7 +13,7 @@ class Tests(unittest.TestCase):
     cmd,env=command_for(engine,input,output,root,'v2',adapters)
     self.assertIn(str(input),cmd);self.assertIn(str(output),cmd)
     self.assertTrue(cmd[0].startswith(str(root/'venvs')))
-    self.assertIn(descriptor(engine)['command_family'],{'boltz','intellifold','protenix','openfold3'})
+    self.assertIn(descriptor(engine)['command_family'],{'boltz','intellifold','protenix','openfold3','esmfold2'})
     if engine=='boltz':self.assertEqual(cmd[1],str(root/'scripts/boltz_mps.py'))
     if engine=='intellifold':
      self.assertEqual(cmd[cmd.index('--model')+1],'v2');self.assertEqual(env['PYTORCH_ENABLE_MPS_FALLBACK'],'0')

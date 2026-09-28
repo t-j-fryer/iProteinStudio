@@ -7,6 +7,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     case mpnn, abmpnn, antifold, lasermpnn, nesso, psichic
     case intellifold, intellifoldFull = "intellifold_full"
     case protenix, protenixV2 = "protenix_v2", protenixMini = "protenix_mini"
+    case esmfold2, esmfold2Full = "esmfold2_full", esmfold2Fast = "esmfold2_fast"
     case openfold3, alphafold3
     case protenixConstraint = "protenix_constraint"
     case intellifoldJAX = "intellifold_jax"
@@ -17,12 +18,12 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     static var allCases: [InstallComponent] {
         [.boltz, .boltzAffinity, .mpnn, .abmpnn, .antifold, .lasermpnn, .nesso, .psichic,
          .intellifold, .intellifoldFull, .protenix, .protenixV2,
-         .protenixMini, .protenixConstraint, .openfold3, .rfd3]
+         .protenixMini, .protenixConstraint, .openfold3, .esmfold2, .esmfold2Full, .esmfold2Fast, .rfd3]
     }
 
     /// Runtime-only dependency rows are detected and managed, but users choose
     /// the useful Protenix checkpoints rather than an abstract environment.
-    var isUserSelectable: Bool { self != .protenix }
+    var isUserSelectable: Bool { self != .protenix && self != .esmfold2 }
 
     var id: String { rawValue }
 
@@ -42,6 +43,9 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .protenixV2:     return "Protenix v2 checkpoint"
         case .protenixMini:   return "Protenix Mini checkpoint"
         case .protenixConstraint: return "Protenix Constraint v0.5"
+        case .esmfold2: return "ESMFold2 shared runtime and ESMC-6B"
+        case .esmfold2Full: return "ESMFold2 Full MLX"
+        case .esmfold2Fast: return "ESMFold2 Fast MLX"
         case .openfold3:      return "OpenFold-3"
         case .alphafold3:     return "AlphaFold 3 (retired)"
         case .intellifoldJAX: return "IntelliFold JAX (retired)"
@@ -68,6 +72,9 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .protenixV2:     return "--with-protenix-v2"
         case .protenixMini:   return "--with-protenix-mini"
         case .protenixConstraint: return "--with-protenix-constraint"
+        case .esmfold2: return "--with-esmfold2-runtime"
+        case .esmfold2Full: return "--with-esmfold2-full"
+        case .esmfold2Fast: return "--with-esmfold2-fast"
         case .openfold3:      return "--with-openfold3"
         case .alphafold3, .intellifoldJAX: return nil
         case .lasermpnn:      return "--with-lasermpnn"
@@ -91,6 +98,9 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .protenixV2:     return "~1.9 GB"
         case .protenixMini:   return "~540 MB"
         case .protenixConstraint: return "~3 GB"
+        case .esmfold2: return "~28 GB shared download"
+        case .esmfold2Full: return "~940 MB + shared ESMC-6B"
+        case .esmfold2Fast: return "~755 MB + shared ESMC-6B"
         case .openfold3:      return "~4 GB"
         case .alphafold3, .intellifoldJAX: return "retired"
         case .lasermpnn:      return "~2 GB"
@@ -117,6 +127,8 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .protenixV2:          return 2 * gib
         case .protenixMini:        return gib / 2
         case .protenixConstraint:  return 3 * gib
+        case .esmfold2: return 32 * gib
+        case .esmfold2Full, .esmfold2Fast: return gib
         case .openfold3:           return 4 * gib
         case .lasermpnn:           return 2 * gib
         case .psichic:             return 6 * gib
@@ -142,6 +154,9 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .protenixConstraint:
             return "Experimental iterative design against a selected protein epitope using Protenix's trained soft pocket guidance."
         case .intellifoldJAX: return "Retired after a same-input quality-control failure on Metal."
+        case .esmfold2: return "Portable Apple MLX runtime, shared ESMC-6B encoder and chemical data. Downloaded once for Fast and Full."
+        case .esmfold2Full: return "Experimental full structure predictor: 20 refinement loops and 100 requested diffusion steps. Supports per-chain MSAs or single sequences."
+        case .esmfold2Fast: return "Experimental sequence-only predictor: 3 refinement loops and 50 requested diffusion steps. No MSA search."
         case .openfold3:      return "Another independent folding engine, with Apple GPU kernels."
         case .alphafold3:     return "Retired after a same-input quality-control failure on Metal."
         case .lasermpnn:      return "Ligand-aware sequence design that also places side chains."
@@ -161,12 +176,14 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .boltzAffinity:  return [.boltz]
         case .intellifoldFull:return [.intellifold]
         case .protenixV2, .protenixMini: return [.protenix]
+        case .esmfold2Full, .esmfold2Fast: return [.esmfold2]
         default:              return []
         }
     }
 
     var minimumRuntimeMacOS: OperatingSystemVersion {
         switch self {
+        case .esmfold2, .esmfold2Full, .esmfold2Fast: return OperatingSystemVersion(majorVersion: 26, minorVersion: 2, patchVersion: 0)
         case .openfold3, .rfd3: return OperatingSystemVersion(majorVersion: 26, minorVersion: 2, patchVersion: 0)
         case .protenix, .protenixV2, .protenixMini: return OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0)
         default: return OperatingSystemVersion(majorVersion: 14, minorVersion: 0, patchVersion: 0)
@@ -184,6 +201,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
 
     var downloadNote: String? {
         switch self {
+        case .esmfold2, .esmfold2Full, .esmfold2Fast: return "Downloads a self-contained runtime and pinned upstream weights; no Python, pip, Git, Xcode or Homebrew installation. Both variants share the ~25.4 GB ESMC-6B checkpoint. Apple MLX port by Fausto Milletari and contributors; original models by Biohub. Experimental. Requires macOS 26.2+."
         case .psichic:        return "Uses ESM-2 on the Apple GPU and graph scoring on CPU. Model assets download separately from the portable runtime; no developer tools are required for a released package."
         case .nesso:          return "Automatically installs NESSO and its required ESM-2 650M model and tokenizer; no separate ESM setup is needed. Exact cached ESM files are reused after checksum verification. Native Apple GPU, float32, no CPU fallback. Optional and experimental."
         case .lasermpnn:      return "Ligand-aware inverse folding. Runs on CPU — there is no Apple GPU build."
@@ -218,13 +236,15 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     case protenixConstraint = "protenix_constraint_v0_5"
     case alphafold3
     case openfold3
+    case esmfold2Full = "esmfold2_full"
+    case esmfold2Fast = "esmfold2_fast"
     /// Historical identity for IntelliFold's retired JAX backend.
     case intellifoldJAX
 
     /// Retired cases remain decodable solely for historical projects/results.
     static var allCases: [Predictor] {
         [.boltz, .boltzPotentials, .protenixV2, .protenixMini,
-         .protenixConstraint, .intellifold, .openfold3]
+         .protenixConstraint, .intellifold, .openfold3, .esmfold2Full, .esmfold2Fast]
     }
 
     var isAvailable: Bool {
@@ -242,6 +262,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .protenixMini:    return "Protenix Mini"
         case .protenixConstraint: return "Protenix Constraint v0.5 — Experimental"
         case .alphafold3:      return "AlphaFold 3 (retired)"
+        case .esmfold2Full: return "ESMFold2 Full MLX"
+        case .esmfold2Fast: return "ESMFold2 Fast MLX"
         case .openfold3:       return "OpenFold-3"
         case .intellifoldJAX:  return "IntelliFold JAX/Metal (retired)"
         }
@@ -258,6 +280,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .protenixMini:            return "protenix-mini"
         case .protenixConstraint:      return "protenix-constraint-v0.5"
         case .alphafold3:              return "alphafold3"
+        case .esmfold2Full: return "esmfold2-full-mlx"
+        case .esmfold2Fast: return "esmfold2-fast-mlx"
         case .openfold3:               return "openfold-3-mlx"
         case .intellifoldJAX:          return "intellifold-jax"
         }
@@ -285,6 +309,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// comparing them is useful in Predict, not orthogonal validation.
     var independenceIdentity: String {
         switch checkingVariant {
+        case .esmfold2Full, .esmfold2Fast: return "esmfold2-family"
         case .protenixV2, .protenixMini, .protenixConstraint: return "protenix-family"
         default: return checkingVariant.runnerValue
         }
@@ -298,6 +323,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         case .protenixMini:            return .protenixMini
         case .protenixConstraint:       return .protenixConstraint
         case .alphafold3:              return .alphafold3
+        case .esmfold2Full: return .esmfold2Full
+        case .esmfold2Fast: return .esmfold2Fast
         case .openfold3:               return .openfold3
         case .intellifoldJAX:          return .intellifoldJAX
         }
@@ -313,6 +340,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// uses it.
     func measuredSeconds(in mode: SpeedMode) -> Double {
         switch self {
+        case .esmfold2Full, .esmfold2Fast: return 0 // No comparable whole-pipeline timing yet; see Lab Book 0214.
         case .boltz:           return 10.9      // p1
         case .boltzPotentials: return 21.4      // p2
         case .alphafold3:      return 0        // compatibility identity; never scheduled
@@ -341,6 +369,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// at its best measured schedule).
     func speed(in mode: SpeedMode) -> SpeedBand {
         switch self {
+        case .esmfold2Full, .esmfold2Fast: return .unmeasured
         case .boltz:
             return .fastest
         case .intellifold:
@@ -370,6 +399,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
 
     var blurb: String {
         switch self {
+        case .esmfold2Full: return "Full MLX model; accepts MSAs or single sequences. 20 loops / 100 requested diffusion steps."
+        case .esmfold2Fast: return "Sequence-only, no MSA. In two M4 Max/64 GB model-inference tests (excluding loading), ~1.2–1.6× faster than Full at matching settings; ~4–13× with the different default refinement budgets. Small exploratory benchmark, not a universal speedup."
         case .boltz:
             return "Fastest, and the default. One process already saturates the GPU."
         case .boltzPotentials:
@@ -394,6 +425,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Honest one-line caveat shown next to the choice. Empty when there is none.
     var caveat: String {
         switch self {
+        case .esmfold2Full, .esmfold2Fast: return "Experimental MLX port by Fausto Milletari and contributors, using Biohub models. No affinity head, template guidance or X-token hallucination. Fast and Full are one model family, not independent checks of one another."
         case .alphafold3:
             return "No longer installable or runnable in Studio."
         case .intellifold:
@@ -414,6 +446,12 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Every line here was verified against `nanohunter_run.sh` on 2026-08-11.
     var settingsSummary: [String] {
         switch self {
+        case .esmfold2Full, .esmfold2Fast:
+            return [self == .esmfold2Fast ? "Sequence-only; 3 loops / 50 requested steps" : "Per-chain MSA or single sequence; 20 loops / 100 requested steps",
+                    "MLX GPU; fold FP32, ESMC-6B BF16; strict pinned checkpoints",
+                    "One loaded model handles each directory; atomic per-input resume and live results",
+                    "Biohub CPU feature preparation and decoding; upstream 3×3 CPU SVD retained",
+                    "No Boltz affinity head or structure-template/pocket guidance"]
         case .boltz, .boltzPotentials:
             return ["GPU accelerator, 1 device, 0 dataloader workers",
                     "3 recycles (its default)",
@@ -469,24 +507,25 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Engines that can independently re-fold finished designs. Steering
     /// potentials are deliberately absent: checks remove design restraints.
     static var checkChoices: [Predictor] {
-        [.boltz, .protenixV2, .protenixMini, .intellifold, .openfold3]
+        [.boltz, .protenixV2, .protenixMini, .intellifold, .openfold3, .esmfold2Full, .esmfold2Fast]
     }
 
     /// Everything the prediction tab offers, in the order it shows them.
     /// Written out rather than derived, so an engine cannot quietly disappear
     /// from the list because of a filter somewhere else.
     static var predictionChoices: [Predictor] {
-        [.boltz, .protenixV2, .protenixMini, .intellifold, .openfold3]
+        [.boltz, .protenixV2, .protenixMini, .intellifold, .openfold3, .esmfold2Full, .esmfold2Fast]
     }
 
     /// Engines the iterative pipeline can use for independent checks.
     static var iterativeCheckChoices: [Predictor] {
-        [.boltz, .protenixV2, .protenixMini, .intellifold, .openfold3]
+        [.boltz, .protenixV2, .protenixMini, .intellifold, .openfold3, .esmfold2Full, .esmfold2Fast]
     }
 }
 
 /// Relative speed, as a band rather than a number.
 enum SpeedBand: Int, Comparable {
+    case unmeasured = -1
     case fastest = 0
     case moderate = 1
     case slow = 2
@@ -496,6 +535,7 @@ enum SpeedBand: Int, Comparable {
 
     var label: String {
         switch self {
+        case .unmeasured: return "see model details"
         case .fastest:  return "fastest"
         case .moderate: return "about twice the time"
         case .slow:     return "roughly 2–3x the time"
@@ -507,6 +547,7 @@ enum SpeedBand: Int, Comparable {
     /// measurement of the user's own machine.
     var bars: Int {
         switch self {
+        case .unmeasured: return 0
         case .fastest:  return 1
         case .moderate: return 2
         case .slow:     return 3
@@ -572,7 +613,7 @@ struct LigandNessoOptions: Codable, Hashable {
     var topK = 20
     var predictor: Predictor = .boltz
     var intellifoldModel: IntelliFoldModel = .v2flash
-    static let predictors: [Predictor] = [.boltz, .intellifold, .protenixMini, .protenixV2, .openfold3]
+    static let predictors: [Predictor] = [.boltz, .intellifold, .protenixMini, .protenixV2, .openfold3, .esmfold2Full, .esmfold2Fast]
     var validationError: String? {
         guard enabled else { return nil }
         if !["nesso", "psichic"].contains(engine) { return "Choose a supported experimental screening engine." }

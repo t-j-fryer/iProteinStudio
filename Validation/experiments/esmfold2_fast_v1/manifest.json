@@ -1,0 +1,60 @@
+{
+  "experiment": "esmfold2_fast_v1",
+  "date": "2026-09-28",
+  "msa_sha256": "c5c2ee22f8430f0144c602338fdb250d6ce69e1f851753bf8a8ce5046702f0ff",
+  "msa_policy": "Explicit sequence-only for every new run: no homolog MSA loaded. Query-only features are frozen per context and shared across both checkpoints and backends. Previously saved full20/100 MSA runs are separately labelled historical controls.",
+  "settings": {
+    "seed": 42,
+    "num_diffusion_samples": 1,
+    "fold_dtype": "float32",
+    "esmc_dtype": "bfloat16",
+    "warmups": 0,
+    "repeats": 2
+  },
+  "profile_policy": "Fast documented example3loops/50requestedsteps; matched Full3/50 sequence-only control; Full20/100 sequence-only control against saved full20/100 with cached SUMO MSA. One fresh process per context/backend/profile, two same-seed calls in each (first and resident timing reported separately). No pooled fresh/resident mean.",
+  "acceptance": [
+    "Strict required checkpoint coverage",
+    "Exact sequences and complete backbone for all chains",
+    "Finite coordinates and confidence",
+    "Audited per-unit outputs and immutable receipts",
+    "Native GPU learned inference with explicit counted tiny CPU SVD",
+    "Retain geometry/confidence flags, never filter poor predictions"
+  ],
+  "analysis": "Monomer exact-sequence crystal3QHT core21-96; complex pose agreement versus saved full and Boltz/Protenix, common ipSAE, geometry. No experimental complex reference; confidence/agreement is not binding validation.",
+  "source_revisions": {
+    "pytorch": "pinned Biohub ESM3.4.0 / Torch2.11.0 patched MPS from prior experiment",
+    "mlx": "c26b9af872158d822a8c95589708eedd3b9c0831 / MLX0.32.2"
+  },
+  "status": "predeclared",
+  "contexts": {
+    "monomer": {
+      "A": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG"
+    },
+    "complex": {
+      "A": "EETEIIAAFEKNKETGEYYFAVFEVKNGELTEVLPWTPVKDLTIEVEVENGKLKITFTTKSGEKYVVEKKTKDGKITEEDKELIEWIKETLKKLREES",
+      "B": "SDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIG"
+    }
+  },
+  "profiles": [
+    {
+      "id": "fast_3_50",
+      "model": "fast",
+      "num_loops": 3,
+      "num_sampling_steps": 50
+    },
+    {
+      "id": "full_3_50",
+      "model": "full",
+      "num_loops": 3,
+      "num_sampling_steps": 50
+    },
+    {
+      "id": "full_20_100",
+      "model": "full",
+      "num_loops": 20,
+      "num_sampling_steps": 100
+    }
+  ],
+  "fast_revision": "c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6",
+  "checkpoint_policy": "Last unbundled official Fast checkpoint matches pinned reference runtime. New September bundled Transformers export not tested. Native head config and sampler coefficients retained."
+}

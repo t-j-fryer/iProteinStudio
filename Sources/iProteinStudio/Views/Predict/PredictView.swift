@@ -284,6 +284,10 @@ struct PredictView: View {
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if request.wrappedValue.effectivePredictors.contains(.esmfold2Fast) {
+                Text("ESMFold2 Fast always uses single sequences and skips MSA search. Alignment choices below apply to the other selected engines, including Full.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             policyPicker("Your sequences", selection: request.binderMSA)
             if request.wrappedValue.pairing != .monomer {
                 policyPicker("Their partner", selection: request.partnerMSA)
@@ -476,8 +480,8 @@ struct PredictView: View {
                 && request.wrappedValue.effectivePredictors.contains {
                     $0 == .intellifold
                 }
-            if !request.wrappedValue.jobs.isEmpty, fullV2Selected {
-                Label("No time estimate: full IntelliFold v2 has not been benchmarked on this Mac yet.",
+            if !request.wrappedValue.jobs.isEmpty, fullV2Selected || request.wrappedValue.effectivePredictors.contains(where: { $0 == .esmfold2Fast || $0 == .esmfold2Full }) {
+                Label("No whole-run time estimate for this selection. See the model details for the limited reference benchmarks.",
                       systemImage: "clock")
                     .font(.callout).foregroundStyle(.secondary)
             } else if !request.wrappedValue.jobs.isEmpty {

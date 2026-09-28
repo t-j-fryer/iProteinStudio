@@ -22,7 +22,7 @@ def saved_request(request):
 # Studio defaults; historical saved runs retain their explicit settings.
 LEGACY_POLICY = dict(search_policy_version=1, early_score_gate=0.0, selective_affinity=False,
                      adaptive_proposals=False, initial_proposals=16, affinity_batch_size=8, min_improvement=0.0001)
-DEFAULTS = dict(scoring_mode="boltz", nesso_early_score_gate=0.4, psichic_early_score_gate=0.2, search_policy_version=3, early_score_gate=0.80, selective_affinity=True,
+DEFAULTS = dict(folding_engine="boltz", final_predictors=[], scoring_mode="boltz", nesso_early_score_gate=0.4, psichic_early_score_gate=0.2, search_policy_version=3, early_score_gate=0.80, selective_affinity=True,
                 adaptive_proposals=False, initial_proposals=16, affinity_batch_size=8, min_improvement=0.01, smiles="", num_starts=1000, trajectories=8, nise_seqs=32, first_cycle_seqs=64,
                 partial_noising=False, noise_radius=6.0, noise_percent=25.0, noise_predictions=32, noise_mpnn_seqs=32, noise_advance=1,
                 max_cycles=30, patience=4, binder_min_len=65, binder_max_len=150,
@@ -45,6 +45,13 @@ def normalize(request):
     if not isinstance(request, dict) or set(request) - set(DEFAULTS):
         raise ValueError("Unknown NISE settings; use the versioned NISE request.")
     cfg = {**DEFAULTS, **request}
+    if cfg['folding_engine'] not in {'boltz', 'esmfold2-fast-mlx', 'esmfold2-full-mlx'}:
+        raise ValueError('Unknown NISE structure engine.')
+    if cfg['folding_engine'] != 'boltz' and (cfg['scoring_mode'] != 'screening' or cfg['resident_workers']):
+        raise ValueError('ESMFold2 folding requires NESSO/PSICHIC optimisation and one managed ESMFold2 session, not a Boltz worker pool.')
+    final = cfg['final_predictors']
+    if not isinstance(final, list) or any(p not in {'esmfold2-full-mlx', 'esmfold2-fast-mlx'} for p in final) or len(set(final)) != len(final):
+        raise ValueError('Final structure checks must be distinct ESMFold2 Fast/Full engines.')
     if cfg["scoring_mode"] not in ("boltz", "screening"):
         raise ValueError("Choose Boltz selection or the screening engine as the optimisation objective.")
     if cfg["scoring_mode"] == "screening":
@@ -174,6 +181,15 @@ def required_files(root, request=None):
             "rfd3/milestone0_oracle.py", "rfd3/scripts/prepare_ligand_target.py",
             "rfd3/scripts/design_from_yaml.py", "rfd3/scripts/run_backbone_bins.py",
             "rfd3/scripts/generate_backbones.py", "rfd3/scripts/rfd3_resume.py")]
+    esm_engines = set(request.get('final_predictors', [])) if request else set()
+    if request and request.get('folding_engine', 'boltz') != 'boltz': esm_engines.add(request['folding_engine'])
+    if esm_engines:
+        files += [root / 'venvs/NanoHunter_esmfold2/bin/python', root / 'scripts/esmfold2_predict.py']
+        files += [root / 'models/esmfold2/ESMC-6B/config.json', root / 'models/esmfold2/ESMFold2/ccd.pkl']
+        files += [root / f'models/esmfold2/ESMC-6B/model-{i:05d}-of-00006.safetensors' for i in range(1, 7)]
+        for engine in sorted(esm_engines):
+            head = 'ESMFold2-Fast' if engine == 'esmfold2-fast-mlx' else 'ESMFold2'
+            files += [root / 'models/esmfold2' / head / name for name in ('model.safetensors', 'config.json')]
     return files
 
 
@@ -221,10 +237,15 @@ def prediction_budget(request):
     later = cfg["trajectories"] * (min(shortlist, normal_parents * cfg["nise_seqs"]) if cfg["nesso_screen"] else normal_parents * cfg["nise_seqs"])
     noise = cfg["trajectories"] * (cfg["noise_predictions"] + (min(cfg["noise_mpnn_seqs"], cfg["nesso_top_k"]) if cfg["nesso_screen"] else cfg["noise_mpnn_seqs"])) if cfg["partial_noising"] else 0
     later += noise
-    return dict(objective=objective(cfg), boltz_affinity_enabled=cfg["scoring_mode"] == "boltz",
-                noising_boltz_per_later_cycle_max=noise, initial_boltz_max=initial, initial_rfd3_backbones=cfg["num_starts"] if rfd3 else 0,
-                first_cycle_boltz_max=first, later_cycle_boltz_max=later,
-                optimization_boltz_max=first + (cfg["max_cycles"] - 1) * later,
+    esm = cfg["folding_engine"] != "boltz"
+    initial_boltz = cfg["num_starts"] if esm and not rfd3 else 0 if esm else initial
+    return dict(initial_structure_max=initial, optimization_structure_max=first + (cfg["max_cycles"] - 1) * later,
+                initial_esmfold2_max=initial - initial_boltz if esm else 0,
+                optimization_esmfold2_max=first + (cfg["max_cycles"] - 1) * later if esm else 0,
+                folding_engine=cfg["folding_engine"], objective=objective(cfg), boltz_affinity_enabled=cfg["scoring_mode"] == "boltz",
+                noising_boltz_per_later_cycle_max=noise, initial_boltz_max=initial_boltz, initial_rfd3_backbones=cfg["num_starts"] if rfd3 else 0,
+                first_cycle_boltz_max=0 if esm else first, later_cycle_boltz_max=0 if esm else later,
+                optimization_boltz_max=0 if esm else first + (cfg["max_cycles"] - 1) * later,
                 interpretation="Calculated upper bounds, not runtime estimates; fewer survivors and early stopping reduce work.")
 
 

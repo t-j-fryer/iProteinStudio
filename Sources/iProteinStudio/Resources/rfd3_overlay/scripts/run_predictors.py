@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rfd3_resume import bind_inputs, save_receipt, verify_receipt, sha256
 
 
-SUPPORTED = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"}
+SUPPORTED = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx"}
 RETIRED = {"alphafold3", "intellifold-jax"}
 RESIDENT_PREDICTORS = {"boltz", "intellifold", "protenix-mini"}
 CYCLE_WAVE_PREDICTORS = {"protenix-v2"}
@@ -431,13 +431,17 @@ def main() -> None:
                     worker.stop()
             continue
 
-        if policy == "cycle-wave":
+        if policy in {"cycle-wave", "directory"}:
             wave = output / "_scheduler" / f"wave_{predictor}_{int(time.time())}_{os.getpid()}"
             inputs = wave / "inputs"
             inputs.mkdir(parents=True, exist_ok=False)
             for yaml_path, _ in jobs:
                 shutil.copy2(yaml_path, inputs / yaml_path.name)
-            command, env = protenix_wave_command(inputs, output / predictor, root)
+            if predictor.startswith("esmfold2-"):
+                command, env = command_for(predictor, inputs, output / predictor, root, args.intellifold_model)
+                command[command.index("--yaml")] = "--inputs"
+            else:
+                command, env = protenix_wave_command(inputs, output / predictor, root)
             log_path = wave / "predict.log"
             started = time.time()
             with log_path.open("w") as handle:

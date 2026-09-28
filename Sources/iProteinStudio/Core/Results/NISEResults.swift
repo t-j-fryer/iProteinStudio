@@ -16,7 +16,7 @@ enum NISEPhase: Int, CaseIterable, Identifiable {
         switch self {
         case .preparation: return "Initial backbones → pocket refinement → unrestrained geometry gate → diverse seed expansion. Browse by stage and original lineage."
         case .optimisation: return "Independent trajectories expand and select their own parent beams. A passing candidate is not necessarily selected for the next cycle."
-        case .finalChecks: return "Apo/holo preorganisation checks on the final shortlist. These are computed assessments, not experimentally confirmed hits."
+        case .finalChecks: return "Independent refolds and apo/holo preorganisation checks on the final shortlist. These are computed assessments, not experimentally confirmed hits."
         }
     }
 }
@@ -100,9 +100,11 @@ enum NISEResultsLoader {
         var snapshot = NISESnapshot()
         let objective = settings["objective"] as? [String: Any]
         let objectiveEngine = objective?["engine"] as? String ?? ((settings["scoring_mode"] as? String == "screening") ? (settings["screening_engine"] as? String ?? "nesso") : "boltz")
+        let foldingEngine = settings["folding_engine"] as? String ?? "boltz"
+        let foldingLabel = foldingEngine == "esmfold2-fast-mlx" ? "ESMFold2 Fast" : foldingEngine == "esmfold2-full-mlx" ? "ESMFold2 Full" : "Boltz"
         if objectiveEngine != "boltz" {
             let formula = objective?["formula"] as? String ?? (objectiveEngine == "psichic" ? "1 − predicted_nonbinder" : "P(bind) + (1 − entropy_crop_pl)")
-            snapshot.objectiveDescription = "Selection: \(objectiveEngine.uppercased()) · \(formula). Boltz supplies structures and geometry; Boltz affinity is not evaluated."
+            snapshot.objectiveDescription = "Selection: \(objectiveEngine.uppercased()) · \(formula). \(foldingLabel) supplies structures for geometry checks; Boltz affinity is not evaluated."
         }
         var rows: [String: [String: Any]] = [:]
         var rowFiles: [String: URL] = [:]
@@ -135,7 +137,7 @@ enum NISEResultsLoader {
                     else if cycle == refinements + 1 { title = "Unrestrained geometry gate" }
                     else { title = "Seed expansion" }
                 } else if phase == .optimisation { title = "Optimisation cycle \(cycle)" }
-                else { title = "Apo/holo shortlist" }
+                else { title = cycle == 1 ? "Independent refolds" : "Apo/holo shortlist" }
                 stages[key] = NISEStageProgress(phase: phase, cycle: cycle, title: title)
             }
             return key
@@ -343,7 +345,7 @@ enum NISEResultsLoader {
                 subtitle: "\(stages[key]!.title) · \(branchLabel) · \(label)", structureURL: structure,
                 sequence: row["sequence"] as? String, metrics: metrics, confidenceURL: rowFiles[name],
                 stage: isInitial ? .startingStructure : .design,
-                scoreSource: row["generator"] as? String ?? (objectiveEngine != "boltz" ? "\(objectiveEngine.uppercased()) objective · Boltz geometry" : (row["psichic"] != nil ? "Boltz 2 · PSICHIC prescreen (experimental)" : (row["nesso"] == nil ? "Boltz 2" : "Boltz 2 · NESSO prescreen"))),
+                scoreSource: row["generator"] as? String ?? (objectiveEngine != "boltz" ? "\(objectiveEngine.uppercased()) objective · \(foldingLabel) geometry" : (row["psichic"] != nil ? "Boltz 2 · PSICHIC prescreen (experimental)" : (row["nesso"] == nil ? "Boltz 2" : "Boltz 2 · NESSO prescreen"))),
                 failedFilters: ((row["atom_checks"] as? [String: Any] ?? initialAtoms[name] as? [String: Any])?["failures"] as? [String]) ?? [],
                 groupID: groupID, groupTitle: groupTitle, variantID: "cycle-\(cycle)-\(name)",
                 variantTitle: "Cycle \(cycle) · \(name)", artifactRole: isInitial ? .startingStructure : .designedComplex)
@@ -371,6 +373,21 @@ enum NISEResultsLoader {
                 snapshot.records.append(NISERecord(item: apoItem, phase: .finalChecks, cycle: 0, geometryPassed: nil, eligible: nil, advanced: nil))
                 stages[finalKey]?.completed += 1
             }
+        }
+        for row in RunResultsLoader.liveRecords(root: root) where (row["relative_structure"] ?? "").hasPrefix("final_checks/") {
+            guard let name = row["job"], let engine = row["predictor"],
+                  let structure = row["structure_path"].flatMap({ artifact($0) }),
+                  let conf = row["confidence_json"].flatMap({ artifact($0) }), let data = object(conf) else { continue }
+            let label = engine == "esmfold2-fast-mlx" ? "ESMFold2 Fast MLX" : "ESMFold2 Full MLX"
+            let sample = row["sample"] ?? name
+            let key = stage(.finalChecks, 1)
+            let item = StudioResultItem(id: "nise|final|\(engine)|\(sample)", title: name + " · " + label,
+                subtitle: "Final unrestrained refold · no affinity head", structureURL: structure,
+                sequence: rows[name]?["sequence"] as? String ?? "", metrics: metrics(data), confidenceURL: conf,
+                stage: .design, scoreSource: label, groupID: engine, groupTitle: label,
+                variantID: name, variantTitle: name, artifactRole: .designedComplex)
+            snapshot.records.append(NISERecord(item: item, phase: .finalChecks, cycle: 1, geometryPassed: nil, eligible: nil, advanced: nil))
+            stages[key]?.completed += 1
         }
         snapshot.stages = stages.values.sorted { ($0.phase.rawValue, $0.cycle) < ($1.phase.rawValue, $1.cycle) }
         snapshot.screening.sort { $0.id.localizedStandardCompare($1.id) == .orderedAscending }

@@ -19,7 +19,7 @@ struct NISEView: View {
         Binding(get: { app.projects.first(where: { $0.id == project.id })?.nise ?? project.nise },
                 set: { value in app.updateProject(id: project.id) { $0.nise = value } })
     }
-    private var ready: Bool { installer.isUsable(.boltz) && installer.isUsable(.boltzAffinity) && installer.isUsable(.lasermpnn) && (request.wrappedValue.backbone_method != "rfdiffusion3" || installer.isUsable(.rfd3)) && (!request.wrappedValue.usesNesso || installer.isUsable(request.wrappedValue.screening_engine == "psichic" ? .psichic : .nesso)) }
+    private var ready: Bool { request.wrappedValue.esmEngines.allSatisfy { value in installer.isUsable(value == "esmfold2-fast-mlx" ? .esmfold2Fast : .esmfold2Full) } && installer.isUsable(.boltz) && installer.isUsable(.boltzAffinity) && installer.isUsable(.lasermpnn) && (request.wrappedValue.backbone_method != "rfdiffusion3" || installer.isUsable(.rfd3)) && (!request.wrappedValue.usesNesso || installer.isUsable(request.wrappedValue.screening_engine == "psichic" ? .psichic : .nesso)) }
     private var atomChoicesReady: Bool {
         cohortURL != nil || !request.wrappedValue.hasAtomSelections || (atomMapVerified
             && ligandAtoms.signature == request.wrappedValue.ligand_atom_signature
@@ -34,7 +34,7 @@ struct NISEView: View {
                 Text("NISE").font(.largeTitle.bold())
                 Text("Design small-molecule binding pockets through selection and expansion.")
                     .font(.title3).foregroundStyle(.secondary)
-                Text("Boltz generates structures and checks geometry; LASErMPNN expands surviving trajectories. Choose which model score drives selection below.")
+                Text("\(request.wrappedValue.foldingLabel) generates structures and checks geometry; LASErMPNN expands surviving trajectories. Choose which model score drives selection below.")
                 GroupBox("Starting point") {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -89,12 +89,12 @@ struct NISEView: View {
                             budgetControl("Binder length groups", value: request.rfd3_num_bins, range: 1...20)
                             Text("Lengths: \(request.wrappedValue.rfd3Lengths.map(String.init).joined(separator: ", ")) residues. The total backbone count is shared evenly across these lengths; it is not multiplied by the number of groups. One group uses the midpoint.")
                                 .font(.caption).foregroundStyle(.secondary)
-                            Text("RFdiffusion3 generates backbones around one fixed ligand conformer, using 200 diffusion steps, 2 recycles and BF16. Its workers reuse weights across batches and exit before Boltz starts. The subsequent NISE search uses the same controls below; this combined path is experimental.")
+                            Text("RFdiffusion3 generates backbones around one fixed ligand conformer, using 200 diffusion steps, 2 recycles and BF16. Its workers reuse weights across batches and exit before structure refinement starts. The subsequent NISE search uses the same controls below; this combined path is experimental.")
                                 .font(.caption).foregroundStyle(.secondary)
                             if !installer.isUsable(.rfd3) {
                                 Label("Install RFdiffusion3 from Engines to use this generator.", systemImage: "shippingbox")
                             }
-                            Text("\(request.wrappedValue.num_starts.formatted()) RFdiffusion3 backbones, followed by the initial Boltz funnel below.")
+                            Text("\(request.wrappedValue.num_starts.formatted()) RFdiffusion3 backbones, followed by the initial folding funnel below.")
                                 .font(.callout.bold())
                         }
                         }
@@ -108,12 +108,20 @@ struct NISEView: View {
                         }
                         .accessibilityIdentifier("nise-scoring-mode")
                         if request.wrappedValue.usesScreeningObjective {
-                            Text("\(request.wrappedValue.screeningLabel) drives refinement, seed selection, beams, best-so-far and patience using \(request.wrappedValue.objectiveFormula). Boltz generates structures and checks geometry; its affinity head is disabled. Both stages use the selected engine, with separate folding shortlist budgets. The cycle01 baseline is 0.4 for NESSO and 0.2 for PSICHIC; adjust it under Advanced · initial sampling and selection. Experimental objective; not calibrated evidence of binding.").font(.callout)
+                            Picker("Structure generator", selection: request.folding_engine) {
+                                Text("Boltz 2 · pocket guidance available").tag("boltz")
+                                Text("ESMFold2 Fast · experimental, sequence only").tag("esmfold2-fast-mlx")
+                                Text("ESMFold2 Full · experimental, sequence only here").tag("esmfold2-full-mlx")
+                            }.accessibilityIdentifier("nise-folding-engine")
+                            if request.wrappedValue.usesESMFolding {
+                                Text("ESMFold2 predicts complete protein–ligand structures without pocket restraints or affinity. Bind, Expose and RMSD checks still filter the resulting structures. Initial Protein Hunter X-token backbones still use Boltz; RFdiffusion3 generation is unchanged. NISE supplies no MSA to either ESMFold2 model. These are experimental alternative folds, not Boltz-equivalent predictions.").font(.callout)
+                            }
+                            Text("\(request.wrappedValue.screeningLabel) drives refinement, seed selection, beams, best-so-far and patience using \(request.wrappedValue.objectiveFormula). \(request.wrappedValue.foldingLabel) generates structures for geometry checks; Boltz affinity is disabled. Both stages use the selected engine, with separate folding shortlist budgets. The cycle01 baseline is 0.4 for NESSO and 0.2 for PSICHIC; adjust it under Advanced · initial sampling and selection. Experimental objective; not calibrated evidence of binding.").font(.callout)
                         } else {
                             Text("Optional sequence shortlists reduce Boltz work. Boltz ligand pLDDT/100 + P(bind) determines advancement and patience.").font(.caption)
                         }
                         if request.wrappedValue.screening_engine == "psichic" {
-                            Text("PSICHIC ranks 1 − nonbinder; affinity and class probabilities are saved. Experimental, with unvalidated binding accuracy. Boltz supplies structural checks. The score-use selector determines final selection. Maximum sequence length: 700 residues.").font(.caption)
+                            Text("PSICHIC ranks 1 − nonbinder; affinity and class probabilities are saved. Experimental, with unvalidated binding accuracy. \(request.wrappedValue.foldingLabel) supplies structural checks. The score-use selector determines final selection. Maximum sequence length: 700 residues.").font(.caption)
                         }
                         Toggle("Use \(request.wrappedValue.screeningLabel) to shortlist initial sequences (experimental)", isOn: request.phase0_nesso_screen)
                             .disabled(cohortURL != nil || request.wrappedValue.usesScreeningObjective)
@@ -122,12 +130,12 @@ struct NISEView: View {
                             if cohortURL != nil {
                                 Text("The imported round reuses saved sequences and folds. Sampling below applies to subsequent rounds.").font(.caption).foregroundStyle(.secondary)
                             }
-                            Text("Each refinement round: LASErMPNN samples \(request.wrappedValue.phase0_seqs1) sequences per lineage → \(request.wrappedValue.screeningLabel) selects up to \(request.wrappedValue.phase0_nesso_refine_top_k) → Boltz folds with the pocket restraint → atom checks → the best passing candidate by the chosen objective advances.")
+                            Text("Each refinement round: LASErMPNN samples \(request.wrappedValue.phase0_seqs1) sequences per lineage → \(request.wrappedValue.screeningLabel) selects up to \(request.wrappedValue.phase0_nesso_refine_top_k) → \(request.wrappedValue.foldingLabel) folds\(request.wrappedValue.usesESMFolding ? " without restraints" : " with the pocket restraint") → atom checks → the best passing candidate by the chosen objective advances.")
                                 .font(.callout)
-                            Text("After the unrestrained gate, \(request.wrappedValue.screeningLabel) scores every expansion sequence and shortlists up to \(request.wrappedValue.phase0_nesso_expand_top_k) in total, at most one per original lineage. Boltz then folds them, checks geometry and the chosen objective selects the stage 2 seeds.")
+                            Text("After the unrestrained gate, \(request.wrappedValue.screeningLabel) scores every expansion sequence and shortlists up to \(request.wrappedValue.phase0_nesso_expand_top_k) in total, at most one per original lineage. \(request.wrappedValue.foldingLabel) then folds them, checks geometry and the chosen objective selects the stage 2 seeds.")
                                 .font(.callout)
                             if request.wrappedValue.screening_engine == "nesso" {
-                            Text("NESSO ranks by P(bind) + (1 − pocket-cropped protein–ligand entropy). Missing, out-of-range or near-zero entropy (≤ 0.000001) is rejected. Boltz supplies structural/atom checks; its affinity score is used only in prefilter mode. Failed shortlist candidates are not automatically replaced.")
+                            Text("NESSO ranks by P(bind) + (1 − pocket-cropped protein–ligand entropy). Missing, out-of-range or near-zero entropy (≤ 0.000001) is rejected. \(request.wrappedValue.foldingLabel) supplies structural/atom checks; its affinity score is used only in prefilter mode. Failed shortlist candidates are not automatically replaced.")
                                 .font(.caption).foregroundStyle(.secondary)
                             }
                         }
@@ -149,19 +157,19 @@ struct NISEView: View {
                                     budgetControl("\(request.wrappedValue.screeningLabel) shortlist per lineage per refinement", value: request.phase0_nesso_refine_top_k,
                                                   range: 1...max(1, request.wrappedValue.phase0_seqs1))
                                 }
-                                budgetControl("Gate sequences per lineage (all go to Boltz)", value: request.phase0_gate_seqs, range: 1...1024)
+                                budgetControl("Gate sequences per lineage (all are folded)", value: request.phase0_gate_seqs, range: 1...1024)
                                 rmsdControl("Gate maximum Cα RMSD (Å)", value: request.phase0_sc_ca)
                                 budgetControl("Expansion sequences per gate survivor", value: request.phase0_seqs2, range: 1...1024)
                                 if request.wrappedValue.phase0_nesso_screen {
-                                    budgetControl("Expansion shortlist for Boltz · total", value: request.phase0_nesso_expand_top_k,
+                                    budgetControl("Expansion folding shortlist · total", value: request.phase0_nesso_expand_top_k,
                                                   range: max(1, min(10000, request.wrappedValue.trajectories))...10000)
                                 }
-                                Text("The gate tests consistency against the parent structure; expansion ranks passing structures without another RMSD cutoff. Binding/exposure requirements above apply to every sequence-bearing Boltz result. Atom checks require a fold and cannot be applied by \(request.wrappedValue.screeningLabel).")
+                                Text("The gate tests consistency against the parent structure; expansion ranks passing structures without another RMSD cutoff. Binding/exposure requirements above apply to every complete-sequence prediction. Atom checks require a fold and cannot be applied by \(request.wrappedValue.screeningLabel).")
                                     .font(.caption).foregroundStyle(.secondary)
                             }.padding(.top, 8)
                         }
                         if cohortURL == nil {
-                            Text("Up to \(request.wrappedValue.initialPredictionBudget.formatted()) initial Boltz predictions.").font(.callout.bold())
+                            Text("Up to \(request.wrappedValue.initialPredictionBudget.formatted()) initial predictions.").font(.callout.bold())
                         } else {
                             Text("Initial backbone generation and first-refinement folding are reused. Later prediction counts depend on shortlist and geometry survival.").font(.caption)
                         }
@@ -233,11 +241,28 @@ struct NISEView: View {
                         }
                         budgetControl("Maximum optimisation cycles", value: request.max_cycles, range: 1...1000)
                         budgetControl("Stop after cycles without improvement", value: request.patience, range: 1...1000)
-                        Text("Up to \(request.wrappedValue.firstCyclePredictionBudget.formatted()) Boltz predictions in the first cycle; \(request.wrappedValue.cyclePredictionBudget.formatted()) per later cycle. Up to \(request.wrappedValue.optimizationPredictionBudget.formatted()) across optimisation.")
+                        Text("Up to \(request.wrappedValue.firstCyclePredictionBudget.formatted()) folding predictions in the first cycle; \(request.wrappedValue.cyclePredictionBudget.formatted()) per later cycle. Up to \(request.wrappedValue.optimizationPredictionBudget.formatted()) across optimisation.")
                             .font(.callout.bold())
                         Text("These are upper bounds, not runtime estimates. Fewer surviving lineages, failed structural checks and early stopping reduce work. Increasing the number advanced increases sampling in later cycles.")
                             .font(.caption).foregroundStyle(.secondary)
                     }.padding(8)
+                }
+                GroupBox("Optional final structure checks") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach([Predictor.esmfold2Fast, .esmfold2Full]) { engine in
+                            Toggle(engine.label, isOn: Binding(
+                                get: { request.wrappedValue.final_predictors.contains(engine.runnerValue) },
+                                set: { selected in
+                                    request.wrappedValue.final_predictors.removeAll { $0 == engine.runnerValue }
+                                    if selected { request.wrappedValue.final_predictors.append(engine.runnerValue) }
+                                }))
+                        }
+                        if !request.wrappedValue.final_predictors.isEmpty {
+                            Stepper("Check up to \(request.wrappedValue.top_x) final candidates", value: request.top_x, in: 1...64)
+                        }
+                        Text("Refolds completed sequences with the ligand, without pocket restraints or affinity scoring. Keeps the NISE optimisation metric and advancement unchanged. Fast is sequence-only (3 loops / 50 steps); Full uses 20 loops / 100 steps. NISE candidates are designed sequences, so both use single-sequence inputs. The two models share ESMC-6B and are not independent of one another.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
                 GroupBox("Final pocket analysis") {
                     VStack(alignment: .leading) {
@@ -256,8 +281,8 @@ struct NISEView: View {
                         }.onChange(of: request.wrappedValue.scheduler) { _, value in
                             if value != "resident" { request.wrappedValue.resident_workers = 0 }
                         }
-                        Text("Within-cycle reuse loads each selected model once per scoring batch. Across-cycle reuse also retains \(request.wrappedValue.screeningLabel)/ESM when enabled, alongside the Boltz structure model (and affinity model only for Boltz selection), and uses more memory. Ligand throughput validation is still pending.").font(.caption)
-                        if request.wrappedValue.scheduler == "resident" {
+                        Text("Within-cycle reuse loads each selected model once per scoring batch. Across-cycle reuse also retains \(request.wrappedValue.screeningLabel)/ESM when enabled, alongside the selected structure model (and affinity model only for Boltz selection), and uses more memory. Ligand throughput validation is still pending.").font(.caption)
+                        if request.wrappedValue.scheduler == "resident" && !request.wrappedValue.usesESMFolding {
                             Picker("Boltz worker scheduling", selection: request.resident_workers) {
                                 Text("Existing scheduling").tag(0)
                                 Text("One resident worker, stage batches").tag(1)
@@ -318,6 +343,10 @@ struct NISEView: View {
         }
         .onChange(of: request.wrappedValue.scoring_mode) { _, mode in
             if mode == "screening" { request.wrappedValue.enableScreeningObjective() }
+            else { request.wrappedValue.folding_engine = "boltz" }
+        }
+        .onChange(of: request.wrappedValue.folding_engine) { _, engine in
+            if engine != "boltz" { request.wrappedValue.resident_workers = 0 }
         }
         .onChange(of: project.id) { _, _ in
             cohortURL = nil; cohortSummary = nil; cohortError = nil; cohortLineages = nil

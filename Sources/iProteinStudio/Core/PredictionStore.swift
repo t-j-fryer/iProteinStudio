@@ -14,6 +14,8 @@ struct PredictionRecord: Identifiable, Codable, Hashable {
     var engineLabel: String {
         switch engine {
         case "intellifold": return "IntelliFold (\(model))"
+        case "esmfold2_full": return "ESMFold2 Full MLX"
+        case "esmfold2_fast": return "ESMFold2 Fast MLX"
         case "protenix_v2": return "Protenix v2"
         case "protenix_mini": return "Protenix Mini"
         default: return "Boltz"

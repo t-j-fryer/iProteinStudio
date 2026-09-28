@@ -179,6 +179,8 @@ class Backend:
         return self.settings.get("scoring_mode", "boltz") == "boltz"
 
     def freeze_config(self, cfg):
+        if self.settings.get("folding_engine", "boltz") != "boltz":
+            cfg = {**cfg, "folding_engine": self.settings["folding_engine"], "folding_restraints": False, "folding_msa": "empty"}
         if not self.allow_boltz_affinity:
             cfg = {**cfg, "scoring_mode": "screening", "objective": self.objective}
 
@@ -408,6 +410,7 @@ class Backend:
     def record_candidate(self, node, passed, prediction):
         row = asdict(node)
         row["objective"] = self.objective
+        row["folding_engine"] = "boltz" if "X" in node.sequence else self.settings.get("folding_engine", "boltz")
         match = re.search(r"_t(\d+)_", node.name)
         row["trajectory"] = int(match.group(1)) if match else None
         row["intermediate_passed"] = passed if row.get("branch") == "masked-backbone" else None

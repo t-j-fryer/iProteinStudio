@@ -2,6 +2,8 @@
 
 | Entry | Date | Status | Question |
 |---|---|---|---|
+| [0057](lab_book/0057-esmfold2-portable-app.md) | 2026-09-28 | qualified | Portable ESMFold2 app adapter: output identity, MSA/ligand handling, restart and live results. |
+| [0056](lab_book/0056-esmfold2-fast.md) | 2026-09-28 | complete; 24 audited | Fast versus Full: matched complex inference about1.6× faster, similar interface confidence; no default promotion. |
 | [0032](lab_book/0032-nise-stage-batch-resume.md) | 2026-09-17 | passed; campaign ongoing | Native writer checkpoints, interrupted batch recovery, affinity and continuation. |
 | [0031](lab_book/0031-biotin-single-particle-and-early-exposure.md) | 2026-09-17 | complete | Physical guidance without FK preserves biotin chirality; late exposure persistence is a candidate for independent validation. |
 | [0030](lab_book/0030-biotin-guidance-replay.md) | 2026-09-17 | complete; audited | Pocket-only48.69→15.48s but11/30 wrong biotin stereochemistry; batching14.43s with matched filter outcomes. |

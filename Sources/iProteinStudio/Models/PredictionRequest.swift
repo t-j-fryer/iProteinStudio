@@ -155,7 +155,7 @@ struct PredictionRequest: Codable, Hashable {
         for predictor in effectivePredictors where !result.contains(predictor.component) {
             result.append(predictor.component)
         }
-        let needsMSAGenerator = jobs.contains { job in
+        let needsMSAGenerator = effectivePredictors.contains { $0 != .esmfold2Fast } && jobs.contains { job in
             job.chains.contains { $0.kind == "protein" && $0.msa.lowercased() == "auto" }
         }
         // Protenix has its own upstream MSA-server client. Do not make Boltz a
@@ -210,6 +210,13 @@ struct PredictionRequest: Codable, Hashable {
 
     var validationIssues: [String] {
         var issues: [String] = []
+        if effectivePredictors.contains(where: { $0 == .esmfold2Fast || $0 == .esmfold2Full }) {
+            if maxParallel > 1 { issues.append("ESMFold2 uses one shared ESMC-6B session. Choose Automatic or 1 parallel process.") }
+            let alphabet = Set("ACDEFGHIKLMNPQRSTVWY")
+            if jobs.contains(where: { $0.chains.contains(where: { $0.kind == "protein" && !Set($0.sequence.uppercased()).isSubset(of: alphabet) }) }) {
+                issues.append("ESMFold2 needs complete protein sequences, without X tokens.")
+            }
+        }
         if hasTemplate {
             if !["pdb", "cif", "mmcif"].contains(URL(fileURLWithPath: templatePath).pathExtension.lowercased())
                 || !FileManager.default.fileExists(atPath: templatePath) {

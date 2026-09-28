@@ -12,7 +12,7 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": {"enum": ["boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"]}
+      "items": {"enum": ["boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx"]}
     },
     "sequences": {
       "type": "array",

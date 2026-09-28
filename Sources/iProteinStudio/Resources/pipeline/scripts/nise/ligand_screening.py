@@ -21,7 +21,7 @@ from nesso_contract import RANKING_POLICY, installation, placement_score, valida
 from nesso_screen import NessoClient
 from runtime import Journal, atomic, digest
 
-PREDICTORS = {'boltz': 'boltz', 'intellifold': 'intellifold',
+PREDICTORS = {'esmfold2_full': 'esmfold2-full-mlx', 'esmfold2_fast': 'esmfold2-fast-mlx', 'boltz': 'boltz', 'intellifold': 'intellifold',
               'protenix_mini': 'protenix-mini', 'protenix_v2': 'protenix-v2', 'openfold3': 'openfold-3-mlx'}
 
 

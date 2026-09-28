@@ -38,7 +38,10 @@ def run(config_path, branch_test=False, stage_batches=False, resident_workers=No
             raise ValueError("Worker count differs from the saved request")
         resident_workers = settings["resident_workers"]
         stage_batches = True
-    if resident_workers is not None:
+    if settings["folding_engine"] != "boltz":
+        from esmfold_runtime import ESMBackend
+        backend = ESMBackend(root, output, settings, scripts)
+    elif resident_workers is not None:
         if not stage_batches: raise ValueError("Resident pool requires stage-directory checkpoints")
         from batch_runtime import PoolBackend
         backend = PoolBackend(root, output, settings, scripts, workers=resident_workers)
@@ -93,9 +96,13 @@ def run(config_path, branch_test=False, stage_batches=False, resident_workers=No
         if settings["preorganisation"]:
             atomic(output / "progress.json", dict(message="Measuring apo/holo pocket preorganisation"))
             backend.preorganisation(SimpleNamespace(seed=settings["seed"], use_potentials=False))
+        if settings['final_predictors']:
+            backend.close()  # Release Boltz/ESM screening models before ESMC-6B.
+            from final_checks import run as run_final_checks
+            run_final_checks(root, output, settings, smiles)
         summary = json.loads((output / "search_summary.json").read_text())
         atomic(output / "summary.json", {**summary, "status": "completed", "scheduler": settings["scheduler"],
-               "preorganisation": settings["preorganisation"], "request_sha256": request_hash,
+               "preorganisation": settings["preorganisation"], "final_predictors": settings["final_predictors"], "request_sha256": request_hash,
                "nesso_screen": settings["nesso_screen"], "nesso_top_k": settings["nesso_top_k"], "beam": settings["beam"],
                "backbone_method": settings["backbone_method"],
                "initial_screening": {key: settings[key] for key in

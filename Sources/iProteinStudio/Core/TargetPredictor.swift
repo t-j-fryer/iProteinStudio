@@ -4,11 +4,14 @@ import Combine
 /// Structure predictor used for Target Prep.
 enum TargetEngine: String, CaseIterable, Identifiable, Hashable {
     case intellifold, boltz
+    case esmfold2Full = "esmfold2_full", esmfold2Fast = "esmfold2_fast"
     case protenixV2 = "protenix_v2"
     case protenixMini = "protenix_mini"
     var id: String { rawValue }
     var label: String {
         switch self {
+        case .esmfold2Full: return "ESMFold2 Full MLX"
+        case .esmfold2Fast: return "ESMFold2 Fast MLX"
         case .intellifold: return "IntelliFold"
         case .boltz: return "Boltz"
         case .protenixV2: return "Protenix v2"
@@ -18,6 +21,8 @@ enum TargetEngine: String, CaseIterable, Identifiable, Hashable {
 
     var component: InstallComponent {
         switch self {
+        case .esmfold2Full: return .esmfold2Full
+        case .esmfold2Fast: return .esmfold2Fast
         case .intellifold: return .intellifold
         case .boltz: return .boltz
         case .protenixV2: return .protenixV2
@@ -125,6 +130,8 @@ final class TargetPredictor: ObservableObject {
         switch engine {
         case .boltz: config.predictors = [Predictor.boltz.runnerValue]
         case .intellifold: config.predictors = [Predictor.intellifold.runnerValue]
+        case .esmfold2Full: config.predictors = [Predictor.esmfold2Full.runnerValue]
+        case .esmfold2Fast: config.predictors = [Predictor.esmfold2Fast.runnerValue]
         case .protenixV2: config.predictors = [Predictor.protenixV2.runnerValue]
         case .protenixMini: config.predictors = [Predictor.protenixMini.runnerValue]
         }
@@ -136,7 +143,7 @@ final class TargetPredictor: ObservableObject {
         if targetKind == .protein {
             chains = proteinChains.map {
                 PredictionConfig.Chain(id: $0.id, kind: "protein", sequence: $0.sequence,
-                                       smiles: nil, msa: MSAPolicy.auto.rawValue)
+                                       smiles: nil, msa: (engine == .esmfold2Fast ? MSAPolicy.empty : MSAPolicy.auto).rawValue)
             }
         } else {
             chains = [PredictionConfig.Chain(id: "B", kind: "ligand", sequence: nil,
@@ -160,7 +167,7 @@ final class TargetPredictor: ObservableObject {
             return
         }
         start()
-        appendLog("Using the shared MSA cache; a missing alignment will be generated once and saved.")
+        appendLog(engine == .esmfold2Fast ? "ESMFold2 Fast uses the sequence alone; no alignment search." : "Using the shared MSA cache; a missing alignment will be generated once and saved.")
         resultDir = outDir
         job.submit(project: "target-library", workflow: "target_prepare", output: outDir,
                    update: { [weak self] state in

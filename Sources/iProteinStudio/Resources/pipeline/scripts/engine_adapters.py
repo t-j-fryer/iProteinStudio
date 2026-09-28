@@ -61,6 +61,14 @@ def command_for(predictor: str, yaml_path: Path, output: Path, root: Path,
             "--model", "v2" if predictor == "protenix-v2" else "mini",
         ]
 
+    elif family == "esmfold2":
+        venv = root / "venvs" / "NanoHunter_esmfold2"
+        env.update(PYTORCH_ENABLE_MPS_FALLBACK="0", HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1")
+        command = [str(venv / "bin/python"), str(root / "scripts/esmfold2_predict.py"),
+                   "--yaml", str(yaml_path), "--output", str(output),
+                   "--nanohunter-root", str(root), "--model",
+                   "fast" if predictor == "esmfold2-fast-mlx" else "full", "--unrestrained-check"]
+
     elif family == "openfold3":
         venv = root / "venvs" / "NanoHunter_openfold3_mlx"
         env.update({

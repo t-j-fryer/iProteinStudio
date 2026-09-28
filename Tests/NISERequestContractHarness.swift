@@ -134,6 +134,15 @@ struct NISERequestContractHarness {
         precondition(!conditioned.validationIssues.isEmpty)
         conditioned.clearAtomSelections(); precondition(conditioned.rfd3_conditioning == nil)
         precondition(oldCustom.rfd3_conditioning == nil && oldCustom.resident_workers == 0)
+        var esm = NISERequest(); esm.smiles = "CCO"; esm.folding_engine = "esmfold2-fast-mlx"
+        precondition(!esm.validationIssues.isEmpty)
+        esm.enableScreeningObjective(); precondition(esm.validationIssues.isEmpty)
+        esm.final_predictors = ["esmfold2-full-mlx"]
+        let esmCopy = try JSONDecoder().decode(NISERequest.self, from: JSONEncoder().encode(esm))
+        precondition(esmCopy == esm && esmCopy.esmEngines.count == 2)
+        esm.resident_workers = 2; esm.scheduler = "resident"
+        precondition(!esm.validationIssues.isEmpty)
+        precondition(oldCustom.folding_engine == "boltz" && oldCustom.final_predictors.isEmpty)
         print("PASS NISE request and existing-workspace migration contracts")
     }
 }

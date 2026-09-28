@@ -194,6 +194,96 @@
         "sha256": "9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1",
         "label": "RFdiffusion3 checkpoint"
       }
+    ],
+    "esmfold2": [
+      {
+        "path": "models/esmfold2/ESMC-6B/config.json",
+        "url": "https://huggingface.co/biohub/ESMC-6B/resolve/45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a/config.json",
+        "sha256": "c5566fab6a17fd674141331fe75de917b7904d99fb7a410d2b1593c21e576913",
+        "label": "ESMC-6B/config.json"
+      },
+      {
+        "path": "models/esmfold2/ESMC-6B/model-00001-of-00006.safetensors",
+        "url": "https://huggingface.co/biohub/ESMC-6B/resolve/45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a/model-00001-of-00006.safetensors",
+        "sha256": "bd90149ff223e6ac1a0cac6147a5ae0df20d3a21df4f65356a1f19cd14f4aa8a",
+        "label": "ESMC-6B/model-00001-of-00006.safetensors"
+      },
+      {
+        "path": "models/esmfold2/ESMC-6B/model-00002-of-00006.safetensors",
+        "url": "https://huggingface.co/biohub/ESMC-6B/resolve/45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a/model-00002-of-00006.safetensors",
+        "sha256": "f75e2144d8269fe2eb4b3e0823fb089b94f176d8024153e85b8fb573a42294fa",
+        "label": "ESMC-6B/model-00002-of-00006.safetensors"
+      },
+      {
+        "path": "models/esmfold2/ESMC-6B/model-00003-of-00006.safetensors",
+        "url": "https://huggingface.co/biohub/ESMC-6B/resolve/45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a/model-00003-of-00006.safetensors",
+        "sha256": "f699f01ecc9691d9c6470492765fe54b8b5d2e9f277c139e89427433ffdfe0b2",
+        "label": "ESMC-6B/model-00003-of-00006.safetensors"
+      },
+      {
+        "path": "models/esmfold2/ESMC-6B/model-00004-of-00006.safetensors",
+        "url": "https://huggingface.co/biohub/ESMC-6B/resolve/45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a/model-00004-of-00006.safetensors",
+        "sha256": "46add1b7be098bbfdc3073884851ba3057f1b33ea23a158b650a37007dabd13d",
+        "label": "ESMC-6B/model-00004-of-00006.safetensors"
+      },
+      {
+        "path": "models/esmfold2/ESMC-6B/model-00005-of-00006.safetensors",
+        "url": "https://huggingface.co/biohub/ESMC-6B/resolve/45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a/model-00005-of-00006.safetensors",
+        "sha256": "1e1cb62f060a34e18f54a31a76683ef888b8cec59e73315f5b31d25d45a1f88c",
+        "label": "ESMC-6B/model-00005-of-00006.safetensors"
+      },
+      {
+        "path": "models/esmfold2/ESMC-6B/model-00006-of-00006.safetensors",
+        "url": "https://huggingface.co/biohub/ESMC-6B/resolve/45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a/model-00006-of-00006.safetensors",
+        "sha256": "56c73e13ae96e777ce65eee99364056069ef93b646470f352f83c5f1037b1b18",
+        "label": "ESMC-6B/model-00006-of-00006.safetensors"
+      },
+      {
+        "path": "models/esmfold2/ESMC-6B/model.safetensors.index.json",
+        "url": "https://huggingface.co/biohub/ESMC-6B/resolve/45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a/model.safetensors.index.json",
+        "sha256": "6846456e20e6ee2c37461f7bfc21d316d69bdaf165b925691afcb39e583244da",
+        "label": "ESMC-6B/model.safetensors.index.json"
+      },
+      {
+        "path": "models/esmfold2/ESMC-6B/tokenizer.json",
+        "url": "https://huggingface.co/biohub/ESMC-6B/resolve/45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a/tokenizer.json",
+        "sha256": "8d3447b278176e65fb3ef0224472927bf5fee3be46ea2bd77fad0111423cee1f",
+        "label": "ESMC-6B/tokenizer.json"
+      },
+      {
+        "path": "models/esmfold2/ESMFold2/ccd.pkl",
+        "url": "https://huggingface.co/biohub/ESMFold2/resolve/8fc3ff471022fdce52c77030685eb775de0c00a3/ccd.pkl",
+        "sha256": "9ff44b1927c6b9198e38ffe0928706827a09a350c15530beeeabebfa88038fc5",
+        "label": "ESMFold2/ccd.pkl"
+      }
+    ],
+    "esmfold2_full": [
+      {
+        "path": "models/esmfold2/ESMFold2/config.json",
+        "url": "https://huggingface.co/biohub/ESMFold2/resolve/8fc3ff471022fdce52c77030685eb775de0c00a3/config.json",
+        "sha256": "e9ec2496ec433a1dce18627ed4bf3785b4ce0c1d69e4bb4663dad1ab895da012",
+        "label": "ESMFold2/config.json"
+      },
+      {
+        "path": "models/esmfold2/ESMFold2/model.safetensors",
+        "url": "https://huggingface.co/biohub/ESMFold2/resolve/8fc3ff471022fdce52c77030685eb775de0c00a3/model.safetensors",
+        "sha256": "138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e",
+        "label": "ESMFold2/model.safetensors"
+      }
+    ],
+    "esmfold2_fast": [
+      {
+        "path": "models/esmfold2/ESMFold2-Fast/config.json",
+        "url": "https://huggingface.co/biohub/ESMFold2-Fast/resolve/c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6/config.json",
+        "sha256": "d24456b797ddcfb60ac6c53621b550db5e14b1575ee2d9ab5a380eb5b09902f2",
+        "label": "ESMFold2 Fast config.json"
+      },
+      {
+        "path": "models/esmfold2/ESMFold2-Fast/model.safetensors",
+        "url": "https://huggingface.co/biohub/ESMFold2-Fast/resolve/c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6/model.safetensors",
+        "sha256": "60ca19f2898188beba92944365f7b909efd9c99212f5018af75cc47cd9a6184a",
+        "label": "ESMFold2 Fast model.safetensors"
+      }
     ]
   }
 }

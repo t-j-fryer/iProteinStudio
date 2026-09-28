@@ -119,7 +119,7 @@ def target_chain_records(cfg: dict) -> list[tuple[str, str]]:
 
 def verification_predictors(cfg: dict) -> list[str]:
     """Validate and canonicalize checkers before any resumable stage runs."""
-    supported = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"}
+    supported = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx"}
     requested = cfg.get("extra_predictors", [])
     retired = [p for p in requested if p in {"alphafold3", "intellifold-jax"}]
     if retired:
