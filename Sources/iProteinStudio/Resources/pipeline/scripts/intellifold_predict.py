@@ -180,7 +180,8 @@ def main() -> None:
 
     Accelerator.__init__ = strict_init
     sys.argv = [str(runner), *arguments]
-    runpy.run_path(str(runner), run_name="__main__")
+    from live_structure_events import run_intellifold
+    run_intellifold(runner)
     verify_outputs(arguments)
 
 

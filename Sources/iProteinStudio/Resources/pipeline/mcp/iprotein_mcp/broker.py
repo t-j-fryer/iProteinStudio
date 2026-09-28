@@ -312,6 +312,10 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
         spec = importlib.util.spec_from_file_location("studio_job_progress", progress)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        state = load_state(job_id, refresh=False)
+        output = state.get('active_output') or state.get('output_root')
+        if output:
+            env['IPROTEINSTUDIO_LIVE_RESULTS_ROOT'] = str(output)
         env = module.environment(env, progress.parent, log_path)
     explicit_failure = None
     with log_path.open("a", encoding="utf-8") as log, log_path.open(encoding="utf-8") as reader:

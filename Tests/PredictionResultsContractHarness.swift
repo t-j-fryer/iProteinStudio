@@ -52,6 +52,31 @@ struct PredictionResultsContractHarness {
         }
         print("PASS combined batch relocation, framework identity, duplicate run numbers and trajectory playback")
 
+        // A finished individual prediction is visible while the other trajectories
+        // are still running, then superseded by the normalized completed cycle.
+        let liveRoot = csvRoot.appendingPathComponent("live-campaign")
+        let liveCycle = liveRoot.appendingPathComponent("run_001/cycle_00")
+        try FileManager.default.createDirectory(at: liveCycle, withIntermediateDirectories: true)
+        try "data_fixture".write(to: liveRoot.appendingPathComponent("model.cif"), atomically: true, encoding: .utf8)
+        try "{\"iptm\":0.8}".write(to: liveRoot.appendingPathComponent("confidence.json"), atomically: true, encoding: .utf8)
+        try "{\"request\":{\"designPredictor\":\"boltz\"}}".write(to: liveRoot.appendingPathComponent("studio_run.json"), atomically: true, encoding: .utf8)
+        let liveHeader = "cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json\n"
+        let liveCSV = liveHeader + "0,0.8,0.9,ACDE,model.cif,confidence.json\n"
+        let receipt = liveCycle.appendingPathComponent("live_prediction.csv")
+        // Raw output alone and an unfinished receipt must not count.
+        precondition(RunResultsLoader.load(root: liveRoot, workflow: .iterative).isEmpty)
+        try liveCSV.write(to: liveCycle.appendingPathComponent("live_prediction.csv.part"), atomically: true, encoding: .utf8)
+        precondition(RunResultsLoader.load(root: liveRoot, workflow: .iterative).isEmpty)
+        try liveCSV.write(to: receipt, atomically: true, encoding: .utf8)
+        let liveDesignItems = RunResultsLoader.load(root: liveRoot, workflow: .iterative)
+        precondition(liveDesignItems.count == 1 && liveDesignItems[0].stage == .startingStructure && liveDesignItems[0].isHit == nil)
+        precondition(liveDesignItems[0].sequence == "ACDE")
+        try liveCSV.replacingOccurrences(of: "0.8", with: "0.85").write(
+            to: liveRoot.appendingPathComponent("run_001/metrics_per_cycle.csv"), atomically: true, encoding: .utf8)
+        let merged = RunResultsLoader.iterativeDesignRows(runDirectory: liveCycle.deletingLastPathComponent(), root: liveRoot)
+        precondition(merged.count == 1 && merged[0]["iptm"] == "0.85")
+        print("PASS incremental starting structure, partial-write exclusion and completed-cycle deduplication")
+
         let shortlist = csvRoot.appendingPathComponent("nesso_verification")
         try FileManager.default.createDirectory(at: shortlist, withIntermediateDirectories: true)
         try "data_fixture".write(to: shortlist.appendingPathComponent("fold.cif"), atomically: true, encoding: .utf8)
@@ -391,6 +416,63 @@ struct PredictionResultsContractHarness {
         precondition(RunResultsLoader.load(root: livePredict, workflow: .prediction).count == 1)
         print("PASS live Predict chunk receipts, unfinished output exclusion, CSV deduplication and unambiguous affinity attribution")
         print("PASS unranked RFD3 preservation, shared filters, Predict input/sample grouping, template provenance and exact confidence attribution")
+        do {
+        // Per-input native completion arrives BEFORE a chunk/cycle/table marker.
+        func nativeReceipt(_ root: URL, path: String, job: String, engine: String, key: String, generation: Bool = false) throws {
+            let file = root.appendingPathComponent(path)
+            try fm.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try "ATOM fixture".write(to: file, atomically: true, encoding: .utf8)
+            let confidence = file.deletingPathExtension().appendingPathExtension("json")
+            try "{\"iptm\":0.72}".write(to: confidence, atomically: true, encoding: .utf8)
+            let attrs = try fm.attributesOfItem(atPath: file.path)
+            let receiptDir = root.appendingPathComponent(".studio_live_results")
+            try fm.createDirectory(at: receiptDir, withIntermediateDirectories: true)
+            let doc: [String: Any] = ["schema": 1, "job": job, "engine": engine, "generation": generation,
+                "artifacts": [["structure": path, "confidence": String(confidence.path.dropFirst(root.path.count + 1)),
+                    "sample": file.lastPathComponent, "size": attrs[.size]!,
+                    "mtime": (attrs[.modificationDate] as! Date).timeIntervalSince1970]]]
+            try JSONSerialization.data(withJSONObject: doc).write(to: receiptDir.appendingPathComponent(key + ".json"), options: .atomic)
+        }
+        let native = csvRoot.appendingPathComponent("native-predict")
+        for (i, engine) in ["boltz", "intellifold", "protenix-mini", "openfold-3-mlx"].enumerated() {
+            try nativeReceipt(native, path: engine + "/bucket_128/chunk_0/predictions/input/input_model_0.pdb",
+                              job: "input", engine: engine, key: String(i))
+        }
+        let early = RunResultsLoader.load(root: native, workflow: .prediction)
+        precondition(early.count == 4 && early.allSatisfy { $0.isHit == nil })
+        precondition(early.allSatisfy { $0.metrics.first { $0.kind == .iptm }?.value == 0.72 })
+        let boltzChunk = native.appendingPathComponent("boltz/bucket_128/chunk_0")
+        try JSONSerialization.data(withJSONObject: ["predictor": "boltz", "jobs": ["input"]]).write(to: boltzChunk.appendingPathComponent("chunk_complete.json"))
+        precondition(RunResultsLoader.load(root: native, workflow: .prediction).count == 4)
+        try "changed file".write(to: native.appendingPathComponent("intellifold/bucket_128/chunk_0/predictions/input/input_model_0.pdb"), atomically: true, encoding: .utf8)
+        precondition(RunResultsLoader.load(root: native, workflow: .prediction).count == 3)
+
+        let nativePH = csvRoot.appendingPathComponent("native-ph")
+        try nativeReceipt(nativePH, path: "run_001/cycle_00/protenix-mini/predictions/run_001_cycle_00_sample_0.pdb",
+                          job: "run_001_cycle_00", engine: "protenix", key: "design")
+        precondition(RunResultsLoader.load(root: nativePH, workflow: .iterative).count == 1)
+        let nativeRows = RunResultsLoader.iterativeDesignRows(runDirectory: nativePH.appendingPathComponent("run_001"), root: nativePH)
+        precondition(nativeRows.count == 1 && nativeRows[0]["iptm"] == "0.72")
+        for (key, subdir) in [("complex", "boltz"), ("binder", "binder_alone/boltz")] {
+            try nativeReceipt(nativePH, path: "run_001/post_boltz/cycle_01/" + subdir + "/model.pdb",
+                              job: "post_input", engine: "boltz", key: key)
+        }
+        let post = RunResultsLoader.load(root: nativePH, workflow: .iterative)
+        precondition(post.count == 3 && post.filter { $0.artifactRole == .binderAlone }.count == 1)
+
+        let nativeRF = csvRoot.appendingPathComponent("native-rfd3")
+        try nativeReceipt(nativeRF, path: "rfd3/L100/queue0/backbones/design_0001.pdb", job: "design_0001", engine: "rfdiffusion3", key: "rfd1", generation: true)
+        try nativeReceipt(nativeRF, path: "rfd3/L100/queue1/backbones/design_0001.pdb", job: "design_0007", engine: "rfdiffusion3", key: "rfd7", generation: true)
+        var backbones = RunResultsLoader.load(root: nativeRF, workflow: .rfdiffusion3)
+        precondition(Set(backbones.map(\.groupID)) == Set(["rfd3|design_0001", "rfd3|design_0007"]))
+        try nativeReceipt(nativeRF, path: "predictions/holo/boltz/input/design_0001_0_model_0.pdb", job: "design_0001_0", engine: "boltz", key: "verify")
+        backbones = RunResultsLoader.load(root: nativeRF, workflow: .rfdiffusion3)
+        precondition(backbones.count == 3 && backbones.filter { $0.stage == .verificationPrediction }.count == 1)
+        let starts = NISEResultsLoader.load(root: nativeRF)
+        precondition(Set(starts.items.map(\.title)) == Set(["L000", "L006"]))
+        precondition(starts.records.allSatisfy { $0.geometryPassed == nil && $0.eligible == nil })
+        print("PASS per-input native results across all engines, stale-file rejection, chunk promotion, PH post roles, RFD3 queue identity and early NISE backbones")
+        }
         print("PASS prediction result discovery contract")
     }
 }

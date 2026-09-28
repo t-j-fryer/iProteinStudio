@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -535,6 +536,9 @@ def main() -> None:
                 **fixture.metrics(coords[offset]),
             }
             (result_dir / f"{name}.json").write_text(json.dumps(row, indent=2) + "\n")
+            if os.environ.get('IPROTEINSTUDIO_LIVE_RESULTS_ROOT'):
+                from live_structure_events import publish_backbone
+                publish_backbone(pdb_path, design_index + 1)
             design_index += 1
             accepted_this_batch += 1
         print(

@@ -6099,7 +6099,7 @@ submit_resident_predictor_request() {
   request_id="$(printf 'cycle_%02d_batch_%02d' "${cycle_idx}" "${batch_idx}")"
   request_path="${RESIDENT_QUEUE}/requests/request_${request_id}.json"
   response_path="${RESIDENT_QUEUE}/responses/request_${request_id}.json"
-  python3 - "${request_path}" "${request_id}" "${input_dir}" "${output_dir}" "${expected}" <<'PY'
+  python3 - "${request_path}" "${request_id}" "${input_dir}" "${output_dir}" "${expected}" "${PREDICTOR}" "${ANTIFOLD_NANOBODY_CHAIN:-A}" <<'PY'
 import hashlib, json, sys, time
 from pathlib import Path
 path=Path(sys.argv[1]); source=Path(sys.argv[3]).resolve()
@@ -6110,7 +6110,8 @@ for item in files:
     digest.update(item.resolve().read_bytes()); digest.update(b"\0")
 payload={"schema": 1, "request_id": sys.argv[2], "input_dir": str(source),
          "output_dir": str(Path(sys.argv[4]).resolve()), "expected_jobs": int(sys.argv[5]),
-         "input_sha256": digest.hexdigest(), "submitted_epoch": time.time()}
+         "input_sha256": digest.hexdigest(), "submitted_epoch": time.time(),
+         "publish_iterative_results": sys.argv[6] == "boltz", "binder_chain": sys.argv[7]}
 path.parent.mkdir(parents=True, exist_ok=True)
 tmp=path.with_suffix(".json.part"); tmp.write_text(json.dumps(payload, indent=2, sort_keys=True)+"\n"); tmp.replace(path)
 PY

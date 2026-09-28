@@ -79,12 +79,12 @@ private final class MetricsScan {
         guard let runDirs = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return }
         var addedDesign = false, addedVal = false
 
+        let nativeRows = RunResultsLoader.liveIterativeRows(root: root)
         for runDir in runDirs where runDir.lastPathComponent.hasPrefix("run_") {
             let runNum = Int(runDir.lastPathComponent.replacingOccurrences(of: "run_", with: "")) ?? 0
 
             // --- design ---
-            let csv = runDir.appendingPathComponent("metrics_per_cycle.csv")
-            for row in CSVTable.rows(at: csv) {
+            for row in RunResultsLoader.iterativeDesignRows(runDirectory: runDir, root: root, liveRows: nativeRows) {
                 guard let iptm = Double(row["iptm"] ?? "") else { continue }
                 let cycle = Int(row["cycle"] ?? "") ?? 0
                 let confidencePath = row["confidence_json"] ?? ""

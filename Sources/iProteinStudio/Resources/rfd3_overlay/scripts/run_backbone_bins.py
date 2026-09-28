@@ -19,6 +19,7 @@ import argparse
 from collections import Counter
 import csv
 import json
+import os
 import subprocess
 import sys
 import time
@@ -44,7 +45,9 @@ def run_queue(bin_spec: dict, out_dir: Path, num_designs: int, args, seed_start:
         cmd += ["--motif-atoms-json", json.dumps(bin_spec.get("motif_fixed_atoms") or {})]
     log = (out_dir / "queue.log").open("a")
     try:
-        return subprocess.Popen(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT), log
+        env = dict(os.environ)
+        env['IPROTEINSTUDIO_RFD3_LIVE_OFFSET'] = str(bin_spec.get('_live_offset', 0))
+        return subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT), log
     except BaseException:
         log.close()
         raise
@@ -128,7 +131,8 @@ def main() -> None:
             for q, (qdir, qn) in enumerate(zip(queue_dirs, quotas, strict=True)):
                 if qn == 0:
                     continue
-                proc, log = run_queue(b, qdir, qn, args, seed_offset + q * queue_stride)
+                offset = sum(r['quota'] for r in bin_records) + sum(n for d, n in zip(queue_dirs, quotas, strict=True) if str(d) < str(qdir))
+                proc, log = run_queue(dict(b, _live_offset=offset), qdir, qn, args, seed_offset + q * queue_stride)
                 procs.append((proc, log, qdir))
             pending = list(procs)
             while pending and not failures:

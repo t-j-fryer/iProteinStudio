@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .live_results import records as live_records, iterative_rows as live_iterative_rows
 from .common import StudioError, csv_rows, load_json, process_alive, project_root, projects_root, runtime_root, safe_managed_path, tail_text
 
 
 KNOWN_RESULTS = (
+    "live_predictions",
     "nesso_verification/nesso_screening.csv",
     "nesso_verification/psichic_screening.csv",
     "psichic_screening.csv",
@@ -170,6 +173,7 @@ def run_record(path: Path, project: str) -> Dict[str, Any]:
         except (OSError, ValueError):
             pass
     result_files = [relative for relative in KNOWN_RESULTS if (path / relative).is_file()]
+    if live_records(path): result_files.append("live_predictions")
     return {
         "id": f"{project}/{path.relative_to(project_root(project)).as_posix()}",
         "project": project,
@@ -248,6 +252,8 @@ def run_status(run_id: str) -> Dict[str, Any]:
 def query_results(run_id: str, dataset: Optional[str], metric: Optional[str], hit_only: bool, limit: int) -> Dict[str, Any]:
     path = resolve_run(run_id)
     available = [relative for relative in KNOWN_RESULTS if (path / relative).is_file()]
+    live = live_records(path)
+    if live: available.append("live_predictions")
     if dataset:
         if dataset not in KNOWN_RESULTS:
             raise StudioError(f"Unknown result dataset '{dataset}'.")
@@ -256,7 +262,8 @@ def query_results(run_id: str, dataset: Optional[str], metric: Optional[str], hi
         selected = available[0]
     else:
         return {"run_id": run_id, "available": [], "rows": [], "columns": []}
-    rows = _normalize_result_rows(selected, csv_rows(path / selected, limit=1000))
+    rows = (live if selected == "live_predictions" else
+            _normalize_result_rows(selected, csv_rows(path / selected, limit=1000)))
     if hit_only:
         rows = [row for row in rows if str(row.get("hit", row.get("passes_filters", ""))).lower() in {"1", "true", "yes", "pass"}]
     if metric:
@@ -308,6 +315,7 @@ def _filters(value: Any) -> List[str]:
 
 def _metrics(row: Dict[str, str]) -> Dict[str, float]:
     result: Dict[str, float] = {}
+    row = {**(row.get("metrics") or {}), **row}
     for key in RESULT_METRICS:
         try:
             value = float(row.get(key, ""))
@@ -379,6 +387,7 @@ def _artifact(root: Path, row: Dict[str, str], role: str, path_key: str,
         "predictor": predictor,
         "prediction_context": context,
         "metrics": _metrics(row),
+        "confidence_json": _run_artifact_reference(root, row.get("confidence_json")),
         "is_hit": _boolean(row.get("is_hit", row.get("hit"))),
         "failed_filters": _filters(row.get("failed_filters")),
     }
@@ -411,7 +420,19 @@ def _iterative_rows(root: Path) -> List[Dict[str, str]]:
             run_number = str(int(run_root.name.removeprefix("run_")))
         except ValueError:
             continue
-        for raw in csv_rows(run_root / "metrics_per_cycle.csv", limit=10000):
+        design_rows = csv_rows(run_root / "metrics_per_cycle.csv", limit=10000)
+        recorded_cycles = {int(row["cycle"]) for row in design_rows if str(row.get("cycle", "")).isdigit()}
+        for checkpoint in sorted(run_root.glob("cycle_*/live_prediction.csv")):
+            live = csv_rows(checkpoint, limit=2)
+            try:
+                cycle = int(checkpoint.parent.name.removeprefix("cycle_"))
+                if (len(live) == 1 and int(live[0]["cycle"]) == cycle and cycle not in recorded_cycles
+                        and (root / live[0]["structure_path"]).is_file()
+                        and (root / live[0]["confidence_json"]).is_file()):
+                    design_rows.extend(live)
+            except (KeyError, ValueError):
+                continue
+        for raw in design_rows:
             row = dict(raw)
             row.update({"stage": "design", "predictor": predictor, "run": run_number})
             rows.append(row)
@@ -422,6 +443,12 @@ def _iterative_rows(root: Path) -> List[Dict[str, str]]:
                 row["stage"] = "post"
                 row["predictor"] = checkpoint.parents[1].name.removeprefix("post_")
                 rows.append(row)
+    existing = {(str(r.get("run")), str(r.get("cycle")), r.get("stage"), r.get("predictor")) for r in rows}
+    for row in live_iterative_rows(root):
+        key = (row['run'], row['cycle'], row['stage'], row['predictor'])
+        if key not in existing:
+            rows.append(row)
+            if row['stage'] == 'design': existing.add(key)
     return rows
 
 
@@ -435,7 +462,7 @@ def _iterative_overview(root: Path, limit: int, hit_only: bool = False) -> Dict[
             continue
         stage = str(row.get("stage", "design")).lower()
         predictor = str(row.get("predictor") or _iterative_design_predictor(root) or "unknown")
-        role = "complex_reprediction" if stage == "post" else (
+        role = "binder_alone" if row.get("binder_only") else "complex_reprediction" if stage == "post" else (
             "starting_structure" if cycle == 0 else "designed_complex"
         )
         artifact = _artifact(root, row, role, "structure_path", predictor,
@@ -508,6 +535,8 @@ def _rfd3_backbone_rows(root: Path) -> List[Dict[str, str]]:
     rows = csv_rows(root / "rfd3/backbone_metrics.csv", limit=10000)
     if rows:
         return rows
+    live = [{"design": r['job'], "backbone_pdb": r['structure_path']} for r in live_records(root) if r['generation']]
+    if live: return live
     recovered: List[Dict[str, str]] = []
     for result in sorted((root / "rfd3").glob("**/results/design_*.json")):
         try:
@@ -582,7 +611,12 @@ def _rfd3_overview(root: Path, limit: int) -> Dict[str, Any]:
         ("predictions/binder/prediction_metrics.csv", "binder_alone", "binder_alone"),
     )
     for dataset, role, context in prediction_sets:
-        for raw in csv_rows(root / dataset, limit=10000):
+        saved = csv_rows(root / dataset, limit=10000)
+        keys = {(r.get('name') or r.get('design'), r.get('predictor', 'boltz')) for r in saved}
+        pending = [dict(r, name=r['job'], pdb=r['structure_path']) for r in live_records(root)
+                   if r['structure_path'].startswith(str(Path(dataset).parent) + '/')
+                   and (r['job'], r['predictor']) not in keys]
+        for raw in saved + pending:
             derivative = str(raw.get("name") or raw.get("design") or "")
             if not derivative:
                 continue
@@ -637,11 +671,37 @@ def _nise_overview(root, limit):
     count = 0
     checks = {r["name"]: r for r in load_json(root / "preorg.json").get("ranked", [])} if (root / "preorg.json").is_file() else {}
     truncated = False
-    for path in sorted((root / "candidates").glob("*.json")):
+    rows = {}
+    for phase in [root / 'phase0', *sorted(root.glob('cycle*'))]:
+        for path in sorted(phase.glob('**/completed.json')):
+            try:
+                receipt = load_json(path)
+                prediction = receipt.get('result', {}).get('prediction')
+                if not prediction: continue
+                row = dict(prediction, sequence=receipt.get('input', {}).get('sequence'),
+                           passed=None, score_status='awaiting_checks')
+                cycles = [part[5:] for part in path.relative_to(root).parts if part.startswith('cycle') and part[5:].isdigit()]
+                row['cycle'] = int(cycles[-1]) if cycles else 0
+                tid = re.search(r'(?:^|_)t(\d+)(?:_|$)', row['name'])
+                if tid and phase.name != 'phase0': row['trajectory'] = int(tid[1])
+                rows[row['name']] = row
+            except (StudioError, KeyError, TypeError, ValueError): continue
+    initial = root / 'phase0/cycle00/initial_backbones.json'
+    for native in live_records(root):
+        if native['generation'] and native['job'].startswith('design_'):
+            name = f"L{int(native['job'][7:]) - 1:03d}"
+            rows[name] = dict(name=name, pdb=native['structure_path'], cycle=0, sequence=None,
+                              passed=None, score_status='awaiting_checks', generator='rfdiffusion3')
+    if initial.is_file():
+        for name, path in load_json(initial).get('result', {}).items():
+            rows[name] = dict(name=name, pdb=path, cycle=0, sequence=None, passed=None,
+                             score_status='awaiting_checks', generator='rfdiffusion3')
+    for path in sorted((root / 'candidates').glob('*.json')):
+        row = load_json(path); rows[row['name']] = row
+    for row in sorted(rows.values(), key=lambda r: (r.get('cycle', 0), r['name'])):
         if count >= max(1, min(limit, 500)):
             truncated = True
             break
-        row = load_json(path)
         structure = _run_artifact_reference(root, row.get("pdb"))
         if structure is None:
             continue
@@ -649,14 +709,14 @@ def _nise_overview(root, limit):
         key = f"trajectory-{tid}" if tid is not None else "broad-search"
         group = groups.setdefault(key, {"id": key, "title": f"Trajectory {tid + 1}" if tid is not None else "Broad search", "variants": [], "is_hit": None})
         masked = row.get("branch") == "masked-backbone"
-        artifacts = [{"role": "masked_backbone" if masked else "designed_complex", "path": structure, "predictor": "boltz"}]
+        artifacts = [{"role": "masked_backbone" if masked else "designed_complex", "path": structure, "predictor": row.get("generator", "boltz")}]
         check = checks.get(row["name"])
         if check:
             apo = _run_artifact_reference(root, check.get("apo_pdb"))
             if apo:
                 artifacts.append({"role": "binder_alone", "path": apo, "predictor": "boltz", "metrics": {k: v for k, v in check.items() if k not in {"apo_pdb", "holo_pdb"}}})
         group["variants"].append({"id": row["name"], "cycle": row["cycle"], "is_hit": None,
-            "passed_self_consistency": row.get("geometry_passed", row["passed"]),
+            "passed_self_consistency": row.get("geometry_passed", row.get("passed")),
             "passed_selection": row["passed"], "score_status": row.get("score_status", "scored"),
             "sequence": row["sequence"], "branch": row.get("branch", "mpnn"),
             "final_eligible": row.get("final_eligible", row["passed"] and not masked),
@@ -732,12 +792,17 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
     elif workflow == "rfdiffusion3":
         result = _rfd3_overview(root, limit)
     else:
-        result = {
-            "organization": "prediction batch (one independent result per emitted sample)",
-            "groups": [],
-            "note": "Use results_query for prediction batches.",
-        }
+        grouped = {}
+        for row in live_records(root):
+            group = grouped.setdefault(row['job'], dict(id=row['job'], title=row['job'], is_hit=None, variants=[]))
+            group['variants'].append(dict(id=row['predictor'] + '|' + row['sample'], is_hit=None,
+                artifacts=[dict(role='prediction', path=row['structure_path'], predictor=row['predictor'],
+                                confidence_json=row['confidence_json'], metrics=row['metrics'], is_hit=None)]))
+        result = {"organization": "input → engine/sample → structure and confidence",
+                  "groups": list(grouped.values())[:limit], "truncated": len(grouped) > limit,
+                  "note": "Native completion receipts show finished structures before the input batch completes. Older runs without receipts remain available through results_query."}
     groups = result["groups"]
+    live = [] if hit_only else live_records(root)
     if hit_only:
         groups = [group for group in groups if group.get("is_hit") is True]
     return {
@@ -745,6 +810,8 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
         "workflow": workflow,
         **result,
         "groups": groups,
+        "live_structures": live[:max(1, min(limit, 500))],
+        "live_structure_count": len(live),
         "truncated": result.get("truncated", len(groups) >= limit),
         "next_step": (
             "Use results_query with one of run_status.result_files for raw rows and score distributions. "

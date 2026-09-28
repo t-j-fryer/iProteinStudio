@@ -141,6 +141,7 @@ r.leave(token,False)
             env = {**os.environ, 'NANOHUNTER_ROOT': str(base),
                    'IPROTEINSTUDIO_PIPELINE_SNAPSHOT': str(SCRIPTS.parent),
                    'PYTHONPATH': str(base)}
+            (base / 'state.json').write_text(json.dumps({'output_root': str(base)}))
             code = 'from model_utils import ProteinMPNN; assert ProteinMPNN().sample()==1'
             with patch.object(broker, 'state_path', return_value=base/'state.json'), \
                  patch.object(broker, '_RUNTIME_BINDINGS', {}), \
@@ -153,6 +154,11 @@ r.leave(token,False)
             log = (base / 'pipeline.log').read_text()
             self.assertIn('event=host_return', log)
             self.assertEqual(log.count('event=host_enter'), 1)
+
+    def test_retained_module_loads_without_ambient_scripts_path(self):
+        code = "import importlib.util; s=importlib.util.spec_from_file_location('retained', " + repr(str(SCRIPTS/'engine_progress.py')) + "); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.MODULES"
+        result = subprocess.run([sys.executable, '-I', '-c', code], capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_environment_preserves_paths_and_old_jobs(self):
         original = {'PYTHONPATH': '/existing', 'OTHER': 'preserved'}

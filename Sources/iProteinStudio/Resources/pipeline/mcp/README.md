@@ -240,3 +240,11 @@ immutable. See [engine progress](../../../../../docs/ENGINE_PROGRESS.md) and
 MCP v27 prevents bundled entry points from writing Python bytecode beside signed
 app resources. Native job-service launches additionally use Python's `-B` flag.
 The protocol, profile permissions and scientific settings are unchanged.
+
+MCP v31 adds native per-input completion receipts to `results_overview` as
+`live_structures`/`live_structure_count`, and `results_query` accepts the virtual
+`live_predictions` dataset. These are display-only outputs with no inferred hit,
+geometry or advancement verdict. Predict groups native samples by input and
+engine; Protein Hunter and RFdiffusion3 merge them into their existing hierarchy.
+NISE includes committed folds and initial RFD3 backbones before scored candidates.
+Older immutable jobs retain their original output publication behavior.

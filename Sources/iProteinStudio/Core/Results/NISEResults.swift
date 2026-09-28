@@ -273,12 +273,22 @@ enum NISEResultsLoader {
                 }
             }
         }
+        // Native RFD3 writer receipts arrive before the initial cohort is flattened.
+        // Later geometry/candidate records retain the same lineage identity.
+        for row in RunResultsLoader.liveRecords(root: root) where row["generation"] == "true" {
+            guard let job = row["job"], let index = Int(job.replacingOccurrences(of: "design_", with: "")), index > 0 else { continue }
+            let name = String(format: "L%03d", index - 1)
+            if rows[name] == nil {
+                rows[name] = ["name": name, "pdb": row["structure_path"] ?? "", "cycle": 0, "generator": "RFdiffusion3"]
+                rowFiles[name] = row["receipt"].map { URL(fileURLWithPath: $0) }; provenance[name] = (.preparation, 0)
+            }
+        }
         // RFdiffusion3 generation uses one atomic receipt for its completed set.
         let rfdReceipt = phase0.appendingPathComponent("cycle00/initial_backbones.json")
         if let receipt = object(rfdReceipt), let paths = receipt["result"] as? [String: String] {
             for (name, path) in paths {
                 guard artifact(path) != nil else { invalidRecords += 1; continue }
-                if rows[name] == nil {
+                if !candidateNames.contains(name) {
                     rows[name] = ["name": name, "pdb": path, "cycle": 0, "generator": "RFdiffusion3"]
                     rowFiles[name] = rfdReceipt; provenance[name] = (.preparation, 0)
                 }

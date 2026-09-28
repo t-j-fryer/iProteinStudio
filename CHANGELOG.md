@@ -2,6 +2,20 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.10 — structures appear as inputs finish
+
+- Protein Hunter, Predict, RFdiffusion3 and NISE show finished structures during
+  multi-input work, without waiting for a complete cycle, chunk or backbone bin.
+  Native save boundaries cover Boltz, IntelliFold, Protenix and OpenFold.
+- Live outputs retain their engine, sample, cycle and backbone/lineage identity.
+  Structure availability does not imply geometry acceptance, affinity scoring or
+  advancement. Completed scientific records replace previews without duplicates.
+- Interrupted writes and stale files are excluded. Multiple IntelliFold seeds
+  and RFdiffusion3 queues remain distinct. Existing frozen jobs keep their code.
+- MCP 31 exposes the same native completion receipts through results_overview
+  and the live_predictions dataset in results_query.
+- Selecting a Protein Hunter example now starts with ten trajectories per engine.
+
 ## 0.2.9 — NISE RFdiffusion3 conditioning
 
 - NISE exposes independent RFD3 generation contacts, buried/partly buried/exposed

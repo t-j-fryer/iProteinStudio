@@ -45,6 +45,10 @@ provenance, not current setup instructions or a live job queue.
 
 ## Entries
 
+- [0208 — Publish completed native structures across all workflows](lab_book/0208-stream-results-across-workflows.md)
+- [0207 — Publish Protein Hunter predictions before a cycle finishes](lab_book/0207-publish-live-proteinhunter-results.md)
+- [0206 — Audit Protein Hunter startup and first-result visibility](lab_book/0206-audit-proteinhunter-first-results.md)
+
 - [0186 — Repair submission retries and descendant cancellation](lab_book/0186-repair-submission-retries-and-cancellation.md)
 
 - [0179 — Simplify startup and refresh distribution documentation](lab_book/0179-simplify-startup-and-refresh-distribution-docs.md)

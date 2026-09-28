@@ -62,6 +62,8 @@ extension DesignRequest {
     /// Fill in an iterative-design run against this example.
     mutating func apply(_ example: ExampleTarget) {
         designType = .minibinder
+        // Keep worked examples small enough to reach their first cycle quickly.
+        numDesigns = 10
         // A template belongs to one exact target sequence. Never carry a
         // previously imported structure into a different worked example.
         targetTemplatePath = ""

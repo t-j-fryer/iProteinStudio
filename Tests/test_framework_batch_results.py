@@ -55,5 +55,24 @@ class BatchResults(unittest.TestCase):
         child.unlink()
         with self.assertRaises(common.StudioError): catalog.results_overview('demo/engine-batch-test')
 
+    def test_live_prediction_visible_before_cycle_end_and_superseded(self):
+        child = self.root / 'projects/demo/first'
+        (child / 'comparison_scores_long.csv').unlink()
+        cycle = child / 'run_001/cycle_00'; cycle.mkdir(parents=True)
+        (child / 'confidence.json').write_text('{"iptm": 0.8}')
+        header = 'cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json\n'
+        row = '0,0.8,0.9,ACDE,model.cif,confidence.json\n'
+        (cycle / 'live_prediction.csv.part').write_text(header + row)
+        self.assertEqual(catalog._iterative_rows(child), [])
+        (cycle / 'live_prediction.csv.part').rename(cycle / 'live_prediction.csv')
+        rows = catalog._iterative_rows(child)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['binder_sequence'], 'ACDE')
+        self.assertEqual(len(catalog.results_overview('demo/first')['groups']), 1)
+        (cycle.parent / 'metrics_per_cycle.csv').write_text(header + row.replace('0.8', '0.85'))
+        rows = catalog._iterative_rows(child)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['iptm'], '0.85')
+
 
 if __name__ == '__main__': unittest.main()

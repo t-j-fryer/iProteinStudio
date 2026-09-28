@@ -44,8 +44,14 @@ studio_child_shutdown: bounded-grace-retained-lease-v1
 studio_rfd3_runtime_release: runtimes-2026.09.26-1
 
 studio_constraint_receipt: portable-memory-contract-v1
-studio_runner_sha256: db9cb8578039edd975697440574dbb54b8253937deb5d3f322c6f0e3fa2f2043
+studio_runner_sha256: b34a1c9bbe73d32c6a6ca9ff8a1f58e5a819db9939a24c3428fb7ae487d6d6cb
 
 studio_nise_rfd3_conditioning: independent-generation-labels-v1
 studio_nise_resident_workers: explicit-fresh-stage-pool-v1
 studio_nise_rfd3_conditioning_validation: lab_book/0205-add-nise-rfd3-conditioning.md
+
+studio_iterative_live_results: atomic-per-prediction-boltz-v1
+studio_iterative_live_results_validation: lab_book/0207-publish-live-proteinhunter-results.md
+
+studio_live_results: native-writer-receipts-all-workflows-v1
+studio_live_results_validation: lab_book/0208-stream-results-across-workflows.md

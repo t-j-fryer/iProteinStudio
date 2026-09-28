@@ -8,11 +8,19 @@ from __future__ import annotations
 
 import functools
 import importlib.abc
+import importlib.util
 import os
 from pathlib import Path
 import sys
 import threading
 import time
+# The broker loads this module by file before its child PYTHONPATH is configured.
+# Resolve the matching helper beside this retained file, not from ambient code.
+_live_spec = importlib.util.spec_from_file_location(
+    '_studio_live_structure_events', Path(__file__).with_name('live_structure_events.py'))
+_live = importlib.util.module_from_spec(_live_spec)
+_live_spec.loader.exec_module(_live)
+MODULES, live_instrument = _live.MODULES, _live.instrument
 
 # Module -> (engine, class, method, stage, log every N calls).
 # Counts are process-local CALL counts, deliberately not diffusion-step estimates:
@@ -188,6 +196,9 @@ def wrap(owner, method, engine, stage, every=1):
 
 
 def instrument(module):
+    live_instrument(module)
+    if os.environ.get('IPROTEINSTUDIO_PROGRESS') == '0':
+        return
     for engine, cls, method, stage, every in HOOKS.get(module.__name__, ()):
         owner = getattr(module, cls, None)
         if owner is None or not wrap(owner, method, engine, stage, every):
@@ -212,7 +223,7 @@ class Loader:
 
 class Finder(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
-        if fullname not in HOOKS:
+        if fullname not in HOOKS and fullname not in MODULES:
             return None
         # Preserve other registered finders (including editable-install finders).
         for finder in tuple(sys.meta_path):
@@ -231,7 +242,7 @@ def install():
     if any(isinstance(f, Finder) for f in sys.meta_path):
         return
     sys.meta_path.insert(0, Finder())
-    for name in HOOKS:
+    for name in set(HOOKS) | MODULES:
         module = sys.modules.get(name)
         if module is not None:
             instrument(module)
@@ -240,12 +251,12 @@ def install():
 def environment(env, scripts, job_log=None):
     """Opt in only managed subprocesses, using their retained pipeline code."""
     result = dict(env)
-    if result.get('IPROTEINSTUDIO_PROGRESS') == '0':
+    if result.get('IPROTEINSTUDIO_PROGRESS') == '0' and not result.get('IPROTEINSTUDIO_LIVE_RESULTS_ROOT'):
         return result
     bootstrap = Path(scripts) / 'progress_bootstrap'
     if not (bootstrap / 'sitecustomize.py').is_file():
         return result  # Old immutable jobs retain their old logging behaviour.
-    result['IPROTEINSTUDIO_PROGRESS'] = '1'
+    result.setdefault('IPROTEINSTUDIO_PROGRESS', '1')
     result['PYTHONUNBUFFERED'] = '1'
     entries = [str(bootstrap), str(Path(scripts))]
     entries += [p for p in result.get('PYTHONPATH', '').split(os.pathsep) if p and p not in entries]

@@ -17,6 +17,69 @@ enum RunResultsLoader {
         }
     }
 
+    /// Native writers publish only after their coordinate and confidence files close.
+    /// These receipts are for display, never resumability or selection decisions.
+    static func liveRecords(root: URL) -> [[String: String]] {
+        let root = root.standardizedFileURL.resolvingSymlinksInPath()
+        func safe(_ path: String) -> URL? {
+            guard !path.hasPrefix("/") else { return nil }
+            let url = root.appendingPathComponent(path).standardizedFileURL.resolvingSymlinksInPath()
+            return url.path.hasPrefix(root.path + "/") && fm.fileExists(atPath: url.path) ? url : nil
+        }
+        let directory = root.appendingPathComponent(".studio_live_results")
+        let files = (try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        return files.sorted { $0.path < $1.path }.flatMap { file -> [[String: String]] in
+            guard file.pathExtension == "json", file.resolvingSymlinksInPath().path.hasPrefix(root.path + "/"),
+                  let document = jsonObject(at: file), document["schema"] as? Int == 1,
+                  let job = document["job"] as? String, let engine = document["engine"] as? String,
+                  let artifacts = document["artifacts"] as? [[String: Any]] else { return [] }
+            return artifacts.compactMap { artifact in
+                guard let path = artifact["structure"] as? String, let structure = safe(path),
+                      let attrs = try? fm.attributesOfItem(atPath: structure.path),
+                      let size = artifact["size"] as? Int, (attrs[.size] as? NSNumber)?.intValue == size,
+                      let modified = artifact["mtime"] as? Double,
+                      let actual = attrs[.modificationDate] as? Date,
+                      abs(actual.timeIntervalSince1970 - modified) < 0.001 else { return nil }
+                let generation = document["generation"] as? Bool == true
+                let confidence = artifact["confidence"] as? String
+                if !generation && (confidence.flatMap(safe).flatMap(jsonObject) == nil) { return nil }
+                let parts = path.split(separator: "/").map(String.init)
+                let predictor = engine == "protenix" ?
+                    (parts.first { ["protenix-mini", "protenix-v2", "protenix-constraint-v0.5"].contains($0) } ?? engine) : engine
+                return ["job": job, "predictor": predictor, "structure_path": structure.path,
+                        "relative_structure": path, "confidence_json": confidence.flatMap(safe)?.path ?? "",
+                        "generation": generation ? "true" : "false", "receipt": file.path,
+                        "sample": artifact["sample"] as? String ?? structure.lastPathComponent]
+            }
+        }
+    }
+
+    static func liveIterativeRows(root: URL) -> [[String: String]] {
+        liveRecords(root: root).compactMap { raw in
+            var row = raw
+            let path = raw["relative_structure"] ?? ""
+            guard !path.contains("nesso_verification/"), raw["generation"] != "true" else { return nil }
+            let tokens = ((raw["job"] ?? "") + "/" + path).components(separatedBy: "/")
+            func capture(_ pattern: String) -> Int? {
+                for token in tokens {
+                    guard let range = token.range(of: pattern, options: .regularExpression) else { continue }
+                    let match = String(token[range])
+                    if let number = Int(match.split(separator: "_").last ?? "") { return number }
+                }
+                return nil
+            }
+            guard let run = capture("run_[0-9]+"), let cycle = capture("(?:cycle|post)_[0-9]+") else { return nil }
+            let post = path.contains("/post_")
+            row["run"] = String(run); row["cycle"] = String(cycle); row["stage"] = post ? "post" : "design"
+            row["binder_only"] = path.contains("/binder_alone/") ? "true" : "false"
+            if let confidence = raw["confidence_json"], let object = jsonObject(at: URL(fileURLWithPath: confidence)) {
+                if let value = number(in: object, keys: ["iptm", "ipTM"]) { row["iptm"] = String(value) }
+                if let value = number(in: object, keys: ["complex_plddt", "protein_plddt", "mean_plddt", "plddt"]) { row["complex_plddt"] = String(value) }
+            }
+            return row
+        }
+    }
+
     struct BatchCampaign: Identifiable {
         var id: String { root.lastPathComponent }
         let root: URL
@@ -78,14 +141,13 @@ enum RunResultsLoader {
     private static func ligandScreeningResults(root: URL) -> [StudioResultItem] {
         let directory = root.appendingPathComponent("nesso_verification").standardizedFileURL.resolvingSymlinksInPath()
         let report = directory.appendingPathComponent("results.json")
-        guard let data = try? Data(contentsOf: report),
-              let rows = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return [] }
+        let rows = (try? Data(contentsOf: report)).flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [[String: Any]] ?? []
         func artifact(_ path: String) -> URL? {
             guard !path.hasPrefix("/") else { return nil }
             let url = directory.appendingPathComponent(path).standardizedFileURL.resolvingSymlinksInPath()
             return url.path.hasPrefix(directory.path + "/") && fm.fileExists(atPath: url.path) ? url : nil
         }
-        return rows.compactMap { row in
+        let completed: [StudioResultItem] = rows.compactMap { row in
             guard let name = row["candidate"] as? String, let path = row["structure"] as? String,
                   let structure = artifact(path), let predictor = row["predictor"] as? String else { return nil }
             var metrics: [StudioResultMetric] = []
@@ -113,6 +175,22 @@ enum RunResultsLoader {
                 groupID: "nesso-verification", groupTitle: screeningLabel + " shortlist verification",
                 variantID: name, variantTitle: name, artifactRole: .complexReprediction)
         }
+        let names = Set(completed.compactMap(\.variantID))
+        let live = liveRecords(root: root).filter {
+            ($0["relative_structure"] ?? "").hasPrefix("nesso_verification/") && !names.contains($0["job"] ?? "")
+        }.compactMap { row -> StudioResultItem? in
+            guard let path = row["structure_path"], let name = row["job"] else { return nil }
+            let predictor = friendlyPredictor(row["predictor"] ?? "")
+            let confidence = row["confidence_json"].flatMap { resolvedURL($0, relativeTo: root) }
+            return StudioResultItem(id: "nesso-verification-live|" + path, title: name,
+                subtitle: "Shortlist verification · " + predictor + " · Checks pending",
+                structureURL: URL(fileURLWithPath: path), sequence: nil,
+                metrics: collectMetrics(row: [:], documents: confidence.map { [$0] } ?? []),
+                confidenceURL: confidence, stage: .postPrediction, scoreSource: predictor,
+                groupID: "nesso-verification", groupTitle: "Shortlist verification",
+                variantID: name, variantTitle: name, artifactRole: .complexReprediction)
+        }
+        return completed + live
     }
 
     private static func niseResults(root: URL) -> [StudioResultItem] {
@@ -153,7 +231,7 @@ enum RunResultsLoader {
         let configuration = jsonObject(at: root.appendingPathComponent("prediction_config.json")) ?? [:]
         let conditioned = configuration["template"] as? [String: Any] != nil
         let outputCounts = Dictionary(grouping: rows, by: { $0["output"] ?? "" }).mapValues(\.count)
-        return rows.flatMap { row -> [StudioResultItem] in
+        let completed = rows.flatMap { row -> [StudioResultItem] in
             guard row["exit_code"] == "0", let outputText = row["output"],
                   let output = resolvedURL(outputText, relativeTo: root)
             else { return [] }
@@ -186,6 +264,22 @@ enum RunResultsLoader {
                 )
             }
         }
+        let existing = Set(completed.map { $0.structureURL.standardizedFileURL.resolvingSymlinksInPath().path })
+        let live = liveRecords(root: root).filter { $0["generation"] != "true" }.compactMap { row -> StudioResultItem? in
+            guard let path = row["structure_path"], !existing.contains(path) else { return nil }
+            let structure = URL(fileURLWithPath: path)
+            let job = row["job"] ?? "Prediction"
+            let predictor = friendlyPredictor(row["predictor"] ?? "")
+            let confidence = row["confidence_json"].flatMap { resolvedURL($0, relativeTo: root) }
+            let sample = sampleLabel(for: structure) ?? structure.lastPathComponent
+            return StudioResultItem(id: "live|" + path, title: job + " · " + sample,
+                subtitle: predictor + " · Structure available; batch in progress", structureURL: structure,
+                sequence: sequences[job], metrics: collectMetrics(row: [:], documents: confidence.map { [$0] } ?? []),
+                confidenceURL: confidence, stage: .prediction, scoreSource: predictor,
+                groupID: "prediction|" + job, groupTitle: job,
+                variantID: predictor + "|" + sample, variantTitle: predictor + " · " + sample)
+        }
+        return completed + live
     }
 
     private static func predictionSequences(root: URL) -> [String: String] {
@@ -213,6 +307,7 @@ enum RunResultsLoader {
                   let structure = resolvedURL(path, relativeTo: root),
                   fm.fileExists(atPath: structure.path) else { return [] }
             let isPost = row["stage"]?.lowercased() == "post"
+            let binderOnly = row["binder_only"] == "true"
             let predictorKey = nonempty(row["predictor"]) ?? (isPost ? nil : recordedDesignPredictor) ?? "Unknown engine"
             let predictor = friendlyPredictor(predictorKey)
             let run = Int(row["run"] ?? "") ?? 0
@@ -228,7 +323,7 @@ enum RunResultsLoader {
             let variantTitle = cycle == 0
                 ? "Starting structure"
                 : String(format: "Cycle %02d", cycle)
-            let role: StudioResultArtifactRole = isPost
+            let role: StudioResultArtifactRole = binderOnly ? .binderAlone : isPost
                 ? .complexReprediction
                 : (cycle == 0 ? .startingStructure : .designedComplex)
             var results = [StudioResultItem(
@@ -287,9 +382,10 @@ enum RunResultsLoader {
         let designPredictor = iterativeDesignPredictor(root: root) ?? "Unknown engine"
         let runDirectories = childDirectories(root).filter { $0.lastPathComponent.hasPrefix("run_") }
         var rows: [[String: String]] = []
+        let nativeRows = liveIterativeRows(root: root)
         for runDirectory in runDirectories {
             let run = String(Int(runDirectory.lastPathComponent.dropFirst("run_".count)) ?? 0)
-            for var row in CSVTable.rows(at: runDirectory.appendingPathComponent("metrics_per_cycle.csv")) {
+            for var row in iterativeDesignRows(runDirectory: runDirectory, root: root, liveRows: nativeRows) {
                 row["stage"] = "design"
                 row["predictor"] = designPredictor
                 row["run"] = run
@@ -307,6 +403,11 @@ enum RunResultsLoader {
                 }
             }
         }
+        let completedRows = rows
+        for row in nativeRows where row["stage"] == "post" {
+            let exists = completedRows.contains { $0["stage"] == "post" && $0["run"] == row["run"] && $0["cycle"] == row["cycle"] && $0["predictor"] == row["predictor"] }
+            if !exists { rows.append(row) }
+        }
         if !rows.isEmpty { return rows }
 
         // Compatibility with older completed campaigns that retained only the
@@ -317,6 +418,32 @@ enum RunResultsLoader {
             row["predictor"] = designPredictor
             return row
         }
+    }
+
+    /// Completed-cycle records supersede display-only, per-prediction receipts.
+    /// Never infer completion from a structure file that the engine may be writing.
+    static func iterativeDesignRows(runDirectory: URL, root: URL, liveRows: [[String: String]]? = nil) -> [[String: String]] {
+        let recorded = CSVTable.rows(at: runDirectory.appendingPathComponent("metrics_per_cycle.csv"))
+        let cycles = Set(recorded.compactMap { Int($0["cycle"] ?? "") })
+        let live = childDirectories(runDirectory).filter { $0.lastPathComponent.hasPrefix("cycle_") }
+            .flatMap { directory -> [[String: String]] in
+                guard let cycle = Int(directory.lastPathComponent.dropFirst("cycle_".count)),
+                      !cycles.contains(cycle) else { return [] }
+                let rows = CSVTable.rows(at: directory.appendingPathComponent("live_prediction.csv"))
+                guard rows.count == 1, Int(rows[0]["cycle"] ?? "") == cycle,
+                      let structure = rows[0]["structure_path"].flatMap({ resolvedURL($0, relativeTo: root) }),
+                      let confidence = rows[0]["confidence_json"].flatMap({ resolvedURL($0, relativeTo: root) }),
+                      fm.fileExists(atPath: structure.path), fm.fileExists(atPath: confidence.path)
+                else { return [] }
+                return rows
+            }
+        var merged = recorded + live
+        var seen = Set(merged.compactMap { $0["cycle"] })
+        let run = Int(runDirectory.lastPathComponent.dropFirst(4))
+        for row in liveRows ?? liveIterativeRows(root: root) where row["stage"] == "design" && Int(row["run"] ?? "") == run {
+            if let cycle = row["cycle"], seen.insert(cycle).inserted { merged.append(row) }
+        }
+        return merged.sorted { (Int($0["cycle"] ?? "") ?? 0) < (Int($1["cycle"] ?? "") ?? 0) }
     }
 
     static func iterativeHitThreshold(root: URL) -> Double {
@@ -518,7 +645,13 @@ enum RunResultsLoader {
 
     private static func liveRFD3Predictions(root: URL, directory: String,
                                             context: RFD3PredictionContext) -> [StudioResultItem] {
-        let rows = CSVTable.rows(at: root.appendingPathComponent("predictions/\(directory)/prediction_metrics.csv"))
+        var rows = CSVTable.rows(at: root.appendingPathComponent("predictions/\(directory)/prediction_metrics.csv"))
+        let recorded = Set(rows.map { ($0["design"] ?? $0["name"] ?? "") + "|" + ($0["predictor"] ?? "boltz") })
+        for raw in liveRecords(root: root) where (raw["relative_structure"] ?? "").hasPrefix("predictions/\(directory)/") {
+            guard !recorded.contains((raw["job"] ?? "") + "|" + (raw["predictor"] ?? "")) else { continue }
+            var row = raw; row["design"] = raw["job"]; row["structure"] = raw["structure_path"]; row["exit_code"] = "0"
+            rows.append(row)
+        }
         guard !rows.isEmpty else { return [] }
         let sequenceRows = CSVTable.rows(at: root.appendingPathComponent("mpnn/sequences.csv"))
         let sequences = rfd3SequencesByDerivative(sequenceRows)
@@ -550,7 +683,8 @@ enum RunResultsLoader {
                 ?? nonempty(row["mean_plddt"]) {
                 metricRow["minimum_binder_plddt"] = confidence
             }
-            let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
+            let documents = row["confidence_json"].flatMap { resolvedURL($0, relativeTo: root) }.map { [$0] }
+                ?? confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
             var metrics = collectMetrics(row: metricRow, documents: documents)
             if context == .binderAlone {
                 metrics = metrics.filter { [.binderPLDDT, .binderRMSD].contains($0.kind) }
@@ -672,6 +806,10 @@ enum RunResultsLoader {
     private static func rfd3BackboneRows(root: URL) -> [[String: String]] {
         let table = CSVTable.rows(at: root.appendingPathComponent("rfd3/backbone_metrics.csv"))
         if !table.isEmpty { return table }
+        let live = liveRecords(root: root).filter { $0["generation"] == "true" }.map {
+            ["design": $0["job"] ?? "", "backbone_pdb": $0["structure_path"] ?? ""]
+        }
+        if !live.isEmpty { return live }
 
         // During generation, queues checkpoint one JSON and PDB per accepted
         // sample before the bin is flattened. Reading those immutable files is

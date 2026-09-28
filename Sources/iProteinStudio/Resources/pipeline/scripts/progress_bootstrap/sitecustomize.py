@@ -14,6 +14,6 @@ if spec is not None and spec.loader is not None:
     existing = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(existing)
 
-if os.environ.get('IPROTEINSTUDIO_PROGRESS') == '1':
+if os.environ.get('IPROTEINSTUDIO_PROGRESS') == '1' or os.environ.get('IPROTEINSTUDIO_LIVE_RESULTS_ROOT'):
     from engine_progress import install
     install()

@@ -22,6 +22,7 @@ import subprocess
 import sys
 import time
 import traceback
+from contextlib import nullcontext
 from argparse import Namespace
 from pathlib import Path
 from typing import Any
@@ -233,7 +234,14 @@ class BoltzSession:
                 self.boltz_main.filter_inputs_affinity = lambda manifest, **kw: type(manifest)([])
             elif phase == "affinity":
                 self.boltz_main.filter_inputs_structure = skip_structure
-            self.boltz_main.predict.main(args=arguments, standalone_mode=False)
+            live = nullcontext()
+            if getattr(self, "publish_iterative_results", False):
+                from live_iterative_results import LiveIterativeResults, boltz_live_writer
+                publisher = LiveIterativeResults(source, self.iterative_binder_chain)
+                live = boltz_live_writer(self.boltz_main, publisher,
+                                        getattr(self, "report_progress", None), expected)
+            with live:
+                self.boltz_main.predict.main(args=arguments, standalone_mode=False)
         finally:
             self.boltz_main.filter_inputs_structure = structure_filter
             self.boltz_main.filter_inputs_affinity = affinity_filter
@@ -282,6 +290,8 @@ class IntelliFoldSession:
         if not runner_path.is_file():
             die(f"IntelliFold runner is missing: {runner_path}")
         self.upstream = load_path("iproteinstudio_resident_intellifold", runner_path)
+        from live_structure_events import instrument_intellifold
+        instrument_intellifold(self.upstream)
         from intellifold_padding import default_buckets
         model = option(self.arguments, "--model", config.get("model", "v2-flash"))
         self.args = Namespace(
@@ -684,6 +694,8 @@ def serve(config_path: Path) -> None:
                     "total": total, "reused": reused, "epoch": time.time(),
                 })
             session.report_progress = report_progress
+            session.publish_iterative_results = request.get("publish_iterative_results", False)
+            session.iterative_binder_chain = request.get("binder_chain", "A")
             session.request_seed = request.get("prediction_seed")
             if session.request_seed is not None and (config["engine"] != "boltz" or type(session.request_seed) is not int or not 0 <= session.request_seed <= 2147483647):
                 die("per-request seeds require Boltz and an integer from 0 to 2147483647")

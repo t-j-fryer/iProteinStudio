@@ -520,6 +520,12 @@ struct IterativeCommandContractHarness {
             try csv.write(to: directory.appendingPathComponent("post_metrics_row.csv"),
                           atomically: true, encoding: .utf8)
         }
+        let liveCycle = root.appendingPathComponent("run_001/cycle_00")
+        try FileManager.default.createDirectory(at: liveCycle, withIntermediateDirectories: true)
+        try "data_fixture".write(to: root.appendingPathComponent("live.cif"), atomically: true, encoding: .utf8)
+        try "{\"iptm\":0.8}".write(to: root.appendingPathComponent("live.json"), atomically: true, encoding: .utf8)
+        try "cycle,iptm,complex_plddt,binder_sequence,structure_path,confidence_json\n0,0.8,0.9,ACDE,live.cif,live.json\n"
+            .write(to: liveCycle.appendingPathComponent("live_prediction.csv"), atomically: true, encoding: .utf8)
         let watcher = await MainActor.run {
             let watcher = MetricsWatcher()
             watcher.start(root: root, interval: 3600)
@@ -527,6 +533,8 @@ struct IterativeCommandContractHarness {
         }
         await watcher.waitForRefresh()
         await MainActor.run {
+            expect(watcher.designPoints.count == 1 && watcher.designPoints[0].isStartingStructure,
+                   "Overview did not load the first prediction before the cycle completed")
             expect(watcher.validationPoints.count == 2, "one of two checker results was discarded")
             expect(Set(watcher.validationPoints.map(\.predictor)) == Set(["intellifold", "openfold-3-mlx"]),
                    "checker identity was not retained")

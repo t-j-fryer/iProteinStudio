@@ -783,6 +783,32 @@ provenance are specified in [Output storage and retention](OUTPUT_STORAGE.md).
 
 ### Native app job lifecycle
 
+New jobs in Protein Hunter, Predict, RFdiffusion3 and NISE publish finished
+structures during multi-input work. Boltz, IntelliFold, Protenix and OpenFold
+publish after their native writer closes the structure and confidence files;
+RFdiffusion3 publishes each accepted backbone. Existing UI polling normally
+picks these up within its next refresh (two to three seconds), without waiting
+for a cycle, input chunk or length bin. Outputs produced together by one native
+writer appear together; this does not stream unfinished diffusion coordinates.
+
+Atomic `.studio_live_results/*.json` display receipts retain exact output,
+engine and sample identities, and reject changed or missing structures. Protein
+Hunter also retains its per-cycle Boltz display CSV. Completed workflow records
+supersede previews. Phase-0 NISE RFD3 backbones retain stable lineage IDs across
+parallel queues and final flattening; NESSO/PSICHIC scores join the existing NISE
+fold records. Shortlist verification is also visible while its folds finish.
+
+A visible structure is **not** an accepted design: geometry, affinity and selection
+remain pending until their own authoritative records exist. Display receipts do
+not authorize scientific resume. MCP `results_overview` includes `live_structures`
+and `live_structure_count`; `results_query(dataset="live_predictions")` reads
+these display records directly. `hit_only` never promotes a live receipt to a hit.
+
+Older frozen campaign snapshots keep their recorded publication behavior. The app
+can display their existing committed output while an update waits for the shared
+execution lease; new hooks apply to newly prepared jobs. Selecting a Protein
+Hunter example sets ten trajectories per engine; users can increase this budget.
+
 Native iterative, prediction, target preparation, calibration and RFdiffusion3
 workflows now register with the same durable worker used by MCP. The private
 `_desktop-submit` CLI adapter is an implementation boundary, not an additional

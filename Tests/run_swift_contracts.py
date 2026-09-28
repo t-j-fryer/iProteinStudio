@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
         "prediction_templates": [SOURCE + "Models/Predictor.swift", SOURCE + "Models/PredictionRequest.swift", "Tests/PredictionTemplateContractHarness.swift"],
         "nise": [SOURCE + "Models/" + name for name in ["NISERequest.swift", "WorkspaceOrganization.swift", "Project.swift"]] + ["Tests/NISERequestContractHarness.swift"],
         "core": [str(path.relative_to(ROOT)) for path in sorted((ROOT / "Sources/StudioCore").glob("*.swift"))] + ["Tests/StudioCoreContractHarness.swift"],
-        "nise_results": ["Tests/NISEResultsContractHarness.swift", SOURCE + "Models/RunResult.swift", SOURCE + "Core/Results/NISEResults.swift"],
+        "nise_results": ["Tests/NISEResultsContractHarness.swift", SOURCE + "Models/RunResult.swift", SOURCE + "Core/Results/NISEResults.swift", SOURCE + "Core/Results/RunResultsLoader.swift"],
         "results": ["Tests/PredictionResultsContractHarness.swift", SOURCE + "Models/RunResult.swift", SOURCE + "Core/Results/RunResultsLoader.swift", SOURCE + "Core/Results/NISEResults.swift"],
         "iterative": [SOURCE + "Models/" + name for name in MODELS] + [
             SOURCE + "Core/ResumeContract.swift", SOURCE + "Core/TemplateWriter.swift", SOURCE + "Core/CommandBuilder.swift",
