@@ -188,7 +188,7 @@ def prepare_and_predict(cfg: dict, campaign: Path, logs: Path, mode: str) -> Non
 
     # Optional independent second opinions, run over the same inputs. Agreement
     # between unrelated models is far stronger evidence than one high score.
-    supported = {"intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx"}
+    supported = {"intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx"}
     requested = cfg.get("extra_predictors", [])
     retired = [p for p in requested if p in {"alphafold3", "intellifold-jax"}]
     if retired:
@@ -199,7 +199,7 @@ def prepare_and_predict(cfg: dict, campaign: Path, logs: Path, mode: str) -> Non
     extra = list(dict.fromkeys(requested))
     if extra and mode == "holo":
         run([
-            sys.executable, str(ROOT / "scripts" / "run_predictors.py"),
+            sys.executable, str(Path(cfg["nanohunter_root"]) / "rfd3_overlay/scripts/run_predictors.py" if cfg.get("nanohunter_root") else ROOT / "scripts/run_predictors.py"),
             "--inputs", str(yaml_dir),
             "--output", str(campaign / "predictions" / f"{mode}_second_opinion"),
             "--predictors", ",".join(extra),
@@ -235,6 +235,7 @@ def stage_nesso(cfg: dict, campaign: Path, logs: Path) -> None:
 
 
 def main() -> None:
+    global ROOT
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--stage", choices=("all", *STAGES), default="all")
@@ -242,6 +243,8 @@ def main() -> None:
                         help="skip stages already recorded complete on disk")
     args = parser.parse_args()
     cfg = json.loads(args.config.resolve().read_text())
+    if cfg.get("rfd3_root"):
+        ROOT = Path(cfg["rfd3_root"]).expanduser().resolve()
     for key in ("design_yaml", "smiles_file", "campaign_dir", "ligand_sdf", "atom_map", "ccd_mirror", "bundle_validator"):
         if key not in cfg:
             continue

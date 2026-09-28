@@ -2,6 +2,13 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.13 — ESMFold2 across fresh and upgraded installations
+
+- RFdiffusion3 uses the app's frozen prediction orchestration with retained
+  engine runtimes, so upgraded portable installations receive the new predictors.
+- Refreshes the overlay staging revision and exposes the same route in MCP 34.
+- Includes all ESMFold2 Fast/Full integration from 0.2.12 below.
+
 ## 0.2.12 — ESMFold2 Fast and Full MLX
 
 - Experimental Fast/Full structure prediction in Predict, target preparation,

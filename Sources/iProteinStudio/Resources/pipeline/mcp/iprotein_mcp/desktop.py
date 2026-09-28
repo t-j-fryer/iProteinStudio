@@ -323,7 +323,7 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
             _, assets = prepare(root, output, workflow, settings["nesso"], settings.get("smiles"))
             inputs += assets
 
-        runner = root / "rfd3_scripts/rfd3_protein_campaign.py" if protein else root / "rfd3/scripts/run_rfd3_nise_campaign.py"
+        runner = root / "rfd3_scripts/rfd3_protein_campaign.py" if protein else root / "rfd3_overlay/scripts/run_rfd3_nise_campaign.py"
         python = root / "rfd3/.venv/bin/python"
         inputs += [source]
         # Target structures and ligand files referenced by the native request

@@ -126,7 +126,7 @@ def rfd3_runtime_scripts(root: Path) -> List[Path]:
     """Freeze helper and sampler code, not just the two top-level launchers."""
     scripts = []
     for directory in (root / "rfd3_scripts", root / "rfd3/scripts",
-                      root / "rfd3/mlx_port", root / "scripts"):
+                      root / "rfd3/mlx_port", root / "scripts", root / "rfd3_overlay/scripts"):
         scripts.extend(sorted(directory.rglob("*.py")))
     scripts.extend(sorted((root / "rfd3").glob("*.py")))
     return list(dict.fromkeys(scripts))
@@ -741,7 +741,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
     prepare = root / "rfd3_scripts" / "prepare_campaign.py"
     scripts = [prepare]
     if target_kind == "small_molecule":
-        runner = root / "rfd3" / "scripts" / "run_rfd3_nise_campaign.py"
+        runner = root / "rfd3_overlay" / "scripts" / "run_rfd3_nise_campaign.py"
     else:
         runner = root / "rfd3_scripts" / "rfd3_protein_campaign.py"
     scripts.append(runner)

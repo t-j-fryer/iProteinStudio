@@ -568,6 +568,8 @@ def main() -> None:
     config = {
         "nesso": req.get("nesso"),
         "campaign_dir": str(campaign),
+        "rfd3_root": str(rfd3_root),
+        "nanohunter_root": req["nanohunter_root"],
         "design_name": req["design_name"],
         "design_mode": req.get("design_mode", "deNovo"),
         "design_yaml": str(design_yaml),

@@ -122,6 +122,18 @@ Unsigned trusted beta is not Apple notarized. Do not imply universal speedup.
 
 ## Next
 
-Publish0.2.12/build58/MCP33, replace the open
+The initial0.2.12/build58/MCP33 assets finished uploading before the release
+process could be interrupted. Its update feed was not published. A final
+installation-path audit found the overlay version had not been advanced, and
+portable RFD3 campaigns still launched prediction orchestration from the retained
+engine package. Corrected new jobs to use app-frozen orchestration while retaining
+the engine's generation helpers, runtime and weights. Small-molecule configs now
+record both roots; both desktop and MCP plans freeze the app overlay helpers.
+Existing saved jobs retain their original plans. Functional routing regressions
+cover protein holo/apo and ligand checks; workflow contracts and22 MCP tests pass.
+The4 RFD3 scheduling/routing tests and another Swift build pass. The correction
+will ship as0.2.13/build59/MCP34 rather than replacing published artifacts.
+
+Publish0.2.13/build59/MCP34, replace the open
 app through normal staging, resume job-18ca87a890d9 from its original immutable
 plan, and append deployment verification. No changes to that campaign's settings.

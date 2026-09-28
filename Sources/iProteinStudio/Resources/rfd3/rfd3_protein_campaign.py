@@ -303,7 +303,7 @@ def stage_predict(cfg: dict, campaign: Path, rfd3_root: Path, env: dict,
         campaign / "logs" / "prepare_predictor_inputs.log", rfd3_root, env)
 
     wanted = verification_predictors(cfg)
-    run([sys.executable, str(rfd3_root / "scripts" / "run_predictors.py"),
+    run([sys.executable, str(Path(cfg["nanohunter_root"]) / "rfd3_overlay/scripts/run_predictors.py"),
          "--inputs", str(yaml_dir),
          "--output", str(campaign / "predictions" / "holo"),
          "--predictors", ",".join(dict.fromkeys(wanted)),
@@ -364,7 +364,7 @@ def stage_predict_monomer(cfg: dict, campaign: Path, rfd3_root: Path, env: dict)
          "--sequences", str(selected), "--template", str(template),
          "--output", str(inputs), "--monomer"],
         campaign / "logs" / "prepare_monomer_inputs.log", rfd3_root, env)
-    run([sys.executable, str(rfd3_root / "scripts" / "run_predictors.py"),
+    run([sys.executable, str(Path(cfg["nanohunter_root"]) / "rfd3_overlay/scripts/run_predictors.py"),
          "--inputs", str(inputs), "--output", str(campaign / "predictions" / "monomer"),
          "--predictors", ",".join(verification_predictors(cfg)),
          "--intellifold-model", cfg.get("intellifold_model", "v2-flash"),

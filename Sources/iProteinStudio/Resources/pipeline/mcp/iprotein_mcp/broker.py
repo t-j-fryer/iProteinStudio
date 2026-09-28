@@ -625,7 +625,7 @@ def _execute_rfd3(job_id: str, plan: Dict[str, Any]) -> int:
     if config is None or not config.is_file():
         raise StudioError("RFD3 preparation returned no durable campaign configuration.")
     if normalized["target_kind"] == "small_molecule":
-        runner = root / "rfd3" / "scripts" / "run_rfd3_nise_campaign.py"
+        runner = root / "rfd3_overlay" / "scripts" / "run_rfd3_nise_campaign.py"
     else:
         runner = root / "rfd3_scripts" / "rfd3_protein_campaign.py"
     command = ["/usr/bin/caffeinate", "-dimsu", str(python), str(runner), "--config", str(config), "--resume"]

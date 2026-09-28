@@ -379,8 +379,8 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
 
     def test_ligand_plan_keeps_boltz_as_primary_not_extra(self):
         (self.root / 'rfd3_scripts/prepare_campaign.py').write_text('# prepare\n')
-        scripts = self.root / 'rfd3/scripts'
-        scripts.mkdir()
+        scripts = self.root / 'rfd3_overlay/scripts'
+        scripts.mkdir(parents=True)
         (scripts / 'run_rfd3_nise_campaign.py').write_text('# runner\n')
         request = {'target_kind':'small_molecule','smiles':'CCO',
                    'extra_predictors':['boltz','intellifold','boltz']}

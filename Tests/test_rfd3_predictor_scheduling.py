@@ -11,6 +11,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -47,6 +48,40 @@ def write_inputs(path: Path) -> None:
 
 
 class RFD3PredictorSchedulingTests(unittest.TestCase):
+    def test_campaigns_select_app_predictor_helpers_with_retained_engine(self):
+        """An installed engine may predate the app's new prediction options."""
+        load_runner()  # Make the shared overlay imports available.
+        def load(name, path):
+            spec = importlib.util.spec_from_file_location(name, path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+        ligand = load('ligand_upgrade_contract', RUNNER.parent / 'run_rfd3_nise_campaign.py')
+        protein = load('protein_upgrade_contract', ROOT / 'Sources/iProteinStudio/Resources/rfd3/rfd3_protein_campaign.py')
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            engine = base / 'retained_engine'
+            campaign = base / 'campaign'
+            for relative in ('mpnn', 'config', 'assets/target_msa', 'analysis'):
+                (campaign / relative).mkdir(parents=True)
+            (campaign / 'mpnn/sequences.csv').write_text('sequence\nAAAA\n')
+            (campaign / 'analysis/top100.csv').write_text('sequence\nAAAA\n')
+            smiles = base / 'ligand.smi'; smiles.write_text('CCO\n')
+            cfg = dict(nanohunter_root=str(base), smiles_file=str(smiles),
+                       boltz_chunk_size=1, boltz_calibrate_n=1, num_backbones=1,
+                       sequences_per_backbone=1, extra_predictors=['esmfold2-fast-mlx'],
+                       target_sequence='AAAA', target_chain='B')
+            expected = str(base / 'rfd3_overlay/scripts/run_predictors.py')
+            with patch.object(ligand, 'ROOT', engine), patch.object(ligand, 'run') as run, patch.object(ligand, 'count_csv', return_value=1):
+                ligand.prepare_and_predict(cfg, campaign, campaign / 'logs', 'holo')
+                self.assertEqual(run.call_args_list[1].args[0][1], str(engine / 'scripts/run_boltz_affinity.py'))
+                self.assertEqual(run.call_args_list[2].args[0][1], expected)
+            with patch.object(protein, 'run') as run:
+                protein.stage_predict(cfg, campaign, engine, {}, {})
+                self.assertEqual(run.call_args_list[-1].args[0][1], expected)
+                protein.stage_predict_monomer(cfg, campaign, engine, {})
+                self.assertEqual(run.call_args_list[-1].args[0][1], expected)
+
     def test_measured_engine_policy(self):
         runner = load_runner()
         for predictor in ("boltz", "intellifold", "protenix-mini"):
