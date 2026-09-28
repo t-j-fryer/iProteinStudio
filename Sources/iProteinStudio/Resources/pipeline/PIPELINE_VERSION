@@ -55,3 +55,6 @@ studio_iterative_live_results_validation: lab_book/0207-publish-live-proteinhunt
 
 studio_live_results: native-writer-receipts-all-workflows-v1
 studio_live_results_validation: lab_book/0208-stream-results-across-workflows.md
+
+studio_process_inspection: retry-retained-ownership-and-lease-v1
+studio_process_inspection_validation: lab_book/0213-fix-process-inspection-supervision.md

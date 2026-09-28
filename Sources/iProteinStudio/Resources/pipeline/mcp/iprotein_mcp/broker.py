@@ -325,48 +325,85 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
                                    stderr=subprocess.STDOUT, start_new_session=True,
                                    pass_fds=(() if _EXECUTION_FD is None else (_EXECUTION_FD,)))
         _update(job_id, child_pid=process.pid, child_process_group=process.pid)
-        from .process_tree import ProcessTree
-        family = ProcessTree(process.pid)
+        from .process_tree import ProcessTree, ProcessInspectionUnavailable
+        family = ProcessTree(process.pid, initialize=False)
         recorded_processes = None
         stopping_at = None
+        termination_sent_at = None
         exited_at = None
         abandoned_children = False
+        inspection_failures = 0
         while True:
-            family.refresh()
-            if family.known != recorded_processes:
-                atomic_json(state_path(job_id).parent / "processes.json", {
-                    "schema": 1, "leader": process.pid,
-                    "known": {str(pid): born for pid, born in family.known.items()},
-                })
-                recorded_processes = dict(family.known)
-            for line in reader.readlines():
-                parts = line.rstrip("\n").split("|", 3)
-                if len(parts) >= 4 and parts[0] in {"PBSTAGE", "RFSTAGE", "NHSTEP"} and stopping_at is None:
-                    _update(job_id, stage=parts[1], message=parts[3])
-                elif len(parts) >= 2 and parts[0] in {"PBFAIL", "RFFAIL", "NHFAIL", "PREPFAIL"}:
-                    explicit_failure = "|".join(parts[1:])
-            code = process.poll()
-            if code is not None:
-                family.refresh(force=True)
-                if exited_at is None:
-                    exited_at = time.monotonic()
-            live_children = family.alive() if code is not None else None
-            lingering = (code is not None and live_children
-                         and time.monotonic() - exited_at >= CHILD_EXIT_GRACE_SECONDS)
-            if stopping_at is None and (_cancelled(job_id) or lingering):
-                abandoned_children = not _cancelled(job_id)
+            # Cancellation remains pending through inspection outages. Do not
+            # send signals from cached PID identities or release the lease.
+            if stopping_at is None and _cancelled(job_id):
                 stopping_at = time.monotonic()
-                if abandoned_children:
+                _update(job_id, stage="stopping", message="Stopping; waiting for verified child processes to exit.")
+            try:
+                family.refresh()
+                if family.known != recorded_processes:
+                    atomic_json(state_path(job_id).parent / "processes.json", {
+                        "schema": 1, "leader": process.pid,
+                        "known": {str(pid): born for pid, born in family.known.items()},
+                    })
+                    recorded_processes = dict(family.known)
+                for line in reader.readlines():
+                    parts = line.rstrip("\n").split("|", 3)
+                    if len(parts) >= 4 and parts[0] in {"PBSTAGE", "RFSTAGE", "NHSTEP"} and stopping_at is None:
+                        _update(job_id, stage=parts[1], message=parts[3])
+                    elif len(parts) >= 2 and parts[0] in {"PBFAIL", "RFFAIL", "NHFAIL", "PREPFAIL"}:
+                        explicit_failure = "|".join(parts[1:])
+                # The first successful scan precedes poll/reaping: the direct
+                # child's PID cannot be reused before its identity is recorded.
+                code = process.poll()
+                if code is not None:
+                    family.refresh(force=True)
+                    if exited_at is None:
+                        exited_at = time.monotonic()
+                live_children = family.alive() if code is not None else None
+                lingering = (code is not None and live_children
+                             and time.monotonic() - exited_at >= CHILD_EXIT_GRACE_SECONDS)
+                if stopping_at is None and lingering:
+                    abandoned_children = True
+                    stopping_at = time.monotonic()
                     atomic_json(state_path(job_id).parent / "lingering_processes.json", {
                         "schema": 1, "recorded_at": utc_now(), "workflow_exit_code": code,
                         "grace_seconds": CHILD_EXIT_GRACE_SECONDS,
                         "processes": {str(pid): row for pid, row in live_children.items()},
                     })
-                _update(job_id, stage="stopping", message="Stopping; waiting for the workflow's child processes to exit.")
-                family.send(signal.SIGTERM)
-            if stopping_at is not None and time.monotonic() - stopping_at >= 3:
-                family.send(signal.SIGKILL)
-            if code is not None and not family.alive():
+                    _update(job_id, stage="stopping", message="Stopping; waiting for the workflow's child processes to exit.")
+                if stopping_at is not None:
+                    if termination_sent_at is None:
+                        family.send(signal.SIGTERM)
+                        termination_sent_at = time.monotonic()
+                    elif time.monotonic() - termination_sent_at >= 3:
+                        family.send(signal.SIGKILL)
+                done = code is not None and not family.alive()
+            except ProcessInspectionUnavailable as exc:
+                # send() may have discovered another descendant before its
+                # fresh identity check failed. Persist that evidence too.
+                if family.known != recorded_processes:
+                    atomic_json(state_path(job_id).parent / "processes.json", {
+                        "schema": 1, "leader": process.pid,
+                        "known": {str(pid): born for pid, born in family.known.items()},
+                    })
+                    recorded_processes = dict(family.known)
+                inspection_failures += 1
+                warning = (str(exc) + " Supervision is retrying; process ownership and the execution lock are retained."
+                           + (" Stop is pending until process identities can be verified." if stopping_at is not None else ""))
+                _update(job_id, monitoring_warning=warning,
+                        monitoring_consecutive_failures=inspection_failures,
+                        monitoring_last_failure_at=utc_now())
+                if inspection_failures == 1:
+                    log.write("STUDIO_MONITOR_WARNING " + warning + "\n"); log.flush()
+                time.sleep(1)
+                continue
+            if inspection_failures:
+                _update(job_id, monitoring_warning=None, monitoring_consecutive_failures=0,
+                        monitoring_recovered_at=utc_now())
+                log.write("STUDIO_MONITOR_RECOVERED Process inspection resumed.\n"); log.flush()
+                inspection_failures = 0
+            if done:
                 break
             time.sleep(0.1)
         code = process.wait()
@@ -616,9 +653,21 @@ def run_worker(job_id: str) -> int:
         if int(load_json(state_path(job_id)).get("pid") or 0) == os.getpid():
             break
         time.sleep(0.01)
-    from .process_tree import snapshot
-    born = snapshot().get(os.getpid(), {}).get("born")
+    from .process_tree import snapshot, ProcessInspectionUnavailable
+    while True:
+        if _cancelled(job_id):
+            _update(job_id, status="cancelled", stage="cancelled", message="Stopped before starting.", finished_at=utc_now())
+            return 130
+        try:
+            born = snapshot().get(os.getpid(), {}).get("born")
+            if not born:
+                raise ProcessInspectionUnavailable("Worker identity is not yet available.")
+            break
+        except ProcessInspectionUnavailable as exc:
+            _update(job_id, monitoring_warning=str(exc) + " Retrying before starting the workflow.")
+            time.sleep(1)
     atomic_json(state_path(job_id).parent / "worker_ready.json", {"pid": os.getpid(), "born": born})
+    _update(job_id, monitoring_warning=None)
     plan = None
     try:
         recorded = load_json(state_path(job_id).parent / "plan.json")

@@ -110,3 +110,20 @@ submission/cancellation behavior, create a new submission. On a Mac already
 blocked by an orphan from an older worker, save other work and restart macOS
 before updating/retrying. Keep existing results; deleting the lock file can let
 incompatible workers overlap and is not a recovery procedure.
+
+## Process inspection delays and live resources
+
+Version 0.2.11 keeps supervising jobs when macOS temporarily cannot provide a
+process list. Job progress shows a separate warning; the GPU execution lease
+and observed ownership remain intact. Stop stays pending until identities can
+be verified. The worker retries rather than marking the job failed or starting
+another queued job. Persistent OS trouble can therefore keep Stop pending.
+Recovery never interprets an unavailable process snapshot as successful cleanup.
+
+The [live resource panel](LIVE_RESOURCES.md) shows this Mac's memory pressure,
+RAM, swap, CPU/GPU activity and recent history. Copy support report includes those
+readings. Opening a completed job shows current resources, not historical usage.
+
+Old jobs keep their frozen bridge. For a job affected by the earlier monitoring
+failure, use Check & clean up, keep its saved files, then create a new submission
+to use the fix. Updating the app does not rewrite an existing job's worker code.

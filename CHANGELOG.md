@@ -2,6 +2,20 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.11 — resilient job monitoring and live Mac resources
+
+- Temporary macOS process-inspection failures no longer abandon a running job.
+  Supervision retries while retaining process ownership and the execution lock.
+  Pending Stop requests resume safely when process identities can be verified.
+- Job progress shows monitoring delays separately from the scientific stage.
+  Recovery does not declare cleanup complete when process inspection is unavailable.
+- A shared live resource panel shows estimated RAM, memory pressure, compression,
+  swap writing, CPU/GPU activity and thermal state. Recent readings are included
+  in Copy support report. GPU activity is whole-Mac and optional by OS/driver.
+- MCP 32 exposes monitoring-warning/recovery state using the same durable broker.
+  Existing jobs retain their frozen code: clean up an affected old job and make
+  a new submission to use the supervisor fix. Saved outputs are preserved.
+
 ## 0.2.10 — structures appear as inputs finish
 
 - Protein Hunter, Predict, RFdiffusion3 and NISE show finished structures during

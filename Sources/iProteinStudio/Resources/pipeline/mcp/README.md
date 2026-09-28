@@ -248,3 +248,15 @@ geometry or advancement verdict. Predict groups native samples by input and
 engine; Protein Hunter and RFdiffusion3 merge them into their existing hierarchy.
 NISE includes committed folds and initial RFD3 backbones before scored candidates.
 Older immutable jobs retain their original output publication behavior.
+
+### MCP 32: resilient process supervision
+
+Temporary process-inspection failures leave jobs supervised, with their execution
+lease and process identities retained. `job_status`/`job-log` include
+`monitoring_warning`, failure counts/timestamps and a recovery timestamp. These
+are distinct from the inference stage and do not imply a model failure. Stop
+remains pending until identities can be verified. Cleanup reports an actionable
+error rather than treating missing process information as no running processes.
+Existing jobs retain their bridge snapshot; use a new submission after recovery
+to adopt the fix. Native live resource history is local to the app's Job progress
+window and is included in its Copy support report, not inferred by MCP.

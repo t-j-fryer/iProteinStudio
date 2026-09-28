@@ -10,26 +10,40 @@ import subprocess
 import time
 
 
+class ProcessInspectionUnavailable(RuntimeError):
+    """No trustworthy process snapshot; never equivalent to no live processes."""
+
+
 def snapshot():
-    result = subprocess.run(
-        ['/bin/ps', '-axo', 'pid=,ppid=,pgid=,stat=,lstart='],
-        check=True, capture_output=True, text=True, timeout=3)
-    records = {}
-    for line in result.stdout.splitlines():
-        fields = line.split(None, 4)
-        if len(fields) != 5:
-            continue
-        pid, parent, group = map(int, fields[:3])
-        records[pid] = dict(parent=parent, group=group, state=fields[3], born=fields[4])
-    return records
+    try:
+        result = subprocess.run(
+            ['/bin/ps', '-axo', 'pid=,ppid=,pgid=,stat=,lstart='],
+            check=True, capture_output=True, text=True, timeout=3)
+        records = {}
+        for line in result.stdout.splitlines():
+            if not line.strip():
+                continue
+            fields = line.split(None, 4)
+            if len(fields) != 5:
+                raise ValueError('Incomplete process record')
+            pid, parent, group = map(int, fields[:3])
+            records[pid] = dict(parent=parent, group=group, state=fields[3], born=fields[4])
+        if not records:
+            raise ValueError('Empty process list')
+        return records
+    except (subprocess.SubprocessError, OSError, ValueError) as exc:
+        raise ProcessInspectionUnavailable(
+            'macOS process inspection is temporarily unavailable (' + type(exc).__name__ + ').'
+        ) from exc
 
 
 class ProcessTree:
-    def __init__(self, leader):
+    def __init__(self, leader, initialize=True):
         self.leader = leader
         self.known = {}
         self.last_scan = 0.
-        self.refresh(force=True)
+        if initialize:
+            self.refresh(force=True)
 
     def refresh(self, force=False):
         if not force and time.monotonic() - self.last_scan < .5:

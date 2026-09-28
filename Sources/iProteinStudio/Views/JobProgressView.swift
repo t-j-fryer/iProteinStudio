@@ -4,6 +4,7 @@ import StudioCore
 struct JobProgressView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: JobDetailModel
+    @StateObject private var resources = ResourceUsageMonitor()
     @State private var filter = "All output"
     @State private var follow = true
     @State private var confirmCleanup = false
@@ -31,6 +32,11 @@ struct JobProgressView: View {
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
             Text(model.job.message ?? "Waiting for a job update.").font(.callout).textSelection(.enabled)
+            if let warning = model.job.monitoring_warning {
+                Label(warning, systemImage: "exclamationmark.triangle")
+                    .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
+            }
+            ResourceUsageView(monitor: resources)
             if let last = events.last {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(last.engine) · \(last.stageLabel)").font(.headline)
@@ -84,7 +90,7 @@ struct JobProgressView: View {
             HStack {
                 Button("Check & clean up…") { Task { await model.checkRecovery() } }.disabled(model.busy)
                 Button("Copy support report") { copySupport() }
-                    .help("Copies job status and system details without raw logs or sequences")
+                    .help("Copies job status, system details and recent resource readings without raw logs or sequences")
                 Button("Copy visible log") { copy(visibleLines.joined(separator: "\n")) }
                     .help("Logs may contain sequences, structures or local file paths. Review before sharing.")
                 Spacer()
@@ -106,6 +112,14 @@ struct JobProgressView: View {
                 try? await Task.sleep(for: .seconds(2))
             }
         }
+        .task {
+            // Independent of broker polling: a slow or failed job-log request
+            // must not prevent the user from seeing resource pressure.
+            while !Task.isCancelled {
+                await resources.refresh()
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
         .accessibilityIdentifier("job-progress-viewer")
     }
 
@@ -121,9 +135,10 @@ struct JobProgressView: View {
             memoryBytes: ProcessInfo.processInfo.physicalMemory,
             message: model.job.message ?? "", log: model.lines)
         var details = "\nJob: \(model.job.id)\nStatus: \(model.job.displayStatus)\n"
+        if let warning = model.job.monitoring_warning { details += "Monitoring: \(warning)\n" }
         if let recovery = model.recovery {
             details += "Cleanup action: \(recovery.action)\nRecorded leftover processes: \(recovery.process_ids.count)\nExecution lock busy: \(recovery.execution_lock_busy)\n"
         }
-        copy(report + details)
+        copy(report + details + "\n" + resources.supportText)
     }
 }

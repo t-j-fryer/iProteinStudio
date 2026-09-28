@@ -8,6 +8,12 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ---
 
+Newest fix: [0213 — Resilient process supervision](lab_book/0213-fix-process-inspection-supervision.md) (0.2.11/build57/MCP32; tested, release in progress).
+
+Newest UI update: [0212 — Live Mac resource monitor](lab_book/0212-add-live-resource-monitor.md) (built and tested locally; not yet released).
+
+Newest audit: [0210 — Student Protenix calibration delay](lab_book/0210-audit-student-protenix-calibration.md) (central archive confirms unhandled process-monitor timeout; inference continued after failed status; memory-pressure cause unconfirmed).
+
 Newest release: [0199 — Qualify portable workflow launches](lab_book/0199-qualify-portable-workflow-launches.md) (0.2.8/build54/MCP29 published and installed; 23 launch checks audited; original biotin job resumed at cycle7).
 
 - [0189 — Job progress viewer and safe recovery](lab_book/0189-add-job-progress-viewer-and-recovery.md)

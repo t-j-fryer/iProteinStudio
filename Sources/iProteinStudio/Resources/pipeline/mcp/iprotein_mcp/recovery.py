@@ -5,7 +5,7 @@ import signal
 import time
 
 from .common import StudioError, agent_root, atomic_json, load_json, utc_now
-from .process_tree import snapshot
+from .process_tree import snapshot, ProcessInspectionUnavailable
 
 
 def _records(job_id):
@@ -51,6 +51,13 @@ def _lock_busy():
 
 
 def inspect_job(job_id):
+    try:
+        return _inspect_job(job_id)
+    except ProcessInspectionUnavailable as exc:
+        raise StudioError(str(exc) + " Cleanup has not been declared complete. No unverified process will be stopped; try again when the Mac responds.") from exc
+
+
+def _inspect_job(job_id):
     state, ready, receipt = _records(job_id)
     rows = snapshot()
     worker = rows.get(int(state.get('pid') or 0))
@@ -87,6 +94,16 @@ def inspect_job(job_id):
 
 
 def cleanup_job(job_id):
+    try:
+        return _cleanup_job(job_id)
+    except ProcessInspectionUnavailable as exc:
+        from .broker import _update
+        message = str(exc) + " Cleanup is incomplete; saved files and recorded ownership were kept. Try Check & clean up again."
+        _update(job_id, monitoring_warning=message)
+        raise StudioError(message) from exc
+
+
+def _cleanup_job(job_id):
     from .broker import registry_lock, cancel_job, state_path, _update
     # Serialize with new submissions and Resume throughout the short cleanup.
     with registry_lock():
@@ -108,6 +125,10 @@ def cleanup_job(job_id):
             while True:
                 live = owned_processes({'known': known}, snapshot())
                 known.update({str(pid): born for pid, born in live.items()})
+                # Persist newly discovered descendants before any signals. A
+                # later inspection failure must not lose their ownership.
+                receipt.update(known=known)
+                atomic_json(state_path(job_id).parent / 'processes.json', receipt)
                 for pid, born in live.items():
                     if (pid, born) in sent:
                         continue
@@ -130,7 +151,7 @@ def cleanup_job(job_id):
         if remaining:
             _update(job_id, status='stopping', message='A recorded process has not exited. Save your work and restart your Mac; Studio has kept the lock and saved files.')
         else:
-            _update(job_id, status='cancelled', stage='cancelled', finished_at=utc_now(),
+            _update(job_id, status='cancelled', stage='cancelled', monitoring_warning=None, finished_at=utc_now(),
                     message='Job cleanup finished. Saved inputs, results and checkpoints were kept.')
         atomic_json(state_path(job_id).parent / 'recovery.json',
                     dict(at=utc_now(), recorded_pids=sorted(map(int, known)), remaining_pids=sorted(remaining)))

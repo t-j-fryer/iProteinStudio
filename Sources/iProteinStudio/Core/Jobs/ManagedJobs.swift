@@ -20,6 +20,7 @@ struct ManagedJob: Decodable, Identifiable {
     let created_at: String?
     let display_name: String?
     let error: String?
+    let monitoring_warning: String?
     var isActive: Bool { ["queued", "running", "stopping"].contains(status) }
     var output: URL? { output_root.map { URL(fileURLWithPath: $0) } }
     var workflowLabel: String {

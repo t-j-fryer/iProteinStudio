@@ -18,7 +18,7 @@ campaign folders contain their own commands, provenance and stage logs.
 
 ## A GPU prediction appears stalled
 
-Open the run log and note the last completed stage. Initial model loading can
+Open **Progress & logs** and inspect the [live resource panel](docs/LIVE_RESOURCES.md), then note the last completed stage in the run log. **Copy support report** includes recent resource readings while this window is open. Initial model loading can
 take time; an unchanged progress indicator alone does not establish a GPU fault.
 Use **Stop** before investigating or retrying the job. Retain its logs and saved
 outputs. If multiple previously working engines hang, save work in other apps,

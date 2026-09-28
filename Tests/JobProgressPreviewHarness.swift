@@ -4,6 +4,7 @@ import SwiftUI
 import Combine
 
 struct ManagedJob {
+    let monitoring_warning: String? = "Process inspection is delayed. Supervision is retrying and the execution lock is retained."
     let display_name: String? = "Example stopped calibration"
     let workflowLabel = "Protein Hunter"
     let displayStatus = "Failed"
