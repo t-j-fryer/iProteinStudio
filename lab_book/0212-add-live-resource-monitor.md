@@ -40,3 +40,7 @@ Not tested on the student's M4 Pro/24 GB, other Apple GPU generations, multi-GPU
 ## Next
 
 Qualify on the student's hardware and ship with the separately needed supervisor-timeout fix. Do not infer per-job resource usage or model progress from system-wide counters.
+
+## Release integration
+
+Shipped in 0.2.11/build57 with MCP32 and the supervisor fix; see [0213](0213-fix-process-inspection-supervision.md) for publication, app replacement and shared-runtime verification. The earlier limits above describe the initial implementation pass.

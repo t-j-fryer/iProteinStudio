@@ -8,9 +8,9 @@ this file, then any entry it points you at. Recording your own work here is mand
 
 ---
 
-Newest fix: [0213 — Resilient process supervision](lab_book/0213-fix-process-inspection-supervision.md) (0.2.11/build57/MCP32; tested, release in progress).
+Newest fix: [0213 — Resilient process supervision](lab_book/0213-fix-process-inspection-supervision.md) (0.2.11/build57/MCP32 published and installed; archive signatures and shared bridge verified).
 
-Newest UI update: [0212 — Live Mac resource monitor](lab_book/0212-add-live-resource-monitor.md) (built and tested locally; not yet released).
+Newest UI update: [0212 — Live Mac resource monitor](lab_book/0212-add-live-resource-monitor.md) (shipped in 0.2.11/build57 with MCP32).
 
 Newest audit: [0210 — Student Protenix calibration delay](lab_book/0210-audit-student-protenix-calibration.md) (central archive confirms unhandled process-monitor timeout; inference continued after failed status; memory-pressure cause unconfirmed).
 

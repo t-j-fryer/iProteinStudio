@@ -4,7 +4,7 @@ title: Retain supervision through process inspection failures
 date: 2026-09-28
 author: Codex
 type: bugfix
-status: in-progress
+status: complete
 machine: Apple M4 Max, 64 GB unified memory; model-free tests
 tags: [mcp, queue, cancellation, ui, release]
 ---
@@ -49,3 +49,13 @@ No forced memory exhaustion, live student-Mac test, GPU inference, performance c
 ## Next
 
 Publish and verify the clean release, update the installed app and shared MCP through normal runtime staging, and record deployment checks below.
+
+## Release and deployment verification
+
+Published v0.2.11-beta/build57/MCP32 from clean source commit 0056d55 through the standard trusted-beta release script. Update-feed commit d01ce9a was pushed to GitHub main. GitHub asset digests match local SHA256SUMS for both ZIP and DMG; the archive's Sparkle signature verifies with the existing release identity. The live appcast advertises 0.2.11/build57.
+
+Replaced and reopened the existing `build/iProteinStudio.app`, preserving the previous bundle as `build/iProteinStudio-0.2.10-before-monitoring-update.app`. The installed signature verifies and all 170 packaged pipeline files match the clean release. Bundled and shared MCP doctors report32; shared broker, process-tree and recovery files match packaged hashes.
+
+An existing Predict job completed naturally. A separate runtime benchmark was active during initial app staging, so the app correctly deferred workflow updates until its execution lease was released. That benchmark completed and normal app staging then installed MCP32. No scientific job was stopped, resumed or reconfigured for deployment.
+
+Native computer-use inspection was unavailable (closed pipe); app process/version/signature and staged files were independently verified. The full Job progress UI was inspected in the inert native preview before packaging. Release artifacts are also available under canonical `build/unsigned-beta-0.2.11-57/`. The old student job retains its frozen code and requires cleanup/new submission to adopt the supervisor fix.
