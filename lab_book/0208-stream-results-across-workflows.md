@@ -94,3 +94,23 @@ saved together by a native writer appear together. Frozen older jobs cannot gain
 new publication hooks without changing their recorded code; their existing
 completed outputs remain readable. Publication/deployment verification is recorded
 below after the release is built.
+
+## Release and deployment verification
+
+Published v0.2.10-beta (build56, MCP31) from clean source commit 24dd06e.
+GitHub's DMG and ZIP digests match local SHA256SUMS; the ZIP's Sparkle signature
+verifies against the existing release identity. The live update feed specifies
+0.2.10/build56. All 238 packaged resource files match release source. Deep strict
+app signature checks pass before and after local replacement.
+
+Reopened the verified bundle at the existing app location, retaining the previous
+bundle as a backup. Both bundled and staged MCP doctors report31. The staged
+bridge, broker, result readers, runner and resident/publication helpers match
+packaged hashes. No paused/stopped scientific job was restarted. Runtime staging
+used the app's normal execution-lease policy.
+
+Interactive inspection reached the existing app-location reminder; further UI
+inspection was blocked by the computer-use connection closing, including after
+reset. The app process and installed version were independently verified. Native
+result-view contracts passed, but no full manual interactive result-grid session
+or second-Mac installation was completed.
