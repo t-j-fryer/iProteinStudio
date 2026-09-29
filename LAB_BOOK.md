@@ -1,6 +1,6 @@
 # Lab Book
 
-Newest integration: [0215 — Portable ESMFold2 MLX](lab_book/0215-integrate-esmfold2-mlx.md) (qualified; release deployment in progress).
+Newest integration: [0215 — Portable ESMFold2 MLX](lab_book/0215-integrate-esmfold2-mlx.md) (released in0.2.13/build59/MCP34; biotin campaign resumed).
 
 Newest benchmark: [0214 — ESMFold2-Fast monomer and complex](lab_book/0214-test-esmfold2-fast.md) (24 outputs audited; matched complex inference about1.6× faster; biotin resumed).
 

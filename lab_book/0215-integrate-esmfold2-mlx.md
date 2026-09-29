@@ -4,7 +4,7 @@ title: Integrate portable ESMFold2 Fast and Full MLX
 date: 2026-09-28
 author: Codex
 type: port
-status: qualified; release deployment in progress
+status: complete
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory, macOS 26.6.1
 tags: [predictors, esmfold2, mlx, install, ui, mcp]
 ---
@@ -134,6 +134,26 @@ cover protein holo/apo and ligand checks; workflow contracts and22 MCP tests pas
 The4 RFD3 scheduling/routing tests and another Swift build pass. The correction
 will ship as0.2.13/build59/MCP34 rather than replacing published artifacts.
 
-Publish0.2.13/build59/MCP34, replace the open
-app through normal staging, resume job-18ca87a890d9 from its original immutable
-plan, and append deployment verification. No changes to that campaign's settings.
+## Deployment verification
+
+Published0.2.13/build59/MCP34 from clean source
+`a10014de1030185a01bd3c8cf59aa97cadbb2b40`; update-feed commit783d1be.
+GitHub asset digests match local SHA256SUMS; the live main appcast matches the
+generated feed, advertises build59, and its ZIP EdDSA signature verifies with the
+existing project key. The previous0.2.11 bundle has the same feed/public key.
+DMG SHA256 `4dc119be6c0a974267ca071ffcde2ecda3703b9ed6cc260ec6d52c3c447d18ab`.
+ZIP SHA256 `b38b6606454ded143920e32760324b21a8cf78aad27aee23ff5297e4f48a6d3b`.
+
+Replaced and reopened `build/iProteinStudio.app`; preserved the previous bundle
+as `build/iProteinStudio-0.2.11-before-esmfold2.app`. Normal app staging updated
+MCP to34. `studioctl.py doctor` passed all three profiles/schemas; staged adapter,
+plan helper and overlay revision match source bytes. Codesign/bundle resources
+passed; process remains alive. Native UI inspection saw the Applications-folder
+notice, then the automation pipe disconnected; full manual UI acceptance remains
+untested. The20 desktop job regressions also passed after the routing correction.
+
+Resumed job-18ca87a890d9 via `job_resume`, original plan
+`plan-18ca87a890d92a8d`, with unchanged campaign settings and two-worker scheduling.
+Status is running with no error. Fresh logs traverse saved Phase-0 cycles01–03
+and return to cycle04 seed expansion (955 sequences), preserving saved work.
+No experimental ESMFold2 settings were applied to this existing Boltz campaign.

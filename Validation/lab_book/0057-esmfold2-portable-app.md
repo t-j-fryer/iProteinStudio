@@ -1,6 +1,7 @@
 # 0057 — Portable ESMFold2 app qualification
 
-2026-09-28. Qualified; deployment verification follows in project0215.
+2026-09-28. Qualified and deployed in0.2.13/build59/MCP34; full deployment
+verification is recorded in project0215.
 Apple M4 Max,40-core GPU,64GB unified memory,macOS26.6.1. Source baselinebb408add8;
 all modified inputs/scripts frozen in immutable MCP plans before inference.
 
