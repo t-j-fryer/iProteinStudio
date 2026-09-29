@@ -4,6 +4,7 @@ import SwiftUI
 /// being observed. Opening a job changes observation, never its saved settings.
 struct JobQueueView: View {
     @EnvironmentObject var app: AppState
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject private var jobs = JobCenter.shared
     @ObservedObject var run: RunController
     @ObservedObject var rfd3: RFD3Controller
@@ -67,6 +68,12 @@ struct JobQueueView: View {
             }
             Text("Closing Studio leaves submitted jobs running or waiting. Use Cancel or Stop to remove work.")
                 .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("close-job-queue")
+            }
         }
         .padding(16)
         .frame(width: 580, height: 560)
@@ -129,6 +136,7 @@ struct JobQueueView: View {
 
     private func show(_ job: ManagedJob, project: Project) {
         guard let root = job.output, canShow(job) else { return }
+        dismiss()
         let mode: WorkspaceMode
         if job.kind.contains("iterative") {
             run.inspect(job, project: project); mode = .iterative

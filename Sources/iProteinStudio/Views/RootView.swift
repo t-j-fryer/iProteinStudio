@@ -84,7 +84,7 @@ struct WorkspaceView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { showQueue.toggle() } label: {
+                Button { showQueue = true } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "list.bullet.rectangle")
                         if !jobs.active.isEmpty {
@@ -95,9 +95,6 @@ struct WorkspaceView: View {
                 .help("Job queue: \(jobs.waiting.count) waiting, \(jobs.active.count - jobs.waiting.count) running or stopping")
                 .accessibilityLabel("Open job queue, \(jobs.active.count) active jobs")
                 .accessibilityIdentifier("job-queue-button")
-                .popover(isPresented: $showQueue, arrowEdge: .bottom) {
-                    JobQueueView(run: app.run, rfd3: app.rfd3, prediction: app.prediction, nise: app.nise)
-                }
             }
             ToolbarItem(placement: .primaryAction) {
                 Button { showActivity.toggle() } label: {
@@ -129,6 +126,11 @@ struct WorkspaceView: View {
                 .accessibilityLabel("Configure AI assistant access")
                 .accessibilityIdentifier("ai-integrations-button")
             }
+        }
+        // Present from the workspace, not the changing toolbar label. A large
+        // edge-anchored popover can clip and leave stale presentation dimming.
+        .sheet(isPresented: $showQueue) {
+            JobQueueView(run: app.run, rfd3: app.rfd3, prediction: app.prediction, nise: app.nise)
         }
         .sheet(isPresented: $showComponents) {
             VStack(spacing: 0) {

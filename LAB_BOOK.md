@@ -1,5 +1,7 @@
 # Lab Book
 
+Newest UI fix: [0224 — Center Jobs and dismiss cleanly](lab_book/0224-fix-job-queue-presentation.md) (0.2.15/build61; MCP35 unchanged).
+
 Newest release work: [0222 — Shared submission progress and bulk cleanup](lab_book/0222-release-submission-and-bulk-cleanup.md) (0.2.14/build60/MCP35).
 
 Newest submission fix: [0221 — Prepare one scaffold-batch plan](lab_book/0221-fix-scaffold-batch-submission.md) (source and regression checks; included in0.2.14).

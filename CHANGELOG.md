@@ -2,6 +2,12 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.15 — predictable Jobs panel dismissal
+
+- Jobs opens as a centered sheet instead of a large toolbar popover.
+- A visible Done button and Escape close the queue; Show run dismisses it before
+  navigating to the selected run. No job or engine behavior changes.
+
 ## 0.2.14 — clearer submission and one-click job cleanup
 
 - Protein Hunter scaffold batches freeze one shared execution plan instead of
