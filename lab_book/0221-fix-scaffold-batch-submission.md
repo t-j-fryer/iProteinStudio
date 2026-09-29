@@ -70,11 +70,11 @@ No real model inference, fresh-Mac installation, student-machine reproduction
 or elapsed-time benchmark. Single-scaffold submission may have a different
 cause. The remaining parent runtime preparation can still take time; this fix
 does not introduce detailed per-file preparation progress. No production jobs
-or installed resources were changed. Source changes are not yet packaged,
-installed or published in a GitHub release.
+or installed resources were changed. At initial validation these source changes were not yet packaged,
+installed or published. They subsequently shipped in0.2.14 (entry0222).
 
 ## Next
 
-Include these fixes in the next app/shared-bridge release. If the student still
+Included in app0.2.14/build60/MCP35; see [0222](0222-release-submission-and-bulk-cleanup.md). If the student still
 cannot reach Jobs, collect submission diagnostics rather than interpreting the
 presence of saved campaign folders as evidence of an engine launch.
