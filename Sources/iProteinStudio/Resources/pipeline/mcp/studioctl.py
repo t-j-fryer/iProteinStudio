@@ -33,6 +33,7 @@ def main() -> int:
     status = sub.add_parser("status")
     status.add_argument("run_id")
     jobs = sub.add_parser("jobs")
+    sub.add_parser("jobs-cleanup")
     job_status = sub.add_parser("job-status")
     job_status.add_argument("job_id")
     results = sub.add_parser("results")
@@ -89,6 +90,9 @@ def main() -> int:
             emit(run_status(args.run_id))
         elif args.command == "jobs":
             emit({"jobs": list_jobs()})
+        elif args.command == "jobs-cleanup":
+            from iprotein_mcp.recovery import cleanup_all_jobs
+            emit(cleanup_all_jobs())
         elif args.command == "job-status":
             emit(load_state(args.job_id))
         elif args.command == "job-recovery-check":
@@ -119,13 +123,9 @@ def main() -> int:
             }
             emit(MCPServer("run").tool_call(tool_names[args.command], request))
         elif args.command == "_desktop-submit":
-            from iprotein_mcp.desktop import desktop_plan
-            from iprotein_mcp.common import atomic_json
+            from iprotein_mcp.submission import submit
             request = json.loads(Path(args.request_json).read_text())
-            plan = desktop_plan(request)
-            state = start_job(plan["id"], plan["sha256"])
-            atomic_json(Path(request["output"]) / "studio_job.json", {"id": state["id"], "plan_id": plan["id"], "sha256": plan["sha256"]})
-            emit(state)
+            emit(submit(request))
         elif args.command == "start":
             emit(start_job(args.plan_id, args.plan_sha256))
         elif args.command == "wait":

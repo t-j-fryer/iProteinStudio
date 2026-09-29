@@ -133,6 +133,8 @@ def rfd3_runtime_scripts(root: Path) -> List[Path]:
 
 
 def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[str], resource_class: str, provenance: List[Dict[str, Any]]) -> Dict[str, Any]:
+    from .submission import progress
+    progress('runtime', 'Checking engine versions and preserving the execution code…')
     body = {
         "schema_version": 1,
         "kind": kind,
@@ -158,8 +160,10 @@ def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[
     reference = requests / (request_digest + ".json")
     # Serialize only identical preparation, never the global job registry.
     with (requests / (request_digest + ".lock")).open("a+") as lock:
+        progress('preparing', 'Preparing the saved runtime; an identical request may already be preparing. Large model files can take time to verify.')
         fcntl.flock(lock, fcntl.LOCK_EX)
         if reference.exists():
+            progress('verifying', 'Verifying the existing saved plan and runtime…')
             saved = json.loads(reference.read_text())
             existing = load_plan(saved["id"], saved["sha256"])
             identity_body = {k: v for k, v in existing.items()
@@ -168,6 +172,7 @@ def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[
                 raise StudioError("Saved preparation identity changed; restore the plan registry.")
             return existing
         if body.get("runtime_bindings"):
+            progress('runtime', 'Preserving and verifying model files for this job. Prediction has not started yet.')
             # The saved campaign keeps its first accepted model data. A new
             # output/settings/code/runtime identity creates a separate view.
             snapshot = body["code_snapshot"]

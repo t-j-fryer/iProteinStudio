@@ -1,5 +1,9 @@
 # Lab Book
 
+Newest release work: [0222 — Shared submission progress and bulk cleanup](lab_book/0222-release-submission-and-bulk-cleanup.md) (0.2.14/build60/MCP35).
+
+Newest submission fix: [0221 — Prepare one scaffold-batch plan](lab_book/0221-fix-scaffold-batch-submission.md) (source and regression checks; included in0.2.14).
+
 Newest integration: [0215 — Portable ESMFold2 MLX](lab_book/0215-integrate-esmfold2-mlx.md) (released in0.2.13/build59/MCP34; biotin campaign resumed).
 
 Newest benchmark: [0214 — ESMFold2-Fast monomer and complex](lab_book/0214-test-esmfold2-fast.md) (24 outputs audited; matched complex inference about1.6× faster; biotin resumed).

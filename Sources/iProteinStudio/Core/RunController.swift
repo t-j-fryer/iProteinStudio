@@ -262,13 +262,14 @@ final class RunController: ObservableObject {
         guard let campaignRoot, let project = projectContext else {
             phase = .failed("The saved workspace context is missing."); return
         }
-        currentMessage = "Submitting saved settings…"
+        currentMessage = "Preparing and verifying saved settings before queuing. Prediction has not started yet…"
         isStopping = false
         let submissionRoot = engineBatchRoot ?? campaignRoot
         if let id = BrokerClient.savedJobID(at: submissionRoot) {
             job.attach(id: id, resume: true, update: receive, failure: failedSubmission)
         } else {
             job.submit(project: project.slug, workflow: engineBatchRoot == nil ? "iterative" : "iterative_batch", output: submissionRoot,
+                       preparing: { [weak self] in self?.currentMessage = $0 },
                        update: receive, failure: failedSubmission)
         }
     }
@@ -315,6 +316,8 @@ final class RunController: ObservableObject {
     }
 
     private func failedSubmission(_ message: String) {
+        currentMessage = message
+        appendLog("Submission failed: " + message)
         phase = .failed(message)
     }
 

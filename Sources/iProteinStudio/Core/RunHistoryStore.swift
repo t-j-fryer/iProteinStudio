@@ -293,10 +293,13 @@ private struct RunHistoryLoader {
                 (json(at: child.appendingPathComponent("studio_run.json"))?["state"] as? String) == "completed"
             }.count
             let viewable = children.contains { csvRowCount($0.appendingPathComponent("summary_all_runs.csv")) > 0 }
+            let neverStarted = completed == 0 && children.allSatisfy { child in
+                (json(at: child.appendingPathComponent("studio_run.json"))?["state"] as? String) == "prepared"
+            }
             return StudioRunRecord(projectID: project.id, projectName: project.name, workflow: .iterative,
                 name: RunNaming.read(at: batch, fallback: "Combined framework / engine batch"),
-                root: batch, date: fileDate(batch), state: completed == paths.count ? .completed : .interrupted,
-                detail: "\(completed)/\(paths.count) campaigns complete · all framework results",
+                root: batch, date: fileDate(batch), state: completed == paths.count ? .completed : (neverStarted ? .prepared : .interrupted),
+                detail: neverStarted ? "Campaign settings saved; awaiting job submission" : "\(completed)/\(paths.count) campaigns complete · all framework results",
                 manifestURL: nil, managedJobID: BrokerClient.savedJobID(at: batch), hasViewableResults: viewable)
         }
     }

@@ -47,6 +47,7 @@ final class NISEController: ObservableObject {
             outputRoot = directory; projectSlug = project.slug
             phase = .running; log = []; currentMessage = "Checking inputs and engine provenance…"
             job.submit(project: project.slug, workflow: "nise", output: directory,
+                       preparing: { [weak self] in self?.currentMessage = $0 },
                        update: receive, failure: { [weak self] in self?.phase = .failed($0) })
         } catch { phase = .failed(error.localizedDescription) }
     }
@@ -65,6 +66,7 @@ final class NISEController: ObservableObject {
         else {
             phase = .running
             job.submit(project: projectSlug, workflow: "nise", output: root,
+                       preparing: { [weak self] in self?.currentMessage = $0 },
                        update: receive, failure: { [weak self] in self?.phase = .failed($0) })
         }
     }

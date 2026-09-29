@@ -15,6 +15,7 @@ MCP = Path(__file__).resolve().parents[1] / "Sources/iProteinStudio/Resources/pi
 sys.path.insert(0, str(MCP))
 from iprotein_mcp import broker, common, plans
 from iprotein_mcp.desktop import desktop_plan
+from iprotein_mcp.submission import submit
 
 
 class DesktopJobTests(unittest.TestCase):
@@ -67,6 +68,70 @@ print('PBSTAGE|done|100|Finished',flush=True)
         state = broker.start_job(plan["id"], plan["sha256"])
         self.jobs.append(state["id"])
         return state, output
+
+    def scaffold_batch(self, count=8):
+        workspace = self.root / 'projects/demo'
+        output = workspace / 'batch'
+        output.mkdir()
+        children = []
+        for index in range(count):
+            child = workspace / ('scaffold-' + str(index))
+            snapshot = child / '.studio_runtime/pipeline'
+            snapshot.mkdir(parents=True)
+            runner = snapshot / 'nanohunter_run.sh'
+            runner.write_text('#!/bin/sh\nprintf "0\\n" > "$(dirname "$0")/../../run_exit_code.txt"\n')
+            runner.chmod(0o755)
+            template = child / 'input.yaml'
+            template.write_text('sequences: []\n')
+            common.atomic_json(child / 'studio_run.json', {
+                'pipelineSnapshot': str(snapshot), 'engineBatchRoot': str(output),
+                'arguments': ['--template-yaml', str(template), '--out-root', str(workspace),
+                              '--run-name', child.name, '--num-runs', '1', '--predictor', 'protenix-v2'],
+                'request': {'designType':'nanobody', 'scaffoldID':str(index),
+                            'designPredictor':'protenix-v2', 'numDesigns':1},
+                'requestedTrajectories':1})
+            children.append(child)
+        common.atomic_json(output / 'studio_engine_batch.json', {
+            'version':2, 'campaigns':[str(p) for p in children],
+            'engines':['Protenix v2 ' + str(i) for i in range(count)],
+            'trajectoriesPerEngine':count, 'campaignBudgets':[1]*count,
+            'engineIDs':['protenix-v2']*count, 'scaffoldIDs':[str(i) for i in range(count)]})
+        return output, children
+
+    def test_scaffold_batch_freezes_one_plan_after_validating_all_children(self):
+        output, children = self.scaffold_batch()
+        with patch('iprotein_mcp.desktop._persist', wraps=plans._persist) as persist:
+            plan = desktop_plan({'project':'demo', 'workflow':'iterative_batch', 'output':str(output)})
+        self.assertEqual(persist.call_count, 1)
+        self.assertEqual(len(list((self.root/'agent/plans').glob('*.json'))), 1)
+        self.assertEqual(len(plan['normalized_request']['engine_campaigns']), 8)
+        paths = {item['path'] for item in plan['provenance']}
+        self.assertTrue(all(str(child/'input.yaml') in paths for child in children))
+        plans.load_plan(plan['id'], plan['sha256'])
+        (children[-1]/'input.yaml').write_text('changed\n')
+        with self.assertRaisesRegex(common.StudioError, 'changed'):
+            plans.load_plan(plan['id'], plan['sha256'])
+
+    def test_invalid_last_scaffold_creates_no_child_plans(self):
+        output, children = self.scaffold_batch()
+        (children[-1]/'input.yaml').unlink()
+        with patch('iprotein_mcp.desktop._persist', wraps=plans._persist) as persist:
+            with self.assertRaises(common.StudioError):
+                desktop_plan({'project':'demo', 'workflow':'iterative_batch', 'output':str(output)})
+        self.assertEqual(persist.call_count, 0)
+
+    def test_scaffold_batch_executes_all_children_under_one_job(self):
+        output, children = self.scaffold_batch()
+        plan = desktop_plan({'project':'demo', 'workflow':'iterative_batch', 'output':str(output)})
+        job = broker.start_job(plan['id'], plan['sha256'])
+        self.jobs.append(job['id'])
+        state = self.wait(job['id'])
+        self.assertEqual(state['status'], 'completed', state)
+        receipt = common.load_json(output / 'engine_batch_progress.json')
+        self.assertEqual(set(receipt['completed']), {str(child) for child in children})
+        for child in children:
+            self.assertEqual(common.load_json(child/'studio_job.json')['id'], job['id'])
+            self.assertEqual(common.load_json(child/'studio_run.json')['state'], 'completed')
 
     def wait(self, identifier):
         deadline = time.monotonic() + 12
@@ -247,9 +312,10 @@ while not (out/'release').exists(): time.sleep(.05)
             fcntl.flock(lock, fcntl.LOCK_EX)
             with patch('iprotein_mcp.nise.contract', return_value=contract):
                 for workflow, output in outputs.items():
-                    plan = desktop_plan({'project': 'demo', 'workflow': workflow, 'output': str(output)})
-                    state = broker.start_job(plan['id'], plan['sha256'])
+                    state = submit({'project': 'demo', 'workflow': workflow, 'output': str(output)})
                     self.jobs.append(state['id']); submitted.append(state['id'])
+                    self.assertEqual(common.load_json(output/'studio_submission_status.json')['stage'], 'submitted')
+                    self.assertEqual(common.load_json(output/'studio_job.json')['id'], state['id'])
                     self.assertEqual(state['status'], 'queued')
                     self.assertEqual(state['display_name'], 'Trial α / ' + workflow)
                     self.assertFalse((output / 'started').exists())
@@ -258,6 +324,39 @@ while not (out/'release').exists(): time.sleep(.05)
             self.assertEqual(result['status'], 'completed', str(result))
         self.assertFalse((self.root / 'overlap').exists())
         self.assertTrue(all((output / 'started').exists() for output in outputs.values()))
+
+    def test_submission_records_validation_and_registration_failures(self):
+        output, _ = self.scaffold_batch()
+        request = {'project':'demo', 'workflow':'iterative_batch', 'output':str(output)}
+        with patch.object(broker, 'start_job', side_effect=common.StudioError('registration fixture failure')):
+            with self.assertRaisesRegex(common.StudioError, 'registration fixture failure'):
+                submit(request)
+        status = common.load_json(output/'studio_submission_status.json')
+        self.assertEqual(status['stage'], 'failed')
+        self.assertIn('registration fixture failure', status['message'])
+        request['workflow'] = 'invalid'
+        with self.assertRaises(common.StudioError):
+            submit(request)
+        self.assertIn('Unknown native workflow', common.load_json(output/'studio_submission_status.json')['message'])
+
+    def test_target_preparation_and_calibration_submission(self):
+        target = self.root/'target_predictions/fixture/run'
+        target.mkdir(parents=True)
+        common.atomic_json(target/'prediction_config.json', {'output':str(target)})
+        self.script.write_text(self.script.read_text() + "\n(out/'model.cif').write_text('inert fixture')\n")
+        state = submit({'project':'target-library', 'workflow':'target_prepare', 'output':str(target)})
+        self.jobs.append(state['id'])
+        self.assertEqual(self.wait(state['id'])['status'], 'completed')
+        self.assertTrue((target.parent/'current-result.json').is_file())
+        _, children = self.scaffold_batch(1)
+        child = children[0]
+        manifest = common.load_json(child/'studio_run.json')
+        manifest['arguments'].append('--calibrate-only')
+        common.atomic_json(child/'studio_run.json', manifest)
+        state = submit({'project':'demo', 'workflow':'iterative', 'output':str(child)})
+        self.jobs.append(state['id'])
+        self.assertEqual(self.wait(state['id'])['status'], 'completed')
+        self.assertEqual(common.load_json(child/'studio_submission_status.json')['stage'], 'submitted')
 
     def test_resume_clears_cancel_marker_before_spawning(self):
         identifier = 'job-resume-fixture'

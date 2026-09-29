@@ -158,6 +158,7 @@ final class RFD3Controller: ObservableObject {
 
         configURL = campaign.appendingPathComponent("config/campaign.json")
         job.submit(project: project.slug, workflow: "rfdiffusion3", output: campaign,
+                       preparing: { [weak self] in self?.currentMessage = $0 },
                    update: receive, failure: failedSubmission)
     }
 
@@ -186,7 +187,8 @@ final class RFD3Controller: ObservableObject {
             job.attach(id: id, resume: true, update: receive, failure: failedSubmission)
         } else {
             job.submit(project: projectSlug.isEmpty ? root.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent : projectSlug,
-                       workflow: "rfdiffusion3", output: root, update: receive, failure: failedSubmission)
+                       workflow: "rfdiffusion3", output: root,
+                       preparing: { [weak self] in self?.currentMessage = $0 }, update: receive, failure: failedSubmission)
         }
     }
 

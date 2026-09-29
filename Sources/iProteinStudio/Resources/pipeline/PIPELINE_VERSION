@@ -58,3 +58,8 @@ studio_live_results_validation: lab_book/0208-stream-results-across-workflows.md
 
 studio_process_inspection: retry-retained-ownership-and-lease-v1
 studio_process_inspection_validation: lab_book/0213-fix-process-inspection-supervision.md
+
+studio_submission_progress: shared-prequeue-status-v1
+studio_batch_planning: one-parent-plan-v1
+studio_bulk_recovery: identity-checked-abandoned-only-v1
+studio_submission_recovery_validation: lab_book/0222-release-submission-and-bulk-cleanup.md

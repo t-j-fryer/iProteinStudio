@@ -14,10 +14,12 @@ from .common import StudioError, load_json, project_root, runtime_root, stable_e
 from .plans import _persist, _script_provenance, rfd3_runtime_scripts
 
 
-def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
+def desktop_plan(request: Dict[str, Any], *, _batch_child: bool = False) -> Dict[str, Any]:
     project = validate_slug(request.get("project", ""))
     root = runtime_root()
     workflow = request.get("workflow")
+    if _batch_child and workflow != "iterative":
+        raise StudioError("Only iterative batch children can defer plan persistence.")
     workspace = (root / "target_predictions").resolve() if workflow == "target_prepare" else project_root(project)
     output = Path(request.get("output", "")).resolve()
     if workspace not in output.parents:
@@ -84,7 +86,9 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
                         or identity != engine_ids[index] or form.get("numDesigns") != budget
                         or manifest.get("requestedTrajectories") != budget):
                     raise StudioError("The campaign does not match its saved scaffold, engine or trajectory allocation.")
-            planned = desktop_plan({"project": project, "workflow": "iterative", "output": str(child)})
+            # The parent owns the only executed plan and runtime view. Child
+            # commands/provenance are validated here, then frozen together.
+            planned = desktop_plan({"project": project, "workflow": "iterative", "output": str(child)}, _batch_child=True)
             command = planned["normalized_request"]["steps"][0]["command"]
             if command.count("--num-runs") != 1 or command[command.index("--num-runs") + 1] != str(budget):
                 raise StudioError("Every campaign must receive its exact recorded trajectory budget.")
@@ -344,6 +348,9 @@ def desktop_plan(request: Dict[str, Any]) -> Dict[str, Any]:
         raise StudioError("Unknown native workflow.")
     normalized = {"output": str(output), "workflow": workflow, "steps": steps, "display_name": display_name,
                   "environment_overrides": environment, **context}
+    provenance = _script_provenance(list(dict.fromkeys(scripts + inputs + label_files)))
+    if _batch_child:
+        return {"normalized_request": normalized, "provenance": provenance}
     return _persist("desktop_" + workflow, project, normalized,
                     steps[0]["command"], "apple_gpu_exclusive",
-                    _script_provenance(list(dict.fromkeys(scripts + inputs + label_files))))
+                    provenance)

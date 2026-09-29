@@ -204,6 +204,7 @@ final class PredictionController: ObservableObject {
             job.attach(id: id, resume: true, update: receive, failure: { [weak self] in self?.phase = .failed($0) })
         } else {
             job.submit(project: projectSlug, workflow: "prediction", output: root,
+                       preparing: { [weak self] in self?.currentMessage = $0 },
                        update: receive, failure: { [weak self] in self?.phase = .failed($0) })
         }
     }

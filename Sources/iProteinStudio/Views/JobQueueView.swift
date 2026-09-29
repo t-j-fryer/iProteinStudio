@@ -22,6 +22,11 @@ struct JobQueueView: View {
             HStack {
                 Label("Job queue", systemImage: "list.bullet.rectangle").font(.title3.bold())
                 Spacer()
+                Button(jobs.isCleaningUp ? "Cleaning up…" : "Clean up abandoned jobs") {
+                    Task { await jobs.cleanUpAbandonedJobs() }
+                }
+                .disabled(jobs.isCleaningUp)
+                .help("Check all jobs and clear verified leftovers. Live jobs, saved results and job history are kept.")
                 Button { Task { await jobs.refresh() } } label: {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -33,6 +38,9 @@ struct JobQueueView: View {
             if let error = jobs.operationError ?? jobs.error {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .font(.caption).foregroundStyle(.orange)
+            }
+            if let summary = jobs.cleanupSummary {
+                Text(summary).font(.caption).foregroundStyle(.secondary)
             }
             if jobs.jobs.isEmpty {
                 ContentUnavailableView("No active jobs", systemImage: "tray",

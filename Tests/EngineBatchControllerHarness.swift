@@ -68,7 +68,7 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
     static var lastAttachResumed = false
     static var holdSubmission = false
     static var pending: ManagedJobSession?
-    func submit(project: String, workflow: String, output: URL, update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) {
+    func submit(project: String, workflow: String, output: URL, preparing: @escaping (String) -> Void = { _ in }, update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) {
         Self.submissions.append((workflow, output)); Self.receiver = update
         if Self.holdSubmission { Self.pending = self }
         else { id = "fixture-\(Self.submissions.count)" }
@@ -300,6 +300,32 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
         }
         precondition(historyMatch?.hasViewableResults == true)
         print("PASS NISE history exposes phase progress before the first scored candidate")
+        // Merely saving a batch must not imply it was interrupted. A real
+        // queued job remains authoritative over the prepared manifests.
+        func batchState() async -> StudioRunState? {
+            let store = RunHistoryStore()
+            store.refresh(projects: [project])
+            for _ in 0..<100 {
+                if let record = store.runs.first(where: {
+                    $0.root.resolvingSymlinksInPath() == submission.output.resolvingSymlinksInPath()
+                }) { return record.state }
+                try? await Task.sleep(nanoseconds: 10_000_000)
+            }
+            return nil
+        }
+        let preparedState = await batchState()
+        precondition(preparedState == .prepared)
+        JobCenter.shared.jobs = [ManagedJob(status: "queued", child_outputs: paths, output: submission.output)]
+        let queuedState = await batchState()
+        precondition(queuedState == .queued)
+        JobCenter.shared.jobs = []
+        let childManifest = URL(fileURLWithPath: paths[0]).appendingPathComponent("studio_run.json")
+        var interruptedManifest = try JSONDecoder().decode(StudioRunManifest.self, from: Data(contentsOf: childManifest))
+        interruptedManifest.state = .running
+        try JSONEncoder().encode(interruptedManifest).write(to: childManifest)
+        let interruptedState = await batchState()
+        precondition(interruptedState == .interrupted)
+        print("PASS prepared batch is not resumable interruption; queue and interrupted history remain distinct")
         print("PASS NISE, Predict and RFdiffusion3 queue observation, workspace switching and pending-job guards")
         // A preparation failure in a later engine must submit nothing.
         ManagedJobSession.submissions = []

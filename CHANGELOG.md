@@ -2,6 +2,18 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.14 — clearer submission and one-click job cleanup
+
+- Protein Hunter scaffold batches freeze one shared execution plan instead of
+  preparing a full runtime for every scaffold plus the batch. All scaffold,
+  input, runtime and provenance checks remain enforced.
+- Saved batches that have not started show Prepared. All native submission
+  routes show preparation stages and retain errors for diagnosis before Jobs
+  registration, including calibration and target preparation.
+- Jobs adds “Clean up abandoned jobs” across workspaces. It preserves live and
+  waiting workers, results and history, and stops only verified leftovers.
+- MCP 35 adds `jobs_cleanup` with the same ownership checks and profile scopes.
+
 ## 0.2.13 — ESMFold2 across fresh and upgraded installations
 
 - RFdiffusion3 uses the app's frozen prediction orchestration with retained

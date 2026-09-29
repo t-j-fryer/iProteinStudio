@@ -51,6 +51,7 @@ final class CalibrationRunner: ObservableObject {
                 runName: runName, arguments: args, pipelineSnapshot: snapshot.path, request: request)
             try JSONEncoder().encode(manifest).write(to: output.appendingPathComponent("studio_run.json"), options: .atomic)
             job.submit(project: projectDir.lastPathComponent, workflow: "iterative", output: output,
+                       preparing: { [weak self] in self?.appendLog($0) },
                        update: { [weak self] state in
                 guard let self else { return }
                 self.log = []

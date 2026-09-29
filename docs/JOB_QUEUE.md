@@ -127,3 +127,28 @@ readings. Opening a completed job shows current resources, not historical usage.
 Old jobs keep their frozen bridge. For a job affected by the earlier monitoring
 failure, use Check & clean up, keep its saved files, then create a new submission
 to use the fix. Updating the app does not rewrite an existing job's worker code.
+
+
+## Submission before a job appears
+
+Studio saves inputs first, then validates settings and preserves the runtime,
+then registers the job. These preparation stages appear in the workflow view.
+Large model files can take time to verify. `studio_submission_status.json` in
+that run folder retains the latest stage or submission error for support.
+Protein Hunter scaffold batches preserve one shared plan while validating all
+children. Prepared means saved but not yet registered; it does not imply that
+an engine was interrupted. Registered waiting jobs appear in Jobs.
+
+## Clean up abandoned jobs across workspaces
+
+Use **Jobs → Clean up abandoned jobs** once to check every recorded job. Studio
+rechecks ownership under the registry lock, leaves live supervisors (including
+waiting jobs) alone, and stops only identity-verified leftovers whose supervisor
+has exited. It also clears abandoned active statuses. Saved inputs, results,
+checkpoints and job history stay on disk. This does not cancel the whole queue.
+Unverifiable processes are kept and reported; per-job Progress & logs remains
+available. A damaged record or inspection failure is reported without stopping
+cleanup of other jobs.
+
+The CLI action is `studioctl.py jobs-cleanup`; MCP's mutating `jobs_cleanup` tool
+uses the same implementation, constrained to the calling run/admin profile.

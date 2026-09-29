@@ -77,6 +77,38 @@ class RecoveryTests(unittest.TestCase):
             recovery.cleanup_job(self.job)
         cancel.assert_called_once_with(self.job)
 
+    def test_bulk_cleanup_skips_live_jobs_including_queued_and_rechecks_resume(self):
+        for status in ('queued', 'running', 'stopping', 'failed'):
+            with self.subTest(status=status):
+                self.state.update(pid=20, status=status); self.save()
+                atomic_json(self.directory / 'worker_ready.json', {'pid': 20, 'born': 'same'})
+                with patch.object(recovery, 'snapshot', return_value={20: row()}), patch.object(broker, 'cancel_job') as cancel, patch.object(recovery.os, 'kill') as kill:
+                    report = recovery.cleanup_all_jobs()
+                cancel.assert_not_called(); kill.assert_not_called()
+                self.assertFalse(report['errors'])
+                self.assertEqual(json.loads((self.directory/'state.json').read_text())['status'], status)
+
+    def test_bulk_cleanup_continues_after_corrupt_job_and_preserves_history(self):
+        self.state['status'] = 'running'; self.save()
+        bad = self.directory.parent/'job-broken'; bad.mkdir()
+        (bad/'state.json').write_text('{broken')
+        result = self.directory/'result.cif'; result.write_text('saved')
+        with patch.object(recovery, 'snapshot', return_value={}):
+            report = recovery.cleanup_all_jobs()
+        self.assertEqual(len(report['errors']), 1)
+        self.assertEqual(json.loads((self.directory/'state.json').read_text())['status'], 'cancelled')
+        self.assertEqual(result.read_text(), 'saved')
+
+    def test_bulk_cleanup_obeys_mcp_scope(self):
+        from server import MCPServer
+        self.state['kind'] = 'engine_install'; self.save()
+        with patch.object(recovery.os, 'kill') as kill:
+            result = MCPServer('run').tool_call('jobs_cleanup', {})
+        kill.assert_not_called()
+        self.assertEqual(len(result['errors']), 1)
+        with self.assertRaises(Exception):
+            MCPServer('read').tool_call('jobs_cleanup', {})
+
     def test_stale_state_cleared_and_files_kept(self):
         self.state['status'] = 'running'; self.save()
         result = self.directory / 'result.cif'; result.write_text('preserved')
@@ -115,7 +147,7 @@ class RecoveryTests(unittest.TestCase):
         try:
             rows = snapshot()
             atomic_json(self.directory / 'processes.json', {'known': {str(owned.pid): rows[owned.pid]['born']}})
-            report = recovery.cleanup_job(self.job)
+            report = recovery.cleanup_all_jobs()['reports'][0]
             owned.wait(timeout=5)
             self.assertIsNone(other.poll())
             self.assertEqual(report['process_ids'], [])

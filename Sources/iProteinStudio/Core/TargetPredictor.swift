@@ -170,6 +170,7 @@ final class TargetPredictor: ObservableObject {
         appendLog(engine == .esmfold2Fast ? "ESMFold2 Fast uses the sequence alone; no alignment search." : "Using the shared MSA cache; a missing alignment will be generated once and saved.")
         resultDir = outDir
         job.submit(project: "target-library", workflow: "target_prepare", output: outDir,
+                       preparing: { [weak self] in self?.appendLog($0) },
                    update: { [weak self] state in
             guard let self else { return }
             self.log = state.pipeline_log_tail ?? self.log

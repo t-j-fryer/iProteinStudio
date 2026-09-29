@@ -93,9 +93,9 @@ def _inspect_job(job_id):
                 identity_records_available=bool(receipt.get('known')), checked_at=utc_now())
 
 
-def cleanup_job(job_id):
+def cleanup_job(job_id, *, stop_live=True):
     try:
-        return _cleanup_job(job_id)
+        return _cleanup_job(job_id, stop_live=stop_live)
     except ProcessInspectionUnavailable as exc:
         from .broker import _update
         message = str(exc) + " Cleanup is incomplete; saved files and recorded ownership were kept. Try Check & clean up again."
@@ -103,12 +103,14 @@ def cleanup_job(job_id):
         raise StudioError(message) from exc
 
 
-def _cleanup_job(job_id):
+def _cleanup_job(job_id, *, stop_live=True):
     from .broker import registry_lock, cancel_job, state_path, _update
     # Serialize with new submissions and Resume throughout the short cleanup.
     with registry_lock():
         report = inspect_job(job_id)
         if report['action'] == 'stop':
+            if not stop_live:
+                return dict(report, action='skip', message='Live job kept running or waiting.')
             cancel_job(job_id)
             report['message'] = 'Stop requested. Wait for cancellation, then check again if the job still needs attention.'
             report['action'] = 'none'
@@ -159,3 +161,24 @@ def _cleanup_job(job_id):
         if remaining:
             report.update(action='none', message='A recorded process has not exited after cleanup. Save your work and restart your Mac. Saved files and the execution lock were kept.')
         return report
+
+
+def cleanup_all_jobs(check_scope=None):
+    """Recover abandoned jobs across workspaces without cancelling live work.
+
+    Each job is rechecked under the registry lock, including after concurrent
+    Resume. Never select processes by name or remove results/history/lock files.
+    """
+    reports, errors = [], []
+    for path in sorted((agent_root() / 'jobs').glob('*/state.json')):
+        try:
+            if check_scope:
+                check_scope(path.parent.name)
+            report = cleanup_job(path.parent.name, stop_live=False)
+            reports.append(report)
+        except Exception as exc:
+            # One malformed legacy receipt must not abort checks of other jobs.
+            errors.append(dict(job_id=path.parent.name, error=str(exc)))
+    return dict(reports=reports, errors=errors, checked_at=utc_now(),
+                message=('Cleanup finished. Live jobs and all saved results were kept.' if not errors
+                         else 'Cleanup finished with issues. Live jobs and saved results were kept; see details.'))

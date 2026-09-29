@@ -142,6 +142,7 @@ TOOLS: Dict[str, Dict[str, Any]] = {
     "job_status": tool("Read durable status plus actionable message, error, and bounded pipeline_log_tail. Diagnose these fields before changing settings or requesting filesystem access.", JOB_ID),
     "job_wait": tool("Wait at most 55 seconds for a job state change, then return its current durable status.", JOB_WAIT),
     "job_cancel": tool("Cancel the complete process group for a queued or running job. Mutating.", JOB_ID),
+    "jobs_cleanup": tool("Clean up abandoned jobs and identity-verified leftover workers across workspaces. Keeps live jobs and all saved files. Mutating.", EMPTY),
     "job_resume": tool("Resume a failed or cancelled job using its original immutable plan and durable outputs. Mutating.", JOB_ID),
     "engine_install_plan": tool("Freeze an explicit managed-engine installation plan. Does not download or install until job_start.", ENGINE_INSTALL),
     "engine_repair_plan": tool("Freeze a managed virtual-environment repair plan.", EMPTY),
@@ -152,14 +153,14 @@ for name, definition in TOOLS.items():
     read_only = name in {"system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query", "jobs_list", "job_status", "job_wait"}
     definition["annotations"] = {
         "readOnlyHint": read_only,
-        "destructiveHint": name in {"job_start", "job_cancel", "storage_minimise_plan"},
+        "destructiveHint": name in {"job_start", "job_cancel", "jobs_cleanup", "storage_minimise_plan"},
         "idempotentHint": read_only or name in {"job_start", "job_cancel"},
         "openWorldHint": name in {"target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "job_resume", "engine_install_plan", "engine_repair_plan"},
     }
 
 READ_TOOLS = ["system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query"]
-RUN_TOOLS = READ_TOOLS + ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume"]
-ADMIN_TOOLS = ["system_detect", "engine_install_plan", "engine_repair_plan", "storage_minimise_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume"]
+RUN_TOOLS = READ_TOOLS + ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume", "jobs_cleanup"]
+ADMIN_TOOLS = ["system_detect", "engine_install_plan", "engine_repair_plan", "storage_minimise_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume", "jobs_cleanup"]
 ADMIN_KINDS = {"engine_install", "engine_repair", "storage_minimise"}
 
 
@@ -200,6 +201,9 @@ class MCPServer:
         elif name == "job_cancel":
             self.ensure_job_scope(arguments["job_id"])
             result = cancel_job(arguments["job_id"])
+        elif name == "jobs_cleanup":
+            from iprotein_mcp.recovery import cleanup_all_jobs
+            result = cleanup_all_jobs(check_scope=self.ensure_job_scope)
         elif name == "job_resume":
             self.ensure_job_scope(arguments["job_id"])
             result = resume_job(arguments["job_id"])

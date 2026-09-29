@@ -57,6 +57,13 @@ struct JobRecoveryReport: Decodable {
     let checked_at: String
 }
 
+struct JobsCleanupReport: Decodable {
+    struct Issue: Decodable { let job_id: String; let error: String }
+    let reports: [JobRecoveryReport]
+    let errors: [Issue]
+    let message: String
+}
+
 @MainActor
 final class JobDetailModel: ObservableObject {
     @Published private(set) var job: ManagedJob
@@ -140,6 +147,20 @@ final class JobCenter: ObservableObject {
     @Published private(set) var jobs: [ManagedJob] = []
     @Published private(set) var error: String?
     @Published private(set) var operationError: String?
+    @Published private(set) var isCleaningUp = false
+    @Published private(set) var cleanupSummary: String?
+    func cleanUpAbandonedJobs() async {
+        guard !isCleaningUp else { return }
+        isCleaningUp = true
+        defer { isCleaningUp = false }
+        do {
+            let report = try await BrokerClient.call(["jobs-cleanup"], as: JobsCleanupReport.self)
+            let unresolved = report.reports.filter { $0.action != "skip" && ($0.worker_alive || !$0.process_ids.isEmpty) }
+            cleanupSummary = report.message + (unresolved.isEmpty ? "" : " \(unresolved.count) job(s) still need attention in Progress & logs; unverified workers were kept.")
+            operationError = report.errors.isEmpty ? nil : report.errors.map { "\($0.job_id): \($0.error)" }.joined(separator: "\n")
+            await refresh()
+        } catch { operationError = error.localizedDescription }
+    }
     func reportOperationError(_ message: String) { operationError = message }
     private var polling: Task<Void, Never>?
     var active: [ManagedJob] { jobs.filter(\.isActive) }
@@ -212,21 +233,40 @@ final class ManagedJobSession {
     }
 
     func submit(project: String, workflow: String, output: URL,
+                preparing: @escaping (String) -> Void = { _ in },
                 update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) {
         self.update = update; self.failure = failure
         id = nil; cancellationRequested = false; hasSession = true
         task?.cancel()
         task = Task {
+            struct Preparation: Decodable { let message: String }
+            let started = Date()
+            let statusURL = output.appendingPathComponent("studio_submission_status.json")
+            let progressTask = Task {
+                preparing("Preparing saved settings. Prediction has not started yet…")
+                var lastMessage = ""
+                while !Task.isCancelled {
+                    if let values = try? statusURL.resourceValues(forKeys: [.contentModificationDateKey]),
+                       let modified = values.contentModificationDate, modified >= started,
+                       let data = try? Data(contentsOf: statusURL),
+                       let status = try? JSONDecoder().decode(Preparation.self, from: data) {
+                        if status.message != lastMessage { preparing(status.message); lastMessage = status.message }
+                    }
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                }
+            }
+            defer { progressTask.cancel() }
             do {
                 let request = output.appendingPathComponent("studio_submission.json")
                 try JSONEncoder().encode(["project": project, "workflow": workflow, "output": output.path])
                     .write(to: request, options: .atomic)
                 let job = try await BrokerClient.call(["_desktop-submit", request.path], as: ManagedJob.self)
+                progressTask.cancel()
                 guard !Task.isCancelled else { return }
                 id = job.id
                 if cancellationRequested { cancel() }
                 await observe(job)
-            } catch { if !Task.isCancelled { failure(error.localizedDescription) } }
+            } catch { if !Task.isCancelled { preparing(error.localizedDescription); failure(error.localizedDescription) } }
         }
     }
 

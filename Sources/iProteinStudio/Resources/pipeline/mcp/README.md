@@ -260,3 +260,11 @@ error rather than treating missing process information as no running processes.
 Existing jobs retain their bridge snapshot; use a new submission after recovery
 to adopt the fix. Native live resource history is local to the app's Job progress
 window and is included in its Copy support report, not inferred by MCP.
+
+
+MCP 35 adds `jobs_cleanup` in run/admin profiles (never read). It checks all
+jobs within the profile's mutation scope, preserving live/queued workers and
+all saved files. Out-of-scope or unreadable records are reported, not changed.
+The native Jobs button and `studioctl.py jobs-cleanup` use this same recovery
+implementation. Native submissions retain `studio_submission_status.json`
+through validation, runtime preservation, registration and failure.
