@@ -2,6 +2,23 @@
 
 Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
 
+## 0.2.17 — shared prediction profiles and measured preparation improvements
+
+- New prediction profiles use up to 128 target MSA rows and 25 diffusion steps
+  for Boltz2, IntelliFold Flash/Full, Protenix v2/Constraint and OpenFold3.
+  Protenix Mini retains native 5 steps/4 recycles; ESMFold2 Full retains native
+  100 steps/20 loops, and Fast remains sequence-only with 50 steps/3 loops.
+- Per-engine scientific controls are available across Predict, Target Prep,
+  Protein Hunter, RFdiffusion3 verification, NISE and MCP 36. Existing accepted
+  jobs retain their frozen settings. Guidance, affinity, samples and generation
+  controls remain independent.
+- Includes exact-token IntelliFold sizing, measured resident preparation/cache
+  improvements and the bounded ESMFold2 free-memory cache.
+- Removes Protein Hunter's 96-trajectory form limit while retaining bounded
+  worker concurrency. Target Prep caches distinguish scientific settings.
+- See [settings and limits](docs/PREDICTION_PROFILES.md) and
+  [release checks](lab_book/0234-publish-prediction-profiles.md).
+
 ## 0.2.15 — predictable Jobs panel dismissal
 
 - Jobs opens as a centered sheet instead of a large toolbar popover.

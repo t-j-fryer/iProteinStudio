@@ -8,6 +8,8 @@ forms, a shared job queue and an interactive structure/results browser.
 **[Install](docs/INSTALL_UNSIGNED_BETA.md)** ·
 **[Documentation](docs/README.md)** · **[Updates](docs/UPDATES_AND_RELEASES.md)**
 
+Prediction budgets and per-engine overrides are documented in [Prediction settings](docs/PREDICTION_PROFILES.md).
+
 ## Install and update
 
 Download the Apple-silicon DMG from the newest **app** release (`v…-beta`), move

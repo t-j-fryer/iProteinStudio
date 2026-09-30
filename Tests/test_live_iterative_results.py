@@ -112,7 +112,16 @@ class LiveResultsTests(unittest.TestCase):
             self.assertTrue((self.paths[0].parent / 'live_prediction.csv').is_file())
             raise RuntimeError('second prediction failed')
         main.predict = SimpleNamespace(main=predict)
+        # Force capped staging from symlinked cycle inputs. Display receipts must
+        # still belong to the original run/cycle, not the prepared YAML directory.
+        for path in self.paths:
+            alignment = path.parent / 'scaffold.a3m'
+            alignment.write_text(''.join(f'>r{i}\nACDE\n' for i in range(130)))
+            data = json.loads(path.read_text())
+            data['sequences'][0]['protein']['msa'] = 'scaffold.a3m'
+            path.write_text(json.dumps(data))
         session = BoltzSession.__new__(BoltzSession)
+        session.prediction_settings = dict(msa_depth=128, diffusion_steps=25, recycles=3)
         session.arguments = []; session.config = {}; session.boltz_main = main
         session.publish_iterative_results = True; session.iterative_binder_chain = 'A'
         with self.assertRaisesRegex(RuntimeError, 'second prediction failed'):

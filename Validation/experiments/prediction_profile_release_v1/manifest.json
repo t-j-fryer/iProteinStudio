@@ -1,0 +1,22 @@
+{
+  "purpose": "Release acceptance of production prediction profiles and runtime adapters",
+  "engines": [
+    "boltz",
+    "intellifold",
+    "intellifold-full",
+    "protenix-mini",
+    "protenix-v2",
+    "protenix-constraint-v0.5",
+    "openfold-3-mlx",
+    "esmfold2-fast-mlx",
+    "esmfold2-full-mlx"
+  ],
+  "inputs": "Two previously used SUMO96 binder complexes; target original full A3M capped by the production adapter, binder single-sequence; Fast no MSA",
+  "samples": 1,
+  "seeds": [
+    42
+  ],
+  "qualification": "Functional integration acceptance, not a new causal speed or accuracy comparison. Measure timings and verify effective settings, finite coordinates, protein sequences, confidence outputs, and geometry.",
+  "isolation": "One engine process at a time under broker execution lease; frozen production scripts; external weights/runtime preserved by the plan. Start a separately frozen paper continuation with final app profiles afterward; preserve the original job unchanged. Biotin remains paused.",
+  "limits": "This Mac only. No fresh-Mac installation or new cross-hardware accuracy claim. Scientific accuracy evidence remains in the linked earlier experiments."
+}

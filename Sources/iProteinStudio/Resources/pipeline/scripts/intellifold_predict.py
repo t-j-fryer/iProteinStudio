@@ -98,7 +98,13 @@ def verify_outputs(arguments: list[str]) -> None:
 
 def main() -> None:
     from intellifold_padding import launcher_arguments
+    from prediction_profiles import arguments as with_profile, effective, prepare_inputs
     arguments = launcher_arguments(sys.argv[1:])
+    model = option(arguments, '--model', 'v2-flash')
+    arguments = with_profile('intellifold', arguments, model)
+    settings = effective('intellifold', arguments, model)
+    if arguments and not arguments[0].startswith('-'):
+        arguments[0] = str(prepare_inputs(arguments[0], option(arguments, '--out_dir', './'), 'intellifold', settings))
     configured_root = os.environ.get("NANOHUNTER_ROOT") or os.environ.get("IPROTEIN_ROOT")
     root = Path(configured_root).expanduser().resolve() if configured_root \
         else Path(__file__).resolve().parents[1]

@@ -830,7 +830,7 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
     }
 
 
-def workflow_guide(workflow: str) -> Dict[str, Any]:
+def _workflow_guide(workflow: str) -> Dict[str, Any]:
     """Return client-neutral operating guidance for the typed Studio tools.
 
     This deliberately lives in the MCP server rather than only in a Codex or
@@ -946,6 +946,17 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
         raise StudioError(f"Unknown workflow guide: {workflow}")
     return {"workflow": workflow, **common, **guides[workflow],
             "esmfold2": "Experimental esmfold2-fast-mlx / esmfold2-full-mlx support complete-sequence protein and SMILES-ligand prediction. Fast has no MSA encoder; Full uses the requested MSA. No template/pocket guidance, affinity head or Protein Hunter X-token generation. Available for independent completed-sequence checks. Portable runtime on Apple silicon/macOS 26.2+, separate pinned weights; no external installs. Credits: Fausto Milletari and contributors' MLX port, Biohub ESMFold2/ESMC and Apple MLX. docs/ESMFOLD2.md records measured Fast/Full comparisons and limits."}
+
+
+def workflow_guide(workflow: str) -> Dict[str, Any]:
+    guide = _workflow_guide(workflow)
+    from .prediction_settings import normalize
+    guide['prediction_settings'] = {
+        'defaults': normalize(),
+        'override': 'prediction_settings[engine] with msa_depth, diffusion_steps and recycles; iterative CLI uses --prediction-settings-json.',
+        'scope': 'Prediction only; RFdiffusion generation, guidance, affinity and sample counts retain separate controls. MSA depth includes query; 0 preserves supplied rows. ESMFold2 Fast remains sequence-only. Saved jobs retain their frozen runtime and settings.',
+        'evidence': 'Lab Book 0234; reduced settings can change outputs and are not universal accuracy guarantees.'}
+    return guide
 
 
 def read_resource(uri: str) -> Dict[str, Any]:

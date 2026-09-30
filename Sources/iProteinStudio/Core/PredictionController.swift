@@ -264,6 +264,7 @@ final class PredictionController: ObservableObject {
         // before the UI made their Boltz-only scope explicit.
         config.use_potentials = boltzSelected && request.useBoltzPotentials
         config.affinity = boltzSelected && request.containsLigand && request.runAffinityHead
+        config.prediction_settings = request.prediction_settings
         config.num_seeds = request.numberOfSeeds
         config.diffusion_samples = request.diffusionSamples
         config.max_parallel = request.maxParallel
@@ -304,6 +305,7 @@ final class PredictionController: ObservableObject {
 /// The on-disk settings `predict_batch.py` reads. Written next to the results so
 /// a batch can be re-run from a terminal without the app.
 struct PredictionConfig: Codable {
+    var prediction_settings: [String: [String: Int]] = [:]
     struct Template: Codable {
         var path: String
         var chains: [String]

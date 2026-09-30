@@ -68,16 +68,16 @@ final class TargetPredictor: ObservableObject {
 
     /// The shared cache key for these params (matches the on-disk dir + index).
     func cacheKey(targetKind: TargetKind, sequence: String, smiles: String,
-                  engine: TargetEngine, model: IntelliFoldModel) -> String {
+                  engine: TargetEngine, model: IntelliFoldModel, predictionSettings: [String: [String: Int]] = [:]) -> String {
         PredictionStore.key(targetKind: targetKind, sequence: sequence, smiles: smiles,
-                            engine: engine, model: model)
+                            engine: engine, model: model, predictionSettings: predictionSettings)
     }
 
     /// Path to an already-computed structure for these exact params, if any.
     func cachedCIF(targetKind: TargetKind, sequence: String, smiles: String,
-                   engine: TargetEngine, model: IntelliFoldModel = .v2flash) -> String? {
+                   engine: TargetEngine, model: IntelliFoldModel = .v2flash, predictionSettings: [String: [String: Int]] = [:]) -> String? {
         let dir = PredictionStore.dir(for: cacheKey(targetKind: targetKind, sequence: sequence,
-                                                    smiles: smiles, engine: engine, model: model))
+                                                    smiles: smiles, engine: engine, model: model, predictionSettings: predictionSettings))
         guard FileManager.default.fileExists(atPath: dir.path) else { return nil }
         return PredictionStore.findModelCIF(
             in: PredictionStore.currentResultDir(for: dir.lastPathComponent)
@@ -85,12 +85,12 @@ final class TargetPredictor: ObservableObject {
     }
 
     func predict(targetKind: TargetKind, sequence: String, smiles: String,
-                 engine: TargetEngine, model: IntelliFoldModel = .v2flash, force: Bool = false) {
+                 engine: TargetEngine, model: IntelliFoldModel = .v2flash, predictionSettings: [String: [String: Int]] = [:], force: Bool = false) {
         guard !isRunning else { return }
 
         // Retrieve a cached result instead of recomputing, unless forced.
         if !force, let cached = cachedCIF(targetKind: targetKind, sequence: sequence,
-                                          smiles: smiles, engine: engine, model: model) {
+                                          smiles: smiles, engine: engine, model: model, predictionSettings: predictionSettings) {
             done = true
             phase = .done(cached)
             appendLog("✓ retrieved existing \(engine.label) prediction")
@@ -116,7 +116,7 @@ final class TargetPredictor: ObservableObject {
         }
 
         let id = cacheKey(targetKind: targetKind, sequence: sequence, smiles: smiles,
-                          engine: engine, model: model)
+                          engine: engine, model: model, predictionSettings: predictionSettings)
         let workDir = PredictionStore.dir(for: id)
         let outDir = workDir.appendingPathComponent("prediction-\(UUID().uuidString)")
         do { try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true) }
@@ -125,6 +125,7 @@ final class TargetPredictor: ObservableObject {
         AppPaths.stageRFD3Scripts()
 
         var config = PredictionConfig()
+        config.prediction_settings = predictionSettings
         config.root = AppPaths.support.path
         config.output = outDir.path
         switch engine {

@@ -392,6 +392,8 @@ struct RFD3Verification: Codable, Hashable {
 
 /// Everything the user specifies for an RFdiffusion3 campaign.
 struct RFD3Request: Codable, Hashable {
+    var prediction_settings: [String: [String: Int]] = [:]
+
     var designMode: RFD3DesignMode = .deNovo
     var targetKind: RFD3TargetKind = .smallMolecule
 
@@ -738,6 +740,7 @@ struct RFD3Request: Codable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case prediction_settings
         case designMode, sourceBinderChain, partialT, preservePartialSequence, motifSites
         case targetKind, ligandSource, smiles, componentCode, ligandStructurePath, ligandResidueName
         case targetStructurePath, targetChain, targetContig, structureTargetSequence
@@ -752,6 +755,7 @@ struct RFD3Request: Codable, Hashable {
     /// Resilient decoding: every field defaults if absent.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        prediction_settings = try c.decodeIfPresent([String: [String: Int]].self, forKey: .prediction_settings) ?? [:]
         let d = RFD3Request()
         nesso = try c.decodeIfPresent(LigandNessoOptions.self, forKey: .nesso) ?? d.nesso
         designMode          = try c.decodeIfPresent(RFD3DesignMode.self, forKey: .designMode) ?? d.designMode

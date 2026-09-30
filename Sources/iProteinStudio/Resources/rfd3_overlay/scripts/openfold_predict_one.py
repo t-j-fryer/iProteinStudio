@@ -195,7 +195,7 @@ def main() -> None:
     log = args.output / "openfold3.log"
     with log.open("w") as handle:
         predict = subprocess.run(
-            [str(cli), "predict",
+            [str(venv / "bin/python"), str(root / "scripts/openfold_mps.py"), "predict",
              "--query_json", str(query_json),
              "--output_dir", str(of_out),
              "--inference_ckpt_path", str(checkpoint),

@@ -1,7 +1,7 @@
 # Provenance of the vendored RFdiffusion3 overlay. Regenerate with tools/sync_rfd3.sh.
 source_repo:  https://github.com/javierbq/rfd3-mlx.git
 vendored_on:  2026-08-14T14:10:33Z
-studio_updated: 2026-09-28-esmfold2-prediction-routing
+studio_updated: 2026-09-30-prediction-profiles-v1
 files:        32
-checksum:     9804cd8f2ab98c91717a502dd1b056528072d61bd42178161c6ddfd8637b1da2
+checksum:     61cfae3198c6167406a7bf8066cbc18d439407e45974c97d54c02c251f234125
 checksum_format: sha256 of sorted Python sha256/relative-path lines

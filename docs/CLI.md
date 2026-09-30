@@ -545,11 +545,12 @@ PDE rather than PAE. RFdiffusion3 protein outputs retain per-engine, mean and
 minimum ipSAE(min) diagnostics but continue to rank by their established mean
 iPTM unless that policy is separately validated and changed.
 
-Leave `--intellifold-buckets` alone for established runs. Its `auto` default
-resolves to the exact campaign token maximum, which is the single largest
-measured IntelliFold speed-up available. `length-aware` is an experimental
-variable-length mode with 32-token total-length bands ending at the exact
-maximum; it is reserved for the 65–150-aa minibinder validation until measured.
+New IntelliFold predictions use each input's exact token count in Flash and
+Full, through both standalone Predict and resident workers. The design runner's
+`--intellifold-buckets auto` uses the same policy for each individual prediction,
+including variable-length binders. Explicit bucket lists and `length-aware`
+remain available for reproducing older experiments. Existing jobs retain their
+immutable adapter snapshots. Internal atom/attention-block layouts are retained.
 
 ### Experimental Protenix Constraint pocket proposals
 
@@ -886,3 +887,11 @@ The managed control Python can be bootstrapped without compiler tools using
 `bash "$NANOHUNTER_ROOT/setup_pipeline.sh" --bootstrap-control`. Portable runtime
 release/rollback details and remaining qualification gates are documented in
 [PORTABLE_RUNTIME_IMPLEMENTATION.md](PORTABLE_RUNTIME_IMPLEMENTATION.md).
+
+## Shared prediction profiles
+
+See [Prediction settings](PREDICTION_PROFILES.md) for the current per-engine MSA,
+diffusion and recycling defaults and native Mini/ESMFold2 exceptions. Iterative
+runs accept `--prediction-settings-json`; prediction, target-preparation, NISE
+and RFdiffusion3 MCP requests accept `prediction_settings`. Accepted jobs retain
+their original frozen profiles.

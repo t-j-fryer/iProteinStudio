@@ -170,6 +170,8 @@ def desktop_plan(request: Dict[str, Any], *, _batch_child: bool = False) -> Dict
         from .nise import contract as load_contract
         config = output / "nise_config.json"
         settings = load_json(config)
+        from .prediction_settings import normalize as normalize_prediction_settings
+        context['prediction_settings'] = normalize_prediction_settings(settings.get('prediction_settings'))
         if Path(settings.get("output", "")).resolve() != output:
             raise StudioError("The NISE settings point to a different campaign.")
         snapshot = output / ".studio_runtime/pipeline"

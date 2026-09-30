@@ -2,6 +2,8 @@ import Foundation
 
 /// Ligand NISE has a separate, versioned request; historical iterative IDs stay stable.
 struct NISERequest: Codable, Hashable {
+    var prediction_settings: [String: [String: Int]] = [:]
+
     var search_policy_version = 3
     var folding_engine = "boltz"
     var scoring_mode = "boltz"
@@ -66,6 +68,7 @@ struct NISERequest: Codable, Hashable {
 
     // New controls must not discard existing saved NISE requests.
     enum CodingKeys: String, CodingKey {
+        case prediction_settings
         case final_predictors, folding_engine
         case scoring_mode, nesso_early_score_gate, psichic_early_score_gate
         case search_policy_version, early_score_gate, selective_affinity, adaptive_proposals, initial_proposals, affinity_batch_size, min_improvement
@@ -82,6 +85,7 @@ struct NISERequest: Codable, Hashable {
     init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        prediction_settings = try c.decodeIfPresent([String: [String: Int]].self, forKey: .prediction_settings) ?? [:]
         search_policy_version = try c.decodeIfPresent(Int.self, forKey: .search_policy_version) ?? 1
         if search_policy_version == 1 {
             num_starts = 100; max_cycles = 30; patience = 5; trajectories = 6; beam = 1

@@ -80,6 +80,8 @@ struct FoldJob: Codable, Hashable, Identifiable {
 
 /// Everything the prediction tab needs to run a batch.
 struct PredictionRequest: Codable, Hashable {
+    var prediction_settings: [String: [String: Int]] = [:]
+
     /// Sequences typed directly, one per line or as FASTA.
     var pastedSequences: String = ""
     /// A FASTA or CSV the user chose instead.
@@ -272,6 +274,7 @@ struct PredictionRequest: Codable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case prediction_settings
         case pastedSequences, sequenceFile, pairing, partnerSequence, partnerSmiles
         case binderMSA, partnerMSA, predictors, intellifoldModel, useBoltzPotentials, runAffinityHead
         case templatePath, templateChainIDs
@@ -282,6 +285,7 @@ struct PredictionRequest: Codable, Hashable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        prediction_settings = try c.decodeIfPresent([String: [String: Int]].self, forKey: .prediction_settings) ?? [:]
         let d = PredictionRequest()
         templatePath = try c.decodeIfPresent(String.self, forKey: .templatePath) ?? d.templatePath
         templateChainIDs = try c.decodeIfPresent([String].self, forKey: .templateChainIDs) ?? d.templateChainIDs

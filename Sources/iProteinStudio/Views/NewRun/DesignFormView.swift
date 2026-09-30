@@ -228,6 +228,7 @@ struct DesignFormView: View {
                     RunSettings(request: request)
                     if setupExperience == .advanced {
                         DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+                            PredictionSettingsView(settings: request.prediction_settings)
                             AdvancedSettings(request: request, projectDir: AppPaths.projectDir(project))
                         }.font(.callout)
                     }
@@ -945,7 +946,7 @@ struct RunSettings: View {
                     Text("\(request.numDesigns) across \(request.allocatedScaffolds.count) scaffolds")
                         .monospacedDigit()
                 } else {
-                    EditableIntStepper(value: $request.numDesigns, in: 1...96,
+                    EditableIntStepper(value: $request.numDesigns, in: 1...(Int.max / 1_000_000),
                                        accessibilityLabel: "Trajectories per design engine")
                 }
             }

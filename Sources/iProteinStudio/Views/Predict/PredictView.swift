@@ -59,7 +59,10 @@ struct PredictView: View {
                 Card(title: "Structure template (optional)", systemImage: "cube.transparent") { templateSection }
                 Card(title: "4 · Engines", systemImage: "cpu") { engineSection }
                 if setupExperience == .advanced {
-                    Card(title: "5 · Sampling & throughput", systemImage: "gauge.with.dots.needle.67percent") { throughputSection }
+                    Card(title: "5 · Sampling & throughput", systemImage: "gauge.with.dots.needle.67percent") {
+                        throughputSection
+                        PredictionSettingsView(settings: request.prediction_settings)
+                    }
                 } else {
                     Label("Alignments are reused automatically; measured throughput settings remain selected.",
                           systemImage: "checkmark.seal")

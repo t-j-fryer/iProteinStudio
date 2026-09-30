@@ -40,12 +40,19 @@ final class PredictionStore: ObservableObject {
     }
 
     static func key(targetKind: TargetKind, sequence: String, smiles: String,
-                    engine: TargetEngine, model: IntelliFoldModel) -> String {
+                    engine: TargetEngine, model: IntelliFoldModel, predictionSettings: [String: [String: Int]] = [:]) -> String {
         let canonical = ProteinSequenceInput.canonical(sequence, startingAt: 1)
             ?? sequence.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let payload = targetKind == .protein ? "P2|" + canonical
                                              : "L|" + smiles.trimmingCharacters(in: .whitespacesAndNewlines)
-        let s = "\(payload)|\(engine.rawValue)|\(model.rawValue)"
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let encoded = (try? encoder.encode(predictionSettings)) ?? Data()
+        let settings = String(data: encoded, encoding: .utf8) ?? "{}"
+        let defaults = AppPaths.bundledPipeline
+            .flatMap { try? Data(contentsOf: $0.appendingPathComponent("scripts/prediction_profiles.json")) }
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "missing-profile-defaults"
+        let s = "prediction-profile-v1|\(payload)|\(engine.rawValue)|\(model.rawValue)|\(defaults)|\(settings)"
         var h: UInt64 = 1469598103934665603
         for b in s.utf8 { h = (h ^ UInt64(b)) &* 1099511628211 }
         return String(h, radix: 16)

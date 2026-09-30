@@ -440,6 +440,229 @@
           },
           "default": [],
           "description": "Optional final unrestrained ligand-complex refolds, up to top_x candidates. Neither replaces the NISE objective or supplies affinity. Both use single sequence for designed binders."
+        },
+        "prediction_settings": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "boltz": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 3
+                }
+              }
+            },
+            "intellifold": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 10
+                }
+              }
+            },
+            "intellifold-full": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 10
+                }
+              }
+            },
+            "protenix-v2": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 10
+                }
+              }
+            },
+            "protenix-mini": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 5
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 4
+                }
+              }
+            },
+            "protenix-constraint-v0.5": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 10
+                }
+              }
+            },
+            "openfold-3-mlx": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 3
+                }
+              }
+            },
+            "esmfold2-full-mlx": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 100
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 20
+                }
+              }
+            },
+            "esmfold2-fast-mlx": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 0
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 50
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 3
+                }
+              }
+            }
+          },
+          "description": "Per-engine scientific overrides. Defaults: MSA 128 and 25 diffusion steps; Mini 5/4, ESMFold2 Full 100/20, Fast sequence-only 50/3. Depth 0 preserves the supplied alignment. Existing saved jobs retain their frozen settings."
         }
       }
     },

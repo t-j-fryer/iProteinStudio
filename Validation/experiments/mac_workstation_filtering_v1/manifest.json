@@ -1,0 +1,39 @@
+{
+  "experiment": "mac_workstation_filtering_v1",
+  "declared_at_utc": "2026-09-30T15:12:12.001784+00:00",
+  "type": "retrospective_analysis_no_inference",
+  "baseline_commit": "00d299abf6f0b93cf1e4f0fff365e196edefb8ca",
+  "paired_engines": [
+    "boltz",
+    "intellifold_flash"
+  ],
+  "cohort": "existing clean monoclonal 563 designs/85 validated; exact joins; strict sensitivity excludes primary positives without affinity validation",
+  "primary_metrics": [
+    "existing F2 Boltz ipSAE p90",
+    "existing F2 Flash ipSAE sample minimum"
+  ],
+  "secondary_metrics": [
+    "same-metric median ipSAE",
+    "ipTM",
+    "mean cross-chain PAE",
+    "binder pLDDT"
+  ],
+  "analysis": [
+    "Pearson/Spearman overall and per-target",
+    "AP and ROC AUC",
+    "tie-aware hits precision recall at10/20/50/100",
+    "fixed threshold transfer",
+    "2000 paired target-stratified bootstrap AP/hits50 differences",
+    "assayed-sequence mismatch sensitivity",
+    "primary-screen endpoint sensitivity"
+  ],
+  "missing_engines": "No paired counterpart for OpenFold/Mini/Constraint; v2 and ESM await completion; Full IntelliFold excluded from Mac campaign",
+  "confounds": [
+    "potentials",
+    "sample aggregation",
+    "undocumented workstation implementation/settings",
+    "verification and retrospective metric-selection bias"
+  ],
+  "prospective_materiality_threshold": null,
+  "new_predictions": 0
+}

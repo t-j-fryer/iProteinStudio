@@ -20,7 +20,7 @@ FAST_PYTHON = [
     "test_nesso_ccd_cache.py", "test_nesso_preprocessing_cache.py",
     "test_apple_build_tools.py", "test_install_download_recovery.py",
     "test_framework_batch_results.py", "test_nise_stage_batches.py",
-    "test_iterative_engine_batch.py", "test_resident_prediction_resume.py",
+    "test_iterative_engine_batch.py",
     "test_nanobody_scaffold_catalog.py",
     "test_nise_contract.py", "test_rfd3_batch_resume.py",
     "test_nesso_screen.py",
@@ -40,6 +40,8 @@ FAST_SHELL = [
     "test_process_runner_cancellation.sh", "test_workspace_organization.sh", "test_pipeline_snapshot.sh",
 ]
 SCIENCE = [
+    "test_live_iterative_results.py",
+    "test_resident_prediction_resume.py", "test_prediction_profiles.py", "test_esmfold2_adapter.py",
     "test_rfd3_audit_regressions.py",
     "test_prediction_templates.py", "test_ligand_screening.py",
     "test_nise_cohort_transfer.py", "test_nise_objective.py", "test_nise_pool.py",

@@ -199,6 +199,8 @@ struct NanobodyScaffoldAllocation: Codable, Hashable, Identifiable {
 
 /// Everything the user specifies for a design campaign.
 struct DesignRequest: Codable, Equatable, Hashable {
+    var prediction_settings: [String: [String: Int]] = [:]
+
     var designType: DesignType = .nanobody
 
     // Nanobody (scaffold) fields
@@ -787,6 +789,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     init() {}
 
     private enum CodingKeys: String, CodingKey {
+        case prediction_settings
         case designType, scaffoldID, scaffoldSequence, scaffoldSelections, equalScaffoldBudgets, trajectoriesPerScaffold, cdrs, binderMinLen, binderMaxLen, helixKill
         case secondaryStructureBias, secondaryStructureBiasScope
         case betaBiasStrength, betaPatternStrength, turnLocalizationStrength
@@ -806,6 +809,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// in future versions never breaks loading older saved projects.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        prediction_settings = try c.decodeIfPresent([String: [String: Int]].self, forKey: .prediction_settings) ?? [:]
         let d = DesignRequest()
         nesso = try c.decodeIfPresent(LigandNessoOptions.self, forKey: .nesso) ?? d.nesso
         designType      = try c.decodeIfPresent(DesignType.self, forKey: .designType) ?? d.designType

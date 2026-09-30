@@ -1,52 +1,518 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "iprotein://schemas/rfd3-v1",
-  "type": "object", "additionalProperties": false,
-  "required": ["project", "request"],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project",
+    "request"
+  ],
   "properties": {
-    "project": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"},
-    "run_name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"},
+    "project": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"
+    },
+    "run_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"
+    },
     "request": {
-      "type": "object", "additionalProperties": false,
-      "required": ["target_kind"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_kind"
+      ],
       "properties": {
-        "design_mode": {"enum": ["deNovo", "partialDiffusion", "motifScaffolding"]},
-        "target_kind": {"enum": ["protein", "small_molecule"], "description": "Selects strict scientific routing. Protein campaigns use SolubleMPNN/ProteinMPNN; small-molecule campaigns use LASErMPNN/LigandMPNN."},
-        "component_id": {"type": "string"}, "ligand_source": {"enum": ["smiles", "structure_file"]},
-        "smiles": {"type": "string"}, "ligand_structure": {"type": "string"}, "ligand_residue": {"type": "string"},
-        "target_structure": {"type": "string"}, "target_sequence": {"type": "string"}, "target_chain": {"type": "string"},
-        "target_chains": {"type": "array", "items": {"type": "string"}}, "contig": {"type": "string", "description": "Do not supply this for protein de novo. It remains recognizable only so Studio can return a direct migration error; the planner rejects it and derives the pinned MLX adapter's canonical binder-first contig from lengths and inspected target chains."},
-        "source_binder_chain": {"type": "string"}, "partial_t": {"type": "number", "minimum": 0.1, "maximum": 15},
-        "preserve_partial_sequence": {"type": "boolean"},
-        "motif_sites": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
-        "conditions": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
-        "is_non_loopy": {"type": "boolean"},
-        "binding_site_mode": {"enum": ["surface_scan", "surface_patch", "targeted_epitope", "manual"], "description": "Optional for protein de-novo placement. If omitted with no hotspot/ORI, Studio resolves to surface_scan: multiple solvent-accessible outward ORIs with the exact design quota divided among them, never target COM. surface_patch positions near a broad region without hotspot conditioning; targeted_epitope requires explicit hotspot conditions; manual requires ori_token."},
-        "surface_patch_residues": {"type": "array", "items": {"type": "string"}, "description": "Broad target region used only to calculate an outward ORI. These residues are never converted to hotspots."},
-        "infer_ori_strategy": {"type": "string", "description": "Legacy/expert Foundry control. Do not use target COM for a fixed protein."},
-        "ori_token": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}},
-        "lengths": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"type": "integer", "minimum": 5, "maximum": 1000}},
-        "num_backbones": {"type": "integer", "minimum": 1}, "timesteps": {"type": "integer", "minimum": 2},
-        "recycles": {"type": "integer", "minimum": 0}, "batch_size": {"type": "integer", "minimum": 1, "maximum": 64},
-        "queues_per_bin": {"type": "integer", "minimum": 1, "maximum": 4}, "precision": {"enum": ["bf16", "fp32"]},
-        "seed_base": {"type": "integer"}, "sequences_per_backbone": {"type": "integer", "minimum": 1},
-        "sequence_model": {"enum": ["lasermpnn", "ligandmpnn", "solublempnn", "proteinmpnn"], "description": "Default to solublempnn for soluble protein-protein binders. proteinmpnn is the alternative for protein targets. lasermpnn and ligandmpnn are only for small-molecule interfaces."},
-        "sequence_temperature": {"type": "number"}, "first_shell_temperature": {"type": "number"},
-        "top_n": {"type": "integer", "minimum": 1}, "use_potentials": {"type": "boolean"},
-        "run_affinity": {"type": "boolean", "description": "Small-molecule Boltz affinity head only; never use as a protein-protein binding score."}, "run_apo": {"type": "boolean", "default": true, "description": "For protein binders, independently predict the binder alone and compare it with its bound conformation."},
-        "hit_filters": {
-          "type": "object", "additionalProperties": false,
-          "properties": {
-            "minimum_iptm": {"type": ["number", "null"]}, "minimum_ipsae_min": {"type": ["number", "null"]},
-            "maximum_complex_rmsd": {"type": ["number", "null"]}, "minimum_binder_plddt": {"type": ["number", "null"]},
-            "maximum_binder_rmsd": {"type": ["number", "null"]}, "maximum_motif_rmsd": {"type": ["number", "null"]}
+        "design_mode": {
+          "enum": [
+            "deNovo",
+            "partialDiffusion",
+            "motifScaffolding"
+          ]
+        },
+        "target_kind": {
+          "enum": [
+            "protein",
+            "small_molecule"
+          ],
+          "description": "Selects strict scientific routing. Protein campaigns use SolubleMPNN/ProteinMPNN; small-molecule campaigns use LASErMPNN/LigandMPNN."
+        },
+        "component_id": {
+          "type": "string"
+        },
+        "ligand_source": {
+          "enum": [
+            "smiles",
+            "structure_file"
+          ]
+        },
+        "smiles": {
+          "type": "string"
+        },
+        "ligand_structure": {
+          "type": "string"
+        },
+        "ligand_residue": {
+          "type": "string"
+        },
+        "target_structure": {
+          "type": "string"
+        },
+        "target_sequence": {
+          "type": "string"
+        },
+        "target_chain": {
+          "type": "string"
+        },
+        "target_chains": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
-        "extra_predictors": {"type": "array", "description": "Independent verification engines. For protein binders choose at least one; Boltz is the normal first verifier. For small molecules Boltz always runs as the primary scorer; listing it here is redundant and it is removed from the extra list. Every generated candidate is predicted before ranking.", "items": {"enum": ["boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx"]}},
-        "intellifold_model": {"enum": ["v2-flash", "v2"]},
-        "conformers": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
-        "mpnn_max_parallel": {"type": "integer", "minimum": 1}, "boltz_chunk_size": {"type": "integer", "minimum": 1},
-        "boltz_calibrate_n": {"type": "integer", "minimum": 1}
+        "contig": {
+          "type": "string",
+          "description": "Do not supply this for protein de novo. It remains recognizable only so Studio can return a direct migration error; the planner rejects it and derives the pinned MLX adapter's canonical binder-first contig from lengths and inspected target chains."
+        },
+        "source_binder_chain": {
+          "type": "string"
+        },
+        "partial_t": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 15
+        },
+        "preserve_partial_sequence": {
+          "type": "boolean"
+        },
+        "motif_sites": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "conditions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "is_non_loopy": {
+          "type": "boolean"
+        },
+        "binding_site_mode": {
+          "enum": [
+            "surface_scan",
+            "surface_patch",
+            "targeted_epitope",
+            "manual"
+          ],
+          "description": "Optional for protein de-novo placement. If omitted with no hotspot/ORI, Studio resolves to surface_scan: multiple solvent-accessible outward ORIs with the exact design quota divided among them, never target COM. surface_patch positions near a broad region without hotspot conditioning; targeted_epitope requires explicit hotspot conditions; manual requires ori_token."
+        },
+        "surface_patch_residues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Broad target region used only to calculate an outward ORI. These residues are never converted to hotspots."
+        },
+        "infer_ori_strategy": {
+          "type": "string",
+          "description": "Legacy/expert Foundry control. Do not use target COM for a fixed protein."
+        },
+        "ori_token": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number"
+          }
+        },
+        "lengths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 1000
+          }
+        },
+        "num_backbones": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timesteps": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "recycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "batch_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "queues_per_bin": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "precision": {
+          "enum": [
+            "bf16",
+            "fp32"
+          ]
+        },
+        "seed_base": {
+          "type": "integer"
+        },
+        "sequences_per_backbone": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sequence_model": {
+          "enum": [
+            "lasermpnn",
+            "ligandmpnn",
+            "solublempnn",
+            "proteinmpnn"
+          ],
+          "description": "Default to solublempnn for soluble protein-protein binders. proteinmpnn is the alternative for protein targets. lasermpnn and ligandmpnn are only for small-molecule interfaces."
+        },
+        "sequence_temperature": {
+          "type": "number"
+        },
+        "first_shell_temperature": {
+          "type": "number"
+        },
+        "top_n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "use_potentials": {
+          "type": "boolean"
+        },
+        "run_affinity": {
+          "type": "boolean",
+          "description": "Small-molecule Boltz affinity head only; never use as a protein-protein binding score."
+        },
+        "run_apo": {
+          "type": "boolean",
+          "default": true,
+          "description": "For protein binders, independently predict the binder alone and compare it with its bound conformation."
+        },
+        "hit_filters": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minimum_iptm": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "minimum_ipsae_min": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "maximum_complex_rmsd": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "minimum_binder_plddt": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "maximum_binder_rmsd": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "maximum_motif_rmsd": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "extra_predictors": {
+          "type": "array",
+          "description": "Independent verification engines. For protein binders choose at least one; Boltz is the normal first verifier. For small molecules Boltz always runs as the primary scorer; listing it here is redundant and it is removed from the extra list. Every generated candidate is predicted before ranking.",
+          "items": {
+            "enum": [
+              "boltz",
+              "intellifold",
+              "protenix-v2",
+              "protenix-mini",
+              "openfold-3-mlx",
+              "esmfold2-full-mlx",
+              "esmfold2-fast-mlx"
+            ]
+          }
+        },
+        "intellifold_model": {
+          "enum": [
+            "v2-flash",
+            "v2"
+          ]
+        },
+        "conformers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "mpnn_max_parallel": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "boltz_chunk_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "boltz_calibrate_n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "prediction_settings": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "boltz": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 3
+                }
+              }
+            },
+            "intellifold": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 10
+                }
+              }
+            },
+            "intellifold-full": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 10
+                }
+              }
+            },
+            "protenix-v2": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 10
+                }
+              }
+            },
+            "protenix-mini": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 5
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 4
+                }
+              }
+            },
+            "protenix-constraint-v0.5": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 10
+                }
+              }
+            },
+            "openfold-3-mlx": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 25
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 3
+                }
+              }
+            },
+            "esmfold2-full-mlx": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 128
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 100
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 20
+                }
+              }
+            },
+            "esmfold2-fast-mlx": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "default": 0
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 50
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 3
+                }
+              }
+            }
+          },
+          "description": "Per-engine scientific overrides. Defaults: MSA 128 and 25 diffusion steps; Mini 5/4, ESMFold2 Full 100/20, Fast sequence-only 50/3. Depth 0 preserves the supplied alignment. Existing saved jobs retain their frozen settings."
+        }
       }
     }
   }

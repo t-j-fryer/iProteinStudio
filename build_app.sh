@@ -46,10 +46,12 @@ fi
 [[ ${#SPARKLE_PUBLIC_KEY} -ge 40 ]] \
   || { echo "Sparkle public key is absent or malformed." >&2; exit 2; }
 
-echo "==> swift build -c ${CONFIG}"
-swift build -c "${CONFIG}"
+echo "==> swift build --build-system native -c ${CONFIG}"
+# Keep the established SwiftPM build layout for the pinned binary Sparkle
+# dependency; newer toolchains default to a different build system/layout.
+swift build --build-system native -c "${CONFIG}"
 
-BIN_DIR="$(swift build -c "${CONFIG}" --show-bin-path)"
+BIN_DIR="$(swift build --build-system native -c "${CONFIG}" --show-bin-path)"
 APP="build/${APP_NAME}.app"
 rm -rf "${APP}"
 mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Resources" "${APP}/Contents/Frameworks"

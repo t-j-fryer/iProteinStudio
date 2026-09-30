@@ -20,6 +20,7 @@ struct TargetPrepView: View {
     @State private var showSurface = false
     @State private var engine: TargetEngine
     @State private var model: IntelliFoldModel = .v2flash
+    @State private var predictionSettings: [String: [String: Int]] = [:]
     @State private var name: String = ""
 
     init(targetKind: TargetKind, targetSequence: String, targetSmiles: String,
@@ -41,7 +42,7 @@ struct TargetPrepView: View {
     /// A previously computed structure for the currently selected engine+model.
     private var cachedCIF: String? {
         predictor.cachedCIF(targetKind: targetKind, sequence: targetSequence,
-                            smiles: targetSmiles, engine: engine, model: model)
+                            smiles: targetSmiles, engine: engine, model: model, predictionSettings: predictionSettings)
     }
 
     var body: some View {
@@ -63,7 +64,7 @@ struct TargetPrepView: View {
 
     private func recordPrediction() {
         let id = predictor.cacheKey(targetKind: targetKind, sequence: targetSequence,
-                                    smiles: targetSmiles, engine: engine, model: model)
+                                    smiles: targetSmiles, engine: engine, model: model, predictionSettings: predictionSettings)
         let payload = targetKind == .protein
             ? (ProteinSequenceInput.canonical(targetSequence, startingAt: 1) ?? targetSequence)
                                              : targetSmiles.trimmingCharacters(in: .whitespaces)
@@ -117,6 +118,7 @@ struct TargetPrepView: View {
                             .accessibilityLabel("IntelliFold model")
                     }
                 }
+                PredictionSettingsView(settings: $predictionSettings).disabled(predictor.isRunning)
                 if cachedCIF == nil {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Prediction name (optional)").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
@@ -244,7 +246,7 @@ struct TargetPrepView: View {
 
     private func predict(force: Bool) {
         predictor.predict(targetKind: targetKind, sequence: targetSequence,
-                          smiles: targetSmiles, engine: engine, model: model, force: force)
+                          smiles: targetSmiles, engine: engine, model: model, predictionSettings: predictionSettings, force: force)
     }
 }
 

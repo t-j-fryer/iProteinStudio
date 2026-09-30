@@ -34,7 +34,7 @@ BOOLEAN_ITERATIVE_FLAGS = {
     "--helix-kill",
 }
 VALUE_ITERATIVE_FLAGS = {
-    "--workflow", "--predictor", "--sequence-designer", "--num-runs",
+    "--prediction-settings-json", "--workflow", "--predictor", "--sequence-designer", "--num-runs",
     "--num-opt-cycles", "--iptm-threshold", "--predictor-seed", "--predictor-samples",
     "--model", "--post-predictor",
     "--post-mode", "--post-iptm-threshold", "--filter-min-iptm",
@@ -265,7 +265,9 @@ def _prediction_plan(arguments: Dict[str, Any], kind: str, output_folder: str, p
         raise StudioError("intellifold_model must be v2-flash or v2.")
     run_suffix = secrets.token_hex(4)
     output = project_root(project) / output_folder / f"{prefix}-{run_suffix}"
+    from .prediction_settings import normalize as normalize_prediction_settings
     config = {
+        "prediction_settings": normalize_prediction_settings(request.get('prediction_settings')),
         "root": str(root),
         "output": str(output),
         "predictors": predictors,
@@ -319,6 +321,7 @@ def target_prepare_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
             raise StudioError("Each target sequence must contain an id and sequence.")
         chains.append({"id": record.get("id", chr(ord("A") + index)), "kind": "protein", "sequence": record.get("sequence", ""), "msa": "auto"})
     request = {
+        "prediction_settings": arguments.get("prediction_settings", {}),
         "predictors": arguments.get("predictors"),
         "intellifold_model": arguments.get("intellifold_model", "v2-flash"),
         "offline_only": bool(arguments.get("offline_only", False)),
@@ -365,6 +368,12 @@ def _normalize_iterative_arguments(values: Any) -> Tuple[List[str], str]:
             raise StudioError("--secondary-bias-scope must be seed-only or seed-and-cycles.")
         if flag == "--seed-sampling-order" and value not in {"mask-first", "sample-then-mask"}:
             raise StudioError("--seed-sampling-order must be mask-first or sample-then-mask.")
+        if flag == '--prediction-settings-json':
+            from .prediction_settings import normalize as normalize_prediction_settings
+            try:
+                value = json.dumps(normalize_prediction_settings(json.loads(value)), sort_keys=True)
+            except (ValueError, TypeError) as exc:
+                raise StudioError('Invalid --prediction-settings-json: ' + str(exc)) from exc
         if flag == "--predictor-seed" and (not value.isdigit() or int(value) < 0):
             raise StudioError("--predictor-seed must be a non-negative integer.")
         if flag == "--predictor-samples" and value != "auto" and (not value.isdigit() or int(value) < 1):
@@ -543,6 +552,8 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         }
     for key, value in defaults.items():
         request.setdefault(key, value)
+    from .prediction_settings import normalize as normalize_prediction_settings
+    request['prediction_settings'] = normalize_prediction_settings(request.get('prediction_settings'))
     request.setdefault("sequence_model", "solublempnn" if target_kind == "protein" else "lasermpnn")
     run_name = validate_slug(arguments.get("run_name", f"rfd3-mcp-{secrets.token_hex(4)}"), "run name")
     campaign = destination / "rfd3_runs" / run_name

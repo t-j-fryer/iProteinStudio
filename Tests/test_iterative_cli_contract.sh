@@ -281,6 +281,20 @@ expect_text "${output}" 'IntelliFold=96,128,160,174' \
   "length-aware IntelliFold buckets did not cover the exact 89-174 token regime"
 
 set +e
+output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+  bash "${RUNNER}" --workflow protein --sequence-designer solublempnn \
+  --target-msa-mode off --max-parallel 1 --throughput-profile off \
+  --skip-predictor-calibration --num-runs 1 --num-opt-cycles 0 \
+  --run-name exact_bucket_contract --out-root "${FIXTURE_ROOT}/output" \
+  --predictor intellifold --model v2 \
+  --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
+  --random-binder --binder-min-len 65 --binder-max-len 150 \
+  --post-predictor none --post-mode none 2>&1)"
+set -e
+expect_text "${output}" 'IntelliFold=1; campaign_max_polymer_tokens=174' \
+  "automatic IntelliFold sizing padded variable inputs to the campaign maximum"
+
+set +e
 error="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   bash "${RUNNER}" "${common[@]}" --predictor boltz \
   --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \

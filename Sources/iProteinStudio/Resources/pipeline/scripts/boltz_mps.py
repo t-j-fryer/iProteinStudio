@@ -116,6 +116,14 @@ def main() -> None:
 
     configure_runtime(boltz_main, torch)
     arguments = sys.argv[1:]
+    if arguments and arguments[0] == 'predict':
+        from prediction_profiles import arguments as with_profile, effective, prepare_inputs
+        arguments = with_profile('boltz', arguments)
+        settings = effective('boltz', arguments)
+        output = option(arguments, '--out_dir')
+        if output is None:
+            die('Studio predictions require an explicit --out_dir')
+        arguments[1] = str(prepare_inputs(arguments[1], output, 'boltz', settings))
     boltz_main.cli.main(args=arguments, prog_name="boltz", standalone_mode=False)
     validate_output(arguments)
 

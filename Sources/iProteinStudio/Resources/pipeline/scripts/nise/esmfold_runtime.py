@@ -120,13 +120,15 @@ class ESMBackend(BatchBackend):
         from ligand_atoms import audit_atoms
         engine = self.settings['folding_engine']
         profile = 'fast' if engine == 'esmfold2-fast-mlx' else 'full'
+        from prediction_profiles import profile as scientific_profile
+        prediction_settings = scientific_profile(engine)
         native_root = directory / '_esm_outputs'
         predictions, pending = {}, {}
         for name, sequence in sequences.items():
             unit = directory / name
             source = unit / 'yaml'; source.mkdir(parents=True, exist_ok=True)
             spec = dict(sequence=sequence, smiles=None if apo else smiles, seed=args.seed,
-                folding_engine=engine, profile=list(PROFILES[profile]), port=PORT_REVISION,
+                folding_engine=engine, profile=prediction_settings, port=PORT_REVISION,
                 affinity=False, phase='structure', msa='empty', pocket_applied=False,
                 upstream_pocket_request=pocket, potentials=False, atom_signature=None if apo else self.atom_manifest(smiles)['signature'])
             saved = self.journal.load(unit / 'completed.json', spec)
@@ -145,7 +147,7 @@ class ESMBackend(BatchBackend):
             path = unit / 'yaml' / (name + '.yaml')
             _, msas = read_input(path, profile)
             identity = dict(input_sha256=sha(path), msas=msas, model=profile, seeds=[args.seed], samples=1,
-                profile=list(PROFILES[profile]), port=PORT_REVISION, unrestrained_check=False, schema=1)
+                profile=prediction_settings, port=PORT_REVISION, unrestrained_check=False, schema=1)
             if not complete(native, identity): raise RuntimeError('Invalid ESMFold2 atomic output: ' + name)
             pdb = unit / (name + '.pdb')
             convert_structure(native, pdb, None if apo else self.atom_manifest(smiles))

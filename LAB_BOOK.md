@@ -269,3 +269,10 @@ Newest fix: [0198 — Portable iterative launcher and student archive](lab_book/
 - [0204 — Matched RFdiffusion3 biotin NISE proposal](lab_book/0204-plan-matched-rfd3-biotin-nise.md): 1,000 starts with shared downstream search; records length/conformer differences and fresh-run scheduler qualification needed before launch.
 
 - [0205 — Independent NISE RFD3 conditioning](lab_book/0205-add-nise-rfd3-conditioning.md): native/MCP generation labels, explicit fresh-run worker pool, and planned 1,000-start biotin campaign.
+Latest comparison: [0233 — Mac versus workstation filtering](lab_book/0233-compare-mac-workstation-filtering.md) (Boltz/Flash paired scores,563/85-hit cohort; ongoing campaign preserved).
+Latest paper protocol: [0232 — One adopted-code Mac baseline per model](lab_book/0232-select-single-mac-baselines.md) (two-arm comparison; existing evidence reviewed, no new predictions).
+Latest research: [0231 — Original versus optimized Mac baselines](lab_book/0231-reconstruct-mac-intervention-baselines.md) (research complete; proposed paper protocol, no new predictions).
+Current work: [0230 — Shared-target optimizations and paper predictions](lab_book/0230-shared-target-paper-predictions.md) (predeclared; 674 designs, eight engines).
+Current optimization experiment: [0229 — Resident request overhead](lab_book/0229-resident-request-overhead.md) (128-row MSA,reduced steps,five seeds; predeclared).
+Current work: [0228 — Exact-token prediction](lab_book/0228-exact-token-prediction.md) (IntelliFold padding removed; replacement SUMO matrix in progress).
+- [0234 — Shared prediction profiles and runtime improvements](lab_book/0234-publish-prediction-profiles.md) — implementation in progress.

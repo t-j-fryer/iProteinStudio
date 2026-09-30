@@ -243,6 +243,9 @@ def main() -> None:
                         help="skip stages already recorded complete on disk")
     args = parser.parse_args()
     cfg = json.loads(args.config.resolve().read_text())
+    sys.path.insert(0, str(Path(cfg['nanohunter_root']) / 'scripts'))
+    from prediction_profiles import activate
+    cfg['prediction_settings'] = activate(cfg.get('prediction_settings'))
     if cfg.get("rfd3_root"):
         ROOT = Path(cfg["rfd3_root"]).expanduser().resolve()
     for key in ("design_yaml", "smiles_file", "campaign_dir", "ligand_sdf", "atom_map", "ccd_mirror", "bundle_validator"):

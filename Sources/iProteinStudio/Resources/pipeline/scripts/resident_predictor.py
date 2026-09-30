@@ -134,7 +134,9 @@ class BoltzSession:
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
         self.root = Path(config["root"])
-        self.arguments = list(config["engine_args"])
+        from prediction_profiles import arguments as with_profile, effective
+        self.arguments = with_profile('boltz', list(config['engine_args']), config.get('model'))
+        self.prediction_settings = effective('boltz', self.arguments, config.get('model'))
         self.torch = require_mps()
         import boltz.main as boltz_main
         from dataclasses import asdict
@@ -183,6 +185,9 @@ class BoltzSession:
             steering_args=asdict(steering),
         )
         self.model.eval()
+        from inference_optimizations import ResidentModels
+        self.residency = ResidentModels()
+        self.residency.add(self.model)
         self._original_loader = boltz_main.Boltz2.load_from_checkpoint
 
         # Boltz's affinity head uses the same class with a DIFFERENT checkpoint.
@@ -198,12 +203,15 @@ class BoltzSession:
         def resident_loader(_class, requested, *args, **kwargs):
             model = self.checkpoints.load(requested, *args, **kwargs)
             self.model_load_count = self.checkpoints.load_count
-            return model
+            return self.residency.add(model)
 
         boltz_main.Boltz2.load_from_checkpoint = classmethod(resident_loader)
         self.model_load_count = 1
 
     def predict(self, source: Path, output: Path, expected: int) -> None:
+        from prediction_profiles import prepare_inputs
+        original_source = source
+        source = prepare_inputs(source, output, 'boltz', self.prediction_settings)
         arguments = [str(source), "--out_dir", str(output), *self.arguments]
         if self.config.get("use_potentials") and "--use_potentials" not in arguments:
             arguments.append("--use_potentials")
@@ -237,7 +245,7 @@ class BoltzSession:
             live = nullcontext()
             if getattr(self, "publish_iterative_results", False):
                 from live_iterative_results import LiveIterativeResults, boltz_live_writer
-                publisher = LiveIterativeResults(source, self.iterative_binder_chain)
+                publisher = LiveIterativeResults(original_source, self.iterative_binder_chain)
                 live = boltz_live_writer(self.boltz_main, publisher,
                                         getattr(self, "report_progress", None), expected)
             with live:
@@ -264,7 +272,9 @@ class IntelliFoldSession:
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
         self.root = Path(config["root"])
-        self.arguments = list(config["engine_args"])
+        from prediction_profiles import arguments as with_profile, effective
+        self.arguments = with_profile('intellifold', list(config['engine_args']), config.get('model'))
+        self.prediction_settings = effective('intellifold', self.arguments, config.get('model'))
         self.torch = require_mps()
         if importlib.metadata.version("accelerate") != "1.1.1":
             die("resident IntelliFold requires pinned Accelerate 1.1.1")
@@ -290,6 +300,8 @@ class IntelliFoldSession:
         if not runner_path.is_file():
             die(f"IntelliFold runner is missing: {runner_path}")
         self.upstream = load_path("iproteinstudio_resident_intellifold", runner_path)
+        from inference_optimizations import ChemicalCache
+        self.chemical_cache = ChemicalCache()
         from live_structure_events import instrument_intellifold
         instrument_intellifold(self.upstream)
         from intellifold_padding import default_buckets
@@ -388,6 +400,7 @@ class IntelliFoldSession:
         scripts = Path(__file__).resolve().parent
         self.resume_identity = {
             "engine": "intellifold", "settings": settings,
+            "prediction_profile": self.prediction_settings,
             "feature_rng_policy": "reset-first-seed-before-each-record-v1",
             "checkpoint_sha256": digest(checkpoint),
             "ccd_sha256": digest(cache / "ccd_v2.pkl"),
@@ -404,6 +417,9 @@ class IntelliFoldSession:
         }
 
     def predict(self, source: Path, output: Path, expected: int) -> None:
+        from prediction_profiles import prepare_inputs
+        original_source = source
+        source = prepare_inputs(source, output, 'intellifold', self.prediction_settings)
         import torch.nn.functional as functional
         from accelerate.utils import set_seed
 
@@ -418,7 +434,7 @@ class IntelliFoldSession:
         from prediction_resume import PredictionLedger, RecordSeedDataset, input_identity
         from ipsae_score import annotate_intellifold
         from storage_policy import compact_detailed_confidence
-        yaml_paths = {path.stem: path for path in sorted(source.glob("*.yaml"))}
+        yaml_paths = {path.stem: path for path in sorted(original_source.glob("*.yaml"))}
         identities = {name: input_identity(path) for name, path in yaml_paths.items()}
         ledger = PredictionLedger(
             output, out_dir / "predictions", self.resume_identity, identities,
@@ -554,7 +570,9 @@ class ProtenixSession:
                 executable, checkpoint, self.model_root / "install_receipt.json"
             )
         from runner.batch_inference import get_default_runner
-        cycles, steps = (4, 5) if self.model_name == "protenix_mini_default_v0.5.0" else (10, 200)
+        from prediction_profiles import profile
+        self.prediction_settings = profile(model_alias)
+        cycles, steps = self.prediction_settings['recycles'], self.prediction_settings['diffusion_steps']
         self.seeds = [int(value) for value in str(config.get("seed", 42)).split(",")]
         self.samples = int(config.get("samples", 1))
         self.runner = get_default_runner(
@@ -567,7 +585,7 @@ class ProtenixSession:
             use_msa=bool(config.get("use_msa", True)),
             trimul_kernel="torch",
             triatt_kernel="torch",
-            enable_cache=False,
+            enable_cache=self.constraint,
             enable_fusion=False,
             enable_tf32=False,
             use_template=self.use_template,
@@ -580,6 +598,8 @@ class ProtenixSession:
 
     def predict(self, source: Path, output: Path, expected: int) -> None:
         from runner.inference import infer_predict
+        from prediction_profiles import prepare_inputs
+        source = prepare_inputs(source, output, self.config.get('engine', self.config.get('model', 'v2')), self.prediction_settings)
         yaml_paths = sorted(source.glob("*.yaml"))
         converted = [self.adapter.convert_yaml(
             path.resolve(), self.constraint, self.model_name == "protenix-v2"
@@ -650,6 +670,9 @@ def allocated_mps_bytes(torch_module: Any) -> int | None:
 def serve(config_path: Path) -> None:
     config_path = config_path.expanduser().resolve()
     config = json.loads(config_path.read_text())
+    if 'prediction_settings' in config:
+        from prediction_profiles import activate
+        activate(config['prediction_settings'])
     queue = Path(config["queue"]).expanduser().resolve()
     requests = queue / "requests"
     responses = queue / "responses"

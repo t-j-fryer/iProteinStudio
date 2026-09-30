@@ -438,6 +438,9 @@ def main() -> None:
     pid_file.write_text(str(os.getpid()) + "\n")
     atexit.register(lambda: pid_file.unlink(missing_ok=True))
 
+    sys.path.insert(0, str(Path(cfg['nanohunter_root']) / 'scripts'))
+    from prediction_profiles import activate
+    cfg['prediction_settings'] = activate(cfg.get('prediction_settings'))
     env = dict(os.environ)
     env.update({"DEBUG": "false", "TOKENIZERS_PARALLELISM": "false"})
 

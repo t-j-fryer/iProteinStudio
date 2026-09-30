@@ -103,6 +103,7 @@ def fake_worker(root, interrupt=False, mutate=False):
             (out_dir / 'predictions/job1/job1_seed-42_sample-0.pdb').write_text('truncated')
             os._exit(73)
     session = IntelliFoldSession.__new__(IntelliFoldSession)
+    session.prediction_settings = dict(msa_depth=128, diffusion_steps=25, recycles=10)
     session.config = {}
     session.root = SCRIPTS.parent
     session.args = Namespace(cache=str(root), use_msa_server=False, msa_server_url='',

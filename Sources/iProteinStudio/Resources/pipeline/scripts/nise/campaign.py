@@ -20,6 +20,10 @@ def run(config_path, branch_test=False, stage_batches=False, resident_workers=No
     if Path(config["output"]).resolve() != output:
         raise ValueError("NISE output does not match its saved configuration")
     settings = preflight(root, saved_request(config["request"]))
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from prediction_profiles import activate
+    activate(settings['prediction_settings'])
     from ligand_atoms import resolve, validate_selection
     manifest = resolve(settings["smiles"])
     validate_selection(settings, manifest)

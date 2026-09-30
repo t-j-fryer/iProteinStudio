@@ -155,6 +155,9 @@ struct RFD3View: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
+                if setupExperience == .advanced {
+                    PredictionSettingsView(settings: request.prediction_settings)
+                }
                 Card(title: "6 · Verify with", systemImage: "checkmark.seal") {
                     verificationSection
                 }

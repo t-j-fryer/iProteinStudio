@@ -311,7 +311,7 @@ def parse_prediction(out_dir, stem):
 
 def _boltz_cmd(yaml_dir, out_dir, recycling, sampling_steps, extra, use_potentials=False):
     cmd = [
-        BOLTZ_VENV / "bin" / "boltz", "predict", yaml_dir,
+        BOLTZ_VENV / "bin" / "python", Path(__file__).resolve().parent.parent / "boltz_mps.py", "predict", yaml_dir,
         "--out_dir", out_dir,
         "--output_format", "pdb",
         "--num_workers", "0",

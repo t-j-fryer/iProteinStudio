@@ -202,7 +202,7 @@ class SplitWorkerTests(unittest.TestCase):
         class Manifest:
             def __init__(self,records):self.records=records
         with tempfile.TemporaryDirectory() as raw:
-            root=Path(raw); source=root/'yaml';source.mkdir();(source/'one.yaml').write_text('fixture')
+            root=Path(raw); source=root/'yaml';source.mkdir();(source/'one.yaml').write_text('version: 1\nsequences: []\n')
             output=root/'out'; result=output/'boltz_results_yaml'
             leaf=result/'predictions/one';leaf.mkdir(parents=True)
             counts={'structure':0,'affinity':0}; observed_seeds=[]
@@ -221,6 +221,7 @@ class SplitWorkerTests(unittest.TestCase):
                     (leaf/'affinity_one.json').write_text('{"affinity_probability_binary":0.9}')
             main.predict=NS(main=predict)
             session=resident.BoltzSession.__new__(resident.BoltzSession)
+            session.prediction_settings = dict(msa_depth=128, diffusion_steps=25, recycles=3)
             session.config={}; session.arguments=['--seed','7']; session.request_seed=123; session.root=root; session.boltz_main=main
             original=(main.filter_inputs_structure,main.filter_inputs_affinity)
             with patch.object(resident,'validate_geometry'):

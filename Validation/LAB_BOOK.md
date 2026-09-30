@@ -46,3 +46,10 @@
 
 - [0048 — MPSGraph scratch recovery](lab_book/0048-mps-scratch-recovery.md)
 - [0052 — Portable workflow launches](lab_book/0052-portable-workflow-launches.md) — 23 audited checks; 0.2.8/MCP29 published; biotin resumed with preserved checkpoints.
+Latest comparison: [0065 — Mac versus workstation filtering](lab_book/0065-mac-workstation-filtering.md) (interim two-engine analysis; correlations, AP, threshold transfer and ETA).
+Latest paper protocol: [0064 — One baseline versus optimized](lab_book/0064-single-mac-baseline-comparison.md) (supersedes three-stage proposal; research only).
+Latest research: [0063 — Mac intervention baselines](lab_book/0063-mac-intervention-baselines.md) (research complete; nine-model proposal, not executed).
+Current work: [0062 — Shared-target optimizations and paper predictions](lab_book/0062-shared-target-paper-predictions.md) (predeclared; 674 designs, eight engines).
+Current optimization experiment: [0061 — Resident request overhead](lab_book/0061-resident-request-overhead.md) (128-row MSA,reduced steps,five seeds; predeclared).
+Current work: [0060 — Exact-token SUMO matrix](lab_book/0060-exact-token-sumo.md) (repeat affected models; retain unaffected outputs).
+- [0066 — Production prediction-profile acceptance](lab_book/0066-prediction-profile-release.md) — integration checks in progress.

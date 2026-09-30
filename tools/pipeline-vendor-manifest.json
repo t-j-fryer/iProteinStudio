@@ -5,7 +5,7 @@
   "files": {
     "nanohunter_run.sh": {
       "policy": "manual-merge",
-      "studio_sha256": "e1e3eda3b97401bb348ee5f6565eb4fda9945a4c85765b01ba74a3a90bf52fb6"
+      "studio_sha256": "a0c7b15b4061405ee262df8016d30a02c3c9512d274bf9938b0fb8dabd23c6e2"
     },
     "motif_scaffolding_helper.py": {
       "policy": "review",
@@ -13,7 +13,7 @@
     },
     "scripts/nanobody_cdrs.py": {
       "policy": "review",
-      "studio_sha256": "b5f65015f801c5e89082d1359f9514fd55a8fbd5d8d618c4335de0c88e5967e8"
+      "studio_sha256": "33a8246d4c8059aae48dc6143123c0e6822dbfc754a830150d1459e16b437b98"
     },
     "scripts/sample_antifold_positions.py": {
       "policy": "review",
@@ -45,7 +45,7 @@
     },
     "scripts/openfold_query_json.py": {
       "policy": "review",
-      "studio_sha256": "0d6eaf3a87d1cc749932d67833b648acaeee59f08256e007d8341396eb3faad6"
+      "studio_sha256": "72a8e3ea4bf4c61f033f87cc98d27b24d41b6e4dc01952edb22fa76b322ffe10"
     },
     "scripts/openfold_runner_yaml.py": {
       "policy": "review",
@@ -61,7 +61,7 @@
     },
     "examples/nanobody_scaffolds/catalog.tsv": {
       "policy": "review",
-      "studio_sha256": "296ecd0f8e4d638e759d752646718d7ce5839364ecb416f41e09fd92a65b9326"
+      "studio_sha256": "7a932eafa9f7adbda011131ab1598fed0a2d18bbf9e892029d7b94ab09abb4cd"
     },
     "examples/nanobody_scaffolds/7eow_caplacizumab.yaml": {
       "policy": "review",
@@ -97,11 +97,11 @@
     },
     "scripts/protenix_predict.py": {
       "policy": "review",
-      "studio_sha256": "52440c6315a6f3c1d0440ea3bca723c9f8181e4daa721c9405cb8ed85878a4ed"
+      "studio_sha256": "07129d2d68abb363de2a498beb1efa00bd5a321549db917b2a8e1321f71e550e"
     },
     "scripts/intellifold_predict.py": {
       "policy": "review",
-      "studio_sha256": "731c6f71df0948e9e1294212202f23f0141ea028523e90dec79494dde4716666"
+      "studio_sha256": "4c75bd8cf78f9512ce7ac31e0286edddcd29aa3a1cf1c886b25f342af0db64e2"
     }
   },
   "studio_owned": [

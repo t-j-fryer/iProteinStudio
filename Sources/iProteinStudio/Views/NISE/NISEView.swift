@@ -108,6 +108,7 @@ struct NISEView: View {
                         }
                         .accessibilityIdentifier("nise-scoring-mode")
                         if request.wrappedValue.usesScreeningObjective {
+                            PredictionSettingsView(settings: request.prediction_settings)
                             Picker("Structure generator", selection: request.folding_engine) {
                                 Text("Boltz 2 · pocket guidance available").tag("boltz")
                                 Text("ESMFold2 Fast · experimental, sequence only").tag("esmfold2-fast-mlx")

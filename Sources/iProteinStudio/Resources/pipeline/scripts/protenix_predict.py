@@ -380,11 +380,11 @@ def protenix_command(executable: Path, input_json: Path, output: Path,
     command = [
         str(executable), "pred", "-i", str(input_json), "-o", str(output),
         "-s", seeds, "-e", str(samples), "-n", model_name,
-        "--use_default_params", "False" if model_name == CONSTRAINT_MODEL else "True",
+        "--use_default_params", "False",
         "--use_msa", str(use_msa),
         "--use_template", str(use_template), "--use_rna_msa", "False",
         "--trimul_kernel", "torch", "--triatt_kernel", "torch",
-        "--enable_cache", "False", "--enable_fusion", "False",
+        "--enable_cache", str(model_name == CONSTRAINT_MODEL), "--enable_fusion", "False",
         # Protenix only writes token_pair_pae and token_asym_id when this is
         # enabled. Those are required for a real ipSAE calculation; summary
         # chain-pair PAE minima are not a substitute.
@@ -396,8 +396,12 @@ def protenix_command(executable: Path, input_json: Path, output: Path,
         if not kalign.is_file() or not os.access(kalign, os.X_OK):
             die("Protenix template guidance requires the managed Kalign binary; repair Protenix v2 in Setup")
         command.extend(["--kalign_binary_path", str(kalign)])
+    from prediction_profiles import profile
+    alias = next(key for key, value in MODEL_NAMES.items() if value == model_name)
+    settings = profile(alias)
+    command.extend(['-c', str(settings['recycles']), '-p', str(settings['diffusion_steps'])])
     if model_name == CONSTRAINT_MODEL:
-        command.extend(["-c", "10", "-p", "200", "--use_tfg_guidance", "False"])
+        command.extend(['--use_tfg_guidance', 'False'])
     return command
 
 
@@ -554,7 +558,8 @@ def main() -> None:
     if samples < 1:
         die("--samples must be at least 1")
 
-    source = args.yaml or args.inputs
+    from prediction_profiles import prepare_inputs, profile
+    source = prepare_inputs(args.yaml or args.inputs, args.output, args.model, profile(args.model))
     yaml_paths = [source] if source.is_file() else sorted(source.glob("*.yaml"))
     if not yaml_paths:
         die(f"no YAML inputs found at {source}")

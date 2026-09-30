@@ -643,6 +643,9 @@ def main() -> None:
         die(f"Could not read {args.config}: {exc}")
 
     root = Path(cfg["root"]).resolve()
+    sys.path.insert(0, str(root / 'scripts'))
+    from prediction_profiles import activate
+    cfg['prediction_settings'] = activate(cfg.get('prediction_settings'))
     output = Path(cfg["output"]).resolve()
     output.mkdir(parents=True, exist_ok=True)
     (output / "logs").mkdir(exist_ok=True)

@@ -596,6 +596,7 @@ def main() -> None:
         "hit_filters": req.get("hit_filters", {}),
         "extra_predictors": req.get("extra_predictors", []),
         "intellifold_model": req.get("intellifold_model", "v2-flash"),
+        "prediction_settings": req.get("prediction_settings", {}),
         # Ligand Intelligence may recommend designing across several ligand
         # geometries. Each becomes its own set of fixtures and its own share of
         # the design quota; absent, the single supplied structure is used.

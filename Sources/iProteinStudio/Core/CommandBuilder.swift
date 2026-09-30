@@ -11,8 +11,8 @@ import Foundation
 ///
 /// What that means concretely: the flags we *don't* pass matter as much as the
 /// ones we do. `--intellifold-buckets` is left at its `auto` default, which
-/// resolves to the exact campaign token count — the single biggest measured
-/// IntelliFold win available (2.28x).
+/// resolves to each prediction's actual token count, including variable-length
+/// binders, through the shared pipeline policy.
 /// Overriding them here would silently undo it.
 enum CommandBuilder {
     /// Returns the argument vector (excluding the runner path itself).
@@ -161,6 +161,10 @@ enum CommandBuilder {
         // check requires the normalised structure to exist.
         if request.resumeIfPossible { args += ["--resume"] }
 
+        if let data = try? JSONEncoder().encode(request.prediction_settings),
+           let json = String(data: data, encoding: .utf8) {
+            args += ["--prediction-settings-json", json]
+        }
         return args
     }
 

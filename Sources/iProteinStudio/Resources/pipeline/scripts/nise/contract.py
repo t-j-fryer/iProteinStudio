@@ -22,7 +22,7 @@ def saved_request(request):
 # Studio defaults; historical saved runs retain their explicit settings.
 LEGACY_POLICY = dict(search_policy_version=1, early_score_gate=0.0, selective_affinity=False,
                      adaptive_proposals=False, initial_proposals=16, affinity_batch_size=8, min_improvement=0.0001)
-DEFAULTS = dict(folding_engine="boltz", final_predictors=[], scoring_mode="boltz", nesso_early_score_gate=0.4, psichic_early_score_gate=0.2, search_policy_version=3, early_score_gate=0.80, selective_affinity=True,
+DEFAULTS = dict(prediction_settings={}, folding_engine="boltz", final_predictors=[], scoring_mode="boltz", nesso_early_score_gate=0.4, psichic_early_score_gate=0.2, search_policy_version=3, early_score_gate=0.80, selective_affinity=True,
                 adaptive_proposals=False, initial_proposals=16, affinity_batch_size=8, min_improvement=0.01, smiles="", num_starts=1000, trajectories=8, nise_seqs=32, first_cycle_seqs=64,
                 partial_noising=False, noise_radius=6.0, noise_percent=25.0, noise_predictions=32, noise_mpnn_seqs=32, noise_advance=1,
                 max_cycles=30, patience=4, binder_min_len=65, binder_max_len=150,
@@ -45,6 +45,10 @@ def normalize(request):
     if not isinstance(request, dict) or set(request) - set(DEFAULTS):
         raise ValueError("Unknown NISE settings; use the versioned NISE request.")
     cfg = {**DEFAULTS, **request}
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from prediction_profiles import normalize as normalize_profiles
+    cfg['prediction_settings'] = normalize_profiles(cfg['prediction_settings'])
     if cfg['folding_engine'] not in {'boltz', 'esmfold2-fast-mlx', 'esmfold2-full-mlx'}:
         raise ValueError('Unknown NISE structure engine.')
     if cfg['folding_engine'] != 'boltz' and (cfg['scoring_mode'] != 'screening' or cfg['resident_workers']):

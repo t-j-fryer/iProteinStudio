@@ -141,7 +141,10 @@ def resident_spec(predictor: str, root: Path, intellifold_model: str,
     worker = root / "scripts" / "resident_predictor.py"
     if not python.is_file() or not worker.is_file():
         raise RuntimeError(f"resident runtime is incomplete for {predictor}: {python}, {worker}")
+    from prediction_profiles import normalize, ENV
+    import json
     config = {
+        "prediction_settings": normalize(json.loads(os.environ.get(ENV, '{}'))),
         "schema": 1, "root": str(root), "engine": predictor, "model": model,
         "seed": "42", "samples": samples, "use_potentials": False,
         "use_msa": use_msa, "owner_pid": os.getpid(), "engine_args": engine_args,

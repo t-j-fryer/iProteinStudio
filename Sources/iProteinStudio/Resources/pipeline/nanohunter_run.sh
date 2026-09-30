@@ -425,6 +425,7 @@ Core:
   --filter-min-binder-plddt T      binder-alone pLDDT gate (default: ${FILTER_MIN_BINDER_PLDDT})
   --filter-max-binder-rmsd A       apo-to-complex binder C-alpha RMSD (default: ${FILTER_MAX_BINDER_RMSD})
   --run-name NAME                  default: ${RUN_NAME}
+  --prediction-settings-json JSON Per-engine msa_depth, diffusion_steps and recycles overrides
   --num-runs N                     default: ${N_RUNS}
   --num-opt-cycles N               optimization cycles after cycle_00 (default: ${N_CYCLES})
   --num-cycles N                   alias of --num-opt-cycles
@@ -817,6 +818,7 @@ while [[ $# -gt 0 ]]; do
     --filter-max-binder-rmsd) FILTER_MAX_BINDER_RMSD="$2"; shift 2 ;;
 
     --run-name) RUN_NAME="$2"; shift 2 ;;
+    --prediction-settings-json) export IPROTEINSTUDIO_PREDICTION_SETTINGS="$2"; shift 2 ;;
     --num-runs) N_RUNS="$2"; shift 2 ;;
     --num-opt-cycles|--num-cycles) N_CYCLES="$2"; shift 2 ;;
     --predictor-seed) PREDICTOR_SEED="$2"; shift 2 ;;
@@ -5023,7 +5025,7 @@ run_predict_openfold() {
 
   studio_activate_engine "${OPENFOLD_VENV}" || return $?
   set +e
-  OPENFOLD_CACHE="${OPENFOLD_CACHE_DIR}" KMP_USE_SHM=0 "${OPENFOLD_CLI}" predict \
+  OPENFOLD_CACHE="${OPENFOLD_CACHE_DIR}" KMP_USE_SHM=0 python "${PIPELINE_CODE_ROOT}/scripts/openfold_mps.py" predict \
     --query_json "${query_json}" \
     --output_dir "${out_dir}" \
     --inference_ckpt_path "${OPENFOLD_CHECKPOINT_PATH}" \
@@ -6342,7 +6344,7 @@ run_cycle_wave_predictor_batch() {
         write_openfold_runner_yaml "${of_runner}"
         ensure_openfold_checkpoint_noninteractive
         studio_activate_engine "${OPENFOLD_VENV}" || return $?
-        OPENFOLD_CACHE="${OPENFOLD_CACHE_DIR}" KMP_USE_SHM=0 "${OPENFOLD_CLI}" predict \
+        OPENFOLD_CACHE="${OPENFOLD_CACHE_DIR}" KMP_USE_SHM=0 python "${PIPELINE_CODE_ROOT}/scripts/openfold_mps.py" predict \
           --query_json "${of_batch_query}" \
           --output_dir "${output_dir}" \
           --inference_ckpt_path "${OPENFOLD_CHECKPOINT_PATH}" \
@@ -7628,7 +7630,9 @@ if [[ "${INTELLIFOLD_EXTRA_CLI_STRING}" == *"--buckets"* ]]; then
   echo "==> IntelliFold buckets supplied through --intellifold-extra; automatic bucket selection disabled."
 elif [[ "${INTELLIFOLD_BUCKETS}" != "default" ]]; then
   if [[ "${INTELLIFOLD_BUCKETS}" == "auto" ]]; then
-    INTELLIFOLD_BUCKETS="${MAX_REQUESTED_POLYMER_TOKENS}"
+    # Upstream's one-token bucket selects the actual token count for every
+    # request, including variable-length binders and atom-tokenized ligands.
+    INTELLIFOLD_BUCKETS="1"
   elif [[ "${INTELLIFOLD_BUCKETS}" == "length-aware" ]]; then
     # Experimental variable-length policy. A few 32-token bands reduce padded
     # work without creating one warm-up shape for every sampled binder length.

@@ -55,16 +55,15 @@ projects saved when Compatibility was still exposed in Advanced:
 
 ### IntelliFold PyTorch
 
-IntelliFold pads each example to the smallest configured token bucket. The
-current `auto` mode uses one bucket equal to target tokens plus the maximum
-binder length. That is appropriate for fixed-length nanobody scaffolds. For a
-96-aa target and 65–150-aa minibinders it pads every input to 246 tokens.
-
-A resident mixed-length campaign should retain each trajectory's sampled length
-across cycles and use a short, declared list of total-token buckets. Candidate
-buckets must be benchmarked; more buckets reduce padded attention work but can
-increase shape warm-up overhead. Exact per-length buckets are not assumed to be
-optimal for only 12 trajectories.
+New Flash and Full requests use exact input token lengths. Studio selects the
+upstream native overflow-sizing path with a sole bucket of one: every input
+larger than one token is sized to its actual count. This shared default covers
+standalone Predict, MCP and resident workers. Design-runner `auto` also sizes
+each request independently, rather than padding shorter binders to the campaign
+maximum. Explicit older bucket lists remain reproducible; resumed jobs retain
+their original adapter snapshots. Internal atom/attention-block padding remains
+part of the upstream model implementation. Varied-length allocator and shape
+warm-up costs still need measuring; exact sizing is not a universal speed claim.
 
 The original fixed-length scheduler campaign did not test this policy: all binders are exactly
 80 aa and every IntelliFold arm uses the same 176-token bucket.

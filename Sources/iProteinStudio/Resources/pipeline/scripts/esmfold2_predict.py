@@ -143,6 +143,15 @@ class Session:
         self.model._esmc = lm
         self.builder = ESMFold2InputBuilder(ccd_cache=assets / 'ESMFold2')
         self.profile = model
+        self.prior_cache_limit = mx.set_cache_limit(4 << 30)
+        import atexit
+        atexit.register(self.close)
+
+    def close(self):
+        import mlx.core as mx
+        if self.prior_cache_limit is not None:
+            mx.set_cache_limit(self.prior_cache_limit)
+            self.prior_cache_limit = None
 
     def predict(self, chains, seed, samples, directory, job):
         import numpy as np
@@ -159,7 +168,9 @@ class Session:
                 seqs.append(ProteinInput(id=c['id'], sequence=c['sequence'], msa=msa))
         features, infos = self.builder.prepare_input(StructurePredictionInput(sequences=seqs), seed=seed, device='cpu')
         torch.manual_seed(seed); mx.random.seed(seed)
-        loops, steps = PROFILES[self.profile]
+        from prediction_profiles import profile
+        settings = profile('esmfold2-' + self.profile + '-mlx')
+        loops, steps = settings['recycles'], settings['diffusion_steps']
         mx.synchronize(); started = time.perf_counter()
         outputs = self.model(**features, num_loops=loops, num_sampling_steps=steps,
                              num_diffusion_samples=samples, msa_max_depth=1024)
@@ -222,10 +233,14 @@ class Session:
 def run(root, model, paths, output, seeds, samples, unrestrained_check=False, session=None, progress=None):
     output = Path(output); output.mkdir(parents=True, exist_ok=True)
     from live_structure_events import invalidate, publish
+    from prediction_profiles import prepare_inputs, profile
+    engine = 'esmfold2-' + model + '-mlx'
+    settings = profile(engine)
     for index, path in enumerate(paths, 1):
+        path = prepare_inputs(path, output, engine, settings)
         chains, msas = read_input(path, model, unrestrained_check)
         identity = dict(input_sha256=sha(path), msas=msas, model=model, seeds=seeds, samples=samples,
-                        profile=PROFILES[model], port=PORT_REVISION, unrestrained_check=unrestrained_check, schema=1)
+                        profile=settings, port=PORT_REVISION, unrestrained_check=unrestrained_check, schema=1)
         # JSON round trip makes tuple/list identity stable across resumptions.
         identity = json.loads(json.dumps(identity))
         dest = output / path.stem

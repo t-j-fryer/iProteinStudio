@@ -461,6 +461,7 @@ final class RFD3Controller: ObservableObject {
         payload.target_kind = request.targetKind == .smallMolecule ? "small_molecule" : "protein"
 
         payload.lengths = request.binLengths
+        payload.prediction_settings = request.prediction_settings
         payload.num_backbones = max(1, request.numDesigns)
         payload.timesteps = request.timesteps
         payload.recycles = request.recycles
@@ -622,6 +623,7 @@ struct RFD3StudioRequest: Codable {
     var sequence_temperature: Double = 0.10
     var first_shell_temperature: Double = 1.00
     var top_n: Int = 100
+    var prediction_settings: [String: [String: Int]] = [:]
     var use_potentials: Bool = true
     var run_affinity: Bool = true
     var run_apo: Bool = true

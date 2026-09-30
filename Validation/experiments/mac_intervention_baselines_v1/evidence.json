@@ -1,0 +1,285 @@
+{
+  "captured_at_utc": "2026-09-30T14:44:55.972353+00:00",
+  "method": "Read-only source/metadata inspection; no numerical imports, installs or predictions",
+  "files": [
+    {
+      "path": "Sources/iProteinStudio/Resources/pipeline/setup_pipeline.sh",
+      "sha256": "6690fc7e321a3662caafc87260b33e02dfb23ac4e9fc272375b6eb67c72ce3c0",
+      "size": 98778
+    },
+    {
+      "path": "Sources/iProteinStudio/Resources/pipeline/scripts/boltz_mps.py",
+      "sha256": "47c5a6c4eb2df84b5edde6e47c5b88274dea5243cb04ad92957df21c5bd26a87",
+      "size": 4741
+    },
+    {
+      "path": "Sources/iProteinStudio/Resources/pipeline/scripts/resident_predictor.py",
+      "sha256": "66f24ba4e64c2774ce8eabb7b7191567ae20b94a4676c88f32549ebb1fac6535",
+      "size": 37421
+    },
+    {
+      "path": "Sources/iProteinStudio/Resources/pipeline/scripts/intellifold_padding.py",
+      "sha256": "2f1f65f772fbd110765cd7bea260da1be3c5733910b3f496f30436352a64e966",
+      "size": 1055
+    },
+    {
+      "path": "Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py",
+      "sha256": "718ab709778031adb4f382ca007375d33a774e65e9b06b9a525bf3d05b5d1e88",
+      "size": 16558
+    },
+    {
+      "path": "Validation/output/paper_binder_matrix_v1/campaign/frozen/config.json",
+      "sha256": "1b967de956bc7f467620367c5bdcd953d9ec8eab27c3a61595cb8e8ccf59924c",
+      "size": 12826111
+    },
+    {
+      "path": "Validation/output/paper_binder_matrix_v1/campaign/frozen/asset_fingerprints.json",
+      "sha256": "99e7ae4673a5864bb0eaa7fca9fe68c3aa35cc8a55b6fcdb40ec7e5773a4e831",
+      "size": 14038
+    },
+    {
+      "path": "Validation/output/paper_binder_matrix_v1/optimization_summary/REPORT.md",
+      "sha256": "a174e653ca26d090d89144dafdc1bff212dd28133f38a0eba671d5a51e08812a",
+      "size": 6943
+    },
+    {
+      "path": "Sources/iProteinStudio/Resources/pipeline/patches/protenix_constraint_zero_substructure.patch",
+      "sha256": "f5341d4c14ad3da4af98b69eb0d2af4de719711ba73a9db9cd3ba9e209a4374b",
+      "size": 1841
+    },
+    {
+      "path": "Sources/iProteinStudio/Resources/pipeline/patches/protenix_constraint_mps.patch",
+      "sha256": "eddf50a72c677bfdf84d77c1f5097bd584c61058b208ab85a388724bef4f953b",
+      "size": 19743
+    },
+    {
+      "path": "Sources/iProteinStudio/Resources/pipeline/patches/intellifold_pytorch_mps.patch",
+      "sha256": "d5a1e6143bc73202189446738816f221b275057b6986723e72b106c642e3891c",
+      "size": 7349
+    },
+    {
+      "path": "Sources/iProteinStudio/Resources/pipeline/patches/protenix_mps.patch",
+      "sha256": "2cb831316656031795103b568a8d2836b8c2d58d6a07e321f0ad66e512d9c846",
+      "size": 8742
+    },
+    {
+      "path": "lab_book/0002-inherited-speed-lessons.md",
+      "sha256": "06a78a0e12412ebc3b2f0728b7fe6e5f0c13c8d35a9cd60f6f69927ec926bc3f",
+      "size": 15246
+    },
+    {
+      "path": "lab_book/0043-protenix-constraint-macos-validation-lineage.md",
+      "sha256": "a072a89ffa477772002148dbefcbd24fdb1ac15413aa9f348b538794b14d0679",
+      "size": 11985
+    },
+    {
+      "path": "lab_book/0045-validate-cycle-waves-before-residency.md",
+      "sha256": "f4ec9f1c01fcaa1f46456130622ebf98d219c225fed9bb5499878ca057ae33ee",
+      "size": 7139
+    },
+    {
+      "path": "lab_book/0169-test-other-apple-engines.md",
+      "sha256": "10d3a42d4c867eee1b6ab180fd5a4daa9a0570276ef8ef84b358069f6fc94555",
+      "size": 16360
+    },
+    {
+      "path": "lab_book/0171-qualify-and-deploy-apple-runtime.md",
+      "sha256": "269cfa29940bdc713887abf902fed4f6de4cdce87acdb44d28b37152129f1560",
+      "size": 11295
+    },
+    {
+      "path": "lab_book/0172-test-nesso-screening-batches.md",
+      "sha256": "d5c6111d599dc4bf3e45823cdd7de0a24088c952fbec0fba8e7ea7f24894b40d",
+      "size": 6873
+    },
+    {
+      "path": "lab_book/0173-fix-psichic-mps-features.md",
+      "sha256": "8bd879abde1d45fcd990069577661b5ac4487564155c1292c5046ba1fcc9bca0",
+      "size": 4993
+    },
+    {
+      "path": "lab_book/0208-review-esmfold2-speed-and-mlx-updates.md",
+      "sha256": "03753ba3aa216c43babc7da451df00a0c408b9a18a56b57357558e9ca6d47fa3",
+      "size": 6741
+    },
+    {
+      "path": "lab_book/0208-stream-results-across-workflows.md",
+      "sha256": "de8bf4ff3463c39c0b8142ae161a5272a2968422b5c7bbb40c899c8982e90f59",
+      "size": 6166
+    },
+    {
+      "path": "lab_book/0209-test-updated-esmfold2-mlx.md",
+      "sha256": "f2efacaa9ca39d1a1dc6490b13bd3e2ca6e9e1693b5082f6d47297086de349c2",
+      "size": 10587
+    },
+    {
+      "path": "lab_book/0211-compare-esmfold2-pytorch-mlx-smt3.md",
+      "sha256": "5d7082126d30250d73dc48de62fa80772527338b247bd29506f1f83fa08e7109",
+      "size": 6926
+    },
+    {
+      "path": "lab_book/0215-integrate-esmfold2-mlx.md",
+      "sha256": "18a375120479a2b45e358e885feb4f9926068d8c26ec48145c0e9550f4e4fb57",
+      "size": 9868
+    },
+    {
+      "path": "lab_book/0225-audit-current-engine-defaults.md",
+      "sha256": "3734922b4d00c53980f04ae30400ec32f2815da38c641479a9d27e5ba21fc710",
+      "size": 3276
+    },
+    {
+      "path": "lab_book/0228-exact-token-prediction.md",
+      "sha256": "846b4924771bb229fd4d1569b20eb087b9708635bec77d725c3d81eb05791747",
+      "size": 15146
+    },
+    {
+      "path": "lab_book/0229-resident-request-overhead.md",
+      "sha256": "de9089271bd96f6c5bf66ec7dfe64da5bceec9e8ca98330d59c274b08d569ae9",
+      "size": 14189
+    },
+    {
+      "path": "lab_book/0230-shared-target-paper-predictions.md",
+      "sha256": "0984b381df5a46afb169b61faa7cd1db85e4648398ee33f3f9db7f88f0acbf30",
+      "size": 24370
+    },
+    {
+      "path": "/Users/thomasfryer/iProteinHunter/README.md",
+      "sha256": "74f9cdaf0f517e5aa8b5a796321ecf8f22fa80c3a6f8bc668271e99e0f01f3ee",
+      "size": 13493
+    },
+    {
+      "path": "/Users/thomasfryer/NanoHunter/docs/MPS_OPTIMIZATION.md",
+      "sha256": "637a57f56a7c73582a583d97b2c05b5847599a77dba062323b2f1bedc547cae8",
+      "size": 5931
+    },
+    {
+      "path": "/Users/thomasfryer/NanoHunter/docs/PREDICTOR_SPEED_INTERPRETATION.md",
+      "sha256": "83ee055ea56bc40c5c47e5d12456d440675a61075373ee9319b7e6c82383404b",
+      "size": 7576
+    },
+    {
+      "path": "/Users/thomasfryer/iProteinHunter-beta/experiments/esmfold2_macos/AGENTS.md",
+      "sha256": "be7024378cb8e03f3d2e7c5a109cd4e600a4caf2474242a398e37786db597d0a",
+      "size": 7027
+    },
+    {
+      "path": "/Users/thomasfryer/iProteinHunter-beta/experiments/esmfold2_macos/patches/esm_mps.patch",
+      "sha256": "b43287d2a6da503e024dc48579fc610a5be62f8284ee9e1bc569b6b148dbdd9b",
+      "size": 7917
+    },
+    {
+      "path": "/Users/thomasfryer/iProteinHunter-beta/experiments/esmfold2_macos/patches/transformers_mps.patch",
+      "sha256": "ee17664bd073c3a860f749fc0d999a7f4babdcbf7d358bda5597259c5116a5e2",
+      "size": 6156
+    },
+    {
+      "path": "/Users/thomasfryer/iProteinHunter-beta/experiments/protenix_constraint_macos/patches/README.md",
+      "sha256": "073228cf5f21f7356fd0515deea448069f8ed9f5cc492a842219bdc77cce1b65",
+      "size": 1938
+    },
+    {
+      "path": "/Users/thomasfryer/NanoHunterStudio/Sources/iProteinStudio/Resources/pipeline/patches/protenix_mps.patch",
+      "sha256": "2cb831316656031795103b568a8d2836b8c2d58d6a07e321f0ad66e512d9c846",
+      "size": 8742
+    },
+    {
+      "path": "Validation/experiments/paper_binder_matrix_v1/README.md",
+      "sha256": "e58fb677eb01bed07ed84a2cd489e58aa5cd3a818ab909a01db7adc558d4127a",
+      "size": 5071
+    },
+    {
+      "path": "Validation/experiments/paper_binder_matrix_v1/optimizations.py",
+      "sha256": "224d31faaf53f5811ac3ab8530902943a770d7f9ace3170537f1972026b2a0ba",
+      "size": 8370
+    },
+    {
+      "path": "Validation/experiments/paper_binder_matrix_v1/positions.py",
+      "sha256": "19a74ea0e36b8ab719b3dc99248baaf0faa9188c38c930573eb36682d98d00fe",
+      "size": 1524
+    },
+    {
+      "path": "Validation/experiments/sumo_model_matrix_exact_v1/manifest.json",
+      "sha256": "3f15a1f1de5c5eb99ec37a7d1f996060de3739cab1f58503c69f71ae63172d10",
+      "size": 2873
+    }
+  ],
+  "repositories": {
+    "iProteinStudio": {
+      "path": "/Users/thomasfryer/iProteinStudio",
+      "head": "00d299abf6f0b93cf1e4f0fff365e196edefb8ca",
+      "dirty_entry_count": 22,
+      "note": "HEAD does not capture dirty or untracked source; selected worktree files hashed separately."
+    },
+    "iProteinHunter-beta": {
+      "path": "/Users/thomasfryer/iProteinHunter-beta",
+      "head": "0f372533ec7b02e23819c1512c6033aed9265356",
+      "dirty_entry_count": 6,
+      "note": "HEAD does not capture dirty or untracked source; selected worktree files hashed separately."
+    },
+    "NanoHunterStudio": {
+      "path": "/Users/thomasfryer/NanoHunterStudio",
+      "head": "7e7e8505f14f99c69adcd09773b6c7d885977109",
+      "dirty_entry_count": 28,
+      "note": "HEAD does not capture dirty or untracked source; selected worktree files hashed separately."
+    },
+    "NanoHunter": {
+      "path": "/Users/thomasfryer/NanoHunter",
+      "head": "434b8fff6d7d220db57ccafb4b0bd3883dbfe18e",
+      "dirty_entry_count": 7,
+      "note": "HEAD does not capture dirty or untracked source; selected worktree files hashed separately."
+    },
+    "iProteinHunter": {
+      "path": "/Users/thomasfryer/iProteinHunter",
+      "head": "7e2637b8d3697e683cbc52de581c51d315940750",
+      "dirty_entry_count": 5,
+      "note": "HEAD does not capture dirty or untracked source; selected worktree files hashed separately."
+    }
+  },
+  "installed_runtime_metadata": {
+    "boltz": {
+      "resolved_path": "/Users/thomasfryer/.iproteinstudio/components/boltz/versions/302846e451b3c5b5887d-20260922T174752Z-73a3fc4b",
+      "runtime_manifest_sha256": "302846e451b3c5b5887d88590d9ca5b217a17c0a0b508177a5cb6f19b76490a3",
+      "package_versions": {
+        "torch": "2.14.0"
+      }
+    },
+    "intellifold": {
+      "resolved_path": "/Users/thomasfryer/.iproteinstudio/components/intellifold/versions/c761ea7dda8a3f24bba3-20260922T174822Z-912778ad",
+      "runtime_manifest_sha256": "c761ea7dda8a3f24bba3f911491057d22cb6d0bed3c2c1600f102f7ed5f41b35",
+      "package_versions": {
+        "torch": "2.14.0"
+      }
+    },
+    "protenix": {
+      "resolved_path": "/Users/thomasfryer/.iproteinstudio/components/protenix/versions/845b59fa436d0e950a37-20260922T174852Z-9ffbf390",
+      "runtime_manifest_sha256": "845b59fa436d0e950a37ef9e6a4f6df29e68fa35669aeac05b2361d2557751a4",
+      "package_versions": {
+        "torch": "2.7.1"
+      }
+    },
+    "protenix_constraint": {
+      "resolved_path": "/Users/thomasfryer/.iproteinstudio/components/protenix_constraint/versions/0385c1eafa5c23e62d69-20260922T174923Z-a620aa0b",
+      "runtime_manifest_sha256": "0385c1eafa5c23e62d69b535101db17358e97cc95566df6e31d234940c688617",
+      "package_versions": {
+        "torch": "2.7.1"
+      }
+    },
+    "openfold3": {
+      "resolved_path": "/Users/thomasfryer/.iproteinstudio/components/openfold3/versions/890f3bc613b7904c2215-20260922T174950Z-46861add",
+      "runtime_manifest_sha256": "890f3bc613b7904c22157435caac16480e3d6276006351258f5f5571b6dc9b58",
+      "package_versions": {
+        "torch": "2.6.0",
+        "mlx": "0.32.0"
+      }
+    },
+    "esmfold2": {
+      "resolved_path": "/Users/thomasfryer/.iproteinstudio/components/esmfold2/versions/e01c09cc34165e20cf62-20260928T234518Z-53b2c80f",
+      "runtime_manifest_sha256": "e01c09cc34165e20cf6252a8f6fd75d09d0878f11ee7fc01322b1d4e67f3b61f",
+      "package_versions": {
+        "torch": "2.11.0",
+        "mlx": "0.32.2"
+      }
+    }
+  },
+  "unresolved_paths": []
+}

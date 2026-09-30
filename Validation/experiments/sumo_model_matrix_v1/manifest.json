@@ -1,0 +1,12 @@
+{
+ "experiment":"sumo_model_matrix_v1","date":"2026-09-29",
+ "question":"Speed and crystal-core quality of all nine installed structure predictors on96-aa yeast SUMO, crossing MSA depth and diffusion budget.",
+ "seeds":[42,43,44,45,46],"samples_per_request":1,"normal_predictions":250,"diagnostic_predictions":50,
+ "resident_contract":"One loaded model instance per engine, sequential independently submitted requests, five seeds per MSA/budget cell. Same PID/model object/load-count recorded. Imports and model setup timed once. First request flagged separately; later calls are warm. No app production changes.",
+ "msa":"Query-only; fixed128 rows identical to prior Boltz experiment; full cached8060-row A3M. Native caps retained, tensor shapes recorded. ESMFold2 Fast has only query-only conditions. No server or implicit fallback.",
+ "diffusion":"200/25 for Boltz, IntelliFold Flash/Full, Protenixv2/Constraint, OpenFold3;5/1 Mini;100/13 ESMFull;50/6 ESMFast. Integer rounding means Mini is one-fifth, Full13%, Fast12%.",
+ "fixed_settings":"Native recycle/loop counts, installed runtime/checkpoints, FP32 folding except native OpenFold profile, ESMC BF16, no templates or Boltz potentials, no constraints for monomer Constraint model. Four host threads except measured IntelliFold one. One diffusion sample even for Protenix.",
+ "profiling":"Five normal calls plus one seed42 synchronized stage diagnostic replay per cell. Diagnostic timings excluded from normal throughput statistics. CPU process time not interpreted as GPU utilization. Nested stage durations are not additive. Preprocessing/featurization measured, whole-model GPU-synchronized time, total request, loading and residual I/O/other separately. First-call warmup identified.",
+ "reference":"Existing exact-sequence crystal3QHT chainA, mapped query residues21-96. No template supplied. Core RMSD, CA-lDDT, confidence, geometry, full aligned structures; disordered N terminus excluded from primary quality metric.",
+ "limits":"One short training-era protein; no broad engine ranking or production-setting promotion; five different seeds mix stochastic variation and timing variation. Biotin remains paused. RFdiffusion3/MPNN/NESSO/PSICHIC are not sequence-to-structure SUMO predictors."
+}
