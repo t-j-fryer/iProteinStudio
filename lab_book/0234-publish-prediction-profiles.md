@@ -120,3 +120,11 @@ comparisons remain ongoing. No additional speedup is inferred from smoke timing.
 
 Publish and verify the packaged app/MCP/update feed, then start the app-profile
 continuation under the shared execution lease. Biotin remains paused.
+
+Final standalone acceptance also passed Boltz, Mini, v2 and Constraint (one
+complex each), exercising the actual native CLI argument path at final defaults.
+Plan `plan-73103e896403b4a3`, job `job-73103e896403`; four receipt hashes verified.
+Combined production acceptance:22 predictions. The continuation's independent
+export audit verified2124/5392 predictions with zero integrity errors. Final
+Swift build, packaged resource checks, ad-hoc app signature verification and
+Sparkle appcast generation passed.

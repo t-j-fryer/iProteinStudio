@@ -34,3 +34,11 @@ are imported through immutable receipt references;674 Mini1 outputs remain
 only in the original cohort. The continuation uses the original instrumented
 runtime so timing hooks and model versions do not change. Production integration
 was checked separately in attempt01. Biotin remains paused.
+
+Final standalone acceptance also passed Boltz, Mini, v2 and Constraint (one
+complex each), exercising the actual native CLI argument path at final defaults.
+Plan `plan-73103e896403b4a3`, job `job-73103e896403`; four receipt hashes verified.
+Combined production acceptance:22 predictions. The continuation's independent
+export audit verified2124/5392 predictions with zero integrity errors. Final
+Swift build, packaged resource checks, ad-hoc app signature verification and
+Sparkle appcast generation passed.

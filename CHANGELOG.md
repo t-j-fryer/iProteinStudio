@@ -1,7 +1,5 @@
 # iProteinStudio release notes
 
-Initialization-only helix-kill strength is now the sole secondary-structure control in the app, CLI and MCP. Retired experimental configurations require explicit migration.
-
 ## 0.2.17 — shared prediction profiles and measured preparation improvements
 
 - New prediction profiles use up to 128 target MSA rows and 25 diffusion steps
