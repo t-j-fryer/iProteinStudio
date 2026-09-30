@@ -42,3 +42,20 @@ Combined production acceptance:22 predictions. The continuation's independent
 export audit verified2124/5392 predictions with zero integrity errors. Final
 Swift build, packaged resource checks, ad-hoc app signature verification and
 Sparkle appcast generation passed.
+
+## Publication and restart verification
+
+Published `v0.2.17-beta` (build63), source commit `ec22920`, update-feed commit
+`21d605c`. All four GitHub asset SHA256 digests match local artifacts. The live
+Sparkle feed advertises build63; its archive signature was verified with the
+project signing identity. Local app build63 is installed and opened, with
+build62 retained under `build/app-backups/`. Installed MCP36 doctor passed;
+all19 detected component entries report OK; prediction adapters match source.
+
+Continuation `job-a36f3b69a4a9` is running under its immutable plan. First
+audited Mini outputs confirm5steps/4recycles; full compute has not been reduced
+on restart. Stage timing, geometry advisories and hash checkpoints continue.
+The original benchmark job remains cancelled and raw results unchanged; biotin
+was not resumed. The longer campaign and its comparative analysis remain in
+progress. Distribution remains the existing ad-hoc trusted beta, not Apple
+notarization or a fresh-Mac installation claim.
