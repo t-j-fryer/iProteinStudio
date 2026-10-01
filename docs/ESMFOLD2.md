@@ -14,7 +14,7 @@ not included in the app or runtime archive.
 | Protein input | Complete sequences | Complete sequences, optionally with an MSA |
 | MSA encoder | Absent | Present |
 | Folding trunk | 24 layers | 48 layers |
-| Studio tested profile | 3 loops, 50 requested sampling steps | 20 loops, 100 requested sampling steps |
+| Studio tested profile | 3 loops, 50 requested sampling steps | 3 loops, 50 requested sampling steps |
 | Pocket restraints / template guidance / Boltz affinity | Unavailable | Unavailable |
 
 Both support protein chains and SMILES ligands. Neither is available as the
@@ -25,8 +25,9 @@ passes differ because the upstream schedule includes recycling and step reuse.
 
 On our **M4 Max, 40-core GPU, 64 GB**, Fast's model call was about **1.2–1.6×
 faster at matched 3-loop/50-step settings**, for one 96-residue monomer and one
-194-residue protein complex. Comparing the tested Fast and Full profiles above
-was about **4–13×**, but that changes both model size and compute budget. Those
+194-residue protein complex. The historical comparison against Full at 20 loops/100 steps
+was about **4–13×**, but that used different compute budgets and no longer
+represents the app defaults. Those
 numbers exclude loading, feature preparation and output decoding and are not
 whole-campaign estimates or an accuracy comparison. Both comparison inputs were
 sequence-only. See [Lab Book 0214](../lab_book/0214-test-esmfold2-fast.md).

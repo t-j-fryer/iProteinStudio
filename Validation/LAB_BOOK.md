@@ -1,5 +1,7 @@
 # Validation Lab Book
 
+Latest default promotion: [0078 — ESMFold2 Full 3/50](lab_book/0078-esm-full-default-promotion.md), following [0076](lab_book/0076-esmfold2-full-3-50.md).
+
 Current acceptance: [0077 — Hunter generation stages](lab_book/0077-hunter-stage-acceptance.md) (passed).
 
 | Entry | Date | Status | Question |

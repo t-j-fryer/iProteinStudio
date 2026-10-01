@@ -16,7 +16,7 @@ import time
 import uuid
 
 PORT_REVISION = "c26b9af872158d822a8c95589708eedd3b9c0831"
-PROFILES = {"full": (20, 100), "fast": (3, 50)}
+PROFILES = {"full": (3, 50), "fast": (3, 50)}
 
 
 def sha(path):

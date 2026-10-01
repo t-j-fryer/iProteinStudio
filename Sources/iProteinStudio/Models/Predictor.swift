@@ -155,7 +155,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
             return "Experimental iterative design against a selected protein epitope using Protenix's trained soft pocket guidance."
         case .intellifoldJAX: return "Retired after a same-input quality-control failure on Metal."
         case .esmfold2: return "Portable Apple MLX runtime, shared ESMC-6B encoder and chemical data. Downloaded once for Fast and Full."
-        case .esmfold2Full: return "Experimental full structure predictor: 20 refinement loops and 100 requested diffusion steps. Supports per-chain MSAs or single sequences."
+        case .esmfold2Full: return "Experimental full structure predictor: 3 refinement loops and 50 requested diffusion steps. Supports per-chain MSAs or single sequences."
         case .esmfold2Fast: return "Experimental sequence-only predictor: 3 refinement loops and 50 requested diffusion steps. No MSA search."
         case .openfold3:      return "Another independent folding engine, with Apple GPU kernels."
         case .alphafold3:     return "Retired after a same-input quality-control failure on Metal."
@@ -399,8 +399,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
 
     var blurb: String {
         switch self {
-        case .esmfold2Full: return "Full MLX model; accepts MSAs or single sequences. 20 loops / 100 requested diffusion steps."
-        case .esmfold2Fast: return "Sequence-only, no MSA. In two M4 Max/64 GB model-inference tests (excluding loading), ~1.2–1.6× faster than Full at matching settings; ~4–13× with the different default refinement budgets. Small exploratory benchmark, not a universal speedup."
+        case .esmfold2Full: return "Full MLX model; accepts MSAs or single sequences. 3 loops / 50 requested diffusion steps."
+        case .esmfold2Fast: return "Sequence-only, no MSA. In two M4 Max/64 GB model-inference tests (excluding loading), ~1.2–1.6× faster than Full at matched 3-loop/50-step settings. Small exploratory benchmark, not a universal speedup."
         case .boltz:
             return "Fastest, and the default. One process already saturates the GPU."
         case .boltzPotentials:
@@ -447,7 +447,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     var settingsSummary: [String] {
         switch self {
         case .esmfold2Full, .esmfold2Fast:
-            return [self == .esmfold2Fast ? "Sequence-only; 3 loops / 50 requested steps" : "Per-chain MSA or single sequence; 20 loops / 100 requested steps",
+            return [self == .esmfold2Fast ? "Sequence-only; 3 loops / 50 requested steps" : "Per-chain MSA or single sequence; 3 loops / 50 requested steps",
                     "MLX GPU; fold FP32, ESMC-6B BF16; strict pinned checkpoints",
                     "One loaded model handles each directory; atomic per-input resume and live results",
                     "Biohub CPU feature preparation and decoding; upstream 3×3 CPU SVD retained",

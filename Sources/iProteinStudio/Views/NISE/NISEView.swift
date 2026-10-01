@@ -261,7 +261,7 @@ struct NISEView: View {
                         if !request.wrappedValue.final_predictors.isEmpty {
                             Stepper("Check up to \(request.wrappedValue.top_x) final candidates", value: request.top_x, in: 1...64)
                         }
-                        Text("Refolds completed sequences with the ligand, without pocket restraints or affinity scoring. Keeps the NISE optimisation metric and advancement unchanged. Fast is sequence-only (3 loops / 50 steps); Full uses 20 loops / 100 steps. NISE candidates are designed sequences, so both use single-sequence inputs. The two models share ESMC-6B and are not independent of one another.")
+                        Text("Refolds completed sequences with the ligand, without pocket restraints or affinity scoring. Keeps the NISE optimisation metric and advancement unchanged. Fast is sequence-only (3 loops / 50 steps); Full uses 3 loops / 50 steps. NISE candidates are designed sequences, so both use single-sequence inputs. The two models share ESMC-6B and are not independent of one another.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }

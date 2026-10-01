@@ -6,6 +6,6 @@
   "protenix-mini": {"msa_depth": 128, "diffusion_steps": 5, "recycles": 4},
   "protenix-constraint-v0.5": {"msa_depth": 128, "diffusion_steps": 25, "recycles": 10},
   "openfold-3-mlx": {"msa_depth": 128, "diffusion_steps": 25, "recycles": 3},
-  "esmfold2-full-mlx": {"msa_depth": 128, "diffusion_steps": 100, "recycles": 20},
+  "esmfold2-full-mlx": {"msa_depth": 128, "diffusion_steps": 50, "recycles": 3},
   "esmfold2-fast-mlx": {"msa_depth": 0, "diffusion_steps": 50, "recycles": 3}
 }

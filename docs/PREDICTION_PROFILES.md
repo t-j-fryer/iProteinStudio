@@ -13,7 +13,7 @@ this project's Mac benchmarks, not universal accuracy guarantees.
 | Protenix Constraint v0.5 | 128 | 25 | 10 |
 | Protenix Mini | 128 | **5 (native)** | **4 (native)** |
 | OpenFold3 | 128 | 25 | 3 |
-| ESMFold2 Full | 128 | **100 requested (native)** | **20 (native)** |
+| ESMFold2 Full | 128 | **50 requested** | **3** |
 | ESMFold2 Fast | **No MSA** | **50 requested (native)** | **3 (native)** |
 
 An MSA cap includes the query and keeps the first rows in the supplied order.
@@ -76,3 +76,5 @@ a structure produced under a different requested budget.
 Rejected precision, Metal backend and ESM target-embedding experiments are not
 enabled. Evidence and limitations are in [the shared-target study](../lab_book/0230-shared-target-paper-predictions.md)
 and [release acceptance](../lab_book/0234-publish-prediction-profiles.md).
+
+ESMFold2 Full now defaults to 3 loops/50 requested steps with MSA128, following the four-target, five-seed comparison in [Lab Book 0251](../lab_book/0251-queue-esmfold2-full-3-50.md) and explicit user promotion. All 20 outputs passed the recorded geometry audit. MBP domain placement varied, so this is a throughput default, not an accuracy guarantee. Explicit 20/100 overrides and frozen existing jobs remain supported.

@@ -299,7 +299,7 @@
           }
         }
       },
-      "description": "Per-engine scientific overrides. Defaults: MSA 128 and 25 diffusion steps; Mini 5/4, ESMFold2 Full 100/20, Fast sequence-only 50/3. Depth 0 preserves the supplied alignment. Existing saved jobs retain their frozen settings."
+      "description": "Per-engine scientific overrides. Defaults: MSA 128 and 25 diffusion steps; Mini 5/4, ESMFold2 Full 50/3, Fast sequence-only 50/3. Depth 0 preserves the supplied alignment. Existing saved jobs retain their frozen settings."
     }
   }
 }

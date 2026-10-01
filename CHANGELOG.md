@@ -1,5 +1,12 @@
 # iProteinStudio release notes
 
+## 0.2.20 — ESMFold2 Full 3/50 defaults
+
+- New ESMFold2 Full predictions use 3 refinement loops and 50 requested diffusion steps, with an MSA cap of 128 where MSAs apply. App, MCP and CLI use the shared profile.
+- Existing saved jobs and explicit scientific overrides retain their recorded settings. Fast remains sequence-only at 3/50.
+- Updated model descriptions distinguish the matched-budget speed comparison from the historical Full 20/100 comparison.
+- Incorporates the earlier RFdiffusion3 target preparation and independent Protein Hunter generation/refinement features.
+
 ## 0.2.19 — Predict targets for RFdiffusion3
 
 - Predict a target from sequence and automatically use it in RFdiffusion3 or Protein Hunter RFdiffusion3 cycle 00.
