@@ -1,0 +1,10 @@
+{
+  "scripts/prediction_profiles.json": "6488182fdc50d70575bfc4e113d40da80f1436d1eff4a1539cdc33d4b5d7ebaa",
+  "scripts/esmfold2_predict.py": "94612b370699b8eb273865c187ff898eafd51c0a48f24724167d52b7d77e17c0",
+  "mcp/MCP_VERSION": "a2c6c14110a317833ac8f2fbae7080ee844af7469b2aa702876548dcf4c58077",
+  "PIPELINE_VERSION": "5ca6f8f56fa0d2a1dd8d135818e4af795fc3f40dea78893b67da9990f2568080",
+  "mcp/schemas/nise-v1.json": "f0357bff119c64a2b125bbdb2a1bf65c0642f229e4f7833f6d40b0ffd8995476",
+  "mcp/schemas/rfd3-v1.json": "d15af5180ddc7e3fec25154ef7a26f313e6dc0bd886d303cecc0d4348c2b71f2",
+  "mcp/schemas/prediction-v1.json": "4c0f701c60ea8bd96c74c51aeda68355396f644c784dfc708bba330545477294",
+  "mcp/schemas/target-prepare-v1.json": "27aaf996200c60e751f225fdbf1dd558cd8e22223907a543f4b608c078d64c89"
+}
