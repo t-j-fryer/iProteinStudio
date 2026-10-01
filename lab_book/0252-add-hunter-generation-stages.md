@@ -4,7 +4,7 @@ title: Separate Protein Hunter initialization and refinement
 date: 2026-10-01
 author: Codex
 type: implementation
-status: validated
+status: complete
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory, macOS 26.x
 tags: [rfd3, predictors, ui, mcp, release]
 ---
@@ -60,16 +60,37 @@ lab_book/artifacts/0250-hunter-stages.
 No wet-lab validation or cross-engine score calibration. Not every possible
 engine pair, target size or nanobody framework was tested. No fresh-Mac install,
 VoiceOver audit, prolonged memory soak or real Sparkle upgrade on a second Mac.
-Distribution verification remains pending. Packaged UI inspection verified
+Packaged UI inspection verified
 starting-stage selection, ESM eligibility and missing-target blocking; corrected
 a misleading legacy hotspot caption and rebuilt successfully.
 
 ## Next
 
-Publish app/MCP/CLI release and release the held queue watcher after staging.
-The separate ESM benchmark completed successfully; Protenix and binder remain
-paused until the watcher resumes them in order.
+Longer scientific comparisons remain optional future work; no broad accuracy
+or throughput advantage is inferred from these functional tests.
 
 ## Updated queue handoff (user request, 2026-10-01)
 
 After GPU acceptance, the ESMFold2 Full 3/50 benchmark takes priority over resuming Protenix. The dedicated watcher owns resumption. Do not independently resume the two paused jobs. See [queue handoff](artifacts/0250-hunter-stages/QUEUE_HANDOFF.md).
+
+## Publication and local deployment
+
+Published [v0.2.18-beta](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.18-beta),
+build64, MCP37. Release source1438664; appcast commit00c0f6e. Clean linked checkout
+build, package-resource checks, ad-hoc code-signature checks and Sparkle archive
+verification passed. All four GitHub asset sizes/SHA256 values match local files;
+the live feed advertises build64 and the verified signed ZIP.
+
+The exact release bundle replaced build/iProteinStudio.app and is open. Previous
+build63 remains in build/app-backups/iProteinStudio-build63-before64.app. Installed
+MCP37 doctor passed; staged runner, coordinator, handoff helper and planner hashes
+match source. No model weights were downloaded or duplicated.
+
+The temporarily held queue watcher was released after staging. Protenix
+job-bcaf0cacfdda is running again; the watcher will resume job-643a7569c927 after
+Protenix finishes. Biotin remains paused. The separate ESM3/50 benchmark completed;
+its last citrate seeds overlapped CPU release compilation, recorded in the queue
+handoff for honest wall-time interpretation. No additional GPU inference overlap.
+
+Distribution remains the existing trusted beta (ad-hoc signed, Sparkle-signed
+updates), not Apple notarization. No second-Mac updater installation was tested.

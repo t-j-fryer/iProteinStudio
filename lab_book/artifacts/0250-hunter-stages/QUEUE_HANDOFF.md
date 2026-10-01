@@ -29,3 +29,7 @@ Release handoff: watcher PID 68597 is temporarily SIGSTOP-held after verifying
 its identity. The running benchmark and queued ligand test continue normally.
 Resume this same watcher with SIGCONT after final tests and app/MCP staging;
 it remains the owner of Protenix/binder resumption.
+
+Release complete: build64 installed and opened; MCP37 doctor and adapter hashes
+verified. All acceptance arms passed. The same watcher was SIGCONT-released
+and again owns normal Protenix then binder resumption. Biotin remains paused.
