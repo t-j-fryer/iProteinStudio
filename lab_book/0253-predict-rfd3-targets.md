@@ -4,7 +4,7 @@ title: Automatically adopt predicted RFdiffusion3 targets
 date: 2026-10-01
 author: Codex
 type: implementation
-status: validated
+status: complete
 ---
 
 ## Context
@@ -34,3 +34,18 @@ RFD3 stage paths were previously exercised; this change connects their UI handof
 No new GPU inference, fresh-Mac install, or complete engine matrix planned for this
 UI/preparation change. Prediction remains a separately queued target-preparation
 job; the design starts after the target is ready.
+
+## Publication and local app
+
+Released v0.2.19-beta / build65 from dadbbfd, update-feed commit42a190b.
+Clean release compilation, packaged resource checks and code signature checks
+passed. Published asset hashes, live feed build number and Sparkle ZIP signature
+verified. The exact bundle is installed and open; prior build64 is retained.
+Packaged UI inspection confirmed the new Protein Hunter button, engine choices
+and optional Use structure action; original workspace settings were restored.
+No GPU jobs were submitted, stopped or resumed by this follow-up. CPU compilation
+can overlap ongoing benchmark host work; no throughput claim is made here.
+
+MCP37 and the existing CLI target-prepare/structure-input contracts remain
+compatible and unchanged. Concurrent ESM default changes were excluded from this
+release. No model downloads or duplicate weights are introduced.
