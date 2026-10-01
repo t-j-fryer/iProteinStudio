@@ -81,7 +81,7 @@ final class RunController: ObservableObject {
                 var childProject = project
                 childProject.request = entry.request
                 let engine = entry.request.selectedDesignEngines[0]
-                let child = childProject.request
+                var child = childProject.request
                 let scaffoldSuffix = child.designType == .nanobody ? "_\(child.scaffoldID)" : ""
                 let base = batch == nil ? project.slug : "\(project.slug)_\(engine.rawValue)\(scaffoldSuffix)_\(batch!.lastPathComponent.suffix(8))"
                 let runName = uniqueRunName(base: base, in: projectDir)
@@ -91,6 +91,13 @@ final class RunController: ObservableObject {
                 let snapshot = try AppPaths.createPipelineSnapshot(in: campaign)
                 let inputs = campaign.appendingPathComponent("inputs", isDirectory: true)
                 try AppPaths.fm.createDirectory(at: inputs, withIntermediateDirectories: true)
+                if child.initializationMethod == "rfd3", child.targetKind == .protein,
+                   let path = child.initializationTargetPath {
+                    let source = URL(fileURLWithPath: path)
+                    let destination = inputs.appendingPathComponent("initialization_target.\(source.pathExtension.lowercased())")
+                    try AppPaths.fm.copyItem(at: source, to: destination)
+                    child.initializationTargetPath = destination.path
+                }
                 let template = inputs.appendingPathComponent("design.yaml")
                 try TemplateWriter.write(child, to: template)
                 var targetTemplate: URL?

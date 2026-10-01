@@ -502,7 +502,7 @@ struct BinderSizePicker: View {
                                    suffix: "aa", accessibilityLabel: "Longest binder length")
             }
         }
-        Text("Each design gets a random length in this range.").font(.caption).foregroundStyle(.secondary)
+        Text(request.initializationMethod == "rfd3" ? "RFdiffusion3 spreads the exact requested number of backbones across up to 20 lengths in this range." : "Each design gets a random length in this range.").font(.caption).foregroundStyle(.secondary)
     }
 }
 
@@ -517,6 +517,10 @@ struct SecondaryStructureControl: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Helix-kill strength").font(.headline)
             strengthRow("Strength", value: $request.helixKill)
+                .disabled(request.initializationMethod == "rfd3")
+            if request.initializationMethod == "rfd3" {
+                Text("Not used for RFdiffusion3: its backbone generator does not start from an X-token sequence.").font(.caption).foregroundStyle(.secondary)
+            }
             Text("Reduces helix-favoring patterns in the starting sequence. Zero disables it. Later optimization cycles use normal MPNN sampling.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -668,6 +672,7 @@ struct PredictorPicker: View {
     }
 
     private var allowedDesignChoices: [Predictor] {
+        if request.hasSeparateInitialization { return Predictor.designChoices.filter { request.targetKind != .ligand || $0 != .protenixConstraint } }
         if request.hasTargetTemplate {
             if request.targetTemplateMode == .strong {
                 return [.boltz, .boltzPotentials]
@@ -677,9 +682,7 @@ struct PredictorPicker: View {
         if request.targetKind == .ligand && !request.ligandContactAtoms.isEmpty {
             return request.ligandContactForce ? [.boltzPotentials] : [.boltz, .boltzPotentials]
         }
-        return request.targetKind == .ligand
-            ? Predictor.designChoices.filter { $0 != .protenixConstraint }
-            : Predictor.designChoices
+        return DesignEngine.initializationChoices.map(\.predictor).filter { request.targetKind != .ligand || $0 != .protenixConstraint }
     }
 
     private var usesIntelliFold: Bool {
@@ -688,9 +691,51 @@ struct PredictorPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Starting backbones · cycle 00").font(.headline)
+                Picker("Generate starting structures with", selection: Binding(
+                    get: { request.initializationMethod ?? "same" },
+                    set: { request.initializationMethod = $0 == "same" ? nil : $0 }
+                )) {
+                    Text("Same engine as refinement · original workflow").tag("same")
+                    Text("Separate hallucination engine").tag("hallucination")
+                    if request.designType != .nanobody { Text("RFdiffusion3 · de novo backbones").tag("rfd3") }
+                }
+                if request.initializationMethod == "hallucination" {
+                    Picker("Starting engine", selection: Binding(
+                        get: { request.startingEngine }, set: { request.initializationEngine = $0 }
+                    )) {
+                        ForEach(DesignEngine.initializationChoices.filter { request.targetKind != .ligand || $0 != .protenixConstraint }) { Text($0.label).tag($0) }
+                    }
+                    Text("Create cycle 00 with this engine, then release it before loading the refinement engine. MPNN designs complete sequences for cycles 01 onward.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if request.initializationMethod == "rfd3" {
+                    if request.targetKind == .protein {
+                        HStack {
+                            TextField("Target PDB/CIF for RFdiffusion3", text: Binding(
+                                get: { request.initializationTargetPath ?? "" }, set: { request.initializationTargetPath = $0 }
+                            ))
+                            Button("Choose…") {
+                                let panel = NSOpenPanel()
+                                panel.allowsMultipleSelection = false
+                                panel.canChooseDirectories = false
+                                if panel.runModal() == .OK { request.initializationTargetPath = panel.url?.path }
+                            }
+                        }
+                    }
+                    Text("One backbone per trajectory, spread across your binder-length range. Uses the validated RFdiffusion3 generator (200 steps, 2 recycles, BF16). Protein targets need a matching structure; selected hotspots guide generation, otherwise it scans the surface. Available for de novo binders, not fixed nanobody frameworks.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if request.hasSeparateInitialization {
+                    Text("Generation guidance applies to cycle 00. Later cycles use only the refinement engine’s supported guidance. ESMFold2 is unrestrained: Fast uses no MSA; Full can use target MSAs. Both share the installed ESMC weights. Starts are checkpointed and never counted as optimized designs.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Divider()
             // --- Design predictor ---
             VStack(alignment: .leading, spacing: 8) {
-                Text("Design engines").font(.headline)
+                Text("Refinement engines · cycles 01 onward").font(.headline)
                 Text("Each selected engine runs these settings for \(request.numDesigns) trajectories. Engines run in checklist order with separate results. Nanobody budgets are shared across the selected scaffolds.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -702,7 +747,7 @@ struct PredictorPicker: View {
                         HStack(spacing: 6) {
                             Text(p.label)
                             if !allowedDesignChoices.contains(p.predictor) {
-                                Text("incompatible with targeting settings").font(.caption2).foregroundStyle(.orange)
+                                Text(p.predictor == .esmfold2Fast || p.predictor == .esmfold2Full ? "choose a separate starting stage above" : "incompatible with targeting settings").font(.caption2).foregroundStyle(.orange)
                             } else if !installer.isUsable(p.component) {
                                 Text("not installed").font(.caption2).foregroundStyle(.orange)
                             }
@@ -905,6 +950,9 @@ struct PredictorPicker: View {
     /// Prediction-only planning number: assumes every eligible checkpoint is checked,
     /// while explicitly excluding MSA generation and inverse folding.
     private var estimate: some View {
+        if request.hasSeparateInitialization {
+            return AnyView(Label("No combined time estimate yet: starting generation and refinement use different methods. Progress is reported separately for each stage.", systemImage: "clock").font(.callout).foregroundStyle(.secondary))
+        }
         if request.targetKind == .ligand && request.nesso.enabled {
             return AnyView(Label("No total time estimate: NESSO campaign screening has not been benchmarked on this Mac.", systemImage: "clock")
                 .font(.callout).foregroundStyle(.secondary))

@@ -895,3 +895,9 @@ diffusion and recycling defaults and native Mini/ESMFold2 exceptions. Iterative
 runs accept `--prediction-settings-json`; prediction, target-preparation, NISE
 and RFdiffusion3 MCP requests accept `prediction_settings`. Accepted jobs retain
 their original frozen profiles.
+
+## Separate Protein Hunter stages
+
+Protein Hunter now accepts RFdiffusion3 or a separate hallucination engine for
+cycle 00, followed by another refinement engine, including ESMFold2 Fast/Full.
+See [stage controls, input requirements and CLI/MCP options](PROTEIN_HUNTER_STAGES.md).

@@ -1,5 +1,13 @@
 # iProteinStudio release notes
 
+## 0.2.18 — Separate Protein Hunter generation and refinement
+
+- Choose RFdiffusion3 or a separate hallucination engine for cycle-00 backbones.
+- Refine complete MPNN sequences with another engine, including resident ESMFold2 Fast/Full.
+- Explicit guidance scope, exact target matching, audited seed handoffs, and stage-aware result labels.
+- The native app, CLI and MCP share the workflow and reuse installed portable engines/weights.
+
+
 ## 0.2.17 — shared prediction profiles and measured preparation improvements
 
 - New prediction profiles use up to 128 target MSA rows and 25 diffusion steps

@@ -300,6 +300,17 @@ enum RunResultsLoader {
     // MARK: Iterative designs
 
     private static func iterativeResults(root: URL) -> [StudioResultItem] {
+        let saved = iterativeCycleResults(root: root)
+        if !saved.isEmpty { return saved }
+        // Keep generation visible while the cycle-00 cohort is still forming.
+        // The canonical run/cycle rows replace this view after the handoff.
+        let initial = root.appendingPathComponent("_initialization")
+        let hallucination = iterativeCycleResults(root: initial.appendingPathComponent("hallucination"))
+        if !hallucination.isEmpty { return hallucination }
+        return rfd3Results(root: initial.appendingPathComponent("rfd3"))
+    }
+
+    private static func iterativeCycleResults(root: URL) -> [StudioResultItem] {
         let rows = iterativeRows(root: root)
         let recordedDesignPredictor = iterativeDesignPredictor(root: root)
         return rows.flatMap { row -> [StudioResultItem] in
@@ -308,7 +319,8 @@ enum RunResultsLoader {
                   fm.fileExists(atPath: structure.path) else { return [] }
             let isPost = row["stage"]?.lowercased() == "post"
             let binderOnly = row["binder_only"] == "true"
-            let predictorKey = nonempty(row["predictor"]) ?? (isPost ? nil : recordedDesignPredictor) ?? "Unknown engine"
+            let stageEngine = isPost ? nil : (try? String(contentsOf: structure.deletingLastPathComponent().appendingPathComponent("predictor.txt"), encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let predictorKey = nonempty(stageEngine) ?? nonempty(row["predictor"]) ?? (isPost ? nil : recordedDesignPredictor) ?? "Unknown engine"
             let predictor = friendlyPredictor(predictorKey)
             let run = Int(row["run"] ?? "") ?? 0
             let cycle = Int(row["cycle"] ?? "") ?? 0
@@ -1106,6 +1118,7 @@ enum RunResultsLoader {
 
     private static func friendlyPredictor(_ key: String) -> String {
         switch key.lowercased() {
+        case "rfd3": return "RFdiffusion3"
         case "boltz", "boltz2", "boltz-2": return "Boltz-2"
         case "af3", "alphafold3", "alphafold-3": return "AlphaFold 3 (retired)"
         case "openfold3", "openfold-3", "openfold-3-mlx": return "OpenFold-3"

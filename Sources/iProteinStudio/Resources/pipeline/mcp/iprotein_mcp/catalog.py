@@ -462,6 +462,12 @@ def _iterative_overview(root: Path, limit: int, hit_only: bool = False) -> Dict[
             continue
         stage = str(row.get("stage", "design")).lower()
         predictor = str(row.get("predictor") or _iterative_design_predictor(root) or "unknown")
+        if stage != 'post' and row.get('structure_path'):
+            structure = Path(row['structure_path'])
+            if not structure.is_absolute(): structure = root / structure
+            marker = structure.parent / 'predictor.txt'
+            if marker.is_file() and marker.resolve().is_relative_to(root.resolve()):
+                predictor = marker.read_text().strip() or predictor
         role = "binder_alone" if row.get("binder_only") else "complex_reprediction" if stage == "post" else (
             "starting_structure" if cycle == 0 else "designed_complex"
         )
@@ -930,6 +936,7 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
             "tool": "iterative_design_plan",
             "defaults": {"target_template_mode": "guide"},
             "rules": [
+                "Separate Protein Hunter stages: --initialization-method hallucination with --initialization-predictor, or rfd3 with --initialization-target for protein targets. --predictor selects cycles 01 onward, including ESMFold2 Fast/Full; never use ESMFold2 for X-token cycle 00. RFdiffusion3 starts support de novo binders, not fixed nanobody frameworks. Generation guidance is scoped to its stage; ESMFold2 refinement is unrestrained. Both stages checkpoint under one GPU lease.",
                 "Use the MCP plan rather than assembling the runner command; Studio injects the measured resident/cycle-wave scheduler.",
                 "Require target MSAs when target protein chains are present, and use an orthogonal predictor for final checking when requested. Unconditioned monomer initialization has no target MSA.",
                 "When the user supplies a trusted target PDB/CIF, pass it as target_template_path. Guide mode works with Boltz-2, Protenix v2, and IntelliFold v2 Flash/full. Do not request strong coordinate restraint; it is disabled after Apple-GPU acceptance failures.",
@@ -945,7 +952,7 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
     if workflow not in guides:
         raise StudioError(f"Unknown workflow guide: {workflow}")
     return {"workflow": workflow, **common, **guides[workflow],
-            "esmfold2": "Experimental esmfold2-fast-mlx / esmfold2-full-mlx support complete-sequence protein and SMILES-ligand prediction. Fast has no MSA encoder; Full uses the requested MSA. No template/pocket guidance, affinity head or Protein Hunter X-token generation. Available for independent completed-sequence checks. Portable runtime on Apple silicon/macOS 26.2+, separate pinned weights; no external installs. Credits: Fausto Milletari and contributors' MLX port, Biohub ESMFold2/ESMC and Apple MLX. docs/ESMFOLD2.md records measured Fast/Full comparisons and limits."}
+            "esmfold2": "Experimental esmfold2-fast-mlx / esmfold2-full-mlx support complete-sequence protein and SMILES-ligand prediction. Fast has no MSA encoder; Full uses the requested MSA. No template/pocket guidance, affinity head or Protein Hunter X-token generation. Available for independent completed-sequence checks and Protein Hunter refinement after an explicit separate initialization stage. Portable runtime on Apple silicon/macOS 26.2+, separate pinned weights; no external installs. Credits: Fausto Milletari and contributors' MLX port, Biohub ESMFold2/ESMC and Apple MLX. docs/ESMFOLD2.md records measured Fast/Full comparisons and limits."}
 
 
 def workflow_guide(workflow: str) -> Dict[str, Any]:

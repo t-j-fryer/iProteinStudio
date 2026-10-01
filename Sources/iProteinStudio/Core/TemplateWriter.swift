@@ -47,7 +47,7 @@ enum TemplateWriter {
             yaml += "nanohunter:\n"
             yaml += "  target_epitope_residues:\n"
             for r in epitopes { yaml += "    - \(r)\n" }
-            if request.designPredictor == .protenixConstraint {
+            if request.targetingPredictor == .protenixConstraint {
                 // The validated v0.5 checkpoint consumes a soft pocket made
                 // from binder entity 1 and these target residues. Keep this
                 // distinct from Boltz's contact restraint contract.

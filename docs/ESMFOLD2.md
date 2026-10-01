@@ -91,3 +91,10 @@ helpers, including the upstream small CPU SVD; this is not an all-GPU pipeline.
 The shipped runtime and asset manifests record package/file hashes and checkpoint
 revisions. See [0215](../lab_book/0215-integrate-esmfold2-mlx.md) for release checks,
 known limitations and untested cases.
+
+## Protein Hunter refinement
+
+ESMFold2 Fast/Full can refine complete MPNN sequences after an explicit separate
+cycle-00 generator. They remain unavailable for X-token hallucination.
+See [Protein Hunter stages](PROTEIN_HUNTER_STAGES.md) for guidance scope, MSA
+policy and the same portable-runtime setup.

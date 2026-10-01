@@ -5,6 +5,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${PROTEINHUNTER_ROOT:-${IPROTEINHUNTER_ROOT:-${NANOHUNTER_ROOT:-$SCRIPT_DIR}}}"
 PIPELINE_CODE_ROOT="${IPROTEINSTUDIO_PIPELINE_SNAPSHOT:-${REPO_ROOT}}"
 
+# Stage orchestration stays inside the owning Studio job/lease. Ordinary saved
+# requests retain their original single-engine path.
+for _stage_arg in "$@"; do
+  case "${_stage_arg}" in
+    --initialization-method|--initialization-predictor|--initialization-model|--initialization-target)
+      exec "${REPO_ROOT}/components/control/current/python/bin/python3" "${PIPELINE_CODE_ROOT}/scripts/hunter_stages.py" "$@" ;;
+  esac
+done
+unset _stage_arg
+
 # Select the requested Python without requiring a venv activation script.
 # Portable standalone CPython has bin/python but intentionally no bin/activate.
 # Keep this shell's original environment intact between engine calls, including
@@ -409,7 +419,11 @@ Core:
   --workflow MODE                  protein | nanobody (default: ${WORKFLOW})
                                    protein: generic binders, motifs, partial redesign, ligands
                                    nanobody: fixed VHH scaffold with exact CDR-only redesign
-  --predictor TOOL                 boltz | protenix-constraint-v0.5 | protenix-v2 | protenix-mini | intellifold | openfold-3-mlx
+  --initialization-method METHOD   hallucination (default) | rfd3; optional separate cycle-00 stage
+  --initialization-predictor TOOL   cycle-00 engine; --predictor drives cycles 01 onward
+  --initialization-model MODEL      starting IntelliFold v2-flash | v2
+  --initialization-target PATH      protein target PDB/CIF for RFdiffusion3 starts
+  --predictor TOOL                 esmfold2-fast-mlx | esmfold2-full-mlx (refinement only) | boltz | protenix-constraint-v0.5 | protenix-v2 | protenix-mini | intellifold | openfold-3-mlx
   --sequence-designer TOOL         auto | proteinmpnn | solublempnn | ligandmpnn | lasermpnn | abmpnn | antifold
                                    (lasermpnn: small-molecule minibinders only; --workflow protein + ligand; CPU-only)
                                    default: ${SEQUENCE_DESIGNER}
@@ -1036,7 +1050,13 @@ case "${WORKFLOW}" in
   *) die "--workflow must be protein or nanobody" ;;
 esac
 PREDICTOR="$(norm_predictor "$PREDICTOR")" || die "Unsupported --predictor: ${PREDICTOR}"
-case "${PREDICTOR}" in esmfold2-*) die "ESMFold2 is available for completed-sequence checks, not ProteinHunter X-token hallucination." ;; esac
+case "${PREDICTOR}" in esmfold2-*)
+  [[ -n "${IPROTEINSTUDIO_HUNTER_HANDOFF:-}" ]] || die "ESMFold2 refinement requires a separate starting engine or RFdiffusion3."
+  if [[ "${CHECK_CONFIG_ONLY}" != 1 ]]; then
+    [[ "${IPROTEINSTUDIO_HUNTER_HANDOFF}" == "${BASE_RUN_ROOT}/${RUN_NAME}/initialization.json" ]] || die "The starting-engine handoff belongs to a different run."
+    "${REPO_ROOT}/components/control/current/python/bin/python3" "${PIPELINE_CODE_ROOT}/scripts/hunter_stages.py" verify "$(dirname "${IPROTEINSTUDIO_HUNTER_HANDOFF}")" || die "Starting backbone audit failed."
+  fi
+  ;; esac
 SEQUENCE_DESIGNER="$(norm_sequence_designer "$SEQUENCE_DESIGNER")" || die "Unsupported --sequence-designer: ${SEQUENCE_DESIGNER}"
 ANTIFOLD_REGIONS_RAW="${ANTIFOLD_REGIONS}"
 ANTIFOLD_REGIONS="$(normalize_antifold_regions "${ANTIFOLD_REGIONS_RAW}")" || die "Invalid --nanobody-cdrs: ${ANTIFOLD_REGIONS_RAW}. Use CDR1, CDR2, and/or CDR3."
@@ -1058,7 +1078,7 @@ TARGET_MSA_GENERATOR="$(printf '%s' "${TARGET_MSA_GENERATOR}" | tr '[:upper:]' '
 case "${TARGET_MSA_GENERATOR}" in
   auto)
     case "${PREDICTOR}" in
-      boltz) TARGET_MSA_GENERATOR="boltz" ;;
+      boltz|esmfold2-full-mlx|esmfold2-fast-mlx) TARGET_MSA_GENERATOR="boltz" ;;
       intellifold) TARGET_MSA_GENERATOR="intellifold" ;;
       protenix-v2|protenix-mini|protenix-constraint-v0.5) TARGET_MSA_GENERATOR="protenix" ;;
       openfold-3-mlx) TARGET_MSA_GENERATOR="openfold" ;;
@@ -1233,7 +1253,7 @@ if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" || "${DESIGN_SCHEDULER}" == "residen
     *) die "--design-scheduler ${DESIGN_SCHEDULER} supports protein and nanobody workflows." ;;
   esac
   case "${PREDICTOR}" in
-    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx) ;;
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx|esmfold2-full-mlx|esmfold2-fast-mlx) ;;
     *) die "--design-scheduler ${DESIGN_SCHEDULER} does not support predictor ${PREDICTOR}." ;;
   esac
   if [[ "${WORKFLOW}" == "nanobody" && "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 ]]; then
@@ -1248,7 +1268,7 @@ if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" || "${DESIGN_SCHEDULER}" == "residen
 fi
 if [[ "${DESIGN_SCHEDULER}" == "resident" ]]; then
   case "${PREDICTOR}" in
-    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5) ;;
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|esmfold2-full-mlx|esmfold2-fast-mlx) ;;
     *) die "--design-scheduler resident has no validated worker for predictor ${PREDICTOR}." ;;
   esac
   [[ -f "${RESIDENT_PREDICTOR}" ]] || die "Resident predictor worker not found: ${RESIDENT_PREDICTOR}"
@@ -6000,6 +6020,10 @@ start_resident_predictor() {
       worker_python="${PROTENIX_CONSTRAINT_VENV}/bin/python"
       resident_model="constraint"
       ;;
+    esmfold2-full-mlx|esmfold2-fast-mlx)
+      worker_python="${REPO_ROOT}/venvs/NanoHunter_esmfold2/bin/python"
+      resident_model="${PREDICTOR}"
+      ;;
     *) die "No resident worker is defined for ${PREDICTOR}." ;;
   esac
 
@@ -6026,6 +6050,7 @@ payload = {
     "use_template": sys.argv[11].lower() == "true",
     "target_template_manifest": sys.argv[12],
     "engine_args": sys.argv[13:],
+    "unrestrained_check": sys.argv[4].startswith("esmfold2-"),
 }
 temporary = path.with_suffix(".json.part")
 temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
@@ -6065,7 +6090,7 @@ PY
   ready_pid="$(python3 - "${RESIDENT_QUEUE}/ready.json" <<'PY'
 import json, sys
 x=json.load(open(sys.argv[1]))
-assert x.get("device") == "mps" and x.get("fallback") == 0
+assert x.get("device") in {"mps", "mlx"} and x.get("fallback") == 0
 assert x.get("model_load_count") == 1
 print(int(x["pid"]))
 PY
@@ -6077,7 +6102,7 @@ PY
   }
   cp -f "${RESIDENT_QUEUE}/ready.json" "${wave_root}/resident_ready.json"
   echo "request_id,cycle,batch,batch_size,wall_seconds,model_load_count" > "${wave_root}/resident_requests.csv"
-  echo ">>> Resident ${PREDICTOR}: ready on native MPS (pid=${RESIDENT_PID}, model_load_count=1)"
+  echo ">>> Resident ${PREDICTOR}: ready on Apple GPU (pid=${RESIDENT_PID}, model_load_count=1)"
 }
 
 stop_resident_predictor() {
@@ -6135,7 +6160,7 @@ for item in files:
 payload={"schema": 1, "request_id": sys.argv[2], "input_dir": str(source),
          "output_dir": str(Path(sys.argv[4]).resolve()), "expected_jobs": int(sys.argv[5]),
          "input_sha256": digest.hexdigest(), "submitted_epoch": time.time(),
-         "publish_iterative_results": sys.argv[6] == "boltz", "binder_chain": sys.argv[7]}
+         "publish_iterative_results": sys.argv[6] == "boltz" or sys.argv[6].startswith("esmfold2-"), "binder_chain": sys.argv[7]}
 path.parent.mkdir(parents=True, exist_ok=True)
 tmp=path.with_suffix(".json.part"); tmp.write_text(json.dumps(payload, indent=2, sort_keys=True)+"\n"); tmp.replace(path)
 PY
@@ -6389,7 +6414,7 @@ run_cycle_wave_predictor_batch() {
         conf="$(find "${leaf}" -maxdepth 1 -type f -name '*_summary_confidences.json' | sort | head -n 1 || true)"
         struct="$(find "${leaf}" -maxdepth 1 -type f \( -name '*.cif' -o -name '*.pdb' \) | sort | head -n 1 || true)"
         ;;
-      protenix-v2|protenix-mini|protenix-constraint-v0.5)
+      protenix-v2|protenix-mini|protenix-constraint-v0.5|esmfold2-full-mlx|esmfold2-fast-mlx)
         leaf="${output_dir}/${stem}/pred_min"
         conf="${leaf}/confidence.json"
         struct="${leaf}/model_0.cif"
@@ -6414,6 +6439,7 @@ run_cycle_wave_predictor_batch() {
     else
       materialize_output_reference "${struct}" "${pred_min}/model_0.pdb"
     fi
+    printf '%s\n' "${PREDICTOR}" > "${pred_min}/predictor.txt"
     record_prediction_geometry "${pred_min}" || return $?
     iptm="nan"
     plddt="nan"
@@ -6448,9 +6474,15 @@ record_cycle_wave_predictions() {
     if [[ -f "${conf}" ]]; then
       IFS=',' read -r iptm plddt <<< "$(extract_metrics_from_conf_json "${conf}")"
     fi
-    start_ts="$(cat "${cycle_dir}/pred_min/wave_predict_start.txt")"
-    end_ts="$(cat "${cycle_dir}/pred_min/wave_predict_end.txt")"
-    duration="$(cat "${cycle_dir}/pred_min/wave_predict_duration.txt")"
+    if [[ "${cycle_idx}" -eq 0 && -n "${IPROTEINSTUDIO_HUNTER_HANDOFF:-}" && ! -f "${cycle_dir}/pred_min/wave_predict_start.txt" ]]; then
+      # RFD3/per-trajectory generators record their own stage timings. Do not
+      # invent a per-backbone inference duration for an imported starting batch.
+      start_ts=""; end_ts=""; duration=""
+    else
+      start_ts="$(cat "${cycle_dir}/pred_min/wave_predict_start.txt")"
+      end_ts="$(cat "${cycle_dir}/pred_min/wave_predict_end.txt")"
+      duration="$(cat "${cycle_dir}/pred_min/wave_predict_duration.txt")"
+    fi
     echo "${cycle_idx},${iptm},${plddt},${conf},${struct},${current_seq}" >> "${run_root}/metrics_per_cycle.csv"
     echo "${run_index},${cycle_idx},${iptm},${plddt},${current_seq},${struct},${conf}" >> "${run_root}/rows.csv"
     echo "${cycle_idx},${start_ts},${end_ts},${duration}" >> "${run_root}/timing_cycles.csv"

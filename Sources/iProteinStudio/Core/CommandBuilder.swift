@@ -38,6 +38,15 @@ enum CommandBuilder {
             "--iptm-threshold", String(format: "%.2f", request.hitThreshold),
         ]
 
+        if request.hasSeparateInitialization {
+            args += ["--initialization-method", request.initializationMethod!]
+            if request.initializationMethod == "hallucination" {
+                args += ["--initialization-predictor", request.startingEngine.predictor.runnerValue,
+                         "--initialization-model", (request.startingEngine.model ?? .v2flash).rawValue]
+            } else if request.targetKind == .protein, let path = request.initializationTargetPath {
+                args += ["--initialization-target", path]
+            }
+        }
         if request.hasTargetTemplate {
             let template = targetTemplate ?? URL(fileURLWithPath: request.targetTemplatePath)
             args += ["--target-template", template.path,
@@ -70,7 +79,7 @@ enum CommandBuilder {
             let needsPotentialsForEpitope = request.hasEpitopeSteering
             let needsPotentialsForTemplate = request.hasTargetTemplate
                 && request.targetTemplateMode == .strong
-            if request.designPredictor.usesSteeringPotentials
+            if request.targetingPredictor.usesSteeringPotentials
                 || needsPotentialsForPocket || needsPotentialsForEpitope
                 || needsPotentialsForTemplate {
                 args += ["--boltz-use-potentials"]

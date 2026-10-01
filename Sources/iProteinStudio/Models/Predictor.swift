@@ -501,7 +501,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// choices (IntelliFold Flash/Full) are expanded by DesignEngine.
     static var designChoices: [Predictor] {
         [.boltz, .boltzPotentials, .protenixConstraint,
-         .protenixV2, .protenixMini, .intellifold, .openfold3]
+         .protenixV2, .protenixMini, .intellifold, .openfold3, .esmfold2Fast, .esmfold2Full]
     }
 
     /// Engines that can independently re-fold finished designs. Steering

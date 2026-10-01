@@ -40,6 +40,7 @@ FAST_SHELL = [
     "test_process_runner_cancellation.sh", "test_workspace_organization.sh", "test_pipeline_snapshot.sh",
 ]
 SCIENCE = [
+    "test_hunter_stages.py",
     "test_live_iterative_results.py",
     "test_resident_prediction_resume.py", "test_prediction_profiles.py", "test_esmfold2_adapter.py",
     "test_rfd3_audit_regressions.py",

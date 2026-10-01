@@ -1,5 +1,7 @@
 # Validation Lab Book
 
+Current acceptance: [0077 — Hunter generation stages](lab_book/0077-hunter-stage-acceptance.md) (predeclared; in progress).
+
 | Entry | Date | Status | Question |
 |---|---|---|---|
 | [0057](lab_book/0057-esmfold2-portable-app.md) | 2026-09-28 | qualified | Portable ESMFold2 app adapter: output identity, MSA/ligand handling, restart and live results. |

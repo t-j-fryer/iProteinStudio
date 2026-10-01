@@ -650,10 +650,22 @@ class ESMFold2Session:
         from esmfold2_predict import run
         paths = sorted(source.glob('*.yaml'))
         if len(paths) != expected: raise ValueError('ESMFold2 input count mismatch')
+        publisher = None
+        if getattr(self, 'publish_iterative_results', False):
+            from live_iterative_results import LiveIterativeResults
+            publisher = LiveIterativeResults(source, self.iterative_binder_chain)
+        def progress(index, total, reused):
+            if publisher:
+                name = paths[index-1].stem
+                leaf = output / name / 'pred_min'
+                publisher.publish_structure(name, leaf / 'model_0.cif', leaf / 'confidence.json', self.config['engine'])
+            callback = getattr(self, 'report_progress', None)
+            if callback: callback(index, total, reused)
+
         run(Path(self.config['root']), self.profile, paths, output,
             [int(s) for s in str(self.config.get('seed', '42')).split(',')],
             int(self.config.get('samples', 1)), self.config.get('unrestrained_check', False),
-            session=self.session, progress=getattr(self, 'report_progress', None))
+            session=self.session, progress=progress)
 
 
 def make_session(config: dict[str, Any]) -> Any:

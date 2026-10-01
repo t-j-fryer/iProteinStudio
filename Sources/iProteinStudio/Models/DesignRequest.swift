@@ -379,6 +379,13 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     /// Structure predictor that drives the design loop. Boltz-2 is 3.4x cheaper
     /// per proposal than the slowest alternative and needs only one process.
+    /// nil keeps historical requests on the single-engine path.
+    var initializationMethod: String? = nil
+    var initializationEngine: DesignEngine? = nil
+    var initializationTargetPath: String? = nil
+    var hasSeparateInitialization: Bool { initializationMethod == "hallucination" || initializationMethod == "rfd3" }
+    var startingEngine: DesignEngine { initializationEngine ?? .boltz }
+    var targetingPredictor: Predictor { hasSeparateInitialization && initializationMethod == "hallucination" ? startingEngine.predictor : designPredictor }
     var designPredictor: Predictor = .boltz
     /// nil preserves historical single-engine requests; an empty checklist is invalid.
     var designPredictors: [Predictor]? = nil
@@ -522,7 +529,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         return error.message
     }
 
-    var usesBoltzDesignEngine: Bool { designPredictor.runnerValue == Predictor.boltz.runnerValue }
+    var usesBoltzDesignEngine: Bool { targetingPredictor.runnerValue == Predictor.boltz.runnerValue }
 
     var hasTargetTemplate: Bool {
         targetKind == .protein
@@ -540,8 +547,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
         }
         if targetTemplateMode == .strong {
             return "Strong target-coordinate restraint is unavailable: acceptance testing on Apple GPU produced broken target geometry. Remove and reselect the template to use Guide mode."
-        } else if !(usesBoltzDesignEngine || designPredictor == .protenixV2
-                    || designPredictor == .intellifold) {
+        } else if !(usesBoltzDesignEngine || targetingPredictor == .protenixV2
+                    || targetingPredictor == .intellifold) {
             return "Target-fold guidance is supported by Boltz-2, Protenix v2, and IntelliFold v2 Flash/full."
         }
         return nil
@@ -550,7 +557,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Both Boltz and the dedicated Protenix Constraint checkpoint can guide a
     /// design toward selected target residues, albeit with different trained
     /// restraint mechanisms.
-    var supportsEpitopePocket: Bool { designPredictor.supportsEpitopePocket }
+    var supportsEpitopePocket: Bool { initializationMethod == "rfd3" || targetingPredictor.supportsEpitopePocket }
 
     /// Canonical post-check list: checks never use steering potentials, never
     /// repeat the design engine, and never run one backend twice.
@@ -560,6 +567,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
             let predictor = raw.checkingVariant
             guard predictor.isAvailable, predictor.canPostCheck,
                   selectedDesignPredictors.contains(where: { $0.independenceIdentity != predictor.independenceIdentity }),
+                  !(initializationMethod == "hallucination" && startingEngine.independenceIdentity == predictor.independenceIdentity),
                   seen.insert(predictor.independenceIdentity).inserted else { return nil }
             return predictor
         }
@@ -570,7 +578,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     }
 
     var usesBoltzAnywhere: Bool {
-        selectedDesignPredictors.contains { $0.runnerValue == Predictor.boltz.runnerValue } || effectivePostPredictors.contains { $0.runnerValue == Predictor.boltz.runnerValue }
+        (initializationMethod == "hallucination" && startingEngine.predictor.runnerValue == Predictor.boltz.runnerValue) || selectedDesignPredictors.contains { $0.runnerValue == Predictor.boltz.runnerValue } || effectivePostPredictors.contains { $0.runnerValue == Predictor.boltz.runnerValue }
     }
 
     var epitopeTokenResult: (tokens: [String], invalid: [String]) {
@@ -597,7 +605,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// cannot honour these requested restraints.
     var hasIncompatibleTargeting: Bool {
         (targetKind == .ligand && designPredictor == .protenixConstraint)
-            || (targetKind == .ligand && !ligandContactAtoms.isEmpty && !usesBoltzDesignEngine)
+            || (targetKind == .ligand && !ligandContactAtoms.isEmpty && !usesBoltzDesignEngine && initializationMethod != "rfd3")
             || targetTemplateCompatibilityError != nil
     }
 
@@ -620,6 +628,11 @@ struct DesignRequest: Codable, Equatable, Hashable {
                 .reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
         }
         var set: [InstallComponent] = [designPredictor.component]
+        if hasSeparateInitialization {
+            set.append(initializationMethod == "rfd3" ? .rfd3 : startingEngine.component)
+            if initializationMethod == "rfd3" && targetKind == .ligand { set.append(.boltz) }
+        }
+        if designPredictor == .esmfold2Full && targetKind == .protein { set.append(.boltz) }
         for p in effectivePostPredictors where !set.contains(p.component) { set.append(p.component) }
         if usesIntelliFold && intellifoldModel == .v2 { set.append(.intellifoldFull) }
         if !set.contains(designer.component) { set.append(designer.component) }
@@ -696,6 +709,21 @@ struct DesignRequest: Codable, Equatable, Hashable {
             add("target", "Add a ligand SMILES to continue.")
         }
         if targetKind == .ligand, let error = nesso.validationError { add("nesso", error) }
+        if (designPredictor == .esmfold2Fast || designPredictor == .esmfold2Full) && !hasSeparateInitialization {
+            add("models", "ESMFold2 refinement needs a separate starting engine or RFdiffusion3. It cannot generate X-token starts.")
+        }
+        if let method = initializationMethod, !["hallucination", "rfd3"].contains(method) {
+            add("models", "Choose a supported starting-backbone method.")
+        }
+        if hasSeparateInitialization && initializationMethod == "hallucination" && !DesignEngine.initializationChoices.contains(startingEngine) {
+            add("models", "Choose a supported X-token starting engine.")
+        }
+        if initializationMethod == "rfd3" {
+            if designType == .nanobody { add("binder", "RFdiffusion3 creates de novo backbones; select Minibinder rather than a fixed nanobody framework.") }
+            if targetKind == .protein && !FileManager.default.fileExists(atPath: initializationTargetPath ?? "") {
+                add("models", "Choose a target PDB/CIF for RFdiffusion3. Its complete target chains must match the target sequences.")
+            }
+        }
         if numDesigns < 1 || numCycles < 1 { add("run", "Choose at least one trajectory per engine and one optimization cycle.") }
         if !designPredictor.isAvailable { add("models", "\(designPredictor.label) is retired after failing Apple-GPU quality control. Choose a supported design engine.") }
         if hasInvalidEpitopeResidues { add("target", "Fix the hotspot residue list before starting.") }
@@ -741,7 +769,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
             if !selectedDesignPredictors.isEmpty { postPredictors = effectivePostPredictors }
             return
         }
-        if targetKind == .ligand && !ligandContactAtoms.isEmpty && !usesBoltzDesignEngine {
+        if targetKind == .ligand && !ligandContactAtoms.isEmpty && !usesBoltzDesignEngine && !hasSeparateInitialization {
             let previousDesign = designPredictor.checkingVariant
             designPredictor = ligandContactForce ? .boltzPotentials : .boltz
             if previousDesign.runnerValue != Predictor.boltz.runnerValue {
@@ -789,6 +817,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     init() {}
 
     private enum CodingKeys: String, CodingKey {
+        case initializationMethod, initializationEngine, initializationTargetPath
         case prediction_settings
         case designType, scaffoldID, scaffoldSequence, scaffoldSelections, equalScaffoldBudgets, trajectoriesPerScaffold, cdrs, binderMinLen, binderMaxLen, helixKill
         case secondaryStructureBias, secondaryStructureBiasScope
@@ -845,6 +874,9 @@ struct DesignRequest: Codable, Equatable, Hashable {
         hitThreshold    = try c.decodeIfPresent(Double.self, forKey: .hitThreshold) ?? d.hitThreshold
         parallelMode    = try c.decodeIfPresent(ParallelMode.self, forKey: .parallelMode) ?? d.parallelMode
         manualParallel  = try c.decodeIfPresent(Int.self, forKey: .manualParallel) ?? d.manualParallel
+        initializationMethod = try c.decodeIfPresent(String.self, forKey: .initializationMethod)
+        initializationEngine = try c.decodeIfPresent(DesignEngine.self, forKey: .initializationEngine)
+        initializationTargetPath = try c.decodeIfPresent(String.self, forKey: .initializationTargetPath)
         designPredictor = try c.decodeIfPresent(Predictor.self, forKey: .designPredictor) ?? d.designPredictor
         designPredictors = try c.decodeIfPresent([Predictor].self, forKey: .designPredictors)
         designEngines = try c.decodeIfPresent([DesignEngine].self, forKey: .designEngines)

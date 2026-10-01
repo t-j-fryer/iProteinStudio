@@ -249,6 +249,28 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
                 ],
             })
 
+    def test_separate_hunter_stages_pin_target_and_reject_x_token_esm(self):
+        import shutil
+        scripts = self.root / 'scripts'; scripts.mkdir(exist_ok=True)
+        for name in ['hunter_stages.py', 'hunter_initialization_io.py']:
+            shutil.copy2(MCP.parent / 'scripts' / name, scripts / name)
+        (self.root / 'nanohunter_run.sh').write_text('#!/bin/bash\nexit 0\n')
+        inputs = self.root / 'projects/demo/inputs'
+        template = inputs / 'template.yaml'; template.write_text('sequences: []\n')
+        target = inputs / 'target.pdb'; target.write_text('REMARK original target\n')
+        base = ['--workflow', 'protein', '--predictor', 'esmfold2-fast-mlx', '--sequence-designer', 'solublempnn',
+                '--num-runs', '1', '--num-opt-cycles', '2', '--iptm-threshold', '0.7']
+        with self.assertRaisesRegex(common.StudioError, 'initialization'):
+            plans._normalize_iterative_arguments(base)
+        plan = plans.iterative_plan(dict(project='demo', run_name='rfd-start', template_path=str(template),
+            arguments=base+['--initialization-method','rfd3','--initialization-target',str(target)]))
+        artifact = plan['normalized_request']['initialization_target_artifact']
+        self.assertNotEqual(artifact['path'], str(target))
+        self.assertIn(artifact['path'], plan['normalized_request']['arguments'])
+        plans.load_plan(plan['id'],plan['sha256'])
+        Path(artifact['path']).write_text('REMARK changed target\n')
+        with self.assertRaises(common.StudioError):plans.load_plan(plan['id'],plan['sha256'])
+
     def test_only_initialization_helix_strength_is_accepted(self):
         base = ["--workflow", "protein", "--predictor", "boltz", "--sequence-designer", "solublempnn",
                 "--num-runs", "10", "--num-opt-cycles", "5", "--iptm-threshold", "0.7"]

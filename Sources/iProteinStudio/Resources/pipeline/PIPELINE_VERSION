@@ -44,7 +44,7 @@ studio_child_shutdown: bounded-grace-retained-lease-v1
 studio_rfd3_runtime_release: runtimes-2026.09.26-1
 
 studio_constraint_receipt: portable-memory-contract-v1
-studio_runner_sha256: a0c7b15b4061405ee262df8016d30a02c3c9512d274bf9938b0fb8dabd23c6e2
+studio_runner_sha256: e888a91284b4dc54411fc735821b3a435e52d0e5ece61f72d1b24b2a14cb6151
 
 studio_nise_rfd3_conditioning: independent-generation-labels-v1
 studio_nise_resident_workers: explicit-fresh-stage-pool-v1
@@ -69,3 +69,6 @@ studio_token_sizing_validation: lab_book/0228-exact-token-prediction.md
 
 studio_prediction_profiles: shared-benchmark-defaults-v1
 studio_prediction_profiles_validation: lab_book/0234-publish-prediction-profiles.md
+
+studio_hunter_stages: audited-generation-refinement-v1
+studio_hunter_stages_validation: lab_book/0252-add-hunter-generation-stages.md

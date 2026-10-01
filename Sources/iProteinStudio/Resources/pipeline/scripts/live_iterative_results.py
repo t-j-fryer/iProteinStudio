@@ -48,7 +48,12 @@ class LiveIterativeResults:
         confidence = leaf / f"confidence_{name}_model_0.json"
         if len(structures) != 1 or not confidence.is_file():
             raise ValueError(f"Incomplete Boltz prediction for {name}")
-        structure = structures[0]
+        self.publish_structure(name, structures[0], confidence, 'boltz')
+
+    def publish_structure(self, name, structure, confidence, engine):
+        path, expected, sequence, cycle = self.inputs[name]
+        if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise ValueError('Iterative input changed during prediction')
         if inspect_geometry(structure)["errors"]:
             raise ValueError(f"Unusable prediction coordinates for {name}")
         scores = json.loads(confidence.read_text())
@@ -56,7 +61,7 @@ class LiveIterativeResults:
             value = scores.get(key)
             return value if isinstance(value, (int, float)) and math.isfinite(value) else ""
         root = path.parent.parent.parent
-        row = dict(cycle=cycle, iptm=metric("iptm"), complex_plddt=metric("complex_plddt"),
+        row = dict(cycle=cycle, predictor=engine, iptm=metric("iptm"), complex_plddt=metric("complex_plddt"),
                    confidence_json=str(confidence.resolve().relative_to(root)),
                    structure_path=str(structure.resolve().relative_to(root)), binder_sequence=sequence)
         target = path.parent / "live_prediction.csv"

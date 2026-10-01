@@ -29,11 +29,13 @@ PREDICTORS = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-
 SEQUENCE_MODELS = {"lasermpnn", "ligandmpnn", "solublempnn", "proteinmpnn"}
 RFD3_MODES = {"deNovo", "partialDiffusion", "motifScaffolding"}
 BOOLEAN_ITERATIVE_FLAGS = {
+    "--skip-predictor-calibration",
     "--boltz-use-potentials", "--boltz-no-potentials", "--post-binder-alone",
     "--post-no-binder-alone", "--require-target-msa", "--random-binder",
     "--helix-kill",
 }
 VALUE_ITERATIVE_FLAGS = {
+    "--initialization-method", "--initialization-predictor", "--initialization-model", "--initialization-target",
     "--prediction-settings-json", "--workflow", "--predictor", "--sequence-designer", "--num-runs",
     "--num-opt-cycles", "--iptm-threshold", "--predictor-seed", "--predictor-samples",
     "--model", "--post-predictor",
@@ -406,6 +408,15 @@ def _normalize_iterative_arguments(values: Any) -> Tuple[List[str], str]:
     if missing:
         raise StudioError(f"Missing required iterative arguments: {', '.join(missing)}")
     assert predictor is not None
+    if any(flag.startswith('--initialization-') and flag != '--initialization-max-attempts' for flag in seen) and '--initialization-max-attempts' not in seen:
+        import importlib.util
+        helper = runtime_root() / 'scripts/hunter_stages.py'
+        spec = importlib.util.spec_from_file_location('studio_hunter_stages', helper)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        try: module.validate(normalized)
+        except ValueError as exc: raise StudioError(str(exc)) from exc
+    elif predictor.startswith('esmfold2-'):
+        raise StudioError('ESMFold2 refinement needs --initialization-method hallucination with a starting predictor, or rfd3.')
     return normalized, predictor
 
 
@@ -419,6 +430,15 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     campaign = destination / run_name
     if campaign.exists():
         raise StudioError(f"Run directory already exists: {campaign}")
+    initialization_target = None
+    if '--initialization-target' in user_args:
+        index = user_args.index('--initialization-target') + 1
+        initialization_target = import_artifact(user_args[index])
+        if Path(initialization_target['path']).suffix.lower() not in {'.pdb', '.cif', '.mmcif'}:
+            raise StudioError('RFdiffusion3 target must be a PDB/CIF structure.')
+        user_args[index] = initialization_target['path']
+    targeting_predictor = (user_args[user_args.index('--initialization-predictor') + 1]
+                          if '--initialization-predictor' in user_args else predictor)
     target_template = None
     target_template_args: List[str] = []
     supplied_template = str(arguments.get("target_template_path", "")).strip()
@@ -432,7 +452,7 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
             raise StudioError("Strong target-coordinate restraint is disabled because Apple-GPU acceptance tests reproducibly produced broken target geometry; use guide mode.")
         if mode != "guide":
             raise StudioError("target_template_mode must be guide.")
-        if predictor in {"boltz", "protenix-v2", "intellifold"}:
+        if targeting_predictor in {"boltz", "protenix-v2", "intellifold"}:
             pass
         else:
             raise StudioError("Target-fold guidance is supported only by Boltz-2, Protenix v2, and IntelliFold v2 Flash/full.")
@@ -488,6 +508,8 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     preview = ["/usr/bin/caffeinate", "-dimsu", str(runner)] + final_args
     normalized = {"arguments": final_args, "environment_overrides": overrides,
                   "template_artifact": template, "target_template_artifact": target_template,
+                  "initialization_target_artifact": initialization_target,
+                  "supporting_engines": ["boltz"] if ("--initialization-method" in user_args or predictor == "esmfold2-full-mlx") else [],
                   "campaign": str(campaign), "run_name": run_name}
     if monomer_benchmark:
         normalized["monomer_control_benchmark"] = {"scope": "unconditioned-monomer",
@@ -497,6 +519,9 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
             "scheduler": "run", "scientific_status": "experimental-unvalidated-criteria",
             "assessment_environment": "managed-protenix", "max_attempts_includes_original": True}
     scripts = [runner]
+    if any(flag in user_args for flag in ['--initialization-method', '--initialization-predictor']):
+        scripts += [root / 'scripts/hunter_stages.py', root / 'scripts/hunter_initialization_io.py', Path(template['path'])]
+        if initialization_target: scripts.append(Path(initialization_target['path']))
     prior_mode = user_args[user_args.index("--secondary-bias") + 1] if "--secondary-bias" in user_args else "none"
     prior_flags = {"--helix-kill", "--anti-helix-strength", "--negative-helix-constant",
                    "--beta-strength", "--beta-pattern-strength", "--turn-strength"}

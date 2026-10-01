@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "purpose": "End-to-end acceptance of separate Protein Hunter initialization and refinement; not a speed benchmark",
+  "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+  "target": "bundled aCbx, exact target PDB and cached MSA",
+  "arms": [
+    {
+      "name": "rfd3_fast",
+      "initialization": "rfd3",
+      "refinement": "esmfold2-fast-mlx",
+      "trajectories": 2,
+      "cycles": 2
+    },
+    {
+      "name": "boltz_fast",
+      "initialization": "boltz",
+      "refinement": "esmfold2-fast-mlx",
+      "trajectories": 1,
+      "cycles": 2
+    },
+    {
+      "name": "boltz_full",
+      "initialization": "boltz",
+      "refinement": "esmfold2-full-mlx",
+      "trajectories": 1,
+      "cycles": 2
+    },
+    {
+      "name": "rfd3_ligand_boltz",
+      "initialization": "rfd3",
+      "refinement": "boltz",
+      "trajectories": 1,
+      "cycles": 1,
+      "target": "bundled fluorescein",
+      "sequence_designer": "ligandmpnn",
+      "affinity": false
+    }
+  ],
+  "settings": {
+    "binder_min_length": 65,
+    "binder_max_length": 65,
+    "sequence_designer": "solublempnn",
+    "seed": 42,
+    "rfd3_steps": 200,
+    "rfd3_recycles": 2,
+    "rfd3_precision": "bf16",
+    "post_checks": "none"
+  },
+  "checks": [
+    "exact cycle/output counts",
+    "finite coordinates",
+    "complete MPNN sequences",
+    "correct per-stage engine and restraints",
+    "one resident refinement load across both later cycles",
+    "audited seed reuse",
+    "existing jobs resumed after tests",
+    "interrupt Full refinement after cycle 01, resume through the same immutable plan, verify saved structure hashes"
+  ],
+  "limits": [
+    "not a biological validation",
+    "no affinity measurement",
+    "one target",
+    "no cross-engine score calibration"
+  ]
+}

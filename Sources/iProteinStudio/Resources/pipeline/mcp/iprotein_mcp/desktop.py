@@ -115,7 +115,7 @@ def desktop_plan(request: Dict[str, Any], *, _batch_child: bool = False) -> Dict
                 and arguments[arguments.index("--design-scheduler") + 1:][:1] in (["resident"], ["campaign-resident"])):
             raise StudioError("OpenFold-3 has no resident worker. Recreate the unfinished OpenFold-3 run with --design-scheduler run; the saved plan cannot be changed in place.")
         # Exact GUI argv is retained, including MSA and resident scheduling.
-        for flag in ("--template-yaml", "--target-template"):
+        for flag in ("--template-yaml", "--target-template", "--initialization-target"):
             if flag in arguments:
                 inputs.append(Path(arguments[arguments.index(flag) + 1]))
         if "--out-root" not in arguments or "--run-name" not in arguments:
@@ -131,6 +131,8 @@ def desktop_plan(request: Dict[str, Any], *, _batch_child: bool = False) -> Dict
         steps = [{"command": ["/usr/bin/caffeinate", "-dimsu", str(scripts[0])] + arguments,
                   "cwd": str(snapshot), "stage": "iterative-design"}]
         context = {"pipeline_snapshot": str(snapshot), "manifest": manifest}
+        if "--initialization-method" in arguments:
+            context["supporting_engines"] = ["boltz"]
         form = manifest.get("request", {})
         if form.get("targetKind") == "ligand" and (form.get("nesso") or {}).get("enabled"):
             from .ligand_screening import prepare

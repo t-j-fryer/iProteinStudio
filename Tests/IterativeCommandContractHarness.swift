@@ -570,7 +570,30 @@ struct IterativeCommandContractHarness {
         expect(!old.nesso.enabled, "old projects must not opt in silently")
     }
 
+    static func testSeparateStages() throws {
+        var request = DesignRequest()
+        request.designType = .minibinder
+        request.targetKind = .protein
+        request.targetSequence = "ACDEFGHIK"
+        request.designPredictor = .esmfold2Fast
+        request.postPredictors = []
+        expect(request.validationIssues.contains { $0.message.contains("X-token") }, "ESM cannot silently hallucinate")
+        request.initializationMethod = "hallucination"
+        request.initializationEngine = .boltz
+        expect(request.requiredComponents.contains(.boltz) && request.requiredComponents.contains(.esmfold2Fast), "both stages require their own installed component")
+        let args = CommandBuilder.arguments(request: request, templateYAML: URL(fileURLWithPath: "/tmp/template.yaml"), outRoot: URL(fileURLWithPath: "/tmp/output"), runName: "mixed")
+        expect(args.contains("--initialization-predictor") && args.contains("esmfold2-fast-mlx"), "mixed stages reach the CLI")
+        let restored = try JSONDecoder().decode(DesignRequest.self, from: JSONEncoder().encode(request))
+        expect(restored.initializationEngine == .boltz && restored.initializationMethod == "hallucination", "stage recipe round trips")
+        request.initializationMethod = "rfd3"
+        request.designType = .nanobody
+        expect(request.validationIssues.contains { $0.message.contains("de novo") }, "RFD3 cannot replace a fixed nanobody framework")
+        let old = try JSONDecoder().decode(DesignRequest.self, from: Data("{}".utf8))
+        expect(!old.hasSeparateInitialization, "historical runs stay on the original path")
+    }
+
     static func main() async throws {
+        try testSeparateStages()
         try testLigandNessoOptions()
         try testBoltzProteinHotspots()
         try testTargetTemplateModes()
