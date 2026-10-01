@@ -189,6 +189,16 @@ final class TargetPredictor: ObservableObject {
         job.cancel()
     }
 
+    /// Return to engine selection without discarding the completed prediction.
+    func reset() {
+        guard !isRunning else { return }
+        phase = .idle
+        done = false
+        resultDir = nil
+        cacheDirectory = nil
+        log = []
+    }
+
     private func start() { log = []; phase = .running; done = false }
 
     /// Try to complete from produced output. Returns true if a structure was found.

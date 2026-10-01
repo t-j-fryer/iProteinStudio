@@ -1,5 +1,11 @@
 # iProteinStudio release notes
 
+## 0.2.19 — Predict targets for RFdiffusion3
+
+- Predict a target from sequence and automatically use it in RFdiffusion3 or Protein Hunter RFdiffusion3 cycle 00.
+- Optional hotspots, automatic target reading, and cached prediction reuse.
+- Copy target structures and their saved prediction settings into each run before queueing.
+
 ## 0.2.18 — Separate Protein Hunter generation and refinement
 
 - Choose RFdiffusion3 or a separate hallucination engine for cycle-00 backbones.

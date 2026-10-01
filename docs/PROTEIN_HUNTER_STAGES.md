@@ -43,7 +43,20 @@ are saved separately so this distinction can be inspected.
 ## RFdiffusion3 starts
 
 RFdiffusion3 is available for de novo minibinders/peptides, not fixed-framework
-nanobodies. For protein targets, supply a PDB/CIF with complete chains matching
+nanobodies. For protein targets, use **Predict target structure…** to select a
+prediction engine (including ESMFold2 Fast/Full), or supply your own PDB/CIF.
+The predicted structure is automatically selected for cycle 00; choosing
+hotspots is optional. **Use structure** closes Target Prep without adding
+hotspots. Existing matching predictions can be reused. RFdiffusion3's own tab
+offers the same action and automatically reads the resulting chains/residues.
+The target-only prediction uses Studio's normal queue, separately from the
+design campaign. Start the design after the target is ready. Choose **Re-predict…**
+to change engines without deleting the previous prediction.
+
+Both workflows copy the selected target into the design run before queueing.
+For a Studio target prediction, its saved prediction configuration and checksum
+receipt are also copied; deleting or replacing the library prediction does not
+change a queued design. The selected structure must contain complete chains matching
 the target sequences. Studio selects exact matching chains and reserves chain A
 for the binder. Ambiguous or incomplete matches fail before GPU generation.
 Target sequence positions are translated to structure residue numbers before

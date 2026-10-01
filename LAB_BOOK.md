@@ -1,5 +1,7 @@
 # Lab Book
 
+Current follow-up: [0253 — Predicted RFdiffusion3 targets](lab_book/0253-predict-rfd3-targets.md).
+
 Current implementation: [0252 — Protein Hunter generation stages](lab_book/0252-add-hunter-generation-stages.md) (released in 0.2.18 / build64 / MCP37).
 
 Newest UI fix: [0224 — Center Jobs and dismiss cleanly](lab_book/0224-fix-job-queue-presentation.md) (0.2.15/build61; MCP35 unchanged).

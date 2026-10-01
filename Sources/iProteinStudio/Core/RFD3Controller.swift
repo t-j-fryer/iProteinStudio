@@ -139,7 +139,15 @@ final class RFD3Controller: ObservableObject {
         // rather than turning up in a log file hours later.
         let requestURL = campaign.appendingPathComponent("config/studio_request.json")
         do {
-            let payload = Self.studioRequest(project: project, request: request,
+            var savedRequest = request
+            if request.targetKind == .protein {
+                let source = URL(fileURLWithPath: request.targetStructurePath)
+                let destination = campaign.appendingPathComponent("inputs/target.\(source.pathExtension.lowercased())")
+                try TargetStructureSnapshot.copy(source: source, to: destination,
+                                                 predictionCache: AppPaths.support.appendingPathComponent("target_predictions"))
+                savedRequest.targetStructurePath = destination.path
+            }
+            let payload = Self.studioRequest(project: project, request: savedRequest,
                                              campaign: campaign, rfd3Root: rfd3Root)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

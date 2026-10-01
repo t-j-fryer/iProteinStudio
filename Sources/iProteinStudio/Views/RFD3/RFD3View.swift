@@ -207,6 +207,7 @@ struct RFD3View: View {
                     ).map(\.id)
                     request.wrappedValue.targetChain = ids.joined(separator: ",")
                     request.wrappedValue.targetStructurePath = cif
+                    inspector.inspectProtein(path: cif, chains: ids, expectedChainCount: ids.count)
                 },
                 onClose: { showTargetPrep = false }
             )
@@ -476,11 +477,13 @@ struct RFD3View: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button { showTargetPrep = true } label: {
-                    Label("Predict structure & pick hotspots", systemImage: "scope")
+                    Label("Predict target structure…", systemImage: "cube.transparent")
                 }
                 .disabled(request.wrappedValue.targetChains.isEmpty)
             }
 
+            Text("Choose a prediction engine; Studio automatically uses and reads the completed structure. Hotspot selection is optional. You can also reuse an existing matching prediction.")
+                .font(.caption).foregroundStyle(.secondary)
             Divider().padding(.vertical, 2)
             filePicker(path: request.targetStructurePath,
                        prompt: "…or choose a structure file (PDB or mmCIF)",

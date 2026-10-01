@@ -226,7 +226,7 @@ struct DesignFormView: View {
 
                 Color.clear.frame(height: 0).id("models")
                 Card(title: "4 · Prediction & checking", systemImage: "checkmark.seal") {
-                    PredictorPicker(request: request, installer: installer)
+                    PredictorPicker(request: request, installer: installer, prepareTarget: { showTargetPrep = true })
                 }
 
                 Card(title: "5 · Run settings", systemImage: "gauge.with.dots.needle.67percent") {
@@ -260,6 +260,9 @@ struct DesignFormView: View {
                     r.reconcilePredictors()
                     request.wrappedValue = r
                 },
+                onStructure: request.wrappedValue.initializationMethod == "rfd3" && request.wrappedValue.targetKind == .protein ? { path in
+                    request.wrappedValue.initializationTargetPath = path
+                } : nil,
                 onClose: { showTargetPrep = false }
             )
         }
@@ -663,6 +666,7 @@ struct MPNNTemperatureControl: View {
 struct PredictorPicker: View {
     @Binding var request: DesignRequest
     @ObservedObject var installer: PipelineInstaller
+    var prepareTarget: () -> Void
 
     private var checkChoices: [Predictor] {
         // Everything that can re-fold, minus whichever engine did the designing —
@@ -725,9 +729,17 @@ struct PredictorPicker: View {
                                 let panel = NSOpenPanel()
                                 panel.allowsMultipleSelection = false
                                 panel.canChooseDirectories = false
+                                panel.allowedContentTypes = [UTType(filenameExtension: "pdb") ?? .data, UTType(filenameExtension: "cif") ?? .data, UTType(filenameExtension: "mmcif") ?? .data]
                                 if panel.runModal() == .OK { request.initializationTargetPath = panel.url?.path }
                             }
                         }
+                        Button(action: prepareTarget) {
+                            Label("Predict target structure…", systemImage: "cube.transparent")
+                        }
+                        .disabled(request.targetChains.isEmpty)
+                        .accessibilityIdentifier("hunter-rfd3-predict-target")
+                        Text("No structure file? Choose a prediction engine for your target sequence. The completed structure is automatically selected here; hotspots are optional. Existing matching predictions can be reused.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                     Text("One backbone per trajectory, spread across your binder-length range. Uses the validated RFdiffusion3 generator (200 steps, 2 recycles, BF16). Protein targets need a matching structure; selected hotspots guide generation, otherwise it scans the surface. Available for de novo binders, not fixed nanobody frameworks.")
                         .font(.caption).foregroundStyle(.secondary)

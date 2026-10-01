@@ -95,7 +95,8 @@ final class RunController: ObservableObject {
                    let path = child.initializationTargetPath {
                     let source = URL(fileURLWithPath: path)
                     let destination = inputs.appendingPathComponent("initialization_target.\(source.pathExtension.lowercased())")
-                    try AppPaths.fm.copyItem(at: source, to: destination)
+                    try TargetStructureSnapshot.copy(source: source, to: destination,
+                                                     predictionCache: AppPaths.support.appendingPathComponent("target_predictions"))
                     child.initializationTargetPath = destination.path
                 }
                 let template = inputs.appendingPathComponent("design.yaml")

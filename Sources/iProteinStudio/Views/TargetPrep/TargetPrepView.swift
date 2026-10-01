@@ -78,6 +78,8 @@ struct TargetPrepView: View {
                 Text(isLigand ? "Ligand Structure" : "Target Prep").font(.headline)
                 Text(isLigand
                      ? "See what the structure predictors make of your molecule."
+                     : onStructure != nil
+                     ? "Predict a target with your chosen engine. Its structure is used automatically; selecting hotspots is optional."
                      : "Find the best epitope: hover for residue numbers, show hydrophobic patches, click to mark hotspots.")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -213,7 +215,7 @@ struct TargetPrepView: View {
             }
                 .frame(maxHeight: .infinity)
             Divider()
-            Button { predictor.cancel(); selected = []; showSurface = false } label: {
+            Button { predictor.reset(); selected = []; showSurface = false } label: {
                 Label("Re-predict…", systemImage: "arrow.clockwise")
             }.controlSize(.small)
         }
@@ -224,7 +226,7 @@ struct TargetPrepView: View {
         if isLigand {
             HStack {
                 if case .done = predictor.phase {
-                    Button { predictor.cancel() } label: { Label("Re-predict…", systemImage: "arrow.clockwise") }
+                    Button { predictor.reset() } label: { Label("Re-predict…", systemImage: "arrow.clockwise") }
                         .controlSize(.small)
                 }
                 Spacer()
@@ -237,8 +239,17 @@ struct TargetPrepView: View {
                      : "\(selected.count) hotspot\(selected.count == 1 ? "" : "s") selected")
                     .foregroundStyle(.secondary).font(.callout)
                 Spacer()
-                Button("Use hotspots") { onUse(selected); onClose() }
-                    .buttonStyle(.borderedProminent).disabled(selected.isEmpty)
+                if onStructure != nil {
+                    Button(selected.isEmpty ? "Use structure" : "Use structure & hotspots") {
+                        if !selected.isEmpty { onUse(selected) }
+                        onClose()
+                    }
+                    .buttonStyle(.borderedProminent).disabled(predictor.cifPath == nil)
+                    .accessibilityIdentifier("use-predicted-target-structure")
+                } else {
+                    Button("Use hotspots") { onUse(selected); onClose() }
+                        .buttonStyle(.borderedProminent).disabled(selected.isEmpty)
+                }
             }
             .padding()
         }

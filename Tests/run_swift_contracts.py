@@ -14,6 +14,7 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
     if os.environ.get("SDKROOT"):
         flags += ["-sdk", os.environ["SDKROOT"]]
     cases = {
+        "target_structure_snapshot": [SOURCE + "Core/TargetStructureSnapshot.swift", "Tests/TargetStructureSnapshotHarness.swift"],
         "workflow_requests": [SOURCE + "Models/" + name for name in [
             "Predictor.swift", "ProteinSequenceInput.swift", "RFD3Request.swift", "PredictionRequest.swift"
         ]] + ["Tests/WorkflowRequestContractHarness.swift"],
@@ -21,7 +22,7 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
             SOURCE + "Models/NISERequest.swift", SOURCE + "Models/PredictionRequest.swift",
             SOURCE + "Models/RunNaming.swift",
             SOURCE + "Core/NISEController.swift", SOURCE + "Core/PredictionController.swift",
-            SOURCE + "Core/RFD3Controller.swift", SOURCE + "Core/ProcessRunner.swift",
+            SOURCE + "Core/RFD3Controller.swift", SOURCE + "Core/TargetStructureSnapshot.swift", SOURCE + "Core/ProcessRunner.swift",
             SOURCE + "Core/RunController.swift", SOURCE + "Core/RunHistoryStore.swift",
             SOURCE + "Core/TemplateWriter.swift", SOURCE + "Core/CommandBuilder.swift",
             SOURCE + "Core/CDRDetector.swift", SOURCE + "Core/ResumeContract.swift", "Tests/EngineBatchControllerHarness.swift"],
