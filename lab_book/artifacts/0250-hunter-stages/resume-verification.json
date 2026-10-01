@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "job": "job-e12b21298101",
+  "preserved": {
+    "run_001/cycle_00/pred_min/model_0.cif": "b88b2591fbadfa227377c1a21813598fbe4907a6e53d3d90b87ae329559ee2ab",
+    "run_001/cycle_01/pred_min/model_0.cif": "e8bbeb59fd280ae66f6c762bc693402c6dc5a7f3e98239c3852f17b20c73e316"
+  }
+}

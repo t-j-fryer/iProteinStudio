@@ -1,0 +1,196 @@
+[
+  {
+    "name": "rfd3_fast_retry1",
+    "status": "passed",
+    "job": "job-4ec8a351eec0",
+    "structures": [
+      {
+        "run": "run_001",
+        "cycle": 0,
+        "engine": "rfd3",
+        "iptm": null,
+        "msa_policy": null
+      },
+      {
+        "run": "run_001",
+        "cycle": 1,
+        "engine": "esmfold2-fast-mlx",
+        "iptm": 0.23464176058769226,
+        "msa_policy": "sequence-only"
+      },
+      {
+        "run": "run_001",
+        "cycle": 2,
+        "engine": "esmfold2-fast-mlx",
+        "iptm": 0.051794666796922684,
+        "msa_policy": "sequence-only"
+      },
+      {
+        "run": "run_002",
+        "cycle": 0,
+        "engine": "rfd3",
+        "iptm": null,
+        "msa_policy": null
+      },
+      {
+        "run": "run_002",
+        "cycle": 1,
+        "engine": "esmfold2-fast-mlx",
+        "iptm": 0.1972142457962036,
+        "msa_policy": "sequence-only"
+      },
+      {
+        "run": "run_002",
+        "cycle": 2,
+        "engine": "esmfold2-fast-mlx",
+        "iptm": 0.20695774257183075,
+        "msa_policy": "sequence-only"
+      }
+    ],
+    "sessions": [
+      {
+        "pid": 63465,
+        "model_load_count": 1,
+        "responses": 2
+      }
+    ]
+  },
+  {
+    "name": "boltz_fast",
+    "status": "passed",
+    "job": "job-afae8cf8018b",
+    "structures": [
+      {
+        "run": "run_001",
+        "cycle": 0,
+        "engine": "boltz",
+        "iptm": 0.49071311950683594,
+        "msa_policy": null
+      },
+      {
+        "run": "run_001",
+        "cycle": 1,
+        "engine": "esmfold2-fast-mlx",
+        "iptm": 0.16281655430793762,
+        "msa_policy": "sequence-only"
+      },
+      {
+        "run": "run_001",
+        "cycle": 2,
+        "engine": "esmfold2-fast-mlx",
+        "iptm": 0.058516256511211395,
+        "msa_policy": "sequence-only"
+      }
+    ],
+    "sessions": [
+      {
+        "pid": 62505,
+        "model_load_count": 1,
+        "responses": 2
+      }
+    ]
+  },
+  {
+    "name": "boltz_full",
+    "status": "passed",
+    "job": "job-2eddeeda8955",
+    "structures": [
+      {
+        "run": "run_001",
+        "cycle": 0,
+        "engine": "boltz",
+        "iptm": 0.49071311950683594,
+        "msa_policy": null
+      },
+      {
+        "run": "run_001",
+        "cycle": 1,
+        "engine": "esmfold2-full-mlx",
+        "iptm": 0.06706217676401138,
+        "msa_policy": "per-chain"
+      },
+      {
+        "run": "run_001",
+        "cycle": 2,
+        "engine": "esmfold2-full-mlx",
+        "iptm": 0.07292743027210236,
+        "msa_policy": "per-chain"
+      }
+    ],
+    "sessions": [
+      {
+        "pid": 65131,
+        "model_load_count": 1,
+        "responses": 2
+      }
+    ]
+  },
+  {
+    "name": "boltz_full_resume",
+    "status": "passed",
+    "job": "job-e12b21298101",
+    "structures": [
+      {
+        "run": "run_001",
+        "cycle": 0,
+        "engine": "boltz",
+        "iptm": 0.49071311950683594,
+        "msa_policy": null
+      },
+      {
+        "run": "run_001",
+        "cycle": 1,
+        "engine": "esmfold2-full-mlx",
+        "iptm": 0.06706217676401138,
+        "msa_policy": "per-chain"
+      },
+      {
+        "run": "run_001",
+        "cycle": 2,
+        "engine": "esmfold2-full-mlx",
+        "iptm": 0.07292743027210236,
+        "msa_policy": "per-chain"
+      }
+    ],
+    "sessions": [
+      {
+        "pid": 67005,
+        "model_load_count": 1,
+        "responses": 1
+      },
+      {
+        "pid": 68091,
+        "model_load_count": 1,
+        "responses": 1
+      }
+    ]
+  },
+  {
+    "name": "rfd3_ligand_boltz_retry1",
+    "status": "passed",
+    "job": "job-0761802972b4",
+    "structures": [
+      {
+        "run": "run_001",
+        "cycle": 0,
+        "engine": "rfd3",
+        "iptm": null,
+        "msa_policy": null
+      },
+      {
+        "run": "run_001",
+        "cycle": 1,
+        "engine": "boltz",
+        "iptm": 0.4993927478790283,
+        "msa_policy": null
+      }
+    ],
+    "sessions": [
+      {
+        "pid": 78477,
+        "model_load_count": 1,
+        "responses": 1
+      }
+    ]
+  }
+]

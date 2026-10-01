@@ -4,7 +4,7 @@ title: Separate Protein Hunter initialization and refinement
 date: 2026-10-01
 author: Codex
 type: implementation
-status: in-progress
+status: validated
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory, macOS 26.x
 tags: [rfd3, predictors, ui, mcp, release]
 ---
@@ -36,8 +36,10 @@ Real-model RFdiffusion3 → ESMFold2 Fast (2 starts, 4 refined structures), Bolt
 ESMFold2 Fast and Full (1 start + 2 refined structures each) pass. A separate Full
 run was interrupted after cycle 01 and resumed through the immutable plan; saved
 start/cycle-01 hashes stayed identical. One resident model load serves both
-cycles in uninterrupted runs. Ligand mapping acceptance is queued behind the
-user's separate ESM benchmark. No speed or design-quality claim. See
+cycles in uninterrupted runs. Ligand acceptance also passed: one RFdiffusion3 start, one LigandMPNN/Boltz
+refinement, matching ligand atom names/elements and valid pocket atom references.
+Total accepted cohort: 6 starts and 11 refined structures (including the resume
+arm). No speed or design-quality claim. See
 Validation/lab_book/0077-hunter-stage-acceptance.md.
 
 ## Decision and rationale
@@ -58,11 +60,15 @@ lab_book/artifacts/0250-hunter-stages.
 No wet-lab validation or cross-engine score calibration. Not every possible
 engine pair, target size or nanobody framework was tested. No fresh-Mac install,
 VoiceOver audit, prolonged memory soak or real Sparkle upgrade on a second Mac.
-Ligand acceptance and distribution verification remain pending.
+Distribution verification remains pending. Packaged UI inspection verified
+starting-stage selection, ESM eligibility and missing-target blocking; corrected
+a misleading legacy hotspot caption and rebuilt successfully.
 
 ## Next
 
-Finish tests, publish app/MCP/CLI release, restore paused benchmark and queue.
+Publish app/MCP/CLI release and release the held queue watcher after staging.
+The separate ESM benchmark completed successfully; Protenix and binder remain
+paused until the watcher resumes them in order.
 
 ## Updated queue handoff (user request, 2026-10-01)
 

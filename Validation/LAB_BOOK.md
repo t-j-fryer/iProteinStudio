@@ -1,6 +1,6 @@
 # Validation Lab Book
 
-Current acceptance: [0077 — Hunter generation stages](lab_book/0077-hunter-stage-acceptance.md) (predeclared; in progress).
+Current acceptance: [0077 — Hunter generation stages](lab_book/0077-hunter-stage-acceptance.md) (passed).
 
 | Entry | Date | Status | Question |
 |---|---|---|---|

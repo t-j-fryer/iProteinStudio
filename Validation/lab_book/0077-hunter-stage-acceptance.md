@@ -1,6 +1,6 @@
 # 0077 — Protein Hunter stage handoff acceptance
 
-2026-10-01, in progress. M4 Max / 40 GPU cores / 64 GB. Predeclared protocol:
+2026-10-01, passed. M4 Max / 40 GPU cores / 64 GB. Predeclared protocol:
 `experiments/hunter_stages_v1/manifest.json`. Exact adapter/runtime/weight identities
 are pinned by each normal iterative plan; raw outputs remain immutable under
 `output/hunter_stages_v1`. Uses Studio's existing shared execution lock.
@@ -21,7 +21,9 @@ hashes are unchanged. Original RFD3 attempt failed on absent per-prediction timi
 files for generated starts; fixed by recording missing RFD3 timing as absent,
 then reran a fresh plan. A ligand test was added (fluorescein, one backbone,
 LigandMPNN/Boltz, no affinity). Its first queued plan was canceled before inference
-after CPU preflight found an import-path error; corrected retry is queued.
+after CPU preflight found an import-path error; corrected retry passed. Ligand heavy-atom names and elements match the Boltz
+manifest in both generated and refined structures, and pocket references resolve.
+All five accepted arms pass (6 starts, 11 refined structures).
 
 Evidence: output/hunter_stages_v1/audit.json, resume-verification.json, per-arm
 immutable plans, runtime bindings and input SHA manifests. No new default

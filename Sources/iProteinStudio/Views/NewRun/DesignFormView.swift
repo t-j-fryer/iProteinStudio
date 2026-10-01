@@ -106,7 +106,7 @@ struct DesignFormView: View {
                                     .buttonStyle(.borderless)
                                 }
                             }
-                            Text("Optional. Guides the target chains toward an experimental or trusted predicted structure during each design cycle. Binder chain A is never templated, and independent checks remain untemplated.")
+                            Text("Optional. Guides the target chains in stages whose engine supports templates. Binder chain A is never templated, and independent checks remain untemplated. RFdiffusion3 uses the separate target structure selected under Starting backbones.")
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             if let error = request.wrappedValue.targetTemplateCompatibilityError {
@@ -124,7 +124,7 @@ struct DesignFormView: View {
                             Spacer()
                             TextField("Epitope hotspots (e.g. 32 55)", text: request.epitopeResidues)
                                 .textFieldStyle(.roundedBorder).frame(width: 240)
-                                .help("Bare residue numbers use the first target chain (B). For multimers use chain-qualified residues such as C55. Boltz and Protenix Constraint v0.5 can apply these residues.")
+                                .help("Bare residue numbers use the first target chain (B). For multimers use chain-qualified residues such as C55. RFdiffusion3 generation, Boltz and Protenix Constraint v0.5 can apply these residues.")
                                 .disabled(!request.wrappedValue.supportsEpitopePocket)
                                 .onChange(of: request.wrappedValue.epitopeResidues) { _, _ in
                                     var r = request.wrappedValue
@@ -136,6 +136,11 @@ struct DesignFormView: View {
                             Label("Use residue numbers such as 32 55, or target-chain residues such as B32 C55.",
                                   systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption).foregroundStyle(.orange)
+                        } else if request.wrappedValue.hasSeparateInitialization && request.wrappedValue.hasEpitopeSteering {
+                            Text(request.wrappedValue.initializationMethod == "rfd3"
+                                 ? "RFdiffusion3 uses these hotspots to guide the cycle-00 backbones. Later refinement applies them only if its engine supports epitope guidance."
+                                 : "\(request.wrappedValue.startingEngine.label) applies its supported epitope guidance to cycle 00. Later refinement applies these hotspots only if its engine supports them.")
+                                .font(.caption).foregroundStyle(.secondary)
                         } else if request.wrappedValue.selectedDesignPredictors.count > 1 {
                             Text("Epitope guidance depends on each selected engine; see Prediction & checking below.")
                                 .font(.caption).foregroundStyle(.secondary)
@@ -766,8 +771,8 @@ struct PredictorPicker: View {
                 if request.hasEnteredEpitopeResidues {
                     ForEach(request.selectedDesignEngines) { p in
                         Text(p.supportsEpitopePocket
-                             ? "\(p.label) applies its supported epitope guidance."
-                             : "\(p.label) folds the full target; the saved epitope hotspots are not applied.")
+                             ? "During refinement, \(p.label) applies its supported epitope guidance."
+                             : "During refinement, \(p.label) folds the full target without epitope guidance.")
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
