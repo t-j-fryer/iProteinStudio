@@ -4,7 +4,7 @@ title: Publish natural workspace and resident OpenFold release
 date: 2026-10-02
 author: Codex
 type: implementation
-status: in-progress
+status: complete
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory
 ---
 
@@ -42,4 +42,26 @@ release check. Native UI review and its coverage limitations are recorded in
 0268/0270/0271. No model weights or private runtime packages enter Git.
 
 ## Delivery
-Pending final packaged checks, publication and benchmark resume.
+Published v0.2.21-beta from clean source 5bca3b6; update-feed commit 8ce5151.
+GitHub main and the live Sparkle feed advertise build 67. All four GitHub asset
+SHA-256 digests match local files; the feed includes the EdDSA archive signature.
+DMG SHA-256: 1e312ef1ec497ccab660952c77ab0c13096ae1355c70249199341d304bdb31ae.
+
+Installed the exact release app at /Applications/iProteinStudio.app and reopened
+it. Preserved the former build as build/iProteinStudio-build66-before67.app.
+The installed CLI doctor reports MCP39, all profile/schema checks passed, and
+hashes of the released OpenFold/MPNN/planner files match the managed installation.
+Setup detection still reports existing engines installed; no environments or
+weights were downloaded or duplicated. Native UI checked Design chooser opening,
+all three method entries, artwork rendering and installed Engines status.
+
+Release checks: 14 Swift tests; all Swift request/results harnesses; 5 OpenFold
+receipt tests; 4 RFD scheduling; 10 Hunter stage; 23 MCP (also rerun from clean
+checkout); CLI contract and packaged resource/signature checks passed. Updated
+one stale CLI assertion that previously expected OpenFold residency to fail.
+
+Broker resume requested for the same immutable Figure3 job after all builds;
+ordered watcher restarted with the original manifest. Completed 80-aa Boltz HK1
+refinement and all earlier audited cohorts remain on disk. Citrate and
+retrospective follow in their existing order. Release maintenance time is not
+part of an inference measurement. No fresh-Mac acceptance is claimed.
