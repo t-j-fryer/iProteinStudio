@@ -53,3 +53,14 @@ and packaging work, and must resume using its frozen settings after deployment.
 ## Delivery
 Version 0.2.22 / build 68 / MCP 40. Clean release packaging excludes unrelated prototype,
 new artwork and manuscript work in the shared checkout.
+
+Published v0.2.22-beta from source 1c912ca, update feed 4ec18d7. Installed the exact
+release bundle in /Applications; previous build retained in build/. MCP doctor reports
+bridge 40 / ok; installed detection reuses existing weights and environments. Native app
+inspection confirmed both Protein Hunter menu options. The computer-use service then
+lost its native pipe, preventing further NISE/RFD3 visual inspection; Studio stayed alive.
+This is an explicit visual-QA limitation, not a passed visual check.
+
+Resumed Figure3 job-465040f858d2 through the broker with its original immutable digest,
+removed only this maintenance HOLD and restored the ordered watcher. No new scientific
+settings, outputs or calibration conclusions were added by this release.
