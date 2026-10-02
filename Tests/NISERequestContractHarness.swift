@@ -102,6 +102,10 @@ struct NISERequestContractHarness {
         let oldCustomAgain = try JSONDecoder().decode(NISERequest.self, from: JSONEncoder().encode(oldCustom))
         precondition(oldCustomAgain == oldCustom)
         var objective = NISERequest(); objective.smiles = "CCO"
+        precondition(objective.scheduler == "resident" && objective.resident_workers == 1)
+        precondition(objective.selective_affinity && !objective.partial_noising && !objective.adaptive_proposals)
+        precondition(!objective.nesso_screen && !objective.phase0_nesso_screen)
+        precondition(oldCustom.scheduler == "cycle-wave" && oldCustom.resident_workers == 0)
         precondition(objective.scoring_mode == "boltz" && objective.objectiveEarlyGate == 0.8)
         objective.enableScreeningObjective()
         precondition(objective.validationIssues.isEmpty && objective.objectiveEarlyGate == 0.4)

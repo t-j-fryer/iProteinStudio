@@ -20,7 +20,7 @@ struct NISERequest: Codable, Hashable {
     var backbone_method = "protein-hunter"
     var rfd3_num_bins = 5
     var rfd3_conditioning: [String: [String]]? = nil
-    var resident_workers = 0
+    var resident_workers = 1
     static let generationFields = ["hotspot_atoms", "buried_atoms", "partially_buried_atoms", "exposed_atoms", "hbond_donor_atoms", "hbond_acceptor_atoms"]
     var trajectories = 8
     var nise_seqs = 32
@@ -39,7 +39,7 @@ struct NISERequest: Codable, Hashable {
     var final_predictors: [String] = []
     var preorganisation = false
     var top_x = 8
-    var scheduler = "cycle-wave"
+    var scheduler = "resident"
     var phase0_refine_cycles = 2
     var phase0_seqs1 = 3
     var phase0_seqs2 = 5
@@ -132,7 +132,7 @@ struct NISERequest: Codable, Hashable {
         seed = try c.decodeIfPresent(Int.self, forKey: .seed) ?? seed
         preorganisation = try c.decodeIfPresent(Bool.self, forKey: .preorganisation) ?? preorganisation
         top_x = try c.decodeIfPresent(Int.self, forKey: .top_x) ?? top_x
-        scheduler = try c.decodeIfPresent(String.self, forKey: .scheduler) ?? scheduler
+        scheduler = try c.decodeIfPresent(String.self, forKey: .scheduler) ?? "cycle-wave"
         phase0_refine_cycles = try c.decodeIfPresent(Int.self, forKey: .phase0_refine_cycles) ?? phase0_refine_cycles
         phase0_seqs1 = try c.decodeIfPresent(Int.self, forKey: .phase0_seqs1) ?? phase0_seqs1
         phase0_seqs2 = try c.decodeIfPresent(Int.self, forKey: .phase0_seqs2) ?? phase0_seqs2
@@ -171,6 +171,7 @@ struct NISERequest: Codable, Hashable {
         scoring_mode = "screening"; search_policy_version = 3
         nesso_screen = true; phase0_nesso_screen = true; selective_affinity = true
         partial_noising = false
+        if usesESMFolding { resident_workers = 0 }
     }
     var usesNesso: Bool { nesso_screen || phase0_nesso_screen }
 

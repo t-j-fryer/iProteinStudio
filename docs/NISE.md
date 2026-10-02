@@ -11,6 +11,27 @@ Beta's protein/cross-reactivity optimiser remains upstream.
 The experimental [optimisation objective option](#choose-the-optimisation-objective)
 lets NESSO or PSICHIC drive selection with Boltz geometry only.
 
+## Setting up a new run
+
+Start with **1 · Initial backbone generation**: choose your molecule, atom requirements,
+generator and number of starts. Cohort import is tucked into a disclosure in this section.
+**2 · NISE optimisation** controls the beam, proposal counts and stopping rules.
+
+New runs use Boltz **P(bind) + ligand pLDDT/100**. NESSO/PSICHIC are off until
+you enable them under **Optional sequence screening**. Their prefilter and objective
+routes remain available, with separate initial-stage and optimisation switches.
+
+Selective Boltz affinity and across-cycle model reuse are standard, with no routine
+on/off switch in the app. Geometry-rejected candidates skip affinity; candidates whose
+maximum possible combined score cannot beat selection also skip it. Choose one or two
+resident Boltz workers under Execution and reproducibility. One is the default;
+two requires more memory. Existing saved-run resumes retain their recorded policies.
+
+Fixed sampling is the default. **Advanced · variable proposal counts** optionally adds
+sequences after a batch fails to improve enough, pooling results from the same parents.
+It is experimental and off by default. Ligand-local X-token noising is no longer offered
+in the app; its legacy request fields remain solely for compatibility with saved work.
+
 ## What the fluorescein work established
 
 The work spans two source repositories:
@@ -661,7 +682,7 @@ for distributions, missing-affinity exclusions and replay limitations.
 
 For optional campaign-wide screening in the other design tabs, see [NESSO screening](NESSO_SCREENING.md).
 
-## Optional ligand-local X-token noising
+## Legacy ligand-local X-token noising (removed from new app setup)
 
 Policy version 3 separates **64 proposals from the starting seed in cycle 1**
 from **32 proposals per retained parent in later cycles**. With beam three this
@@ -711,8 +732,8 @@ final combined-score ranking.
    contain complete, scored designs. Masked intermediates are also excluded from
    apo preorganisation shortlists and marked explicitly in the results browser.
 
-Radius (3–15 Å), masked percentage (1–100%), masked prediction count, repair
-sequence count and reserved beam places are editable. At least one beam place
+Historical CLI requests expose radius (3–15 Å), masked percentage (1–100%), masked prediction count, repair
+sequence count and reserved beam places. These controls are no longer in the app. At least one beam place
 must remain for ordinary MPNN candidates. Partial noising is **off by default**.
 The masking neighbourhood is measured anew from each cycle's chosen parent.
 
@@ -997,12 +1018,12 @@ Omitting the object or passing null preserves legacy inheritance, including its
 terminal-oxygen suppression in biotin exit mode. Accessibility sets must be
 disjoint. Changing the molecule clears both generation and acceptance selections.
 
-For stage-directory submissions, choose across-cycle reuse and explicitly select
-one or two Boltz resident workers (`scheduler="resident", resident_workers=1|2`).
+New stage-directory submissions default to across-cycle reuse with one Boltz resident
+worker; advanced users can select two (`scheduler="resident", resident_workers=1|2`).
 Zero retains previous scheduling. RFD3 completes before this pool loads; this is
 not multiple concurrent RFD3 models. Two-worker speed benefit was measured on a
 64 GB M4 Max (Lab Book 0179 and 0182); memory use and throughput on other Macs
-remain workload dependent. No default worker-count promotion is implied.
+remain workload dependent. The two-worker setting is optional; no cross-hardware speed benefit is implied.
 
 ### Optional ESMFold2 structure generation
 

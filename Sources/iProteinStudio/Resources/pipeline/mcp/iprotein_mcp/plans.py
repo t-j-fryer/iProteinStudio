@@ -29,12 +29,14 @@ PREDICTORS = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-
 SEQUENCE_MODELS = {"lasermpnn", "ligandmpnn", "solublempnn", "proteinmpnn"}
 RFD3_MODES = {"deNovo", "partialDiffusion", "motifScaffolding"}
 BOOLEAN_ITERATIVE_FLAGS = {
+    "--motif-scaffolding", "--partial-redesign",
     "--skip-predictor-calibration",
     "--boltz-use-potentials", "--boltz-no-potentials", "--post-binder-alone",
     "--post-no-binder-alone", "--require-target-msa", "--random-binder",
     "--helix-kill",
 }
 VALUE_ITERATIVE_FLAGS = {
+    "--motif-positions", "--motif-source-seq", "--motif-fixed-positions", "--gap-between-motifs", "--partial-redesign-ranges",
     "--initialization-method", "--initialization-predictor", "--initialization-model", "--initialization-target",
     "--prediction-settings-json", "--workflow", "--predictor", "--sequence-designer", "--num-runs",
     "--num-opt-cycles", "--iptm-threshold", "--predictor-seed", "--predictor-samples",
@@ -408,6 +410,21 @@ def _normalize_iterative_arguments(values: Any) -> Tuple[List[str], str]:
     if missing:
         raise StudioError(f"Missing required iterative arguments: {', '.join(missing)}")
     assert predictor is not None
+    native_modes = seen & {"--partial-redesign", "--motif-scaffolding"}
+    if native_modes:
+        if len(native_modes) > 1 or "--random-binder" in seen:
+            raise StudioError("Choose one native binder mode; do not combine it with --random-binder.")
+        if option_values.get("--workflow") not in {"minibinder", "peptide"}:
+            raise StudioError("Native region design requires the minibinder or peptide workflow.")
+        if any(flag.startswith("--initialization-") for flag in seen):
+            raise StudioError("Native region design uses the same folding engine for cycle 00 and refinement.")
+        if "--motif-scaffolding" in seen:
+            if predictor != "boltz" or option_values.get("--sequence-designer") in {"lasermpnn", "antifold"}:
+                raise StudioError("Native sequence motif scaffolding requires Boltz and a ProteinMPNN-family designer without side-chain packing.")
+            if not {"--motif-source-seq", "--motif-positions"}.issubset(seen):
+                raise StudioError("Sequence motif scaffolding requires its source sequence and motif positions.")
+        elif "--partial-redesign-ranges" not in seen:
+            raise StudioError("Partial sequence redesign requires --partial-redesign-ranges.")
     if any(flag.startswith('--initialization-') and flag != '--initialization-max-attempts' for flag in seen) and '--initialization-max-attempts' not in seen:
         import importlib.util
         helper = runtime_root() / 'scripts/hunter_stages.py'
@@ -490,6 +507,8 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
             raise StudioError("Initialization assessment requires the managed Protenix/Biotite environment and refinement helpers.") from exc
         if result.returncode:
             raise StudioError("Monomer initialization preflight failed: " + result.stderr[-3000:])
+        scheduler += ["--design-scheduler", "run"]
+    elif any(flag in user_args for flag in ("--motif-scaffolding", "--partial-redesign")):
         scheduler += ["--design-scheduler", "run"]
     elif predictor == "protenix-v2":
         scheduler += ["--design-scheduler", "cycle-wave"]

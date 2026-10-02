@@ -927,3 +927,35 @@ temperature and residue masks. It is owned by the campaign process and exits whe
 the campaign stops. `IPROTEINSTUDIO_MPNN_PERSISTENT=0` selects the original separate
 processes for diagnostics. This is startup amortization, not a new design algorithm.
 Validation and measurement limits: [Lab Book 0272](../lab_book/0272-openfold-residency-and-figure3-scheduling.md).
+
+
+## Native Protein Hunter region design
+
+The app's **Binder design mode** offers de novo, **Partial sequence redesign**, and
+**Sequence motif scaffolding · Boltz** for minibinders/peptides. These use the existing
+Protein Hunter algorithms, not RFdiffusion3 coordinate diffusion. Source positions are
+1-based inclusive ranges, e.g. `10-20,35-40`, ordered and non-overlapping.
+
+- Partial redesign: put the full source binder on chain A of the input YAML, pass
+  `--partial-redesign --partial-redesign-ranges 10-20,35-40 --binder-percent-x 50`.
+  Cycle 00 seeds only those regions; MPNN redesigns only those positions in later cycles.
+  Outside-region identities are retained but coordinates may move. The random seed is
+  sampled across the full chain and sliced into regions; 50% is not an exact regional mask.
+- Sequence motifs: pass `--motif-scaffolding --motif-source-seq SEQUENCE
+  --motif-positions 10-20,35-40 --gap-between-motifs 8` plus scaffold length bounds.
+  Motifs are placed in sequence order among X-token gaps; their residues stay fixed in
+  MPNN. No motif coordinates are fixed. This native mode requires Boltz and a
+  ProteinMPNN-family designer without side-chain packing.
+
+Both use the upstream `--design-scheduler run` path, without a separate cycle-00
+engine. The app and MCP enforce these compatibility constraints. `--binder-random-seed`
+now also deterministically seeds motif placement; saved `motif_bundle.json` remains the
+resume authority. Historical requests default to de novo.
+
+RFdiffusion3 **Advanced setup** exposes diffusion steps, input recycles, batch/queue
+counts, BF16/FP32 precision, seed and explicit length lists. Exact lengths override
+length bins; partial diffusion retains source length. Motif atom presets (`TIP`, `BKBN`,
+`SIDECHAIN`, `ALL`) complement explicit atom lists. Partial diffusion exposes its existing
+sequence-preservation and structured-region preference controls. Quick setup keeps its
+existing defaults. These are forwarded to the existing validated adapter and Foundry
+preflight; larger step/recycle counts or FP32 are not promises of better designs.

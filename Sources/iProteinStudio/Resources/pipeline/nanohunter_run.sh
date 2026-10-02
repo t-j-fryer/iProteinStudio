@@ -2529,7 +2529,10 @@ PY
 generate_motif_scaffold_bundle() {
   local min_len="$1"
   local max_len="$2"
-  python3 "${MOTIF_HELPER}" generate \
+  local seed="${3:-}"
+  local seed_args=()
+  [[ -z "${seed}" ]] || seed_args=(--seed "${seed}")
+  python3 "${MOTIF_HELPER}" generate "${seed_args[@]}" \
     --motif-positions "${MOTIF_POSITIONS}" \
     --source-sequence "${MOTIF_SOURCE_SEQ}" \
     --motif-fixed-positions "${MOTIF_FIXED_POSITIONS}" \
@@ -6994,7 +6997,7 @@ run_one_design() {
       motif_bundle="$(cat "${motif_bundle_file}")"
       echo ">>> ${run_tag}: resume reusing stored motif placement (${motif_bundle_file})"
     else
-      motif_bundle="$(generate_motif_scaffold_bundle "${BINDER_MIN_LEN}" "${BINDER_MAX_LEN}")"
+      motif_bundle="$(generate_motif_scaffold_bundle "${BINDER_MIN_LEN}" "${BINDER_MAX_LEN}" "${binder_seed}")"
       printf '%s\n' "${motif_bundle}" > "${motif_bundle_file}"
     fi
     local motif_values

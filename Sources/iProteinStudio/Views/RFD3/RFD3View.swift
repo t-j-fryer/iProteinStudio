@@ -164,7 +164,7 @@ struct RFD3View: View {
 
                 if setupExperience == .advanced {
                     Card(title: "7 · Sampling", systemImage: "gauge.with.dots.needle.67percent") {
-                        DisclosureGroup("Advanced sampling settings", isExpanded: $showAdvanced) {
+                        DisclosureGroup("Backbone sampling and reproducibility", isExpanded: $showAdvanced) {
                             samplingSection
                         }.font(.callout)
                         estimateRow
@@ -634,6 +634,13 @@ struct RFD3View: View {
                         set: { request.wrappedValue.motifSites[index].atoms = $0.uppercased() }))
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
+                    if setupExperience == .advanced {
+                        Menu("Atom preset") {
+                            ForEach(["TIP", "BKBN", "SIDECHAIN", "ALL"], id: \.self) { macro in
+                                Button(macro) { request.wrappedValue.motifSites[index].atoms = macro }
+                            }
+                        }.help("Replaces this row's atom selection with an upstream RFD3 atom macro")
+                    }
                     Button(role: .destructive) {
                         request.wrappedValue.motifSites.remove(at: index)
                     } label: { Image(systemName: "minus.circle") }
@@ -1262,10 +1269,48 @@ struct RFD3View: View {
                                        accessibilityLabel: "Diffusion steps")
                 }
                 GridRow {
-                    Text("Length bins")
-                    EditableIntStepper(value: request.numBins, in: 1...30,
-                                       accessibilityLabel: "Length bins")
+                    Text("Network recycles")
+                    EditableIntStepper(value: request.recycles, in: 0...10,
+                                       accessibilityLabel: "RFdiffusion3 network recycles")
                 }
+                GridRow {
+                    Text("Numerical precision")
+                    Picker("Precision", selection: request.precision) {
+                        Text("BF16 · default").tag("bf16")
+                        Text("FP32 · higher memory use").tag("fp32")
+                    }.labelsHidden()
+                }
+                GridRow {
+                    Text("Random seed")
+                    EditableIntStepper(value: request.seedBase, in: 0...2147483647,
+                                       accessibilityLabel: "RFdiffusion3 starting seed")
+                }
+                if request.wrappedValue.designMode != .partialDiffusion {
+                    GridRow {
+                        Text("Length groups")
+                        EditableIntStepper(value: request.numBins, in: 1...30,
+                                           accessibilityLabel: "Length groups")
+                    }
+                    GridRow {
+                        Text("Exact lengths (optional)")
+                        TextField("e.g. 60,70,80", text: Binding(
+                            get: { request.wrappedValue.explicitLengths.map(String.init).joined(separator: ",") },
+                            set: { raw in
+                                request.wrappedValue.explicitLengths = raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? [] : raw.split(separator: ",", omittingEmptySubsequences: false).map { Int($0.trimmingCharacters(in: .whitespaces)) ?? 0 }
+                            }))
+                            .textFieldStyle(.roundedBorder)
+                    }
+                }
+
+            }
+            Text("Diffusion steps control the denoising schedule; recycles repeat the network's internal refinement. Defaults are 200 steps and 2 recycles. Changing either can change the generated structures and compute cost. BF16 is the validated default; FP32 is available for numerical investigations and is not an automatic quality upgrade.").font(.caption).foregroundStyle(.secondary)
+            Text("The starting seed determines recorded seeds for each length group and queue. Exact lengths override the shortest/longest range and group count; the total design budget is divided across them. Partial diffusion keeps the input binder length.").font(.caption).foregroundStyle(.secondary)
+            if request.wrappedValue.designMode == .partialDiffusion {
+                Toggle("Prefer structured folds in the perturbed region", isOn: request.preferStructured)
+                Text("The noise magnitude above controls coordinate displacement. The sequence-design section chooses whether to keep the starting sequence or redesign it after diffusion; these are independent choices.").font(.caption)
+            }
+            if request.wrappedValue.designMode == .motifScaffolding {
+                Text("Motif atom selections are controlled per residue above. TIP preserves functional side-chain atoms; BKBN preserves backbone atoms; ALL is more restrictive. Studio validates the motif selections against the source structure before generating backbones.").font(.caption)
             }
             if request.wrappedValue.queuesPerBin != 2 {
                 Label("Two concurrent queues is the measured optimum: it beat running them one after another by about 19%, and four queues were slower than two even with plenty of memory free.",

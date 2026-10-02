@@ -26,7 +26,7 @@ DEFAULTS = dict(prediction_settings={}, folding_engine="boltz", final_predictors
                 adaptive_proposals=False, initial_proposals=16, affinity_batch_size=8, min_improvement=0.01, smiles="", num_starts=1000, trajectories=8, nise_seqs=32, first_cycle_seqs=64,
                 partial_noising=False, noise_radius=6.0, noise_percent=25.0, noise_predictions=32, noise_mpnn_seqs=32, noise_advance=1,
                 max_cycles=30, patience=4, binder_min_len=65, binder_max_len=150,
-                seed=0, preorganisation=False, top_x=8, scheduler="cycle-wave", resident_workers=0, rfd3_conditioning=None,
+                seed=0, preorganisation=False, top_x=8, scheduler="resident", resident_workers=1, rfd3_conditioning=None,
                 phase0_refine_cycles=2, phase0_seqs1=3, phase0_seqs2=5, beam=3,
                 screening_engine="nesso", nesso_screen=False, nesso_top_k=16, phase0_nesso_screen=False,
                 phase0_nesso_refine_top_k=1, phase0_nesso_expand_top_k=20, phase0_gate_seqs=3,
@@ -45,6 +45,8 @@ def normalize(request):
     if not isinstance(request, dict) or set(request) - set(DEFAULTS):
         raise ValueError("Unknown NISE settings; use the versioned NISE request.")
     cfg = {**DEFAULTS, **request}
+    if "resident_workers" not in request and (cfg["scheduler"] != "resident" or cfg["folding_engine"] != "boltz"):
+        cfg["resident_workers"] = 0
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from prediction_profiles import normalize as normalize_profiles

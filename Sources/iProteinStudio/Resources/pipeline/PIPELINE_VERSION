@@ -79,3 +79,6 @@ studio_esmfold2_full_default_validation: lab_book/0251-queue-esmfold2-full-3-50.
 studio_openfold_residency: scoped-model-validated-receipts-v1
 studio_mpnn_residency: cpu-imports-checkpoint-cache-v1
 studio_residency_validation: lab_book/0272-openfold-residency-and-figure3-scheduling.md
+
+studio_workflow_controls: native-region-modes-and-nise-resident-default-v1
+studio_workflow_controls_validation: lab_book/0279-simplify-workflow-controls.md

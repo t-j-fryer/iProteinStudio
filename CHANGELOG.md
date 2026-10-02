@@ -1,5 +1,13 @@
 # iProteinStudio release notes
 
+## 0.2.22 — Clearer design controls
+
+- NISE starts with initial backbone generation. Boltz P(bind) + ligand pLDDT/100 is the default objective; optional NESSO/PSICHIC controls are grouped separately.
+- Selective Boltz affinity evaluation and resident model reuse are standard for new runs. Fixed proposal counts remain the default; variable counts are explained in Advanced. Ligand-local X-token controls are removed from the app. Saved-run resume keeps its recorded policy.
+- Protein Hunter exposes its existing partial sequence redesign and Boltz sequence motif scaffolding modes, with source sequence/range validation and explicit scheduler and coordinate limitations. Motif placement now uses the recorded random seed.
+- RFdiffusion3 Advanced setup adds recycles, precision, exact lengths, seeds, motif atom presets and partial-diffusion structured-region preference. Quick defaults are unchanged.
+- MCP 40 and CLI planning support the same native region modes.
+
 ## 0.2.21 — Natural workspace and resident OpenFold
 
 - New Terra Loop app icon, warm adaptive colours, sculptural workflow artwork, and a native introduction available from Help → Discover iProteinStudio. Choose System, Light or Dark appearance in Settings.

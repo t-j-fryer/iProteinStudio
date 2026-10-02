@@ -618,6 +618,9 @@ struct RFD3Request: Codable, Hashable {
         if timesteps < 2 || recycles < 0 || batchSize < 1 || queuesPerBin < 1 {
             issues.append("Use at least two diffusion steps and positive batch/queue counts (recycles may be zero).")
         }
+        if !["bf16", "fp32"].contains(precision) { issues.append("Choose BF16 or FP32 precision.") }
+        if seedBase < 0 || seedBase > 2147483647 { issues.append("Use a seed between 0 and 2147483647.") }
+        if !explicitLengths.isEmpty && Set(explicitLengths).count != explicitLengths.count { issues.append("List each exact binder length only once.") }
         if sequencesPerBackbone < 1 { issues.append("Design at least one sequence per backbone.") }
         if !(targetKind == .smallMolecule && nesso.enabled) && (verification.topN < 1 || verification.topN > totalDesignedSequences) {
             issues.append("Keep at most \(totalDesignedSequences) designs—the campaign only creates that many sequences.")
@@ -630,7 +633,7 @@ struct RFD3Request: Codable, Hashable {
             issues.append("Partial diffusion and motif scaffolding currently require a protein complex.")
         }
         if designMode == .partialDiffusion {
-            if partialT < 0.1 || partialT > 15 {
+            if !partialT.isFinite || partialT < 0.1 || partialT > 15 {
                 issues.append("Partial-diffusion noise must be between 0.1 and 15 Å.")
             }
             let binder = sourceBinderChain.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()

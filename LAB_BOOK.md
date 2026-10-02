@@ -286,3 +286,5 @@ Current work: [0228 — Exact-token prediction](lab_book/0228-exact-token-predic
 Current release: [0276 — Natural workspace and resident OpenFold](lab_book/0276-publish-natural-resident-release.md).
 
 Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-identity.md), [0270 — Predict and Design](lab_book/0270-group-predict-and-design-navigation.md), [0271 — Workflow icons](lab_book/0271-use-sculptural-workflow-icons.md), [0272 — Resident OpenFold and MPNN](lab_book/0272-openfold-residency-and-figure3-scheduling.md).
+
+- [0279 — Simplify workflow controls](lab_book/0279-simplify-workflow-controls.md): NISE defaults, native Protein Hunter regions and RFdiffusion3 Advanced controls.

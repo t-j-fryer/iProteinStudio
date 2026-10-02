@@ -13,7 +13,7 @@ enum TemplateWriter {
             binderA = clean(request.scaffoldSequence)
             guard !binderA.isEmpty else { throw NHError.message("Scaffold sequence is empty.") }
         case .minibinder, .peptide:
-            binderA = String(repeating: "G", count: max(1, request.binderMinLen))
+            binderA = request.usesNativeRegions ? request.cleanSourceBinder : String(repeating: "G", count: max(1, request.binderMinLen))
         }
 
         // Protein targets occupy B, C, D…; a small molecule occupies B.

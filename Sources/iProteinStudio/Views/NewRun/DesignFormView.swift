@@ -62,6 +62,7 @@ struct DesignFormView: View {
                     .pickerStyle(.segmented).labelsHidden()
                     .accessibilityLabel("Design type")
                     Text(type.blurb).font(.caption).foregroundStyle(.secondary)
+                    if type != .nanobody { NativeHunterRegionControls(request: request) }
                 }
 
                 Color.clear.frame(height: 0).id("target")
@@ -500,6 +501,9 @@ struct ScaffoldPicker: View {
 struct BinderSizePicker: View {
     @Binding var request: DesignRequest
     var body: some View {
+        if request.usesNativeRegions && request.nativeBinderMode == "partialRedesign" {
+            Text("Fixed source binder length: \(request.cleanSourceBinder.count) amino acids.")
+        } else {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
             GridRow {
                 Text("Shortest")
@@ -515,6 +519,7 @@ struct BinderSizePicker: View {
             }
         }
         Text(request.initializationMethod == "rfd3" ? "RFdiffusion3 spreads the exact requested number of backbones across up to 20 lengths in this range." : "Each design gets a random length in this range.").font(.caption).foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -529,9 +534,9 @@ struct SecondaryStructureControl: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Helix-kill strength").font(.headline)
             strengthRow("Strength", value: $request.helixKill)
-                .disabled(request.initializationMethod == "rfd3")
-            if request.initializationMethod == "rfd3" {
-                Text("Not used for RFdiffusion3: its backbone generator does not start from an X-token sequence.").font(.caption).foregroundStyle(.secondary)
+                .disabled(request.initializationMethod == "rfd3" || request.usesNativeRegions)
+            if request.initializationMethod == "rfd3" || request.usesNativeRegions {
+                Text("Not used for RFdiffusion3 or region-based sequence modes.").font(.caption).foregroundStyle(.secondary)
             }
             Text("Reduces helix-favoring patterns in the starting sequence. Zero disables it. Later optimization cycles use normal MPNN sampling.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -685,6 +690,7 @@ struct PredictorPicker: View {
     }
 
     private var allowedDesignChoices: [Predictor] {
+        if request.usesNativeRegions && request.nativeBinderMode == "motifScaffolding" { return [.boltz, .boltzPotentials] }
         if request.hasSeparateInitialization { return Predictor.designChoices.filter { request.targetKind != .ligand || $0 != .protenixConstraint } }
         if request.hasTargetTemplate {
             if request.targetTemplateMode == .strong {
@@ -711,8 +717,8 @@ struct PredictorPicker: View {
                     set: { request.initializationMethod = $0 == "same" ? nil : $0 }
                 )) {
                     Text("Same engine as refinement · original workflow").tag("same")
-                    Text("Separate hallucination engine").tag("hallucination")
-                    if request.designType != .nanobody { Text("RFdiffusion3 · de novo backbones").tag("rfd3") }
+                    Text("Separate hallucination engine").tag("hallucination").disabled(request.usesNativeRegions)
+                    if request.designType != .nanobody && !request.usesNativeRegions { Text("RFdiffusion3 · de novo backbones").tag("rfd3") }
                 }
                 if request.initializationMethod == "hallucination" {
                     Picker("Starting engine", selection: Binding(
@@ -1037,7 +1043,7 @@ struct RunSettings: View {
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
-        Label("Automatic scheduling: Protenix v2 is loaded once per cycle; other engines keep one resident predictor loaded across their campaign.",
+        Label(request.usesNativeRegions ? "Native region design uses the upstream per-trajectory scheduler." : "Automatic scheduling: Protenix v2 is loaded once per cycle; other engines keep one resident predictor loaded across their campaign.",
               systemImage: "bolt.fill")
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -1070,11 +1076,11 @@ struct AdvancedSettings: View {
             // --- Automatic scheduling ---
             VStack(alignment: .leading, spacing: 6) {
                 Text("Automatic scheduling").font(.headline)
-                Label("Each engine uses its existing policy: Protenix v2 uses directory waves per cycle; other engines retain a resident worker across their campaign.",
+                Label(request.usesNativeRegions ? "Native region design uses the upstream per-trajectory scheduler." : "Each engine uses its existing policy: Protenix v2 uses directory waves per cycle; other engines retain a resident worker across their campaign.",
                       systemImage: "bolt.fill")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Studio selects the validated policy automatically. Historical per-trajectory scheduling remains available only from the CLI for controlled diagnostics.")
+                Text("Studio selects the validated policy automatically. Native region design retains its supported per-trajectory scheduler; other manual overrides remain available from the CLI.")
                     .font(.caption2).foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1190,5 +1196,44 @@ struct AdvancedSettings: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.3)))
+    }
+}
+
+/// Native sequence constraints are deliberately distinct from coordinate diffusion.
+private struct NativeHunterRegionControls: View {
+    @Binding var request: DesignRequest
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("Binder design mode", selection: $request.nativeBinderMode) {
+                Text("De novo binder").tag("deNovo")
+                Text("Partial sequence redesign").tag("partialRedesign")
+                Text("Sequence motif scaffolding · Boltz").tag("motifScaffolding")
+            }.accessibilityIdentifier("hunter-native-binder-mode")
+            if request.usesNativeRegions {
+                Text(request.nativeBinderMode == "partialRedesign"
+                     ? "Replace the selected regions with a mix of X tokens and sampled amino acids for the initial prediction, then redesign only those positions with MPNN. The remaining sequence is fixed; its coordinates can move. This is not RFdiffusion3 coordinate noising."
+                     : "Keep the selected sequence motifs in order, place them into a new X-token scaffold, then preserve all motif residues during MPNN cycling. Motif coordinates are not fixed; use RFdiffusion3 for atom-constrained geometry.")
+                    .font(.caption).foregroundStyle(.secondary)
+                TextField("Source binder sequence (amino acids only)", text: $request.sourceBinderSequence, axis: .vertical)
+                    .textFieldStyle(.roundedBorder).lineLimit(2...5)
+                TextField(request.nativeBinderMode == "partialRedesign" ? "Regions to redesign, e.g. 10-20,35-40" : "Motif regions to preserve, e.g. 10-20,35-40", text: $request.binderRegionRanges)
+                    .textFieldStyle(.roundedBorder)
+                Text("Positions refer to the source sequence, starting at 1. Separate ordered ranges with commas; use 10-10 for a single residue.").font(.caption)
+                if request.nativeBinderMode == "motifScaffolding" {
+                    LabeledContent("Minimum gap between motifs") {
+                        EditableIntStepper(value: $request.motifMinimumGap, in: 0...100,
+                                           accessibilityLabel: "Minimum sequence gap between motifs")
+                    }
+                    Text("Minimum residues between consecutive motifs. Set the new scaffold length below. Boltz is the supported folding engine for this native mode.").font(.caption)
+                } else {
+                    LabeledContent("Initial X-token percentage") {
+                        EditableIntStepper(value: $request.nativeMaskPercent, in: 0...100, suffix: "%", accessibilityLabel: "Partial redesign X-token percentage")
+                    }
+                    Text("The upstream seed is sampled over the full sequence, then copied only into the chosen regions, so their exact masked percentage can vary. Zero still samples new amino acids; it does not preserve those regions.").font(.caption)
+                    Text("Binder length is fixed at \(request.cleanSourceBinder.count) residues from your source sequence.").font(.caption)
+                }
+                Text("These native modes currently use the upstream per-trajectory scheduler, rather than the resident cycle-wave path. Saved motif placements and redesigned positions are reused on resume.").font(.caption).foregroundStyle(.secondary)
+            }
+        }
     }
 }

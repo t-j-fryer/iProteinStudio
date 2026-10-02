@@ -150,15 +150,31 @@ enum CommandBuilder {
             args += ["--nanobody-cdrs", request.cdrs.flagValue]
             if let cdrRanges, !cdrRanges.isEmpty { args += ["--nanobody-cdr-ranges", cdrRanges] }
         case .minibinder, .peptide:
-            // De-novo binder against the target: runner generates chain A.
-            args += ["--random-binder",
-                     "--binder-min-len", String(max(1, request.binderMinLen)),
-                     "--binder-max-len", String(max(request.binderMinLen, request.binderMaxLen))]
-            // Cycle-0 length/composition must be reproducible from the durable
-            // manifest, not drawn from process-global randomness.
-            if let mpnnSeed { args += ["--binder-random-seed", String(mpnnSeed)] }
-            // Helix kill shapes initialization only; later MPNN cycles are ordinary.
-            args += ["--negative-helix-constant", String(format: "%.2f", request.helixKill)]
+            if request.usesNativeRegions {
+                if let mpnnSeed { args += ["--binder-random-seed", String(mpnnSeed)] }
+                if request.nativeBinderMode == "partialRedesign" {
+                    args += ["--partial-redesign", "--partial-redesign-ranges", request.binderRegionRanges,
+                             "--binder-percent-x", String(request.nativeMaskPercent),
+                             "--binder-min-len", String(request.cleanSourceBinder.count),
+                             "--binder-max-len", String(request.cleanSourceBinder.count)]
+                } else {
+                    args += ["--motif-scaffolding", "--motif-positions", request.binderRegionRanges,
+                             "--motif-source-seq", request.cleanSourceBinder,
+                             "--gap-between-motifs", String(request.motifMinimumGap),
+                             "--binder-min-len", String(request.binderMinLen),
+                             "--binder-max-len", String(request.binderMaxLen)]
+                }
+            } else {
+                // De-novo binder against the target: runner generates chain A.
+                args += ["--random-binder",
+                         "--binder-min-len", String(max(1, request.binderMinLen)),
+                         "--binder-max-len", String(max(request.binderMinLen, request.binderMaxLen))]
+                // Cycle-0 length/composition must be reproducible from the durable
+                // manifest, not drawn from process-global randomness.
+                if let mpnnSeed { args += ["--binder-random-seed", String(mpnnSeed)] }
+                // Helix kill shapes initialization only; later MPNN cycles are ordinary.
+                args += ["--negative-helix-constant", String(format: "%.2f", request.helixKill)]
+            }
 
         }
 
@@ -202,7 +218,10 @@ enum CommandBuilder {
         // OpenFold now shares the Figure 2 resident implementation (Lab Book 0272).
         // Resident workers are intentionally one-process owners of the GPU.
         args += ["--max-parallel", "1"]
-        if request.designPredictor == .protenixV2 {
+        if request.usesNativeRegions {
+            // Upstream motif/partial paths own per-trajectory state and reject wave scheduling.
+            args += ["--design-scheduler", "run"]
+        } else if request.designPredictor == .protenixV2 {
             args += ["--design-scheduler", "cycle-wave"]
         } else {
             args += ["--design-scheduler", "resident", "--wave-batch-size", "all"]

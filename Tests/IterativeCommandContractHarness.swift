@@ -592,7 +592,43 @@ struct IterativeCommandContractHarness {
         expect(!old.hasSeparateInitialization, "historical runs stay on the original path")
     }
 
+    static func testNativeRegions() throws {
+        var request = proteinRequest()
+        request.epitopeResidues = ""
+        request.nativeBinderMode = "partialRedesign"
+        request.sourceBinderSequence = "ACDEFGHIKLMNPQRSTVWY"
+        request.binderRegionRanges = "3-5,10-12"
+        expect(request.validationIssues.isEmpty, "valid partial sequence redesign")
+        let args = arguments(request)
+        expect(args.contains("--partial-redesign") && !args.contains("--random-binder"), "native partial mode reaches CLI")
+        expect(value(after: "--partial-redesign-ranges", in: args) == "3-5,10-12", "regions preserved")
+        expect(value(after: "--binder-min-len", in: args) == "20", "partial uses source length")
+        expect(value(after: "--design-scheduler", in: args) == "run", "native scheduler retained")
+        expect(value(after: "--binder-random-seed", in: args) == "1234", "native seed reproducible")
+        expect(!args.contains("--helix-kill"), "dormant de novo helix controls omitted")
+        let copy = try JSONDecoder().decode(DesignRequest.self, from: JSONEncoder().encode(request))
+        expect(copy.nativeBinderMode == request.nativeBinderMode && copy.binderRegionRanges == request.binderRegionRanges, "native request round trip")
+        for ranges in ["0-5", "3-21", "3-5,4-6", "10-12,3-5", "3-5,"] {
+            request.binderRegionRanges = ranges
+            expect(!request.validationIssues.isEmpty, "invalid region rejected: \(ranges)")
+        }
+        request.binderRegionRanges = "3-5,10-12"
+        request.nativeBinderMode = "motifScaffolding"
+        expect(request.validationIssues.isEmpty, "valid sequence motif design")
+        let motif = arguments(request)
+        expect(motif.contains("--motif-scaffolding") && value(after: "--motif-source-seq", in: motif) == request.cleanSourceBinder, "motif source forwarded")
+        expect(value(after: "--gap-between-motifs", in: motif) == "8", "upstream motif gap default")
+        request.designPredictor = .openfold3
+        expect(!request.validationIssues.isEmpty, "unsupported motif folding engine rejected")
+        request.designPredictor = .boltz
+        request.initializationMethod = "rfd3"
+        expect(!request.validationIssues.isEmpty, "native motifs cannot silently use a separate generator")
+        let old = try JSONDecoder().decode(DesignRequest.self, from: Data("{}".utf8))
+        expect(old.nativeBinderMode == "deNovo" && !old.usesNativeRegions, "legacy requests retain de novo mode")
+    }
+
     static func main() async throws {
+        try testNativeRegions()
         try testSeparateStages()
         try testLigandNessoOptions()
         try testBoltzProteinHotspots()

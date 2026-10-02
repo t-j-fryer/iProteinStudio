@@ -25,6 +25,20 @@ from iprotein_mcp import broker, catalog, common, inspect as target_inspection, 
 
 
 class MCPBridgeTests(unittest.TestCase):
+    def test_native_region_modes_and_incompatible_combinations(self):
+        base = ["--workflow", "minibinder", "--predictor", "boltz", "--sequence-designer", "solublempnn", "--num-runs", "1", "--num-opt-cycles", "1", "--iptm-threshold", "0.7"]
+        partial = ["--partial-redesign", "--partial-redesign-ranges", "2-5"]
+        motif = ["--motif-scaffolding", "--motif-source-seq", "ACDEFGHIK", "--motif-positions", "2-5", "--gap-between-motifs", "8"]
+        for mode in (partial, motif):
+            args, engine = plans._normalize_iterative_arguments(base + mode)
+            self.assertEqual(engine, "boltz")
+            self.assertIn(mode[0], args)
+        for extra in (partial + motif, partial + ["--random-binder"], partial + ["--initialization-method", "rfd3"]):
+            with self.assertRaises(common.StudioError):
+                plans._normalize_iterative_arguments(base + extra)
+        with self.assertRaises(common.StudioError):
+            plans._normalize_iterative_arguments(["openfold3-mlx" if x == "boltz" else x for x in base] + motif)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="iproteinstudio-mcp-")
         self.root = Path(self.temporary.name).resolve()

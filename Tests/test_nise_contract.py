@@ -44,7 +44,14 @@ class NISEContracts(unittest.TestCase):
     def test_defaults_separate_science_and_residency(self):
         cfg = contract.normalize({"smiles": "CCO"})
         self.assertEqual((cfg["num_starts"], cfg["trajectories"], cfg["nise_seqs"]), (1000, 8, 32))
-        self.assertEqual(cfg["scheduler"], "cycle-wave")
+        self.assertEqual(cfg["scheduler"], "resident")
+        self.assertEqual(cfg["resident_workers"], 1)
+        self.assertTrue(cfg["selective_affinity"])
+        self.assertEqual(cfg["scoring_mode"], "boltz")
+        for key in ("nesso_screen", "phase0_nesso_screen", "partial_noising", "adaptive_proposals"):
+            self.assertFalse(cfg[key])
+        legacy = contract.normalize({"smiles": "CCO", "scheduler": "cycle-wave"})
+        self.assertEqual(legacy["resident_workers"], 0)
         self.assertFalse(cfg["preorganisation"])
 
     def test_rfd3_is_optional_and_has_a_separate_initial_generation_budget(self):
@@ -71,7 +78,7 @@ class NISEContracts(unittest.TestCase):
                         dict(rfd3_conditioning={'buried_atoms':['C1','C1']}),
                         dict(rfd3_conditioning={'exposed_atoms':['O3']}, ligand_atom_signature=''),
                         dict(rfd3_conditioning={}, backbone_method='protein-hunter'),
-                        dict(resident_workers=2), dict(resident_workers=True), dict(resident_workers=3)]:
+                        dict(resident_workers=2, scheduler="cycle-wave"), dict(resident_workers=True), dict(resident_workers=3)]:
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 contract.normalize(dict(base, **changes))
         self.assertEqual(contract.normalize(dict(base, scheduler='resident', resident_workers=2))['resident_workers'], 2)

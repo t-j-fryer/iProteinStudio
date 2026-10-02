@@ -380,6 +380,26 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Structure predictor that drives the design loop. Boltz-2 is 3.4x cheaper
     /// per proposal than the slowest alternative and needs only one process.
     /// nil keeps historical requests on the single-engine path.
+    /// Native Hunter sequence modes; distinct from RFdiffusion3 coordinate diffusion.
+    var nativeBinderMode = "deNovo"
+    var sourceBinderSequence = ""
+    var binderRegionRanges = ""
+    var nativeMaskPercent = 50
+    var motifMinimumGap = 8
+    var usesNativeRegions: Bool { designType != .nanobody && nativeBinderMode != "deNovo" }
+    var cleanSourceBinder: String { sourceBinderSequence.filter { !$0.isWhitespace }.uppercased() }
+    var nativeRegionRanges: [ClosedRange<Int>]? {
+        let parts = binderRegionRanges.split(separator: ",", omittingEmptySubsequences: false)
+        var result: [ClosedRange<Int>] = []
+        for part in parts {
+            let ends = part.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "-", omittingEmptySubsequences: false)
+            guard ends.count == 2, let a = Int(ends[0]), let b = Int(ends[1]),
+                  a >= 1, b >= a, b <= cleanSourceBinder.count,
+                  result.last.map({ a > $0.upperBound }) ?? true else { return nil }
+            result.append(a...b)
+        }
+        return result.isEmpty ? nil : result
+    }
     var initializationMethod: String? = nil
     var initializationEngine: DesignEngine? = nil
     var initializationTargetPath: String? = nil
@@ -712,6 +732,26 @@ struct DesignRequest: Codable, Equatable, Hashable {
         if (designPredictor == .esmfold2Fast || designPredictor == .esmfold2Full) && !hasSeparateInitialization {
             add("models", "ESMFold2 refinement needs a separate starting engine or RFdiffusion3. It cannot generate X-token starts.")
         }
+        if !["deNovo", "partialRedesign", "motifScaffolding"].contains(nativeBinderMode) {
+            add("binder", "Choose a supported Protein Hunter sequence mode.")
+        }
+        if usesNativeRegions {
+            if !(0...100).contains(nativeMaskPercent) { add("binder", "Choose an X-token percentage between 0 and 100.") }
+            if hasSeparateInitialization { add("models", "Native partial redesign and sequence motifs use the refinement engine for cycle 00. Select Same engine as refinement.") }
+            if cleanSourceBinder.isEmpty || !cleanSourceBinder.allSatisfy({ "ACDEFGHIKLMNPQRSTVWY".contains($0) }) {
+                add("binder", "Supply the source binder as a complete amino-acid sequence, without FASTA headers or X tokens.")
+            }
+            if nativeRegionRanges == nil { add("binder", "Enter ordered, non-overlapping 1-based ranges within the source binder, e.g. 10-20,35-40. Use 10-10 for one residue.") }
+            if nativeBinderMode == "motifScaffolding" {
+                if selectedDesignPredictors.contains(where: { $0 != .boltz }) { add("models", "Protein Hunter sequence motif scaffolding currently requires Boltz for every selected design engine.") }
+                if designer == .lasermpnn || designer == .antifold { add("designer", "Sequence motif scaffolding requires a ProteinMPNN-family designer without side-chain packing.") }
+                if motifMinimumGap < 0 { add("binder", "The minimum motif gap cannot be negative.") }
+                if let ranges = nativeRegionRanges {
+                    let needed = ranges.reduce(0) { $0 + $1.count } + max(1, (ranges.count - 1) * max(0, motifMinimumGap))
+                    if binderMinLen < needed { add("binder", "Use a minimum scaffold length of at least \(needed) residues to fit the motifs and gaps.") }
+                }
+            }
+        }
         if let method = initializationMethod, !["hallucination", "rfd3"].contains(method) {
             add("models", "Choose a supported starting-backbone method.")
         }
@@ -817,6 +857,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     init() {}
 
     private enum CodingKeys: String, CodingKey {
+        case nativeBinderMode, sourceBinderSequence, binderRegionRanges, motifMinimumGap, nativeMaskPercent
         case initializationMethod, initializationEngine, initializationTargetPath
         case prediction_settings
         case designType, scaffoldID, scaffoldSequence, scaffoldSelections, equalScaffoldBudgets, trajectoriesPerScaffold, cdrs, binderMinLen, binderMaxLen, helixKill
@@ -874,6 +915,11 @@ struct DesignRequest: Codable, Equatable, Hashable {
         hitThreshold    = try c.decodeIfPresent(Double.self, forKey: .hitThreshold) ?? d.hitThreshold
         parallelMode    = try c.decodeIfPresent(ParallelMode.self, forKey: .parallelMode) ?? d.parallelMode
         manualParallel  = try c.decodeIfPresent(Int.self, forKey: .manualParallel) ?? d.manualParallel
+        nativeBinderMode = try c.decodeIfPresent(String.self, forKey: .nativeBinderMode) ?? "deNovo"
+        sourceBinderSequence = try c.decodeIfPresent(String.self, forKey: .sourceBinderSequence) ?? ""
+        binderRegionRanges = try c.decodeIfPresent(String.self, forKey: .binderRegionRanges) ?? ""
+        nativeMaskPercent = try c.decodeIfPresent(Int.self, forKey: .nativeMaskPercent) ?? 50
+        motifMinimumGap = try c.decodeIfPresent(Int.self, forKey: .motifMinimumGap) ?? 8
         initializationMethod = try c.decodeIfPresent(String.self, forKey: .initializationMethod)
         initializationEngine = try c.decodeIfPresent(DesignEngine.self, forKey: .initializationEngine)
         initializationTargetPath = try c.decodeIfPresent(String.self, forKey: .initializationTargetPath)
