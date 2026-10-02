@@ -57,3 +57,5 @@ Current work: [0062 — Shared-target optimizations and paper predictions](lab_b
 Current optimization experiment: [0061 — Resident request overhead](lab_book/0061-resident-request-overhead.md) (128-row MSA,reduced steps,five seeds; predeclared).
 Current work: [0060 — Exact-token SUMO matrix](lab_book/0060-exact-token-sumo.md) (repeat affected models; retain unaffected outputs).
 - [0066 — Production prediction-profile acceptance](lab_book/0066-prediction-profile-release.md) — integration checks in progress.
+
+Current acceptance: [0086 — OpenFold residency and Figure3 continuation](lab_book/0086-openfold-resident-figure3-continuation.md).

@@ -1,0 +1,18 @@
+Predict / Design navigation artwork, October 2026
+
+Generated with built-in image_gen from website references. All three outputs
+use transparent PNGs. Design and Predict are extracted derivatives of the
+flat symbols in launch-site/dist/assets/natural-workflows.png, rendered as
+templates in SwiftUI to adapt to appearance. Protein Hunter is a new concept
+based on branching-possibilities.png, with three independent roots and no
+connections between trajectories. These are visual metaphors, not run data.
+
+Files: design-glyph.png, predict-glyph.png, hunter-trajectories.png.
+Prior artwork is retained; the Terra Loop app icon is unchanged.
+
+DESIGN\nExtract ONLY the flat dark forest-green Design glyph in the LOWER ROW SECOND COLUMN: the elegant sprouting branch with folded leaf-like shapes. Preserve its silhouette and thick organic geometry closely. Standalone centered symbol for a 28-point native app navigation tab; square canvas, symbol occupies 80%, real transparent background. No text, no tile, no 3D sculpture, no shadows, no other symbols. Use uniform solid deep forest green #243c30. Smooth antialiased edges. This is a faithful isolated derivative of the website's Design glyph.
+
+PREDICT\nExtract ONLY the flat dark forest-green Predict glyph in the LOWER ROW THIRD COLUMN: the irregular rounded outline surrounding a compact organic folded squiggle. Preserve this specific silhouette and internal squiggle closely. Standalone centered symbol for a 28-point native app navigation tab; square canvas, symbol occupies 80%, genuine transparent background. No text, no tile, no 3D sculpture, no shadows, no other symbols. Use uniform solid deep forest green #243c30. Smooth antialiased edges. This is a faithful isolated derivative of the website's Predict glyph.
+
+HUNTER\nCreate a refined matte sculptural app-workflow icon inspired by this website hero's chalk, moss, terracotta palette and organic branching shapes. The concept is MANY INDEPENDENT protein-design trajectories: exactly THREE physically separate tree-like structures, side by side, each growing upward from its OWN separate round seed at bottom into two successive fork levels with tiny simple folded ribbon buds at tips. Three distinct separate roots. Keep each whole tree inside its own vertical lane with generous gaps between all three trees: NO crossover, NO touching or merged branches, NO connections between trees, NO shared root or base. Muted moss tree on left, warm terracotta tree centre, limestone tree right. Compact elegant organic silhouette readable at 68 points, front view, subtle depth and fine matte texture, soft even lighting. Genuinely transparent background. Square canvas, motif occupies 80%, no tile, no labels, no arrows, no DNA, no neon. An abstract metaphor for independent iterative exploration, not a scientific diagram.
+

@@ -71,6 +71,9 @@ RESOURCE_DIRECTORY="iProteinStudioResources"
 [[ -f "${APP}/Contents/Resources/${RESOURCE_DIRECTORY}/pipeline/PIPELINE_VERSION" ]] \
   || { echo "Packaged resource directory is incomplete." >&2; exit 2; }
 
+# Finder and the Dock read the top-level icon named by CFBundleIconFile.
+cp "${RESOURCE_SOURCE}/Brand/AppIcon.icns" "${APP}/Contents/Resources/AppIcon.icns"
+
 # SwiftPM resource copying does not consult .gitignore. Remove generated Python
 # and Numba caches from the assembled copy so a developer's local run can never
 # inflate or contaminate a release bundle.
@@ -122,6 +125,7 @@ cat > "${APP}/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>${BIN_NAME}</string>
   <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleShortVersionString</key><string>${APP_VERSION}</string>
   <key>CFBundleVersion</key><string>${APP_BUILD}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>

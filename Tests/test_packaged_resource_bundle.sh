@@ -10,11 +10,17 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 [[ -d "${APP}" ]] || fail "packaged app does not exist: ${APP}"
 [[ -d "${BUNDLE}" ]] \
   || fail "SwiftPM resource payload is missing from Contents/Resources"
+for artwork in terra-loop branching-possibilities hunter-trajectories nise backbone predict-object design-object; do
+  cmp -s "${BUNDLE}/Brand/${artwork}.png" "${ROOT}/Sources/iProteinStudio/Resources/Brand/${artwork}.png" \
+    || fail "brand artwork missing or stale: ${artwork}"
+done
+cmp -s "${APP}/Contents/Resources/AppIcon.icns" "${ROOT}/Sources/iProteinStudio/Resources/Brand/AppIcon.icns" \
+  || fail "app icon missing or stale"
 [[ -s "${BUNDLE}/pipeline/PIPELINE_VERSION" ]] \
   || fail "SwiftPM resource bundle is missing its pipeline sentinel"
 [[ -s "${BUNDLE}/pipeline/scripts/storage_policy.py" ]] \
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
-for resource in prediction_profiles.json prediction_profiles.py inference_optimizations.py openfold_mps.py openfold_positions.py prediction_resume.py resident_predictor.py validate_prediction_geometry.py runtime_package.py runtime_view.py engine_registry.py engine_registry.json engine_adapters.py engine_progress.py progress_bootstrap/sitecustomize.py setup_portable.py runtime_releases.json runtime_assets.json; do
+for resource in prediction_profiles.json prediction_profiles.py inference_optimizations.py openfold_mps.py openfold_session.py mpnn_worker.py openfold_positions.py prediction_resume.py resident_predictor.py validate_prediction_geometry.py runtime_package.py runtime_view.py engine_registry.py engine_registry.json engine_adapters.py engine_progress.py progress_bootstrap/sitecustomize.py setup_portable.py runtime_releases.json runtime_assets.json; do
   cmp -s "${BUNDLE}/pipeline/scripts/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/${resource}" \
     || fail "prediction resume resource is missing or differs from source: ${resource}"
 done

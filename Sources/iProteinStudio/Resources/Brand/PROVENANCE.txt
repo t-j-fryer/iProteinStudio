@@ -1,0 +1,23 @@
+iProteinStudio natural identity, October 2026
+
+Selected app icon: Terra Loop, concept 02 from Lab Book 0263.
+terra-loop.png is a transparent-background derivative prepared with built-in
+image_gen. AppIcon.icns is exported by tools/export_app_icon.sh using Apple's
+sips and iconutil (16 through 1024 physical pixels). No model weights included.
+
+Other unmodified original artwork from Lab Book 0263:
+hunter.png: 07-lineage.png
+nise.png: 03-slate-pocket.png
+backbone.png: 09-adaptive-branch.png
+predict.png: 01-chalk-fold.png
+branching-possibilities.png: 15-branching-possibilities.png
+workflow-stages.png: 14-natural-workflow-family.png
+
+These are conceptual illustrations, not validated molecular structures or a
+real phylogeny. Scientific content uses the existing structure viewers.
+
+Built-in image_gen edit prompt 1:
+Edit target: the attached Terra Loop app icon. Prepare this exact selected design for a native macOS application icon. Preserve the terracotta loop's exact irregular rounded triangular silhouette, hole, orientation, warm matte ceramic texture, light cream limestone rounded-square tile, lighting, and centered composition. Remove ONLY the white background outside the rounded-square tile and replace it with real alpha transparency. Retain the entire tile and its softened edges; very subtle contact shadow only. Tile occupies approximately 88% of square canvas with transparent margins on all sides. No added text, symbols, framing, colours, or redesign. Output square transparent PNG.
+
+Built-in image_gen edit prompt 2:
+Clean up this cutout only. Remove all detached white flecks/speckles above the tile and tiny colored fringe below it. Outside the single limestone rounded-square tile must be uniformly fully transparent alpha=0, no shadow or detached pixels. Preserve the entire tile, terracotta loop, shape, textures and colours exactly. Do not redesign. Square transparent PNG with clean smooth antialiased tile edges.

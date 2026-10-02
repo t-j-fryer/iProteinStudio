@@ -62,6 +62,10 @@ enum AppPaths {
         return fm.fileExists(atPath: candidate.path) ? candidate : nil
     }
 
+    static func brandArtwork(_ name: String) -> URL? {
+        bundledResource("Brand/\(name).png")
+    }
+
     /// The managed runtime root.
     ///
     /// **Not** under Application Support, and that is not a style choice. A

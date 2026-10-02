@@ -492,7 +492,7 @@ does not download IntelliFold's optional PDB template database.
 The app always selects `resident` for Boltz 2, IntelliFold v2-flash,
 IntelliFold full v2, Protenix Mini and Protenix Constraint. It selects
 `cycle-wave` for full Protenix v2, which was faster than residency in the paired
-M4 Max campaign. OpenFold-3 uses `run`, because it has no resident worker.
+M4 Max campaign. OpenFold-3 now uses the shared resident worker (Lab Book 0272).
 Scheduling is not a GUI preference: direct CLI users can still
 pass `--design-scheduler run` explicitly to reproduce or diagnose the historical
 per-trajectory route, while an existing campaign Resume reuses its recorded
@@ -901,3 +901,29 @@ their original frozen profiles.
 Protein Hunter now accepts RFdiffusion3 or a separate hallucination engine for
 cycle 00, followed by another refinement engine, including ESMFold2 Fast/Full.
 See [stage controls, input requirements and CLI/MCP options](PROTEIN_HUNTER_STAGES.md).
+
+
+### OpenFold resident execution
+
+Protein Hunter and RFdiffusion3 verification use one resident OpenFold3 worker.
+Predict sends its input directory to one loaded model. Requests remain sequential;
+this does not add GPU concurrency or change the selected recycles, diffusion steps,
+MSA depth or sample count. The resident adapter uses the requested model seeds
+exactly. The older upstream CLI generated model seeds from base42 when passed
+`--num_model_seeds`; a query seed42 could therefore produce model seed2746317213.
+Historical campaigns retain their recorded effective seed in benchmark continuation. The worker uses the validated zero-worker feature
+preparation and scoped Lightning device-residency handling from the Figure 2
+benchmark. Each input commits only after all requested seeds and samples have
+finite structures and confidence files. Resume rejects changed inputs/settings or
+missing artifacts; incomplete inputs are preserved separately and retried.
+
+Use prediction settings for OpenFold budgets. Arbitrary `--openfold-extra` flags
+are rejected by the resident Hunter route; the explicit historical `run` scheduler
+remains available for direct CLI compatibility. Templates remain unsupported.
+
+Hunter's CPU MPNN interpreter reuses imports and checkpoint tensors while executing
+upstream sampling with the original per-proposal RNG resets, initialization,
+temperature and residue masks. It is owned by the campaign process and exits when
+the campaign stops. `IPROTEINSTUDIO_MPNN_PERSISTENT=0` selects the original separate
+processes for diagnostics. This is startup amortization, not a new design algorithm.
+Validation and measurement limits: [Lab Book 0272](../lab_book/0272-openfold-residency-and-figure3-scheduling.md).

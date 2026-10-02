@@ -92,7 +92,7 @@
       "capabilities": [
         "structure"
       ],
-      "schedule": "per-input",
+      "schedule": "resident",
       "mappings": {
         "venvs/NanoHunter_openfold3_mlx": "python",
         "src/openfold-3-mlx": "sources/openfold-3-mlx"
@@ -100,7 +100,8 @@
       "model_paths": [
         "models/openfold3"
       ],
-      "command_family": "openfold3"
+      "command_family": "openfold3",
+      "session": "OpenFoldSession"
     },
     "mpnn": {
       "component": "mpnn",

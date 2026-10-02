@@ -4,8 +4,7 @@
 Boltz, IntelliFold and Protenix Mini keep one native-MPS model resident for all
 pending designs in this invocation. Full Protenix v2 deliberately uses one
 directory wave: the governed iterative-design benchmark found that faster than
-keeping its model resident. OpenFold retains its validated per-input adapter
-until it has an equivalent resident implementation.
+keeping its model resident. OpenFold uses the shared resident adapter.
 """
 
 from __future__ import annotations

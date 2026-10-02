@@ -250,14 +250,11 @@ output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
   --design-scheduler run --post-predictor none --post-mode none)"
 expect_text "${output}" 'scheduler=run' "OpenFold-3 per-trajectory scheduler was rejected"
-if output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
+output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \
   bash "${RUNNER}" "${common[@]}" --predictor openfold-3-mlx \
   --template-yaml "${FIXTURE_ROOT}/protein_plain.yaml" \
-  --design-scheduler resident --wave-batch-size all --post-predictor none --post-mode none 2>&1)"; then
-  fail "OpenFold-3 unexpectedly accepted residency"
-fi
-expect_text "${output}" 'no validated worker for predictor openfold-3-mlx' \
-  "OpenFold-3 lost its unsupported-worker guard"
+  --design-scheduler resident --wave-batch-size all --post-predictor none --post-mode none 2>&1)"
+expect_text "${output}" 'scheduler=resident' "OpenFold-3 resident scheduler was rejected"
 
 resident_launcher="$(sed -n '/start_resident_predictor()/,/stop_resident_predictor()/p' "${RUNNER}")"
 expect_text "${resident_launcher}" 'if \[\[ "\$\{PREDICTOR\}" == "intellifold" \]\]' \

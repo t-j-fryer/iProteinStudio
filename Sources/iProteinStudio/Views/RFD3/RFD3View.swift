@@ -323,11 +323,8 @@ struct RFD3View: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("RFdiffusion3").font(.largeTitle.bold())
-            Text("Create new binders, explore nearby backbones, or scaffold a functional motif — then verify the resulting sequence both with its target and on its own.")
-                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-        }
+        StudioWorkflowHeader(mode: .rfdiffusion,
+            subtitle: "Create a backbone, explore a nearby shape, or scaffold a motif — then check the resulting sequences.")
     }
 
     // MARK: Target

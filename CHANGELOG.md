@@ -1,5 +1,14 @@
 # iProteinStudio release notes
 
+## 0.2.21 — Natural workspace and resident OpenFold
+
+- New Terra Loop app icon, warm adaptive colours, sculptural workflow artwork, and a native introduction available from Help → Discover iProteinStudio. Choose System, Light or Dark appearance in Settings.
+- Workspaces now group workflows under Predict and Design; Design opens a chooser for Protein Hunter, RFdiffusion3 and NISE. Existing saved runs and queues retain their workflow identities.
+- OpenFold3 reuses one loaded model across Protein Hunter cycles and multi-input prediction/checking requests. Per-input receipts validate settings and saved outputs before reuse; structures appear as each prediction completes.
+- CPU MPNN keeps imports and checkpoint tensors warm across requests while preserving upstream model construction and per-request random seeds. No additional model download or Python installation is needed for these changes.
+- App, MCP 39 and CLI share the resident OpenFold policy. New resident requests honour explicit seeds; historical OpenFold command-line runs could substitute generated seeds. Saved benchmark continuations record their original effective seeds.
+- Validation includes a six-wave OpenFold campaign, paired replay, checkpoint reuse and cold/warm MPNN sequence equivalence. No general OpenFold speedup factor is claimed; see lab_book/0272-openfold-residency-and-figure3-scheduling.md.
+
 ## 0.2.20 — ESMFold2 Full 3/50 defaults
 
 - New ESMFold2 Full predictions use 3 refinement loops and 50 requested diffusion steps, with an MSA cap of 128 where MSAs apply. App, MCP and CLI use the shared profile.

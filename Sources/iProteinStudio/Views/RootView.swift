@@ -1,4 +1,5 @@
 import SwiftUI
+import StudioCore
 
 /// Top-level router: setup wizard until the pipeline is installed, then the
 /// projects workspace. `app.installer` / `app.run` are nested observable
@@ -34,10 +35,16 @@ struct RootView: View {
 private struct RouterView: View {
     @EnvironmentObject var app: AppState
     @ObservedObject var installer: PipelineInstaller
+    @AppStorage("studio.introductionSeen.v1") private var introductionSeen = false
 
     var body: some View {
         Group {
-            if installer.installed {
+            if IntroductionPolicy.shouldPresent(hasSeen: introductionSeen,
+                installed: installer.installed, hasSavedWork: !app.projects.isEmpty,
+                installationBusy: installer.isInstalling,
+                recoveryNeeded: installer.completedWithIssues || installer.failure != nil || installer.needsAppleBuildTools) {
+                StudioIntroductionView(completionTitle: "Continue to setup") { introductionSeen = true }
+            } else if installer.installed {
                 WorkspaceView(run: app.run, installer: installer)
             } else {
                 SetupView()
@@ -53,6 +60,7 @@ struct WorkspaceView: View {
     @EnvironmentObject var app: AppState
     @ObservedObject var run: RunController
     @ObservedObject var installer: PipelineInstaller
+    @Environment(\.openWindow) private var openWindow
     @State private var showComponents = false
     @State private var showActivity = false
     @State private var showQueue = false
@@ -82,7 +90,14 @@ struct WorkspaceView: View {
                 .font(.callout).padding(10)
             }
         }
+        .background(StudioPalette.canvas)
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { openWindow(id: "studio-introduction") } label: {
+                    Label("Discover Studio", systemImage: "book.closed")
+                }
+                .help("A short introduction to Studio and its workflows")
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button { showQueue = true } label: {
                     HStack(spacing: 4) {
@@ -166,6 +181,7 @@ struct ProjectDetailView: View {
     @ObservedObject var prediction: PredictionController
     @ObservedObject var installer: PipelineInstaller
     @State private var showRunHistory = false
+    @State private var choosingDesign = false
     @State private var showingRename = false
     @State private var renameText = ""
 
@@ -270,7 +286,7 @@ struct ProjectDetailView: View {
 
                 Spacer(minLength: 12)
 
-                if hasDisplayedRun {
+                if hasDisplayedRun && !choosingDesign {
                     Button { prepareNewRun() } label: {
                         Label("New run", systemImage: "plus")
                     }
@@ -279,16 +295,20 @@ struct ProjectDetailView: View {
                     .accessibilityIdentifier("new-queued-workflow-run")
                 }
 
-                Picker("", selection: mode) {
-                    ForEach(WorkspaceMode.allCases) { m in
-                        Label(m.label, systemImage: m.systemImage).tag(m)
+                HStack(spacing: 6) {
+                    StudioSectionTab(title: "Predict", artwork: "predict-object",
+                                     selected: !choosingDesign && mode.wrappedValue == .predict) {
+                        mode.wrappedValue = .predict
+                        choosingDesign = false
+                    }
+                    StudioSectionTab(title: "Design", artwork: "design-object",
+                                     selected: choosingDesign || mode.wrappedValue != .predict) {
+                        choosingDesign = true
                     }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(maxWidth: 540)
-                .accessibilityLabel("Workflow")
-                .accessibilityIdentifier("project-mode-picker")
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Workspace section")
+                .accessibilityIdentifier("workspace-section-picker")
 
                 Button { showRunHistory.toggle() } label: {
                     Label("Runs", systemImage: "clock.arrow.circlepath")
@@ -304,12 +324,26 @@ struct ProjectDetailView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
+            .padding(.bottom, 10)
+            .background(StudioPalette.panel)
+
+            if !choosingDesign && mode.wrappedValue != .predict {
+                HStack(spacing: 8) {
+                    Button { choosingDesign = true } label: {
+                        Label("Design methods", systemImage: "chevron.left")
+                    }
+                    .accessibilityIdentifier("choose-design-method")
+                    Text(mode.wrappedValue.label).font(.callout.weight(.medium))
+                    Spacer()
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+            }
 
             if let notice = app.runtimeNotice {
                 Label(notice, systemImage: "clock").font(.caption).padding(.top, 8)
             }
             if let activeMode {
-                Label("\(activeMode.label) has active work. You can add runs from any tab to the queue; open Queue to see all workspaces.",
+                Label("\(activeMode.label) has active work. You can add runs from any workflow to the queue; open Queue to see all workspaces.",
                       systemImage: "waveform.path")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -318,21 +352,36 @@ struct ProjectDetailView: View {
             }
             Divider().padding(.top, 10)
 
-            Group {
-                switch mode.wrappedValue {
-                case .iterative:
-                    if run.projectID == project.id, let context = run.projectContext,
-                       run.isRunning || run.campaignRoot != nil {
-                        LiveDashboardView(project: context, run: run, metrics: metrics)
-                    } else {
-                        DesignFormView(project: project, installer: installer, run: run)
+            ZStack {
+                Group {
+                    switch mode.wrappedValue {
+                    case .iterative:
+                        if run.projectID == project.id, let context = run.projectContext,
+                           run.isRunning || run.campaignRoot != nil {
+                            LiveDashboardView(project: context, run: run, metrics: metrics)
+                        } else {
+                            DesignFormView(project: project, installer: installer, run: run)
+                        }
+                    case .rfdiffusion:
+                        RFD3View(project: project, controller: rfd3, installer: installer)
+                    case .nise:
+                        NISEView(project: project, controller: app.nise, installer: installer)
+                    case .predict:
+                        PredictView(project: project, controller: prediction, installer: installer)
                     }
-                case .rfdiffusion:
-                    RFD3View(project: project, controller: rfd3, installer: installer)
-                case .nise:
-                    NISEView(project: project, controller: app.nise, installer: installer)
-                case .predict:
-                    PredictView(project: project, controller: prediction, installer: installer)
+                }
+                // Keep the current form mounted while choosing a method: an
+                // exploratory navigation click must not discard in-progress input.
+                .opacity(choosingDesign ? 0 : 1)
+                .allowsHitTesting(!choosingDesign)
+                .disabled(choosingDesign)
+                .accessibilityHidden(choosingDesign)
+
+                if choosingDesign {
+                    DesignMethodChooser(previousMode: mode.wrappedValue) { selection in
+                        mode.wrappedValue = selection
+                        choosingDesign = false
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -344,26 +393,45 @@ struct ProjectDetailView: View {
 
 struct EmptyWorkspace: View {
     @EnvironmentObject var app: AppState
+    @Environment(\.openWindow) private var openWindow
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "atom")
-                .font(.system(size: 52))
-                .foregroundStyle(.tint)
-            Text("Start some work").font(.title2.bold())
-            Text("Create a workspace for predictions, Protein Hunter, NISE, or RFdiffusion3.")
-                .foregroundStyle(.secondary)
-            HStack(spacing: 10) {
-                Button { app.addProject(name: "", preferredMode: .predict) } label: {
-                    Label("New Prediction", systemImage: "cube.transparent")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                HStack(spacing: 14) {
+                    StudioArtwork(name: "terra-loop").frame(width: 66, height: 66)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Your next question starts here.").font(.title.weight(.semibold))
+                        Text("Choose a workflow to create a workspace.").foregroundStyle(.secondary)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                Button { app.addProject(name: "", preferredMode: .iterative) } label: {
-                    Label("New Workspace", systemImage: "plus")
+                StudioArtwork(name: "branching-possibilities")
+                    .frame(maxHeight: 230).clipShape(RoundedRectangle(cornerRadius: 12))
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 235))], spacing: 14) {
+                    ForEach(WorkspaceMode.allCases) { mode in
+                        Button { app.addProject(name: "", preferredMode: mode) } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                StudioWorkflowArtwork(mode: mode).frame(width: 44, height: 44)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(mode.label).font(.headline)
+                                    Text(mode.introduction).font(.callout).foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(16).frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
+                            .modifier(StudioSurface()).contentShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Create \(mode.label) workspace")
+                    }
                 }
+                Button("Discover Studio…") { openWindow(id: "studio-introduction") }
+                Text("Creating a workspace does not start a run or download an engine.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            .controlSize(.large)
+            .padding(30).frame(maxWidth: 900).frame(maxWidth: .infinity)
         }
-        .padding(40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(StudioPalette.canvas)
     }
 }

@@ -75,3 +75,7 @@ studio_hunter_stages_validation: lab_book/0252-add-hunter-generation-stages.md
 
 studio_esmfold2_full_default: msa128-loops3-steps50
 studio_esmfold2_full_default_validation: lab_book/0251-queue-esmfold2-full-3-50.md, lab_book/0253-promote-esm-full-and-figure-two.md
+
+studio_openfold_residency: scoped-model-validated-receipts-v1
+studio_mpnn_residency: cpu-imports-checkpoint-cache-v1
+studio_residency_validation: lab_book/0272-openfold-residency-and-figure3-scheduling.md

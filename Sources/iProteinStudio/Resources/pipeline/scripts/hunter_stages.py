@@ -73,9 +73,7 @@ def schedule(args, engine):
     for flag in ['--design-scheduler', '--wave-batch-size', '--max-parallel', '--throughput-profile']:
         args = replace(args, flag)
     args += ['--max-parallel', '1', '--throughput-profile', 'off']
-    if engine == 'openfold-3-mlx':
-        args += ['--design-scheduler', 'run']
-    elif engine == 'protenix-v2':
+    if engine == 'protenix-v2':
         args += ['--design-scheduler', 'cycle-wave']
     else:
         args += ['--design-scheduler', 'resident', '--wave-batch-size', 'all']

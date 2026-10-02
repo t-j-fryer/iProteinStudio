@@ -156,7 +156,16 @@ materialize_immutable_input() {
 }
 
 LIGANDMPNN_REPO="${REPO_ROOT}/src/LigandMPNN"
-LIGANDMPNN_RUN="python run.py"
+LIGANDMPNN_RUN="studio_cpu_mpnn"
+studio_cpu_mpnn() {
+  # One CPU interpreter per campaign; upstream RNG and sampling stay unchanged.
+  if [[ "${IPROTEINSTUDIO_MPNN_PERSISTENT:-1}" == "0" ]]; then
+    python run.py "$@"
+  else
+    python "${SCRIPT_DIR}/scripts/mpnn_worker.py" submit \
+      "${EXPT_ROOT}/_mpnn_worker/owner_$$" "$$" "${LIGANDMPNN_REPO}/run.py" "$@"
+  fi
+}
 LIGANDMPNN_CHECKPOINT_PROTEIN="${LIGANDMPNN_REPO}/model_params/proteinmpnn_v_48_020.pt"
 LIGANDMPNN_CHECKPOINT_SOLUBLE="${LIGANDMPNN_REPO}/model_params/solublempnn_v_48_020.pt"
 LIGANDMPNN_CHECKPOINT_LIGAND="${LIGANDMPNN_REPO}/model_params/ligandmpnn_v_32_010_25.pt"
@@ -1268,7 +1277,7 @@ if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" || "${DESIGN_SCHEDULER}" == "residen
 fi
 if [[ "${DESIGN_SCHEDULER}" == "resident" ]]; then
   case "${PREDICTOR}" in
-    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|esmfold2-full-mlx|esmfold2-fast-mlx) ;;
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx|esmfold2-full-mlx|esmfold2-fast-mlx) ;;
     *) die "--design-scheduler resident has no validated worker for predictor ${PREDICTOR}." ;;
   esac
   [[ -f "${RESIDENT_PREDICTOR}" ]] || die "Resident predictor worker not found: ${RESIDENT_PREDICTOR}"
@@ -6024,6 +6033,11 @@ start_resident_predictor() {
       worker_python="${REPO_ROOT}/venvs/NanoHunter_esmfold2/bin/python"
       resident_model="${PREDICTOR}"
       ;;
+    openfold-3-mlx)
+      worker_python="${OPENFOLD_VENV}/bin/python"
+      resident_model="openfold3"
+      [[ -z "${OPENFOLD_EXTRA_CLI_STRING}" ]] || die "Resident OpenFold uses prediction settings; remove --openfold-extra or select the run scheduler."
+      ;;
     *) die "No resident worker is defined for ${PREDICTOR}." ;;
   esac
 
@@ -6422,10 +6436,16 @@ run_cycle_wave_predictor_batch() {
         [[ -f "${struct}" ]] || struct=""
         ;;
       openfold-3-mlx)
+        if [[ -f "${output_dir}/${stem}/pred_min/model_0.cif" ]]; then
+          leaf="${output_dir}/${stem}/pred_min"
+          conf="${leaf}/confidence.json"
+          struct="${leaf}/model_0.cif"
+        else
         leaf="${output_dir}/${stem}/seed_42"
         [[ -d "${leaf}" ]] || leaf="$(find "${output_dir}/${stem}" -maxdepth 2 -type d -name 'seed_*' | sort | head -n 1 || true)"
         conf="$(find "${leaf}" -maxdepth 1 -type f -name '*_confidences_aggregated.json' | sort | head -n 1 || true)"
         struct="$(find "${leaf}" -maxdepth 1 -type f \( -name '*_model.cif' -o -name '*_model.pdb' \) | sort | head -n 1 || true)"
+        fi
         ;;
     esac
     [[ -n "${struct}" && -f "${struct}" ]] || die "Cycle-wave structure not found for ${stem} in ${leaf}."

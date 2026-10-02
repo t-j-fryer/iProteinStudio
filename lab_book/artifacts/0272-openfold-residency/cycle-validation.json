@@ -1,0 +1,7 @@
+{
+  "model_loads": 1,
+  "requests": 6,
+  "trajectories": 2,
+  "cycles": 5,
+  "artifacts_unchanged_on_resume": 98
+}

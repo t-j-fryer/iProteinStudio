@@ -8,6 +8,8 @@ enum WorkspaceMode: String, CaseIterable, Codable, Identifiable, Hashable {
     case rfdiffusion
     case predict
 
+    static let designMethods: [WorkspaceMode] = [.iterative, .nise, .rfdiffusion]
+
     var id: String { rawValue }
 
     var label: String {

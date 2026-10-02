@@ -53,10 +53,10 @@ SCHEDULE = {
     # schedules validated for the patched native-MPS implementation.
     "protenix-v2":      {"processes": 1, "batch": 8},
     "protenix-mini":    {"processes": 1, "batch": 8},
-    "openfold-3-mlx":   {"processes": 2, "batch": 1},   # per-job adapter, no directory mode
+    "openfold-3-mlx":   {"processes": 1, "batch": 1000000},   # one resident directory worker
 }
 # Backends that accept a directory of inputs and load the model once.
-DIRECTORY_CAPABLE = {"boltz", "boltz_potentials", "intellifold",
+DIRECTORY_CAPABLE = {"openfold-3-mlx", "boltz", "boltz_potentials", "intellifold",
                      "protenix-v2", "protenix-mini", "esmfold2-full-mlx", "esmfold2-fast-mlx"}
 BUCKETS = (128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096)
 
@@ -553,6 +553,13 @@ def run_directory_batch(predictor: str, yamls: list, out_dir: Path, root: Path,
                    "--cache", str(root / "models" / "intellifold")]
         if cfg.get("template") is not None:
             command += ["--use_template"]
+    elif predictor == "openfold-3-mlx":
+        venv = root / "venvs" / "NanoHunter_openfold3_mlx"
+        seed = int(cfg.get("seed", 42))
+        seeds = ",".join(str(seed+n) for n in range(int(cfg.get("num_seeds", 1))))
+        command = [str(venv / "bin/python"), str(root / "scripts/openfold_session.py"),
+                   "--inputs", str(batch_dir), "--output", str(out_dir), "--nanohunter-root", str(root),
+                   "--seeds", seeds, "--samples", str(int(cfg.get("diffusion_samples", 0)) or 1)]
     elif predictor.startswith("esmfold2-"):
         venv = root / "venvs" / "NanoHunter_esmfold2"
         seed = int(cfg.get("seed", 42))
@@ -742,12 +749,12 @@ def main() -> None:
         processes = cfg.get("max_parallel") or plan["processes"]
         batch = cfg.get("batch_size") or plan["batch"]
 
-        if predictor.startswith("esmfold2-") and processes != 1:
-            die("ESMFold2 uses one shared ESMC-6B resident per directory; set concurrency to Automatic or 1.")
+        if (predictor.startswith("esmfold2-") or predictor == "openfold-3-mlx") and processes != 1:
+            die("This engine uses one resident worker per directory; set concurrency to Automatic or 1.")
         # Group by token bucket: a batch of one shape compiles once and reuses it.
         groups: dict = {}
         for item in template_inputs.get(predictor, prepared):
-            groups.setdefault(0 if predictor.startswith("esmfold2-") else item["bucket"], []).append(item)
+            groups.setdefault(0 if predictor.startswith("esmfold2-") or predictor == "openfold-3-mlx" else item["bucket"], []).append(item)
         info(f"{predictor}: {len(prepared)} fold(s) in {len(groups)} shape group(s), "
              f"{processes} process(es) x {batch} input(s) each")
 
@@ -773,7 +780,7 @@ def main() -> None:
                     # ESMFold2 must revalidate its per-input identity/inventory, even
                     # when the outer chunk completed. Its adapter reuses valid units
                     # without loading a model; a changed input is never silently reused.
-                    if not predictor.startswith("esmfold2-") and completed_chunk(marker, names, out_dir):
+                    if not (predictor.startswith("esmfold2-") or predictor == "openfold-3-mlx") and completed_chunk(marker, names, out_dir):
                         if validate_geometry(root, out_dir, log_path):
                             marker.unlink(missing_ok=True)
                             info(f"{tag}: saved output failed geometry validation; recomputing")

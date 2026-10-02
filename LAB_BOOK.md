@@ -282,3 +282,7 @@ Current work: [0230 — Shared-target optimizations and paper predictions](lab_b
 Current optimization experiment: [0229 — Resident request overhead](lab_book/0229-resident-request-overhead.md) (128-row MSA,reduced steps,five seeds; predeclared).
 Current work: [0228 — Exact-token prediction](lab_book/0228-exact-token-prediction.md) (IntelliFold padding removed; replacement SUMO matrix in progress).
 - [0234 — Shared prediction profiles and runtime improvements](lab_book/0234-publish-prediction-profiles.md) — implementation in progress.
+
+Current release: [0276 — Natural workspace and resident OpenFold](lab_book/0276-publish-natural-resident-release.md).
+
+Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-identity.md), [0270 — Predict and Design](lab_book/0270-group-predict-and-design-navigation.md), [0271 — Workflow icons](lab_book/0271-use-sculptural-workflow-icons.md), [0272 — Resident OpenFold and MPNN](lab_book/0272-openfold-residency-and-figure3-scheduling.md).

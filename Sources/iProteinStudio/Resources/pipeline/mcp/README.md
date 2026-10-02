@@ -268,3 +268,9 @@ all saved files. Out-of-scope or unreadable records are reported, not changed.
 The native Jobs button and `studioctl.py jobs-cleanup` use this same recovery
 implementation. Native submissions retain `studio_submission_status.json`
 through validation, runtime preservation, registration and failure.
+
+
+MCP v39 uses resident OpenFold3 across repeated prediction and design requests,
+with validated per-input receipts and explicit model seeds. Existing immutable
+job snapshots remain unchanged. CPU MPNN caches imports/checkpoint tensors while
+retaining upstream per-request execution. See `docs/CLI.md` and Lab Book 0272.

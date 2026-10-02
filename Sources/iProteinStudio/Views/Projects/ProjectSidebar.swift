@@ -68,6 +68,18 @@ struct ProjectSidebar: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(StudioPalette.sidebar)
+        .safeAreaInset(edge: .top) {
+            HStack(spacing: 10) {
+                StudioArtwork(name: "terra-loop").frame(width: 38, height: 38)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("iProteinStudio").font(.headline)
+                    Text("A space for your science").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }.padding(14)
+        }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 Button {

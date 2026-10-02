@@ -1,0 +1,23 @@
+{
+  "rows": [
+    {
+      "input": "reference_1",
+      "backbone_rmsd_A": 0.00013119832257924485,
+      "iptm_delta": 5.960464477539063e-08,
+      "old_iptm": 0.6929309964179993,
+      "new_iptm": 0.692931056022644
+    },
+    {
+      "input": "reference_2",
+      "backbone_rmsd_A": 0.00032754773376049244,
+      "iptm_delta": 2.181529998779297e-05,
+      "old_iptm": 0.6890021562576294,
+      "new_iptm": 0.6889803409576416
+    }
+  ],
+  "model_identity": 4541781392,
+  "model_load_count": 1,
+  "requests": 2,
+  "seconds_including_resume": 16.04044054192491,
+  "timing_claim": "correctness only; desktop load not qualified"
+}

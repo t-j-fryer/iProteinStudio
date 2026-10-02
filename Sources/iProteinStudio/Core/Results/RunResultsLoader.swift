@@ -986,6 +986,7 @@ enum RunResultsLoader {
             guard name.hasSuffix(".json") else { return false }
             return name == "confidence.json" || name.contains("summary_confidences")
                 || name.hasPrefix("confidence_") || name.hasSuffix("_confidences.json")
+                || name.hasSuffix("_confidences_aggregated.json")
         }
         let unique = Dictionary(grouping: candidates, by: \.path).compactMap { $0.value.first }
         let stem = structure.deletingPathExtension().lastPathComponent.lowercased()

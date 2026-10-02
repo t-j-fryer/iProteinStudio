@@ -87,7 +87,7 @@ class RFD3PredictorSchedulingTests(unittest.TestCase):
         for predictor in ("boltz", "intellifold", "protenix-mini"):
             self.assertEqual(runner.scheduling_policy(predictor), "resident")
         self.assertEqual(runner.scheduling_policy("protenix-v2"), "cycle-wave")
-        self.assertEqual(runner.scheduling_policy("openfold-3-mlx"), "per-input")
+        self.assertEqual(runner.scheduling_policy("openfold-3-mlx"), "resident")
 
     def test_resident_intellifold_uses_one_worker_for_two_designs(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -31,9 +31,8 @@ struct NISEView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text("NISE").font(.largeTitle.bold())
-                Text("Design small-molecule binding pockets through selection and expansion.")
-                    .font(.title3).foregroundStyle(.secondary)
+                StudioWorkflowHeader(mode: .nise,
+                    subtitle: "Explore small-molecule binding pockets through selection and expansion.")
                 Text("\(request.wrappedValue.foldingLabel) generates structures and checks geometry; LASErMPNN expands surviving trajectories. Choose which model score drives selection below.")
                 GroupBox("Starting point") {
                     VStack(alignment: .leading, spacing: 8) {

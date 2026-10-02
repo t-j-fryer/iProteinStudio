@@ -20,12 +20,10 @@ private struct InnerSetup: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-                Image(systemName: "atom")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.tint)
-                Text("Welcome to iProteinStudio")
+                StudioArtwork(name: "terra-loop").frame(width: 84, height: 84)
+                Text("Prepare your workspace")
                     .font(.largeTitle.bold())
-                Text("Design binders against your target — no terminal required.")
+                Text("Review the engines and components your work needs.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
 
@@ -46,7 +44,7 @@ private struct InnerSetup: View {
             .frame(maxWidth: .infinity)
         }
         .safeAreaInset(edge: .bottom) { footnote }
-        .background(.background)
+        .background(StudioPalette.canvas)
         .sheet(item: $pendingInstall) { plan in
             EngineInstallReview(plan: plan) {
                 installer.optionalSelection = Set(plan.components.filter { !$0.isCore })
@@ -235,6 +233,6 @@ private struct InnerSetup: View {
             .foregroundStyle(.tertiary)
             .padding(.bottom, 16)
             .frame(maxWidth: .infinity)
-            .background(.background)
+            .background(StudioPalette.canvas)
     }
 }

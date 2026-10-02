@@ -1,0 +1,14 @@
+Design and Predict sculptural navigation artwork, 2026-10-02
+
+Source: launch-site/dist/assets/natural-workflows.png (original generated website artwork).
+Tool: built-in imagegen, referenced image edit, transparent_background=true.
+Faithful generated derivatives of the upper-row 3D sculptures, selected by the user.
+Replaces flat glyph usage in native section tabs, Design chooser heading and Predict surfaces.
+Original flat assets remain available; ProteinHunter's independent trajectories are unchanged.
+
+design-object.png
+Edit the supplied artwork to extract a faithful standalone app navigation icon. Use ONLY the specified 3D sculpture from the upper row, not the flat dark-green glyph below. Preserve its exact recognisable shape, camera angle, natural matte porous ceramic texture, soft studio lighting and colours. Centre the complete sculpture in a square canvas with about 8% transparent margin, large and legible. True transparent background including holes, no floor, no cast floor shadow, no tile, no border, no text, no other objects. Extract the SECOND sculpture, above Design: a terracotta forked tree trunk wrapped in a broad twisting moss-olive green ribbon rising above it. Preserve both side branches and the tall green ribbon tip.
+
+predict-object.png
+Edit the supplied artwork to extract a faithful standalone app navigation icon. Use ONLY the specified 3D sculpture from the upper row, not the flat dark-green glyph below. Preserve its exact recognisable shape, camera angle, natural matte porous ceramic texture, soft studio lighting and colours. Centre the complete sculpture in a square canvas with about 8% transparent margin, large and legible. True transparent background including holes, no floor, no cast floor shadow, no tile, no border, no text, no other objects. Extract the THIRD sculpture, above Predict: a compact moss-olive green folded protein-like loop nestled inside a rounded irregular five-lobed cream ceramic outline. Preserve the green loop's open holes and the cream enclosing outline.
+

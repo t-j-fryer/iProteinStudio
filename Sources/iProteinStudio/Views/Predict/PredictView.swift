@@ -79,11 +79,8 @@ struct PredictView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Predict").font(.largeTitle.bold())
-            Text("Fold sequences you already have. Nothing is designed or optimised here.")
-                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-        }
+        StudioWorkflowHeader(mode: .predict,
+            subtitle: "Predict structures from the sequences you already have.")
     }
 
     // MARK: Sequences

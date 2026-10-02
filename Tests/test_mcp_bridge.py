@@ -226,8 +226,8 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
             "arguments": [value if value != "boltz" else "openfold-3-mlx" for value in arguments],
         })
         openfold_args = openfold["normalized_request"]["arguments"]
-        self.assertEqual(openfold_args[openfold_args.index("--design-scheduler") + 1], "run")
-        self.assertNotIn("--wave-batch-size", openfold_args)
+        self.assertEqual(openfold_args[openfold_args.index("--design-scheduler") + 1], "resident")
+        self.assertEqual(openfold_args[openfold_args.index("--wave-batch-size") + 1], "all")
 
         with self.assertRaisesRegex(common.StudioError, "reproducibly produced broken target geometry"):
             plans.iterative_plan({

@@ -319,11 +319,11 @@ struct IterativeCommandContractHarness {
             for mode in [SpeedMode.standard, .batched] {
                 request.speedMode = mode
                 args = arguments(request)
-                expect(value(after: "--design-scheduler", in: args) == "run",
-                       "OpenFold-3 selected an unsupported resident worker")
+                expect(value(after: "--design-scheduler", in: args) == "resident",
+                       "OpenFold-3 lost its resident worker")
                 expect(value(after: "--max-parallel", in: args) == "1",
                        "OpenFold-3 lost the single GPU owner policy")
-                expect(!args.contains("--wave-batch-size"), "OpenFold-3 received resident wave settings")
+                expect(args.contains("--wave-batch-size"), "OpenFold-3 lost resident wave settings")
             }
         }
 
@@ -354,7 +354,7 @@ struct IterativeCommandContractHarness {
             let args = arguments(child)
             expect(value(after: "--num-runs", in: args) == "12", "checkpoint did not receive the full budget")
             expect(value(after: "--predictor", in: args) == engine.predictor.runnerValue, "checkpoint backend changed")
-            expect(value(after: "--design-scheduler", in: args) == (engine == .openfold3 ? "run" : "resident"),
+            expect(value(after: "--design-scheduler", in: args) == "resident",
                    "checkpoint selected an unsupported scheduler")
             if let model = engine.model {
                 expect(value(after: "--model", in: args) == model.rawValue, "wrong IntelliFold checkpoint selected")

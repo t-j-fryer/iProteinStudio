@@ -108,11 +108,11 @@ def desktop_plan(request: Dict[str, Any], *, _batch_child: bool = False) -> Dict
         arguments = manifest.get("arguments")
         if not isinstance(arguments, list) or not all(isinstance(v, str) for v in arguments):
             raise StudioError("The recorded iterative command is unreadable.")
-        # A GUI regression emitted resident for OpenFold-3, which has no such
-        # worker. Reject the whole batch at preflight, before any engine runs.
+        # Reject historical snapshots without the now-validated OpenFold worker.
         if ("--predictor" in arguments and "--design-scheduler" in arguments
                 and arguments[arguments.index("--predictor") + 1:][:1] == ["openfold-3-mlx"]
-                and arguments[arguments.index("--design-scheduler") + 1:][:1] in (["resident"], ["campaign-resident"])):
+                and arguments[arguments.index("--design-scheduler") + 1:][:1] in (["resident"], ["campaign-resident"])
+                and not (snapshot / "scripts/openfold_session.py").is_file()):
             raise StudioError("OpenFold-3 has no resident worker. Recreate the unfinished OpenFold-3 run with --design-scheduler run; the saved plan cannot be changed in place.")
         # Exact GUI argv is retained, including MSA and resident scheduling.
         for flag in ("--template-yaml", "--target-template", "--initialization-target"):

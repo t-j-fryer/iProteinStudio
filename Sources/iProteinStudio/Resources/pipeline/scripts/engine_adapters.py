@@ -135,6 +135,10 @@ def resident_spec(predictor: str, root: Path, intellifold_model: str,
             "VIRTUAL_ENV": str(venv),
             "PROTENIX_ROOT_DIR": str(root / "models" / "protenix"),
         })
+    elif predictor == "openfold-3-mlx":
+        venv = root / "venvs" / "NanoHunter_openfold3_mlx"
+        model = "openfold3"
+        env["KMP_USE_SHM"] = "0"
     else:
         raise RuntimeError(f"no validated resident worker for {predictor}")
     python = venv / "bin" / "python"

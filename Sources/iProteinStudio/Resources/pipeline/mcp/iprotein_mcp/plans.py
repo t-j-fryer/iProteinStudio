@@ -491,11 +491,6 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
         if result.returncode:
             raise StudioError("Monomer initialization preflight failed: " + result.stderr[-3000:])
         scheduler += ["--design-scheduler", "run"]
-    elif predictor == "openfold-3-mlx":
-        # OpenFold3 has no validated resident worker. Keep its established
-        # per-trajectory execution policy instead of allowing preflight to
-        # create a plan that the runner must reject at launch.
-        scheduler += ["--design-scheduler", "run"]
     elif predictor == "protenix-v2":
         scheduler += ["--design-scheduler", "cycle-wave"]
     else:

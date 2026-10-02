@@ -306,10 +306,8 @@ struct DesignFormView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(project.name).font(.largeTitle.bold())
-            Text("Set up your design run, then press Start.").foregroundStyle(.secondary)
-        }
+        StudioWorkflowHeader(mode: .iterative,
+            subtitle: "Explore candidate binders, then follow their independent checks.")
     }
 
     private var startBar: some View {
@@ -319,8 +317,8 @@ struct DesignFormView: View {
         }
         return VStack(alignment: .leading, spacing: 6) {
             Text(request.wrappedValue.budgetSummary).font(.callout.weight(.semibold)).textSelection(.enabled)
-            HStack(spacing: 12) {
             let r = request.wrappedValue
+            HStack(alignment: .top, spacing: 12) {
             if !r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty {
                 Label(missingReason(r, missingComponents: missingComponents), systemImage: "info.circle")
                     .font(.callout).foregroundStyle(.secondary)
@@ -331,9 +329,13 @@ struct DesignFormView: View {
             if let issue = r.validationIssues.first {
                 Button("Review field") { validationDestination = issue.field }
                     .accessibilityLabel("Review \(issue.field): \(issue.message)")
+                    .fixedSize()
             }
-            Spacer()
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
             RunNameField(project: project, mode: .iterative)
+            Spacer(minLength: 0)
             Button {
                 guard numericValidation.invalidEditors.isEmpty else { return }
                 app.metrics.stop()
@@ -341,7 +343,7 @@ struct DesignFormView: View {
                 app.run.start(project: current, name: current.runNames[WorkspaceMode.iterative.rawValue] ?? "")
                 if let root = app.run.campaignRoot { app.metrics.start(root: root) }
             } label: {
-                Label(willQueue ? "Add to Queue" : "Start Design Run", systemImage: willQueue ? "text.badge.plus" : "play.fill").frame(minWidth: 200)
+                Label(willQueue ? "Add to Queue" : "Start Design Run", systemImage: willQueue ? "text.badge.plus" : "play.fill").frame(minWidth: 140)
             }
             .buttonStyle(.borderedProminent).controlSize(.large)
             .accessibilityLabel(willQueue ? "Add Protein Hunter run to queue" : "Start Protein Hunter run")
@@ -367,11 +369,13 @@ struct Card<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label(title, systemImage: systemImage).font(.title3.bold())
+            Label { Text(title).font(.headline) } icon: {
+                Image(systemName: systemImage).foregroundStyle(StudioPalette.clay)
+            }
             content
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(.quaternary.opacity(0.4)))
+        .modifier(StudioSurface())
     }
 }
 

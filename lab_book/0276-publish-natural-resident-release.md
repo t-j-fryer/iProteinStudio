@@ -1,0 +1,45 @@
+---
+entry: 0276
+title: Publish natural workspace and resident OpenFold release
+date: 2026-10-02
+author: Codex
+type: implementation
+status: in-progress
+machine: Apple M4 Max, 40-core GPU, 64 GB unified memory
+---
+
+## Context and scope
+Publish the native identity/navigation from entries 0268, 0270 and 0271 and
+app-wide resident OpenFold/CPU MPNN from 0272. Version 0.2.21, build 67, MCP 39.
+Shared CLI adapters and the MCP planner carry the same execution policy. Existing
+portable environments and weights are reused. Website art provenance is bundled;
+this release does not change the separate website's audience or deployment.
+
+## Work and evidence
+The Figure3 coordinator job-465040f858d2 was paused through the broker after the
+80-aa Boltz HK1 refinement cohort completed. Queue HOLD protects its ordered
+citrate and retrospective successors during compiler/package work. Immutable
+campaign snapshots and raw predictions are retained.
+
+Swift build and all 14 Swift tests passed, including first-launch routing.
+An initial unit invocation used system Python without PyYAML; tests were rerun
+with the installed OpenFold runtime. Packaged asset checks now compare required
+artwork and the icon with source. Core science evidence remains the real six-wave,
+12-structure OpenFold acceptance, same-effective-seed replay and exact CPU MPNN
+sequence equality recorded in 0272; these are not rerun for a branding release.
+No end-to-end OpenFold speed factor is claimed.
+
+## Reproduce
+Run swift build, swift test, Tests/test_openfold_resident.py using the OpenFold
+Python environment, test_rfd3_predictor_scheduling.py, test_hunter_stages.py,
+test_mcp_bridge.py and test_iterative_cli_contract.sh. Build/publish from a clean
+checkout using release/release_app.sh --publish-unsigned-beta; the existing
+Sparkle EdDSA key signs the update archive. Apple notarization is not claimed.
+
+## Limits
+No fresh-Mac install, older macOS/VoiceOver audit, or long memory soak in this
+release check. Native UI review and its coverage limitations are recorded in
+0268/0270/0271. No model weights or private runtime packages enter Git.
+
+## Delivery
+Pending final packaged checks, publication and benchmark resume.
