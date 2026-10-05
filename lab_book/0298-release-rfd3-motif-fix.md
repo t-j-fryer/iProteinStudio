@@ -4,7 +4,7 @@ title: Release exact RFD3 motif selections
 date: 2026-10-05
 author: Codex
 type: bugfix
-status: in-progress
+status: complete
 machine: Apple M4 Max, 40 GPU cores, 64 GB unified memory
 ---
 
@@ -72,4 +72,15 @@ managed environments; scientific jobs completed without errors.
 
 ## Publication
 
-Pending final published-asset verification and local app/CLI/MCP staging.
+Published app v0.2.23-beta from87bd839 and update-feed commit e3d86d8 to main.
+Published runtime runtimes-2026.10.05-1. All four GitHub app assets match local
+SHA256/size; Studio's normal downloader successfully fetched and verified the
+public runtime archive. This remains the existing ad-hoc signed trusted-beta
+channel, with Sparkle EdDSA updates, not an Apple-notarized distribution.
+
+Installed the exact released app at /Applications/iProteinStudio.app and reopened
+it; prior app retained in build/app-backups. Installed/staged setup, catalog,
+MCP41/bridge1.15.1 and RFD3 preparation scripts match the release. CLI doctor
+passes and the active RFD3 manifest is the corrected780fa7 identity. No model
+weights were downloaded. Publication and deployment JSON receipts are included.
+No outstanding scientific job needs resuming.

@@ -1,0 +1,25 @@
+{
+  "runtime_download_sha256": "e449e5e85ad2716186dfff7efaf475171a1a709ff5312c025900806c1ff02089",
+  "app_assets": [
+    {
+      "name": "BUILD_PROVENANCE.txt",
+      "bytes": 433,
+      "sha256": "c0d018b66c42ce225d95e1ba3d03e85d18f4d24e1c277bd473c084aef71b77cb"
+    },
+    {
+      "name": "iProteinStudio-0.2.23-unsigned-beta-apple-silicon.dmg",
+      "bytes": 40001768,
+      "sha256": "bae7a27539fa3f8ad4d1ead4ae06142e4fe988cae6f5c828b22f852a189e8a54"
+    },
+    {
+      "name": "iProteinStudio-0.2.23-unsigned-beta-apple-silicon.zip",
+      "bytes": 37177537,
+      "sha256": "8b5562a945a4aa68ec8ebab01fa5cbc7535fd2cec6e72e8504ec7c17bb3835df"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 240,
+      "sha256": "b69c872e43a1984162fa6d0af46aa3f67034550b81f0ab12624b98b7a3dd8f55"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "version": "0.2.23",
+  "build": "69",
+  "bridge_version": "41",
+  "runtime_manifest_sha256": "780fa7ed3533e9b3a30ab4ceea0c6bd3c2c1f38b3e4b85d5a5ea01c6a485a4dc",
+  "staged_sha256": {
+    "setup_pipeline.sh": "cd18ebc14857959fb9ccc1e17ed83c81d303dd508fb95c70b182f49bdfff3df9",
+    "scripts/runtime_releases.json": "54430029e965dd5b00b74afa04d88c14fdec85a7ca3e0f0068f84cb26b11e2f2",
+    "mcp/MCP_VERSION": "040316eca5e77dbb2212c1efe8b81cb23bc67ce0ac8cb5c9d902d98bd45ddfa1",
+    "mcp/iprotein_mcp/__init__.py": "a08a3e2a5f081e30324165701b72a3213bb42456d786b7630b2975564f273da2"
+  },
+  "app": "/Applications/iProteinStudio.app",
+  "old_app_backup": "build/app-backups/before-0.2.23-69.app"
+}
