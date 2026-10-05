@@ -209,6 +209,9 @@ def write_design_yaml(req: dict, campaign: Path, ligand_input: Path | None,
     # Partial diffusion must retain Foundry's diffused-region COM centering.
     # Applying the de-novo hotspot/origin override here can pull a small binder
     # toward the full target COM and defeats the upstream partial-diffusion fix.
+    # Motif scaffolding retains upstream fixed-atom centring (target + selected
+    # motif). Explicit all-atom COM also counts zero scaffold placeholders;
+    # see test_rfd3_coordinate_centring.py before changing this policy.
     if mode == "deNovo" and req.get("infer_ori_strategy"):
         emit("infer_ori_strategy", str(req["infer_ori_strategy"]))
     if mode == "deNovo" and req.get("ori_token"):

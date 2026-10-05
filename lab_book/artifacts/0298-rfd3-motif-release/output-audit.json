@@ -1,0 +1,69 @@
+{
+  "passed": true,
+  "cases": {
+    "motif": {
+      "job": "job-8d956f496361",
+      "status": "completed",
+      "runtime_manifest": "780fa7ed3533e9b3a30ab4ceea0c6bd3c2c1f38b3e4b85d5a5ea01c6a485a4dc",
+      "structures": [
+        {
+          "path": "rfd3/backbones/design_0001.pdb",
+          "sha256": "054c2bee7e94fa7f55f093874f052121ede575a7b58d64812e1c050c929f203e",
+          "atoms": 1006,
+          "nonadjacent_ca_pairs_below_2A": 0
+        },
+        {
+          "path": "predictions/monomer/boltz/design_0001_1/boltz_results_job_00001_design_0001_1/predictions/design_0001_1/design_0001_1_model_0.cif",
+          "sha256": "e9a42655e442931f0a94042e7cc5c54504ea084698d694a7370d6eb33c35ee10",
+          "atoms": 553,
+          "nonadjacent_ca_pairs_below_2A": 0
+        },
+        {
+          "path": "predictions/holo/boltz/design_0001_1/boltz_results_job_00001_design_0001_1/predictions/design_0001_1/design_0001_1_model_0.cif",
+          "sha256": "f2894eedbabc141a7431fdaece1ec03629e18f47196d5a01ea9c72f2f71acc9b",
+          "atoms": 1258,
+          "nonadjacent_ca_pairs_below_2A": 0
+        }
+      ],
+      "unindexed_fixed_atoms": 9,
+      "sequence_length": 70,
+      "is_hit": "False",
+      "failed_filters": "maximum_complex_rmsd;minimum_binder_plddt;maximum_binder_rmsd;maximum_motif_rmsd",
+      "motif_insertion_rmsd": "1.709297776222229",
+      "motif_max_drift": "0.0"
+    },
+    "partial": {
+      "job": "job-5696d892654f",
+      "status": "completed",
+      "runtime_manifest": "780fa7ed3533e9b3a30ab4ceea0c6bd3c2c1f38b3e4b85d5a5ea01c6a485a4dc",
+      "structures": [
+        {
+          "path": "rfd3/backbones/design_0001.pdb",
+          "sha256": "933abfadb97f1a5b904c88963ea67c3ff5d1ec58de3c3751476568ccf6bf042d",
+          "atoms": 757,
+          "nonadjacent_ca_pairs_below_2A": 0
+        },
+        {
+          "path": "predictions/monomer/boltz/design_0001_1/boltz_results_job_00001_design_0001_1/predictions/design_0001_1/design_0001_1_model_0.cif",
+          "sha256": "117074aa5fa3c190ec042a1016d3824c7cd1624a5a67adf5895036a9d887c2e3",
+          "atoms": 112,
+          "nonadjacent_ca_pairs_below_2A": 0
+        },
+        {
+          "path": "predictions/holo/boltz/design_0001_1/boltz_results_job_00001_design_0001_1/predictions/design_0001_1/design_0001_1_model_0.cif",
+          "sha256": "e4ad6254c46d8a91de85dd1e63c9f19d84092deb6adc48c9533647d28149a21a",
+          "atoms": 817,
+          "nonadjacent_ca_pairs_below_2A": 0
+        }
+      ],
+      "unindexed_fixed_atoms": 0,
+      "sequence_length": 13,
+      "is_hit": "True",
+      "failed_filters": "",
+      "motif_insertion_rmsd": null,
+      "motif_max_drift": "0.0"
+    }
+  },
+  "scope": "Two execution/geometry smoke cases; no statistical quality, speedup, or binding claim",
+  "ca_clash_definition": "CA pairs below 2 Angstrom, excluding adjacent residues of the same chain"
+}

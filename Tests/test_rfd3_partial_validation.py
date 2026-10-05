@@ -80,6 +80,9 @@ def main() -> None:
             "motif_sites": {"A2": "CB,CA"},
         }
         motif_yaml = prepare.write_design_yaml(motif, work / "motif", None, None).read_text()
+        assert "infer_ori_strategy" not in motif_yaml and "ori_token" not in motif_yaml, (
+            "motif scaffolding inherited a de-novo origin override"
+        )
         assert '\"unindex\": \"A2\"' not in motif_yaml  # keys, unlike values, are not quoted
         assert 'unindex: \"A2\"' in motif_yaml and '\"A2\": \"CB,CA\"' in motif_yaml
         assert '\"70-80,/0,B1-3\"' in motif_yaml

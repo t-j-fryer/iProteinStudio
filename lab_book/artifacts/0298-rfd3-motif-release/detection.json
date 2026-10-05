@@ -1,0 +1,10 @@
+{
+  "before": {
+    "exit_code": 1,
+    "expected": 1
+  },
+  "after": {
+    "exit_code": 0,
+    "expected": 0
+  }
+}

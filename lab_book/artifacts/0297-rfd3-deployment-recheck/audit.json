@@ -1,0 +1,52 @@
+{
+  "date": "2026-10-05",
+  "checked_files": [
+    {
+      "path": "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/rfd3_overlay/scripts/patch_foundry_rasa.py",
+      "sha256": "c38f651edf23138146b678426df48a844558ea9c2c033c1acd15f784512381f0",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/rfd3/.venv/lib/python3.12/site-packages/rfd3/inference/input_parsing.py",
+      "sha256": "79839c6d6e1f952df87db2c0b347e9805681b8028070db5e4ddac6ebf2b8f770",
+      "unchanged": true
+    },
+    {
+      "path": "/var/folders/lc/pg8rbsfd0cd4x676y3f5ylf80000gn/T/iprotein-foundry-centre-td4ulvqy/rfd3/inference/input_parsing.py",
+      "sha256": "64f53c95c2591853b6e951d082f5e3143b86f809cc283c9c7f491d486ed40024",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/rfd3/prepare_campaign.py",
+      "sha256": "5de7af520d750a7a89ea461eaca6e06f9bb687f8cadb56ed8cbcd5a9bc6888fb",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/thomasfryer/.iproteinstudio/rfd3_scripts/prepare_campaign.py",
+      "sha256": "02688a1cda741cddee5b6d30268ba45f13e52192014573bc2823076726aed37c",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/thomasfryer/iProteinStudio/Tests/test_rfd3_coordinate_centring.py",
+      "sha256": "292aa8f95ca2b3bad3991b6e13c840ef900657d5235e8c5d535977e51839719c",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/thomasfryer/iProteinStudio/Tests/test_rfd3_rasa_patch.py",
+      "sha256": "68911939445ffb302a71576616af18128cb550a3ba1fde09efc250ed66dc8119",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/rfd3_overlay/OVERLAY_VERSION",
+      "sha256": "6e7b66c4086c57e96647ff5b893d653193e1d2e4556f7e0f810151fa7ba467e4",
+      "unchanged": true
+    }
+  ],
+  "installed_runtime": "/Users/thomasfryer/.iproteinstudio/components/rfd3/versions/c9fc19327d6b15b5a14b-20260926T190018Z-0699f078/python/lib/python3.12/site-packages/rfd3/inference/input_parsing.py",
+  "installed_has_broad_selection_patch": true,
+  "installed_has_corrected_patch": false,
+  "corrected_source_sha256": "64f53c95c2591853b6e951d082f5e3143b86f809cc283c9c7f491d486ed40024",
+  "corrected_source_matches_previously_tested_copy": true,
+  "runtime_modified": false,
+  "new_neural_inference": false
+}

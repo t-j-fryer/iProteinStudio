@@ -128,10 +128,10 @@
       "mappings": {}
     },
     "rfd3": {
-      "url": "https://github.com/t-j-fryer/iProteinStudio/releases/download/runtimes-2026.09.26-1/rfd3-c9fc19327d6b15b5a14b-macos-arm64.tar.gz",
-      "archive_sha256": "a626ce5ab19bca66b25f128935db64387a9621602654f17517c8d92d900a9ea8",
-      "manifest_sha256": "c9fc19327d6b15b5a14b83b3d99c914e1dc52d2b2d1eb9e87b6cf0be49d27a3a",
-      "bytes": 396215713,
+      "url": "https://github.com/t-j-fryer/iProteinStudio/releases/download/runtimes-2026.10.05-1/rfd3-780fa7ed3533e9b3a30a-macos-arm64.tar.gz",
+      "archive_sha256": "e449e5e85ad2716186dfff7efaf475171a1a709ff5312c025900806c1ff02089",
+      "manifest_sha256": "780fa7ed3533e9b3a30ab4ceea0c6bd3c2c1f38b3e4b85d5a5ea01c6a485a4dc",
+      "bytes": 396216075,
       "minimum_macos": "26.2",
       "architecture": "arm64",
       "mappings": {

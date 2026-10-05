@@ -1,7 +1,7 @@
 # Provenance of the vendored RFdiffusion3 overlay. Regenerate with tools/sync_rfd3.sh.
 source_repo:  https://github.com/javierbq/rfd3-mlx.git
 vendored_on:  2026-08-14T14:10:33Z
-studio_updated: 2026-09-30-prediction-profiles-v1
+studio_updated: 2026-10-03-rasa-only-selection-fix
 files:        32
-checksum:     61cfae3198c6167406a7bf8066cbc18d439407e45974c97d54c02c251f234125
+checksum:     54d669eb2351d73c96a4517929ca2663404fe950dd22f439e183b5f0d3f77dc6
 checksum_format: sha256 of sorted Python sha256/relative-path lines

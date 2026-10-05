@@ -1,5 +1,7 @@
 # Lab Book
 
+Latest RFD3 correction: [0298 — Release exact RFD3 motif selections](lab_book/0298-release-rfd3-motif-fix.md).
+
 Latest release: [0255 — ESMFold2 Full 3/50](lab_book/0255-release-esm-full-defaults.md). Evidence: [0251](lab_book/0251-queue-esmfold2-full-3-50.md) and [0253 promotion](lab_book/0253-promote-esm-full-and-figure-two.md).
 
 Current follow-up: [0253 — Predicted RFdiffusion3 targets](lab_book/0253-predict-rfd3-targets.md).

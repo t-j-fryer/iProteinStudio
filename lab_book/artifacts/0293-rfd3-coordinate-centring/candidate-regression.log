@@ -1,0 +1,534 @@
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] No ori_token or infer_ori_strategy provided. Setting origin as COM of fixed motif ([ 29.65385  -15.756306  -3.855579]).
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] No ori_token or infer_ori_strategy provided. Setting origin as COM of fixed motif ([ 329.65396 -195.75636  116.14441]).
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] Inferred origin using strategy 'com'. Setting origin as [12.352888  -6.5635953 -1.6061163].
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] Inferred origin using strategy 'com'. Setting origin as [137.32376 -81.54612  48.38221].
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] Received ori_token argument. Setting origin as [ 28.361443 -22.244778  -6.511222].
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] Received ori_token argument. Setting origin as [ 328.36145 -202.24478  113.48877].
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] No ori_token or infer_ori_strategy provided. Setting origin as COM of fixed motif ([ 29.65385  -15.756306  -3.855579]).
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] No ori_token or infer_ori_strategy provided. Setting origin as COM of fixed motif ([ 329.65396 -195.75636  116.14441]).
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] Inferred origin using strategy 'com'. Setting origin as [ 9.563166  -5.0813017 -1.2433981].
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] Inferred origin using strategy 'com'. Setting origin as [106.31117  -63.130104  37.455784].
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] Received ori_token argument. Setting origin as [ 28.361443 -22.244778  -6.511222].
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.utils.inference:[rank: 0] Received ori_token argument. Setting origin as [ 328.36145 -202.24478  113.48877].
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.inference.input_parsing:[rank: 0] Partial diffusion: centering on diffused-region COM ([ 25.420803 -25.13527   -7.921088]).
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+WARNING:atomworks.io:We can't fix formal charges without building from templates, as we need to know the true number of hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`.
+INFO:rfd3.inference.input_parsing:[rank: 0] Partial diffusion: centering on diffused-region COM ([ 325.42084 -205.13521  112.07889]).
+WARNING:atomworks.io:The `extra_fields` argument will be ignored if there is no CIF file input.
+WARNING:atomworks.ml:Cached data not found for ALA at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ALA/ALA.pt
+WARNING:atomworks.ml:Cached data not found for ARG at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ARG/ARG.pt
+WARNING:atomworks.ml:Cached data not found for ASN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASN/ASN.pt
+WARNING:atomworks.ml:Cached data not found for ASP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/A/ASP/ASP.pt
+WARNING:atomworks.ml:Cached data not found for CYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/C/CYS/CYS.pt
+WARNING:atomworks.ml:Cached data not found for GLN at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLN/GLN.pt
+WARNING:atomworks.ml:Cached data not found for GLU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLU/GLU.pt
+WARNING:atomworks.ml:Cached data not found for GLY at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/G/GLY/GLY.pt
+WARNING:atomworks.ml:Cached data not found for HIS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/H/HIS/HIS.pt
+WARNING:atomworks.ml:Cached data not found for ILE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/I/ILE/ILE.pt
+WARNING:atomworks.ml:Cached data not found for LEU at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LEU/LEU.pt
+WARNING:atomworks.ml:Cached data not found for LYS at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/L/LYS/LYS.pt
+WARNING:atomworks.ml:Cached data not found for MET at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/M/MET/MET.pt
+WARNING:atomworks.ml:Cached data not found for PHE at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PHE/PHE.pt
+WARNING:atomworks.ml:Cached data not found for PRO at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/P/PRO/PRO.pt
+WARNING:atomworks.ml:Cached data not found for SER at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/S/SER/SER.pt
+WARNING:atomworks.ml:Cached data not found for THR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/THR/THR.pt
+WARNING:atomworks.ml:Cached data not found for TRP at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TRP/TRP.pt
+WARNING:atomworks.ml:Cached data not found for TYR at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/T/TYR/TYR.pt
+WARNING:atomworks.ml:Cached data not found for VAL at /net/tukwila/ncorley/datahub/MACE-OFF23_medium/V/VAL/VAL.pt
+[
+  {
+    "case": "200_default_0",
+    "policy": "default",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 1714,
+    "origin_xyz": [
+      29.654109954833984,
+      -15.756209373474121,
+      -3.855558395385742
+    ],
+    "fixed_centroid_norm_a": 7.255153832375072e-06,
+    "motif_centroid_norm_a": 7.129026889801025
+  },
+  {
+    "case": "200_default_1",
+    "policy": "default",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 1714,
+    "origin_xyz": [
+      329.6554260253906,
+      -195.7569580078125,
+      116.14370727539062
+    ],
+    "fixed_centroid_norm_a": 0.00012697622878476977,
+    "motif_centroid_norm_a": 7.128989219665527
+  },
+  {
+    "case": "200_com_0",
+    "policy": "com",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 1714,
+    "origin_xyz": [
+      12.352907180786133,
+      -6.563529968261719,
+      -1.6061208248138428
+    ],
+    "fixed_centroid_norm_a": 19.720277786254883,
+    "motif_centroid_norm_a": 22.939777374267578
+  },
+  {
+    "case": "200_com_1",
+    "policy": "com",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 1714,
+    "origin_xyz": [
+      137.32289123535156,
+      -81.54661560058594,
+      48.3824577331543
+    ],
+    "fixed_centroid_norm_a": 233.72320556640625,
+    "motif_centroid_norm_a": 235.1646728515625
+  },
+  {
+    "case": "200_explicit_motif_0",
+    "policy": "explicit_motif",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 1714,
+    "origin_xyz": [
+      28.36134147644043,
+      -22.24491310119629,
+      -6.511229991912842
+    ],
+    "fixed_centroid_norm_a": 7.129027366638184,
+    "motif_centroid_norm_a": 1.748402951307071e-06
+  },
+  {
+    "case": "200_explicit_motif_1",
+    "policy": "explicit_motif",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 1714,
+    "origin_xyz": [
+      328.3601989746094,
+      -202.2443389892578,
+      113.48908233642578
+    ],
+    "fixed_centroid_norm_a": 7.129030227661133,
+    "motif_centroid_norm_a": 1.1988437108811922e-05
+  },
+  {
+    "case": "300_default_0",
+    "policy": "default",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 2214,
+    "origin_xyz": [
+      29.654109954833984,
+      -15.756209373474121,
+      -3.855558395385742
+    ],
+    "fixed_centroid_norm_a": 7.255153832375072e-06,
+    "motif_centroid_norm_a": 7.129026889801025
+  },
+  {
+    "case": "300_default_1",
+    "policy": "default",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 2214,
+    "origin_xyz": [
+      329.6554260253906,
+      -195.7569580078125,
+      116.14370727539062
+    ],
+    "fixed_centroid_norm_a": 0.00012697622878476977,
+    "motif_centroid_norm_a": 7.128989219665527
+  },
+  {
+    "case": "300_com_0",
+    "policy": "com",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 2214,
+    "origin_xyz": [
+      9.56310749053955,
+      -5.081299304962158,
+      -1.243404746055603
+    ],
+    "fixed_centroid_norm_a": 22.900104522705078,
+    "motif_centroid_norm_a": 25.994426727294922
+  },
+  {
+    "case": "300_com_1",
+    "policy": "com",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 2214,
+    "origin_xyz": [
+      106.31182098388672,
+      -63.1299934387207,
+      37.45556640625
+    ],
+    "fixed_centroid_norm_a": 271.4102783203125,
+    "motif_centroid_norm_a": 272.8373718261719
+  },
+  {
+    "case": "300_explicit_motif_0",
+    "policy": "explicit_motif",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 2214,
+    "origin_xyz": [
+      28.36134147644043,
+      -22.24491310119629,
+      -6.511229991912842
+    ],
+    "fixed_centroid_norm_a": 7.129027366638184,
+    "motif_centroid_norm_a": 1.748402951307071e-06
+  },
+  {
+    "case": "300_explicit_motif_1",
+    "policy": "explicit_motif",
+    "fixed_atoms": 714,
+    "unindexed_fixed_atoms": 9,
+    "pre_origin_atoms": 2214,
+    "origin_xyz": [
+      328.3601989746094,
+      -202.2443389892578,
+      113.48908233642578
+    ],
+    "fixed_centroid_norm_a": 7.129030227661133,
+    "motif_centroid_norm_a": 1.1988437108811922e-05
+  },
+  {
+    "case": "partial_0",
+    "policy": "default",
+    "fixed_atoms": 705,
+    "unindexed_fixed_atoms": 0,
+    "pre_origin_atoms": 818,
+    "origin_xyz": [
+      25.420799255371094,
+      -25.13544464111328,
+      -7.921066761016846
+    ],
+    "fixed_centroid_norm_a": 11.152990341186523,
+    "motif_centroid_norm_a": null,
+    "partial_real_atoms_preserved": 112,
+    "partial_terminal_atoms_omitted": 1
+  },
+  {
+    "case": "partial_1",
+    "policy": "default",
+    "fixed_atoms": 705,
+    "unindexed_fixed_atoms": 0,
+    "pre_origin_atoms": 818,
+    "origin_xyz": [
+      325.4216613769531,
+      -205.13490295410156,
+      112.07832336425781
+    ],
+    "fixed_centroid_norm_a": 11.152936935424805,
+    "motif_centroid_norm_a": null,
+    "partial_real_atoms_preserved": 112,
+    "partial_terminal_atoms_omitted": 1
+  }
+]
+RFD3 coordinate centring: 14 real preprocessing cases PASS

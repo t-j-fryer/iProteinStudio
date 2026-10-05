@@ -1,0 +1,21 @@
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Constructing description]
+[Planning 1 / 154]
+[Planning deferred tasks]
+[Starting]
+[8 / 28] StudioCore
+[13 / 30] StudioCore
+[15 / 29] StudioPoolUI
+[19 / 33] StudioPoolUI
+[27 / 37] StudioPoolUI
+[27 / 37] iProteinStudio-product
+[32 / 42] StudioLabPool-product
+[34 / 42] StudioPoolUI
+[34 / 42] iProteinStudio-product
+[36 / 42] StudioPoolUI
+[37 / 42] iProteinStudio-product
+[40 / 44] StudioLabPool-product
+[42 / 44] iProteinStudio-product
+Build complete! (9.01 sec)

@@ -415,6 +415,17 @@ rfd3_ema_weights_current() {
 
 # ---------------------------------------------------------------- detection --
 
+rfd3_selection_patch_current() {
+  "${RFD3_ROOT}/.venv/bin/python" -I -c '
+import importlib.util, pathlib, sys
+package = importlib.util.find_spec("rfd3")
+if package is None or not package.submodule_search_locations:
+    sys.exit(1)
+source = pathlib.Path(next(iter(package.submodule_search_locations))) / "inference/input_parsing.py"
+sys.exit(0 if '\''current if annotation_name == "rasa_bin" else default_value'\'' in source.read_text() else 1)
+' >/dev/null 2>&1
+}
+
 constraint_runtime_current() {
   [[ -x "${PROTENIX_CONSTRAINT_VENV}/bin/protenix" \
      && -d "${PROTENIX_CONSTRAINT_REPO}" \
@@ -615,6 +626,8 @@ PYTHON
       if ! grep -Fq 'CAP["export_atom_names"]' "${RFD3_ROOT}/milestone0_oracle.py" \
          || ! grep -Fq 'self.export_names[atom_idx]' "${RFD3_ROOT}/scripts/generate_backbones.py"; then
         state rfd3 update "Update RFdiffusion3 in Engines to preserve ligand atom identities; existing saved jobs keep their recorded runtime."
+      elif ! rfd3_selection_patch_current; then
+        state rfd3 update "Update RFdiffusion3 in Engines for exact motif atom selections. Existing model weights will be reused."
       elif [[ -f "${RECEIPTS_DIR}/rfd3.json" ]]; then
         state rfd3 ok "RFdiffusion3 MLX with checkpoint and verified EMA weights"
       else

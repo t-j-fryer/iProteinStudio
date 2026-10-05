@@ -1,5 +1,12 @@
 # iProteinStudio release notes
 
+## 0.2.23 — Exact RFdiffusion3 motif conditioning
+
+- Fix atom-specific motif selections that could previously constrain additional, unrequested atoms. Disjoint buried/exposed selections still retain their intended values.
+- Keep generated placeholders out of normal motif centring; fixed target and motif coordinates retain their shared placement. Partial diffusion preserves its real scaffold coordinates.
+- A corrected portable RFdiffusion3 runtime is available through Engines. Earlier installations show Update; existing model weights are reused and saved jobs retain their recorded runtime.
+- App, MCP 41 and CLI share the corrected runtime. No external Python, compiler or terminal setup is required.
+
 ## 0.2.22 — Clearer design controls
 
 - NISE starts with initial backbone generation. Boltz P(bind) + ligand pLDDT/100 is the default objective; optional NESSO/PSICHIC controls are grouped separately.

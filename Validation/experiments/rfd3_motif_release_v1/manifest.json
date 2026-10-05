@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "purpose": "Corrected portable RFD3 motif selection release acceptance; not a throughput benchmark",
+  "parent_commit": "7677ea5e15e5e555915053a0ab8fb53d62d5af98",
+  "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+  "runtime_manifest_sha256": "780fa7ed3533e9b3a30ab4ceea0c6bd3c2c1f38b3e4b85d5a5ea01c6a485a4dc",
+  "cases": ["motif", "partial"],
+  "backbones_per_case": 1,
+  "rfd3": {"timesteps": 200, "recycles": 2, "precision": "bf16", "seed": 1},
+  "validation": "Boltz complex and monomer; current app prediction profile",
+  "raw_outputs": "Validation/output/rfd3_motif_release_v1",
+  "audit": "output-audit.json",
+  "controls": "Prior 0293 installed/corrected matched preprocessing controls; no paired neural quality or speed comparison"
+}

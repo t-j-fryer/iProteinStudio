@@ -1,0 +1,11 @@
+{
+  "parent_manifest_sha256": "c9fc19327d6b15b5a14b83b3d99c914e1dc52d2b2d1eb9e87b6cf0be49d27a3a",
+  "manifest_sha256": "780fa7ed3533e9b3a30ab4ceea0c6bd3c2c1f38b3e4b85d5a5ea01c6a485a4dc",
+  "changed_files": [
+    "python/lib/python3.12/site-packages/rfd3/inference/input_parsing.py",
+    "sources/RFD3/scripts/patch_foundry_rasa.py"
+  ],
+  "unchanged_file_count": 36894,
+  "relocation_imports_passed": true,
+  "contains_weights": false
+}

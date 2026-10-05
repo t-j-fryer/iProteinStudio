@@ -1,0 +1,300 @@
+{
+  "translation_a": [
+    300.0,
+    -180.0,
+    120.0
+  ],
+  "tolerance_a": 0.002,
+  "transform": {
+    "_target_": "rfd3.transforms.pipelines.build_atom14_base_pipeline",
+    "is_inference": true,
+    "return_atom_array": true,
+    "diffusion_batch_size": 1,
+    "sigma_data": 16,
+    "central_atom": "CB",
+    "n_atoms_per_token": 14,
+    "association_scheme": "dense",
+    "center_option": "diffuse",
+    "generate_conformers": true,
+    "generate_conformers_for_non_protein_only": true,
+    "provide_reference_conformer_when_unmasked": false,
+    "ground_truth_conformer_policy": "IGNORE",
+    "provide_elements_for_unindexed_components": true,
+    "use_element_for_atom_names_of_atomized_tokens": true,
+    "residue_cache_dir": "/net/tukwila/ncorley/datahub/MACE-OFF23_medium",
+    "max_binder_length": 170,
+    "atom_1d_features": {
+      "ref_atom_name_chars": 256,
+      "ref_element": 128,
+      "ref_charge": 1,
+      "ref_mask": 1,
+      "ref_is_motif_atom_with_fixed_coord": 1,
+      "ref_is_motif_atom_unindexed": 1,
+      "has_zero_occupancy": 1,
+      "ref_pos": 3,
+      "ref_atomwise_rasa": 3,
+      "active_donor": 1,
+      "active_acceptor": 1,
+      "is_atom_level_hotspot": 1
+    },
+    "token_1d_features": {
+      "ref_motif_token_type": 3,
+      "restype": 32,
+      "ref_plddt": 1,
+      "is_non_loopy": 1
+    }
+  },
+  "source_sha256": {
+    "/Users/thomasfryer/iProteinStudio/Validation/output/rfd3_motif_release_v1/rfd3-candidate/python/lib/python3.12/site-packages/rfd3/inference/input_parsing.py": "64f53c95c2591853b6e951d082f5e3143b86f809cc283c9c7f491d486ed40024",
+    "/Users/thomasfryer/iProteinStudio/Validation/output/rfd3_motif_release_v1/rfd3-candidate/python/lib/python3.12/site-packages/rfd3/utils/inference.py": "7ee29f526ab379f980a95a2ec79aa93895a69cb8321dcf137a593831eefc3bd9",
+    "/Users/thomasfryer/iProteinStudio/Validation/output/rfd3_motif_release_v1/rfd3-candidate/python/lib/python3.12/site-packages/rfd3/transforms/pipelines.py": "97cd45131df36bd43c9be87bab5db754fa2de624a5831ea43538e7cd07d65c3c",
+    "/Users/thomasfryer/iProteinStudio/Validation/output/rfd3_motif_release_v1/rfd3-candidate/python/lib/python3.12/site-packages/rfd3/transforms/design_transforms.py": "8109b4577f558d0a3bc08c4524555b1925e174b9711d77bfe7e48c77bbaea356",
+    "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/rfd3/prepare_campaign.py": "5de7af520d750a7a89ea461eaca6e06f9bb687f8cadb56ed8cbcd5a9bc6888fb",
+    "/Users/thomasfryer/iProteinStudio/Tests/test_rfd3_coordinate_centring.py": "292aa8f95ca2b3bad3991b6e13c840ef900657d5235e8c5d535977e51839719c",
+    "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/examples/p53_mdm2/1YCR.pdb": "dd2451fcc11738df13ccdb42acd3f42d3f425772920452bfa2a44635e6beeaf5",
+    "/Users/thomasfryer/.iproteinstudio/components/rfd3/versions/780fa7ed3533e9b3a30a-20261005T154625Z-c7a29bf3/sources/RFD3/mlx_port/sampler.py": "3c53d92f2a5a0411b11e992c820c799561831d8fbc895b912c1e7e8cded85e6d",
+    "/Users/thomasfryer/.iproteinstudio/components/rfd3/versions/780fa7ed3533e9b3a30a-20261005T154625Z-c7a29bf3/sources/RFD3/milestone0_oracle.py": "03f55250ca3f22cb89b3d33451ac39dc50fb324990fd2970dcc863b76e9542d9"
+  },
+  "cases": [
+    {
+      "case": "200_default_0",
+      "policy": "default",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 1714,
+      "origin_xyz": [
+        29.654109954833984,
+        -15.756209373474121,
+        -3.855558395385742
+      ],
+      "fixed_centroid_norm_a": 7.255153832375072e-06,
+      "motif_centroid_norm_a": 7.129026889801025
+    },
+    {
+      "case": "200_default_1",
+      "policy": "default",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 1714,
+      "origin_xyz": [
+        329.6554260253906,
+        -195.7569580078125,
+        116.14370727539062
+      ],
+      "fixed_centroid_norm_a": 0.00012697622878476977,
+      "motif_centroid_norm_a": 7.128989219665527
+    },
+    {
+      "case": "200_com_0",
+      "policy": "com",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 1714,
+      "origin_xyz": [
+        12.352907180786133,
+        -6.563529968261719,
+        -1.6061208248138428
+      ],
+      "fixed_centroid_norm_a": 19.720277786254883,
+      "motif_centroid_norm_a": 22.939777374267578
+    },
+    {
+      "case": "200_com_1",
+      "policy": "com",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 1714,
+      "origin_xyz": [
+        137.32289123535156,
+        -81.54661560058594,
+        48.3824577331543
+      ],
+      "fixed_centroid_norm_a": 233.72320556640625,
+      "motif_centroid_norm_a": 235.1646728515625
+    },
+    {
+      "case": "200_explicit_motif_0",
+      "policy": "explicit_motif",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 1714,
+      "origin_xyz": [
+        28.36134147644043,
+        -22.24491310119629,
+        -6.511229991912842
+      ],
+      "fixed_centroid_norm_a": 7.129027366638184,
+      "motif_centroid_norm_a": 1.748402951307071e-06
+    },
+    {
+      "case": "200_explicit_motif_1",
+      "policy": "explicit_motif",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 1714,
+      "origin_xyz": [
+        328.3601989746094,
+        -202.2443389892578,
+        113.48908233642578
+      ],
+      "fixed_centroid_norm_a": 7.129030227661133,
+      "motif_centroid_norm_a": 1.1988437108811922e-05
+    },
+    {
+      "case": "300_default_0",
+      "policy": "default",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 2214,
+      "origin_xyz": [
+        29.654109954833984,
+        -15.756209373474121,
+        -3.855558395385742
+      ],
+      "fixed_centroid_norm_a": 7.255153832375072e-06,
+      "motif_centroid_norm_a": 7.129026889801025
+    },
+    {
+      "case": "300_default_1",
+      "policy": "default",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 2214,
+      "origin_xyz": [
+        329.6554260253906,
+        -195.7569580078125,
+        116.14370727539062
+      ],
+      "fixed_centroid_norm_a": 0.00012697622878476977,
+      "motif_centroid_norm_a": 7.128989219665527
+    },
+    {
+      "case": "300_com_0",
+      "policy": "com",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 2214,
+      "origin_xyz": [
+        9.56310749053955,
+        -5.081299304962158,
+        -1.243404746055603
+      ],
+      "fixed_centroid_norm_a": 22.900104522705078,
+      "motif_centroid_norm_a": 25.994426727294922
+    },
+    {
+      "case": "300_com_1",
+      "policy": "com",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 2214,
+      "origin_xyz": [
+        106.31182098388672,
+        -63.1299934387207,
+        37.45556640625
+      ],
+      "fixed_centroid_norm_a": 271.4102783203125,
+      "motif_centroid_norm_a": 272.8373718261719
+    },
+    {
+      "case": "300_explicit_motif_0",
+      "policy": "explicit_motif",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 2214,
+      "origin_xyz": [
+        28.36134147644043,
+        -22.24491310119629,
+        -6.511229991912842
+      ],
+      "fixed_centroid_norm_a": 7.129027366638184,
+      "motif_centroid_norm_a": 1.748402951307071e-06
+    },
+    {
+      "case": "300_explicit_motif_1",
+      "policy": "explicit_motif",
+      "fixed_atoms": 714,
+      "unindexed_fixed_atoms": 9,
+      "pre_origin_atoms": 2214,
+      "origin_xyz": [
+        328.3601989746094,
+        -202.2443389892578,
+        113.48908233642578
+      ],
+      "fixed_centroid_norm_a": 7.129030227661133,
+      "motif_centroid_norm_a": 1.1988437108811922e-05
+    },
+    {
+      "case": "partial_0",
+      "policy": "default",
+      "fixed_atoms": 705,
+      "unindexed_fixed_atoms": 0,
+      "pre_origin_atoms": 818,
+      "origin_xyz": [
+        25.420799255371094,
+        -25.13544464111328,
+        -7.921066761016846
+      ],
+      "fixed_centroid_norm_a": 11.152990341186523,
+      "motif_centroid_norm_a": null,
+      "partial_real_atoms_preserved": 112,
+      "partial_terminal_atoms_omitted": 1
+    },
+    {
+      "case": "partial_1",
+      "policy": "default",
+      "fixed_atoms": 705,
+      "unindexed_fixed_atoms": 0,
+      "pre_origin_atoms": 818,
+      "origin_xyz": [
+        325.4216613769531,
+        -205.13490295410156,
+        112.07832336425781
+      ],
+      "fixed_centroid_norm_a": 11.152936935424805,
+      "motif_centroid_norm_a": null,
+      "partial_real_atoms_preserved": 112,
+      "partial_terminal_atoms_omitted": 1
+    }
+  ],
+  "translation_checks": [
+    {
+      "length": 200,
+      "policy": "default",
+      "max_abs_difference_a": 0.000125885009765625,
+      "centroid_displacement_a": 0.00012510661326814443
+    },
+    {
+      "length": 200,
+      "policy": "com",
+      "max_abs_difference_a": 175.02914428710938,
+      "centroid_displacement_a": 215.7904052734375
+    },
+    {
+      "length": 200,
+      "policy": "explicit_motif",
+      "max_abs_difference_a": 2.288818359375e-05,
+      "centroid_displacement_a": 1.2089709343854338e-05
+    },
+    {
+      "length": 300,
+      "policy": "default",
+      "max_abs_difference_a": 0.000125885009765625,
+      "centroid_displacement_a": 0.00012510661326814443
+    },
+    {
+      "length": 300,
+      "policy": "com",
+      "max_abs_difference_a": 203.25201416015625,
+      "centroid_displacement_a": 250.5859375
+    },
+    {
+      "length": 300,
+      "policy": "explicit_motif",
+      "max_abs_difference_a": 2.288818359375e-05,
+      "centroid_displacement_a": 1.2089709343854338e-05
+    }
+  ],
+  "status": "PASS",
+  "limits": "Preprocessing only; no model forward, backbone generation, clash or quality measurements."
+}
