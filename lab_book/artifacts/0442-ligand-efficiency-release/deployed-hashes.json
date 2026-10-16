@@ -1,0 +1,15 @@
+{
+  "scripts/laser_sampling.py": "6addf3f6d03f00ac6d103786b253e61626693660ae6d9ca53689345853f72e9f",
+  "scripts/run_lasermpnn_seeded.py": "12e9443a74ca8c45cb2e161be31695ad3ab43409f820c2926fa28d99727a524c",
+  "scripts/nise/proposal_pipeline.py": "6bc0186f1af530a47fbecc590cc56bf410472e4879e49a7dffe480ae809f8473",
+  "scripts/nise/runtime.py": "a4e507d81db927938696ed43089f43b966b5233cc04dd6ff8e392dcd261df560",
+  "scripts/prediction_profiles.json": "547d0469e62e1b2e03af3a73ebbaea8cc623ec5c5396f071b70777c8054c4648",
+  "scripts/prediction_output_reporting.py": "dd1a9f3f98b5804c22af7decfaa96b21816bb3d316cb73468c865313c0c61320",
+  "mcp/MCP_VERSION": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+  "mcp/iprotein_mcp/__init__.py": "f7c0336fbba45dc5a00346d81563d2b01ebb579b9e53ba308c1a891675eeffa4",
+  "mcp/server.py": "f8b3fc3f89b0032a2b3db9c65cb8690b363e4710bc534d52eb51262f0d1a27a2",
+  "rfd3_overlay/OVERLAY_VERSION": "e09891644ad3647109821a4a09f5a15a27307e13f5bd4b463fd212ce3d8ef64e",
+  "rfd3_overlay/scripts/run_lasermpnn.py": "2e7060fefb0358422be00a27f2fd665c690efb704ebbe449b0f35189bebb4c83",
+  "rfd3_overlay/scripts/run_rfd3_nise_campaign.py": "3bb82211f49dc91bde0bad44d75b0e705ceaa38a813413e84d722f39c0dc0a6c",
+  "rfd3_scripts/predict_batch.py": "942fabf70e9a566d43d19cd3beb835d33d3e686f984cfd12bcff1fbd9d6b833b"
+}

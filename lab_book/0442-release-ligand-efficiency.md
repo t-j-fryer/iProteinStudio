@@ -4,7 +4,7 @@ title: Release integrated workflow fixes and ligand efficiency
 date: 2026-10-16
 author: Codex
 type: implementation
-status: qualified; publication pending
+status: complete
 machine: Apple M4 Max, 40 GPU cores, 64 GB unified memory
 tags: [release, lasermpnn, affinity, scheduling, mcp]
 ---
@@ -79,3 +79,20 @@ source-only changes correct the portable RFD3 launcher and CPU-policy metadata;
 those paths have executed contract/migration tests. The live benchmark was
 cancelled through Studio with user authorization; its frozen settings and completed
 outputs remain unchanged and it will be resumed after deployment.
+
+
+## Publication and deployment
+
+Published v0.2.24-beta/build70 from4f45c6c; update feed commitc26f896 on main.
+All four published asset SHA256 digests and byte counts match local artifacts.
+Release app/resource contracts and deep code-signature verification passed. This
+continues the existing ad-hoc signed beta/Sparkle EdDSA channel; no claim of Apple
+notarization. No weights are in the app or release assets.
+
+Installed and opened the exact app at /Applications/iProteinStudio.app; previous
+app retained under build/app-backups. Automatic staging refreshed MCP42/bridge1.17.0,
+CLI, pipeline helpers and the portable RFD3 overlay; checked hashes match the app.
+CLI doctor passes. No model or engine runtime download/reinstallation occurred.
+Existing MCP clients may need reconnecting to discover the new tool schema.
+The biotin benchmark was resumed via the same job159313e82b33 and unchanged plan
+159313e82b33136a549317b9c78888369a89130ca848bd6c94ebae4f9c83b826.

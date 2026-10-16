@@ -1,0 +1,26 @@
+[
+  {
+    "name": "BUILD_PROVENANCE.txt",
+    "sha256": "sha256:01cbba83e5b80759e85202bc46f52c301418697aea419cf94a5e4d3e2255c5a2",
+    "bytes": 433,
+    "verified": true
+  },
+  {
+    "name": "iProteinStudio-0.2.24-unsigned-beta-apple-silicon.dmg",
+    "sha256": "sha256:88717287184a84510c1fe576cb8458253d0c7bf5c37851ffb22fe22ebb87e68c",
+    "bytes": 40436962,
+    "verified": true
+  },
+  {
+    "name": "iProteinStudio-0.2.24-unsigned-beta-apple-silicon.zip",
+    "sha256": "sha256:03fb51e7ed2af54ccd4dd5967d851130faef4309cdb314eafcc2e7ce1f90ae69",
+    "bytes": 36863164,
+    "verified": true
+  },
+  {
+    "name": "SHA256SUMS.txt",
+    "sha256": "sha256:2a49924f9a3b57bd7789abfdbf0cb140d43deaea673126c4c71ff94071605f7f",
+    "bytes": 240,
+    "verified": true
+  }
+]

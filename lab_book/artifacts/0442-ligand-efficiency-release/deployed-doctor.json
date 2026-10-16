@@ -1,0 +1,21 @@
+{
+  "bridge_version": "42",
+  "ok": true,
+  "profiles": {
+    "admin": 11,
+    "read": 17,
+    "run": 37
+  },
+  "python": "3.11.13",
+  "runtime_root": "/Users/thomasfryer/.iproteinstudio",
+  "schemas": [
+    "iterative-batch-v1.json",
+    "iterative-design-v1.json",
+    "job-start-v1.json",
+    "nise-v1.json",
+    "prediction-v1.json",
+    "recipe-v1.json",
+    "rfd3-v1.json",
+    "target-prepare-v1.json"
+  ]
+}

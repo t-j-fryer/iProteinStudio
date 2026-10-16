@@ -1,6 +1,6 @@
 # 0201 — Qualify shipping ligand efficiency
 
-2026-10-16. Status: qualification running through managed jobs.
+2026-10-16. Status: completed; numerical equivalence qualified with limits below.
 
 Experiment: experiments/product_efficiency_release_v1/manifest.json.
 Four saved biotin starts (two Boltz/two RFD3), two complete refinement cycles,
