@@ -1,0 +1,211 @@
+..FEEEEEEEEEEEEEEEEEE......
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='fast', alias='nanohunter', metadata={})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='fast', alias='nanohunter', metadata={'target_epitope_residues': ['B2']})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='fast', alias='nanohunter', metadata={'target_epitope_residues': ['B2'], 'protenix_pocket_max_distance': 8.0})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='fast', alias='nano_hunter', metadata={})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='fast', alias='nano_hunter', metadata={'target_epitope_residues': ['B2']})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='fast', alias='nano_hunter', metadata={'target_epitope_residues': ['B2'], 'protenix_pocket_max_distance': 8.0})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='fast', alias='NanoHunter', metadata={})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='fast', alias='NanoHunter', metadata={'target_epitope_residues': ['B2']})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='fast', alias='NanoHunter', metadata={'target_epitope_residues': ['B2'], 'protenix_pocket_max_distance': 8.0})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='full', alias='nanohunter', metadata={})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='full', alias='nanohunter', metadata={'target_epitope_residues': ['B2']})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='full', alias='nanohunter', metadata={'target_epitope_residues': ['B2'], 'protenix_pocket_max_distance': 8.0})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='full', alias='nano_hunter', metadata={})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='full', alias='nano_hunter', metadata={'target_epitope_residues': ['B2']})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='full', alias='nano_hunter', metadata={'target_epitope_residues': ['B2'], 'protenix_pocket_max_distance': 8.0})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='full', alias='NanoHunter', metadata={})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='full', alias='NanoHunter', metadata={'target_epitope_residues': ['B2']})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+ERROR: test_esmfold_handoff_parses_without_generation_metadata (test_hunter_epitope_guidance.EpitopeTests.test_esmfold_handoff_parses_without_generation_metadata) (model='full', alias='NanoHunter', metadata={'target_epitope_residues': ['B2'], 'protenix_pocket_max_distance': 8.0})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 123, in test_esmfold_handoff_parses_without_generation_metadata
+    chains, _ = esmfold2.read_input(path, model)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/thomasfryer/iProteinStudio/Sources/iProteinStudio/Resources/pipeline/scripts/esmfold2_predict.py", line 51, in read_input
+    raise ValueError('ESMFold2 does not support affinity, templates or restraints: ' + ', '.join(sorted(unsupported)))
+ValueError: ESMFold2 does not support affinity, templates or restraints: nanohunter
+
+======================================================================
+FAIL: test_empty_metadata_removed_when_supported_refiner_guidance_disabled (test_hunter_epitope_guidance.EpitopeTests.test_empty_metadata_removed_when_supported_refiner_guidance_disabled)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/thomasfryer/iProteinStudio/Tests/test_hunter_epitope_guidance.py", line 137, in test_empty_metadata_removed_when_supported_refiner_guidance_disabled
+    self.assertNotIn('nanohunter', io.yaml.safe_load(path.read_text()))
+AssertionError: 'nanohunter' unexpectedly found in {'version': 1, 'nanohunter': {}, 'sequences': [{'protein': {'id': 'A', 'sequence': 'AAAAAA', 'msa': 'empty'}}, {'protein': {'id': 'B', 'sequence': 'HIKLMN', 'msa': 'empty'}}]}
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.302s
+
+FAILED (failures=1, errors=18)

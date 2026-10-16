@@ -42,3 +42,11 @@ No other-Mac logs inspected. No learned-model inference, server MSA request or f
 Follow-up app/MCP/CLI release validation and deployment recorded below.
 
 Curated release tree: Swift release build passed;23 Hunter tests and8 ESMFold2 adapter tests passed. Version0.2.26/build72, MCP44/bridge1.17.2. No changes to model weights or active job snapshots.
+
+## Publication and deployment
+
+Published v0.2.26-beta/build72 from256d92e; GitHub main and the signed update feed are updated. All four published assets match local SHA256 and byte counts. Packaged-resource and deep code-signature checks passed. This retains the existing ad-hoc beta/Sparkle EdDSA channel and is not Apple notarized.
+
+Installed and opened /Applications/iProteinStudio.app. The staged initialization helper, runner, MCP version/module, CLI and pipeline version are byte-identical to the release bundle. Doctor passes with MCP44/bridge1.17.2. Existing model installations were reused.
+
+Briefly stopped managed benchmark job159313e82b33 through Studio to release the resource-staging lock, then submitted resume of its same original plan. Completed checkpoints and frozen scientific code/settings were preserved. No inference tests were added to the GPU queue. Other Macs need the release installed and MCP reconnected; failed old snapshots need a newly prepared plan.
