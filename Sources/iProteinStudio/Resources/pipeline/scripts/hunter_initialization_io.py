@@ -226,6 +226,11 @@ def refinement_template(spec, destination, initial=False):
     if not guidance or engine not in {'boltz', 'protenix-constraint-v0.5'}:
         for name in ['target_epitope_residues', 'epitope_residues']:
             data.get('nanohunter', {}).pop(name, None)
+    # ESMFold2 accepts molecular inputs, not Studio's generation metadata.
+    # Scope this copy only: the original RFD3 hotspot specification is retained.
+    # Remove empty metadata for every engine after disabling guidance as well.
+    if engine.startswith('esmfold2-') or data.get('nanohunter') == {}:
+        data.pop('nanohunter', None)
     if engine != 'boltz':
         data.pop('constraints', None)
         data.pop('properties', None)

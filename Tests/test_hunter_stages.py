@@ -57,7 +57,7 @@ class HandoffTests(unittest.TestCase):
         io.refinement_template(self.spec,output)
         data=io.yaml.safe_load(output.read_text())
         self.assertNotIn('constraints',data)
-        self.assertNotIn('target_epitope_residues',data['nanohunter'])
+        self.assertNotIn('nanohunter',data)
         self.assertEqual(data['sequences'][1]['protein']['msa'],'empty')
         self.assertEqual(self.template.read_bytes(),original)
         self.spec['refinement_engine']='boltz'

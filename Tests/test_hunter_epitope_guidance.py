@@ -13,6 +13,7 @@ sys.path.insert(0, str(PIPE / 'scripts'))
 import hunter_stages as stages
 import hunter_initialization_io as io
 import protenix_predict as protenix
+import esmfold2_predict as esmfold2
 
 class EpitopeTests(unittest.TestCase):
     def setUp(self):
@@ -100,6 +101,40 @@ sequences:
         for sites in ['A1','B0','B4','D1']:
             with self.assertRaises(ValueError):
                 io.rfd3_hotspots(sites,{'B':'AAA'},['F'],{'F':{101:'ALA',105:'ALA',110:'ALA'}})
+
+    def test_esmfold_handoff_parses_without_generation_metadata(self):
+        for model in ('fast', 'full'):
+            for alias in ('nanohunter', 'nano_hunter', 'NanoHunter'):
+                for metadata in ({}, {'target_epitope_residues': ['B2']},
+                                 {'target_epitope_residues': ['B2'], 'protenix_pocket_max_distance': 8.0}):
+                    with self.subTest(model=model, alias=alias, metadata=metadata):
+                        data = io.yaml.safe_load(self.template.read_text())
+                        for key in ('nanohunter', 'nano_hunter', 'NanoHunter'):
+                            data.pop(key, None)
+                        data[alias] = metadata
+                        self.template.write_text(io.yaml.safe_dump(data, sort_keys=False))
+                        original = self.template.read_bytes()
+                        spec = dict(method='rfd3', initial_engine='rfd3',
+                                    refinement_engine='esmfold2-' + model + '-mlx',
+                                    arguments=['--template-yaml', str(self.template)])
+                        path = self.root / 'esmfold-handoff.yaml'
+                        path.unlink(missing_ok=True)
+                        io.refinement_template(spec, path)
+                        chains, _ = esmfold2.read_input(path, model)
+                        self.assertEqual([c['sequence'] for c in chains], ['AAAAAA', 'HIKLMN'])
+                        self.assertEqual(self.template.read_bytes(), original)
+                        self.assertNotIn('nanohunter', io.yaml.safe_load(path.read_text()))
+
+    def test_empty_metadata_removed_when_supported_refiner_guidance_disabled(self):
+        data = io.yaml.safe_load(self.template.read_text())
+        data['nanohunter'] = {'target_epitope_residues': ['B2']}
+        self.template.write_text(io.yaml.safe_dump(data, sort_keys=False))
+        for engine in ('boltz', 'protenix-constraint-v0.5'):
+            spec = dict(method='rfd3', initial_engine='rfd3', refinement_engine=engine,
+                        arguments=['--template-yaml', str(self.template), '--refinement-epitope-guidance', 'off'])
+            path = self.root / (engine + '.yaml')
+            io.refinement_template(spec, path)
+            self.assertNotIn('nanohunter', io.yaml.safe_load(path.read_text()))
     def test_stage_cli_scope(self):
         args=['--target-epitope-residues','B2','--refinement-epitope-guidance','off']
         self.assertIn('--target-epitope-residues',stages.stage_arguments(args,'boltz',initial=True))

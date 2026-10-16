@@ -1,5 +1,11 @@
 # iProteinStudio release notes
 
+## 0.2.26 — ESMFold2 refinement handoff compatibility
+
+- Remove empty and residual Studio epitope metadata from ESMFold2 Fast/Full refinement inputs. RFdiffusion3 generation hotspot choices remain intact in the original inputs; ESMFold2 refinement remains unrestrained.
+- Add real-parser regression checks across metadata aliases and both ESMFold2 models. App, MCP 44 and CLI share the fix, alongside the automatic target-MSA correction from 0.2.25.
+- No model downloads required. Previously accepted jobs retain frozen scripts and need a newly prepared plan to adopt the corrected handoff.
+
 ## 0.2.25 — Automatic target alignments in Protein Hunter
 
 - Fix `msa: auto` being treated as a filename by the shared Protein Hunter runner, including RFdiffusion3 initialization followed by ESMFold2 Full refinement. Automatic alignment requests now reach the existing cache/server resolver; explicit alignment files keep their original behavior.

@@ -307,3 +307,5 @@ Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-
 - [0442-release-ligand-efficiency](lab_book/0442-release-ligand-efficiency.md)
 
 - [0445 — Correct Protein Hunter auto MSA parsing](lab_book/0445-hunter-auto-msa-policy.md) (2026-10-16): fixes shared runner interpretation of auto; regression and release checks recorded in entry.
+
+- [0446 — Clean ESMFold2 refinement metadata](lab_book/0446-clean-esmfold-refinement-metadata.md) (2026-10-16): preserve RFD3 generation hotspots while stripping Studio-only metadata from the ESMFold2 handoff; real parser regressions pass.
