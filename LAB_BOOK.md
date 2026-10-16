@@ -305,3 +305,5 @@ Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-
 - [0432-run-biotin-affinity-efficiency](lab_book/0432-run-biotin-affinity-efficiency.md)
 - [0441-audit-unreleased-product-changes](lab_book/0441-audit-unreleased-product-changes.md)
 - [0442-release-ligand-efficiency](lab_book/0442-release-ligand-efficiency.md)
+
+- [0445 — Correct Protein Hunter auto MSA parsing](lab_book/0445-hunter-auto-msa-policy.md) (2026-10-16): fixes shared runner interpretation of auto; regression and release checks recorded in entry.

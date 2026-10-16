@@ -3199,7 +3199,7 @@ for raw in open(path):
     if s.startswith("msa:") and cur and cur != "A" and (not wanted or cur == wanted):
         val=s.split(":",1)[1].strip().strip("'\"")
         low=val.lower()
-        if val and low not in {"empty", "none", "null"}:
+        if val and low not in {"auto", "empty", "none", "null"}:
             print(val)
             break
 PY

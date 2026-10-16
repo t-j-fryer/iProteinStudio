@@ -1,5 +1,10 @@
 # iProteinStudio release notes
 
+## 0.2.25 — Automatic target alignments in Protein Hunter
+
+- Fix `msa: auto` being treated as a filename by the shared Protein Hunter runner, including RFdiffusion3 initialization followed by ESMFold2 Full refinement. Automatic alignment requests now reach the existing cache/server resolver; explicit alignment files keep their original behavior.
+- App, MCP 43 and CLI share this correction. No model-weight download is needed. Existing accepted jobs retain their frozen scripts; affected failed jobs require a newly prepared plan with the corrected runner.
+
 ## 0.2.24 — Consistent workflows and efficient ligand scoring
 
 - Unify Protein Hunter epitope selections across Boltz, Protenix Constraint and RFdiffusion3 initialization; choose whether supported refiners retain guidance. Unsupported engines explain that refinement is unrestrained.
