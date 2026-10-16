@@ -59,6 +59,8 @@ struct AIRemoteGateway: Decodable, Equatable {
 
 @MainActor
 final class AIIntegrationService: ObservableObject {
+    @Published var rcsbInstalled = false
+    @Published var rcsbVersion: String?
     @Published var clients: [AIIntegrationClient: AIClientConfiguration] = [:]
     @Published var isWorking = false
     @Published var message: String?
@@ -84,6 +86,32 @@ final class AIIntegrationService: ObservableObject {
     func refresh() async {
         await perform(arguments: ["--client", "local-desktops", "--scope", "user", "--status"], success: nil)
         await refreshRemote()
+        await refreshResearch()
+    }
+
+    private func refreshResearch() async {
+        do {
+            let output = try await Self.runHelper(name: "research.py", arguments: ["status"])
+            let value = try JSONSerialization.jsonObject(with: Data(output.utf8)) as? [String: Any]
+            rcsbInstalled = value?["installed"] as? Bool ?? false
+            rcsbVersion = value?["version"] as? String
+        } catch {
+            rcsbInstalled = false
+        }
+    }
+
+    func installResearch() async {
+        guard !isWorking else { return }
+        isWorking = true
+        failure = nil
+        message = "Installing the optional RCSB structure-discovery tools…"
+        do {
+            try AppPaths.stagePipelineAssets()
+            _ = try await Self.runHelper(name: "research.py", arguments: ["install"])
+            await refreshResearch()
+            message = "RCSB tools are ready through Studio's MCP bridge. Local prediction engines are unchanged."
+        } catch { failure = error.localizedDescription }
+        isWorking = false
     }
 
     func enable(_ client: AIIntegrationClient, access: AIIntegrationAccess) async {
@@ -296,6 +324,22 @@ struct AIIntegrationsView: View {
                 ForEach(AIIntegrationClient.allCases) { client in
                     clientRow(client)
                 }
+            }
+
+            Section("Structure discovery · RCSB PDB") {
+                Text("Find experimental structures, inspect biological assemblies and map residues using RCSB's official MCP server. Queries are sent to RCSB's online services; local prediction does not require this optional connection.")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if service.rcsbInstalled {
+                    Label("RCSB MCP \(service.rcsbVersion ?? "") installed", systemImage: "checkmark.circle")
+                }
+                Button(service.rcsbInstalled ? "Verify / repair RCSB tools" : "Install RCSB discovery tools") {
+                    Task { await service.installResearch() }
+                }
+                .disabled(service.isWorking)
+                Text("Studio installs a separate, checksum-verified runtime. No terminal or changes to your model environments are needed.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Link("About RCSB's MCP server", destination: URL(string: "https://github.com/rcsb/rcsb-mcp")!)
             }
 
             Section("ChatGPT and phone access") {

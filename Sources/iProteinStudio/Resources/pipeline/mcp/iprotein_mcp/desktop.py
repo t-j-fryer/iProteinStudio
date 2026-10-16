@@ -136,7 +136,7 @@ def desktop_plan(request: Dict[str, Any], *, _batch_child: bool = False) -> Dict
         form = manifest.get("request", {})
         if form.get("targetKind") == "ligand" and (form.get("nesso") or {}).get("enabled"):
             from .ligand_screening import prepare
-            step, assets = prepare(root, output, workflow, form["nesso"], form.get("targetSmiles"))
+            step, assets = prepare(root, output, workflow, form["nesso"], form.get("targetSmiles"), prediction_settings=form.get("prediction_settings"))
             steps.append(step); inputs += assets
 
     elif workflow == "boltz_replay_validation":
@@ -328,7 +328,7 @@ def desktop_plan(request: Dict[str, Any], *, _batch_child: bool = False) -> Dict
             if protein:
                 raise StudioError("NESSO screening requires a small-molecule target.")
             from .ligand_screening import prepare
-            _, assets = prepare(root, output, workflow, settings["nesso"], settings.get("smiles"))
+            _, assets = prepare(root, output, workflow, settings["nesso"], settings.get("smiles"), prediction_settings=settings.get("prediction_settings"))
             inputs += assets
 
         runner = root / "rfd3_scripts/rfd3_protein_campaign.py" if protein else root / "rfd3_overlay/scripts/run_rfd3_nise_campaign.py"

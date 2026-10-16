@@ -155,6 +155,16 @@ class Backend:
         self.ligand_manifest = None
         self.atom_checks = {}
         self.geometry_executor = None
+        import queue
+        self.laser_slots = queue.Queue()
+        for slot in range(2): self.laser_slots.put(slot)
+
+    def close_design(self):
+        # Stop only this backend owner's CPU sessions; inference snapshots stay immutable.
+        for marker in (self.output / "laser_workers" / str(os.getpid())).glob("*/ready.json"):
+            state = json.loads(marker.read_text())
+            if state.get("owner") == os.getpid():
+                (Path(state["session"]) / "STOP").touch()
 
     def close(self):
         if self.geometry_executor is not None:
@@ -203,12 +213,22 @@ class Backend:
             raise RuntimeError("Saved scientific settings differ from this NISE request")
         if not path.exists():
             atomic(path, cfg)
+        policy = {"version": 2,
+                  "sampler": "laser-resident2-thread1-postload-seed-v2" if cfg.get("designer", "lasermpnn") == "lasermpnn" else "native-ligandmpnn",
+                  "cpu_slots": 2,
+                  "boltz_prefetch_eligible": bool(getattr(self, "per_input_rng", False)) and not self.settings.get("nesso_screen", False),
+                  "prefetch_parent_limit": 8, "global_screening_barrier": True}
+        policy_path = self.output / "cpu_execution_policy.json"
+        if policy_path.exists() and json.loads(policy_path.read_text()) != policy:
+            raise RuntimeError("Saved NISE CPU execution policy differs from this request")
+        if not policy_path.exists(): atomic(policy_path, policy)
 
     def atom_manifest(self, smiles=None):
         if self.ligand_manifest is None:
             from ligand_atoms import resolve, validate_selection
-            self.ligand_manifest = resolve(self.settings.get("smiles") or smiles)
-            validate_selection(self.settings, self.ligand_manifest)
+            manifest = resolve(self.settings.get("smiles") or smiles)
+            validate_selection(self.settings, manifest)
+            self.ligand_manifest = manifest
         return self.ligand_manifest
 
     def initial_contacts(self, smiles, count):
@@ -252,15 +272,20 @@ class Backend:
         directory = Path(directory)
         spec = dict(pdb_sha256=digest(pdb), count=n, smiles=smiles, seq_temp=seq_temp,
                     fs_temp=fs_temp, seed=seed, designed=designed, constrain_ss=constrain_ss,
-                    fs_distance=args.fs_distance, ala_budget=args.ala_budget, gly_budget=args.gly_budget)
+                    fs_distance=args.fs_distance, ala_budget=args.ala_budget, gly_budget=args.gly_budget, sampling_policy="post-load-seed-v2")
         receipt = directory / "sampling.json"
         saved = self.journal.load(receipt, spec)
         if saved is not None:
             return saved
-        pairs = self.science.lasermpnn_design(pdb, directory, n, smiles, seq_temp=seq_temp,
-                  fs_temp=fs_temp, fs_distance=args.fs_distance, ala_budget=args.ala_budget,
-                  gly_budget=args.gly_budget, constrain_ss=constrain_ss, designed=designed,
-                  device="cpu", seed=seed)
+        slot = self.laser_slots.get()
+        try:
+            pairs = self.science.lasermpnn_design(pdb, directory, n, smiles, seq_temp=seq_temp,
+                      fs_temp=fs_temp, fs_distance=args.fs_distance, ala_budget=args.ala_budget,
+                      gly_budget=args.gly_budget, constrain_ss=constrain_ss, designed=designed,
+                      device="cpu", seed=seed,
+                      worker_queue=self.output / "laser_workers" / str(os.getpid()) / str(slot), worker_owner=os.getpid())
+        finally:
+            self.laser_slots.put(slot)
         sequences = [s for s, _ in pairs]
         if len(sequences) != n or any(not re.fullmatch("[ACDEFGHIKLMNPQRSTVWY]+", s) for s in sequences):
             raise RuntimeError("LASErMPNN returned invalid sequences or the wrong number of designs")

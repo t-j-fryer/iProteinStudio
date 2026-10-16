@@ -36,11 +36,10 @@ enum TemplateWriter {
         var yaml = ""
         // Epitope-directed contacts only make sense for a protein target.
         let epitopeResult = request.hasEpitopeSteering
-            ? residueTokenResult(request.epitopeResidues,
-                                 allowedTargetChains: request.targetChainIDs)
+            ? request.epitopeTokenResult
             : (tokens: [], invalid: [])
         guard epitopeResult.invalid.isEmpty else {
-            throw NHError.message("Invalid hotspot residue(s): \(epitopeResult.invalid.joined(separator: ", ")). Use numbers such as 32 55, or chain-qualified residues such as B32 B55.")
+            throw NHError.message("Invalid hotspot residue(s): \(epitopeResult.invalid.joined(separator: ", ")). Use 1-based positions within the supplied target sequences, such as B32 C55.")
         }
         let epitopes = epitopeResult.tokens
         if !epitopes.isEmpty {
@@ -117,7 +116,7 @@ enum TemplateWriter {
         let defaultTarget = allowedTargetChains.first?.uppercased() ?? "B"
         var tokens: [String] = []
         var invalid: [String] = []
-        for tok in raw.split(whereSeparator: { ", ;".contains($0) }) {
+        for tok in raw.split(whereSeparator: { $0.isWhitespace || ",;".contains($0) }) {
             let t = tok.uppercased().replacingOccurrences(of: ":", with: "")
             if t.range(of: "^[0-9]+$", options: .regularExpression) != nil {
                 tokens.append(defaultTarget + t)

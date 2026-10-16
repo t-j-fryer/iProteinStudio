@@ -1,5 +1,7 @@
 # Lab Book
 
+Latest release preparation: [0442 — Ligand efficiency and integrated workflow fixes](lab_book/0442-release-ligand-efficiency.md).
+
 Latest RFD3 correction: [0298 — Release exact RFD3 motif selections](lab_book/0298-release-rfd3-motif-fix.md).
 
 Latest release: [0255 — ESMFold2 Full 3/50](lab_book/0255-release-esm-full-defaults.md). Evidence: [0251](lab_book/0251-queue-esmfold2-full-3-50.md) and [0253 promotion](lab_book/0253-promote-esm-full-and-figure-two.md).
@@ -290,3 +292,16 @@ Current release: [0276 — Natural workspace and resident OpenFold](lab_book/027
 Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-identity.md), [0270 — Predict and Design](lab_book/0270-group-predict-and-design-navigation.md), [0271 — Workflow icons](lab_book/0271-use-sculptural-workflow-icons.md), [0272 — Resident OpenFold and MPNN](lab_book/0272-openfold-residency-and-figure3-scheduling.md).
 
 - [0279 — Simplify workflow controls](lab_book/0279-simplify-workflow-controls.md): NISE defaults, native Protein Hunter regions and RFdiffusion3 Advanced controls.
+
+## 0.2.24 release work
+
+- [0291-integrate-rcsb-and-compose-workflows](lab_book/0291-integrate-rcsb-and-compose-workflows.md)
+- [0298-protein-hunter-mode-tabs](lab_book/0298-protein-hunter-mode-tabs.md)
+- [0322-unify-hunter-epitope-stage-guidance](lab_book/0322-unify-hunter-epitope-stage-guidance.md)
+- [0323-repair-workflow-test-fixture](lab_book/0323-repair-workflow-test-fixture.md)
+- [0324-audit-optimised-settings](lab_book/0324-audit-optimised-settings.md)
+- [0422-reduce-output-reporting-overhead](lab_book/0422-reduce-output-reporting-overhead.md)
+- [0430-qualify-lasermpnn-cpu-residency](lab_book/0430-qualify-lasermpnn-cpu-residency.md)
+- [0432-run-biotin-affinity-efficiency](lab_book/0432-run-biotin-affinity-efficiency.md)
+- [0441-audit-unreleased-product-changes](lab_book/0441-audit-unreleased-product-changes.md)
+- [0442-release-ligand-efficiency](lab_book/0442-release-ligand-efficiency.md)

@@ -82,3 +82,10 @@ studio_residency_validation: lab_book/0272-openfold-residency-and-figure3-schedu
 
 studio_workflow_controls: native-region-modes-and-nise-resident-default-v1
 studio_workflow_controls_validation: lab_book/0279-simplify-workflow-controls.md
+
+studio_release: 0.2.24
+studio_ligand_efficiency: laser-resident-postload-seed-v2; boltz-affinity50-1; bounded-cpu-prefetch
+studio_ligand_efficiency_validation: lab_book/0430-qualify-lasermpnn-cpu-residency.md, lab_book/0432-run-biotin-affinity-efficiency.md, lab_book/0442-release-ligand-efficiency.md
+studio_epitope_guidance: shared-generation-refinement-policy-v1
+studio_output_reporting: batched-content-addressed-inspection-v1
+studio_mcp: 42

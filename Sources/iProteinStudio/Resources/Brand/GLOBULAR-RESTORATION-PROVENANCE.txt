@@ -1,0 +1,7 @@
+Globular artwork restoration, 2026-10-02.
+Supersedes the isolated-helix simplification for branching-possibilities.png
+and hunter-trajectories.png in HELIX-CORRECTION-PROVENANCE.txt.
+Original rich globular folds, beta sheets and loops restored; local visible
+helix winding edited against the same analytical right-handed reference.
+Exact prompts and visual review: lab_book/artifacts/0280-restore-globular-artwork/.
+Conceptual protein artwork; no atomic validation.

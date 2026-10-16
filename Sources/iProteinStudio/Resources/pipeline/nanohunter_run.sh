@@ -353,6 +353,7 @@ BOLTZ_CONTACT_FORCE=1
 BOLTZ_CONTACT_MODE="${NANOHUNTER_BOLTZ_CONTACT_MODE_DEFAULT:-auto}"
 NANOBODY_SEED_PERCENT_X_SET=0
 TARGET_EPITOPE_RESIDUES_SET=0
+REFINEMENT_EPITOPE_GUIDANCE=auto
 BOLTZ_CONTACT_DISTANCE_SET=0
 BOLTZ_CONTACT_FORCE_SET=0
 BOLTZ_CONTACT_MODE_SET=0
@@ -535,6 +536,7 @@ Design controls:
   --antifold-seed N                base AntiFold seed; run/cycle offsets are added
   --mpnn-seed N                    base ProteinMPNN-family seed; run/cycle offsets are added
   --lasermpnn-seed N               base LASErMPNN seed; run/cycle offsets are added
+  --refinement-epitope-guidance MODE  auto (supported engines, default) | off (cycle 00 only)
   --target-epitope-residues STR    target residues for Boltz or Protenix Constraint, e.g. "B6,B8,B9"
   --boltz-contact-distance X       max CDR3/epitope contact distance in Angstrom (default: ${BOLTZ_CONTACT_DISTANCE})
   --boltz-epitope-distance X       alias of --boltz-contact-distance
@@ -911,6 +913,7 @@ while [[ $# -gt 0 ]]; do
     --antifold-num-seq-per-target) ANTIFOLD_NUM_SEQ_PER_TARGET="$2"; shift 2 ;;
     --antifold-batch-size) ANTIFOLD_BATCH_SIZE="$2"; shift 2 ;;
     --antifold-num-threads) ANTIFOLD_NUM_THREADS="$2"; shift 2 ;;
+    --refinement-epitope-guidance) REFINEMENT_EPITOPE_GUIDANCE="$2"; shift 2 ;;
     --target-epitope-residues|--epitope-residues) TARGET_EPITOPE_RESIDUES="$2"; TARGET_EPITOPE_RESIDUES_SET=1; shift 2 ;;
     --boltz-contact-distance|--boltz-epitope-distance) BOLTZ_CONTACT_DISTANCE="$2"; BOLTZ_CONTACT_DISTANCE_SET=1; shift 2 ;;
     --boltz-contact-mode) BOLTZ_CONTACT_MODE="$2"; BOLTZ_CONTACT_MODE_SET=1; shift 2 ;;
@@ -1214,6 +1217,7 @@ else
     die "Motif scaffolding and arbitrary partial redesign belong to --workflow protein; nanobody mode redesigns exact CDR positions."
   fi
 fi
+case "${REFINEMENT_EPITOPE_GUIDANCE}" in auto|off) ;; *) die "--refinement-epitope-guidance must be auto or off" ;; esac
 if [[ -n "${TARGET_EPITOPE_RESIDUES}" && "${PREDICTOR}" != "boltz" \
       && "${PREDICTOR}" != "protenix-constraint-v0.5" ]]; then
   die "Target hotspot restraints require Boltz or Protenix Constraint v0.5; ${PREDICTOR} cannot honour them."
@@ -2571,6 +2575,11 @@ make_yaml_with_binder_sequence() {
   local predictor="${5:-}"
   local binder_msa_path="${6:-}"
   local phase="${7:-design}"
+  local cycle_index="${8:-0}"
+  local epitope_residues="${TARGET_EPITOPE_RESIDUES}"
+  if [[ "${REFINEMENT_EPITOPE_GUIDANCE}" == "off" && ( "${cycle_index}" -gt 0 || -n "${IPROTEINSTUDIO_HUNTER_HANDOFF:-}" ) ]]; then
+    epitope_residues=""
+  fi
   local catalog_tsv="${PIPELINE_CODE_ROOT}/examples/nanobody_scaffolds/catalog.tsv"
   python3 - \
     "$template_yaml" \
@@ -2578,7 +2587,7 @@ make_yaml_with_binder_sequence() {
     "$new_seq" \
     "$target_msa_path" \
     "$predictor" \
-    "$TARGET_EPITOPE_RESIDUES" \
+    "$epitope_residues" \
     "$BOLTZ_CONTACT_DISTANCE" \
     "$BOLTZ_CONTACT_FORCE" \
     "$BOLTZ_CONTACT_MODE" \
@@ -2854,7 +2863,7 @@ for line in Path(template).read_text().splitlines(keepends=True):
     if stripped in {"nanohunter:", "nano_hunter:", "NanoHunter:"} and not line.startswith((" ", "\t")):
         # The constraint adapter consumes this pocket metadata during design.
         # Post-checks and other predictors remain explicitly unconstrained.
-        if predictor == "protenix-constraint-v0.5" and phase == "design":
+        if predictor == "protenix-constraint-v0.5" and phase == "design" and epitope_raw:
             out_lines.append(line)
         else:
             skip_nanohunter_block = True
@@ -2980,6 +2989,19 @@ if predictor != "boltz":
     out_lines = remove_top_level_block(out_lines, "properties")
 out_lines = remove_top_level_block(out_lines, "templates")
 out_lines = remove_top_level_block(out_lines, "target_template")
+
+if predictor == "protenix-constraint-v0.5" and phase == "design" and epitope_raw:
+    # Keep the checkpoint-specific distance; replace only the shared residue list.
+    distance = "8.0"
+    for line in out_lines:
+        if line.strip().startswith("protenix_pocket_max_distance:"):
+            distance = line.split(":", 1)[1].strip()
+    out_lines = remove_top_level_block(out_lines, "nanohunter")
+    out_lines = remove_top_level_block(out_lines, "nano_hunter")
+    out_lines = remove_top_level_block(out_lines, "NanoHunter")
+    out_lines += ["nanohunter:\n", "  target_epitope_residues:\n"]
+    out_lines += [f"    - {chain}{pos}\n" for chain, pos in parse_epitope_residues(epitope_raw)]
+    out_lines += [f"  protenix_pocket_max_distance: {distance}\n"]
 
 dynamic_constraints = build_dynamic_constraints()
 if dynamic_constraints:
@@ -4415,6 +4437,13 @@ patch_cif_unk() {
   local mode="$3"
   local predictor="$4"
   local binder_chain="$5"
+  # A shared cycle-zero structure belongs to its initializer, not the refiner.
+  # Use the saved producer identity to select its validated UNK normalization.
+  local producer_file="$(dirname "${in_cif}")/predictor.txt"
+  if [[ -f "${producer_file}" ]]; then
+    predictor="$(cat "${producer_file}")"
+    [[ -n "${predictor}" ]] || die "Empty structure predictor identity: ${producer_file}"
+  fi
   python3 "${PIPELINE_CODE_ROOT}/scripts/normalize_unk_cif.py" \
     --input "${in_cif}" \
     --output "${out_cif}" \
@@ -4537,43 +4566,7 @@ PY
 }
 
 extract_metrics_from_conf_json() {
-  local json_path="$1"
-  python3 - "$json_path" <<'PY'
-import sys, json
-p = sys.argv[1]
-try:
-    d = json.load(open(p))
-except Exception:
-    print("nan,nan")
-    raise SystemExit(0)
-
-def get_any(obj, keys):
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            if k.lower() in keys:
-                return v
-        for v in obj.values():
-            x = get_any(v, keys)
-            if x is not None:
-                return x
-    elif isinstance(obj, list):
-        for v in obj:
-            x = get_any(v, keys)
-            if x is not None:
-                return x
-    return None
-
-iptm = get_any(d, {"iptm", "i_ptm", "iptm_score", "iptm+ptm"})
-plddt = get_any(d, {"complex_plddt", "avg_plddt", "plddt"})
-
-def to_float(v):
-    try:
-        return float(v)
-    except Exception:
-        return float("nan")
-
-print(f"{to_float(iptm)},{to_float(plddt)}")
-PY
+  python3 "${PIPELINE_CODE_ROOT}/scripts/prediction_output_reporting.py" metrics "$1"
 }
 
 annotate_boltz_ipsae() {
@@ -5255,6 +5248,11 @@ run_predictor_once() {
   local cycle_dir="$5"
   local target_msa_path="$6"
   local phase="${7:-design}"
+  local cycle_index="${8:-0}"
+  local epitope_residues="${TARGET_EPITOPE_RESIDUES}"
+  if [[ "${REFINEMENT_EPITOPE_GUIDANCE}" == "off" && ( "${cycle_index}" -gt 0 || -n "${IPROTEINSTUDIO_HUNTER_HANDOFF:-}" ) ]]; then
+    epitope_residues=""
+  fi
 
   local pred_min
   pred_min="${cycle_dir}/pred_min"
@@ -5575,7 +5573,8 @@ run_lasermpnn_redesign() {
   (
     cd "${LASERMPNN_REPO}/.." || exit 1
     KMP_USE_SHM=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-    "${LASERMPNN_VENV}/bin/python" "${LASERMPNN_SEEDED_RUNNER}" "${seed}" \
+    "${LASERMPNN_VENV}/bin/python" "${LASERMPNN_SEEDED_RUNNER}" \
+      --resident "${EXPT_ROOT}/_laser_worker/owner_$$" "$$" "${seed}" \
       "${laser_out}/model_prepared.pdb" \
       "${laser_out}/designs" \
       "${LASERMPNN_NUM_SEQ}" \
@@ -5983,7 +5982,7 @@ prepare_cycle_wave_input() {
     "${target_msa_for_pred}" \
     "${PREDICTOR}" \
     "${binder_msa_for_pred}" \
-    "design"
+    "design" "${cycle_idx}"
   printf '%s\n' "${cycle_yaml}"
 }
 
@@ -6409,14 +6408,13 @@ run_cycle_wave_predictor_batch() {
     die "Cycle-wave ${PREDICTOR} batch failed for ${cycle_tag}/${batch_tag}."
   fi
 
-  local stem leaf conf struct pred_min predictor_dir iptm plddt
+  local stem leaf conf struct pred_min predictor_dir
+  local reporting_items=()
   for run_index in "${pending_runs[@]}"; do
     run_tag="$(printf "run_%03d" "${run_index}")"
     stem="${run_tag}_${cycle_tag}"
     pred_min="${EXPT_ROOT}/${run_tag}/${cycle_tag}/pred_min"
     predictor_dir="${EXPT_ROOT}/${run_tag}/${cycle_tag}/${PREDICTOR}"
-    mkdir -p "${pred_min}" "${predictor_dir}"
-    materialize_output_reference "${log_path}" "${predictor_dir}/predict.log"
     case "${PREDICTOR}" in
       boltz)
         annotate_boltz_ipsae \
@@ -6452,28 +6450,14 @@ run_cycle_wave_predictor_batch() {
         ;;
     esac
     [[ -n "${struct}" && -f "${struct}" ]] || die "Cycle-wave structure not found for ${stem} in ${leaf}."
-    if [[ -n "${conf}" && "${conf}" != "${pred_min}/confidence.json" ]]; then
-      materialize_output_reference "${conf}" "${pred_min}/confidence.json"
-    fi
-    if [[ "${struct}" == "${pred_min}/model_0.cif" || "${struct}" == "${pred_min}/model_0.pdb" ]]; then
-      :
-    elif [[ "${struct##*.}" == "cif" ]]; then
-      materialize_output_reference "${struct}" "${pred_min}/model_0.cif"
-    else
-      materialize_output_reference "${struct}" "${pred_min}/model_0.pdb"
-    fi
-    printf '%s\n' "${PREDICTOR}" > "${pred_min}/predictor.txt"
-    record_prediction_geometry "${pred_min}" || return $?
-    iptm="nan"
-    plddt="nan"
-    if [[ -f "${pred_min}/confidence.json" ]]; then
-      IFS=',' read -r iptm plddt <<< "$(extract_metrics_from_conf_json "${pred_min}/confidence.json")"
-      printf '%s\n' "${iptm}" > "${pred_min}/iptm.txt"
-    fi
-    printf '%s\n' "${start_ts}" > "${pred_min}/wave_predict_start.txt"
-    printf '%s\n' "${end_ts}" > "${pred_min}/wave_predict_end.txt"
-    printf '%s\n' "${duration}" > "${pred_min}/wave_predict_duration.txt"
+    reporting_items+=(--item "${struct}" "${conf}" "${pred_min}" "${predictor_dir}")
   done
+  # One CPU interpreter for links, geometry reports and metrics across the batch.
+  # Keep a single worker until parallel reporting is qualified with inference.
+  python3 "${PIPELINE_CODE_ROOT}/scripts/prediction_output_reporting.py" finalize \
+    --log "${log_path}" --predictor "${PREDICTOR}" \
+    --start "${start_ts}" --end "${end_ts}" --duration "${duration}" \
+    "${reporting_items[@]}" || return $?
 }
 
 record_cycle_wave_predictions() {
@@ -6481,6 +6465,15 @@ record_cycle_wave_predictions() {
   local cycle_tag run_index run_tag run_root cycle_dir current_seq
   local iptm plddt conf struct start_ts end_ts duration
   cycle_tag="$(printf "cycle_%02d" "${cycle_idx}")"
+  local confidence_paths=() metrics_rows=() metrics_text metrics_row
+  for run_index in $(seq 1 "${N_RUNS}"); do
+    confidence_paths+=("${EXPT_ROOT}/$(printf 'run_%03d' "${run_index}")/${cycle_tag}/pred_min/confidence.json")
+  done
+  metrics_text="$(python3 "${PIPELINE_CODE_ROOT}/scripts/prediction_output_reporting.py" metrics "${confidence_paths[@]}")" || return $?
+  while IFS= read -r metrics_row; do
+    metrics_rows+=("${metrics_row}")
+  done <<< "${metrics_text}"
+  [[ "${#metrics_rows[@]}" -eq "${N_RUNS}" ]] || die "Incomplete cycle-wave metric rows."
   for run_index in $(seq 1 "${N_RUNS}"); do
     run_tag="$(printf "run_%03d" "${run_index}")"
     run_root="${EXPT_ROOT}/${run_tag}"
@@ -6492,11 +6485,7 @@ record_cycle_wave_predictions() {
     else
       struct="${cycle_dir}/pred_min/model_0.pdb"
     fi
-    iptm="nan"
-    plddt="nan"
-    if [[ -f "${conf}" ]]; then
-      IFS=',' read -r iptm plddt <<< "$(extract_metrics_from_conf_json "${conf}")"
-    fi
+    IFS=',' read -r iptm plddt <<< "${metrics_rows[$((run_index - 1))]}"
     if [[ "${cycle_idx}" -eq 0 && -n "${IPROTEINSTUDIO_HUNTER_HANDOFF:-}" && ! -f "${cycle_dir}/pred_min/wave_predict_start.txt" ]]; then
       # RFD3/per-trajectory generators record their own stage timings. Do not
       # invent a per-backbone inference duration for an imported starting batch.
@@ -7156,7 +7145,7 @@ PY
       target_msa_for_pred="$(pick_target_msa_for_predictor "${target_msa_path}" "${PREDICTOR}")"
       local binder_msa_for_pred
       binder_msa_for_pred="$(make_masked_nanobody_scaffold_msa "${current_seq}" "${cycle_dir}/nanobody_scaffold_masked.a3m" "${PREDICTOR}")"
-      make_yaml_with_binder_sequence "${TEMPLATE_YAML}" "${cycle_yaml}" "${current_seq}" "${target_msa_for_pred}" "${PREDICTOR}" "${binder_msa_for_pred}" "design"
+      make_yaml_with_binder_sequence "${TEMPLATE_YAML}" "${cycle_yaml}" "${current_seq}" "${target_msa_for_pred}" "${PREDICTOR}" "${binder_msa_for_pred}" "design" "${cycle}"
 
       cstart="$(now_epoch)"
       if [[ "${cycle}" -eq 0 && -n "${INITIAL_STRUCTURE}" ]]; then
@@ -8248,12 +8237,13 @@ echo "Localized turn strength : ${TURN_STRENGTH}"
 if [[ "${PREDICTOR}" == "boltz" ]]; then
   echo "Boltz design potentials : ${BOLTZ_USE_POTENTIALS_DEFAULT} (mode=${BOLTZ_USE_POTENTIALS_MODE})"
   if [[ -n "${TARGET_EPITOPE_RESIDUES}" ]]; then
-    echo "Boltz epitope residues  : ${TARGET_EPITOPE_RESIDUES}"
+    echo "Target epitope residues : ${TARGET_EPITOPE_RESIDUES}"
+    echo "Refinement epitope      : ${REFINEMENT_EPITOPE_GUIDANCE} (auto applies only in supported engines)"
     echo "Boltz contact mode      : ${BOLTZ_CONTACT_MODE}"
     echo "Boltz contact distance  : ${BOLTZ_CONTACT_DISTANCE} A"
     echo "Boltz contact force     : ${BOLTZ_CONTACT_FORCE}"
   else
-    echo "Boltz epitope residues  : none"
+    echo "Target epitope residues : none"
   fi
 fi
 echo "Target chains           : ${TARGET_CHAIN_COUNT}"

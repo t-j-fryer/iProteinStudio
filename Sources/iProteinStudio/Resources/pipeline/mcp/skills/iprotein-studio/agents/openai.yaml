@@ -1,0 +1,5 @@
+interface:
+  display_name: "iProteinStudio"
+  short_description: "Plan, run and review local protein workflows"
+  brand_color: "#52634C"
+  default_prompt: "Use $iprotein-studio to inspect my available engines and plan the requested protein workflow."

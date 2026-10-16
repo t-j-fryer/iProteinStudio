@@ -103,6 +103,16 @@
               "minimum": 0,
               "maximum": 1000,
               "default": 3
+            },
+            "affinity_steps": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "affinity_samples": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128
             }
           }
         },

@@ -705,7 +705,7 @@ def _nise_overview(root, limit):
     for path in sorted((root / 'candidates').glob('*.json')):
         row = load_json(path); rows[row['name']] = row
     for row in sorted(rows.values(), key=lambda r: (r.get('cycle', 0), r['name'])):
-        if count >= max(1, min(limit, 500)):
+        if count >= max(1, min(limit, 20001)):
             truncated = True
             break
         structure = _run_artifact_reference(root, row.get("pdb"))
@@ -733,7 +733,7 @@ def _nise_overview(root, limit):
     final = []
     for native in live_records(root):
         if 'final_checks' not in Path(native['structure_path']).parts: continue
-        if count >= max(1, min(limit, 500)):
+        if count >= max(1, min(limit, 20001)):
             truncated = True; break
         final.append(dict(id=native['job']+'|'+native['predictor']+'|'+native['sample'],
             is_hit=None, artifacts=[dict(role='independent_refold', path=native['structure_path'],
@@ -759,13 +759,14 @@ def _iterative_batch_overview(root: Path, limit: int, framework_id: Optional[str
             raise StudioError("A batch campaign is missing or outside its workspace: " + Path(path).name)
         manifest = load_json(child / "studio_run.json")
         request = manifest.get("request", {})
-        framework = request.get("scaffoldID", "none")
+        scaffolds = descriptor.get("scaffoldIDs", [])
+        framework = request.get("scaffoldID", scaffolds[index] if index < len(scaffolds) else "none")
         ids = descriptor.get("engineIDs", [])
         engine = ids[index] if index < len(ids) else request.get("designPredictor", "unknown")
         child_id = workspace.name + "/" + child.name
         campaigns.append({"run_id": child_id, "framework_id": framework, "design_engine": engine,
-                          "requested_trajectories": request.get("numDesigns", 0),
-                          "optimization_cycles": request.get("numCycles", 0)})
+                          "requested_trajectories": request.get("numDesigns", manifest.get("requestedTrajectories", 0)),
+                          "optimization_cycles": request.get("numCycles", manifest.get("optimizationCycles", 0))})
         if framework_id is not None and framework_id != framework:
             continue
         if design_engine is not None and design_engine != engine:
@@ -957,6 +958,10 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
 
 def workflow_guide(workflow: str) -> Dict[str, Any]:
     guide = _workflow_guide(workflow)
+    guide['composition'] = 'pipeline_catalog exposes supported v2 route schemas; pipeline_recipe_plan binds complete parameters through this planner, then job_start executes its immutable plan.'
+    if workflow == 'iterative_design':
+        guide['batch_tool'] = 'iterative_batch_plan: explicit engines, equal per-engine trajectory totals and scaffold-specific templates/CDR ranges; shared scheduling and resumable child receipts.'
+        guide['ligand_verification'] = 'Optional ligand_verification exposes the native NESSO/PSICHIC shortlist and chosen verifier; the input template must contain exactly one explicit SMILES ligand.'
     from .prediction_settings import normalize
     guide['prediction_settings'] = {
         'defaults': normalize(),
@@ -968,7 +973,7 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
 
 def read_resource(uri: str) -> Dict[str, Any]:
     if uri == "iprotein://capabilities":
-        return {"server_profiles": ["read", "run", "admin"], "workflows": ["prediction", "iterative_design", "rfd3_de_novo", "rfd3_partial_diffusion", "rfd3_motif_scaffolding"], "transport": "stdio"}
+        return {"server_profiles": ["read", "run", "admin"], "workflows": ["prediction", "iterative_design", "iterative_batch", "nise", "rfd3_de_novo", "rfd3_partial_diffusion", "rfd3_motif_scaffolding"], "transport": "stdio", "pipeline_catalog": "pipeline_catalog", "candidate_exports": True, "optional_discovery": "RCSB MCP (separate installation)", "operating_skill": "iprotein://skills/studio"}
     if uri == "iprotein://engines":
         return detect_engines()
     if uri == "iprotein://projects":

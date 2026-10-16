@@ -1,0 +1,109 @@
+{
+  "passed": true,
+  "exact_comparison_passed": false,
+  "interpretation": "Numerical equivalence, not bitwise identity; tolerance audit added after exact-check failure.",
+  "criteria": {
+    "max_rms_angstrom": 0.005,
+    "max_atom_displacement_angstrom": 0.05,
+    "max_score_delta": 0.001
+  },
+  "ranks_equal": true,
+  "rows": [
+    {
+      "name": "c0_p0",
+      "same_sequence": true,
+      "same_pbind": true,
+      "same_geometry": true,
+      "same_early_gate": true,
+      "rms_displacement_angstrom": 0.00026694883824992925,
+      "max_displacement_angstrom": 0.0014142135623748235,
+      "ligand_plddt_delta": 0.0,
+      "score_delta": 0.0,
+      "passed": true
+    },
+    {
+      "name": "c0_p1",
+      "same_sequence": true,
+      "same_pbind": true,
+      "same_geometry": true,
+      "same_early_gate": true,
+      "rms_displacement_angstrom": 0.0002355041079768323,
+      "max_displacement_angstrom": 0.0017320508075693276,
+      "ligand_plddt_delta": 0.002500000000001279,
+      "score_delta": 2.5000000000052758e-05,
+      "passed": true
+    },
+    {
+      "name": "c0_p2",
+      "same_sequence": true,
+      "same_pbind": true,
+      "same_geometry": true,
+      "same_early_gate": true,
+      "rms_displacement_angstrom": 0.00027029495135980585,
+      "max_displacement_angstrom": 0.0022360679774995436,
+      "ligand_plddt_delta": 0.0018750000000054001,
+      "score_delta": 1.8750000000067324e-05,
+      "passed": true
+    },
+    {
+      "name": "c0_p3",
+      "same_sequence": true,
+      "same_pbind": true,
+      "same_geometry": true,
+      "same_early_gate": true,
+      "rms_displacement_angstrom": 0.00025699362630762605,
+      "max_displacement_angstrom": 0.0014142135623726253,
+      "ligand_plddt_delta": 0.0,
+      "score_delta": 0.0,
+      "passed": true
+    },
+    {
+      "name": "c1_p0",
+      "same_sequence": true,
+      "same_pbind": true,
+      "same_geometry": true,
+      "same_early_gate": true,
+      "rms_displacement_angstrom": 0.0006310066056582968,
+      "max_displacement_angstrom": 0.008831760866327528,
+      "ligand_plddt_delta": 0.008749999999999147,
+      "score_delta": 8.750000000001812e-05,
+      "passed": true
+    },
+    {
+      "name": "c1_p1",
+      "same_sequence": true,
+      "same_pbind": true,
+      "same_geometry": true,
+      "same_early_gate": true,
+      "rms_displacement_angstrom": 0.00012361284651454796,
+      "max_displacement_angstrom": 0.001000000000000334,
+      "ligand_plddt_delta": 0.0,
+      "score_delta": 0.0,
+      "passed": true
+    },
+    {
+      "name": "c1_p2",
+      "same_sequence": true,
+      "same_pbind": true,
+      "same_geometry": true,
+      "same_early_gate": true,
+      "rms_displacement_angstrom": 0.0,
+      "max_displacement_angstrom": 0.0,
+      "ligand_plddt_delta": 0.0,
+      "score_delta": 0.0,
+      "passed": true
+    },
+    {
+      "name": "c1_p3",
+      "same_sequence": true,
+      "same_pbind": true,
+      "same_geometry": true,
+      "same_early_gate": true,
+      "rms_displacement_angstrom": 0.00011494442702760696,
+      "max_displacement_angstrom": 0.0010000000000012221,
+      "ligand_plddt_delta": 0.003124999999997158,
+      "score_delta": 3.124999999992717e-05,
+      "passed": true
+    }
+  ]
+}

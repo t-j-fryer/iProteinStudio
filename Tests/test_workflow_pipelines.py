@@ -8,11 +8,13 @@ import importlib
 import contextlib
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,6 +84,7 @@ def main() -> None:
                "small-molecule runner stopped importing external provenance inputs")
         runner_config = in_place.parent / "campaign.json"
         runner_config.write_text(json.dumps({
+            "nanohunter_root": str(pipeline_scripts.parent),
             "campaign_dir": str(in_place.parents[1]),
             "design_yaml": str(in_place),
             "smiles_file": str(copied),
@@ -90,17 +93,22 @@ def main() -> None:
         called = []
         original_argv = sys.argv
         original_validate = ligand_campaign.stage_validate
+        original_profile = os.environ.get("IPROTEINSTUDIO_PREDICTION_SETTINGS")
         try:
             sys.argv = ["run_rfd3_nise_campaign.py", "--config", str(runner_config),
                         "--stage", "validate"]
             ligand_campaign.stage_validate = (
                 lambda cfg, campaign, logs: called.append((campaign, logs))
             )
-            with contextlib.redirect_stdout(io.StringIO()):
+            # Profile activation is process-wide; this fixture must not change
+            # the environment seen by the remaining contracts or their caller.
+            with patch.dict(os.environ), contextlib.redirect_stdout(io.StringIO()):
                 ligand_campaign.main()
         finally:
             sys.argv = original_argv
             ligand_campaign.stage_validate = original_validate
+        expect(os.environ.get("IPROTEINSTUDIO_PREDICTION_SETTINGS") == original_profile,
+               "campaign fixture leaked its prediction profile into subsequent tests")
         expect(len(called) == 1
                and json.loads((in_place.parents[1] / "campaign_progress.json").read_text())[
                    "completed_stages"] == ["validate"],
@@ -410,15 +418,23 @@ def main() -> None:
                    {"entity": 2, "copy": 1, "position": 4},
                ] and pocket["max_distance"] == 8.0,
                "Protenix constraint pocket did not preserve entity/position semantics")
-        constraint_command = protenix.protenix_command(
-            Path("protenix"), root / "constraint.json", root / "px-constraint",
-            protenix.CONSTRAINT_MODEL, "42", 1, True,
-        )
-        expect(constraint_command[constraint_command.index("--use_default_params") + 1] == "False"
-               and constraint_command[constraint_command.index("-c") + 1] == "10"
-               and constraint_command[constraint_command.index("-p") + 1] == "200"
-               and constraint_command[constraint_command.index("--use_tfg_guidance") + 1] == "False",
-               "Protenix constraint command drifted from the validated 10x200 profile")
+        # Lab Book 0234 promoted the shared 10-recycle/25-step profile.
+        # Retain coverage of the historical 200-step budget as an explicit
+        # override, rather than requiring every new job to use that old default.
+        for overrides, recycles, steps in [
+            ({}, "10", "25"),
+            ({"protenix-constraint-v0.5": {"recycles": 10, "diffusion_steps": 200}}, "10", "200"),
+        ]:
+            with patch.dict(os.environ, {"IPROTEINSTUDIO_PREDICTION_SETTINGS": json.dumps(overrides)}):
+                constraint_command = protenix.protenix_command(
+                    Path("protenix"), root / "constraint.json", root / "px-constraint",
+                    protenix.CONSTRAINT_MODEL, "42", 1, True,
+                )
+            expect(constraint_command[constraint_command.index("--use_default_params") + 1] == "False"
+                   and constraint_command[constraint_command.index("-c") + 1] == recycles
+                   and constraint_command[constraint_command.index("-p") + 1] == steps
+                   and constraint_command[constraint_command.index("--use_tfg_guidance") + 1] == "False",
+                   f"Protenix constraint command did not preserve the requested {recycles}x{steps} profile")
 
         # Protenix gives an UNK residue alanine atoms plus a generic CG.  The
         # iterative handoff must remove only that pseudo-atom, normalize the

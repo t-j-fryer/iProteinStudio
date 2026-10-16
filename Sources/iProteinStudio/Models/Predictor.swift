@@ -441,9 +441,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         }
     }
 
-    /// Exactly what this engine will be run with, so the claim that Studio uses
-    /// the optimised settings can be checked rather than taken on trust.
-    /// Every line here was verified against `nanohunter_run.sh` on 2026-08-11.
+    /// Runtime policy summary. Scientific overrides are recorded per job;
+    /// current defaults are shown in Prediction accuracy & compute.
     var settingsSummary: [String] {
         switch self {
         case .esmfold2Full, .esmfold2Fast:
@@ -454,14 +453,14 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
                     "No Boltz affinity head or structure-template/pocket guidance"]
         case .boltz, .boltzPotentials:
             return ["GPU accelerator, 1 device, 0 dataloader workers",
-                    "3 recycles (its default)",
-                    "one process — measured optimum; more processes cost 3x the memory for no gain",
+                    "3 recycles, 25 diffusion steps and up to 128 supplied MSA rows by default",
+                    "Protein Hunter uses one resident worker; NISE can use its separately validated two-worker schedule",
                     "no PYTORCH_MPS_PREFER_METAL / FAST_MATH — both measured useless",
-                    "host thread limits deliberately NOT applied — they made Boltz slower",
-                    usesSteeringPotentials ? "steering potentials on" : "steering potentials off"]
+                    "host thread limits follow each workflow’s validated policy",
+                    usesSteeringPotentials ? "steering potentials on during design" : "steering potentials off unless required by a requested forced pocket"]
         case .intellifold:
             return ["selected v2-flash or full-v2 model; fp32 on MPS",
-                    "10 recycles (its default)",
+                    "10 recycles, 25 diffusion steps and up to 128 supplied MSA rows by default",
                     "OMP_NUM_THREADS=1 and VECLIB_MAXIMUM_THREADS=1 — ~1.3x, IntelliFold only",
                     "token buckets: auto, i.e. the exact campaign token count",
                     "CUDA-only cleanup paths patched out for MPS (bit-identical outputs)",
@@ -472,23 +471,23 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
             return ["Retired after a same-input Metal quality-control failure"]
         case .openfold3:
             return ["MLX attention/triangle/activation kernels enabled",
-                    "3 recycles, 1 diffusion sample, 1 model seed (its defaults)",
-                    "two processes — measured optimum",
+                    "3 recycles, 25 diffusion steps, 1 diffusion sample and 1 model seed by default",
+                    "one resident worker reuses the model across inputs (Lab Book 0272)",
                     "high memory footprint; concurrency is limited by that"]
         case .protenixV2:
             return ["native Apple MPS, fp32; CPU fallback is refused",
-                    "10 recycles and 200 diffusion steps (upstream v2 defaults)",
+                    "10 recycles and 25 diffusion steps by default; per-job overrides supported",
                     "5 diffusion samples, seed 42 (upstream defaults used in validation)",
-                    "uses Studio's exact cached A3M; no genetic databases"]
+                    "uses cached target alignments with the selected MSA-depth cap; no local genetic databases"]
         case .protenixMini:
             return ["native Apple MPS, fp32; CPU fallback is refused",
                     "4 recycles and 5 diffusion steps (upstream Mini defaults)",
                     "5 diffusion samples, seed 42 (upstream defaults used in validation)",
-                    "uses Studio's exact cached A3M; no genetic databases"]
+                    "uses cached target alignments with the selected MSA-depth cap; no local genetic databases"]
         case .protenixConstraint:
             return ["native Apple MPS, fp32; CPU fallback is refused",
                     "official protenix_base_constraint_v0.5.0 checkpoint; strict loading",
-                    "10 recycles, 200 diffusion steps and one sample",
+                    "10 recycles, 25 diffusion steps and one sample by default",
                     "8 Å token-centre target-pocket prior (upstream example and validated default; not a heavy-atom cutoff)",
                     "ESM disabled: this checkpoint has no trained ESM projection",
                     "serial execution with at least 8 GiB measured MPS headroom"]

@@ -121,11 +121,13 @@ def stage_mpnn(cfg: dict, campaign: Path, logs: Path) -> None:
         raise SystemExit(f"Unsupported ligand sequence model: {model}")
     if model == "lasermpnn":
         cmd = [
-            sys.executable, str(ROOT / "scripts" / "run_lasermpnn.py"),
+            sys.executable, str(Path(cfg["nanohunter_root"]) / "rfd3_overlay/scripts/run_lasermpnn.py"
+                                if cfg.get("nanohunter_root") else ROOT / "scripts/run_lasermpnn.py"),
             "--backbones", str(campaign / "rfd3" / "backbones"),
             "--output", str(campaign / "mpnn"), "--smiles", read_smiles(Path(cfg["smiles_file"])),
             "--n-seqs", str(cfg["sequences_per_backbone"]),
             "--max-parallel", str(cfg["mpnn_max_parallel"]),
+            "--seed", str(cfg.get("seed_base", 0)),
         ]
         if "sequence_temperature" in cfg:
             cmd += ["--seq-temp", str(cfg["sequence_temperature"])]

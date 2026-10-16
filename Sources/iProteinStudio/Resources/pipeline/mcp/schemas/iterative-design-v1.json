@@ -57,6 +57,49 @@
           "type": "string"
         }
       }
+    },
+    "ligand_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "topK",
+        "predictor"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true,
+          "type": "boolean"
+        },
+        "engine": {
+          "enum": [
+            "nesso",
+            "psichic"
+          ]
+        },
+        "topK": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "predictor": {
+          "enum": [
+            "boltz",
+            "intellifold",
+            "protenix_v2",
+            "protenix_mini",
+            "openfold3",
+            "esmfold2_full",
+            "esmfold2_fast"
+          ]
+        },
+        "intellifoldModel": {
+          "enum": [
+            "v2-flash",
+            "v2"
+          ]
+        }
+      }
     }
   }
 }

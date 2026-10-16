@@ -51,7 +51,7 @@ struct IterativeCommandContractHarness {
         var request = DesignRequest()
         request.designType = .minibinder
         request.targetKind = .protein
-        request.targetSequence = "MKTIIALSYIFCLVFADYKDDDDK"
+        request.targetSequence = String(repeating: "MKTIIALSYIFCLVFADYKDDDDK", count: 3)
         request.designer = .solublempnn
         request.designPredictor = .boltz
         request.postPredictors = []
@@ -65,6 +65,37 @@ struct IterativeCommandContractHarness {
     static func arguments(_ request: DesignRequest, seed: Int = 1234) -> [String] {
         CommandBuilder.arguments(request: request, templateYAML: template,
                                  outRoot: output, runName: "contract", mpnnSeed: seed)
+    }
+
+    static func testEpitopeStagePolicy() throws {
+        var request = proteinRequest()
+        request.epitopeResidues = "B0 B999"
+        expect(request.hasInvalidEpitopeResidues, "out-of-range hotspots were accepted")
+        request.epitopeResidues = "B2\nB3"
+        expect(request.epitopeTokenResult.tokens == ["B2", "B3"], "newline-separated hotspots were rejected")
+        request.initializationMethod = "hallucination"
+        request.initializationEngine = .intellifoldFlash
+        request.designPredictor = .boltz
+        expect(request.supportsEpitopePocket && request.hasEpitopeSteering,
+               "unsupported generator hid supported refiner hotspots")
+        request.refinementEpitopeGuidance = false
+        expect(value(after: "--refinement-epitope-guidance", in: arguments(request)) == "off",
+               "refinement guidance opt-out missing from recorded command")
+        let encoded = try JSONEncoder().encode(request)
+        let decoded = try JSONDecoder().decode(DesignRequest.self, from: encoded)
+        expect(!decoded.refinementEpitopeGuidance,
+               "saved guidance choice did not round-trip")
+        var legacy = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+        legacy.removeValue(forKey: "refinementEpitopeGuidance")
+        let restored = try JSONDecoder().decode(DesignRequest.self, from: JSONSerialization.data(withJSONObject: legacy))
+        expect(restored.refinementEpitopeGuidance, "old workspaces lost their guided refinement default")
+        request.initializationMethod = "rfd3"
+        request.designPredictor = .protenixConstraint
+        request.refinementEpitopeGuidance = true
+        expect(request.refinementEpitopeGuidanceDescription(.protenixConstraint).contains("keeps"),
+               "RFD3 → Protenix Constraint did not describe guided refinement")
+        expect(request.refinementEpitopeGuidanceDescription(.esmfold2Full).contains("may move"),
+               "unsupported refiner did not explain hotspot loss")
     }
 
     static func testBoltzProteinHotspots() throws {
@@ -633,6 +664,7 @@ struct IterativeCommandContractHarness {
         try testLigandNessoOptions()
         try testBoltzProteinHotspots()
         try testTargetTemplateModes()
+        try testEpitopeStagePolicy()
         try testProtenixConstraintPocket()
         try testMultimerTargetMapping()
         testPostChecksAndModels()

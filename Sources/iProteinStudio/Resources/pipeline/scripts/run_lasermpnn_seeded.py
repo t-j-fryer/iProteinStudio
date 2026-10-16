@@ -1,33 +1,32 @@
 #!/usr/bin/env python3
-"""Seed every RNG, then execute upstream LASErMPNN batch inference unchanged."""
+"""Run the qualified LASErMPNN CPU sampler, optionally in an owner-scoped worker.
 
-from __future__ import annotations
-
-import random
-import runpy
+The --resident DIR OWNER prefix reuses a model within that owner process only.
+Without it, the identical sampler/seed policy executes in a fresh interpreter.
+"""
+from pathlib import Path
+import os
 import sys
 
 
-def main() -> None:
-    if len(sys.argv) < 2:
-        raise SystemExit("usage: run_lasermpnn_seeded.py SEED [LASErMPNN arguments...]")
-    try:
-        seed = int(sys.argv[1])
-    except ValueError as exc:
-        raise SystemExit("LASErMPNN seed must be an integer") from exc
-
-    import numpy as np
-    import torch
-
-    random.seed(seed)
-    np.random.seed(seed % (2**32))
-    torch.manual_seed(seed)
-    if torch.backends.mps.is_available():
-        torch.mps.manual_seed(seed)
-
-    sys.argv = ["LASErMPNN.run_batch_inference", *sys.argv[2:]]
-    runpy.run_module("LASErMPNN.run_batch_inference", run_name="__main__")
+def main():
+    args = sys.argv[1:]
+    if args[:1] == ['--resident']:
+        from mpnn_worker import submit
+        directory, owner, *args = args[1:]
+        # Imports and each native model stay inside the LASErMPNN interpreter.
+        result = submit(directory, int(owner), Path(__file__), args)
+        raise SystemExit(result['returncode'])
+    if len(args) < 2:
+        raise SystemExit('usage: run_lasermpnn_seeded.py [--resident DIR OWNER] SEED [native arguments]')
+    seed = int(args[0])
+    if not 0 <= seed <= 2**32 - 1:
+        raise ValueError('LASErMPNN seed must be a nonnegative 32-bit integer')
+    for name in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','VECLIB_MAXIMUM_THREADS'):
+        os.environ[name] = '1'
+    from laser_sampling import run
+    run(seed, args[1:])
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

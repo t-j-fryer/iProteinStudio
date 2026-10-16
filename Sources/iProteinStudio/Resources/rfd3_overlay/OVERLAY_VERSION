@@ -1,7 +1,7 @@
 # Provenance of the vendored RFdiffusion3 overlay. Regenerate with tools/sync_rfd3.sh.
 source_repo:  https://github.com/javierbq/rfd3-mlx.git
 vendored_on:  2026-08-14T14:10:33Z
-studio_updated: 2026-10-03-rasa-only-selection-fix
+studio_updated: 2026-10-16-resident-laser-sampling-v2
 files:        32
-checksum:     54d669eb2351d73c96a4517929ca2663404fe950dd22f439e183b5f0d3f77dc6
+checksum:     892843966be039cb81050fa4ccab6bc5de5a0aec633f4733c908334aec23867f
 checksum_format: sha256 of sorted Python sha256/relative-path lines

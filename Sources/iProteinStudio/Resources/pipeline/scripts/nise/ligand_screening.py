@@ -91,6 +91,13 @@ def csv_report(path, rows):
 
 def run(config, *, client_class=NessoClient, predictor_run=subprocess.run):
     cfg = json.loads(Path(config).read_text())
+    prediction_env = dict(os.environ)
+    if 'prediction_settings' in cfg:
+        # New jobs freeze their profile at preflight. Preserve the inherited
+        # behavior of historical configs that did not record this field.
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from prediction_profiles import normalize, ENV
+        prediction_env[ENV] = json.dumps(normalize(cfg['prediction_settings']), sort_keys=True)
     opts = options(cfg['options'])
     from screening_registry import contract as scorer_contract, client as scorer_client
     engine = opts['engine']; module = scorer_contract(engine)
@@ -205,7 +212,7 @@ def run(config, *, client_class=NessoClient, predictor_run=subprocess.run):
             history.mkdir(exist_ok=True)
             shutil.move(str(previous_metrics), str(history / (uuid.uuid4().hex + '.csv')))
         with (output / 'prediction.log').open('a') as log:
-            completed = predictor_run(command, stdout=log, stderr=subprocess.STDOUT)
+            completed = predictor_run(command, stdout=log, stderr=subprocess.STDOUT, env=prediction_env)
         metrics_path = folds / 'prediction_metrics.csv'
         rows = []
         if metrics_path.exists():

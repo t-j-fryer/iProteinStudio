@@ -21,11 +21,11 @@ def normalize(overrides=None):
         raise ValueError('Unknown prediction engine in prediction_settings.')
     result = {key: dict(value) for key, value in DEFAULTS.items()}
     for engine, values in overrides.items():
-        if not isinstance(values, dict) or set(values) - {'msa_depth', 'diffusion_steps', 'recycles'}:
+        if not isinstance(values, dict) or set(values) - set(DEFAULTS[engine]):
             raise ValueError('Unknown scientific setting for ' + engine)
         for key, value in values.items():
-            low = 1 if key == 'diffusion_steps' else 0
-            high = {'msa_depth': 1000000, 'diffusion_steps': 10000, 'recycles': 1000}[key]
+            low = 1 if key in {'diffusion_steps', 'affinity_steps', 'affinity_samples'} else 0
+            high = {'msa_depth': 1000000, 'diffusion_steps': 10000, 'recycles': 1000, 'affinity_steps': 10000, 'affinity_samples': 128}[key]
             if type(value) is not int or not low <= value <= high:
                 raise ValueError(f'{engine}.{key} must be an integer from {low} to {high}.')
         result[engine].update(values)
@@ -54,6 +54,8 @@ def arguments(engine, argv, model=None):
     settings = profile(engine, model)
     flags = {'boltz': {'diffusion_steps': '--sampling_steps', 'recycles': '--recycling_steps'},
              'intellifold': {'diffusion_steps': '--sampling_steps', 'recycles': '--recycling_iters'}}[engine]
+    if engine == 'boltz':
+        flags.update(affinity_steps='--sampling_steps_affinity', affinity_samples='--diffusion_samples_affinity')
     if engine == 'boltz' and settings['msa_depth']:
         flags['msa_depth'] = '--max_msa_seqs'
     result = list(argv)
@@ -167,6 +169,7 @@ def effective(engine, argv, model=None):
     flags = {'boltz': {'diffusion_steps': '--sampling_steps', 'recycles': '--recycling_steps'},
              'intellifold': {'diffusion_steps': '--sampling_steps', 'recycles': '--recycling_iters'}}[engine]
     if engine == 'boltz':
+        flags.update(affinity_steps='--sampling_steps_affinity', affinity_samples='--diffusion_samples_affinity')
         flags['msa_depth'] = '--max_msa_seqs'
     for key, flag in flags.items():
         for i, value in enumerate(argv):
@@ -174,6 +177,8 @@ def effective(engine, argv, model=None):
                 result[key] = int(argv[i + 1])
             elif value.startswith(flag + '='):
                 result[key] = int(value.split('=', 1)[1])
+    if engine == 'boltz' and (result['affinity_steps'] < 1 or result['affinity_samples'] < 1):
+        raise ValueError('Affinity steps and samples must be positive.')
     if result['diffusion_steps'] < 1 or result['recycles'] < 0 or result['msa_depth'] < 0:
         raise ValueError('Diffusion steps must be positive; recycles and MSA depth must be nonnegative.')
     return result

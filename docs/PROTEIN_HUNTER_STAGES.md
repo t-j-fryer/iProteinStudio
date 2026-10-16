@@ -1,5 +1,15 @@
 # Protein Hunter: starting backbones and refinement
 
+Choose a workflow from the tabs at the top of Protein Hunter, using the same
+segmented layout as RFdiffusion3: **De novo design**, **Partial noising**, or
+**Motif scaffolding**. Partial noising exposes a source binder, the sequence regions
+to redesign and their initial X-token percentage. Motif scaffolding exposes the
+source sequence, motif ranges and minimum sequence gaps; it requires Boltz.
+These two modes preserve sequence constraints while coordinates can move.
+Nanobody CDR design stays under De novo design; the region modes accept
+mini-binders or peptides. Source sequence and region settings survive switching
+tabs and reopening saved workspaces.
+
 Protein Hunter can use one method to make its starting backbones and another to
 refine their sequences. Existing workspaces keep the original single-engine
 workflow unless you change **Starting backbones · cycle 00**.
@@ -39,6 +49,43 @@ hotspot or target-template guidance. Later cycles apply only guidance supported
 by the chosen refinement engine. ESMFold2 refinement is unrestrained: no pocket
 restraints, target templates or Boltz affinity head. Original and derived inputs
 are saved separately so this distinction can be inspected.
+
+## Targeting a protein epitope
+
+Enter hotspots once under the protein target, or select them in Target Prep.
+Numbers are **1-based positions in the supplied target sequence**, not arbitrary
+PDB residue numbers. Bare numbers refer to target chain B; use `B32 C55` for
+multiple target chains. RFdiffusion3 maps these positions to the matching source
+structure's chain IDs and residue numbers, including numbering gaps.
+
+| Engine | How the shared hotspots guide a design |
+|---|---|
+| Boltz 2 | 6 Å pocket restraints with steering potentials; nanobody designs also steer the CDR3 centre |
+| Protenix Constraint v0.5 | The trained 8 Å token-centre pocket prior |
+| RFdiffusion3 | Hotspot conditioning during backbone generation |
+| Other refinement engines | No epitope restraint; the predicted interface may move to another site |
+
+**Keep epitope guidance during refinement** is on by default. With RFdiffusion3
+starts, select Boltz 2 or Protenix Constraint to keep targeting the same site in
+cycles 01 onward. Switching the control off keeps cycle-00 targeting but removes
+the shared epitope restraints during subsequent refinement. Other refiners remain
+selectable, with an explicit explanation that they cannot apply the hotspots.
+The initial engine can also be unguided while the refinement engine is guided.
+The screen shows each stage's effective policy, including mixed engine checklists.
+
+These mechanisms are not equivalent distance filters. In particular, the
+Protenix cutoff measures token centres, not nearest heavy atoms. Its initial
+paired validation showed weak pocket steering; do not interpret the prior as
+proof of epitope binding. Independent structure checks remain unrestrained.
+
+CLI and MCP `iterative_plan.arguments` expose the same switch:
+`--refinement-epitope-guidance auto|off`. Omission preserves historical guided
+refinement with supported engines. Hotspots remain in the shared input YAML's
+`nanohunter.target_epitope_residues` list; CLI also accepts
+`--target-epitope-residues B32,B55`. The CLI override reaches both Boltz and
+Protenix Constraint. Separate-stage runs save the original input and derived
+stage templates, and record the refinement choice in the handoff receipt.
+Resume uses the recorded command and inputs; changing guidance is a new run.
 
 ## RFdiffusion3 starts
 

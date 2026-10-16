@@ -212,11 +212,20 @@ def tail_text(path: Path, lines: int = 80, max_bytes: int = 128_000) -> List[str
     return data.decode("utf-8", errors="replace").splitlines()[-max(0, min(lines, 500)) :]
 
 
+from contextvars import ContextVar
+CSV_COMPLETE_SCAN = ContextVar("studio_complete_csv_scan", default=False)
+
+
 def csv_rows(path: Path, limit: int = 200) -> List[Dict[str, str]]:
     if not path.is_file():
         return []
     with path.open(newline="", encoding="utf-8", errors="replace") as handle:
-        return list(row for _, row in zip(range(max(0, min(limit, 1000))), csv.DictReader(handle)))
+        bound = 20001 if CSV_COMPLETE_SCAN.get() else max(0, min(limit, 1000))
+        reader = csv.DictReader(handle)
+        rows = list(row for _, row in zip(range(bound), reader))
+        if CSV_COMPLETE_SCAN.get() and next(reader, None) is not None:
+            raise StudioError("Candidate dataset exceeds the complete-scan limit; select a smaller campaign.")
+        return rows
 
 
 def append_audit(tool: str, arguments: Dict[str, Any], result: Dict[str, Any]) -> None:
@@ -314,9 +323,13 @@ def validate_schema(value: Any, definition: Dict[str, Any], location: str = "arg
     elif isinstance(value, str):
         if "minLength" in definition and len(value) < definition["minLength"]:
             raise StudioError(f"{location} is too short.")
+        if "maxLength" in definition and len(value) > definition["maxLength"]:
+            raise StudioError(f"{location} is too long.")
         if "pattern" in definition and not re.fullmatch(definition["pattern"], value):
             raise StudioError(f"{location} does not match the required format.")
     elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        if isinstance(value, float) and not __import__("math").isfinite(value):
+            raise StudioError(f"{location} must be finite.")
         if "minimum" in definition and value < definition["minimum"]:
             raise StudioError(f"{location} must be at least {definition['minimum']}.")
         if "maximum" in definition and value > definition["maximum"]:

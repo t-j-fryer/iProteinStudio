@@ -213,6 +213,8 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
             "arguments": arguments,
         })
         normalized = plan["normalized_request"]
+        frozen_profiles = json.loads(normalized['arguments'][normalized['arguments'].index('--prediction-settings-json') + 1])
+        self.assertEqual(frozen_profiles['boltz'], dict(msa_depth=128, diffusion_steps=25, recycles=3, affinity_steps=50, affinity_samples=1))
         self.assertIn(str(Path(plan["code_snapshot"]["path"]) / "scripts/secondary_structure_control.py"), [item["path"] for item in plan["provenance"]])
         plans.load_plan(plan["id"], plan["sha256"])
         helper.write_text("# modified helper fixture\n", encoding="utf-8")

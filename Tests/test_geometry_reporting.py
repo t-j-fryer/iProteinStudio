@@ -84,7 +84,7 @@ class GeometryReportingTests(unittest.TestCase):
     def test_iterative_prediction_failure_is_not_masked_by_reporting(self):
         source = (PIPELINE / 'nanohunter_run.sh').read_text()
         function = re.search(r'^run_predictor_once\(\) \{.*?^\}', source, re.M | re.S).group()
-        script = function + '\nBOLTZ_USE_POTENTIALS_DEFAULT=0\nrun_predict_boltz() { return 7; }\nrecord_prediction_geometry() { echo unexpected; }\nrun_predictor_once boltz input seq query output none design'
+        script = function + '\nTARGET_EPITOPE_RESIDUES=""\nREFINEMENT_EPITOPE_GUIDANCE=off\nBOLTZ_USE_POTENTIALS_DEFAULT=0\nrun_predict_boltz() { return 7; }\nrecord_prediction_geometry() { echo unexpected; }\nrun_predictor_once boltz input seq query output none design'
         result = subprocess.run(['bash', '-uc', script], capture_output=True, text=True)
         self.assertEqual(result.returncode, 7)
         self.assertEqual(result.stdout, '')

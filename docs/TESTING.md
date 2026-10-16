@@ -47,6 +47,20 @@ python3 Tests/run.py --suite science --science-python /path/to/test-env/bin/pyth
 python3 Tests/run.py --suite all --science-python /path/to/test-env/bin/python
 ```
 
+Managed engine environments intentionally contain different dependencies. If the
+Boltz environment lacks Biotite, supply the existing Protenix environment for the
+structure-dependent checks instead of installing extra packages into Boltz:
+
+```bash
+python3 Tests/run.py --suite all \
+  --science-python "$HOME/.iproteinstudio/venvs/NanoHunter_boltz/bin/python" \
+  --biotite-python "$HOME/.iproteinstudio/venvs/NanoHunter_protenix/bin/python"
+```
+
+`--biotite-python` only changes the interpreter for the declared Biotite fixtures;
+all other science tests keep `--science-python`. OpenFold resident interruption,
+resume and seed/sample coverage is included in the science suite.
+
 These are fixture checks, not model inference or benchmarks. New hardware runs
 belong under a declared `Validation/` campaign with its required manifest/audit.
 

@@ -18,6 +18,23 @@ class ProfileTests(unittest.TestCase):
         self.environment.start()
         self.addCleanup(self.environment.stop)
 
+    def test_prediction_batch_preserves_explicit_zero_recycles(self):
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('audit_predict_batch',SCRIPTS.parents[1]/'rfd3/predict_batch.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as raw:
+            root=Path(raw);source=root/'input.yaml';source.write_text('version: 1')
+            for cycles in [0, 3, None]:
+                with patch.object(module.subprocess,'Popen') as launch:
+                    _, handle=module.run_directory_batch('boltz',[source],root/str(cycles),root,{},
+                                                         {'recycles':cycles},root/'log')
+                    handle.close()
+                    command=launch.call_args.args[0]
+                    if cycles is None:
+                        self.assertNotIn('--recycling_steps',command)
+                    else:
+                        self.assertEqual(command[command.index('--recycling_steps')+1],str(cycles))
+
     def test_native_exceptions_and_reduced_profiles(self):
         self.assertEqual(profiles.profile('mini'), dict(msa_depth=128, diffusion_steps=5, recycles=4))
         self.assertEqual(profiles.profile('esmfold2-full-mlx'), dict(msa_depth=128, diffusion_steps=50, recycles=3))

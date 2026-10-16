@@ -480,7 +480,7 @@ def _read_lasermpnn_fasta(fasta_path):
 def lasermpnn_design(struct_pdb, out_dir, n_designs, smiles,
                      seq_temp=0.5, fs_temp=0.7, fs_distance=10.0,
                      ala_budget=2, gly_budget=0, constrain_ss=True,
-                     designed="all", device="cpu", seed=0):
+                     designed="all", device="cpu", seed=0, worker_queue=None, worker_owner=None):
     """Design n_designs sequences from a backbone+ligand structure with LASErMPNN.
 
     - seq_temp: general sampling temperature.
@@ -489,18 +489,9 @@ def lasermpnn_design(struct_pdb, out_dir, n_designs, smiles,
     - ala_budget/gly_budget with constrain_ss: cap Ala/Gly at surface residues in
       secondary structure (DSSP H/E), matching the NISE composition constraint.
 
-    `seed` is accepted only so this matches ligandmpnn_design's signature and
-    callers can pass one uniformly. IT HAS NO EFFECT: LASErMPNN's
-    run_batch_inference exposes no seed/RNG argument at all, so its designs are
-    NOT reproducible run-to-run. Do not describe a LASErMPNN NISE campaign as
-    seed-reproducible on the inverse-folding step — only the folding side and the
-    recorded sequences are replayable (via --resume, which reads sequences back
-    from disk rather than re-sampling). Making this reproducible needs an upstream
-    change to LASErMPNN.
-
-    Returns list of (sequence, laser_score) sorted best-first.
+    Uses the qualified post-load RNG reset and optionally an owner-scoped
+    resident CPU model. Returns (sequence, score) pairs sorted best-first.
     """
-    del seed  # documented no-op; see above
     out_dir = Path(out_dir).resolve()
     struct_pdb = str(Path(struct_pdb).resolve())
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -510,7 +501,8 @@ def lasermpnn_design(struct_pdb, out_dir, n_designs, smiles,
     designs_dir = out_dir / "designs"
     designs_dir.mkdir(exist_ok=True)
     cmd = [
-        LASERMPNN_VENV / "bin" / "python", "-m", "LASErMPNN.run_batch_inference",
+        LASERMPNN_VENV / "bin" / "python", PREPARE_HELPER.with_name("run_lasermpnn_seeded.py"),
+        *(["--resident", str(worker_queue), str(worker_owner)] if worker_queue else []), str(seed),
         prepared, designs_dir, str(n_designs),
         "--device", device,
         "--model_weights_path", LASERMPNN_WEIGHTS,

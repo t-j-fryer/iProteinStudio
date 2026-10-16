@@ -92,6 +92,20 @@ def fold_and_score(seq_by_name, smiles, work_dir, args, pocket=None):
     return preds
 
 
+def prepare_stage(items, smiles, args, fold_dir, pocket=None, screen=None):
+    from proposal_pipeline import run
+    def design(item):
+        return design_sequences(args.designer, item['pdb'], item['directory'], len(item['names']),
+            smiles, args, seq_temp=item['seq_temp'], fs_temp=item['fs_temp'],
+            seed=item['seed'], constrain_ss=(args.designer == 'lasermpnn'))
+    backend = args.backend
+    # Per-input Boltz RNG isolates scientific results from request chunking.
+    # NESSO optimisation shortlists are selected across the complete candidate pool.
+    overlap = bool(getattr(backend, 'per_input_rng', False)) and not getattr(backend, 'settings', {}).get('nesso_screen')
+    return run(items, design, lambda seqs: fold_and_score(seqs, smiles, fold_dir, args, pocket),
+               overlap=overlap, screen=screen)
+
+
 def evaluate_candidates(preds, seq_by_name, ref_by_name, args, cycle, ca_thresh, lig_thresh):
     """Turn predictions into self-consistent Nodes."""
     nodes = []
@@ -545,19 +559,20 @@ def main(argv=None, backend=None):
                 seq_by_name = {e["name"]: e["sequence"] for e in imported}
                 ref_by_name = {e["name"]: str(out / e["ref_pdb"]) for e in imported}
                 owner = {e["name"]: e["origin"] for e in imported}
-            for lid, pdb in ([] if cyc == 1 and imported else lineages.items()):
-                seqs = design_sequences(args.designer, pdb, p0dir(cyc, "design", lid),
-                                        args.phase0_seqs1, smiles, args,
-                                        seq_temp=args.phase0_temp, fs_temp=args.phase0_temp,
-                                        seed=args.seed + cyc, constrain_ss=(args.designer == "lasermpnn"))
-                for k, s in enumerate(seqs):
-                    nm = f"{lid}_c{cyc}_{k}"
-                    seq_by_name[nm] = s; ref_by_name[nm] = pdb; owner[nm] = lid
-            if backend is not None and hasattr(backend, "screen_initial"):
-                sampled = len(seq_by_name)
-                seq_by_name = backend.screen_initial(seq_by_name, smiles, p0dir(cyc, "nesso"), owner, "refinement")
-                log(f"  refinement: {len(seq_by_name)}/{sampled} sequences sent to Boltz; atom checks follow folding")
-            preds = fold_and_score(seq_by_name, smiles, p0dir(cyc, "fold"), args, pocket=phase0_pocket)
+            if cyc == 1 and imported:
+                if backend is not None and hasattr(backend, "screen_initial"):
+                    seq_by_name = backend.screen_initial(seq_by_name, smiles, p0dir(cyc, "nesso"), owner, "refinement")
+                preds = fold_and_score(seq_by_name, smiles, p0dir(cyc, "fold"), args, pocket=phase0_pocket)
+            else:
+                items = [dict(pdb=pdb, directory=p0dir(cyc, "design", lid),
+                              names=[f"{lid}_c{cyc}_{k}" for k in range(args.phase0_seqs1)], owner=lid,
+                              seed=args.seed + cyc, seq_temp=args.phase0_temp, fs_temp=args.phase0_temp)
+                         for lid,pdb in lineages.items()]
+                screen = None
+                if getattr(backend, 'settings', {}).get('phase0_nesso_screen'):
+                    screen = lambda seqs, owners: backend.screen_initial(seqs, smiles, p0dir(cyc, "nesso"), owners, "refinement")
+                seq_by_name, ref_by_name, owner, preds = prepare_stage(items, smiles, args,
+                    p0dir(cyc, "fold"), pocket=phase0_pocket, screen=screen)
             nodes = evaluate_candidates(preds, seq_by_name, ref_by_name, args, cyc, 1e9, 1e9)  # no gate
             nodes = select_scores(nodes, preds, args, p0dir(cyc, "fold"), owner,
                                   minimum=(backend.objective["early_gate"] if getattr(backend, "settings", {}).get("scoring_mode") == "screening"
@@ -580,15 +595,11 @@ def main(argv=None, backend=None):
         log(f"Phase 0 cycle{gate_cyc:02d} (gate): {args.phase0_gate_seqs} seqs/lineage, fold (pocket=off), "
             f"keep Cα-SC < {args.phase0_sc_ca} Å vs prior structure")
         seq_by_name, ref_by_name, owner = {}, {}, {}
-        for lid, pdb in lineages.items():
-            seqs = design_sequences(args.designer, pdb, p0dir(gate_cyc, "design", lid),
-                                    args.phase0_gate_seqs, smiles, args,
-                                    seq_temp=args.phase0_temp, fs_temp=args.phase0_temp,
-                                    seed=args.seed + gate_cyc, constrain_ss=(args.designer == "lasermpnn"))
-            for k, s in enumerate(seqs):
-                nm = f"{lid}_c{gate_cyc}_{k}"
-                seq_by_name[nm] = s; ref_by_name[nm] = pdb; owner[nm] = lid
-        preds = fold_and_score(seq_by_name, smiles, p0dir(gate_cyc, "fold"), args, pocket=None)
+        items = [dict(pdb=pdb, directory=p0dir(gate_cyc, "design", lid),
+                      names=[f"{lid}_c{gate_cyc}_{k}" for k in range(args.phase0_gate_seqs)], owner=lid,
+                      seed=args.seed + gate_cyc, seq_temp=args.phase0_temp, fs_temp=args.phase0_temp)
+                 for lid,pdb in lineages.items()]
+        seq_by_name, ref_by_name, owner, preds = prepare_stage(items, smiles, args, p0dir(gate_cyc, "fold"))
         survivors = evaluate_candidates(preds, seq_by_name, ref_by_name, args, gate_cyc, args.phase0_sc_ca, 1e9)
         survivors = select_scores(survivors, preds, args, p0dir(gate_cyc, "fold"), owner, geometry_only=True)
         for n in survivors:
@@ -605,19 +616,14 @@ def main(argv=None, backend=None):
         log(f"Phase 0 cycle{exp_cyc:02d} (expand): {args.phase0_seqs2} seqs/survivor, fold, "
             f"rank -> top {args.trajectories} seeds (max 1/lineage)")
         seq_by_name, ref_by_name, owner = {}, {}, {}
-        for i, sv in enumerate(survivors):
-            seqs = design_sequences(args.designer, sv.pdb, p0dir(exp_cyc, "design", sv.name),
-                                    args.phase0_seqs2, smiles, args,
-                                    seq_temp=args.phase0_temp, fs_temp=args.phase0_temp,
-                                    seed=args.seed + exp_cyc + i, constrain_ss=(args.designer == "lasermpnn"))
-            for k, s in enumerate(seqs):
-                nm = f"{sv.name}_e{k}"
-                seq_by_name[nm] = s; ref_by_name[nm] = sv.pdb; owner[nm] = sv.origin
-        if backend is not None and hasattr(backend, "screen_initial"):
-            sampled = len(seq_by_name)
-            seq_by_name = backend.screen_initial(seq_by_name, smiles, p0dir(exp_cyc, "nesso"), owner, "expansion")
-            log(f"  expansion: {len(seq_by_name)}/{sampled} sequences sent to Boltz; original-lineage identity retained")
-        preds = fold_and_score(seq_by_name, smiles, p0dir(exp_cyc, "fold"), args, pocket=None)
+        items = [dict(pdb=sv.pdb, directory=p0dir(exp_cyc, "design", sv.name),
+                      names=[f"{sv.name}_e{k}" for k in range(args.phase0_seqs2)], owner=sv.origin,
+                      seed=args.seed + exp_cyc + i, seq_temp=args.phase0_temp, fs_temp=args.phase0_temp)
+                 for i,sv in enumerate(survivors)]
+        screen = None
+        if getattr(backend, 'settings', {}).get('phase0_nesso_screen'):
+            screen = lambda seqs, owners: backend.screen_initial(seqs, smiles, p0dir(exp_cyc, "nesso"), owners, "expansion")
+        seq_by_name, ref_by_name, owner, preds = prepare_stage(items, smiles, args, p0dir(exp_cyc, "fold"), screen=screen)
         ranked = evaluate_candidates(preds, seq_by_name, ref_by_name, args, exp_cyc, 1e9, 1e9)  # rank only
         ranked = select_scores(ranked, preds, args, p0dir(exp_cyc, "fold"), owner,
                                total_groups=args.trajectories)
@@ -681,21 +687,15 @@ def main(argv=None, backend=None):
                            if noising_active else t["current"])
                 for t in pending}
             parents = {tid: [asdict(n) for n in nodes] for tid, nodes in sampling_parents.items()}
+            items = []
             for t in pending:
                 for j, node in enumerate(sampling_parents[t["tid"]]):
-                    seqs = design_sequences(args.designer, node.pdb,
-                        round_dir / "design" / f"T{t['tid']}_n{j}",
-                        level - previous_level, smiles, args,
-                        seed=(args.seed + cycle * 1000000 + t["tid"] * 10000 + j * 100 + previous_level
+                    items.append(dict(pdb=node.pdb, directory=round_dir / "design" / f"T{t['tid']}_n{j}",
+                        names=[f"c{cycle:02d}_t{t['tid']}_n{j}_s{k}" for k in range(previous_level, level)],
+                        owner=t["tid"], seed=(args.seed + cycle * 1000000 + t["tid"] * 10000 + j * 100 + previous_level
                               if args.adaptive_proposals else args.seed + cycle * 1000 + t["tid"] * 10 + j),
-                        constrain_ss=(args.designer == "lasermpnn"),
-                        seq_temp=args.seq_temp, fs_temp=args.bindingsite_temp)
-                    for k, sequence in enumerate(seqs, start=previous_level):
-                        name = f"c{cycle:02d}_t{t['tid']}_n{j}_s{k}"
-                        seq_by_name[name] = sequence
-                        ref_by_name[name] = node.pdb
-                        owner[name] = t["tid"]
-            preds = fold_and_score(seq_by_name, smiles, fold_dir, args)
+                        seq_temp=args.seq_temp, fs_temp=args.bindingsite_temp))
+            seq_by_name, ref_by_name, owner, preds = prepare_stage(items, smiles, args, fold_dir)
             cands = evaluate_candidates(preds, seq_by_name, ref_by_name, args, cycle,
                                         args.nise_sc_ca, lig_thresh)
             cands = select_scores(cands, preds, args, fold_dir, owner, per_group=normal_places,

@@ -464,12 +464,13 @@ while not (out/'release').exists(): time.sleep(.05)
         checker.write_text("from pathlib import Path\nassert Path('pipeline-snapshot/completed-design.txt').is_file()\nPath('screened.txt').write_text('after design')\n")
         args = ["--out-root", str(output.parent), "--run-name", output.name]
         options = dict(enabled=True, topK=3, predictor="boltz", intellifoldModel="v2-flash")
+        profiles = {"boltz": {"diffusion_steps": 80, "recycles": 4}}
         common.atomic_json(output / "studio_run.json", {"pipelineSnapshot": str(snapshot), "arguments": args,
-            "request": {"targetKind": "ligand", "targetSmiles": "CCO", "nesso": options}})
+            "request": {"targetKind": "ligand", "targetSmiles": "CCO", "nesso": options, "prediction_settings": profiles}})
         step = {"command": [sys.executable, str(checker)], "cwd": str(output), "stage": "nesso-verification"}
         with patch("iprotein_mcp.ligand_screening.prepare", return_value=(step, [checker])) as prepare:
             plan = desktop_plan({"project": "demo", "workflow": "iterative", "output": str(output)})
-            prepare.assert_called_once_with(self.root, output, "iterative", options, "CCO")
+            prepare.assert_called_once_with(self.root, output, "iterative", options, "CCO", prediction_settings=profiles)
         self.assertEqual([s["stage"] for s in plan["normalized_request"]["steps"]], ["iterative-design", "nesso-verification"])
         self.assertIn(str(checker), [p["path"] for p in plan["provenance"]])
         job = broker.start_job(plan["id"], plan["sha256"]); self.jobs.append(job["id"])

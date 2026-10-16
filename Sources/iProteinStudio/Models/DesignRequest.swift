@@ -338,6 +338,8 @@ struct DesignRequest: Codable, Equatable, Hashable {
     var targetTemplateThreshold: Double = 2.0
     /// Optional epitope residues on a protein target, e.g. "B55 B57" (or "55 57").
     var epitopeResidues: String = ""
+    /// Keep shared target hotspots active during supported refinement stages.
+    var refinementEpitopeGuidance: Bool = true
 
     // --- Small-molecule targeting ---
     /// Ligand atoms the binder should form a pocket around, in Boltz's own
@@ -577,7 +579,27 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Both Boltz and the dedicated Protenix Constraint checkpoint can guide a
     /// design toward selected target residues, albeit with different trained
     /// restraint mechanisms.
-    var supportsEpitopePocket: Bool { initializationMethod == "rfd3" || targetingPredictor.supportsEpitopePocket }
+    var supportsEpitopePocket: Bool {
+        initializationMethod == "rfd3" || targetingPredictor.supportsEpitopePocket
+            || selectedDesignPredictors.contains { $0.supportsEpitopePocket }
+    }
+
+    var initialEpitopeGuidanceDescription: String {
+        if initializationMethod == "rfd3" { return "Cycle 00: RFdiffusion3 applies the selected residues as hotspots." }
+        if hasSeparateInitialization {
+            return startingEngine.supportsEpitopePocket
+                ? "Cycle 00: \(startingEngine.label) applies epitope guidance."
+                : "Cycle 00: \(startingEngine.label) generates without epitope guidance."
+        }
+        return "Cycle 00: Boltz 2 and Protenix Constraint apply the selected hotspots; other engines generate without epitope guidance."
+    }
+
+    func refinementEpitopeGuidanceDescription(_ engine: DesignEngine) -> String {
+        if !refinementEpitopeGuidance { return "\(engine.label): epitope guidance switched off for cycles 01 onward." }
+        return engine.supportsEpitopePocket
+            ? "\(engine.label): keeps epitope guidance throughout refinement."
+            : "\(engine.label): no epitope guidance during refinement; the binder may move to another site."
+    }
 
     /// Canonical post-check list: checks never use steering potentials, never
     /// repeat the design engine, and never run one backend twice.
@@ -602,8 +624,19 @@ struct DesignRequest: Codable, Equatable, Hashable {
     }
 
     var epitopeTokenResult: (tokens: [String], invalid: [String]) {
-        TemplateWriter.residueTokenResult(epitopeResidues,
-                                          allowedTargetChains: targetChainIDs)
+        var result = TemplateWriter.residueTokenResult(epitopeResidues,
+                                                      allowedTargetChains: targetChainIDs)
+        guard case .success(let chains) = targetChainResult else { return result }
+        let lengths = Dictionary(uniqueKeysWithValues: chains.map { ($0.id, $0.sequence.count) })
+        result.tokens = result.tokens.filter { token in
+            guard let position = Int(token.dropFirst()), position > 0,
+                  let length = lengths[String(token.prefix(1))], position <= length else {
+                result.invalid.append(token)
+                return false
+            }
+            return true
+        }
+        return result
     }
 
     var hasEnteredEpitopeResidues: Bool {
@@ -863,7 +896,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         case designType, scaffoldID, scaffoldSequence, scaffoldSelections, equalScaffoldBudgets, trajectoriesPerScaffold, cdrs, binderMinLen, binderMaxLen, helixKill
         case secondaryStructureBias, secondaryStructureBiasScope
         case betaBiasStrength, betaPatternStrength, turnLocalizationStrength
-        case targetKind, targetName, targetSequence, targetSmiles, epitopeResidues
+        case targetKind, targetName, targetSequence, targetSmiles, epitopeResidues, refinementEpitopeGuidance
         case targetTemplatePath, targetTemplateMode, targetTemplateThreshold
         case designer, numDesigns, numCycles, hitThreshold, parallelMode, manualParallel
         case designPredictor, designPredictors, designEngines, postPredictors, intellifoldModel, postOnlyHits, postCheckScope
@@ -906,6 +939,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         targetSequence  = try c.decodeIfPresent(String.self, forKey: .targetSequence) ?? d.targetSequence
         targetSmiles    = try c.decodeIfPresent(String.self, forKey: .targetSmiles) ?? d.targetSmiles
         epitopeResidues = try c.decodeIfPresent(String.self, forKey: .epitopeResidues) ?? d.epitopeResidues
+        refinementEpitopeGuidance = try c.decodeIfPresent(Bool.self, forKey: .refinementEpitopeGuidance) ?? true
         targetTemplatePath = try c.decodeIfPresent(String.self, forKey: .targetTemplatePath) ?? d.targetTemplatePath
         targetTemplateMode = try c.decodeIfPresent(TargetTemplateMode.self, forKey: .targetTemplateMode) ?? d.targetTemplateMode
         targetTemplateThreshold = try c.decodeIfPresent(Double.self, forKey: .targetTemplateThreshold) ?? d.targetTemplateThreshold

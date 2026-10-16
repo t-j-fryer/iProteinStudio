@@ -50,6 +50,20 @@ struct PredictionSettingsView: View {
                                 EditableIntStepper(value: binding(engine, "recycles"), in: 0...1_000,
                                                    accessibilityLabel: "\(engine) recycles or loops")
                             }
+                            if engine == "boltz" {
+                                GridRow {
+                                    Text("Affinity diffusion steps")
+                                    EditableIntStepper(value: binding(engine, "affinity_steps"), in: 1...10_000,
+                                                       accessibilityLabel: "Boltz affinity steps")
+                                }
+                                GridRow {
+                                    Text("Affinity samples")
+                                    EditableIntStepper(value: binding(engine, "affinity_samples"), in: 1...128,
+                                                       accessibilityLabel: "Boltz affinity samples")
+                                }
+                                Text("Affinity uses 50 steps / 1 sample by default; 200 / 5 restores the upstream budget. Five affinity recycles and both prediction heads are unchanged. Reduced sampling was checked on 48 biotin designs and can change borderline rankings.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }

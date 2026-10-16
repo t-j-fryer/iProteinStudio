@@ -10,6 +10,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FAST_PYTHON = [
+    "test_geometry_reporting.py", "test_output_reporting.py", "test_ligand_efficiency.py",
     "test_plan_reuse.py", "test_process_tree.py",
     "test_engine_progress.py", "test_job_recovery.py", "test_mcp_bundle_readonly.py", "test_engine_environment.py",
     "test_gpu_storage.py", "test_code_snapshot.py", "test_runtime_bindings.py",
@@ -40,9 +41,9 @@ FAST_SHELL = [
     "test_process_runner_cancellation.sh", "test_workspace_organization.sh", "test_pipeline_snapshot.sh",
 ]
 SCIENCE = [
-    "test_hunter_stages.py",
+    "test_hunter_stages.py", "test_hunter_epitope_guidance.py",
     "test_live_iterative_results.py",
-    "test_resident_prediction_resume.py", "test_prediction_profiles.py", "test_esmfold2_adapter.py",
+    "test_resident_prediction_resume.py", "test_openfold_resident.py", "test_prediction_profiles.py", "test_esmfold2_adapter.py",
     "test_rfd3_audit_regressions.py",
     "test_prediction_templates.py", "test_ligand_screening.py",
     "test_nise_cohort_transfer.py", "test_nise_objective.py", "test_nise_pool.py",
@@ -54,10 +55,20 @@ SCIENCE = [
 ]
 
 
+# Managed engines intentionally have different dependencies. Tests needing
+# Biotite can use the existing Protenix environment without modifying Boltz.
+BIOTITE_TESTS = {
+    "test_rfd3_audit_regressions.py", "test_prediction_templates.py",
+    "test_monomer_initialization_pipeline.py", "test_rfd3_motif_scoring.py",
+    "test_rfd3_worked_examples.py", "test_rfd3_surface_origins.py",
+}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--suite", choices=["fast", "science", "all"], default="fast")
     parser.add_argument("--science-python", type=Path)
+    parser.add_argument("--biotite-python", type=Path, help="Optional existing Python for Biotite-dependent CPU tests; installs nothing")
     parser.add_argument("--scratch-path", type=Path, default=ROOT / ".build")
     parser.add_argument("--list", action="store_true")
     args = parser.parse_args()
@@ -70,7 +81,7 @@ def main():
         commands += [["swift", "test", "--scratch-path", str(args.scratch_path)]]
         commands += [[sys.executable, "Tests/run_swift_contracts.py"]]
     if args.suite in {"science", "all"}:
-        commands += [[str(args.science_python), "Tests/" + name] for name in SCIENCE]
+        commands += [[str(args.biotite_python if args.biotite_python and name in BIOTITE_TESTS else args.science_python), "Tests/" + name] for name in SCIENCE]
     if args.list:
         print(json.dumps(commands, indent=2)); return 0
     environment = dict(os.environ)

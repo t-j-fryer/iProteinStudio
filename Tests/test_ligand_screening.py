@@ -2,6 +2,7 @@
 import csv
 from contextlib import ExitStack
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -61,6 +62,7 @@ class ScreeningTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
     def predict(self, command, **kwargs):
+        self.prediction_env = kwargs.get("env", {})
         inputs = Path(command[command.index('--inputs')+1])
         output = Path(command[command.index('--output')+1])
         predictor = command[command.index('--predictors')+1]
@@ -97,6 +99,20 @@ class ScreeningTests(unittest.TestCase):
         report = list(csv.DictReader((self.output / 'nesso_screening.csv').open()))
         self.assertEqual(report[2]['eligible'], 'False')
         self.assertEqual(report[2]['selected'], 'False')
+    def test_verification_uses_frozen_profile_and_rejects_resume_drift(self):
+        self.cfg['prediction_settings'] = {'intellifold-full': {'diffusion_steps': 80, 'recycles': 6}}
+        atomic(self.config, self.cfg)
+        outer = '{"intellifold-full":{"diffusion_steps":200}}'
+        with patch.dict(os.environ, {'IPROTEINSTUDIO_PREDICTION_SETTINGS': outer}):
+            self.run_screen()
+            self.assertEqual(os.environ['IPROTEINSTUDIO_PREDICTION_SETTINGS'], outer)
+        settings=json.loads(self.prediction_env['IPROTEINSTUDIO_PREDICTION_SETTINGS'])
+        self.assertEqual(settings['intellifold-full'], dict(diffusion_steps=80,recycles=6,msa_depth=128))
+        self.cfg['prediction_settings']['intellifold-full']['diffusion_steps']=25
+        atomic(self.config,self.cfg)
+        with self.assertRaisesRegex(RuntimeError,'changed'):
+            self.run_screen()
+
     def test_completed_resume_does_no_inference_and_audits_artifacts(self):
         first = self.run_screen(); self.assertEqual(self.run_screen(), first)
         self.assertEqual(Client.calls, 3); self.assertEqual(len(self.fold_calls), 1)
@@ -205,6 +221,16 @@ class PreflightTests(unittest.TestCase):
                 first, assets = prepare(root,out,'iterative',opts,'CCO',detected=engines)
                 self.assertEqual(first['stage'], 'nesso-verification')
                 self.assertTrue(any(p.name=='config.json' for p in assets))
+                detached = root/'prepared-verification'
+                detached_output = root/'future-campaign'
+                step, detached_assets = prepare(root,detached_output,'iterative',opts,'CCO',detected=engines,preparation_root=detached, prediction_settings={'intellifold-full': {'diffusion_steps': 80}})
+                self.assertFalse(detached_output.exists())
+                detached_config = json.loads((detached/'config.json').read_text())
+                self.assertEqual(detached_config['prediction_settings']['intellifold-full']['diffusion_steps'],80)
+                self.assertEqual(detached_config['prediction_settings']['boltz']['diffusion_steps'],25)
+                self.assertEqual(detached_config['output'],str(detached_output/'nesso_verification'))
+                self.assertEqual(detached_config['source'],str(detached_output/'summary_all_runs.csv'))
+                self.assertTrue(Path(step['command'][3]).is_file())
                 # Python bytecode created during a run cannot invalidate a snapshot.
                 cache=out/'nesso_verification/runtime/scripts/nise/__pycache__';cache.mkdir(exist_ok=True)
                 (cache/'test.pyc').write_bytes(b'generated')
@@ -222,7 +248,7 @@ class PreflightTests(unittest.TestCase):
             root=Path(raw).resolve(); cfg=root/'campaign.json'
             design=root/'design.yaml';design.write_text('fixture')
             smiles=root/'ligand.smi';smiles.write_text('CCO')
-            atomic(cfg, dict(campaign_dir=str(root),design_yaml=str(design),smiles_file=str(smiles),nesso=dict(enabled=True)))
+            atomic(cfg, dict(nanohunter_root=str(SCRIPTS.parent),campaign_dir=str(root),design_yaml=str(design),smiles_file=str(smiles),nesso=dict(enabled=True)))
             atomic(root/'campaign_progress.json',dict(completed_stages=['validate','fixtures','backbones','mpnn','nesso']))
             with ExitStack() as stack:
                 stack.enter_context(patch.object(sys,'argv',['runner','--config',str(cfg),'--resume']))

@@ -315,6 +315,16 @@
                   "minimum": 0,
                   "maximum": 1000,
                   "default": 3
+                },
+                "affinity_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000
+                },
+                "affinity_samples": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 128
                 }
               }
             },
@@ -512,6 +522,49 @@
             }
           },
           "description": "Per-engine scientific overrides. Defaults: MSA 128 and 25 diffusion steps; Mini 5/4, ESMFold2 Full 50/3, Fast sequence-only 50/3. Depth 0 preserves the supplied alignment. Existing saved jobs retain their frozen settings."
+        },
+        "nesso": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "topK",
+            "predictor"
+          ],
+          "properties": {
+            "enabled": {
+              "const": true,
+              "type": "boolean"
+            },
+            "engine": {
+              "enum": [
+                "nesso",
+                "psichic"
+              ]
+            },
+            "topK": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            },
+            "predictor": {
+              "enum": [
+                "boltz",
+                "intellifold",
+                "protenix_v2",
+                "protenix_mini",
+                "openfold3",
+                "esmfold2_full",
+                "esmfold2_fast"
+              ]
+            },
+            "intellifoldModel": {
+              "enum": [
+                "v2-flash",
+                "v2"
+              ]
+            }
+          }
         }
       }
     }

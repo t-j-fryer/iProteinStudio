@@ -1,0 +1,184 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project",
+    "common",
+    "engines",
+    "trajectories_per_engine"
+  ],
+  "properties": {
+    "project": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"
+    },
+    "run_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"
+    },
+    "common": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arguments"
+      ],
+      "properties": {
+        "template_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "monomer_control_benchmark": {
+          "type": "boolean",
+          "default": false,
+          "description": "Validate an unconditioned monomer and use the same recorded per-run scheduler across controls."
+        },
+        "target_template_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_template_mode": {
+          "type": "string",
+          "enum": [
+            "guide"
+          ],
+          "default": "guide"
+        },
+        "arguments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 120,
+          "description": "Runner arguments. Pin predictor seed and samples with --predictor-seed and --predictor-samples. The only secondary-structure control is --negative-helix-constant: finite 0..1 strength, applied only during initialization; 0 disables it. Beta, mixed, sustained bias, loop-kill and inspection flags are rejected.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "environment_overrides": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "LASERMPNN_SEQ_TEMP": {
+              "type": "string"
+            },
+            "LASERMPNN_FS_TEMP": {
+              "type": "string"
+            }
+          }
+        },
+        "ligand_verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "topK",
+            "predictor"
+          ],
+          "properties": {
+            "enabled": {
+              "const": true,
+              "type": "boolean"
+            },
+            "engine": {
+              "enum": [
+                "nesso",
+                "psichic"
+              ]
+            },
+            "topK": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            },
+            "predictor": {
+              "enum": [
+                "boltz",
+                "intellifold",
+                "protenix_v2",
+                "protenix_mini",
+                "openfold3",
+                "esmfold2_full",
+                "esmfold2_fast"
+              ]
+            },
+            "intellifoldModel": {
+              "enum": [
+                "v2-flash",
+                "v2"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "engines": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "predictor"
+        ],
+        "properties": {
+          "predictor": {
+            "enum": [
+              "boltz",
+              "intellifold",
+              "protenix-v2",
+              "protenix-mini",
+              "openfold-3-mlx",
+              "esmfold2-fast-mlx",
+              "esmfold2-full-mlx"
+            ]
+          },
+          "model": {
+            "enum": [
+              "v2-flash",
+              "v2"
+            ]
+          }
+        }
+      }
+    },
+    "trajectories_per_engine": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "scaffolds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "template_path",
+          "trajectories",
+          "cdr_ranges"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,60}$"
+          },
+          "template_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "trajectories": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "cdr_ranges": {
+            "type": "string",
+            "pattern": "CDR1:[1-9][0-9]*-[1-9][0-9]*,CDR2:[1-9][0-9]*-[1-9][0-9]*,CDR3:[1-9][0-9]*-[1-9][0-9]*",
+            "description": "Exact 1-based sequence positions for this scaffold, as resolved by the native CDR mapping; no shared framework guess."
+          }
+        }
+      }
+    }
+  }
+}

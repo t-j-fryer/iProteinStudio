@@ -38,6 +38,9 @@ enum CommandBuilder {
             "--iptm-threshold", String(format: "%.2f", request.hitThreshold),
         ]
 
+        if request.targetKind == .protein {
+            args += ["--refinement-epitope-guidance", request.refinementEpitopeGuidance ? "auto" : "off"]
+        }
         if request.hasSeparateInitialization {
             args += ["--initialization-method", request.initializationMethod!]
             if request.initializationMethod == "hallucination" {

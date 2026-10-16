@@ -34,6 +34,25 @@ def proteins(data):
     return result
 
 
+def rfd3_hotspots(sites, targets, selected, chains):
+    """Map the shared 1-based target-sequence positions to source PDB numbering."""
+    import re
+    conditions = {}
+    for token in re.split(r'[,;\s]+', sites):
+        if not token:
+            continue
+        match = re.fullmatch(r'([B-Z])(?::)?([1-9][0-9]*)', token.upper())
+        if not match or match[1] not in targets:
+            raise ValueError('Hotspots require target-chain positions, e.g. B45 or B:45.')
+        source = selected[list(targets).index(match[1])]
+        positions = list(chains[source])
+        index = int(match[2]) - 1
+        if not 0 <= index < len(positions):
+            raise ValueError('Hotspot is outside target sequence.')
+        conditions[source + str(positions[index])] = ['hotspot']
+    return conditions
+
+
 def generate(spec, work, prepare_only=False):
     args = spec['arguments']; data = template(spec)
     root = Path(os.environ['NANOHUNTER_ROOT']); code = Path(os.environ.get('IPROTEINSTUDIO_PIPELINE_SNAPSHOT', Path(__file__).parents[1]))
@@ -80,17 +99,9 @@ def generate(spec, work, prepare_only=False):
             raise ValueError('RFdiffusion3 starts require target chains B, C, … in sequence order; binder is A.')
         req.update(target_kind='protein', target_structure=target, target_chains=selected,
                    target_chain=','.join(selected), target_sequence=':'.join(targets.values()),binding_site_mode='surface_scan')
-        sites=value(args,'--target-epitope-residues',' '.join(data.get('nanohunter',{}).get('target_epitope_residues',[])))
+        sites=value(args,'--target-epitope-residues', value(args, '--epitope-residues', ' '.join(data.get('nanohunter',{}).get('target_epitope_residues',[]))))
         if sites:
-            import re
-            for token in re.split(r'[,;\s]+',sites):
-                if not token:continue
-                m=re.fullmatch(r'([B-Z])(\d+)',token)
-                if not m or m[1] not in targets:raise ValueError('RFdiffusion3 hotspots require chain-qualified residue positions, e.g. B45.')
-                source=selected[list(targets).index(m[1])]; positions=list(chains[source])
-                index=int(m[2])-1
-                if not 0<=index<len(positions):raise ValueError('Hotspot is outside target sequence.')
-                req['conditions'][source+str(positions[index])]=['hotspot']
+            req['conditions'].update(rfd3_hotspots(sites, targets, selected, chains))
             req['binding_site_mode']='targeted_epitope'
     elif len(ligands)==1 and ligands[0].get('smiles'):
         affinity = any('affinity' in p for p in data.get('properties', []))
@@ -194,18 +205,25 @@ def handoff(spec, source, output):
     atomic(output/'initialization.json',dict(schema=1,status='complete',method=spec['method'],
            initial_engine=spec['initial_engine'],refinement_engine=spec['refinement_engine'],
            trajectories=count,files=files,completed_epoch=time.time(),cycle00_is_design=False,
-           guidance_scope='Starting engine uses supported guidance; refinement applies only its supported guidance. ESMFold2 refinement is unrestrained.'))
+           guidance_scope='Shared target hotspots apply only to supported stages; independent checks are unrestrained.',
+           refinement_epitope_guidance=value(spec['arguments'], '--refinement-epitope-guidance', 'auto'),
+           refinement_supports_epitope=spec['refinement_engine'] in {'boltz', 'protenix-constraint-v0.5'}))
 
 
-def refinement_template(spec, destination):
+def refinement_template(spec, destination, initial=False):
     data = template(spec)
-    engine = spec['refinement_engine']
+    engine = spec['initial_engine'] if initial else spec['refinement_engine']
+    for alias in ['nano_hunter', 'NanoHunter']:
+        if alias in data:
+            if 'nanohunter' in data: raise ValueError('Ambiguous epitope metadata blocks.')
+            data['nanohunter'] = data.pop(alias)
+    guidance = initial or value(spec['arguments'], '--refinement-epitope-guidance', 'auto') != 'off'
     ligand_manifest = destination.parent / '_initialization/rfd3/ligand_manifest.json'
     if spec['method'] == 'rfd3' and ligand_manifest.is_file():
         for entry in data['sequences']:
             if 'ligand' in entry:
                 entry['ligand']['smiles'] = json.loads(ligand_manifest.read_text())['smiles_used']
-    if engine not in {'boltz', 'protenix-constraint-v0.5'}:
+    if not guidance or engine not in {'boltz', 'protenix-constraint-v0.5'}:
         for name in ['target_epitope_residues', 'epitope_residues']:
             data.get('nanohunter', {}).pop(name, None)
     if engine != 'boltz':
@@ -231,5 +249,6 @@ if __name__=='__main__':
     mode,spec_path,source=sys.argv[1:];spec=json.loads(Path(spec_path).read_text())
     if mode in {'rfd3','prepare'}:generate(spec,Path(source),prepare_only=mode=='prepare')
     elif mode=='refinement-template':refinement_template(spec,Path(source))
+    elif mode=='initial-template':refinement_template(spec,Path(source),initial=True)
     elif mode=='handoff':handoff(spec,Path(source),Path(spec_path).parent)
     else:raise ValueError('Unknown initialization operation')

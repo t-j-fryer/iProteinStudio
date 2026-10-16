@@ -40,11 +40,15 @@ struct DesignFormView: View {
             ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                modePicker
                 SetupExperiencePicker(selection: $setupExperience)
-                ExamplesBar { example in
-                    var r = request.wrappedValue
-                    r.apply(example)
-                    request.wrappedValue = r
+                if !request.wrappedValue.usesNativeRegions {
+                    ExamplesBar { example in
+                        var r = request.wrappedValue
+                        r.apply(example)
+                        r.nativeBinderMode = "deNovo"
+                        request.wrappedValue = r
+                    }
                 }
 
                 Card(title: "Design type", systemImage: "square.on.square") {
@@ -52,17 +56,19 @@ struct DesignFormView: View {
                         get: { type },
                         set: { nv in
                             var r = request.wrappedValue
+                            if !r.usesNativeRegions { r.nativeBinderMode = "deNovo" }
                             r.designType = nv
                             r.applyTypeDefaults()
                             request.wrappedValue = r
                         }
                     )) {
-                        ForEach(DesignType.allCases) { Text($0.label).tag($0) }
+                        ForEach(DesignType.allCases.filter { !request.wrappedValue.usesNativeRegions || $0 != .nanobody }) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented).labelsHidden()
                     .accessibilityLabel("Design type")
-                    Text(type.blurb).font(.caption).foregroundStyle(.secondary)
-                    if type != .nanobody { NativeHunterRegionControls(request: request) }
+                    if !request.wrappedValue.usesNativeRegions {
+                        Text(type.blurb).font(.caption).foregroundStyle(.secondary)
+                    }
                 }
 
                 Color.clear.frame(height: 0).id("target")
@@ -134,29 +140,23 @@ struct DesignFormView: View {
                                 }
                         }
                         if request.wrappedValue.hasInvalidEpitopeResidues {
-                            Label("Use residue numbers such as 32 55, or target-chain residues such as B32 C55.",
+                            Label("Use 1-based positions within the supplied target sequences, such as B32 C55.",
                                   systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption).foregroundStyle(.orange)
-                        } else if request.wrappedValue.hasSeparateInitialization && request.wrappedValue.hasEpitopeSteering {
-                            Text(request.wrappedValue.initializationMethod == "rfd3"
-                                 ? "RFdiffusion3 uses these hotspots to guide the cycle-00 backbones. Later refinement applies them only if its engine supports epitope guidance."
-                                 : "\(request.wrappedValue.startingEngine.label) applies its supported epitope guidance to cycle 00. Later refinement applies these hotspots only if its engine supports them.")
+                        }
+                        if request.wrappedValue.hasEnteredEpitopeResidues {
+                            Text(request.wrappedValue.initialEpitopeGuidanceDescription)
                                 .font(.caption).foregroundStyle(.secondary)
-                        } else if request.wrappedValue.selectedDesignPredictors.count > 1 {
-                            Text("Epitope guidance depends on each selected engine; see Prediction & checking below.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        } else if request.wrappedValue.hasEpitopeSteering {
-                            Label(request.wrappedValue.designPredictor == .protenixConstraint
-                                  ? "Protenix Constraint will condition the proposal on its trained 8 Å token-centre pocket prior (the upstream and validated default). This is not a heavy-atom contact; the initial paired test found weak pocket steering, so it does not prove that the binder reached this epitope or that it binds."
-                                  : (type == .nanobody
-                                     ? "Boltz will steer the binder pocket and the centre of CDR3 toward these target residues."
-                                     : "Boltz will steer the binder pocket toward these target residues."),
-                                  systemImage: "scope")
-                                .font(.caption).foregroundStyle(.secondary)
-                        } else if request.wrappedValue.hasEnteredEpitopeResidues {
-                            Label("Hotspots are saved but are not applied by \(request.wrappedValue.designPredictor.label). Choose Boltz or Protenix Constraint v0.5 to enable epitope guidance.",
-                                  systemImage: "info.circle")
-                                .font(.caption).foregroundStyle(.secondary)
+                            Toggle("Keep epitope guidance during refinement", isOn: request.refinementEpitopeGuidance)
+                                .help("Cycles 01 onward: Boltz 2 or Protenix Constraint can keep targeting the same residues, including after RFdiffusion3 starts. Other refiners remain available but cannot enforce these hotspots.")
+                            ForEach(request.wrappedValue.selectedDesignEngines) { engine in
+                                Label(request.wrappedValue.refinementEpitopeGuidanceDescription(engine),
+                                      systemImage: request.wrappedValue.refinementEpitopeGuidance && engine.supportsEpitopePocket ? "scope" : "info.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(request.wrappedValue.refinementEpitopeGuidance && !engine.supportsEpitopePocket ? Color.orange : Color.secondary)
+                            }
+                            Text("The same residue selection uses different mechanisms: Boltz uses a 6 Å pocket restraint with steering potentials (plus a CDR3-centre contact for nanobodies); Protenix Constraint uses its trained 8 Å token-centre pocket prior; RFdiffusion3 uses hotspot conditioning. These guide proposals; they do not guarantee epitope binding. Independent checks are unrestrained.")
+                                .font(.caption2).foregroundStyle(.secondary)
                         }
                         Button { showTargetPrep = true } label: {
                             Label("Prepare target — predict & pick hotspots", systemImage: "scope")
@@ -190,6 +190,13 @@ struct DesignFormView: View {
                 }
 
                 Color.clear.frame(height: 0).id("binder")
+                if request.wrappedValue.usesNativeRegions {
+                    Card(title: request.wrappedValue.nativeBinderMode == "partialRedesign"
+                         ? "2 · Starting binder & regions to noise" : "2 · Source binder & sequence motifs",
+                         systemImage: "textformat.abc") {
+                        NativeHunterRegionControls(request: request)
+                    }
+                }
                 if type.usesScaffold {
                     Card(title: "2 · Nanobody scaffolds & budget", systemImage: "cube") {
                         Text("Select the VHH frameworks to explore. CDR loops are redesigned within each selected framework.")
@@ -208,14 +215,14 @@ struct DesignFormView: View {
                         }
                     }
                 } else {
-                    Card(title: "2 · Binder size & fold", systemImage: "ruler") {
+                    Card(title: request.wrappedValue.usesNativeRegions ? "3 · Binder size & fold" : "2 · Binder size & fold", systemImage: "ruler") {
                         BinderSizePicker(request: request)
                         Divider().padding(.vertical, 4)
                         SecondaryStructureControl(request: request,
                                                   advanced: setupExperience == .advanced)
                     }
                     if setupExperience == .advanced {
-                        Card(title: "3 · Designer", systemImage: "slider.horizontal.3") {
+                        Card(title: request.wrappedValue.usesNativeRegions ? "4 · Designer" : "3 · Designer", systemImage: "slider.horizontal.3") {
                         DesignerPicker(designer: request.designer,
                                        allowed: request.wrappedValue.allowedDesigners,
                                        installer: installer)
@@ -226,11 +233,11 @@ struct DesignFormView: View {
                 }
 
                 Color.clear.frame(height: 0).id("models")
-                Card(title: "4 · Prediction & checking", systemImage: "checkmark.seal") {
+                Card(title: request.wrappedValue.usesNativeRegions ? "5 · Prediction & checking" : "4 · Prediction & checking", systemImage: "checkmark.seal") {
                     PredictorPicker(request: request, installer: installer, prepareTarget: { showTargetPrep = true })
                 }
 
-                Card(title: "5 · Run settings", systemImage: "gauge.with.dots.needle.67percent") {
+                Card(title: request.wrappedValue.usesNativeRegions ? "6 · Run settings" : "5 · Run settings", systemImage: "gauge.with.dots.needle.67percent") {
                     RunSettings(request: request)
                     if setupExperience == .advanced {
                         DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
@@ -304,6 +311,38 @@ struct DesignFormView: View {
             ? "no extra checker"
             : r.effectivePostPredictors.map(\.label).joined(separator: ", ")
         return "\(r.designer.label) designs; \(r.designEngineSummary) guide each cycle; \(checks)."
+    }
+
+    /// Match RFdiffusion3's top-level segmented workflow navigation. Keep the
+    /// persisted mode strings so existing saved requests and runner flags agree.
+    private var modePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Protein Hunter mode", selection: Binding(
+                get: { type == .nanobody ? "deNovo" : request.wrappedValue.nativeBinderMode },
+                set: { mode in
+                    var r = request.wrappedValue
+                    r.nativeBinderMode = mode
+                    if mode != "deNovo" && r.designType == .nanobody {
+                        r.designType = .minibinder
+                        r.applyTypeDefaults()
+                    }
+                    request.wrappedValue = r
+                }
+            )) {
+                Text("De novo design").tag("deNovo")
+                Text("Partial noising").tag("partialRedesign")
+                Text("Motif scaffolding").tag("motifScaffolding")
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("hunter-native-binder-mode")
+            Text(type == .nanobody || request.wrappedValue.nativeBinderMode == "deNovo"
+                 ? "Design new mini-binders or peptides, or redesign the CDR loops of a nanobody scaffold."
+                 : request.wrappedValue.nativeBinderMode == "partialRedesign"
+                 ? "Noise selected sequence regions with X tokens and sampled amino acids, then redesign those positions. The remaining sequence stays fixed; its coordinates can move."
+                 : "Preserve selected sequence motifs in a new scaffold and throughout design cycles. Boltz is required; motif coordinates can move.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var header: some View {
@@ -792,9 +831,7 @@ struct PredictorPicker: View {
                 }
                 if request.hasEnteredEpitopeResidues {
                     ForEach(request.selectedDesignEngines) { p in
-                        Text(p.supportsEpitopePocket
-                             ? "During refinement, \(p.label) applies its supported epitope guidance."
-                             : "During refinement, \(p.label) folds the full target without epitope guidance.")
+                        Text(request.refinementEpitopeGuidanceDescription(p))
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
@@ -1204,16 +1241,7 @@ private struct NativeHunterRegionControls: View {
     @Binding var request: DesignRequest
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Picker("Binder design mode", selection: $request.nativeBinderMode) {
-                Text("De novo binder").tag("deNovo")
-                Text("Partial sequence redesign").tag("partialRedesign")
-                Text("Sequence motif scaffolding · Boltz").tag("motifScaffolding")
-            }.accessibilityIdentifier("hunter-native-binder-mode")
             if request.usesNativeRegions {
-                Text(request.nativeBinderMode == "partialRedesign"
-                     ? "Replace the selected regions with a mix of X tokens and sampled amino acids for the initial prediction, then redesign only those positions with MPNN. The remaining sequence is fixed; its coordinates can move. This is not RFdiffusion3 coordinate noising."
-                     : "Keep the selected sequence motifs in order, place them into a new X-token scaffold, then preserve all motif residues during MPNN cycling. Motif coordinates are not fixed; use RFdiffusion3 for atom-constrained geometry.")
-                    .font(.caption).foregroundStyle(.secondary)
                 TextField("Source binder sequence (amino acids only)", text: $request.sourceBinderSequence, axis: .vertical)
                     .textFieldStyle(.roundedBorder).lineLimit(2...5)
                 TextField(request.nativeBinderMode == "partialRedesign" ? "Regions to redesign, e.g. 10-20,35-40" : "Motif regions to preserve, e.g. 10-20,35-40", text: $request.binderRegionRanges)

@@ -5,6 +5,41 @@ workflows to Codex, Claude Code, and other Model Context Protocol clients. It is
 an orchestration layer only: prediction, iterative design, RFdiffusion3, MPNN,
 MSA and analysis behaviour remains in the same scripts used by the GUI.
 
+Start with the repository's [assistant walkthrough](../../../../../docs/AI_ASSISTANTS.md).
+The bundled [portable operating skill](skills/iprotein-studio/SKILL.md) supplies
+workflow routing, scientific defaults, recovery and result interpretation to
+skill-capable clients. Copy the complete skill directory using the client's own
+installation mechanism; MCP registration does not automatically activate skills.
+Clients without skills can read `iprotein://skills/studio` and use the
+`studio-workflow` prompt. Call `workflow_guide` before scientific planning.
+
+The v1 recipe workshop remains a non-executing prototype. Executable v2
+recipes use `pipeline_catalog` and `pipeline_recipe_plan`, compiling supported
+routes through the existing scientific planners. Arbitrary graphs are not executed. Discover the connected server's actual tools and
+schemas rather than assuming source features are deployed. The
+[MCP review](../../../../../docs/MCP_REVIEW.md) records proposed improvements and
+external integrations separately from supported operations.
+
+## Discovery, batches and exports (bridge v41)
+
+- Optional official RCSB MCP 0.15.0: install from the native AI settings, then
+  `rcsb_tools` → `rcsb_query` → `rcsb_import_structure` for an explicit assembly.
+  `rcsb-lock.json` pins all wheel hashes; the separate runtime records its
+  interpreter and dependency receipt. No scientific environment is modified.
+- `iterative_batch_plan` freezes shared settings and explicit per-engine/scaffold
+  budgets, using the shared broker and checked completion receipts. The native
+  ligand-screening route is exposed as `ligand_verification` for ProteinHunter
+  and `request.nesso` for RFdiffusion3.
+- `candidates_list` supplies snapshot-bound pagination and exact candidate IDs.
+  `candidate_export` creates a portable ZIP; `export_read` transfers checked
+  chunks. `candidates_compare` keeps predictor/context denominators separate.
+- `pipeline_recipe_plan` binds a supported v2 route and all its parameters to
+  an immutable plan. Run through `job_start`; no separate executor is introduced.
+
+See [integration contracts](skills/iprotein-studio/references/integrations.md)
+for bounds, upstream attribution, residue mapping and scientific interpretation.
+The source-only additions require an updated app/bridge before clients see them.
+
 ## Profiles
 
 - `read`: engine detection, projects, run status and bounded result queries.

@@ -1,0 +1,50 @@
+{
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "catalog_version", "name", "goal", "input", "budget", "assessment", "stages"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "catalog_version": {"const": "studio-recipes-prototype-1"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 120},
+    "goal": {"enum": ["protein_binder", "nanobody", "ligand_binder"]},
+    "input": {
+      "type": "object", "additionalProperties": false,
+      "required": ["label", "kind", "source", "target_msa", "binder_msa"],
+      "properties": {
+        "label": {"type": "string", "minLength": 1, "maxLength": 160},
+        "kind": {"enum": ["protein", "ligand"]},
+        "source": {"const": "sample"},
+        "target_msa": {"enum": ["auto", "empty", "not_applicable"]},
+        "binder_msa": {"const": "empty"}
+      }
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["starts", "sequences_per_backbone", "refinement_cycles"],
+      "properties": {
+        "starts": {"type": "integer", "minimum": 1, "maximum": 5},
+        "sequences_per_backbone": {"type": "integer", "minimum": 1, "maximum": 8},
+        "refinement_cycles": {"type": "integer", "minimum": 0, "maximum": 5}
+      }
+    },
+    "assessment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["predictor", "independent", "binder_alone"],
+      "properties": {
+        "predictor": {"enum": ["esmfold2-full-mlx", "protenix-v2", "boltz"]},
+        "independent": {"type": "boolean"},
+        "binder_alone": {"type": "boolean"}
+      }
+    },
+    "stages": {
+      "type": "array", "minItems": 1, "maxItems": 8,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "module"],
+        "properties": {
+          "id": {"type": "string", "pattern": "[a-zA-Z0-9_-]{1,40}"},
+          "module": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

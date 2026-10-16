@@ -1,6 +1,7 @@
 # Ligand NISE in Studio
 
-The workspace offers **Protein Hunter**, **NISE**, **RFdiffusion3**, and **Predict**.
+Choose **Design → NISE** within a workspace. **Predict** folds existing sequences;
+the Design chooser also offers **Protein Hunter** and **RFdiffusion3**.
 Protein Hunter is the display name of the existing iterative workflow; its saved
 `iterative` identity and old workspace/run files are unchanged. NISE has its own
 request and campaign identity. It searches for small-molecule-binding proteins;
@@ -1033,3 +1034,20 @@ is unchanged. This explicit experimental route has no pocket restraints, MSA or
 Boltz affinity head. Existing geometry checks and the chosen sequence objective
 remain authoritative. Final ESMFold2 refolds are also available independently.
 See the [ESMFold2 guide](ESMFOLD2.md).
+
+## CPU preparation and affinity in 0.2.24
+
+New jobs reuse up to two LASErMPNN CPU models with one numerical thread each.
+The native model/sampler is unchanged; seeds reset after weight loading so warm
+and cold execution use the same sampling stream. This is explicitly a new seed
+policy: historical NISE accepted but ignored the inverse-folding seed. Resume
+replays the saved sequences and verifies operation receipts.
+
+During initial refinement and Phase 1, independent per-input Boltz execution can fold one chunk while
+CPU workers prepare the next eight parents. Only one chunk is prefetched. Selection
+still pools the whole stage; NESSO/PSICHIC shortlist routes retain global ranking
+before folding. Other folding backends retain their established request boundaries.
+Geometry checks retain their scientific placement before selective affinity;
+existing bounded CPU geometry workers remain active. No speculative next-cycle
+sampling starts before selection. Affinity budgets are in Prediction accuracy &
+compute (50 steps/1 sample by default, 200/5 available). Existing jobs are unchanged.

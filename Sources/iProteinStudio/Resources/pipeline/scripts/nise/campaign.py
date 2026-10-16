@@ -118,6 +118,7 @@ def run(config_path, branch_test=False, stage_batches=False, resident_workers=No
             backend.write_atom_report()
         finally:
             backend.close()
+        backend.close_design()
 
 
 if __name__ == "__main__":

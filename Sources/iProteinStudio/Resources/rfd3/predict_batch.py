@@ -529,7 +529,7 @@ def run_directory_batch(predictor: str, yamls: list, out_dir: Path, root: Path,
             command += ["--diffusion_samples", str(cfg["diffusion_samples"])]
         if predictor == "boltz_potentials":
             command.append("--use_potentials")
-        if cfg.get("recycles"):
+        if cfg.get("recycles") is not None:
             command += ["--recycling_steps", str(cfg["recycles"])]
     elif predictor == "intellifold":
         venv = root / "venvs" / "NanoHunter_intellifold"

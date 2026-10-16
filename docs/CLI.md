@@ -19,6 +19,10 @@ normal use does not depend on Apple's `/usr/bin/python3` or developer tools.
 
 ## AI agents: Model Context Protocol
 
+For first use, examples and the portable operating skill, start with
+[AI assistants](AI_ASSISTANTS.md). This section documents the underlying
+configuration and execution contracts.
+
 iProteinStudio ships one dependency-free MCP implementation with three
 least-privilege profiles. Codex and Claude Code use the same server and schemas;
 only their configuration file formats differ.
@@ -69,7 +73,7 @@ Long tool calls do not hold an MCP request open. A workflow uses:
    model-routing rules, defaults, smoke-test policy and common scientific traps
    inside the protocol, so the advice is identical in Codex, Claude Code and
    desktop clients.
-2. Call `prediction_plan`, `target_prepare_plan`, `iterative_design_plan`, or one of
+2. Call `prediction_plan`, `target_prepare_plan`, `iterative_design_plan`, `nise_plan`, or one of
    the three mode-specific RFD3 plan tools.
 3. Review the normalized request, exact command preview, input/script hashes and
    output location.
@@ -959,3 +963,13 @@ length bins; partial diffusion retains source length. Motif atom presets (`TIP`,
 sequence-preservation and structured-region preference controls. Quick setup keeps its
 existing defaults. These are forwarded to the existing validated adapter and Foundry
 preflight; larger step/recycle counts or FP32 are not promises of better designs.
+
+### Ligand efficiency (0.2.24)
+
+New shared Boltz profiles add `affinity_steps` (50) and `affinity_samples` (1).
+For the upstream budget supply `--prediction-settings-json
+'{"boltz":{"affinity_steps":200,"affinity_samples":5}}'` on a single shell line.
+Five affinity recycles and both heads remain unchanged. Small-molecule LASErMPNN
+routes use owner-scoped CPU residency and post-load seed resets; NISE Phase1 has
+bounded CPU prefetch for independent Boltz units. See docs/NISE.md and
+PREDICTION_PROFILES.md for qualification limits and saved-job behaviour.

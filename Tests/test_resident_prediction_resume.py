@@ -26,7 +26,8 @@ sys.path.insert(0, str(SCRIPTS))
 try:
     import yaml
 except ImportError:
-    sys.modules['yaml'] = types.SimpleNamespace(safe_load=json.loads)
+    sys.modules['yaml'] = types.SimpleNamespace(
+        safe_load=json.loads, safe_dump=lambda value, **kwargs: json.dumps(value))
 try:
     import ipsae_score
 except ImportError:

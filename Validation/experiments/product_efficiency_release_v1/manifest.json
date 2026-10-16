@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "purpose": "Release qualification of resident LASErMPNN and bounded CPU/GPU prefetch through shipping NISE adapters",
+  "inputs": "Four saved benign biotin starts: two Boltz and two RFD3",
+  "arms": [
+    "fresh_serial",
+    "resident_overlap"
+  ],
+  "cycles": 2,
+  "proposals_per_parent": 1,
+  "boltz": {
+    "recycles": 3,
+    "steps": 25,
+    "samples": 1,
+    "potentials": true,
+    "pocket": false,
+    "affinity_steps": 50,
+    "affinity_samples": 1,
+    "affinity_recycles": 5
+  },
+  "msa": "empty",
+  "checks": [
+    "exact sequences and scores",
+    "fold coordinate hashes",
+    "geometry verdicts",
+    "audited replay"
+  ],
+  "hardware": "Apple M4 Max 40 GPU cores 64 GB",
+  "exclusive_gpu": true,
+  "output": "Validation/output/product_efficiency_release_v1/<UTC timestamp>",
+  "raw_outputs": "immutable",
+  "cpu_soak": {
+    "requests": 64,
+    "sequences_per_request": 2,
+    "late_rss_growth_limit_mib": 128,
+    "checks": [
+      "exact fresh/warm output",
+      "interrupt active CPU worker",
+      "restart produces same output"
+    ]
+  }
+}

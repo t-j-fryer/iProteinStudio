@@ -1,5 +1,17 @@
 # iProteinStudio release notes
 
+## 0.2.24 — Consistent workflows and efficient ligand scoring
+
+- Unify Protein Hunter epitope selections across Boltz, Protenix Constraint and RFdiffusion3 initialization; choose whether supported refiners retain guidance. Unsupported engines explain that refinement is unrestrained.
+- Preserve prediction-profile overrides through ligand screening and verification, record MCP defaults explicitly, honour zero recycles, and correct engine-setting descriptions.
+- Boltz affinity defaults to 50 diffusion steps and one sample. Five affinity recycles and both native heads are unchanged. Advanced controls can restore the upstream 200/5 budget. Qualification on 48 biotin designs found close, non-identical scores; borderline decisions can change. Existing accepted jobs retain their snapshots.
+- Reuse native LASErMPNN CPU models in small-molecule workflows. New sampling resets RNGs after loading; recorded sequences remain the source of truth for resume. NISE/RFD3 bound CPU residency to two one-thread workers; Protein Hunter uses one owner-scoped worker.
+- NISE refinement and optimization overlap bounded next-parent CPU preparation with independent Boltz prediction chunks. Global NESSO/PSICHIC shortlist selection retains its barrier; geometry and selection criteria are unchanged.
+- Reduce CPU output-reporting subprocesses and repeated coordinate parsing. No universal whole-campaign speedup is claimed.
+- MCP 42 adds official optional RCSB discovery/import, supported workflow composition, engine/framework batches and portable candidate exports; improves cancellation-state consistency.
+- Clarify Protein Hunter region-mode tabs and refresh artwork. Experimental lab compute pool is excluded.
+
+
 ## 0.2.23 — Exact RFdiffusion3 motif conditioning
 
 - Fix atom-specific motif selections that could previously constrain additional, unrequested atoms. Disjoint buried/exposed selections still retain their intended values.

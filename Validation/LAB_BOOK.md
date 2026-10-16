@@ -61,3 +61,10 @@ Current work: [0060 — Exact-token SUMO matrix](lab_book/0060-exact-token-sumo.
 - [0066 — Production prediction-profile acceptance](lab_book/0066-prediction-profile-release.md) — integration checks in progress.
 
 Current acceptance: [0086 — OpenFold residency and Figure3 continuation](lab_book/0086-openfold-resident-figure3-continuation.md).
+
+## 0.2.24 adapter qualification
+
+- [0201-product-efficiency-release](lab_book/0201-product-efficiency-release.md)
+
+- [0194 — LASErMPNN CPU residency](lab_book/0194-lasermpnn-cpu-residency.md).
+- [0195 — Biotin affinity/CPU efficiency](lab_book/0195-biotin-affinity-efficiency.md).

@@ -128,9 +128,7 @@ def _spawn(job_id: str) -> Dict[str, Any]:
             close_fds=True,
             env=stable_environment(),
         )
-    state = load_json(state_path(job_id))
-    state.update({"pid": process.pid, "process_group": process.pid, "worker_contract": 2, "updated_at": utc_now()})
-    atomic_json(state_path(job_id), state)
+    _update(job_id, pid=process.pid, process_group=process.pid, worker_contract=2)
     _DETACHED[job_id] = process
     return load_state(job_id)
 
@@ -242,11 +240,20 @@ def wait_job(job_id: str, timeout_seconds: int = 30) -> Dict[str, Any]:
 
 
 def _update(job_id: str, **changes: Any) -> Dict[str, Any]:
-    state = load_json(state_path(job_id))
-    state.update(changes)
-    state["updated_at"] = utc_now()
-    atomic_json(state_path(job_id), state)
-    return state
+    path = state_path(job_id)
+    # Serialize worker progress and client cancellation: atomic replacement alone
+    # does not prevent an older read from overwriting another writer's status.
+    with path.with_suffix('.lock').open('a+') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        state = load_json(path)
+        if state.get('status') in TERMINAL and changes.get('status', state['status']) not in TERMINAL:
+            return state
+        state.update(changes)
+        if (path.parent / 'cancel.json').exists() and state.get('status') in {'queued', 'running'}:
+            state.update(status='stopping', stage='stopping', message='Stopping; waiting for all worker processes to exit.')
+        state["updated_at"] = utc_now()
+        atomic_json(path, state)
+        return state
 
 
 def _snapshot_pipeline(campaign: Path) -> Path:
@@ -562,7 +569,75 @@ def _execute_prediction(job_id: str, plan: Dict[str, Any]) -> int:
     return _run_logged(job_id, command, runtime_root(), stable_environment())
 
 
-def _execute_iterative(job_id: str, plan: Dict[str, Any]) -> int:
+def _iterative_manifest(plan, snapshot, state="prepared", batch=None):
+    normalized=plan['normalized_request'];arguments=normalized['arguments']
+    count=int(arguments[arguments.index('--num-runs')+1])
+    cycles=int(arguments[arguments.index('--num-opt-cycles')+1])
+    value=dict(version=1,projectID=project_uuid(plan['project']),projectName=plan['project'],
+        workflow='iterative',runName=normalized['run_name'],arguments=arguments,
+        environmentOverrides=normalized.get('environment_overrides',{}),pipelineSnapshot=str(snapshot),
+        state=state,createdAt=time.time()-978_307_200,updatedAt=time.time()-978_307_200,
+        requestedTrajectories=count,optimizationCycles=cycles,expectedOptimizedDesigns=count*cycles)
+    if batch:value['engineBatchRoot']=str(batch)
+    return value
+
+
+def _execute_iterative_batch(job_id,plan):
+    request=plan['normalized_request'];output=Path(request['output']);output.mkdir(parents=True,exist_ok=True)
+    children=request['children'];receipt=output/'engine_batch_progress.json'
+    saved=load_json(receipt) if receipt.exists() else dict(plan_sha256=plan['sha256'],completed={})
+    if saved.get('plan_sha256')!=plan['sha256'] or not isinstance(saved.get('completed'),dict):raise StudioError('Batch checkpoint does not match the immutable plan.')
+    descriptor=dict(version=2,campaigns=request['child_outputs'],engines=[c['engine_id'] for c in children],
+        engineIDs=[c['engine_id'] for c in children],scaffoldIDs=[c['scaffold_id'] for c in children],
+        campaignBudgets=[c['trajectories'] for c in children],trajectoriesPerEngine=request['trajectories_per_engine'])
+    atomic_json(output/'studio_engine_batch.json',descriptor)
+    for child in children:
+        path=Path(child['plan']['normalized_request']['campaign']);path.mkdir(parents=True,exist_ok=True)
+        if not (path/'studio_run.json').exists():
+            atomic_json(path/'studio_run.json',_iterative_manifest(child['plan'],path/'.studio_runtime/pipeline',batch=output))
+        atomic_json(path/'studio_job.json',dict(id=job_id,plan_id=plan['id'],sha256=plan['sha256']))
+    for index,child in enumerate(children,1):
+        current=child['plan'];campaign=Path(current['normalized_request']['campaign']);key=str(campaign)
+        if key in saved['completed']:
+            if not saved['completed'][key]:raise StudioError('Empty completed-campaign receipt.')
+            for name,digest in saved['completed'][key].items():
+                path=(campaign/name).resolve()
+                if campaign.resolve() not in path.parents or not path.is_file() or file_digest(path)!=digest:
+                    raise StudioError('Completed batch artifacts changed; restore them before resume.')
+            continue
+        if _cancelled(job_id):return 130
+        _update(job_id,active_output=key,engine_label=child['engine_id'],engine_index=index,engine_count=len(children))
+        code=_execute_iterative(job_id,current,batch=output)
+        if code:return code
+        artifacts=[p for p in campaign.rglob('*') if p.is_file()
+            and not {'.studio_runtime','inputs','nesso_verification'}.intersection(p.relative_to(campaign).parts)
+            and p.suffix.lower() in {'.csv','.pdb','.cif','.fa','.fasta'}]
+        verification=campaign/'nesso_verification/completed.json'
+        if verification.is_file():
+            for relative,digest in load_json(verification)['files'].items():
+                p=(verification.parent/relative).resolve()
+                if verification.parent.resolve() not in p.parents or not p.is_file() or file_digest(p)!=digest:
+                    raise StudioError('Ligand verification output changed before completion.')
+                artifacts.append(p)
+            artifacts.append(verification)
+        if not artifacts:raise StudioError('Campaign produced no durable result artifacts.')
+        saved['completed'][key]={str(p.relative_to(campaign)):file_digest(p) for p in artifacts}
+        atomic_json(receipt,saved)
+    return 0
+
+
+def _stage_ligand_verification(normalized):
+    prepared = normalized.get('ligand_verification')
+    if not prepared: return
+    source = Path(prepared['directory'])
+    destination = Path(normalized['campaign']) / 'nesso_verification'
+    # Copy frozen inputs only; keep resumable results and journals intact.
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source / 'config.json', destination / 'config.json')
+    shutil.copytree(source / 'runtime', destination / 'runtime', dirs_exist_ok=True)
+
+
+def _execute_iterative(job_id: str, plan: Dict[str, Any], batch=None) -> int:
     normalized = plan["normalized_request"]
     campaign = Path(normalized["campaign"])
     campaign.mkdir(parents=True, exist_ok=True)
@@ -576,28 +651,18 @@ def _execute_iterative(job_id: str, plan: Dict[str, Any]) -> int:
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
     arguments = list(normalized["arguments"])
-    # Foundation's default Date Codable representation is seconds since
-    # 2001-01-01, not ISO-8601. Match it so Activity can decode this exact file.
-    foundation_now = time.time() - 978_307_200
-    manifest = {
-        "version": 1,
-        "projectID": project_uuid(plan["project"]),
-        "projectName": plan["project"],
-        "workflow": "iterative",
-        "runName": normalized["run_name"],
-        "arguments": arguments,
-        "environmentOverrides": normalized.get("environment_overrides", {}),
-        "pipelineSnapshot": str(snapshot),
-        "state": "running",
-        "createdAt": foundation_now,
-        "updatedAt": foundation_now,
-    }
+    manifest = _iterative_manifest(plan,snapshot,state='running',batch=batch)
     atomic_json(campaign / "studio_run.json", manifest)
     env = stable_environment(normalized.get("environment_overrides", {}))
     env["IPROTEINSTUDIO_PIPELINE_SNAPSHOT"] = str(snapshot)
     command = ["/usr/bin/caffeinate", "-dimsu", str(snapshot / "nanohunter_run.sh")] + arguments
-    _update(job_id, output_root=str(campaign), stage="iterative-design", message="Running with the recorded resident/cycle-wave scheduling policy.")
+    _update(job_id, output_root=str(batch or campaign), stage="iterative-design", message="Running with the recorded resident/cycle-wave scheduling policy.")
     code = _run_logged(job_id, command, snapshot, env)
+    if code == 0 and normalized.get('ligand_verification'):
+        _stage_ligand_verification(normalized)
+        step = normalized['ligand_verification']['step']
+        _update(job_id, stage=step['stage'], message='Verifying the explicit ligand shortlist.')
+        code = _run_logged(job_id, step['command'], Path(step['cwd']), env)
     manifest["state"] = "completed" if code == 0 else "failed"
     manifest["updatedAt"] = time.time() - 978_307_200
     atomic_json(campaign / "studio_run.json", manifest)
@@ -609,6 +674,7 @@ def _execute_rfd3(job_id: str, plan: Dict[str, Any]) -> int:
     request = normalized["request"]
     campaign = Path(normalized["campaign"])
     (campaign / "config").mkdir(parents=True, exist_ok=True)
+    _stage_ligand_verification(normalized)
     request_path = campaign / "config" / "studio_request.json"
     atomic_json(request_path, request)
     root = runtime_root()
@@ -699,6 +765,8 @@ def run_worker(job_id: str) -> int:
                 code = _execute_prediction(job_id, plan)
             elif kind == "iterative_design":
                 code = _execute_iterative(job_id, plan)
+            elif kind == "iterative_batch":
+                code = _execute_iterative_batch(job_id, plan)
             elif kind.startswith("rfd3_"):
                 code = _execute_rfd3(job_id, plan)
             elif kind in {"engine_install", "engine_repair", "storage_minimise"}:

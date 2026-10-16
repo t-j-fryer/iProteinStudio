@@ -47,9 +47,15 @@ MCP prediction, target-preparation, NISE and RFdiffusion3 requests accept:
 
 For the iterative CLI/MCP argument list, supply the same JSON with
 `--prediction-settings-json`. An explicit native engine CLI sampling/recycle flag
-continues to take precedence. Boltz affinity remains a separate model with its
-own native settings. RFdiffusion3's generation steps/recycles are not prediction
+continues to take precedence. Boltz affinity remains a separate model. New profiles set `affinity_steps=50`
+and `affinity_samples=1`; its five recycles and both heads remain native. RFdiffusion3's generation steps/recycles are not prediction
 steps/recycles.
+
+Optional NESSO/PSICHIC shortlisting in Protein Hunter and RFdiffusion3 also
+freezes these settings for its subsequent structural verification. That separate
+step uses the parent run's chosen prediction profile even when launched later
+in a different process. MCP Protein Hunter plans record resolved defaults even
+when the caller supplies no overrides.
 
 Profiles are saved with results in `prediction_profile.json`; preflight preserves
 code, profile defaults, inputs and runtime identities. Existing accepted jobs
@@ -78,3 +84,19 @@ enabled. Evidence and limitations are in [the shared-target study](../lab_book/0
 and [release acceptance](../lab_book/0234-publish-prediction-profiles.md).
 
 ESMFold2 Full now defaults to 3 loops/50 requested steps with MSA128, following the four-target, five-seed comparison in [Lab Book 0251](../lab_book/0251-queue-esmfold2-full-3-50.md) and explicit user promotion. All 20 outputs passed the recorded geometry audit. MBP domain placement varied, so this is a throughput default, not an accuracy guarantee. Explicit 20/100 overrides and frozen existing jobs remain supported.
+
+## Boltz affinity budget
+
+The app's Prediction accuracy & compute section, MCP `prediction_settings.boltz`,
+and CLI `--prediction-settings-json` expose `affinity_steps` and `affinity_samples`.
+The new default is 50/1. Use 200/5 to restore the upstream sampling budget. Native
+`--sampling_steps_affinity` / `--diffusion_samples_affinity` overrides take precedence.
+Structure steps, structure samples, potentials, and pocket constraints are separate.
+Saved accepted jobs resume their frozen code/settings; a newly submitted run uses
+its newly resolved profile. Reduced sampling changes stochastic scientific outputs.
+
+On this M4 Max (40 GPU cores, 64 GB), 48 saved biotin predictions gave mean affinity
+request times 21.63 s (200/5) and 5.65 s (50/1), P(bind) MAE 0.0106 and one crossing
+of the 0.80 combined-score gate. This is a biotin affinity-stage measurement, not a
+universal ligand-accuracy or campaign-speed claim. See Lab Book 0432 and Validation
+0195; assembled adapter qualification is recorded in 0442/Validation0201.

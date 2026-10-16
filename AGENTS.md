@@ -67,6 +67,12 @@ profiles separate. Expensive work must go through a preflight plan and
 check, shared execution lock, MSA policy, or recorded resident/cycle-wave
 scheduler. See `docs/CLI.md#ai-agents-model-context-protocol`.
 
+For client-neutral operating instructions, read
+`Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/SKILL.md`;
+setup and current GUI/MCP differences are in `docs/AI_ASSISTANTS.md`.
+Discover the connected server's schema before assuming a source feature is deployed.
+Prototype recipe-authoring tools do not compile or execute scientific jobs.
+
 ## Validation campaigns
 
 Performance and settings experiments belong under `Validation/`. Read

@@ -1,0 +1,112 @@
+Building for debugging...
+[0/8] Write sources
+[1/8] Write iProteinStudio-entitlement.plist
+[2/8] Write sources
+[3/8] Copying Sparkle.framework
+[4/8] Write swift-version--58304C5D6DBC2206.txt
+[6/16] Compiling StudioCore EngineProgressEvent.swift
+[7/16] Compiling StudioCore IntroductionPolicy.swift
+[8/16] Compiling StudioCore SystemResourceSnapshot.swift
+[9/16] Compiling StudioCore WorkspaceTransfer.swift
+[10/16] Compiling StudioCore SupportReport.swift
+[11/16] Emitting module StudioCore
+[12/16] Compiling StudioCore ExecutionLease.swift
+[13/16] Compiling StudioCore RecoverableJSONStore.swift
+[14/104] Compiling iProteinStudio ExampleTarget.swift
+[15/104] Compiling iProteinStudio NISERequest.swift
+[16/104] Compiling iProteinStudio NumericInputValue.swift
+[17/104] Compiling iProteinStudio PredictionRequest.swift
+[18/104] Compiling iProteinStudio Predictor.swift
+[19/104] Compiling iProteinStudio Project.swift
+[20/109] Compiling iProteinStudio ProteinSequenceInput.swift
+[21/109] Compiling iProteinStudio RFD3Request.swift
+[22/109] Compiling iProteinStudio RunNaming.swift
+[23/109] Compiling iProteinStudio RunResult.swift
+[24/109] Compiling iProteinStudio WorkspaceOrganization.swift
+[25/109] Compiling iProteinStudio AppState.swift
+[26/109] Compiling iProteinStudio RFD3TargetInspector.swift
+[27/109] Compiling iProteinStudio ResourceUsageMonitor.swift
+[28/109] Compiling iProteinStudio NISEResults.swift
+[29/109] Compiling iProteinStudio ResultsRepository.swift
+[30/109] Compiling iProteinStudio RunResultsLoader.swift
+[31/109] Compiling iProteinStudio ResumeContract.swift
+[32/109] Compiling iProteinStudio CommandBuilder.swift
+[33/109] Compiling iProteinStudio ControlPython.swift
+[34/109] Compiling iProteinStudio InstalledRuntime.swift
+[35/109] Compiling iProteinStudio ManagedJobs.swift
+[36/109] Compiling iProteinStudio LigandIntelligence.swift
+[37/109] Compiling iProteinStudio MetricsWatcher.swift
+[38/109] Compiling iProteinStudio NISEController.swift
+[39/109] Compiling iProteinStudio PipelineInstaller.swift
+[40/109] Compiling iProteinStudio PredictionController.swift
+[41/109] Compiling iProteinStudio PredictionStore.swift
+[42/109] Compiling iProteinStudio ProcessRunner.swift
+[43/109] Compiling iProteinStudio RFD3Controller.swift
+[44/109] Compiling iProteinStudio AIIntegrationService.swift
+[45/109] Compiling iProteinStudio AppPaths.swift
+[46/109] Compiling iProteinStudio AppUpdateService.swift
+[47/109] Compiling iProteinStudio BoltzLigandAtoms.swift
+[48/109] Compiling iProteinStudio CDRDetector.swift
+[49/109] Compiling iProteinStudio CalibrationRunner.swift
+[50/109] Compiling iProteinStudio ActivityCenterView.swift
+[51/109] Compiling iProteinStudio DesignTile.swift
+[52/109] Compiling iProteinStudio HitsGalleryView.swift
+[53/109] Compiling iProteinStudio LiveDashboardView.swift
+[54/109] Compiling iProteinStudio MetricsChartsView.swift
+[55/109] Compiling iProteinStudio StructuresGridView.swift
+[56/109] Compiling iProteinStudio LigandAtomPicker.swift
+[57/109] Compiling iProteinStudio SmilesThumbnail.swift
+[58/109] Compiling iProteinStudio SmilesView.swift
+[59/109] Compiling iProteinStudio StructureThumbnail.swift
+[60/109] Compiling iProteinStudio StructureViewer.swift
+[61/109] Compiling iProteinStudio RunController.swift
+[62/109] Compiling iProteinStudio RunHistoryStore.swift
+[63/109] Compiling iProteinStudio ScaffoldCatalog.swift
+[64/109] Compiling iProteinStudio SmilesThumbnailStore.swift
+[65/109] Compiling iProteinStudio SystemMemory.swift
+[66/109] Compiling iProteinStudio TargetPredictor.swift
+[67/109] Compiling iProteinStudio DesignMethodChooser.swift
+[68/109] Compiling iProteinStudio ExamplesBar.swift
+[69/109] Compiling iProteinStudio GroupedRunResultsView.swift
+[70/109] Compiling iProteinStudio JobProgressView.swift
+[71/109] Compiling iProteinStudio JobQueueView.swift
+[72/109] Compiling iProteinStudio PredictionsLibraryView.swift
+[73/109] Compiling iProteinStudio TargetStructureView.swift
+[74/109] Compiling iProteinStudio StudioStyle.swift
+[75/109] Compiling iProteinStudio SupportReportView.swift
+[76/109] Compiling iProteinStudio TargetPrepView.swift
+[77/109] Compiling iProteinStudio iProteinStudioApp.swift
+[78/109] Emitting module iProteinStudio
+[79/109] Compiling iProteinStudio TargetStructureSnapshot.swift
+[80/109] Compiling iProteinStudio TemplateWriter.swift
+[81/109] Compiling iProteinStudio ThumbnailStore.swift
+[82/109] Compiling iProteinStudio DesignEngine.swift
+[83/109] Compiling iProteinStudio DesignPoint.swift
+[84/109] Compiling iProteinStudio DesignRequest.swift
+[85/109] Compiling iProteinStudio AppleBuildToolsHelpView.swift
+[86/109] Compiling iProteinStudio ComponentsView.swift
+[87/109] Compiling iProteinStudio IncompleteSetupView.swift
+[88/109] Compiling iProteinStudio SetupView.swift
+[89/109] Compiling iProteinStudio StudioIntroductionView.swift
+[90/109] Compiling iProteinStudio PredictView.swift
+[91/109] Compiling iProteinStudio PredictionSettingsView.swift
+[92/109] Compiling iProteinStudio ProjectSidebar.swift
+[93/109] Compiling iProteinStudio ProteinChainInputView.swift
+[94/109] Compiling iProteinStudio LigandIntelligenceView.swift
+[95/109] Compiling iProteinStudio RFD3View.swift
+[96/109] Compiling iProteinStudio ResourceUsageView.swift
+[97/109] Compiling iProteinStudio RootView.swift
+[98/109] Compiling iProteinStudio RunNameField.swift
+[99/109] Compiling iProteinStudio RunResultsView.swift
+[100/109] Compiling iProteinStudio RunUXComponents.swift
+[101/109] Compiling iProteinStudio LigandNessoOptionsView.swift
+[102/109] Compiling iProteinStudio NISEAtomTargetingView.swift
+[103/109] Compiling iProteinStudio NISEResultsView.swift
+[104/109] Compiling iProteinStudio NISEView.swift
+[105/109] Compiling iProteinStudio DesignFormView.swift
+[106/109] Compiling iProteinStudio LigandTargetingView.swift
+[106/109] Write Objects.LinkFileList
+[107/109] Linking iProteinStudio
+[108/109] Applying iProteinStudio
+Build complete! (12.47s)
+warning: '--build-system native' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system.

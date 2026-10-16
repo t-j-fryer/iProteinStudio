@@ -44,9 +44,11 @@ def atomic(path, data):
 
 
 def validate(args):
-    for flag in FLAGS:
+    for flag in FLAGS | {'--refinement-epitope-guidance'}:
         if args.count(flag) > 1 or (flag in args and (args.index(flag)+1 == len(args) or args[args.index(flag)+1].startswith('--'))):
             raise ValueError('Missing or repeated stage option: ' + flag)
+    if value(args, '--refinement-epitope-guidance', 'auto') not in {'auto', 'off'}:
+        raise ValueError('--refinement-epitope-guidance must be auto or off.')
     method = value(args, '--initialization-method', 'hallucination')
     refine = value(args, '--predictor', 'boltz')
     initial = value(args, '--initialization-predictor', refine)
@@ -67,6 +69,15 @@ def validate(args):
     if value(args, '--initialization-model', 'v2-flash') not in {'v2-flash', 'v2'}:
         raise ValueError('Starting IntelliFold model must be v2-flash or v2.')
     return method, initial, refine
+
+
+def stage_arguments(args, engine, initial=False):
+    """Scope shared hotspots without changing other generation/refinement settings."""
+    guided = initial or value(args, '--refinement-epitope-guidance', 'auto') != 'off'
+    if not guided or engine not in {'boltz', 'protenix-constraint-v0.5'}:
+        args = replace(args, '--target-epitope-residues')
+        args = replace(args, '--epitope-residues')
+    return args
 
 
 def schedule(args, engine):
@@ -133,13 +144,19 @@ def main(args):
     io_python = root / 'rfd3/.venv/bin/python' if method == 'rfd3' else engine_python(root, initial)
     if not io_python.is_file() or not engine_python(root, refine).is_file():
         raise ValueError('Install both the starting-backbone and refinement engines in Studio first.')
+    initial_base = base
+    if method == 'hallucination':
+        initial_template = output / 'initial_template.yaml'
+        subprocess.run([str(io_python), str(code / 'scripts/hunter_initialization_io.py'),
+                        'initial-template', str(spec_path), str(initial_template)], check=True)
+        initial_base = stage_arguments(replace(base, '--template-yaml', initial_template), initial, initial=True)
     receipt_path = output / 'initialization.json'
     if check_only:
         if method == 'rfd3':
             subprocess.run([str(io_python), str(code / 'scripts/hunter_initialization_io.py'),
                             'prepare', str(spec_path), str(output / '_initialization/rfd3')], check=True)
         else:
-            initial_args = replace(base, '--predictor', initial)
+            initial_args = replace(initial_base, '--predictor', initial)
             initial_args = replace(initial_args, '--model', value(args, '--initialization-model', 'v2-flash'))
             subprocess.run(['/bin/bash', str(code / 'nanohunter_run.sh'), *schedule(initial_args, initial)], check=True)
     elif receipt_path.exists():
@@ -149,7 +166,7 @@ def main(args):
         work = output / '_initialization'
         work.mkdir(exist_ok=True)
         if method == 'hallucination':
-            start_args = replace(base, '--out-root', work)
+            start_args = replace(initial_base, '--out-root', work)
             start_args = replace(start_args, '--run-name', 'hallucination')
             start_args = replace(start_args, '--predictor', initial)
             start_args = replace(start_args, '--model', value(args, '--initialization-model', value(args, '--model', 'v2-flash')))
@@ -183,14 +200,14 @@ def main(args):
         refine_args = replace(refine_args, '--skip-predictor-calibration', True, boolean=True)
     # Generation-only restraints are not silently pretended to apply to an
     # incompatible refinement engine. The stage manifest records this scope.
-    if refine not in {'boltz', 'protenix-constraint-v0.5'}:
-        refine_args = replace(refine_args, '--target-epitope-residues')
+    refine_args = stage_arguments(refine_args, refine)
     if refine not in {'boltz', 'protenix-v2', 'intellifold'}:
         for flag in ['--target-template', '--target-template-mode', '--target-template-threshold']:
             refine_args = replace(refine_args, flag)
     if refine == 'esmfold2-fast-mlx':
         refine_args = replace(refine_args, '--target-msa-mode', 'off')
         refine_args = replace(refine_args, '--require-target-msa', boolean=True)
+    print('NHSTEP|guidance||Refinement epitope guidance: ' + ('supported' if refine in {'boltz', 'protenix-constraint-v0.5'} and value(args, '--refinement-epitope-guidance', 'auto') != 'off' else 'off; refinement may move to another target site'), flush=True)
     print(('NHSTEP|preflight||Validating refinement settings for ' if check_only else 'NHSTEP|refinement||Refining cycles 01 onward with ') + refine, flush=True)
     env = dict(os.environ, IPROTEINSTUDIO_HUNTER_HANDOFF=str(output / 'initialization.json'))
     subprocess.run(['/bin/bash', str(code / 'nanohunter_run.sh'), *refine_args], env=env, check=True)

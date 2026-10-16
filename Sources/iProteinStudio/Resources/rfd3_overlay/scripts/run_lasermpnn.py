@@ -12,9 +12,8 @@ own chain-B HETATM coordinates (``generate_backbones.py``'s ``Fixture.write_pdb`
 bakes the fixed ligand token coordinates into every design) -- no separate
 ligand-placement step is needed.
 
-LASErMPNN is CPU-only and has no seed/RNG argument (not run-to-run
-reproducible), so backbones are processed concurrently with a plain thread
-pool -- safe alongside a live MPS campaign since this never touches the GPU.
+LASErMPNN is CPU-only. Two resident model workers preserve upstream sampling
+with explicit per-backbone post-load RNG resets; worker count does not change seeds.
 """
 
 from __future__ import annotations
@@ -92,7 +91,9 @@ def _design(backbone: Path, out_dir: Path, args) -> list[tuple[str, float]]:
     designs = out_dir / "designs"
     designs.mkdir(exist_ok=True)
     command: list[Path | str] = [
-        python, "-m", "LASErMPNN.run_batch_inference", prepared, designs, str(args.n_seqs),
+        python, prepare.with_name("run_lasermpnn_seeded.py"),
+        "--resident", args.output.resolve() / "_laser_workers" / str(os.getpid()) / str(args.worker_slots.get_slot()), str(os.getpid()),
+        str(args.seed + args.backbone_indices[backbone.stem]), prepared, designs, str(args.n_seqs),
         "--device", "cpu",
         "--model_weights_path", weights,
         "--sequence_temp", str(args.seq_temp),
@@ -118,7 +119,7 @@ def design_one(backbone: Path, out_dir: Path, args) -> list[dict]:
     out_dir.mkdir(parents=True, exist_ok=True)
     identity = {"backbone": sha256(backbone), "settings": {
         key: getattr(args, key) for key in ("smiles", "n_seqs", "seq_temp", "fs_temp",
-                                          "fs_distance", "no_constrain_ss", "ala_budget", "gly_budget")}}
+                                          "fs_distance", "no_constrain_ss", "ala_budget", "gly_budget", "seed")}, "sampling_policy": "post-load-seed-v2", "backbone_index": args.backbone_indices[backbone.stem]}
     bind_inputs(out_dir / "studio_sequence_request.json", identity)
     receipt = out_dir / "studio_sequence_receipt.json"
     fasta = out_dir / "designs" / "designs.fasta"
@@ -172,7 +173,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--smiles", required=True)
     parser.add_argument("--n-seqs", type=int, default=4)
-    parser.add_argument("--max-parallel", type=int, default=6)
+    parser.add_argument("--max-parallel", type=int, default=2)
     parser.add_argument("--nanohunter-root", type=Path)
     parser.add_argument("--seq-temp", type=float, default=0.5)
     parser.add_argument("--fs-temp", type=float, default=0.7)
@@ -180,6 +181,7 @@ def main() -> None:
     parser.add_argument("--ala-budget", type=int, default=2)
     parser.add_argument("--gly-budget", type=int, default=0)
     parser.add_argument("--no-constrain-ss", action="store_true")
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
     if args.n_seqs < 1 or args.max_parallel < 1:
@@ -192,10 +194,21 @@ def main() -> None:
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
 
+    if not 0 <= args.seed <= 2147483647:
+        raise SystemExit("--seed must be a nonnegative 31-bit integer")
+    args.backbone_indices = {p.stem: i for i,p in enumerate(backbones)}
+    import threading
+    class Slots:
+        def __init__(self): self.local = threading.local(); self.lock = threading.Lock(); self.next = 0
+        def get_slot(self):
+            if not hasattr(self.local, 'slot'):
+                with self.lock: self.local.slot = self.next; self.next += 1
+            return self.local.slot
+    args.worker_slots = Slots()
     started = time.time()
     rows: list[dict] = []
     failures: list[str] = []
-    with ThreadPoolExecutor(max_workers=args.max_parallel) as pool:
+    with ThreadPoolExecutor(max_workers=min(2, args.max_parallel)) as pool:
         futures = {
             pool.submit(design_one, backbone, output / backbone.stem, args): backbone
             for backbone in backbones

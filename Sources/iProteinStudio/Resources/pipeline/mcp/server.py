@@ -20,6 +20,8 @@ from iprotein_mcp.common import StudioError, append_audit, import_artifact, vali
 from iprotein_mcp.inspect import inspect_target
 from iprotein_mcp.nise import nise_plan
 from iprotein_mcp.plans import admin_plan, iterative_plan, load_plan, prediction_plan, rfd3_plan, target_prepare_plan
+from iprotein_mcp import exports, research, composition
+from iprotein_mcp.recipes import SCHEMA as RECIPE_SCHEMA, recipe_catalog, recipe_check, recipe_compare
 
 
 SCHEMAS = Path(__file__).resolve().parent / "schemas"
@@ -47,7 +49,11 @@ SERVER_INSTRUCTIONS = (
     "settings; managed run logs never require arbitrary folder or shell access. After results exist, call "
     "results_overview before results_query: iterative results are run→cycle→artifacts and RFdiffusion3 results "
     "are backbone→MPNN derivative→complex/binder-alone validation. A hit belongs to the checked cycle or "
-    "derivative, not automatically to its parent."
+    "derivative, not automatically to its parent. Read iprotein://skills/studio for the portable operating "
+    "instructions. Use pipeline_catalog for supported executable v2 recipes; workshop v1 recipes are not plans. "
+    "Use candidates_list and candidate_export to preserve exact identities, and export_read to deliver files "
+    "to remote clients. RCSB queries contact public services; select an explicit biological assembly and map "
+    "residue numbering before translating hotspots."
 )
 
 
@@ -121,6 +127,12 @@ ENGINE_INSTALL = {
 }
 
 TOOLS: Dict[str, Dict[str, Any]] = {
+    "recipe_catalog": tool("Prototype authoring catalogue and sample recipes. No installation check, plans or execution; read-only.", EMPTY),
+    "recipe_check": tool("Check a prototype recipe's typed stage connections and return a review handoff. A valid recipe is NOT executable or a frozen scientific plan.", {
+        "type": "object", "additionalProperties": False, "required": ["recipe"], "properties": {"recipe": RECIPE_SCHEMA}}),
+    "recipe_compare": tool("Compare two prototype recipes, expose changed controls and propose a review checklist. Does not measure or run anything.", {
+        "type": "object", "additionalProperties": False, "required": ["baseline", "variant"],
+        "properties": {"baseline": RECIPE_SCHEMA, "variant": RECIPE_SCHEMA, "purpose": {"enum": ["design_strategy", "runtime"]}}}),
     "system_detect": tool("Detect managed engines. Report the returned state exactly; only state=ok is runnable. Read-only.", EMPTY),
     "workflow_guide": tool("Get Studio's workflow order, scientific defaults, routing rules, smoke-test policy, and common failure traps. Call this before creating a scientific plan.", WORKFLOW_GUIDE),
     "projects_list": tool("List managed iProteinStudio projects. Read-only.", EMPTY),
@@ -149,17 +161,53 @@ TOOLS: Dict[str, Dict[str, Any]] = {
     "storage_minimise_plan": tool("Freeze the existing checksum-constrained storage minimization operation.", EMPTY),
 }
 
+def object_schema(properties, required=()):
+    return {"type": "object", "additionalProperties": False, "properties": properties, "required": list(required)}
+
+
+DIGEST = {"type": "string", "pattern": "[0-9a-f]{64}"}
+TOOLS.update({
+    "rcsb_status": tool("Inspect the optional official RCSB MCP installation. No network request.", EMPTY),
+    "rcsb_tools": tool("Discover exact upstream RCSB search, metadata and sequence-coordinate mapping tool schemas. Requires the optional RCSB installation.", EMPTY),
+    "rcsb_query": tool("Call a discovered official RCSB read tool with its exact arguments. Sends the supplied query to public RCSB services; returns source and retrieval metadata.", object_schema({"tool_name": {"type": "string", "maxLength": 100}, "arguments": {"type": "object"}}, ["tool_name", "arguments"])),
+    "rcsb_import_structure": tool("Download an explicitly selected PDB biological assembly into content-addressed input storage, with source/checksum receipt. Then use target_inspect and sequence-coordinate mapping before defining hotspots.", object_schema({"pdb_id": {"type": "string", "pattern": "[A-Za-z0-9]{4}"}, "assembly_id": {"type": "string", "pattern": "[1-9][0-9]{0,3}"}}, ["pdb_id", "assembly_id"])),
+    "candidates_list": tool("After results_overview, page exact candidate identities and artifact-specific scores. A changed result snapshot invalidates the cursor.", object_schema({"run_id": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 100}, "cursor": {"type": "string", "maxLength": 4096}}, ["run_id"])),
+    "candidate_export": tool("Create a portable ZIP of explicitly selected candidate IDs from a current snapshot: available sequences, structures, confidence files, scores, lineage and checksums. Does not mark designs as experimental hits.", object_schema({"run_id": {"type": "string"}, "candidate_ids": {"type": "array", "minItems": 1, "maxItems": 100, "uniqueItems": True, "items": DIGEST}, "snapshot_sha256": DIGEST}, ["run_id", "candidate_ids", "snapshot_sha256"])),
+    "export_read": tool("Retrieve a saved export in bounded base64 chunks; verify the chunk and complete archive checksums.", object_schema({"export_sha256": DIGEST, "offset": {"type": "integer", "minimum": 0}, "length": {"type": "integer", "minimum": 1, "maximum": 196608}}, ["export_sha256"])),
+    "candidates_compare": tool("Descriptive metric threshold counts separated by predictor, artifact role and context; explicitly counts missing/ambiguous scores. Does not establish matched experimental comparisons.", object_schema({"run_ids": {"type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": True, "items": {"type": "string"}}, "metric": {"type": "string", "minLength": 1}, "threshold": {"type": "number"}}, ["run_ids", "metric", "threshold"])),
+    "pipeline_catalog": tool("Discover executable v2 workflow recipes and their complete parameter schemas. Supported native routes only; v1 workshop recipes remain non-executing prototypes.", EMPTY),
+    "pipeline_recipe_plan": tool("Compile a typed v2 recipe through the existing scientific planner and bind its recipe digest into an immutable plan. Call workflow_guide first. Does not start compute; use job_start after reviewing the plan.", object_schema({"recipe": composition.PIPELINE_SCHEMA}, ["recipe"])),
+    "iterative_batch_plan": tool("Freeze a ProteinHunter engine/scaffold batch with equal total trajectory budgets per engine and explicit scaffold allocations. Same-family independent checks are excluded; an empty checker set fails preflight. Uses the shared execution lock and resumable child receipts.", schema("iterative-batch-v1.json")),
+})
+NEW_READ_TOOLS = ["rcsb_status", "rcsb_tools", "rcsb_query", "candidates_list", "export_read", "candidates_compare", "pipeline_catalog"]
+NEW_RUN_TOOLS = ["rcsb_import_structure", "candidate_export", "pipeline_recipe_plan", "iterative_batch_plan"]
+
+
+# Versioned structured contracts for the new result-facing tools. Scientific
+# plan records retain their existing shared immutable-plan shape.
+OUTPUTS = {
+    "candidates_list": {"schema_version": {"const": 1}, "run_id": {"type": "string"}, "snapshot_sha256": DIGEST, "total_count": {"type": "integer"}, "offset": {"type": "integer"}, "candidates": {"type": "array", "items": {"type": "object"}}, "next_cursor": {"type": ["string", "null"]}},
+    "candidate_export": {"schema_version": {"const": 1}, "export_sha256": DIGEST, "bytes": {"type": "integer"}, "candidate_count": {"type": "integer"}, "uri": {"type": "string"}, "format": {"const": "zip"}, "local_path": {"type": "string"}, "retrieval": {"type": "string"}},
+    "export_read": {"schema_version": {"const": 1}, "export_sha256": DIGEST, "offset": {"type": "integer"}, "total_bytes": {"type": "integer"}, "chunk_sha256": DIGEST, "data_base64": {"type": "string"}, "next_offset": {"type": ["integer", "null"]}},
+    "candidates_compare": {"schema_version": {"const": 1}, "metric": {"type": "string"}, "summaries": {"type": "array", "items": {"type": "object"}}, "interpretation": {"type": "string"}},
+}
+for name, properties in OUTPUTS.items():
+    TOOLS[name]["outputSchema"] = object_schema(properties, properties)
+for name in ("pipeline_recipe_plan", "iterative_batch_plan"):
+    TOOLS[name]["outputSchema"] = {"type": "object", "required": ["id", "sha256", "kind", "normalized_request"], "properties": {"id": {"type": "string"}, "sha256": DIGEST, "kind": {"type": "string"}, "normalized_request": {"type": "object"}}}
+
 for name, definition in TOOLS.items():
-    read_only = name in {"system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query", "jobs_list", "job_status", "job_wait"}
+    read_only = name in NEW_READ_TOOLS or name in {"recipe_catalog", "recipe_check", "recipe_compare", "system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query", "jobs_list", "job_status", "job_wait"}
     definition["annotations"] = {
         "readOnlyHint": read_only,
         "destructiveHint": name in {"job_start", "job_cancel", "jobs_cleanup", "storage_minimise_plan"},
         "idempotentHint": read_only or name in {"job_start", "job_cancel"},
-        "openWorldHint": name in {"target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "job_resume", "engine_install_plan", "engine_repair_plan"},
+        "openWorldHint": name in {"rcsb_tools", "rcsb_query", "rcsb_import_structure", "pipeline_recipe_plan", "iterative_batch_plan","target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "job_resume", "engine_install_plan", "engine_repair_plan"},
     }
 
-READ_TOOLS = ["system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query"]
-RUN_TOOLS = READ_TOOLS + ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume", "jobs_cleanup"]
+READ_TOOLS = ["recipe_catalog", "recipe_check", "recipe_compare", "system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query"]
+READ_TOOLS += NEW_READ_TOOLS
+RUN_TOOLS = READ_TOOLS + NEW_RUN_TOOLS + ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume", "jobs_cleanup"]
 ADMIN_TOOLS = ["system_detect", "engine_install_plan", "engine_repair_plan", "storage_minimise_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume", "jobs_cleanup"]
 ADMIN_KINDS = {"engine_install", "engine_repair", "storage_minimise"}
 
@@ -176,7 +224,21 @@ class MCPServer:
         if not isinstance(arguments, dict):
             raise StudioError("Tool arguments must be a JSON object.")
         validate_schema(arguments, TOOLS[name]["inputSchema"])
-        if name == "system_detect": result = detect_engines()
+        if name == "rcsb_status": result = research.status()
+        elif name == "rcsb_tools": result = research.tools_list()
+        elif name == "rcsb_query": result = research.query(**arguments)
+        elif name == "rcsb_import_structure": result = research.import_structure(**arguments)
+        elif name == "candidates_list": result = exports.candidates_list(**arguments)
+        elif name == "candidate_export": result = exports.candidate_export(**arguments)
+        elif name == "export_read": result = exports.export_read(**arguments)
+        elif name == "candidates_compare": result = exports.candidates_compare(**arguments)
+        elif name == "pipeline_catalog": result = composition.pipeline_catalog()
+        elif name == "pipeline_recipe_plan": result = composition.recipe_plan(arguments["recipe"])
+        elif name == "iterative_batch_plan": result = composition.iterative_batch_plan(arguments)
+        elif name == "recipe_catalog": result = recipe_catalog()
+        elif name == "recipe_check": result = recipe_check(arguments["recipe"])
+        elif name == "recipe_compare": result = recipe_compare(arguments["baseline"], arguments["variant"], arguments.get("purpose", "design_strategy"))
+        elif name == "system_detect": result = detect_engines()
         elif name == "workflow_guide": result = workflow_guide(arguments["workflow"])
         elif name == "projects_list": result = {"projects": list_projects()}
         elif name == "runs_list": result = {"runs": list_runs(arguments.get("project"), arguments.get("limit", 100))}
@@ -216,6 +278,7 @@ class MCPServer:
             result = start_job(arguments["plan_id"], arguments["plan_sha256"])
         else:
             raise StudioError(f"Unimplemented tool: {name}")
+        if "outputSchema" in TOOLS[name]: validate_schema(result, TOOLS[name]["outputSchema"], "result")
         append_audit(name, arguments, {"ok": True, "id": result.get("id") if isinstance(result, dict) else None})
         return result
 
@@ -250,14 +313,23 @@ class MCPServer:
                 append_audit(name, arguments if isinstance(arguments, dict) else {}, {"ok": False, "error": str(exc)})
                 return {"content": [{"type": "text", "text": str(exc)}], "isError": True}
         if method == "resources/list":
-            return {"resources": [{"uri": "iprotein://capabilities", "name": "Capabilities", "mimeType": "application/json"}, {"uri": "iprotein://engines", "name": "Installed engines", "mimeType": "application/json"}, {"uri": "iprotein://projects", "name": "Projects", "mimeType": "application/json"}]}
+            return {"resources": [{"uri": "iprotein://skills/studio/workflows", "name": "Workflow routing", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio/integrations", "name": "Discovery, composition and export", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio", "name": "Studio assistant skill", "mimeType": "text/markdown"}, {"uri": "iprotein://capabilities", "name": "Capabilities", "mimeType": "application/json"}, {"uri": "iprotein://engines", "name": "Installed engines", "mimeType": "application/json"}, {"uri": "iprotein://projects", "name": "Projects", "mimeType": "application/json"}]}
         if method == "resources/templates/list":
-            return {"resourceTemplates": [{"uriTemplate": "iprotein://runs/{run_id}/status", "name": "Run status", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/manifest", "name": "Run manifest", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/overview", "name": "Grouped run results", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/metrics", "name": "Run metrics", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/artifacts", "name": "Run artifacts", "mimeType": "application/json"}]}
+            return {"resourceTemplates": [{"uriTemplate": "iprotein://exports/{export_sha256}", "name": "Export first chunk (continue with export_read)", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/status", "name": "Run status", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/manifest", "name": "Run manifest", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/overview", "name": "Grouped run results", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/metrics", "name": "Run metrics", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/artifacts", "name": "Run artifacts", "mimeType": "application/json"}]}
         if method == "resources/read":
             uri = params.get("uri", "")
-            value = read_resource(uri)
+            skill_resources = {"iprotein://skills/studio": "SKILL.md", "iprotein://skills/studio/workflows": "references/workflows.md", "iprotein://skills/studio/integrations": "references/integrations.md"}
+            if uri in skill_resources:
+                return {"contents": [{"uri": uri, "mimeType": "text/markdown", "text": (SCHEMAS.parent / "skills/iprotein-studio" / skill_resources[uri]).read_text()}]}
+            value = exports.export_read(uri.removeprefix("iprotein://exports/")) if uri.startswith("iprotein://exports/") else read_resource(uri)
             return {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(value, indent=2, sort_keys=True)}]}
-        if method == "prompts/list": return {"prompts": []}
+        if method == "prompts/list":
+            return {"prompts": [{"name": "studio-workflow", "description": "Plan, run and review a reproducible Studio workflow", "arguments": [{"name": "objective", "description": "The scientific objective", "required": True}]}]}
+        if method == "prompts/get":
+            if params.get("name") != "studio-workflow": raise StudioError("Unknown prompt.")
+            objective = params.get("arguments", {}).get("objective")
+            if not isinstance(objective, str) or not objective.strip() or len(objective) > 4000: raise StudioError("Supply a concise scientific objective.")
+            return {"description": "Studio workflow planning", "messages": [{"role": "user", "content": {"type": "text", "text": "Objective: " + objective + "\nRead iprotein://skills/studio, system_detect, and workflow_guide. Use pipeline_catalog to choose a supported route. Resolve target chains and residue mappings before planning. Review the frozen plan and use job_start within the user's authorized scope. Review results_overview, then candidates_list; retain exact candidate identities in exports. Separate computational scores from experimental validation."}}]}
         raise StudioError(f"Unsupported MCP method: {method}")
 
     def serve(self) -> int:

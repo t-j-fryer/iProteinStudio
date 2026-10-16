@@ -9,9 +9,11 @@ import json
 import os
 import tempfile
 from collections import OrderedDict
+from copy import deepcopy
 import math
 from pathlib import Path
 import shlex
+from threading import Lock
 
 MAX_CA_CA = 4.5
 MAX_PEPTIDE_CN = 2.2
@@ -23,6 +25,9 @@ AMINO_ACIDS = {
 
 Atom = tuple[float, float, float]
 ResidueKey = tuple[str, str, str]
+_INSPECTION_CACHE: OrderedDict[tuple, dict] = OrderedDict()
+_CACHE_LOCK = Lock()
+_CACHE_LIMIT = 32
 
 
 def number(value: str) -> float:
@@ -32,10 +37,10 @@ def number(value: str) -> float:
     return result
 
 
-def read_pdb(path: Path) -> OrderedDict[ResidueKey, dict[str, Atom]]:
+def read_pdb(path: Path, text: str | None = None) -> OrderedDict[ResidueKey, dict[str, Atom]]:
     residues: OrderedDict[ResidueKey, dict[str, Atom]] = OrderedDict()
     model = "1"
-    for raw in path.read_text(errors="replace").splitlines():
+    for raw in (path.read_text(errors="replace") if text is None else text).splitlines():
         if raw.startswith("MODEL"):
             model = raw[10:14].strip() or "1"
             continue
@@ -53,9 +58,9 @@ def read_pdb(path: Path) -> OrderedDict[ResidueKey, dict[str, Atom]]:
     return residues
 
 
-def cif_atom_rows(path: Path) -> tuple[list[str], list[list[str]]]:
+def cif_atom_rows(path: Path, text: str | None = None) -> tuple[list[str], list[list[str]]]:
     """Read a possibly line-wrapped atom_site loop from predictor mmCIF."""
-    lines = path.read_text(errors="replace").splitlines()
+    lines = (path.read_text(errors="replace") if text is None else text).splitlines()
     index = 0
     while index < len(lines):
         if lines[index].strip() != "loop_":
@@ -80,7 +85,12 @@ def cif_atom_rows(path: Path) -> tuple[list[str], list[list[str]]]:
                 if pending:
                     raise ValueError("incomplete _atom_site row")
                 break
-            pending.extend(shlex.split(stripped, comments=False, posix=True))
+            # Predictor atom rows normally contain only unquoted ASCII fields.
+            # Keep shlex for its quoting/escaping semantics whenever necessary.
+            if stripped.isascii() and not any(c in stripped for c in "\"'\\\v\f"):
+                pending.extend(stripped.split())
+            else:
+                pending.extend(shlex.split(stripped, comments=False, posix=True))
             while len(pending) >= len(columns):
                 rows.append(pending[:len(columns)])
                 pending = pending[len(columns):]
@@ -89,8 +99,8 @@ def cif_atom_rows(path: Path) -> tuple[list[str], list[list[str]]]:
     raise ValueError("contains no _atom_site loop")
 
 
-def read_cif(path: Path) -> OrderedDict[ResidueKey, dict[str, Atom]]:
-    columns, rows = cif_atom_rows(path)
+def read_cif(path: Path, text: str | None = None) -> OrderedDict[ResidueKey, dict[str, Atom]]:
+    columns, rows = cif_atom_rows(path, text)
     lookup = {name.removeprefix("_atom_site."): position
               for position, name in enumerate(columns)}
 
@@ -124,14 +134,45 @@ def read_cif(path: Path) -> OrderedDict[ResidueKey, dict[str, Atom]]:
     return residues
 
 
-def read_residues(path: Path) -> OrderedDict[ResidueKey, dict[str, Atom]]:
-    return read_pdb(path) if path.suffix.lower() == ".pdb" else read_cif(path)
+def read_residues(path: Path, text: str | None = None) -> OrderedDict[ResidueKey, dict[str, Atom]]:
+    return read_pdb(path, text) if path.suffix.lower() == ".pdb" else read_cif(path, text)
 
 
 def inspect_geometry(path: Path) -> dict:
     """Keep advisory distance violations separate from coordinate input errors."""
+    return inspect_with_digest(path)[0]
+
+
+def inspect_with_digest(path: Path) -> tuple[dict, str | None]:
+    """Reuse only identical bytes, format and thresholds within this interpreter.
+
+    The cache is process-local (therefore never crosses validator versions),
+    bounded, and returns independent dictionaries. Read/hash on every call:
+    changes with identical timestamps or sizes, including symlink retargeting,
+    must invalidate it. Reports describe exactly the bytes inspected.
+    """
     try:
-        residues = read_residues(path)
+        data = path.read_bytes()
+    except OSError as exc:
+        return {"violations": [], "errors": [f"could not parse coordinates: {exc}"]}, None
+    digest = hashlib.sha256(data).hexdigest()
+    key = (digest, path.suffix.lower(), MAX_CA_CA, MAX_PEPTIDE_CN)
+    with _CACHE_LOCK:
+        if key in _INSPECTION_CACHE:
+            _INSPECTION_CACHE.move_to_end(key)
+            return deepcopy(_INSPECTION_CACHE[key]), digest
+    record = _inspect_geometry(path, data.decode("utf-8", errors="replace"))
+    with _CACHE_LOCK:
+        _INSPECTION_CACHE[key] = deepcopy(record)
+        _INSPECTION_CACHE.move_to_end(key)
+        while len(_INSPECTION_CACHE) > _CACHE_LIMIT:
+            _INSPECTION_CACHE.popitem(last=False)
+    return record, digest
+
+
+def _inspect_geometry(path: Path, text: str) -> dict:
+    try:
+        residues = read_residues(path, text)
     except (OSError, ValueError) as exc:
         return {"violations": [], "errors": [f"could not parse coordinates: {exc}"]}
     violations: list[dict] = []
@@ -212,9 +253,9 @@ def write_report(path: Path, report_path: Path | None = None) -> dict:
     structures = discover_structures(path)
     records = []
     for structure in structures:
-        record = inspect_geometry(structure)
+        record, digest = inspect_with_digest(structure)
         record.update(path=str(structure.relative_to(directory)),
-                      sha256=hashlib.sha256(structure.read_bytes()).hexdigest())
+                      sha256=digest)
         records.append(record)
     errors = [] if structures else ["No predicted structures found"]
     report = {
@@ -238,19 +279,28 @@ def write_report(path: Path, report_path: Path | None = None) -> dict:
     return report
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("path", type=Path)
-    parser.add_argument("--report", type=Path)
-    args = parser.parse_args()
-    report = write_report(args.path, args.report)
+def report_and_validate(path: Path, report_path: Path | None = None) -> dict:
+    """Shared CLI/resident entry point; diagnostics and failure policy are identical."""
+    report = write_report(path, report_path)
     for record in report["structures"]:
         for violation in record["violations"]:
             print(f"IPROTEINSTUDIO_GEOMETRY_WARNING|{record['path']}|{violation['message']}", flush=True)
     print(f"IPROTEINSTUDIO_GEOMETRY_RECORDED|policy=record_only|violations={report['violation_count']}|errors={report['error_count']}", flush=True)
     if not report["coordinate_input_usable"]:
         errors = report["errors"] + [f"{r['path']}: {e}" for r in report["structures"] for e in r["errors"]]
-        raise SystemExit("Unusable prediction coordinates: " + "; ".join(errors))
+        raise ValueError("Unusable prediction coordinates: " + "; ".join(errors))
+    return report
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("path", type=Path)
+    parser.add_argument("--report", type=Path)
+    args = parser.parse_args()
+    try:
+        report_and_validate(args.path, args.report)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 if __name__ == "__main__":

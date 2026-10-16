@@ -36,6 +36,7 @@ BOOLEAN_ITERATIVE_FLAGS = {
     "--helix-kill",
 }
 VALUE_ITERATIVE_FLAGS = {
+    "--refinement-epitope-guidance",
     "--motif-positions", "--motif-source-seq", "--motif-fixed-positions", "--gap-between-motifs", "--partial-redesign-ranges",
     "--initialization-method", "--initialization-predictor", "--initialization-model", "--initialization-target",
     "--prediction-settings-json", "--workflow", "--predictor", "--sequence-designer", "--num-runs",
@@ -137,6 +138,9 @@ def rfd3_runtime_scripts(root: Path) -> List[Path]:
 
 
 def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[str], resource_class: str, provenance: List[Dict[str, Any]]) -> Dict[str, Any]:
+    from .composition import PLAN_CONTEXT
+    if PLAN_CONTEXT.get() is not None:
+        normalized = {**normalized, "pipeline_recipe": PLAN_CONTEXT.get()}
     from .submission import progress
     progress('runtime', 'Checking engine versions and preserving the execution code…')
     body = {
@@ -401,6 +405,8 @@ def _normalize_iterative_arguments(values: Any) -> Tuple[List[str], str]:
                 if aa not in "ACDEFGHIKLMNPQRSTVWY" or len(aa) != 1 or aa in seen_amino_acids or not math.isfinite(number):
                     raise StudioError(f"{flag} requires distinct standard amino acids and finite biases.")
                 seen_amino_acids.add(aa)
+        if flag == "--refinement-epitope-guidance" and value not in {"auto", "off"}:
+            raise StudioError("--refinement-epitope-guidance must be auto or off.")
         normalized.extend([flag, value])
         seen.add(flag)
         option_values[flag] = value
@@ -443,6 +449,12 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     destination = project_root(project)
     template = import_artifact(str(arguments.get("template_path", "")))
     user_args, predictor = _normalize_iterative_arguments(arguments.get("arguments"))
+    # Freeze defaults even when an MCP caller omits overrides; a later worker
+    # must not inherit unrelated profile settings from the launching process.
+    from .prediction_settings import normalize as normalize_prediction_settings
+    if '--prediction-settings-json' not in user_args:
+        user_args += ['--prediction-settings-json', json.dumps(normalize_prediction_settings(), sort_keys=True)]
+    prediction_settings = json.loads(user_args[user_args.index('--prediction-settings-json') + 1])
     run_name = validate_slug(arguments.get("run_name", f"mcp-{secrets.token_hex(4)}"), "run name")
     campaign = destination / run_name
     if campaign.exists():
@@ -532,7 +544,7 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
         normalized["initialization_refinement"] = {"scope": "unconditioned-monomer",
             "scheduler": "run", "scientific_status": "experimental-unvalidated-criteria",
             "assessment_environment": "managed-protenix", "max_attempts_includes_original": True}
-    scripts = [runner]
+    scripts = [runner, Path(template['path'])]
     if any(flag in user_args for flag in ['--initialization-method', '--initialization-predictor']):
         scripts += [root / 'scripts/hunter_stages.py', root / 'scripts/hunter_initialization_io.py', Path(template['path'])]
         if initialization_target: scripts.append(Path(initialization_target['path']))
@@ -544,6 +556,12 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     if refinement or monomer_benchmark:
         scripts += [root / "scripts" / "initialization_refinement.py",
                     root / "scripts" / "initialization_assessment.py"]
+    if arguments.get('ligand_verification'):
+        from .ligand_screening import frozen_preparation, template_smiles
+        smiles = template_smiles(root, template['path'])
+        prepared, assets = frozen_preparation(root, campaign, 'iterative', arguments['ligand_verification'], smiles, prediction_settings=prediction_settings)
+        normalized['ligand_verification'] = prepared
+        scripts += assets
     return _persist("iterative_design", project, normalized, preview, "apple_gpu_exclusive", _script_provenance(scripts))
 
 
@@ -551,6 +569,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
     if expected_mode not in RFD3_MODES:
         raise StudioError(f"Internal unsupported RFD3 mode: {expected_mode}")
     root = runtime_root()
+    input_artifacts = []
     project = validate_slug(arguments.get("project", ""))
     destination = project_root(project)
     request = copy.deepcopy(arguments.get("request"))
@@ -572,7 +591,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         "first_shell_temperature": 1.00, "use_potentials": True,
         "run_affinity": target_kind == "small_molecule", "run_apo": True,
         "hit_filters": {}, "extra_predictors": [], "intellifold_model": "v2-flash",
-        "conformers": [], "mpnn_max_parallel": 6, "boltz_chunk_size": 50,
+        "conformers": [], "mpnn_max_parallel": 2, "boltz_chunk_size": 50,
         "boltz_calibrate_n": 12, "preserve_partial_sequence": True,
         "source_binder_chain": "A",
     }
@@ -600,6 +619,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         raise StudioError(f"Run directory already exists: {campaign}")
     if target_kind == "protein":
         artifact = import_artifact(str(request.get("target_structure", "")))
+        input_artifacts.append(Path(artifact["path"]))
         request["target_structure"] = artifact["path"]
         chains = request.get("target_chains") or [part.strip() for part in str(request.get("target_chain", "B")).split(",") if part.strip()]
         if not chains or len(chains) > 25 or not all(re.fullmatch(r"[^\d\s]", str(chain)) for chain in chains):
@@ -625,6 +645,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         source = request.get("ligand_source", "smiles")
         if source == "structure_file":
             artifact = import_artifact(str(request.get("ligand_structure", "")))
+            input_artifacts.append(Path(artifact["path"]))
             request["ligand_structure"] = artifact["path"]
         elif source != "smiles" or not str(request.get("smiles", "")).strip():
             raise StudioError("A small-molecule request needs a SMILES string or a ligand structure file.")
@@ -750,6 +771,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         if not isinstance(entry, dict) or not entry.get("path"):
             raise StudioError("Each conformer needs a path, label and positive weight.")
         artifact = import_artifact(str(entry["path"]))
+        input_artifacts.append(Path(artifact["path"]))
         weight = _bounded_float(entry.get("weight", 1.0), "conformer weight", 0.000001, 1_000_000)
         staged_conformers.append({"path": artifact["path"], "label": str(entry.get("label", Path(artifact["name"]).stem)), "weight": weight})
     request["conformers"] = staged_conformers
@@ -794,7 +816,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         request["motif_sites"] = {}
     request.update({"rfd3_root": str(root / "rfd3"), "campaign_dir": str(campaign), "design_name": project, "nanohunter_root": str(root), "design_mode": expected_mode})
     prepare = root / "rfd3_scripts" / "prepare_campaign.py"
-    scripts = [prepare]
+    scripts = [prepare] + input_artifacts
     if target_kind == "small_molecule":
         runner = root / "rfd3_overlay" / "scripts" / "run_rfd3_nise_campaign.py"
     else:
@@ -832,6 +854,13 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
             ),
         },
     }
+    if request.get('nesso'):
+        if target_kind != 'small_molecule':
+            raise StudioError('Ligand verification is restricted to small-molecule campaigns.')
+        from .ligand_screening import frozen_preparation
+        prepared, assets = frozen_preparation(root, campaign, 'rfdiffusion3', request['nesso'], request['smiles'], prediction_settings=request['prediction_settings'])
+        normalized['ligand_verification'] = prepared
+        scripts += assets
     return _persist(f"rfd3_{expected_mode}", project, normalized, preview, "apple_gpu_exclusive", _script_provenance(scripts))
 
 

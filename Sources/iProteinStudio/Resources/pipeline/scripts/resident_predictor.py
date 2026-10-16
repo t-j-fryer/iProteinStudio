@@ -99,9 +99,13 @@ def validate_geometry(root: Path, output: Path) -> None:
     validator = Path(__file__).resolve().with_name("validate_prediction_geometry.py")
     if not validator.is_file():
         die("managed prediction-geometry validator is missing")
-    completed = subprocess.run([sys.executable, str(validator), str(output)])
-    if completed.returncode:
-        die("prediction coordinates are unusable; see geometry_report.json")
+    # Import the shared implementation instead of launching Python per request.
+    # It also shares content-bound inspections with other resident consumers.
+    from validate_prediction_geometry import report_and_validate
+    try:
+        report_and_validate(output)
+    except ValueError as exc:
+        die(f"prediction coordinates are unusable; see geometry_report.json: {exc}")
 
 
 class BoltzCheckpointCache:

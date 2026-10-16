@@ -14,7 +14,8 @@ sys.path.insert(0, str(SCRIPTS))
 try:
     import yaml
 except ImportError:
-    sys.modules['yaml'] = SimpleNamespace(safe_load=json.loads)
+    sys.modules['yaml'] = SimpleNamespace(
+        safe_load=json.loads, safe_dump=lambda value, **kwargs: json.dumps(value))
 from live_iterative_results import LiveIterativeResults, boltz_live_writer
 from resident_predictor import BoltzSession
 
