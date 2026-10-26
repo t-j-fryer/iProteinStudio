@@ -3,6 +3,27 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'Sources/iProteinStudio/Resources/pipeline/scripts'))
 from runtime_package import verify,extract
 class Tests(unittest.TestCase):
+ def test_release_payload_policy_distinguishes_loaders_tables_and_weights(self):
+  sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
+  from runtime_payload_policy import model_payload,require_weight_free
+  self.assertFalse(model_payload('python/lib/python3.12/site-packages/tool.pth'))
+  self.assertFalse(model_payload('sources/LASErMPNN/files/new_ideal_coords.pt'))
+  for name in ('python/lib/python3.12/site-packages/torchmetrics/functional/image/lpips_models/alex.pth',
+               'models/weights.safetensors', 'model.pt', 'checkpoint.ckpt', 'pytorch_model.bin',
+               'other/files/new_ideal_coords.pt'):
+   self.assertTrue(model_payload(name),name)
+   with self.assertRaisesRegex(ValueError,'downloaded separately'):
+    require_weight_free({'files':{name:{}}})
+
+ def test_archive_creates_parent_for_link_only_directory(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);archive=root/'good.tar';out=root/'out';out.mkdir()
+   with tarfile.open(archive,'w') as tar:
+    item=tarfile.TarInfo('source/skills/readme');item.size=2;tar.addfile(item,io.BytesIO(b'ok'))
+    link=tarfile.TarInfo('source/.agents/skills');link.type=tarfile.SYMTYPE;link.linkname='../skills';tar.addfile(link)
+   extract(archive,out)
+   self.assertEqual((out/'source/.agents/skills/readme').read_bytes(),b'ok')
+   self.assertEqual(os.readlink(out/'source/.agents/skills'),'../skills')
  def test_tamper_and_external_link(self):
   with tempfile.TemporaryDirectory() as tmp:
    base=Path(tmp);(base/'file').write_bytes(b'original')

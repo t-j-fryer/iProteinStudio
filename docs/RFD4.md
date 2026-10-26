@@ -1,8 +1,6 @@
 # RFD4 in Studio
 
-Choose **Design → a recommended workflow**, or select an intention under **Build a custom workflow** and choose RFD4. The detailed form also remains available under **RFdiffusion → RFD4**. The development integration uses a verified local
-portable runtime and separately pinned weights. Public runtime distribution is
-pending; see Lab Book 0559 for the acceptance status of this build.
+Choose **Design → a recommended workflow**, or select an intention under **Build a custom workflow** and choose RFD4. The detailed form also remains available under **RFdiffusion → RFD4**. Studio 0.2.27 uses the published [RFD4 portable runtime](https://github.com/t-j-fryer/iProteinStudio/releases/tag/runtimes-2026.10.26-1) and separately pinned model downloads. See [integration acceptance](../lab_book/0559-integrate-rfd4-and-design-search.md) and [release qualification](../lab_book/0579-qualify-and-release-studio-027.md) for tested routes and limits.
 
 | Task | Input and behavior |
 | --- | --- |

@@ -41,7 +41,10 @@ def install(root,key,local=None):
     if descriptors:
         print('NHSTEP|'+key+'|5|Installing verified portable '+descriptors[0]['label'],flush=True)
         cached = root/'runtime_packages'/key
-        if local is None and (cached/'runtime.json').is_file():
+        # A published profile takes precedence over a pre-release local package.
+        # Keep development-only engines usable until they acquire a release.
+        published = key in json.loads((HERE/'runtime_releases.json').read_text())['packages']
+        if local is None and not published and (cached/'runtime.json').is_file():
             manifest=digest(cached/'runtime.json')
             mappings={k:v for d in descriptors for k,v in d['mappings'].items()}
             base=activate(root,key,cached,manifest,[str(root/k)+'='+v for k,v in mappings.items()])

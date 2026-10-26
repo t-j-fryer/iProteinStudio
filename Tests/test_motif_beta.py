@@ -19,6 +19,7 @@ def fixture(base, identifier='M0054_1qfe'):
     bundle = base / 'bundle'
     contract.prepare(bundle, dict(case_id=identifier, length=50))
     c = contract.case(identifier)
+    conditioning = json.loads((bundle / 'bundle.json').read_text())['conditioning_ligands']
     st = gemmi.Structure(); model = gemmi.Model('1'); chain = gemmi.Chain('A')
     by_pos = {2 + i * 3: r for i, r in enumerate(c['protein_motif'])}
     mapping = {}
@@ -45,7 +46,7 @@ def fixture(base, identifier='M0054_1qfe'):
             atom.pos = gemmi.Position(*item['xyz_angstrom']); atom.occ = 1; atom.b_iso = 90
             res.add_atom(atom)
         chain.add_residue(res); model.add_chain(chain)
-        ligand_map.append(dict(source_chain=source['chain'], source_residue=source['residue'],
+        ligand_map.append(dict(source_chain=conditioning[i]['conditioning_chain'], source_residue=conditioning[i]['conditioning_residue'],
                                component=source['component'], output_chain=cid, output_residue=1))
     st.add_model(model); pdb = base / 'root.pdb'; st.write_pdb(str(pdb))
     metadata = dict(diffused_index_map=mapping, ligand_instance_map=ligand_map,
@@ -69,6 +70,14 @@ class MotifBetaTests(unittest.TestCase):
             spec = json.loads((path / 'rfd3.yaml').read_text())
             self.assertEqual(set(spec['unindex'].split(',')), {r['source_selector'] for r in case['protein_motif']})
             self.assertNotIn('ORI', (path / 'conditioning.pdb').read_text())
+            conditioned = geometry.read(path / 'conditioning.pdb')
+            protein_chains = {r['chain'] for r in case['protein_motif']}
+            for mapping, ligand in zip(saved['conditioning_ligands'], case['ligands']):
+                self.assertNotIn(mapping['conditioning_chain'], protein_chains)
+                key = f"{mapping['conditioning_chain']}:{mapping['conditioning_residue']}:"
+                self.assertEqual(set(conditioned[key]['atoms']), set(geometry.heavy(ligand)))
+                for name in geometry.heavy(ligand):
+                    np.testing.assert_allclose(conditioned[key]['atoms'][name]['xyz'], ligand['atoms'][name]['xyz_angstrom'])
             self.assertEqual(len(spec['select_fixed_atoms']), len(case['protein_motif']) + len(case['ligands']))
         (path / 'source.pdb').write_text('changed')
         with self.assertRaises(ValueError): contract.verify(path)
@@ -82,6 +91,38 @@ class MotifBetaTests(unittest.TestCase):
                        dict(profile='studio-ame-beta-v1')]:
             with self.assertRaises(ValueError): contract.normalize(change)
         self.assertEqual(sum(n for _, n in search.allocation(['a', 'b', 'c'], 4)), 4)
+
+    def test_frozen_reference_replay_preserves_bytes_and_detects_change(self):
+        pdb, ref, metadata = fixture(self.base)
+        before = (ref.read_bytes(), ref.stat().st_mtime_ns)
+        geometry.freeze_root(self.base / 'bundle', pdb, metadata, ref)
+        self.assertEqual((ref.read_bytes(), ref.stat().st_mtime_ns), before)
+        st = gemmi.read_structure(str(pdb))
+        st[0]['A'][0][0].pos.x += 1
+        st.write_pdb(str(pdb))
+        with self.assertRaisesRegex(ValueError, 'Cannot change a frozen'):
+            geometry.freeze_root(self.base / 'bundle', pdb, metadata, ref)
+        self.assertEqual((ref.read_bytes(), ref.stat().st_mtime_ns), before)
+
+    def test_native_ligand_labels_require_explicit_entity_map(self):
+        from motif_beta.prediction_identity import restore
+        pdb, ref, _ = fixture(self.base)
+        expected = json.loads(ref.read_text())['ligands'][0]['component']
+        native = self.base / 'native.pdb'
+        native.write_text(''.join(line[:17] + 'LIG' + line[20:] if line.startswith('HETATM') else line
+                                  for line in pdb.read_text().splitlines(keepends=True)))
+        before = native.read_bytes()
+        doc = {'sequences': [{'ligand': {'id': 'B', 'ccd': expected}}]}
+        mapped, receipt = restore(native, doc, self.base / 'mapped.pdb')
+        self.assertEqual(native.read_bytes(), before)
+        self.assertEqual(geometry.read(mapped), geometry.read(pdb))
+        self.assertEqual(json.loads(receipt.read_text())['native_sha256'], contract.digest(native))
+        self.assertTrue(geometry.evaluate(ref, mapped, 90)['guarded_pass'])
+        with self.assertRaisesRegex(ValueError, 'submitted entity'):
+            restore(native, {'sequences': [{'ligand': {'id': 'C', 'ccd': expected}}]}, self.base / 'bad.pdb')
+        native.write_text(native.read_text().replace('LIG', 'BAD'))
+        with self.assertRaisesRegex(ValueError, 'Unexpected native ligand'):
+            restore(native, doc, self.base / 'bad.pdb')
 
     def test_geometry_rigid_invariance_missing_and_ligand_motion(self):
         pdb, ref, _ = fixture(self.base)

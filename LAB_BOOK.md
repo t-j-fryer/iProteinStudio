@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0579 — Qualify and release Studio 0.2.27](lab_book/0579-qualify-and-release-studio-027.md) (2026-10-26): bounded motif acceptance and runtime/app publication; in progress.
+
 Latest release preparation: [0442 — Ligand efficiency and integrated workflow fixes](lab_book/0442-release-ligand-efficiency.md).
 
 Latest RFD3 correction: [0298 — Release exact RFD3 motif selections](lab_book/0298-release-rfd3-motif-fix.md).

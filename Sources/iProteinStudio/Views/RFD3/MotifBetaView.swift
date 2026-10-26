@@ -20,7 +20,7 @@ struct MotifBetaView: View {
                 Spacer()
                 Button("Done") { dismiss() }
             }
-            Text("Original AME-41 motifs and ligands. CPU input and template checks have passed; full model-cycle qualification remains pending. The paper’s 38-case subset is unverified. Pilots are limited to 1–5 roots.")
+            Text("Original AME-41 motifs and ligands. CPU input and template checks and a small end-to-end KSI test with pause/resume have passed. Broader design performance remains unvalidated. The paper’s 38-case subset is unverified. Pilots are limited to 1–5 roots.")
                 .foregroundStyle(.secondary)
             MemoryPolicyControl()
             ScrollView {

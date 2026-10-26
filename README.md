@@ -23,7 +23,7 @@ archives, but not Apple Developer ID signed or notarized. See [licensing status]
 
 - **App:** macOS 14 or later, Apple Silicon.
 - **Protenix v2/Mini packages:** macOS 26.0 or later.
-- **OpenFold3/RFdiffusion3/ESMFold2 packages:** macOS 26.2 or later.
+- **OpenFold3/RFdiffusion3/RFD4/ESMFold2 packages:** macOS 26.2 or later.
 - **Setup:** internet access and disk space for the engines and weights selected
   in **Engines**. Released portable packages do not require Xcode, Command Line
   Tools, Git, Homebrew or a separately installed Python.
@@ -70,8 +70,9 @@ time budget; queue time does not count toward active design time.
 | **Predict** | Complete sequences, FASTA or CSV, with per-chain alignments and templates where supported. |
 
 RFD3 fixed-framework nanobody generation was tried unsuccessfully and is excluded.
-The motif beta's CPU inputs/features are checked; a full model-cycle qualification
-remains outstanding. Protenix/IntelliFold motif template exports have CPU checks
+The motif beta has CPU input/feature checks and a bounded end-to-end KSI
+test covering both designers, guided/untemplated predictions and pause/resume.
+This is software qualification, not general design performance or enzyme activity. Protenix/IntelliFold motif template exports have CPU checks
 only. General custom-motif template-guided X-token scaffolding is not available.
 See [RFD4](docs/RFD4.md), [motif beta](docs/MOTIF_BETA.md),
 [Protein Hunter stages](docs/PROTEIN_HUNTER_STAGES.md) and [NISE](docs/NISE.md).
@@ -89,9 +90,10 @@ AbMPNN and LASErMPNN**. Studio resolves shared ESMC weights, managed Python and
 engine environments, chemical data and libraries. Additional engines such as
 RFD3 are optional. The complete base needs Apple Silicon and macOS 26.2+.
 
-This README describes current source. Public RFD4 runtime distribution and a
-clean-machine test of the new base selection remain pending; do not assume an
-older downloaded app exposes every source feature. RFD4 and guided beta memory
+The RFD4 portable runtime is published for the 0.2.27 app release. The new base
+selection is undergoing an isolated empty-root installation test; a second
+physical Mac remains outside this qualification. See
+[release qualification](lab_book/0579-qualify-and-release-studio-027.md). RFD4 and guided beta memory
 estimates are not calibrated, so their visible memory override is an explicit,
 recorded choice. Existing installed workflows and their saved runtime identities
 remain separate from these qualification limits.

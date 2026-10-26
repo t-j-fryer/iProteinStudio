@@ -979,7 +979,7 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
             "scope": "Pinned AME-41 benchmark motifs, fixed ligand chemistry, 1–5 roots. General custom motif import is not implemented.",
             "stages": "prepare (files only), backbones (RFD3), cycles (Boltz guided proposals plus separate untemplated ranking checks).",
             "templates": "Explicit residue-position maps; rfd3-root or original benchmark-residues geometry. Templates guide geometry; they do not lock atoms. Protenix/IntelliFold features are CPU-qualified only; automatic cycles reject these engines.",
-            "qualification": "CPU input/feature tests and managed preparation verified. Full beta model cycles and independent final assessment remain unqualified. Not a measured enzyme activity or yield claim.",
+            "qualification": "CPU input/features and a one-root KSI technical pilot passed: both designers, one fixed cycle, four guided/untemplated Boltz predictions, real cancellation/replay (Lab Book 0579, Validation 0259). Other cases/policies and independent final assessment remain unqualified. No enzyme activity or yield claim.",
             "memory": "Inference obeys the existing memory policy; an explicit recorded override may be necessary for uncalibrated workloads.",
         },
         "rfd3_protein_binder": {

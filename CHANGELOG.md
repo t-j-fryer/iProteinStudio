@@ -1,5 +1,15 @@
 # iProteinStudio release notes
 
+## 0.2.27 — RFD4 and intention-based design
+
+- Add recommended easy/hard workflows, a custom builder organized by design intention, reusable workflow buttons and matching artwork. Protein targets can be structures or sequences, with colon-separated chains and the shared MSA policy.
+- Integrate native RFD4 generation and conditions, sequence/refold iteration and beam search, ESMFold2 Full CDR X-token starts, and small-molecule scoring with Boltz binding probability plus ligand confidence.
+- Expose the template-guided Boltz atomic-motif beta through the app, CLI and MCP. Preserve explicit source-to-query maps and separate guided proposals from untemplated checks. The unsuccessful RFD3 fixed-framework nanobody route is excluded.
+- Publish a weight-free RFD4 portable runtime and the base installer selection. Fix RFD4 retry selection and extraction of directories containing only symlinks; keep model downloads separate and verified.
+- Qualify a bounded KSI motif cycle with real pause/resume; fix native ligand identity mapping and frozen-reference replay. Broader design efficacy remains experimental.
+- Ship evidence-aware operating skills and updated workflow documentation. Existing jobs retain their immutable code and runtime identities.
+
+
 ## 0.2.26 — ESMFold2 refinement handoff compatibility
 
 - Remove empty and residual Studio epitope metadata from ESMFold2 Fast/Full refinement inputs. RFdiffusion3 generation hotspot choices remain intact in the original inputs; ESMFold2 refinement remains unrestrained.

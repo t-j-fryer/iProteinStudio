@@ -5,6 +5,25 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1];SCRIPTS=ROOT/'Sources/iProteinStudio/Resources/pipeline/scripts';sys.path.insert(0,str(SCRIPTS))
 import runtime_package,setup_portable
 class Tests(unittest.TestCase):
+ def test_rfd4_retry_is_accepted_by_public_setup_parser(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   env={**os.environ,'NANOHUNTER_ROOT':tmp}
+   setup=SCRIPTS.parent/'setup_pipeline.sh'
+   good=subprocess.run(['/bin/bash',str(setup),'--retry-components','rfd4','--help'],env=env,text=True,capture_output=True)
+   self.assertEqual(good.returncode,0,good.stdout+good.stderr)
+   bad=subprocess.run(['/bin/bash',str(setup),'--retry-components','unknown_engine','--help'],env=env,text=True,capture_output=True)
+   self.assertNotEqual(bad.returncode,0)
+
+ def test_published_rfd4_supersedes_pre_release_local_package(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp).resolve();cached=root/'runtime_packages/rfd4';cached.mkdir(parents=True)
+   (cached/'runtime.json').write_text(json.dumps({'engine':'rfd4','old':True}))
+   release=root/'components/rfd4/current';release.mkdir(parents=True)
+   (release/'runtime.json').write_text(json.dumps({'engine':'rfd4','published':True}))
+   with patch.object(setup_portable,'from_catalog',return_value=release) as published,patch.object(setup_portable,'activate') as activate,patch.object(setup_portable,'download'):
+    setup_portable.install(root,'rfd4')
+   published.assert_called_once_with(root,'rfd4');activate.assert_not_called()
+   self.assertEqual(json.loads((root/'receipts/rfd4.json').read_text())['runtime_manifest_sha256'],runtime_package.digest(release/'runtime.json'))
  def test_constraint_portable_receipt_matches_launch_and_detection_contract(self):
   with tempfile.TemporaryDirectory() as tmp:
    root=Path(tmp).resolve();base=root/'components/protenix_constraint/current';base.mkdir(parents=True)

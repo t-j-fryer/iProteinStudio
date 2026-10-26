@@ -148,6 +148,18 @@
       "mappings": {
         "venvs/NanoHunter_esmfold2": "python"
       }
+    },
+    "rfd4": {
+      "archive_sha256": "538bec0fd641eaeea8f95778a404bf547059f24d149e3fa79869b2f47961c1d6",
+      "manifest_sha256": "881120a852911b115009d9d846f3751b481b032ab4d58b0390f55581198a82bd",
+      "bytes": 442106152,
+      "url": "https://github.com/t-j-fryer/iProteinStudio/releases/download/runtimes-2026.10.26-1/rfd4-881120a852911b115009-macos-arm64.tar.gz",
+      "minimum_macos": "26.2",
+      "architecture": "arm64",
+      "mappings": {
+        "venvs/NanoHunter_rfd4": "python",
+        "src/RFD4-Proteina": "sources/RFD4-Proteina"
+      }
     }
   }
 }

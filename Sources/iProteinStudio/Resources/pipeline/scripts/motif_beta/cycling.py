@@ -119,7 +119,7 @@ class Predictor:
         return json.loads(path.read_text())
 
     def predict(self, documents, directory, seed):
-        spec = dict(documents=documents, seed=seed)
+        spec = dict(documents=documents, seed=seed, output_contract='explicit-ccd-labels-v1')
         marker = directory / 'complete.json'
         saved = replay(marker, spec)
         if saved is not None: return saved
@@ -141,7 +141,14 @@ class Predictor:
         for name in documents:
             found = list((directory / 'out').rglob(name + '_model_0.pdb'))
             if len(found) != 1: raise ValueError('Missing/ambiguous prediction for ' + name)
-            result[name] = str(found[0]); files.append(found[0])
+            native = found[0]
+            confidence = native.with_name('confidence_' + native.stem + '.json')
+            if not confidence.is_file():
+                raise ValueError('Missing native confidence for ' + name)
+            from .prediction_identity import restore
+            mapped, identity = restore(native, documents[name], native.with_name(native.stem + '_mapped.pdb'))
+            result[name] = str(mapped)
+            files.extend([native, confidence, mapped, identity])
         return commit(marker, spec, result, files + list(inputs.glob('*.yaml')))
 
     def close(self):

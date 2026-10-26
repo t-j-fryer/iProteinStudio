@@ -177,7 +177,7 @@ while [[ $# -gt 0 ]]; do
       IFS=',' read -r -a retry_keys <<< "${INSTALL_ONLY}"
       for retry_key in "${retry_keys[@]}"; do
         case "${retry_key}" in
-          esmfold2|esmfold2_full|esmfold2_fast|control|mpnn|abmpnn|boltz|boltz_affinity|antifold|intellifold|intellifold_full|protenix|protenix_v2|protenix_mini|protenix_constraint|nesso|psichic|lasermpnn|openfold3|rfd3) ;;
+          esmfold2|esmfold2_full|esmfold2_fast|control|mpnn|abmpnn|boltz|boltz_affinity|antifold|intellifold|intellifold_full|protenix|protenix_v2|protenix_mini|protenix_constraint|nesso|psichic|lasermpnn|openfold3|rfd3|rfd4) ;;
           *) echo "NHFAIL|Unknown retry component: ${retry_key}"; exit 2 ;;
         esac
       done

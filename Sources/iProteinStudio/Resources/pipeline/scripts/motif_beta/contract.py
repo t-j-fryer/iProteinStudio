@@ -117,11 +117,28 @@ def prepare(output, raw):
     lines = [line for line in source.read_text().splitlines()
              if line.startswith(('ATOM  ', 'HETATM'))
              and (line[21], int(line[22:26]), line[17:20].strip()) in selected]
+    # AtomWorks splits mixed polymer/non-polymer chains during native parsing.
+    # Assign every ligand instance an explicit unused chain before selection,
+    # retaining a reversible map to the byte-identical benchmark source.
+    used = {r['chain'] for r in c['protein_motif'] + c['ligands']}
+    available = [ch for ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' if ch not in used]
+    if len(available) < len(c['ligands']):
+        raise ValueError('Not enough unambiguous PDB chains for ligand instances.')
+    ligand_map = [dict(source_chain=r['chain'], source_residue=r['residue'],
+                       component=r['component'], conditioning_chain=available[i],
+                       conditioning_residue=1) for i, r in enumerate(c['ligands'])]
+    remap = {(m['source_chain'], m['source_residue'], m['component']): m for m in ligand_map}
+    # One ligand per chain makes native per-chain renumbering explicit.
+    # Preserve original chain/residue in the map and source.pdb.
+    for index, line in enumerate(lines):
+        mapped = remap.get((line[21], int(line[22:26]), line[17:20].strip()))
+        if mapped:
+            lines[index] = line[:21] + mapped['conditioning_chain'] + f"{mapped['conditioning_residue']:4d}" + line[26:]
     conditioned = output / 'conditioning.pdb'
     conditioned.write_text('\n'.join(lines + ['END']) + '\n')
     masks = {r['source_selector']: ','.join(r['conditioning_atoms']) for r in c['protein_motif']}
-    for ligand in c['ligands']:
-        masks[f"{ligand['chain']}{ligand['residue']}"] = 'ALL'
+    for ligand in ligand_map:
+        masks[f"{ligand['conditioning_chain']}{ligand['conditioning_residue']}"] = 'ALL'
     spec = dict(input=str(conditioned), length=str(cfg['length']),
                 unindex=','.join(r['source_selector'] for r in c['protein_motif']),
                 ligand=','.join(dict.fromkeys(r['component'] for r in c['ligands'])),
@@ -142,7 +159,7 @@ def prepare(output, raw):
            execution_status='Boltz beta cycling available; other mapped template adapters require native qualification.'))
     files = {name: digest(output / name) for name in ('source.pdb', 'conditioning.pdb', 'rfd3.yaml', 'case.json', 'comparison.json')}
     saved = dict(schema=1, request=cfg, source_revision=catalog()['source_revision'],
-                 scope=catalog()['scope'], files=files, budget=budget(cfg))
+                 scope=catalog()['scope'], files=files, budget=budget(cfg), conditioning_ligands=ligand_map)
     atomic(receipt, saved)
     return saved
 

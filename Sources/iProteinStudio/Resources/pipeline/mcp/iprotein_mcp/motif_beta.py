@@ -20,7 +20,7 @@ def contract():
 def catalog():
     module = contract()
     return dict(profile=module.PROFILE, scope='Pinned AME-41 benchmark motifs; not arbitrary motif import',
-                qualification='CPU input/feature checks; full guided/untemplated model cycle qualification remains pending.',
+                qualification='CPU input/feature checks and one-root KSI guided/untemplated cycling with real cancellation/replay passed (Lab Book 0579, Validation 0259). No general efficacy or independent-family qualification.',
                 cases=[dict(case_id=c['case_id'], pdb_id=c['pdb_id'],
                             source_sha256=c['source_sha256'],
                             motif_residues=len(c['protein_motif']),

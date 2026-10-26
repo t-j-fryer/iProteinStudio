@@ -87,7 +87,8 @@ def fitted_rmsd(p, q):
 
 def freeze_root(bundle, pdb, metadata, output):
     bundle, pdb, output = Path(bundle), Path(pdb), Path(output)
-    cfg = verify(bundle)['request']
+    saved = verify(bundle)
+    cfg = saved['request']
     c = json.loads((bundle / 'case.json').read_text())
     root = read(pdb)
     protein_keys = [k for k, v in root.items() if v['component'] in LETTERS]
@@ -114,8 +115,14 @@ def freeze_root(bundle, pdb, metadata, output):
     instance_map = metadata.get('ligand_instance_map', [])
     ligands = []
     for res in c['ligands']:
+        mapped = [m for m in saved.get('conditioning_ligands', [])
+                  if (m['source_chain'], m['source_residue'], m['component']) == (res['chain'], res['residue'], res['component'])]
+        if saved.get('conditioning_ligands') is not None and len(mapped) != 1:
+            raise ValueError('Missing or ambiguous source-to-conditioning ligand map.')
+        source_chain = mapped[0]['conditioning_chain'] if mapped else res['chain']
+        source_residue = mapped[0]['conditioning_residue'] if mapped else res['residue']
         matches = [m for m in instance_map if (m['source_chain'], m['source_residue'], m['component']) ==
-                   (res['chain'], res['residue'], res['component'])]
+                   (source_chain, source_residue, res['component'])]
         if len(matches) != 1:
             raise ValueError('Missing or ambiguous ligand instance export mapping.')
         m = matches[0]; key = f"{m['output_chain']}:{m['output_residue']}:"
@@ -152,8 +159,12 @@ def freeze_root(bundle, pdb, metadata, output):
                       confidence='explicit protein mean pLDDT, 0-100'))
     coords(root, result['backbone_atoms'])
     result['source_insertion_rmsd'] = fitted_rmsd(coords(root, selected), np.array(source_xyz))
-    if output.exists() and json.loads(output.read_text()) != result:
-        raise ValueError('Cannot change a frozen root reference.')
+    # Compare the persisted representation: JSON turns atom-key tuples into lists.
+    result = json.loads(json.dumps(result))
+    if output.exists():
+        if json.loads(output.read_text()) != result:
+            raise ValueError('Cannot change a frozen root reference.')
+        return result
     atomic(output, result)
     return result
 

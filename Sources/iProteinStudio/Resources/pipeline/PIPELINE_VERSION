@@ -83,12 +83,12 @@ studio_residency_validation: lab_book/0272-openfold-residency-and-figure3-schedu
 studio_workflow_controls: native-region-modes-and-nise-resident-default-v1
 studio_workflow_controls_validation: lab_book/0279-simplify-workflow-controls.md
 
-studio_release: 0.2.26
+studio_release: 0.2.27
 studio_ligand_efficiency: laser-resident-postload-seed-v2; boltz-affinity50-1; bounded-cpu-prefetch
 studio_ligand_efficiency_validation: lab_book/0430-qualify-lasermpnn-cpu-residency.md, lab_book/0432-run-biotin-affinity-efficiency.md, lab_book/0442-release-ligand-efficiency.md
 studio_epitope_guidance: shared-generation-refinement-policy-v1
 studio_output_reporting: batched-content-addressed-inspection-v1
-studio_mcp: 45
+studio_mcp: 46
 
 studio_target_msa_policy: auto-resolved-not-filename-v1
 studio_target_msa_policy_validation: lab_book/0445-hunter-auto-msa-policy.md
@@ -101,3 +101,6 @@ studio_rfd4_integration: native-generation-search-multichain-v1
 studio_motif_beta_bridge: typed-managed-plans-v1
 studio_workflow_evidence: dated-qualification-reference-20261026
 studio_current_integration_validation: lab_book/0559-integrate-rfd4-and-design-search.md, lab_book/0574-sequence-targets-and-workflow-capabilities.md, lab_book/0577-publish-workflows-and-evidence.md
+
+studio_release_qualification: lab_book/0579-qualify-and-release-studio-027.md
+studio_rfd4_runtime_release: runtimes-2026.10.26-1

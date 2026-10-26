@@ -167,13 +167,16 @@ These additions are bundled source features; the connected server's tool list
 is authoritative until an updated app is deployed.
 
 
-## Current design routes and evidence (bridge 45)
+## Current design routes and evidence (bridge 46)
 
 Discover `rfd4_plan`, `motif_beta_catalog` and `motif_beta_plan` in the connected
 server before using them. Both planners also have executable v2 recipe routes.
 `workflow_guide` accepts `rfd4` and `motif_beta`. The motif planner reuses the
 app adapter and its bounded pilot/chemistry/memory checks; only Boltz automatic
-cycling is exposed. CPU feature tests do not qualify full model cycles.
+cycling is exposed. A one-root KSI technical pilot with both designers, four
+guided/untemplated predictions and real cancellation/replay passed; broader
+case/policy coverage and independent-family validation remain outstanding.
+See [release qualification](../lab_book/0579-qualify-and-release-studio-027.md).
 
 Read `iprotein://skills/studio/evidence` before recommending engines or budgets.
 The bundled skill links this dated evidence reference, including source Lab Book

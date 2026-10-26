@@ -11,8 +11,13 @@ installed application.
 ligand-complex and guided-prediction profiles. It blocks these by default, but
 users can now enable **Override memory check for new runs** in the workbench
 or Settings → Memory. The choice is saved with the job, and managed commands
-record sampled memory usage. This does not qualify model execution, chemistry
-or scientific success: a real end-to-end smoke run is still needed. Other
+record sampled memory usage. A bounded KSI test now passes end to end: one
+RFD3 root, LigandMPNN and LASErMPNN, one fixed cycle, four guided/untemplated
+Boltz predictions, and actual cancellation/resumption with unchanged completed
+files. Neither candidate passed the unchanged geometry gates. This does not
+qualify all cases, search policies, independent-family assessment or enzyme
+activity. See [Lab Book 0579](../lab_book/0579-qualify-and-release-studio-027.md)
+and [Validation 0259](../Validation/lab_book/0259-studio-release-027.md). Other
 preflight checks remain active. See [memory policy](MEMORY_SAFETY.md) and the
 [recommended small pilot](MOTIF_BETA_PILOT.md).
 
@@ -76,6 +81,11 @@ automatic-cycle preflight explicitly; their template inputs can be exported
 for qualification. No Mini/OpenFold/ESMFold2 template capability is implied.
 Protein templates do not lock ligand poses. Ligands remain separate predictor
 entities and their positions are assessed independently.
+
+Boltz native PDBs retain their generic ligand labels. Separately saved mapped
+copies restore CCD labels from the submitted entity map, with native/mapped
+hashes and identity receipts; no atom names, elements or coordinates change.
+Source-to-conditioning ligand chain/residue maps are also recorded explicitly.
 
 ## Saved comparison
 

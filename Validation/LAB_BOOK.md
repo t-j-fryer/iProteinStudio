@@ -1,5 +1,7 @@
 # Validation Lab Book
 
+- [0259 — Studio 0.2.27 release qualification](lab_book/0259-studio-release-027.md) (2026-10-26): bounded KSI model pilot, runtime relocation/installation and release delivery; in progress.
+
 Latest RFD3 correction: [0095 — RFD3 motif release acceptance](lab_book/0095-rfd3-motif-release.md).
 
 Latest default promotion: [0078 — ESMFold2 Full 3/50](lab_book/0078-esm-full-default-promotion.md), following [0076](lab_book/0076-esmfold2-full-3-50.md).

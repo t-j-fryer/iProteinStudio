@@ -66,7 +66,10 @@ def extract(archive,destination):
                 with tar.extractfile(item) as source,p.open('wb') as target:shutil.copyfileobj(source,target)
                 p.chmod(item.mode & 0o777)
         for item in members:
-            if item.issym():(destination/relative(item.name)).symlink_to(item.linkname)
+            if item.issym():
+                path=destination/relative(item.name)
+                path.parent.mkdir(parents=True,exist_ok=True)
+                path.symlink_to(item.linkname)
 
 def activate(root,engine,package,expected,mappings=()):
     identity(engine);root=Path(root).resolve();package=Path(package).resolve()

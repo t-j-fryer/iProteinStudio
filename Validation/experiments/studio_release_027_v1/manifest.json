@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "purpose": "Bounded software qualification for Studio 0.2.27; not enzyme efficacy or a settings comparison",
+  "source_commit": "36918282e23504a7fa9798a831e115ee00976e67",
+  "motif_request": {
+    "project": "studio_integration_acceptance",
+    "run_name": "release-027-ksi-01",
+    "memory_policy": "override",
+    "request": {
+      "stage": "cycles",
+      "case_id": "M0349_1e3v",
+      "length": 128,
+      "roots": 1,
+      "cycles": 1,
+      "proposals": 1,
+      "beam_width": 1,
+      "policies": [
+        "fixed"
+      ],
+      "designers": [
+        "ligandmpnn",
+        "lasermpnn"
+      ],
+      "engine": "boltz",
+      "guidance": true,
+      "guidance_source": "rfd3-root",
+      "seed": 0
+    }
+  },
+  "planned_model_work": {
+    "rfd3_roots": 1,
+    "guided_boltz": 2,
+    "untemplated_boltz": 2
+  },
+  "acceptance": [
+    "Exact residue and ligand identities",
+    "Finite complete outputs and confidence",
+    "Two proposals, four prediction receipts, one resident Boltz load",
+    "Recorded memory and fallback policy",
+    "Immutable input hashes and completed-unit replay",
+    "RFD4 runtime relocation, installation and release asset hash verification",
+    "App build, signed update archive, downloadable DMG and live appcast"
+  ],
+  "limits": [
+    "One KSI case and one root; no enzyme-activity claim",
+    "No promotion of search thresholds or memory calibration",
+    "No second physical Mac available; isolated installation on the development Mac only"
+  ],
+  "queue_policy": "Pause existing jobs through broker, record original order and digests, restore after bounded inference",
+  "memory_override": "User-approved for bounded tests; retain sampled memory, not a calibrated capacity claim",
+  "amendments": [
+    {
+      "attempt": "01",
+      "result": "Native parser rejected mixed protein/ligand chain before inference; preserved failed output."
+    },
+    {
+      "attempt": "02",
+      "result": "RFD3 export renumbered ligand residue to 1; explicit mapping check stopped before inverse folding or Boltz."
+    },
+    {
+      "attempt": "03",
+      "change": "Conditioning uses a unique chain and residue 1 per ligand; original coordinates, atom names and source identities retained."
+    },
+    {
+      "interrupt_resume": "Pause after first durable guided/untemplated pair; resume exact plan, verify completed-file hashes and mtimes. Each new process session must load Boltz once; sessions may increase due to this explicit interruption."
+    },
+    {
+      "attempt": "03",
+      "result": "First two Boltz calls complete; actual cancel/resume rejected tuple/list JSON representation mismatch in unchanged frozen reference."
+    },
+    {
+      "attempt": "04",
+      "change": "Canonical JSON comparison; identical frozen references are returned without rewriting. Repeat declared one-root four-call pilot and interruption check."
+    },
+    {
+      "attempt": "04",
+      "result": "Four predictions and resume completed. Audit rejected generic native Boltz LIG labels despite exact atom/element identity."
+    },
+    {
+      "attempt": "05",
+      "change": "Retain native PDB; create separately receipted mapped copy restoring CCD labels from submitted entity map. Include native confidence in completed-unit hashes. Repeat declared pilot and interruption test."
+    }
+  ]
+}

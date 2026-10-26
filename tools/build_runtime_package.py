@@ -7,6 +7,7 @@ This creates a local qualification artifact; signing/notarization is separate.
 """
 import argparse,hashlib,json,os,shutil,subprocess,sys,shlex,configparser,re,ast
 from pathlib import Path
+from runtime_payload_policy import model_payload
 
 def sha(p):
     h=hashlib.sha256()
@@ -56,10 +57,10 @@ def main():
     if 'cpython-' not in base.name or not (base/'lib').is_dir():raise ValueError('Require a pinned python-build-standalone interpreter, not system/framework Python')
     out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
     def ignore(directory,names):
-        return [n for n in names if n in ('__pycache__','.git','.venv','venv','.DS_Store') or n.endswith(('.pyc','.pt','.pth.tar','.ckpt','.safetensors','.bin')) or n=='site-packages']
+        return [n for n in names if n in ('__pycache__','.git','.venv','venv','.DS_Store') or n.endswith(('.pyc','.pt','.pth.tar','.ckpt','.safetensors','.bin')) or n=='site-packages' or model_payload(Path(directory)/n)]
     shutil.copytree(base,out/'python',symlinks=True,ignore=ignore)
     dest=out/'python/lib'/('python'+'.'.join(info['version'].split('.')[:2]))/'site-packages'
-    shutil.copytree(site,dest,symlinks=True,ignore=lambda d,n:[x for x in n if x in ('__pycache__','.DS_Store') or x.endswith(('.pyc','.pt','.ckpt','.safetensors'))])
+    shutil.copytree(site,dest,symlinks=True,ignore=lambda d,n:[x for x in n if x in ('__pycache__','.DS_Store') or x.endswith(('.pyc','.pt','.ckpt','.safetensors')) or model_payload(Path(d)/x)])
     for value in a.source:
         name,path=value.split('=',1)
         if '/' in name or name in ('.','..'):raise ValueError('Unsafe source name')
