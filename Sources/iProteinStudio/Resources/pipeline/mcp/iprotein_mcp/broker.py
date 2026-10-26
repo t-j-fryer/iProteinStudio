@@ -19,6 +19,7 @@ from .plans import load_plan
 
 
 TERMINAL = {"completed", "failed", "cancelled"}
+_MEMORY_POLICY = 'enforce'
 _DETACHED: Dict[str, subprocess.Popen] = {}
 _CANCEL_REQUESTED = False
 _EXECUTION_FD = None
@@ -103,6 +104,8 @@ def _spawn(job_id: str) -> Dict[str, Any]:
     log_path = directory / "job.log"
     server_root = directory / "bridge"
     plan = load_json(directory / "plan.json")
+    from .memory import check_saved_plan
+    check_saved_plan(plan)
     snapshot = plan.get("code_snapshot")
     source_bridge = Path(snapshot["path"]) / "mcp" if snapshot else Path(__file__).resolve().parents[1]
     if not server_root.exists():
@@ -112,7 +115,8 @@ def _spawn(job_id: str) -> Dict[str, Any]:
     if not support.exists():
         support.mkdir()
         source = Path(snapshot["path"]) / "scripts" if snapshot else Path(__file__).resolve().parents[2] / "scripts"
-        for name in ("runtime_package.py", "runtime_transaction.py", "runtime_view.py", "engine_registry.py", "engine_registry.json"):
+        for name in ("runtime_package.py", "runtime_transaction.py", "runtime_view.py", "engine_registry.py", "engine_registry.json",
+                     'memory_admission.py', 'memory_profiles.json', 'prediction_profiles.json'):
             if (source / name).is_file(): shutil.copy2(source / name, support / name)
     studioctl = server_root / "studioctl.py"
     control = plan.get("runtime_bindings", {}).get("control")
@@ -143,6 +147,8 @@ def start_job(plan_id: str, plan_sha256: str) -> Dict[str, Any]:
 
 
 def _start_job(plan_id: str, plan_sha256: str, plan: Dict[str, Any]) -> Dict[str, Any]:
+    from .memory import check_saved_plan
+    check_saved_plan(plan)
     existing = _existing_for_plan(plan_id)
     if existing:
         return existing
@@ -215,6 +221,11 @@ def _resume_job(job_id: str) -> Dict[str, Any]:
         return state
     if process_alive(state.get("pid")):
         raise StudioError("The previous worker is still alive; wait before resuming.")
+    saved_plan_path = state_path(job_id).parent / 'plan.json'
+    if saved_plan_path.is_file():
+        from .memory import check_saved_plan
+        saved_plan = load_json(saved_plan_path)
+        check_saved_plan(load_plan(saved_plan['id'], saved_plan['sha256']))
     receipt = state_path(job_id).parent / "processes.json"
     if receipt.is_file():
         from .recovery import owned_processes
@@ -282,6 +293,7 @@ def _snapshot_pipeline(campaign: Path) -> Path:
 
 def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str]) -> int:
     from .runtime_bindings import environment
+    env = {**env, 'IPROTEINSTUDIO_MEMORY_POLICY': _MEMORY_POLICY}
     env = {**env, **environment(_RUNTIME_BINDINGS)}
     # Give subprocesses private temporary storage. Some Apple frameworks use
     # their own system scratch directory independently of TMPDIR.
@@ -324,6 +336,9 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
         if output:
             env['IPROTEINSTUDIO_LIVE_RESULTS_ROOT'] = str(output)
         env = module.environment(env, progress.parent, log_path)
+    from .memory_sampling import Sampler
+    sampler = Sampler(state_path(job_id).parent / 'memory', _MEMORY_POLICY, command)
+    _update(job_id, memory_samples=str(sampler.path), memory_summary=str(sampler.summary_path))
     explicit_failure = None
     with log_path.open("a", encoding="utf-8") as log, log_path.open(encoding="utf-8") as reader:
         reader.seek(0, os.SEEK_END)
@@ -348,6 +363,7 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
                 _update(job_id, stage="stopping", message="Stopping; waiting for verified child processes to exit.")
             try:
                 family.refresh()
+                sampler.sample(family, load_state(job_id, refresh=False).get('stage'))
                 if family.known != recorded_processes:
                     atomic_json(state_path(job_id).parent / "processes.json", {
                         "schema": 1, "leader": process.pid,
@@ -414,6 +430,7 @@ def _run_logged(job_id: str, command: List[str], cwd: Path, env: Dict[str, str])
                 break
             time.sleep(0.1)
         code = process.wait()
+    sampler.finish(code)
     if abandoned_children and code == 0:
         _update(job_id, message="Workflow exited while child processes were still running; they were stopped before releasing the GPU lease.")
         return 1
@@ -757,6 +774,12 @@ def run_worker(job_id: str) -> int:
             _CODE_SNAPSHOT = plan.get("code_snapshot")
             _PREPARED_RUNTIME_VIEW = plan.get("prepared_runtime_view")
             verify_runtime_bindings(_RUNTIME_BINDINGS)
+            global _MEMORY_POLICY
+            _MEMORY_POLICY = plan['normalized_request'].get('memory_policy', 'enforce')
+            from .memory import check_plan
+            memory = check_plan(plan['kind'], plan['normalized_request'], live=True)
+            if memory is not None:
+                _update(job_id, memory_admission=memory)
             _update(job_id, status="running", started_at=utc_now(), stage="starting", message="Acquired the shared iProteinStudio execution lock.")
             kind = plan["kind"]
             if kind.startswith("desktop_"):

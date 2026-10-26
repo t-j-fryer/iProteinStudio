@@ -1,3 +1,7 @@
 # Bundled patches are validated byte-for-byte against their upstream source.
 # Preserve their original whitespace rather than rewriting the patch payload.
 Sources/iProteinStudio/Resources/pipeline/patches/*.patch -whitespace
+
+# PDB records have fixed-width fields; pinned upstream fixtures retain their hashes.
+Sources/**/*.pdb -whitespace
+Sources/iProteinStudio/Resources/pipeline/scripts/motif_beta/data/upstream/* -whitespace

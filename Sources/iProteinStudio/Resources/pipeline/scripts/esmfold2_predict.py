@@ -38,6 +38,10 @@ def read_input(path, model, unrestrained_check=False):
     data = yaml.safe_load(Path(path).read_text())
     if not isinstance(data, dict) or not data.get('sequences'):
         raise ValueError('ESMFold2 requires a nonempty sequences list.')
+    from esmfold2_cdr import KEY, validate as validate_cdr
+    cdr_contract = data.pop(KEY, None)
+    if cdr_contract is not None and not isinstance(cdr_contract, dict):
+        raise ValueError('Invalid ESMFold2 CDR initialization contract.')
     if unrestrained_check:
         # Explicit independent verification contract: remove design-only guidance
         # and Boltz-only affinity requests; Fast additionally has no MSA encoder.
@@ -64,7 +68,8 @@ def read_input(path, model, unrestrained_check=False):
         ids.add(cid)
         if kind == 'protein':
             sequence = ''.join(str(item.get('sequence', '')).split()).upper()
-            if not sequence or set(sequence) - set('ACDEFGHIKLMNPQRSTVWY'):
+            alphabet = 'ACDEFGHIKLMNPQRSTVWY' + ('X' if cdr_contract and cid == cdr_contract.get('chain') else '')
+            if not sequence or set(sequence) - set(alphabet):
                 raise ValueError('ESMFold2 requires complete amino-acid sequences; X-token hallucination is not supported.')
             msa = str(item.get('msa', 'empty'))
             if model == 'fast' and msa != 'empty':
@@ -86,6 +91,15 @@ def read_input(path, model, unrestrained_check=False):
             if not smiles: raise ValueError('Ligands require a SMILES string.')
             chains.append(dict(kind=kind, id=cid, smiles=smiles))
     if not any(c['kind'] == 'protein' for c in chains): raise ValueError('At least one protein chain is required.')
+    if cdr_contract is not None:
+        selected = validate_cdr(cdr_contract, model, chains)
+        chain = next(c for c in chains if c['id'] == cdr_contract['chain'])
+        if chain['msa'] != 'empty':
+            records = Path(chain['msa']).read_text().split('>')[2:]
+            for record in records:
+                aligned = ''.join(c for c in ''.join(record.splitlines()[1:]) if c.isupper() or c == '-')
+                if len(aligned) != len(chain['sequence']) or any(aligned[i-1] not in 'X-' for i in selected):
+                    raise ValueError('Nanobody MSA homologues must mask every selected CDR column.')
     return chains, msas
 
 

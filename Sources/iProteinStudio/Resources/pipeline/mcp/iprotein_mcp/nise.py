@@ -7,6 +7,8 @@ from pathlib import Path
 from .common import StudioError, atomic_json, project_root, runtime_root, validate_slug
 
 
+from .memory import memory_request, requested_policy
+
 def contract():
     path = Path(__file__).resolve().parents[2] / "scripts/nise/contract.py"
     spec = importlib.util.spec_from_file_location("studio_nise_contract", path)
@@ -15,6 +17,7 @@ def contract():
     return module
 
 
+@memory_request
 def nise_plan(arguments):
     from .desktop import desktop_plan
     if set(arguments) - {"project", "request", "restart_from", "name"}:

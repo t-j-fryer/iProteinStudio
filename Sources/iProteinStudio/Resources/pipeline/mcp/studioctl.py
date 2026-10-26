@@ -26,6 +26,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Stable JSON front controller for iProteinStudio workflows.")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor")
+    sub.add_parser("motif-catalog")
+    sub.add_parser("evidence")
+    guide = sub.add_parser("guide")
+    guide.add_argument("workflow")
     sub.add_parser("detect")
     projects = sub.add_parser("projects")
     runs = sub.add_parser("runs")
@@ -44,7 +48,7 @@ def main() -> int:
     results.add_argument("--limit", type=int, default=100)
     imported = sub.add_parser("import")
     imported.add_argument("path")
-    for name in ("plan-nise", "plan-prediction", "plan-target", "plan-iterative", "plan-rfd3-denovo", "plan-rfd3-partial", "plan-rfd3-motif"):
+    for name in ("plan-nise", "plan-prediction", "plan-target", "plan-iterative", "plan-rfd3-denovo", "plan-rfd3-partial", "plan-rfd3-motif", "plan-rfd4", "plan-motif-beta"):
         command = sub.add_parser(name)
         command.add_argument("request_json")
     desktop = sub.add_parser("_desktop-submit")
@@ -66,7 +70,13 @@ def main() -> int:
     worker.add_argument("--job-id", required=True)
     args = parser.parse_args()
     try:
-        if args.command == "doctor":
+        if args.command == "motif-catalog":
+            emit(MCPServer("read").tool_call("motif_beta_catalog", {}))
+        elif args.command == "guide":
+            emit(MCPServer("read").tool_call("workflow_guide", {"workflow": args.workflow}))
+        elif args.command == "evidence":
+            print((Path(__file__).resolve().parent / "skills/iprotein-studio/references/evidence.md").read_text())
+        elif args.command == "doctor":
             bridge = Path(__file__).resolve().parent
             servers = {profile: len(MCPServer(profile).allowed) for profile in ("read", "run", "admin")}
             schemas = sorted(path.name for path in (bridge / "schemas").glob("*-v*.json"))
@@ -119,7 +129,7 @@ def main() -> int:
                 "plan-nise": "nise_plan",
                 "plan-prediction": "prediction_plan", "plan-target": "target_prepare_plan",
                 "plan-iterative": "iterative_design_plan", "plan-rfd3-denovo": "rfd3_denovo_plan",
-                "plan-rfd3-partial": "rfd3_partial_diffusion_plan", "plan-rfd3-motif": "rfd3_motif_scaffolding_plan",
+                "plan-rfd3-partial": "rfd3_partial_diffusion_plan", "plan-rfd3-motif": "rfd3_motif_scaffolding_plan", "plan-rfd4": "rfd4_plan", "plan-motif-beta": "motif_beta_plan",
             }
             emit(MCPServer("run").tool_call(tool_names[args.command], request))
         elif args.command == "_desktop-submit":

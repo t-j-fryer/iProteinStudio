@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 import numpy as np
+from rfd3_motif_reference import checksum, fit_report
 from biotite.structure.io.pdb import PDBFile
 from biotite.structure.io.pdbx import CIFFile, BinaryCIFFile, get_structure as get_cif_structure
 
@@ -105,7 +106,7 @@ def residue_selector(value: str) -> tuple[str, int, str] | None:
     return match.group(1), int(match.group(2)), match.group(3)
 
 
-def selected_atom_map(path: str, residue: str, atom_names: list[str]) -> dict[str, np.ndarray]:
+def selected_atom_map(path: str, residue: str, atom_names: list[str], component=None) -> dict[str, np.ndarray]:
     """Return requested atoms for a chain/residue selector such as ``A19``."""
     selector = residue_selector(residue)
     if selector is None:
@@ -118,6 +119,8 @@ def selected_atom_map(path: str, residue: str, atom_names: list[str]) -> dict[st
         atom_ins = str(atom.ins_code or "")
         if (str(atom.chain_id) == chain and int(atom.res_id) == res_id
                 and atom_ins == ins_code and str(atom.atom_name).upper() in wanted):
+            if (component is not None and str(atom.res_name) != component) or str(atom.atom_name).upper() in result:
+                return {}
             result[str(atom.atom_name).upper()] = np.asarray(atom.coord, dtype=float)
     return result
 
@@ -167,6 +170,33 @@ def motif_recovery_rmsd(prediction: str, design: str, row: dict):
         values = [value for value, residue in zip(squared, owners) if residue == owner]
         per_residue[owner] = float(np.sqrt(np.mean(values)))
     return float(np.sqrt(np.mean(squared))), per_residue
+
+
+def motif_input_rmsd(prediction: str, row: dict):
+    """Score original selected input atoms through the immutable insertion map.
+
+    Never substitute the generated backbone when original coordinates are absent.
+    Per-residue values all use the same global fit.
+    """
+    mapping = json_dict(row.get('diffused_index_map'))
+    masks = json_dict(row.get('motif_fixed_atoms'))
+    source = json_dict(row.get('motif_reference_atoms'))
+    if (not source or set(source) != set(mapping) or set(masks) != set(mapping)
+            or len(set(mapping.values())) != len(mapping)
+            or checksum(source) != row.get('motif_reference_sha256')
+            or checksum(dict(mapping=mapping, fixed_atoms=masks)) != row.get('motif_mapping_sha256')):
+        return None, {}
+    moving, reference, owners = [], [], []
+    for origin, destination in sorted(mapping.items()):
+        names = masks[origin]
+        if not isinstance(names, list) or not names or set(names) != set(source[origin]['atoms']):
+            return None, {}
+        selected = selected_atom_map(prediction, destination, names, source[origin]['component'])
+        if set(selected) != set(names):
+            return None, {}
+        for name in sorted(names):
+            moving.append(selected[name]); reference.append(source[origin]['atoms'][name]); owners.append(origin)
+    return fit_report(moving, reference, owners)
 
 
 def number(row: dict, *keys: str) -> float | None:
@@ -224,6 +254,7 @@ def main() -> None:
         predictors = [p for p in row.get("predictors", "").split(",") if p]
         complex_rmsds, binder_backbone_rmsds, binder_plddts, binder_rmsds = {}, {}, {}, {}
         motif_rmsds, motif_residue_rmsds = {}, {}
+        input_motif_rmsds, input_motif_residue_rmsds = {}, {}
         for predictor in predictors:
             h = holo.get((design, predictor))
             m = monomer.get((design, predictor))
@@ -233,6 +264,9 @@ def main() -> None:
                 motif_value, residue_values = motif_recovery_rmsd(h["structure"], backbone, row)
                 motif_rmsds[predictor] = motif_value
                 motif_residue_rmsds[predictor] = residue_values
+                value, details = motif_input_rmsd(h['structure'], row)
+                input_motif_rmsds[predictor] = value
+                input_motif_residue_rmsds[predictor] = details
             if m:
                 binder_plddts[predictor] = number(
                     m, "plddt", "complex_plddt", "protein_plddt", "mean_plddt")
@@ -245,6 +279,7 @@ def main() -> None:
             "minimum_binder_plddt": complete_aggregate(binder_plddts, predictors, min),
             "maximum_binder_rmsd": complete_aggregate(binder_rmsds, predictors, max),
             "maximum_motif_rmsd": complete_aggregate(motif_rmsds, predictors, max),
+            "maximum_motif_input_rmsd": complete_aggregate(input_motif_rmsds, predictors, max),
         }
         failed = []
         gates = [
@@ -259,6 +294,13 @@ def main() -> None:
             threshold = filters.get(key)
             if threshold is not None and (value is None or not predicate(value, float(threshold))):
                 failed.append(key + ("_unavailable" if value is None else ""))
+        source_threshold = filters.get('maximum_motif_input_rmsd')
+        if source_threshold is None and row.get('motif_reference_schema'):
+            source_threshold = filters.get('maximum_motif_rmsd')
+        if source_threshold is not None:
+            value = aggregate['maximum_motif_input_rmsd']
+            if value is None or value > float(source_threshold):
+                failed.append('maximum_motif_input_rmsd' + ('_unavailable' if value is None else ''))
         merged.append({
             **row, **aggregate,
             "is_hit": not failed,
@@ -269,6 +311,9 @@ def main() -> None:
             "binder_rmsd_by_predictor": json.dumps(binder_rmsds, sort_keys=True),
             "motif_rmsd_by_predictor": json.dumps(motif_rmsds, sort_keys=True),
             "motif_rmsd_by_residue": json.dumps(motif_residue_rmsds, sort_keys=True),
+            "motif_input_rmsd_by_predictor": json.dumps(input_motif_rmsds, sort_keys=True),
+            "motif_input_rmsd_by_residue": json.dumps(input_motif_residue_rmsds, sort_keys=True),
+            "motif_reference_status": ('original_input' if row.get('motif_reference_schema') else 'original_input_unavailable'),
             "filter_provenance": str(args.filters.resolve()),
         })
 

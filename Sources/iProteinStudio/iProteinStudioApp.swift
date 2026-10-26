@@ -60,6 +60,9 @@ struct iProteinStudioApp: App {
                     .tabItem { Label("Application", systemImage: "gear") }
                 StudioAppearanceSettings()
                     .tabItem { Label("Appearance", systemImage: "circle.lefthalf.filled") }
+                MemoryPolicyControl()
+                    .padding(24).frame(width: 520)
+                    .tabItem { Label("Memory", systemImage: "memorychip") }
                 AIIntegrationsView()
                     .tabItem { Label("AI assistants", systemImage: "sparkles") }
             }

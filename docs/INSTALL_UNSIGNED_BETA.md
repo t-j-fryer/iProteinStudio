@@ -12,13 +12,29 @@ therefore require Apple's per-app approval. See [licensing status](../LICENSING.
 ## Requirements
 
 The app needs Apple Silicon and macOS 14 or later. Current Protenix v2/Mini
-packages need macOS 26.0 or later; OpenFold3/RFdiffusion3 need 26.2 or later.
+packages need macOS 26.0 or later; the complete base setup (RFD4 and ESMFold2 Full), OpenFold3 and RFdiffusion3 need 26.2 or later.
 These are minimums. **Engines** disables selections incompatible with the Mac.
 
 Portable engine installation requires internet access and sufficient disk space,
 not Xcode, Command Line Tools, Git, Homebrew or your own Python. Developer
 source-build instructions are separate in [CLI](CLI.md#apple-compiler-setup-errors).
 Fresh-Mac acceptance remains outstanding; see [qualification limits](PORTABLE_RUNTIME_IMPLEMENTATION.md#qualification-and-limits).
+
+## Base setup
+
+The default selection is RFD4, ESMFold2 Full, Boltz-2 plus its affinity checkpoint,
+SolubleMPNN, AbMPNN and LASErMPNN. ProteinMPNN/LigandMPNN come with the same core
+MPNN installation. ESMFold2's shared runtime, ESMC-6B encoder and chemical data
+are automatic dependencies; Full's structure weights alone are not sufficient.
+Studio also manages the control Python, engine-specific environments, pinned
+libraries and chemical dictionaries. No additional prediction engine is essential
+for the recommended workflows. RFdiffusion3 and alternative predictors remain
+optional installs for custom workflows. The download review includes dependencies
+and space budgets; these budgets are not measured transfer sizes.
+
+The equivalent source CLI selection is `setup_pipeline.sh --base`. It retains
+portable runtime preference and existing source-build prerequisite checks.
+Fresh-machine installation of this selection has not been requalified yet.
 
 ## Install
 

@@ -40,7 +40,12 @@ def install(root,key,local=None):
     descriptors=[d for d in engines().values() if d['component']==key]
     if descriptors:
         print('NHSTEP|'+key+'|5|Installing verified portable '+descriptors[0]['label'],flush=True)
-        if local:
+        cached = root/'runtime_packages'/key
+        if local is None and (cached/'runtime.json').is_file():
+            manifest=digest(cached/'runtime.json')
+            mappings={k:v for d in descriptors for k,v in d['mappings'].items()}
+            base=activate(root,key,cached,manifest,[str(root/k)+'='+v for k,v in mappings.items()])
+        elif local:
             package=local/(key+'-release-final3')
             if not package.exists():package=local/(key+'-release-final2')
             manifest=digest(package/'runtime.json')

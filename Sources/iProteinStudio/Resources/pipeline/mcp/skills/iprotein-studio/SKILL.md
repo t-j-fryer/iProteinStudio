@@ -1,6 +1,6 @@
 ---
 name: iprotein-studio
-description: Operate iProteinStudio through its connected MCP bridge. Use for local protein structure prediction, Protein Hunter binder design, RFdiffusion3 backbones, ligand NISE, or reviewing and resuming Studio runs. Discover installed engines, prepare reproducible plans, monitor jobs and interpret exact candidate results. Not for arbitrary engine installation, application development or execution of prototype recipe graphs.
+description: Operate iProteinStudio through its connected MCP bridge. Use for local protein structure prediction, Protein Hunter binder design, RFdiffusion3/RFD4 design, template-guided Boltz motif beta, ligand NISE, or reviewing and resuming Studio runs. Discover installed engines, prepare reproducible plans, monitor jobs and interpret exact candidate results. Not for arbitrary engine installation, application development or execution of prototype recipe graphs.
 ---
 
 # iProteinStudio workflows
@@ -20,7 +20,10 @@ engines. Client/server prefixes on tool names vary.
 2. Read [workflow routing](references/workflows.md) (MCP resource
    `iprotein://skills/studio/workflows`), then call `workflow_guide`
    for the chosen workflow **before creating a scientific plan**.
-3. Resolve only missing scientific choices: target/ligand identity, chains,
+3. Read [workflow evidence](references/evidence.md) (`iprotein://skills/studio/evidence`)
+   before recommending methods or budgets. Distinguish measured findings, technical
+   checks and user-defined presets; consult current completed runs for new claims.
+4. Resolve only missing scientific choices: target/ligand identity, chains,
    objective, constraints, scale and independent evaluation. Use current
    supported defaults for unspecified routine settings; explain material choices.
    Existing user authorization remains valid. A plan-only request stops at a plan.
@@ -65,6 +68,8 @@ bounded limits; do not guess table paths. Keep these identities together:
 
 - Protein Hunter: engine/scaffold campaign → trajectory → cycle → design,
   independently checked complex and binder-alone structures.
+- RFD4: family → search generation/proposal → generated/refolded artifact; native rollout feedback is not independent validation.
+- Motif beta: source motif → mapped root → policy/designer arm → guided proposal and separate untemplated check.
 - RFdiffusion3: backbone → MPNN derivative → complex/binder validation.
 - NISE: initial lineage → optimisation cycle → candidate → holo/apo checks
   and the recorded selection objective.

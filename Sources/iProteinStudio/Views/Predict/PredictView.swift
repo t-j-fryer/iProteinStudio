@@ -19,6 +19,8 @@ struct PredictView: View {
     @State private var isParsing = false
     @State private var templateImportError: String?
     @State private var setupExperience: SetupExperience = .quick
+    @AppStorage("overrideMemoryCheck") private var overrideMemoryCheck = false
+    @StateObject private var memory = MemoryAdmissionPreview()
 
     private var request: Binding<PredictionRequest> {
         Binding(get: { app.projects.first(where: { $0.id == project.id })?.prediction ?? project.prediction },
@@ -503,12 +505,33 @@ struct PredictView: View {
 
     private var startBar: some View {
         let r = request.wrappedValue
+        let memoryConfig: Data = {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            guard let data = try? encoder.encode(PredictionController.config(request: r, outputDir: outputDir)),
+                  var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return Data() }
+            object["memory_policy"] = overrideMemoryCheck ? "override" : "enforce"
+            return (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])) ?? Data()
+        }()
         let issues = r.validationIssues
         let willQueue = !jobs.active.isEmpty || controller.isRunning || app.run.isRunning || app.rfd3.isRunning || app.nise.isRunning
         let missingComponents = r.requiredComponents.filter {
             installer.components[$0] != nil && !installer.isUsable($0)
         }
         return VStack(alignment: .leading, spacing: 8) {
+            MemoryPolicyControl()
+            if !r.jobs.isEmpty {
+                if let assessment = memory.result {
+                    Label(assessment.message, systemImage: assessment.status == "allowed" ? "memorychip" : "exclamationmark.triangle.fill")
+                        .font(.callout)
+                        .foregroundStyle(assessment.status == "blocked" ? Color.red : assessment.status == "warning" ? Color.orange : Color.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("prediction-memory-assessment")
+                } else {
+                    Label("Checking memory requirements…", systemImage: "memorychip")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+            }
             ForEach(issues, id: \.self) { issue in
                 Label(issue, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout).foregroundStyle(.orange)
@@ -542,10 +565,12 @@ struct PredictView: View {
                 .accessibilityLabel(willQueue ? "Add prediction run to queue" : "Start prediction run")
                 .accessibilityIdentifier("start-prediction-run")
                 .disabled(!r.isRunnable || !issues.isEmpty || !missingComponents.isEmpty
+                          || memory.checking || memory.result == nil || memory.result?.status == "blocked"
                           || !controller.canStartAnother)
             }
         }
         .padding(.top, 6)
+        .task(id: memoryConfig) { await memory.check(memoryConfig) }
     }
 
     private func parse() {

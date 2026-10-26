@@ -49,13 +49,7 @@ final class PipelineInstaller: ObservableObject {
     private var appleBuildToolsRunner: ProcessRunner?
     private var retrySetupArguments: [String]?
     @Published private(set) var safeCacheBytes: Int64 = 0
-    /// The practical default installation: the folding engine, nanobody
-    /// designer, independent checker, Protenix v2/Mini, and unconditional MPNN
-    /// family described by onboarding. Heavy alternatives and the experimental,
-    /// design-only Protenix Constraint checkpoint remain explicit opt-ins.
-    @Published var optionalSelection: Set<InstallComponent> = [
-        .boltz, .abmpnn, .antifold, .intellifold, .protenixV2, .protenixMini,
-    ]
+    @Published var optionalSelection = InstallComponent.baseSelection.subtracting([.mpnn])
     /// An existing NanoHunter checkout found on this machine, if any.
     @Published var detectedNanoHunter: URL?
     @Published var detectedRFD3: URL?
@@ -64,7 +58,6 @@ final class PipelineInstaller: ObservableObject {
     private var cancelRequested = false
 
     init() {
-        optionalSelection = Set(optionalSelection.filter { $0.canInstallRuntime })
         detectExistingCheckouts()
         repairRelocatedVenvsIfNeeded()
         refreshSafeCacheSize()
@@ -264,6 +257,8 @@ final class PipelineInstaller: ObservableObject {
             relative = ["venvs/NanoHunter_alphafold3", "src/alphafold3", "models/alphafold3"]
         case .intellifoldJAX:
             relative = ["models/intellifold_jax_flash", "models/intellifold_jax_v2"]
+        case .rfd4:
+            relative = ["venvs/NanoHunter_rfd4", "src/RFD4-Proteina", "models/rfd4", "components/rfd4", "receipts/rfd4.json"]
         case .rfd3:
             let rfd3 = AppPaths.rfd3Root
             if (try? AppPaths.fm.destinationOfSymbolicLink(atPath: rfd3.path)) != nil { return [rfd3] }

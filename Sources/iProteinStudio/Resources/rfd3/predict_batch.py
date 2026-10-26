@@ -660,6 +660,13 @@ def main() -> None:
     if not jobs:
         die("No sequences to fold.")
     predictors = validate_config(cfg, jobs)
+    from memory_admission import require as require_memory
+    try:
+        memory = require_memory(cfg, live=True)
+        info(memory['message'])
+        (output / 'memory_admission.json').write_text(json.dumps(memory, indent=2) + '\n')
+    except ValueError as exc:
+        die(str(exc))
 
     if cfg.get("template") is None and (output / "template_request.json").exists():
         die("Cannot remove the template from an existing guided run; start a new run.")
@@ -745,6 +752,10 @@ def main() -> None:
 
     for predictor in predictors:
         key = "boltz_potentials" if (predictor == "boltz" and cfg.get("use_potentials")) else predictor
+        try:
+            info(require_memory({**cfg, 'predictors': [predictor]}, live=True)['message'])
+        except ValueError as exc:
+            die(str(exc))
         plan = SCHEDULE.get(key, {"processes": 1, "batch": 1})
         processes = cfg.get("max_parallel") or plan["processes"]
         batch = cfg.get("batch_size") or plan["batch"]

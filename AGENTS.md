@@ -82,6 +82,12 @@ the Validation Lab Book and the project Lab Book before a setting is promoted.
 
 ## Scope
 
+RFD3 fixed-framework nanobody generation was tried unsuccessfully and is excluded,
+not an outstanding integration task. The template-guided Boltz motif beta uses
+the pinned AME benchmark and explicit residue maps; CPU feature qualification is
+not model-cycle or enzyme-activity qualification. Before recommending workflows,
+read the shipped skill's `references/evidence.md` and verify current run data.
+
 Ligand NISE is exposed through its dedicated Studio tab and versioned upstream
 port; see `docs/NISE.md`. Protein/cross-reactive NISE remains upstream.
 RFdiffusion3 against DNA/RNA is out of scope — the nucleic-acid checkpoint is

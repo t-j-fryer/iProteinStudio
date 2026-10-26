@@ -13,6 +13,9 @@
 - [Protein Hunter engine selection](PROTEIN_HUNTER_ENGINES.md)
 - [Protein Hunter starting backbones and refinement](PROTEIN_HUNTER_STAGES.md)
 - [Nanobody frameworks and budgets](NANOBODY_DESIGN.md)
+- [RFD4, recommended workflows and intention-based design](RFD4.md)
+- [Template-guided Boltz motif beta and qualification](MOTIF_BETA.md)
+- [Memory admission and explicit overrides](MEMORY_SAFETY.md)
 - [Ligand NISE](NISE.md)
 - [Experimental NESSO/PSICHIC screening](NESSO_SCREENING.md)
 - [Prediction templates](PREDICTION_TEMPLATES.md)
@@ -37,3 +40,6 @@ The [project Lab Book](../LAB_BOOK.md) and
 records. [Dated research](research/README.md) records earlier distribution and
 acceleration proposals; those documents are not current installation instructions
 or promises about supported hardware.
+
+The bundled [workflow evidence reference](../Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/references/evidence.md)
+connects workflow choices to measured findings, technical checks and their limits.

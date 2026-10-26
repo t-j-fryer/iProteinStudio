@@ -14,6 +14,9 @@ from .common import StudioError, load_json, project_root, runtime_root, stable_e
 from .plans import _persist, _script_provenance, rfd3_runtime_scripts
 
 
+from .memory import memory_request, requested_policy
+
+@memory_request
 def desktop_plan(request: Dict[str, Any], *, _batch_child: bool = False) -> Dict[str, Any]:
     project = validate_slug(request.get("project", ""))
     root = runtime_root()
@@ -296,6 +299,7 @@ def desktop_plan(request: Dict[str, Any], *, _batch_child: bool = False) -> Dict
     elif workflow in {"prediction", "target_prepare"}:
         config = output / "prediction_config.json"
         settings = load_json(config)
+        context['config'] = settings
         if Path(settings.get("output", "")).resolve() != output:
             raise StudioError("The prediction settings point to a different output folder.")
         inputs = [config]
@@ -318,6 +322,65 @@ def desktop_plan(request: Dict[str, Any], *, _batch_child: bool = False) -> Dict
         steps = [{"command": ["/usr/bin/caffeinate", "-dimsu", sys.executable,
                               str(root / "rfd3_scripts/predict_batch.py"), "--config", str(config)],
                   "cwd": str(root), "stage": "prediction"}]
+    elif workflow == "motif_beta":
+        # Separate bounded pilot; legacy binder request semantics stay intact.
+        import importlib.util
+        config = output / 'motif_beta_request.json'
+        module_path = root / 'scripts/motif_beta/contract.py'
+        spec = importlib.util.spec_from_file_location('studio_motif_beta_contract', module_path)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        try:
+            settings = module.normalize(load_json(config))
+            benchmark = module.case(settings['case_id'])
+        except (ValueError, OSError, KeyError) as exc:
+            raise StudioError(str(exc)) from exc
+        from .memory import check_plan
+        check_plan('desktop_motif_beta', {'request': settings, 'memory_policy': requested_policy()})
+        inputs = [config] + sorted(p for p in (module_path.parent / 'data').rglob('*') if p.is_file())
+        scripts = [root / 'scripts/motif_beta_cli.py'] + sorted(module_path.parent.rglob('*.py'))
+        python = sys.executable
+        if settings['stage'] in ('backbones', 'cycles'):
+            python = str(root / 'rfd3/.venv/bin/python')
+            for path in (Path(python), root / 'rfd3/weights/rfd3_core.safetensors', root / 'rfd3/milestone0_oracle.py'):
+                if not path.is_file(): raise StudioError('Missing RFD3 pilot dependency: ' + str(path))
+            inputs += [root / 'rfd3/weights/rfd3_core.safetensors']
+            scripts += rfd3_runtime_scripts(root) + sorted((root / 'rfd3_overlay').glob('*.py'))
+        if settings['stage'] == 'cycles':
+            import subprocess
+            scripts += sorted((root / 'scripts').rglob('*.py'))
+            python = str(root / 'venvs/NanoHunter_boltz/bin/python')
+            required = [Path(python), root / 'models/boltz2/boltz2_conf.ckpt']
+            for designer in settings['designers']:
+                repo = root / 'src' / ('LigandMPNN' if designer == 'ligandmpnn' else 'LASErMPNN')
+                required += [root / ('venvs/NanoHunter_' + designer + '/bin/python'),
+                             repo / ('model_params/ligandmpnn_v_32_010_25.pt' if designer == 'ligandmpnn'
+                                     else 'model_weights/laser_weights_0p1A_nothing_heldout.pt')]
+                scripts += sorted(repo.rglob('*.py'))
+            for path in required:
+                if not path.is_file(): raise StudioError('Missing motif cycling dependency: ' + str(path))
+            inputs += required + [root / 'models/boltz2/mols' / (l['component'] + '.pkl') for l in benchmark['ligands']]
+            audit_path = output / 'chemistry_preflight.json'
+            checked = subprocess.run([python, str(root / 'scripts/motif_beta_cli.py'), 'chemistry-audit',
+                '--ccd-cache', str(root / 'models/boltz2/mols'), '--output', str(audit_path)],
+                capture_output=True, text=True)
+            if checked.returncode:
+                raise StudioError('CCD preflight failed: ' + checked.stderr[-2000:])
+            chemistry = load_json(audit_path)[settings['case_id']]
+            if not chemistry['ready']:
+                raise StudioError('This case needs an explicit chemical variant: ' + str(chemistry['blockers']))
+            inputs.append(audit_path)
+        steps = [dict(command=[str(python), str(root / 'scripts/motif_beta_cli.py'), '_managed-run',
+                               '--config', str(config), '--output', str(output)],
+                      cwd=str(root), stage='motif-beta-' + settings['stage'])]
+        context = dict(request=settings, prediction_budget=module.budget(settings),
+                       scheduler=('single RFD3 queue, batch 1; one resident Boltz worker and sequential CPU inverse folding'
+                                  if settings['stage'] == 'cycles' else 'single RFD3 queue, batch 1'),
+                       benchmark_scope='Original AME-41; Artios-38 membership unverified')
+    elif workflow == "rfd4":
+        from .rfd4 import prepare
+        context, rfd4_provenance = prepare(output, load_json(output / 'studio_rfd4_request.json'))
+        steps = context.pop('steps')
+        inputs += [Path(item['path']) for item in rfd4_provenance]
     elif workflow == "rfdiffusion3":
         source = output / "config/studio_request.json"
         settings = load_json(source)

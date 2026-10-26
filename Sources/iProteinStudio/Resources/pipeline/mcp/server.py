@@ -19,6 +19,8 @@ from iprotein_mcp.catalog import detect_engines, list_projects, list_runs, query
 from iprotein_mcp.common import StudioError, append_audit, import_artifact, validate_schema
 from iprotein_mcp.inspect import inspect_target
 from iprotein_mcp.nise import nise_plan
+from iprotein_mcp.rfd4 import plan as rfd4_plan
+from iprotein_mcp.motif_beta import plan as motif_beta_plan, catalog as motif_beta_catalog
 from iprotein_mcp.plans import admin_plan, iterative_plan, load_plan, prediction_plan, rfd3_plan, target_prepare_plan
 from iprotein_mcp import exports, research, composition
 from iprotein_mcp.recipes import SCHEMA as RECIPE_SCHEMA, recipe_catalog, recipe_check, recipe_compare
@@ -37,7 +39,7 @@ RUN_ID = {"type": "object", "additionalProperties": False, "required": ["run_id"
 JOB_ID = {"type": "object", "additionalProperties": False, "required": ["job_id"], "properties": {"job_id": {"type": "string"}}}
 WORKFLOW_GUIDE = {
     "type": "object", "additionalProperties": False, "required": ["workflow"],
-    "properties": {"workflow": {"enum": ["nise", "prediction", "iterative_design", "rfd3_protein_binder", "rfd3_partial_diffusion", "rfd3_motif_scaffolding"]}},
+    "properties": {"workflow": {"enum": ["nise", "prediction", "iterative_design", "rfd3_protein_binder", "rfd3_partial_diffusion", "rfd3_motif_scaffolding", "rfd4", "motif_beta"]}},
 }
 
 SERVER_INSTRUCTIONS = (
@@ -146,6 +148,9 @@ TOOLS: Dict[str, Dict[str, Any]] = {
     "nise_plan": tool("Freeze a ligand NISE search using LASErMPNN and Boltz structure/affinity scoring. Cross-cycle residency is experimental; apo preorganisation is a final shortlist analysis.", schema("nise-v1.json")),
     "prediction_plan": tool("Validate and freeze a prediction batch without starting GPU work.", schema("prediction-v1.json")),
     "iterative_design_plan": tool("Validate and freeze an iterative-design request; Studio injects its measured scheduling policy. Experimental antihelix/beta/mixed sequence priors are accepted as explicit runner arguments and must be evaluated from predicted coordinates.", schema("iterative-design-v1.json")),
+    "motif_beta_catalog": tool("List pinned benchmark motifs and qualification limits for the template-guided Boltz beta.", {"type":"object","additionalProperties":False,"properties":{}}),
+    "motif_beta_plan": tool("Freeze a bounded benchmark motif preparation, RFD3 pilot or template-guided Boltz comparison through the existing managed adapter. Does not start inference.", schema("motif-beta-v1.json")),
+    "rfd4_plan": tool("Freeze an RFD4 generation or protein search campaign, including inputs, runtime and exact prediction budget. Calls no model during preflight.", schema("rfd4-v1.json")),
     "rfd3_denovo_plan": tool("Validate and freeze an RFD3 campaign. With no protein epitope, omit hotspots and binding_site_mode resolves to whole-surface scanning with multiple outward solvent ORIs—never target COM. Use solublempnn by default, omit contig, and predict every candidate before ranking.", rfd3_schema("deNovo")),
     "rfd3_partial_diffusion_plan": tool("Validate and freeze protein-complex partial diffusion with partial_t in Angstroms and target coordinates fixed upstream.", rfd3_schema("partialDiffusion")),
     "rfd3_motif_scaffolding_plan": tool("Validate and freeze motif scaffolding with explicit non-empty residue atom selections.", rfd3_schema("motifScaffolding")),
@@ -179,7 +184,7 @@ TOOLS.update({
     "pipeline_recipe_plan": tool("Compile a typed v2 recipe through the existing scientific planner and bind its recipe digest into an immutable plan. Call workflow_guide first. Does not start compute; use job_start after reviewing the plan.", object_schema({"recipe": composition.PIPELINE_SCHEMA}, ["recipe"])),
     "iterative_batch_plan": tool("Freeze a ProteinHunter engine/scaffold batch with equal total trajectory budgets per engine and explicit scaffold allocations. Same-family independent checks are excluded; an empty checker set fails preflight. Uses the shared execution lock and resumable child receipts.", schema("iterative-batch-v1.json")),
 })
-NEW_READ_TOOLS = ["rcsb_status", "rcsb_tools", "rcsb_query", "candidates_list", "export_read", "candidates_compare", "pipeline_catalog"]
+NEW_READ_TOOLS = ["motif_beta_catalog", "rcsb_status", "rcsb_tools", "rcsb_query", "candidates_list", "export_read", "candidates_compare", "pipeline_catalog"]
 NEW_RUN_TOOLS = ["rcsb_import_structure", "candidate_export", "pipeline_recipe_plan", "iterative_batch_plan"]
 
 
@@ -196,18 +201,26 @@ for name, properties in OUTPUTS.items():
 for name in ("pipeline_recipe_plan", "iterative_batch_plan"):
     TOOLS[name]["outputSchema"] = {"type": "object", "required": ["id", "sha256", "kind", "normalized_request"], "properties": {"id": {"type": "string"}, "sha256": DIGEST, "kind": {"type": "string"}, "normalized_request": {"type": "object"}}}
 
+# Explicit user choice is bound into each immutable scientific plan.
+for name in ('prediction_plan', 'target_prepare_plan', 'iterative_design_plan',
+             'rfd3_denovo_plan', 'rfd3_partial_diffusion_plan', 'rfd3_motif_scaffolding_plan',
+             'nise_plan', 'pipeline_recipe_plan', 'iterative_batch_plan'):
+    TOOLS[name]['inputSchema']['properties']['memory_policy'] = {
+        'type': 'string', 'enum': ['enforce', 'override'], 'default': 'enforce',
+        'description': 'Override only memory admission; preserve estimates/refusal reasons and record usage. Other checks remain active.'}
+
 for name, definition in TOOLS.items():
-    read_only = name in NEW_READ_TOOLS or name in {"recipe_catalog", "recipe_check", "recipe_compare", "system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query", "jobs_list", "job_status", "job_wait"}
+    read_only = name in NEW_READ_TOOLS or name in {"motif_beta_catalog", "recipe_catalog", "recipe_check", "recipe_compare", "system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query", "jobs_list", "job_status", "job_wait"}
     definition["annotations"] = {
         "readOnlyHint": read_only,
         "destructiveHint": name in {"job_start", "job_cancel", "jobs_cleanup", "storage_minimise_plan"},
         "idempotentHint": read_only or name in {"job_start", "job_cancel"},
-        "openWorldHint": name in {"rcsb_tools", "rcsb_query", "rcsb_import_structure", "pipeline_recipe_plan", "iterative_batch_plan","target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "job_resume", "engine_install_plan", "engine_repair_plan"},
+        "openWorldHint": name in {"rcsb_tools", "rcsb_query", "rcsb_import_structure", "pipeline_recipe_plan", "iterative_batch_plan","target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "rfd4_plan", "motif_beta_plan", "job_start", "job_resume", "engine_install_plan", "engine_repair_plan"},
     }
 
-READ_TOOLS = ["recipe_catalog", "recipe_check", "recipe_compare", "system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query"]
+READ_TOOLS = ["motif_beta_catalog", "recipe_catalog", "recipe_check", "recipe_compare", "system_detect", "workflow_guide", "projects_list", "runs_list", "run_status", "results_overview", "results_query"]
 READ_TOOLS += NEW_READ_TOOLS
-RUN_TOOLS = READ_TOOLS + NEW_RUN_TOOLS + ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume", "jobs_cleanup"]
+RUN_TOOLS = READ_TOOLS + NEW_RUN_TOOLS + ["artifact_import", "target_inspect", "target_prepare_plan", "prediction_plan", "nise_plan", "iterative_design_plan", "rfd3_denovo_plan", "rfd3_partial_diffusion_plan", "rfd3_motif_scaffolding_plan", "rfd4_plan", "motif_beta_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume", "jobs_cleanup"]
 ADMIN_TOOLS = ["system_detect", "engine_install_plan", "engine_repair_plan", "storage_minimise_plan", "job_start", "jobs_list", "job_status", "job_wait", "job_cancel", "job_resume", "jobs_cleanup"]
 ADMIN_KINDS = {"engine_install", "engine_repair", "storage_minimise"}
 
@@ -251,6 +264,9 @@ class MCPServer:
         elif name == "nise_plan": result = nise_plan(arguments)
         elif name == "prediction_plan": result = prediction_plan(arguments)
         elif name == "iterative_design_plan": result = iterative_plan(arguments)
+        elif name == "motif_beta_catalog": result = motif_beta_catalog()
+        elif name == "motif_beta_plan": result = motif_beta_plan(arguments)
+        elif name == "rfd4_plan": result = rfd4_plan(arguments)
         elif name == "rfd3_denovo_plan": result = rfd3_plan(arguments, "deNovo")
         elif name == "rfd3_partial_diffusion_plan": result = rfd3_plan(arguments, "partialDiffusion")
         elif name == "rfd3_motif_scaffolding_plan": result = rfd3_plan(arguments, "motifScaffolding")
@@ -313,12 +329,12 @@ class MCPServer:
                 append_audit(name, arguments if isinstance(arguments, dict) else {}, {"ok": False, "error": str(exc)})
                 return {"content": [{"type": "text", "text": str(exc)}], "isError": True}
         if method == "resources/list":
-            return {"resources": [{"uri": "iprotein://skills/studio/workflows", "name": "Workflow routing", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio/integrations", "name": "Discovery, composition and export", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio", "name": "Studio assistant skill", "mimeType": "text/markdown"}, {"uri": "iprotein://capabilities", "name": "Capabilities", "mimeType": "application/json"}, {"uri": "iprotein://engines", "name": "Installed engines", "mimeType": "application/json"}, {"uri": "iprotein://projects", "name": "Projects", "mimeType": "application/json"}]}
+            return {"resources": [{"uri": "iprotein://skills/studio/evidence", "name": "Workflow evidence and qualification", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio/workflows", "name": "Workflow routing", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio/integrations", "name": "Discovery, composition and export", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio", "name": "Studio assistant skill", "mimeType": "text/markdown"}, {"uri": "iprotein://capabilities", "name": "Capabilities", "mimeType": "application/json"}, {"uri": "iprotein://engines", "name": "Installed engines", "mimeType": "application/json"}, {"uri": "iprotein://projects", "name": "Projects", "mimeType": "application/json"}]}
         if method == "resources/templates/list":
             return {"resourceTemplates": [{"uriTemplate": "iprotein://exports/{export_sha256}", "name": "Export first chunk (continue with export_read)", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/status", "name": "Run status", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/manifest", "name": "Run manifest", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/overview", "name": "Grouped run results", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/metrics", "name": "Run metrics", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/artifacts", "name": "Run artifacts", "mimeType": "application/json"}]}
         if method == "resources/read":
             uri = params.get("uri", "")
-            skill_resources = {"iprotein://skills/studio": "SKILL.md", "iprotein://skills/studio/workflows": "references/workflows.md", "iprotein://skills/studio/integrations": "references/integrations.md"}
+            skill_resources = {"iprotein://skills/studio/evidence": "references/evidence.md", "iprotein://skills/studio": "SKILL.md", "iprotein://skills/studio/workflows": "references/workflows.md", "iprotein://skills/studio/integrations": "references/integrations.md"}
             if uri in skill_resources:
                 return {"contents": [{"uri": uri, "mimeType": "text/markdown", "text": (SCHEMAS.parent / "skills/iprotein-studio" / skill_resources[uri]).read_text()}]}
             value = exports.export_read(uri.removeprefix("iprotein://exports/")) if uri.startswith("iprotein://exports/") else read_resource(uri)

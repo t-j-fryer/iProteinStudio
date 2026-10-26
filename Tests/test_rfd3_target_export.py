@@ -18,6 +18,7 @@ SCRIPT = ROOT / "Sources/iProteinStudio/Resources/rfd3_overlay/scripts/generate_
 
 
 def load_writer():
+    sys.path.insert(0, str(SCRIPT.parent))
     # The test exercises only the pure PDB writer.  Stub optional MLX runtime
     # modules so it also runs on source-checkout test hosts without Apple MLX.
     mlx = types.ModuleType("mlx")
@@ -46,6 +47,33 @@ def load_writer():
 
 
 class TargetExportTests(unittest.TestCase):
+    def test_motif_reference_and_pre_copy_rmsd_survive_export(self):
+        module = load_writer()
+        f = module.Fixture.__new__(module.Fixture)
+        f.names = ['N', 'CA', 'C', 'O', 'CB', 'V1'] * 4
+        f.tok = np.repeat(np.arange(4), 6)
+        f.design_tokens = np.array([0, 1]); f.unindexed_tokens = np.array([2, 3])
+        f.target_protein_tokens = f.ligand_tokens = np.array([], dtype=int)
+        f.asym_id = np.ones(4, dtype=int); f.restype = np.full(4, 4, dtype=int)
+        f.fixed_atoms = f.tok >= 2
+        f.motif_source_residues = ['A19', 'B7']; f.ligand_code = ''
+        f.is_partial = False
+        one = np.array([[0, 0, 0], [1, 1, 0], [2, 0, 1], [3, 1, 1], [1, 2, 1], [2, 3, 1]], dtype=float)
+        original = np.concatenate([one, one + 10])
+        coords = np.concatenate([original.copy(), original.copy()])
+        f.coord = coords[None].copy()
+        coords[5] += [2, 0, 0]
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / 'motif.pdb'
+            meta = f.write_pdb(coords, path)
+            self.assertEqual(meta['diffused_index_map'], {'A19': 'A1', 'B7': 'A2'})
+            self.assertGreater(meta['motif_candidate_rmsd_to_input'], .3)
+            self.assertEqual(meta['motif_reference_atoms']['A19']['atoms']['SG'], one[5].tolist())
+            self.assertNotIn('V1', meta['motif_reference_atoms']['A19']['atoms'])
+            exported = np.array([[float(line[30:38]), float(line[38:46]), float(line[46:54])]
+                                 for line in path.read_text().splitlines() if line.startswith('ATOM')])
+            np.testing.assert_allclose(exported, original)
+
     def test_generic_atom14_slot_is_restored_to_real_target_atom(self):
         module = load_writer()
         fixture = module.Fixture.__new__(module.Fixture)
@@ -113,6 +141,24 @@ class TargetExportTests(unittest.TestCase):
                 setattr(f, field, value)
                 with self.assertRaises(ValueError):
                     f._validate_ligand_export()
+
+    def test_multiple_ligands_keep_instances_and_repeated_atom_names(self):
+        f = self.ligand_fixture()
+        f.names = ['C', 'C', 'O', 'CL']
+        f.export_names = np.array(['C1', 'C1', 'O1', 'CL1'])
+        f.export_residue_ids = [('X', 20, 'AAA'), ('Y', 21, 'BBB'), ('Y', 21, 'BBB'), ('Z', 1, 'CL')]
+        f.ligand_code = 'AAA,BBB,CL'
+        f._validate_ligand_export()
+        with tempfile.TemporaryDirectory() as raw:
+            output = Path(raw) / 'multi.pdb'
+            metadata = f.write_pdb(np.arange(12).reshape(4, 3), output)
+            lines = output.read_text().splitlines()[:4]
+            self.assertEqual([l[21] for l in lines], ['B', 'C', 'C', 'D'])
+            self.assertEqual([l[17:20].strip() for l in lines], ['AAA', 'BBB', 'BBB', 'CL'])
+            self.assertEqual(len(metadata['ligand_instance_map']), 3)
+        f.export_residue_ids = None
+        with self.assertRaisesRegex(ValueError, 'regenerate'):
+            f._validate_ligand_export()
 
 
 if __name__ == "__main__":

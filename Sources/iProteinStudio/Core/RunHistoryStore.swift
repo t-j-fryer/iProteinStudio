@@ -5,6 +5,7 @@ enum StudioWorkflow: String, Codable, CaseIterable {
     case iterative
     case nise
     case rfdiffusion3
+    case rfd4
     case prediction
 
     var label: String {
@@ -12,6 +13,7 @@ enum StudioWorkflow: String, Codable, CaseIterable {
         case .iterative: return "Protein Hunter"
         case .nise: return "NISE"
         case .rfdiffusion3: return "RFdiffusion3"
+        case .rfd4: return "RFD4"
         case .prediction: return "Prediction"
         }
     }
@@ -20,7 +22,7 @@ enum StudioWorkflow: String, Codable, CaseIterable {
         switch self {
         case .iterative: return "arrow.triangle.2.circlepath"
         case .nise: return "atom"
-        case .rfdiffusion3: return "sparkles"
+        case .rfdiffusion3, .rfd4: return "sparkles"
         case .prediction: return "cube.transparent"
         }
     }
@@ -253,6 +255,7 @@ private struct RunHistoryLoader {
             found += iterativeRuns(project: project, root: root)
             found += predictionRuns(project: project, root: root)
             found += rfd3Runs(project: project, root: root)
+            found += rfd4Runs(project: project, root: root)
             found += niseRuns(project: project, root: root)
         }
         return found.map { item in
@@ -306,7 +309,7 @@ private struct RunHistoryLoader {
 
     private func iterativeRuns(project: Project, root: URL) -> [StudioRunRecord] {
         let ignored = Set(["predictions", "prediction_runs", "prediction_input", "rfd3",
-                           "rfd3_runs", "nise_runs", "target_prep", "ligand", "rfd3_assets", "config"])
+                           "rfd3_runs", "rfd4_runs", "nise_runs", "target_prep", "ligand", "rfd3_assets", "config"])
         let children = directories(in: root).filter { !ignored.contains($0.lastPathComponent) }
         return children.compactMap { candidate in
             let manifestURL = candidate.appendingPathComponent("studio_run.json")
@@ -392,6 +395,21 @@ private struct RunHistoryLoader {
                                    root: candidate, date: fileDate(candidate), state: state,
                                    detail: completed ? "\(results) result(s), \(failures) failed" : "Prediction progress available",
                                    manifestURL: nil, hasViewableResults: true)
+        }
+    }
+
+    private func rfd4Runs(project: Project, root: URL) -> [StudioRunRecord] {
+        directories(in: root.appendingPathComponent("rfd4_runs")).compactMap { candidate in
+            guard AppPaths.fm.fileExists(atPath: candidate.appendingPathComponent("rfd4_config.json").path)
+                || AppPaths.fm.fileExists(atPath: candidate.appendingPathComponent("studio_rfd4_request.json").path) else { return nil }
+            let done = AppPaths.fm.fileExists(atPath: candidate.appendingPathComponent("completed.json").path)
+            return StudioRunRecord(projectID: project.id, projectName: project.name,
+                workflow: .rfd4, name: RunNaming.read(at: candidate, fallback: candidate.lastPathComponent),
+                root: candidate, date: fileDate(candidate), state: done ? .completed : .interrupted,
+                detail: done ? "Generation and requested search complete" : "Saved RFD4 campaign",
+                manifestURL: nil, hasViewableResults: hasStructure(in: candidate.appendingPathComponent("generation"))
+                    || hasStructure(in: candidate.appendingPathComponent("candidates"))
+                    || hasStructure(in: candidate.appendingPathComponent("families")))
         }
     }
 

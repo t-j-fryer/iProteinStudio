@@ -42,7 +42,7 @@ struct DesignFormView: View {
                 header
                 modePicker
                 SetupExperiencePicker(selection: $setupExperience)
-                if !request.wrappedValue.usesNativeRegions {
+                if !request.wrappedValue.usesNativeRegions && project.designIntention == nil {
                     ExamplesBar { example in
                         var r = request.wrappedValue
                         r.apply(example)
@@ -62,7 +62,10 @@ struct DesignFormView: View {
                             request.wrappedValue = r
                         }
                     )) {
-                        ForEach(DesignType.allCases.filter { !request.wrappedValue.usesNativeRegions || $0 != .nanobody }) { Text($0.label).tag($0) }
+                        ForEach(DesignType.allCases.filter {
+                            if let intention = project.designIntention { return (intention == .monomer || intention == .motif) ? $0 == .monomer : intention == .nanobody ? $0 == .nanobody : ($0 != .nanobody && $0 != .monomer) }
+                            return !request.wrappedValue.usesNativeRegions || $0 != .nanobody
+                        }) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented).labelsHidden()
                     .accessibilityLabel("Design type")
@@ -72,6 +75,7 @@ struct DesignFormView: View {
                 }
 
                 Color.clear.frame(height: 0).id("target")
+                if type != .monomer {
                 Card(title: "1 · Your target", systemImage: "target") {
                     Picker("", selection: Binding(
                         get: { request.wrappedValue.targetKind },
@@ -82,7 +86,10 @@ struct DesignFormView: View {
                             request.wrappedValue = r
                         }
                     )) {
-                        ForEach(TargetKind.allCases) { Text($0.label).tag($0) }
+                        ForEach(TargetKind.allCases.filter {
+                            guard let intention = project.designIntention else { return true }
+                            return intention == .smallMolecule ? $0 == .ligand : $0 == .protein
+                        }) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 320)
                     .accessibilityLabel("Target type")
@@ -189,6 +196,7 @@ struct DesignFormView: View {
                     }
                 }
 
+                }
                 Color.clear.frame(height: 0).id("binder")
                 if request.wrappedValue.usesNativeRegions {
                     Card(title: request.wrappedValue.nativeBinderMode == "partialRedesign"
@@ -215,7 +223,7 @@ struct DesignFormView: View {
                         }
                     }
                 } else {
-                    Card(title: request.wrappedValue.usesNativeRegions ? "3 · Binder size & fold" : "2 · Binder size & fold", systemImage: "ruler") {
+                    Card(title: type == .monomer ? "Protein size & fold" : request.wrappedValue.usesNativeRegions ? "3 · Binder size & fold" : "2 · Binder size & fold", systemImage: "ruler") {
                         BinderSizePicker(request: request)
                         Divider().padding(.vertical, 4)
                         SecondaryStructureControl(request: request,
@@ -317,6 +325,7 @@ struct DesignFormView: View {
     /// persisted mode strings so existing saved requests and runner flags agree.
     private var modePicker: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if project.designIntention == nil {
             Picker("Protein Hunter mode", selection: Binding(
                 get: { type == .nanobody ? "deNovo" : request.wrappedValue.nativeBinderMode },
                 set: { mode in
@@ -329,14 +338,19 @@ struct DesignFormView: View {
                     request.wrappedValue = r
                 }
             )) {
-                Text("De novo design").tag("deNovo")
-                Text("Partial noising").tag("partialRedesign")
-                Text("Motif scaffolding").tag("motifScaffolding")
+                if project.designIntention != .optimize && project.designIntention != .motif { Text("De novo design").tag("deNovo") }
+                if project.designIntention == nil || project.designIntention == .optimize {
+                    Text("Partial noising").tag("partialRedesign")
+                }
+                if project.designIntention == nil || project.designIntention == .motif {
+                    Text("Motif scaffolding").tag("motifScaffolding")
+                }
             }
             .pickerStyle(.segmented)
             .accessibilityIdentifier("hunter-native-binder-mode")
+            }
             Text(type == .nanobody || request.wrappedValue.nativeBinderMode == "deNovo"
-                 ? "Design new mini-binders or peptides, or redesign the CDR loops of a nanobody scaffold."
+                 ? (type == .monomer ? "Generate a new protein without a binding target, then refine its sequence and fold." : "Design new mini-binders or peptides, or redesign the CDR loops of a nanobody scaffold.")
                  : request.wrappedValue.nativeBinderMode == "partialRedesign"
                  ? "Noise selected sequence regions with X tokens and sampled amino acids, then redesign those positions. The remaining sequence stays fixed; its coordinates can move."
                  : "Preserve selected sequence motifs in a new scaffold and throughout design cycles. Boltz is required; motif coordinates can move.")
@@ -345,9 +359,19 @@ struct DesignFormView: View {
         }
     }
 
-    private var header: some View {
-        StudioWorkflowHeader(mode: .iterative,
-            subtitle: "Explore candidate binders, then follow their independent checks.")
+    @ViewBuilder private var header: some View {
+        if let intention = project.designIntention {
+            HStack(spacing: 16) {
+                StudioArtwork(name: intention.artwork).frame(width: 68, height: 68)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(request.wrappedValue.initializationMethod == "rfd3" ? "RFdiffusion3 + refinement" : "X-token Hallucination").font(.largeTitle.weight(.semibold))
+                    Text(intention.introduction).foregroundStyle(.secondary)
+                }
+            }
+        } else {
+            StudioWorkflowHeader(mode: .iterative,
+                subtitle: "Explore candidate binders, then follow their independent checks.")
+        }
     }
 
     private var startBar: some View {
@@ -740,7 +764,7 @@ struct PredictorPicker: View {
         if request.targetKind == .ligand && !request.ligandContactAtoms.isEmpty {
             return request.ligandContactForce ? [.boltzPotentials] : [.boltz, .boltzPotentials]
         }
-        return DesignEngine.initializationChoices.map(\.predictor).filter { request.targetKind != .ligand || $0 != .protenixConstraint }
+        return request.initializationEngineChoices.map(\.predictor).filter { request.targetKind != .ligand || $0 != .protenixConstraint }
     }
 
     private var usesIntelliFold: Bool {
@@ -763,13 +787,13 @@ struct PredictorPicker: View {
                     Picker("Starting engine", selection: Binding(
                         get: { request.startingEngine }, set: { request.initializationEngine = $0 }
                     )) {
-                        ForEach(DesignEngine.initializationChoices.filter { request.targetKind != .ligand || $0 != .protenixConstraint }) { Text($0.label).tag($0) }
+                        ForEach(request.initializationEngineChoices.filter { request.targetKind != .ligand || $0 != .protenixConstraint }) { Text($0.label).tag($0) }
                     }
                     Text("Create cycle 00 with this engine, then release it before loading the refinement engine. MPNN designs complete sequences for cycles 01 onward.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if request.initializationMethod == "rfd3" {
-                    if request.targetKind == .protein {
+                    if request.hasProteinTarget {
                         HStack {
                             TextField("Target PDB/CIF for RFdiffusion3", text: Binding(
                                 get: { request.initializationTargetPath ?? "" }, set: { request.initializationTargetPath = $0 }
@@ -790,7 +814,13 @@ struct PredictorPicker: View {
                         Text("No structure file? Choose a prediction engine for your target sequence. The completed structure is automatically selected here; hotspots are optional. Existing matching predictions can be reused.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    Text("One backbone per trajectory, spread across your binder-length range. Uses the validated RFdiffusion3 generator (200 steps, 2 recycles, BF16). Protein targets need a matching structure; selected hotspots guide generation, otherwise it scans the surface. Available for de novo binders, not fixed nanobody frameworks.")
+                    Text(request.designType == .monomer
+                         ? "One unconditioned backbone per trajectory, spread across your length range. Uses the native RFdiffusion3 generator (200 steps, 2 recycles, BF16). No target structure or target alignment is needed."
+                         : "One backbone per trajectory, spread across your binder-length range. Uses the validated RFdiffusion3 generator (200 steps, 2 recycles, BF16). Protein targets need a matching structure; selected hotspots guide generation, otherwise it scans the surface. Available for de novo binders, not fixed nanobody frameworks.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if request.designType == .nanobody && (request.designPredictor == .esmfold2Full || request.startingEngine == .esmfold2Full) {
+                    Text("ESMFold2 Full can initialize X-masked CDRs while preserving the nanobody framework. It uses no pocket or template restraints; scaffold MSAs retain masked CDR columns.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if request.hasSeparateInitialization {
@@ -906,6 +936,7 @@ struct PredictorPicker: View {
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    if request.designType != .monomer {
                     Toggle("Only check checkpoints that pass the hit threshold", isOn: $request.postOnlyHits)
                         .toggleStyle(.checkbox).font(.callout)
 
@@ -914,15 +945,18 @@ struct PredictorPicker: View {
                     Text("Compares the binder-alone fold with its conformation in the independently predicted complex. This adds one fold per checked design and engine.")
                         .font(.caption2).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                    }
 
                     DisclosureGroup("Hit filters") {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("A hit must pass every enabled gate. Clear a field to disable it; the saved values and score engine remain in the result provenance.")
                                 .font(.caption2).foregroundStyle(.secondary)
                             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 7) {
+                                if request.designType != .monomer {
                                 designFilterRow("Minimum post iPTM", value: $request.postFilters.minimumIPTM)
                                 designFilterRow("Minimum post ipSAE(min)", value: $request.postFilters.minimumIPSAEMin)
                                 designFilterRow("Maximum target-aligned binder RMSD", value: $request.postFilters.maximumComplexRMSD, suffix: "Å")
+                                }
                                 designFilterRow("Minimum binder pLDDT", value: $request.postFilters.minimumBinderPLDDT)
                                 designFilterRow("Maximum binder-alone RMSD", value: $request.postFilters.maximumBinderRMSD, suffix: "Å")
                             }
@@ -1067,14 +1101,14 @@ struct RunSettings: View {
                 EditableIntStepper(value: $request.numCycles, in: 1...20,
                                    accessibilityLabel: "Optimization cycles")
             }
-            GridRow {
+            if request.designType != .monomer { GridRow {
                 Text("Hit threshold (iPTM)")
                 HStack {
                     Slider(value: $request.hitThreshold, in: 0.3...0.95, step: 0.01).frame(width: 220)
                     .accessibilityLabel("Minimum interface confidence for a hit")
                     Text(String(format: "%.2f", request.hitThreshold)).monospacedDigit()
                 }
-            }
+            } }
         }
         Text("\(request.selectedDesignEngines.count) engine(s) × \(request.numDesigns) trajectories each = \(request.totalTrajectories) total trajectories. This produces \(request.expectedOptimizedDesigns) optimized design structures across cycles 01–\(String(format: "%02d", request.numCycles)), plus \(request.expectedStartingStructures) unoptimized cycle-00 starting structure\(request.expectedStartingStructures == 1 ? "" : "s").")
             .font(.caption2)

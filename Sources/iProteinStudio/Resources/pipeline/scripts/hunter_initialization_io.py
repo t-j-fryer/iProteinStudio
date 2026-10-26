@@ -78,6 +78,26 @@ def generate(spec, work, prepare_only=False):
     targets = {k:v for k,v in proteins(data).items() if k != 'A'}
     ligands = [e['ligand'] for e in data['sequences'] if 'ligand' in e]
     if targets and ligands: raise ValueError('RFdiffusion3 starts currently accept a protein target or one small molecule, not both.')
+    if not targets and not ligands:
+        # The native oracle already supports unconditional DesignInputSpecification
+        # length inputs. Reuse its fixture/backbone stages and the same handoff.
+        work.mkdir(parents=True, exist_ok=True)
+        design = work / 'unconditional.yaml'
+        text = yaml.safe_dump(dict(length=str(low) if low == high else f'{low}-{high}'))
+        if design.exists() and design.read_text() != text:
+            raise ValueError('Saved monomer length specification changed.')
+        design.write_text(text)
+        cfg = dict(design_yaml=str(design), design_name='hunter_monomer', lengths=lengths,
+                   num_backbones=spec['trajectories'], rfd3_batch_size=req['batch_size'],
+                   rfd3_queues_per_bin=req['queues_per_bin'], rfd3_precision=req['precision'],
+                   rfd3_timesteps=req['timesteps'], rfd3_recycles=req['recycles'], seed_base=req['seed_base'])
+        config_path = work / 'config/campaign.json'
+        if config_path.exists() and json.loads(config_path.read_text()) != cfg:
+            raise ValueError('Saved monomer generation settings changed.')
+        atomic(config_path, cfg)
+        for stage in (['check'] if prepare_only else ['fixtures', 'backbones']):
+            run(design_cmd(cfg, root/'rfd3', work, stage))
+        return
     manifest = None
     if targets:
         from protein_structure import read_protein_atoms

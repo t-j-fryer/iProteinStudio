@@ -110,6 +110,7 @@ WITH_PROTENIX_MINI=0
 WITH_PROTENIX_CONSTRAINT=0
 WITH_OPENFOLD3=0
 WITH_RFD3=0
+WITH_RFD4=0
 WITH_LASERMPNN=0
 WITH_NESSO=0
 WITH_PSICHIC=0
@@ -126,6 +127,8 @@ usage() {
 Usage: setup_pipeline.sh [components | maintenance]
 
 Components (combine as needed):
+  --base                       RFD4, ESMFold2 Full, Boltz + affinity, core MPNN,
+                               AbMPNN and LASErMPNN (managed dependencies included)
   --with-boltz                 Boltz-2 structure prediction and steering
   --with-boltz-affinity        Optional small-molecule affinity checkpoint
   --with-antifold              AntiFold nanobody sequence design
@@ -138,6 +141,7 @@ Components (combine as needed):
   --with-protenix-constraint   Experimental Protenix Constraint v0.5
                                protein-epitope design checkpoint (separate,
                                native MPS, design-only, no CPU fallback)
+  --with-rfd4                  RFD4 portable joint sequence/structure generation
   --with-esmfold2-full         ESMFold2 Full MLX (portable only)
   --with-esmfold2-fast         ESMFold2 Fast MLX, sequence-only (portable only)
   --with-openfold3             OpenFold-3/MLX
@@ -164,6 +168,7 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --base) WITH_RFD4=1; WITH_ESMFOLD2=1; WITH_ESMFOLD2_FULL=1; WITH_BOLTZ=1; WITH_BOLTZ_AFFINITY=1; WITH_ABMPNN=1; WITH_LASERMPNN=1; shift ;;
     --with-boltz)           WITH_BOLTZ=1; shift ;;
     --with-boltz-affinity)  WITH_BOLTZ=1; WITH_BOLTZ_AFFINITY=1; shift ;;
     --retry-components)
@@ -194,6 +199,7 @@ while [[ $# -gt 0 ]]; do
     --with-alphafold3|--with-intellifold-jax)
       echo "NHFAIL|AlphaFold 3 and IntelliFold JAX were retired after Metal quality-control failures."
       exit 2 ;;
+    --with-rfd4)            WITH_RFD4=1; shift ;;
     --with-rfd3)            WITH_RFD3=1; WITH_BOLTZ=1; shift ;;
     --link-existing)        LINK_EXISTING="$2"; shift 2 ;;
     --materialise|--materialize) MATERIALISE=1; shift ;;
@@ -513,11 +519,12 @@ detect() {
     detector="${NANOHUNTER_ROOT}/components/control/current/python/bin/python3"
   fi
   if [[ ! -x "${detector}" ]]; then
-    for key in esmfold2 esmfold2_full esmfold2_fast mpnn abmpnn boltz boltz_affinity antifold intellifold intellifold_full protenix protenix_v2 protenix_mini protenix_constraint openfold3 lasermpnn nesso psichic rfd3; do
+    for key in esmfold2 esmfold2_full esmfold2_fast mpnn abmpnn boltz boltz_affinity antifold intellifold intellifold_full protenix protenix_v2 protenix_mini protenix_constraint openfold3 lasermpnn nesso psichic rfd3 rfd4; do
       state "$key" missing "Run Setup to install the managed runtime."
     done
     return
   fi
+  "${detector}" "${NESSO_SCRIPT_ROOT}/scripts/rfd4_status.py" "${NANOHUNTER_ROOT}"
   "${detector}" "${NESSO_SCRIPT_ROOT}/scripts/esmfold2_status.py" "${NANOHUNTER_ROOT}"
   "${detector}" "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_psichic.py" --root "${NANOHUNTER_ROOT}" --detect
   "${detector}" "${NESSO_SCRIPT_ROOT}/scripts/nise/setup_nesso.py" --root "${NANOHUNTER_ROOT}" --detect
@@ -1186,13 +1193,17 @@ if [[ "${IPROTEINSTUDIO_BUILD_FROM_SOURCE:-0}" != "1" ]]; then
     for pair in "esmfold2:$WITH_ESMFOLD2" "esmfold2_full:$WITH_ESMFOLD2_FULL" "esmfold2_fast:$WITH_ESMFOLD2_FAST" "abmpnn:$WITH_ABMPNN" "boltz:$WITH_BOLTZ" "boltz_affinity:$WITH_BOLTZ_AFFINITY" \
       "antifold:$WITH_ANTIFOLD" "intellifold:$WITH_INTELLIFOLD" "intellifold_full:$WITH_INTELLIFOLD_FULL" \
       "protenix:$WITH_PROTENIX_RUNTIME" "protenix_v2:$WITH_PROTENIX_V2" "protenix_mini:$WITH_PROTENIX_MINI" \
-      "protenix_constraint:$WITH_PROTENIX_CONSTRAINT" "openfold3:$WITH_OPENFOLD3" "rfd3:$WITH_RFD3" \
+      "protenix_constraint:$WITH_PROTENIX_CONSTRAINT" "openfold3:$WITH_OPENFOLD3" "rfd3:$WITH_RFD3" "rfd4:$WITH_RFD4" \
       "lasermpnn:$WITH_LASERMPNN" "nesso:$WITH_NESSO" "psichic:$WITH_PSICHIC"; do
       [[ "${pair##*:}" == "1" ]] && PORTABLE_COMPONENTS="${PORTABLE_COMPONENTS},${pair%%:*}"
     done
   fi
   "${PYTHON_BIN}" "${NESSO_SCRIPT_ROOT}/scripts/setup_portable.py" --root "${NANOHUNTER_ROOT}" --components "${PORTABLE_COMPONENTS}"
   exit $?
+fi
+
+if [[ "$WITH_RFD4" == 1 ]]; then
+  fail "RFD4 requires the verified portable runtime. Disable the developer source-build override."
 fi
 
 if [[ "$WITH_ESMFOLD2" == 1 ]]; then

@@ -22,7 +22,13 @@ def capture(root=None,provenance=None,normalized=None):
                     for v in value.values():visit(v)
                 elif isinstance(value,list):
                     for v in value:visit(v)
-            visit(normalized)
+            if (normalized or {}).get('workflow') == 'rfd4':
+                # Dormant predictor/designer defaults in the saved form are not
+                # dependencies of a generation-only job.
+                visit(normalized.get('supporting_engines', []))
+                visit(normalized.get('steps', []))
+            else:
+                visit(normalized)
             tokens += [v.get('path','') for v in provenance]
             registry=Path(__file__).resolve().parents[2]/'scripts/engine_registry.json'
             descriptors=json.loads(registry.read_text())['engines'] if registry.is_file() else {}

@@ -1,9 +1,12 @@
 import Foundation
+import CryptoKit
 
 // RunResult.swift only needs this enum from the history layer. Keeping the
 // harness focused avoids pulling ObservableObject/AppState into a file-layout
 // contract test.
 enum StudioWorkflow: String, Codable {
+    case rfd4
+
     case iterative, nise, rfdiffusion3, prediction
     var label: String { rawValue }
 }
@@ -474,5 +477,21 @@ struct PredictionResultsContractHarness {
         print("PASS per-input native results across all engines, stale-file rejection, chunk promotion, PH post roles, RFD3 queue identity and early NISE backbones")
         }
         print("PASS prediction result discovery contract")
+        let rfd4 = csvRoot.appendingPathComponent("rfd4-results")
+        let unit = rfd4.appendingPathComponent("generation/seed_42")
+        try fm.createDirectory(at: unit, withIntermediateDirectories: true)
+        let structure = unit.appendingPathComponent("model.pdb")
+        let bytes = Data("ATOM fixture".utf8)
+        try bytes.write(to: structure)
+        let digest = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        let row: [String: Any] = ["id": "seed_42", "family": "seed_42", "structure": structure.path,
+            "structure_sha256": digest, "sequences": ["A": "GG", "B": "AA"]]
+        try JSONSerialization.data(withJSONObject: ["result": row]).write(to: unit.appendingPathComponent("completed.json"))
+        try JSONSerialization.data(withJSONObject: ["target_sequence": "GG", "settings": ["binder_chain": "B"]]).write(to: rfd4.appendingPathComponent("rfd4_config.json"))
+        let items = RunResultsLoader.load(root: rfd4, workflow: .rfd4)
+        precondition(items.count == 1 && items[0].sequence == "AA" && items[0].metrics.isEmpty)
+        try Data("changed".utf8).write(to: structure)
+        precondition(RunResultsLoader.load(root: rfd4, workflow: .rfd4).isEmpty)
+        print("PASS RFD4 target-role sequence identity and changed-structure exclusion")
     }
 }

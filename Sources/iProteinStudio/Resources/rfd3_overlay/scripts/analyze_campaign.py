@@ -11,6 +11,7 @@ from pathlib import Path
 import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
 import numpy as np
+from score_binder_validation import motif_input_rmsd
 
 
 def read_csv(path: Path) -> list[dict]:
@@ -132,6 +133,11 @@ def main() -> None:
             "binder_ca_self_rmsd": self_rmsd,
             "target_aligned_binder_ca_rmsd": target_aligned,
         }
+        if backbone.get('diffused_index_map'):
+            value, details = motif_input_rmsd(str(predicted_path), backbone)
+            row['motif_input_rmsd'] = value
+            row['motif_input_rmsd_by_residue'] = json.dumps(details, sort_keys=True)
+            row['motif_reference_status'] = 'original_input' if value is not None else 'original_input_unavailable'
         if exposed:
             row.update(ligand_rasa(array, exposed, buried))
         rows.append(row)

@@ -12,6 +12,8 @@ from .common import StudioError, csv_rows, load_json, process_alive, project_roo
 
 
 KNOWN_RESULTS = (
+    "comparison_results.json",
+    "results.json",
     "live_predictions",
     "nesso_verification/nesso_screening.csv",
     "nesso_verification/psichic_screening.csv",
@@ -46,6 +48,9 @@ RESULT_METRICS = (
     "ca_valid_pct",
     "motif_insertion_rmsd",
     "motif_prediction_rmsd",
+    "maximum_motif_input_rmsd",
+    "motif_input_rmsd",
+    "motif_candidate_rmsd_to_input",
     "motif_max_drift",
 )
 
@@ -142,6 +147,10 @@ def detect_engines() -> Dict[str, Any]:
 
 
 def classify_run(path: Path) -> Optional[str]:
+    if (path / "motif_beta_request.json").is_file():
+        return "motif_beta"
+    if (path / "rfd4_config.json").is_file() or (path / "studio_rfd4_request.json").is_file():
+        return "rfd4"
     if (path / "studio_engine_batch.json").is_file():
         return "iterative_batch"
     if (path / "nise_config.json").is_file():
@@ -158,7 +167,7 @@ def classify_run(path: Path) -> Optional[str]:
 def run_record(path: Path, project: str) -> Dict[str, Any]:
     workflow = classify_run(path) or "unknown"
     manifest = {}
-    for relative in ("studio_engine_batch.json", "studio_run.json", "run_summary.json", "campaign_progress.json", "summary.json", "progress.json"):
+    for relative in ("studio_engine_batch.json", "studio_run.json", "run_summary.json", "campaign_progress.json", "summary.json", "progress.json", "status.json"):
         candidate = path / relative
         if candidate.is_file():
             try:
@@ -262,7 +271,9 @@ def query_results(run_id: str, dataset: Optional[str], metric: Optional[str], hi
         selected = available[0]
     else:
         return {"run_id": run_id, "available": [], "rows": [], "columns": []}
-    rows = (live if selected == "live_predictions" else
+    rows = (_motif_beta_rows(path) if selected == "comparison_results.json" and classify_run(path) == "motif_beta" else
+            _rfd4_rows(path) if selected == "results.json" and classify_run(path) == "rfd4" else
+            live if selected == "live_predictions" else
             _normalize_result_rows(selected, csv_rows(path / selected, limit=1000)))
     if hit_only:
         rows = [row for row in rows if str(row.get("hit", row.get("passes_filters", ""))).lower() in {"1", "true", "yes", "pass"}]
@@ -550,7 +561,8 @@ def _rfd3_backbone_rows(root: Path) -> List[Dict[str, str]]:
         except StudioError:
             continue
         row = {key: str(value) for key, value in raw.items() if not isinstance(value, (dict, list))}
-        for key in ("diffused_index_map", "motif_fixed_atoms", "motif_insertion_rmsd_by_token"):
+        for key in ("diffused_index_map", "motif_fixed_atoms", "motif_insertion_rmsd_by_token",
+                    "motif_reference_atoms", "motif_candidate_rmsd_by_residue"):
             if key in raw:
                 row[key] = json.dumps(raw[key], sort_keys=True)
         design = result.stem
@@ -788,6 +800,58 @@ def _iterative_batch_overview(root: Path, limit: int, framework_id: Optional[str
             "note": "Artifact paths are relative to each group's artifact_run_id, not the batch. Cycle outputs are not independent trajectories. Query each campaign_run_id for raw tables."}
 
 
+def _rfd4_rows(root):
+    from .rfd4 import contract
+    verifier = contract()
+    candidates = []
+    for child in sorted((root / 'budget_families').glob('*')):
+        if not child.is_dir(): continue
+        for row in _rfd4_rows(child):
+            entry = dict(row, structure=str(child / row['structure']))
+            if row.get('oracle_structure'): entry['oracle_structure'] = str(child / row['oracle_structure'])
+            candidates.append(entry)
+    for directory in ('generation', 'candidates'):
+        for receipt in sorted((root / directory).glob('*/completed.json')):
+            candidates.append(verifier.verify(receipt))
+    for path in sorted((root / 'families').glob('*/final/results.json')):
+        receipt = path.parent / 'completed.json'
+        if receipt.is_file():
+            verifier.verify(receipt)
+            feedback = {}
+            for score in (path.parent.parent / 'scores').glob('*/rows.json'):
+                verifier.verify(score.parent / 'completed.json')
+                feedback.update(load_json(score))
+            for row in json.loads(path.read_text()):
+                oracle = feedback.get(row['id'], {})
+                candidates.append({**row, 'metrics':oracle.get('metrics', row.get('metrics', {})),
+                    'oracle_structure':oracle.get('structure', row.get('oracle_structure'))})
+    rows = []
+    for row in candidates:
+        if not isinstance(row, dict) or not all(k in row for k in ('id', 'family', 'structure')): continue
+        path = Path(row['structure']).resolve()
+        if root.resolve() not in path.parents or not path.is_file(): continue
+        entry = {**row, 'structure': path.relative_to(root.resolve()).as_posix()}
+        if row.get('oracle_structure'):
+            oracle = Path(row['oracle_structure']).resolve()
+            if root.resolve() not in oracle.parents or not oracle.is_file(): raise StudioError('Missing native search oracle structure.')
+            entry['oracle_structure'] = oracle.relative_to(root.resolve()).as_posix()
+        rows.append(entry)
+    return rows
+
+
+def _motif_beta_rows(root: Path) -> List[Dict[str, Any]]:
+    path = root / 'comparison_results.json'
+    if not path.is_file(): return []
+    rows = []
+    for value in load_json(path).get('candidates', []):
+        row = dict(value)
+        for key in ('structure', 'checked_structure'):
+            row[key] = _run_artifact_reference(root, row.get(key))
+        row['is_hit'] = None
+        rows.append(row)
+    return rows
+
+
 def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
                      framework_id: Optional[str] = None, design_engine: Optional[str] = None) -> Dict[str, Any]:
     """Return the same scientific hierarchy presented by the native app.
@@ -798,7 +862,22 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
     """
     root = resolve_run(run_id)
     workflow = classify_run(root)
-    if workflow == "iterative_batch":
+    if workflow == "motif_beta":
+        grouped = {}
+        for row in _motif_beta_rows(root):
+            key = str(row.get('root', '')) + '/' + str(row.get('arm', ''))
+            group = grouped.setdefault(key, dict(id=key, title=key, is_hit=None, variants=[]))
+            artifacts = []
+            for field, role in [('structure', 'proposal'), ('checked_structure', 'untemplated_search_check')]:
+                if row.get(field):
+                    artifacts.append(dict(path=row[field], role=role, predictor='boltz', is_hit=None,
+                                          metrics=row.get('metrics', {}) if field == 'checked_structure' else {}))
+            group['variants'].append(dict(id=row['id'], cycle=row.get('cycle'), parent_id=row.get('parent'),
+                                          sequence=row.get('sequence'), is_hit=None, artifacts=artifacts))
+        result = dict(organization='motif root -> designer/search arm -> cycle/proposal -> guided and untemplated artifacts',
+                      groups=list(grouped.values())[:limit], truncated=len(grouped)>limit,
+                      note='Beta search feedback only; untemplated Boltz is not a different-family check. No independent hit verdict is inferred.')
+    elif workflow == "iterative_batch":
         result = _iterative_batch_overview(root, limit, framework_id, design_engine, hit_only)
     elif framework_id is not None or design_engine is not None:
         raise StudioError("Framework/engine filters require an iterative batch run_id.")
@@ -806,6 +885,25 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
         result = _nise_overview(root, limit)
     elif workflow == "iterative":
         result = _iterative_overview(root, limit, hit_only)
+    elif workflow == "rfd4":
+        grouped = {}
+        config = load_json(root / 'rfd4_config.json')
+        for row in _rfd4_rows(root):
+            sequence = row.get('sequence')
+            chains = row.get('sequences', {})
+            if not sequence and len(chains) == 1: sequence = next(iter(chains.values()))
+            if not sequence and config.get('target_sequence'):
+                binders = [v for v in chains.values() if v != config['target_sequence']]
+                if len(binders) == 1: sequence = binders[0]
+            if not sequence: sequence = chains.get(config.get('settings', {}).get('binder_chain'))
+            artifacts = [dict(role="design", path=row["structure"], metrics={k:row[k] for k in ("ipsae_min", "score") if k in row}, is_hit=None)]
+            if row.get('oracle_structure'):
+                artifacts.append(dict(role='selection_oracle', path=row['oracle_structure'], metrics=row.get('metrics', {}), is_hit=None))
+            group = grouped.setdefault(row["family"], dict(id=row["family"], title=row["family"], is_hit=None, variants=[]))
+            group["variants"].append(dict(id=row["id"], parent_id=row.get("parent_id"), cycle=row.get("cycle"), sequence=sequence, is_hit=None,
+                artifacts=artifacts))
+        result = dict(organization="family -> search generation/proposal -> structure and feedback", groups=list(grouped.values())[:limit],
+                      truncated=len(grouped)>limit, note="All proposals are retained. Selection feedback is not independent validation; no hit verdict is inferred.")
     elif workflow == "rfdiffusion3":
         result = _rfd3_overview(root, limit)
     else:
@@ -876,6 +974,14 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
         ),
     }
     guides = {
+        "motif_beta": {
+            "tool": "motif_beta_plan", "catalog": "motif_beta_catalog",
+            "scope": "Pinned AME-41 benchmark motifs, fixed ligand chemistry, 1–5 roots. General custom motif import is not implemented.",
+            "stages": "prepare (files only), backbones (RFD3), cycles (Boltz guided proposals plus separate untemplated ranking checks).",
+            "templates": "Explicit residue-position maps; rfd3-root or original benchmark-residues geometry. Templates guide geometry; they do not lock atoms. Protenix/IntelliFold features are CPU-qualified only; automatic cycles reject these engines.",
+            "qualification": "CPU input/feature tests and managed preparation verified. Full beta model cycles and independent final assessment remain unqualified. Not a measured enzyme activity or yield claim.",
+            "memory": "Inference obeys the existing memory policy; an explicit recorded override may be necessary for uncalibrated workloads.",
+        },
         "rfd3_protein_binder": {
             "tool": "rfd3_denovo_plan",
             "defaults": {
@@ -937,7 +1043,7 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
             "tool": "iterative_design_plan",
             "defaults": {"target_template_mode": "guide"},
             "rules": [
-                "Separate Protein Hunter stages: --initialization-method hallucination with --initialization-predictor, or rfd3 with --initialization-target for protein targets. --predictor selects cycles 01 onward, including ESMFold2 Fast/Full; never use ESMFold2 for X-token cycle 00. RFdiffusion3 starts support de novo binders, not fixed nanobody frameworks. Generation guidance is scoped to its stage; ESMFold2 refinement is unrestrained. Both stages checkpoint under one GPU lease.",
+                "Separate Protein Hunter stages: --initialization-method hallucination with --initialization-predictor, or rfd3 with --initialization-target for protein targets. --predictor selects cycles 01 onward, including ESMFold2 Fast/Full; ESMFold2 Full supports CDR-only X-token cycle 00 with a fixed nanobody framework and masked scaffold MSA; Fast and whole-chain ESMFold2 initialization remain unsupported. RFdiffusion3 starts support de novo binders, not fixed nanobody frameworks. Generation guidance is scoped to its stage; ESMFold2 refinement is unrestrained. Both stages checkpoint under one GPU lease.",
                 "Use the MCP plan rather than assembling the runner command; Studio injects the measured resident/cycle-wave scheduler.",
                 "Require target MSAs when target protein chains are present, and use an orthogonal predictor for final checking when requested. Unconditioned monomer initialization has no target MSA.",
                 "When the user supplies a trusted target PDB/CIF, pass it as target_template_path. Guide mode works with Boltz-2, Protenix v2, and IntelliFold v2 Flash/full. Do not request strong coordinate restraint; it is disabled after Apple-GPU acceptance failures.",
@@ -950,14 +1056,25 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
             ],
         },
     }
+    guides['rfd4'] = dict(tool='rfd4_plan', defaults=dict(task='monomer', count=1, search='native', optimized_kernels=False), rules=[
+        'Use the typed RFD4 plan and job_start. The native and preprocessing runtimes are pinned and checked in separate processes.',
+        'For protein binders use SolubleMPNN by default and omit contig. An explicit target chain and optional source-numbered hotspots define conditioning.',
+        'Monomers, protein/ligand conditioning, annotated motifs/nanobodies, partial diffusion and inverse folding use the released Diffusers configuration.',
+        'Fixed, iterative, greedy and beam sequence searches are distinct from native during-diffusion rollout search. Preserve exact parent IDs and every evaluated candidate.',
+        'A campaign above ten families first completes one end-to-end family. Failed or changed receipts stop resumption.',
+        'Protein search requires an explicit target MSA policy; Fast is sequence-only. Search scores are optimization feedback, not independent validation.',
+        'RFD4 memory estimates are unqualified; the explicit memory override is recorded when selected.'
+    ])
     if workflow not in guides:
         raise StudioError(f"Unknown workflow guide: {workflow}")
     return {"workflow": workflow, **common, **guides[workflow],
-            "esmfold2": "Experimental esmfold2-fast-mlx / esmfold2-full-mlx support complete-sequence protein and SMILES-ligand prediction. Fast has no MSA encoder; Full uses the requested MSA. No template/pocket guidance, affinity head or Protein Hunter X-token generation. Available for independent completed-sequence checks and Protein Hunter refinement after an explicit separate initialization stage. Portable runtime on Apple silicon/macOS 26.2+, separate pinned weights; no external installs. Credits: Fausto Milletari and contributors' MLX port, Biohub ESMFold2/ESMC and Apple MLX. docs/ESMFOLD2.md records measured Fast/Full comparisons and limits."}
+            "esmfold2": "Experimental esmfold2-fast-mlx / esmfold2-full-mlx support complete-sequence protein and SMILES-ligand prediction. Fast has no MSA encoder; Full uses the requested MSA. No template/pocket guidance or affinity head. Full supports validated fixed-framework CDR-only X-token initialization; Fast and whole-chain X-token generation remain unsupported. Available for independent completed-sequence checks and Protein Hunter refinement after an explicit separate initialization stage. Portable runtime on Apple silicon/macOS 26.2+, separate pinned weights; no external installs. Credits: Fausto Milletari and contributors' MLX port, Biohub ESMFold2/ESMC and Apple MLX. docs/ESMFOLD2.md records measured Fast/Full comparisons and limits."}
 
 
 def workflow_guide(workflow: str) -> Dict[str, Any]:
     guide = _workflow_guide(workflow)
+    guide['evidence_reference'] = 'iprotein://skills/studio/evidence'
+    guide['evidence_policy'] = 'Read the dated evidence reference before recommending methods. User-selected workflow presets are not comparative efficacy results; verify current run data with results_overview before citing it.'
     guide['composition'] = 'pipeline_catalog exposes supported v2 route schemas; pipeline_recipe_plan binds complete parameters through this planner, then job_start executes its immutable plan.'
     if workflow == 'iterative_design':
         guide['batch_tool'] = 'iterative_batch_plan: explicit engines, equal per-engine trajectory totals and scaffold-specific templates/CDR ranges; shared scheduling and resumable child receipts.'
@@ -973,7 +1090,7 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
 
 def read_resource(uri: str) -> Dict[str, Any]:
     if uri == "iprotein://capabilities":
-        return {"server_profiles": ["read", "run", "admin"], "workflows": ["prediction", "iterative_design", "iterative_batch", "nise", "rfd3_de_novo", "rfd3_partial_diffusion", "rfd3_motif_scaffolding"], "transport": "stdio", "pipeline_catalog": "pipeline_catalog", "candidate_exports": True, "optional_discovery": "RCSB MCP (separate installation)", "operating_skill": "iprotein://skills/studio"}
+        return {"server_profiles": ["read", "run", "admin"], "workflows": ["prediction", "iterative_design", "iterative_batch", "nise", "rfd3_de_novo", "rfd3_partial_diffusion", "rfd3_motif_scaffolding", "rfd4", "motif_beta"], "transport": "stdio", "pipeline_catalog": "pipeline_catalog", "candidate_exports": True, "optional_discovery": "RCSB MCP (separate installation)", "operating_skill": "iprotein://skills/studio"}
     if uri == "iprotein://engines":
         return detect_engines()
     if uri == "iprotein://projects":

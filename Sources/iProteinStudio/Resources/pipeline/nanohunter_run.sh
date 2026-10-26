@@ -1063,8 +1063,9 @@ case "${WORKFLOW}" in
 esac
 PREDICTOR="$(norm_predictor "$PREDICTOR")" || die "Unsupported --predictor: ${PREDICTOR}"
 case "${PREDICTOR}" in esmfold2-*)
-  [[ -n "${IPROTEINSTUDIO_HUNTER_HANDOFF:-}" ]] || die "ESMFold2 refinement requires a separate starting engine or RFdiffusion3."
-  if [[ "${CHECK_CONFIG_ONLY}" != 1 ]]; then
+  if [[ -z "${IPROTEINSTUDIO_HUNTER_HANDOFF:-}" ]]; then
+    [[ "${PREDICTOR}" == "esmfold2-full-mlx" && "${WORKFLOW}" == "nanobody" ]] || die "ESMFold2 X-token initialization requires Full and a nanobody scaffold; other workflows need a separate starting engine."
+  elif [[ "${CHECK_CONFIG_ONLY}" != 1 ]]; then
     [[ "${IPROTEINSTUDIO_HUNTER_HANDOFF}" == "${BASE_RUN_ROOT}/${RUN_NAME}/initialization.json" ]] || die "The starting-engine handoff belongs to a different run."
     "${REPO_ROOT}/components/control/current/python/bin/python3" "${PIPELINE_CODE_ROOT}/scripts/hunter_stages.py" verify "$(dirname "${IPROTEINSTUDIO_HUNTER_HANDOFF}")" || die "Starting backbone audit failed."
   fi
@@ -2600,7 +2601,8 @@ make_yaml_with_binder_sequence() {
     "${TARGET_TEMPLATE_MODE}" \
     "${TARGET_TEMPLATE_THRESHOLD}" \
     "${TARGET_TEMPLATE_SHA256}" \
-    "${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}" <<'PY'
+    "${INTELLIFOLD_TARGET_TEMPLATE_MANIFEST}" \
+    "${WORKFLOW}" "${cycle_index}" "${NANOBODY_SEED_CDRS}" "${PIPELINE_CODE_ROOT}/scripts" <<'PY'
 import csv
 import re
 import sys
@@ -3054,6 +3056,18 @@ if target_template and phase == "design":
             raise SystemExit("IntelliFold target-template preparation produced no query-chain mappings.")
     else:
         raise SystemExit(f"{predictor} cannot consume the requested target template.")
+
+# Record the narrow Full nanobody initialization exception in the exact input.
+# Later complete-sequence folds carry no X-token permission.
+if predictor == "esmfold2-full-mlx" and phase == "design" and "X" in new_seq:
+    workflow, cycle, selected_cdrs, scripts = sys.argv[20:24]
+    if workflow != "nanobody" or int(cycle) != 0:
+        raise SystemExit("ESMFold2 X tokens are restricted to nanobody cycle 00.")
+    import json
+    sys.path.insert(0, scripts)
+    from esmfold2_cdr import KEY, make_contract
+    contract = make_contract(original_binder_seq, cdr_ranges_raw, selected_cdrs, catalog=catalog_tsv)
+    out_lines.append(KEY + ": " + json.dumps(contract) + "\n")
 
 Path(out).write_text("".join(out_lines))
 PY

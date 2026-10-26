@@ -143,6 +143,11 @@ class BoltzSession:
         self.prediction_settings = effective('boltz', self.arguments, config.get('model'))
         self.torch = require_mps()
         import boltz.main as boltz_main
+        if config.get('motif_sparse_templates', False):
+            if option(self.arguments, '--preprocessing-threads', '1') != '1':
+                die('Sparse motif templates require one preprocessing worker to retain explicit mapping.')
+            from motif_beta.boltz_templates import install
+            install()
         from dataclasses import asdict
 
         compatibility = load_path(

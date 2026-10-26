@@ -309,3 +309,24 @@ Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-
 - [0445 — Correct Protein Hunter auto MSA parsing](lab_book/0445-hunter-auto-msa-policy.md) (2026-10-16): fixes shared runner interpretation of auto; regression and release checks recorded in entry.
 
 - [0446 — Clean ESMFold2 refinement metadata](lab_book/0446-clean-esmfold-refinement-metadata.md) (2026-10-16): preserve RFD3 generation hotspots while stripping Studio-only metadata from the ESMFold2 handoff; real parser regressions pass.
+
+- [0487-review-artios-enzyme-benchmarks](lab_book/0487-review-artios-enzyme-benchmarks.md)
+
+- [0488-plan-transferable-atomic-motifs](lab_book/0488-plan-transferable-atomic-motifs.md)
+
+- [0489-implement-atomic-motif-beta](lab_book/0489-implement-atomic-motif-beta.md)
+
+- [0490-support-original-motif-residue-templates](lab_book/0490-support-original-motif-residue-templates.md)
+
+- [0491-preserve-original-motif-correspondence](lab_book/0491-preserve-original-motif-correspondence.md)
+
+- [0517-add-memory-override-and-select-motif-pilot](lab_book/0517-add-memory-override-and-select-motif-pilot.md)
+
+- [0559-integrate-rfd4-and-design-search](lab_book/0559-integrate-rfd4-and-design-search.md)
+
+- [0572-intention-based-design-workflows](lab_book/0572-intention-based-design-workflows.md)
+
+- [0574-sequence-targets-and-workflow-capabilities](lab_book/0574-sequence-targets-and-workflow-capabilities.md)
+
+
+- [0577-publish-workflows-and-evidence](lab_book/0577-publish-workflows-and-evidence.md)

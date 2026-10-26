@@ -24,6 +24,7 @@ struct RFD3View: View {
     @State private var showManualOrigin = false
     @State private var setupExperience: SetupExperience = .quick
     @State private var showTargetPrep = false
+    @State private var showMotifBeta = false
     @State private var proposedConditions: [String: Set<AtomCondition>]?
 
     private var request: Binding<RFD3Request> {
@@ -49,6 +50,10 @@ struct RFD3View: View {
         .onChange(of: request.wrappedValue.attachmentLinkerAtom) { _, _ in
             proposedConditions = nil
         }
+        .toolbar {
+            ToolbarItem { Button("Atomic motif beta") { showMotifBeta = true } }
+        }
+        .sheet(isPresented: $showMotifBeta) { MotifBetaView(project: project) }
     }
 
     // MARK: Unavailable
@@ -82,13 +87,13 @@ struct RFD3View: View {
                 header
                 modePicker
                 SetupExperiencePicker(selection: $setupExperience)
-                if request.wrappedValue.designMode == .deNovo {
+                if request.wrappedValue.designMode == .deNovo && project.designIntention == nil {
                     ExamplesBar { example in
                         request.wrappedValue.apply(example)
                         inspector.reset()
                         intelligence.reset()
                     }
-                } else {
+                } else if project.designIntention == nil {
                     RFD3WorkflowExamplesBar(mode: request.wrappedValue.designMode) { example in
                         var value = request.wrappedValue
                         example.apply(to: &value)
@@ -230,7 +235,10 @@ struct RFD3View: View {
                     inspector.reset()
                 }
             )) {
-                ForEach(RFD3DesignMode.allCases) { Text($0.label).tag($0) }
+                ForEach(RFD3DesignMode.allCases.filter {
+                    guard let intention = project.designIntention else { return true }
+                    return intention == .motif ? $0 == .motifScaffolding : intention == .optimize ? $0 == .partialDiffusion : $0 == .deNovo
+                }) { Text($0.label).tag($0) }
             }
             .pickerStyle(.segmented)
             Text(request.wrappedValue.designMode.blurb)
@@ -352,7 +360,10 @@ struct RFD3View: View {
                     intelligence.reset()
                 }
             )) {
-                ForEach(RFD3TargetKind.allCases) { Text($0.label).tag($0) }
+                ForEach(RFD3TargetKind.allCases.filter {
+                    guard let intention = project.designIntention else { return true }
+                    return intention == .smallMolecule ? $0 == .smallMolecule : $0 == .protein
+                }) { Text($0.label).tag($0) }
             }
             .pickerStyle(.segmented).labelsHidden().frame(width: 320)
             .accessibilityLabel("RFdiffusion3 target type")

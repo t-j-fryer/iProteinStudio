@@ -1,5 +1,15 @@
 # Bundled pipeline third-party notices
 
+## RFD4 integration
+
+The optional RFD4 runtime retains RosettaCommons/RFD4-Proteina and NVIDIA
+RFD4-Proteina-prep sources and their BSD 3-Clause licences (Institute for Protein
+Design, University of Washington, 2026), plus Apache-2.0 Hugging Face Diffusers.
+Pinned revisions are recorded in scripts/rfd4/contract.py and the verified runtime
+manifest. Studio's wrappers invoke native input authoring, generation and beam
+search; they do not claim authorship of these upstream scientific methods.
+Weights are separately verified downloads and are not bundled with this app.
+
 ## DunbrackLab IPSAE
 
 The numerical ipSAE implementation in `scripts/ipsae_score.py` is adapted from
@@ -47,3 +57,10 @@ orchestration and I/O adapters. Checkpoints are downloaded separately from pinne
 Biohub revisions, never redistributed in the app or runtime archive. Model use
 remains subject to the applicable upstream terms. See docs/ESMFOLD2.md for model
 choices, measured speed scope and experimental limitations.
+# AME-41 benchmark data added for the atomic motif beta
+
+Original RFdiffusion2 inputs from RosettaCommons/RFdiffusion2 at revision
+`d365cbf4db3958814a9f8e4f6f94fa309dfebc2b` are shipped in
+`scripts/motif_beta/data/upstream/` with their unchanged `LICENSE.md`
+(BSD 3-Clause, University of Washington, 2025). The derived inventory is not
+a verified Artios-38 manifest.

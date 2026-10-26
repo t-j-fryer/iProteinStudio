@@ -56,7 +56,8 @@ def validate(args):
         raise ValueError('Starting backbones must use hallucination or rfd3.')
     if refine not in ENGINES or initial not in ENGINES:
         raise ValueError('Choose supported starting and refinement engines.')
-    if method == 'hallucination' and initial.startswith('esmfold2-'):
+    if (method == 'hallucination' and initial.startswith('esmfold2-')
+            and not (initial == 'esmfold2-full-mlx' and value(args, '--workflow', 'nanobody') == 'nanobody')):
         raise ValueError('ESMFold2 is available for refinement, not X-token initialization. Choose a different starting engine or RFdiffusion3.')
     if method == 'rfd3' and any(flag in args for flag in ['--initialization-predictor', '--initialization-model']):
         raise ValueError('RFdiffusion3 is the starting engine; remove hallucination-only stage options.')

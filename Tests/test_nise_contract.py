@@ -117,7 +117,8 @@ class NISEContracts(unittest.TestCase):
         for p in contract.required_files(self.root):
             p.parent.mkdir(parents=True, exist_ok=True); p.write_text("fixture\n")
         (self.root / "models/boltz2/mols").mkdir()
-        plan = nise_plan({"project": "demo", "request": {"smiles": "CCO"}})
+        # Fake weights: this tests provenance only; memory enforcement has its own suite.
+        plan = nise_plan({"project": "demo", "request": {"smiles": "CCO"}, "memory_policy": "override"})
         self.assertEqual(plan["kind"], "desktop_nise")
         output = Path(plan["normalized_request"]["output"])
         self.assertTrue((output / ".studio_runtime/pipeline/scripts/nise/campaign.py").is_file())
@@ -139,7 +140,7 @@ class NISEContracts(unittest.TestCase):
         (self.root / 'models/boltz2/mols').mkdir()
         cfg = dict(smiles='CCO', num_starts=1, trajectories=1, partial_noising=True,
                    noise_predictions=2, noise_mpnn_seqs=3, scheduler='resident')
-        initial = nise_plan({'project':'demo', 'request':cfg})
+        initial = nise_plan({'project':'demo', 'request':cfg, 'memory_policy':'override'})
         output = Path(initial['normalized_request']['output'])
         inputs = output/'branch_test_inputs'; inputs.mkdir()
         parent = dict(name='parent', passed=True, sequence='ACD', score=1.4, pbind=.5,
@@ -153,7 +154,7 @@ class NISEContracts(unittest.TestCase):
         config_path.write_text(json.dumps(config))
         with self.assertRaisesRegex(common.StudioError, 'explicit nise_branch_test'):
             desktop_plan(dict(project='demo', workflow='nise', output=str(output)))
-        plan=desktop_plan(dict(project='demo', workflow='nise_branch_test', output=str(output)))
+        plan=desktop_plan(dict(project='demo', workflow='nise_branch_test', output=str(output), memory_policy='override'))
         self.assertEqual(plan['normalized_request']['prediction_budget']['maximum_structure_predictions'],5)
         self.assertEqual(load_plan(plan['id'],plan['sha256']),plan)
         (inputs/'parent.pdb').write_text('changed')
@@ -172,7 +173,7 @@ class NISEContracts(unittest.TestCase):
         for path in contract.required_files(self.root, cfg):
             path.parent.mkdir(parents=True, exist_ok=True); path.write_text('fixture\n')
         (self.root / 'models/boltz2/mols').mkdir()
-        plan = nise_plan({'project': 'demo', 'request': cfg})
+        plan = nise_plan({'project': 'demo', 'request': cfg, 'memory_policy': 'override'})
         self.assertEqual(plan['normalized_request']['prediction_budget']['initial_rfd3_backbones'], 1000)
         self.assertEqual(load_plan(plan['id'], plan['sha256']), plan)
         command = plan['normalized_request']['steps'][0]['command']

@@ -1,122 +1,38 @@
 ---
 name: iprotein-run
-description: Run iProteinStudio's typed MCP workflows — fold sequences, run iterative binder design, or drive RFdiffusion3 de-novo, partial-diffusion, and motif-scaffolding campaigns. Use when asked to predict structures, design binders, generate backbones, inspect results, install or check engines, or reproduce something the app did. Covers the currently supported Apple-Silicon predictors and MPNN designers without bypassing Studio's immutable plans, provenance checks, or resident scheduling.
+description: Use iProteinStudio's connected MCP bridge to predict structures, run Protein Hunter, ligand NISE, RFdiffusion3/RFD4 or the Boltz motif beta, review results, and resume saved work. Repository entry point to the portable Studio operating skill; preserves immutable plans, scientific defaults and the shared job queue.
 ---
 
-# Running iProteinStudio from the command line
+# Operate iProteinStudio
 
-The app is a front end. Every action is a script, and the app writes its settings
-to disk before running them, so any run can be reproduced or scripted.
+Read the [portable operating skill](../../../Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/SKILL.md)
+and its [workflow routing reference](../../../Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/references/workflows.md).
+These are the client-neutral authority for workflow selection, scientific defaults,
+MCP planning, recovery and result interpretation; do not keep a competing copy here.
 
-Read `docs/CLI.md` in this repo for the full command reference. This skill covers
-what to do, what to check, and the traps that produce *plausible but wrong*
-results rather than errors.
+Prefer the connected bridge's typed tools. Discover its current schemas and
+installed engines; call `workflow_guide` before scientific planning. Use existing
+user authorization and the immutable plan ID/digest to start authorized work.
+Do not bypass the broker through manual shell launches or change a running job's
+saved settings. A plan-only request does not authorize inference.
 
-## Orientation
+The [assistant guide](../../../docs/AI_ASSISTANTS.md) documents setup, tool access
+and GUI/MCP differences. For a specifically requested CLI/developer task, read
+[CLI.md](../../../docs/CLI.md) and detect the installed engines first:
 
 ```bash
-export ROOT="$HOME/.iproteinstudio"
-export NANOHUNTER_ROOT="$ROOT"
-bash "$ROOT/setup_pipeline.sh" --detect      # what is installed
+export NANOHUNTER_ROOT="$HOME/.iproteinstudio"
+bash "$NANOHUNTER_ROOT/setup_pipeline.sh" --detect
 ```
 
-Never assume an engine is present. `--detect` prints one `NHSTATE|<component>|ok|…`
-line per engine; check before offering one to the user.
+Do not substitute installed single-sequence inference for a requested target MSA,
+use Fast or whole-chain Full for X-token initialization, reuse stale ligand atom mappings, or
+interpret design-engine confidence as independent validation. Do not benchmark
+while another GPU workload is active. The portable skill details these rules.
 
-When `$ROOT/mcp/server.py` is staged and the client is configured, prefer its
-typed tools over assembling commands by hand. Create a workflow-specific plan,
-show the normalized settings and digest to the user, then call `job_start`.
-`job_status`, `job_wait`, `job_cancel`, and `job_resume` operate on durable jobs
-that survive the Claude session. The MCP bridge deliberately routes back to the
-same commands described below; it does not replace their scientific behaviour.
+For repository work, follow the root `AGENTS.md`. Record experiments, changes and
+material decisions in the project Lab Book, including what was not tested. Read
+`Validation/AGENTS.md` before working in that tree. Neither source prototype
+recipe tools nor a new skill imply deployment to the user's installed app.
 
-Before making a scientific plan, call `workflow_guide` for that workflow and
-follow the returned ordering and defaults. In particular:
-
-- Protein de-novo binders default to `solublempnn`. `proteinmpnn` is an explicit
-  alternative; `lasermpnn` and `ligandmpnn` are only for small-molecule targets.
-- Omit a protein de-novo `contig`; Studio derives the canonical binder-first
-  form from the selected target chains and length bins. Do not translate an
-  RFdiffusion1 contig by memory.
-- Run 1–5 backbones through the complete requested prediction/analysis stack
-  before starting more than 10 backbones for a new target/settings combination.
-- Predict every requested candidate before ranking. Do not pre-filter RFD3
-  backbones using an internal score, and do not reduce a binder hit decision to
-  iPTM alone.
-- When no protein epitope is known, omit hotspot conditions and either omit
-  `binding_site_mode` or set it to `surface_scan`. Studio computes multiple
-  solvent-accessible outward ORIs and divides the exact requested backbone
-  quota across them. Never substitute target COM. Use `surface_patch` only for
-  broad positioning without hotspot conditioning, `targeted_epitope` only for
-  reviewed hotspot residues, and `manual` only for expert XYZ placement.
-- On failure, inspect `job_status.message`, `error`, and `pipeline_log_tail`, then
-  `run_status` for stage logs. Managed runs never require asking the user for
-  arbitrary folder access or a manually executed model command.
-- After output appears, call `results_overview` before `results_query`. Keep
-  iterative run → cycle → design/complex/binder artifacts together. Keep RFD3
-  backbone → MPNN derivative → complex/binder validation together. A saved hit
-  belongs to the independently checked cycle or derivative, not its parent.
-
-## The traps
-
-These have all caused real, silent failures in this project. They do not raise —
-they produce confident output that is wrong.
-
-**Alignments.** `--require-target-msa` on design runs. Without it an unreachable
-MSA server degrades the run to single-sequence mode, which changes the science
-without changing the command. For prediction, `"allow_server": false` fails
-rather than folding without one.
-
-**A de-novo binder should have no alignment.** `msa: empty`. It has no
-homologues; aligning it costs a round trip and adds nothing.
-
-**Boltz ligand atom names move.** They are `element + canonical rank`, and
-enabling the affinity head standardises the SMILES *first*, renumbering
-everything — the same atoms are `O17,C24,N44` with it off and `O19,C26,N46` with
-it on. Regenerate with `boltz_ligand_atoms.py <smiles> <0|1>` whenever the SMILES
-or the affinity setting changes. Never reuse names across that change.
-
-**A forced pocket constraint needs potentials.** `force: true` alone exposes a
-restraint; only `--boltz-use-potentials` steers towards it.
-
-**RFdiffusion3 length is not binder length.** Foundry's `length` is the total
-component count, so a fixed motif in the contig is added on. Pass `--lengths`
-(binder residues) to `design_from_yaml.py` and let it do the arithmetic. Writing
-`length` into the spec yourself reintroduces
-`ComponentValidationError: No valid selections possible`.
-
-**Do not name the ligand twice.** With `input:` + `ligand:`, adding it to the
-contig as well duplicates every ligand atom.
-
-**Preserve recorded batching and padding.** Use the app's qualified adapter
-settings. An explicit bucket or scheduler change needs its own measured
-comparison; do not reuse retired backend flags.
-
-## Choosing an engine
-
-| | |
-|---|---|
-| Boltz-2 | default structure/affinity engine; supports alignment generation |
-| IntelliFold Flash/full (PyTorch) | alternative structure predictors with qualified padding and batching |
-| Protenix v2/Mini | alternative native-MPS predictors |
-| OpenFold-3 | independent MLX predictor |
-| NESSO / PSICHIC | optional experimental ligand sequence screening |
-
-Design loops optimise against whichever engine drives them, so that engine's own
-confidence is self-scored. Always check hits with a *different* one.
-
-## Long runs
-
-Do not wrap or launch MCP work manually. `job_start` creates a durable worker,
-uses the shared execution lock, and routes RFD3 and iterative validation through
-the same measured resident/cycle-wave scheduling as the app. Poll with
-`job_wait`/`job_status`; use `job_cancel` or exact-plan `job_resume`. The native app and MCP submit through the same queue. Do not benchmark against
-any other live GPU workload.
-
-## Recording work
-
-This repo keeps a Lab Book (`LAB_BOOK.md`, `lab_book/`). If you change anything —
-run an experiment, fix a bug, make a decision with a real alternative — add an
-entry from `lab_book/TEMPLATE.md` and link it from the index. Record what you did
-*not* test as carefully as what you did. Negative results are worth as much as
-positive ones.
+Read the portable skill’s [evidence reference](../../../Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/references/evidence.md) when advising on methods. Full CDR-only starts are supported; RFD3 fixed-framework nanobody generation was tried unsuccessfully and is excluded.

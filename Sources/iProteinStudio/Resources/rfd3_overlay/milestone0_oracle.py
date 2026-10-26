@@ -251,6 +251,9 @@ class FeatureOnlyCaptureEngine(CaptureEngine):
         atoms = pipeline_output["atom_array"]
         CAP["export_atom_names"] = np.asarray(atoms.atom_name, dtype=str)
         CAP["export_elements"] = np.asarray(atoms.element, dtype=str)
+        CAP["export_chain_ids"] = np.asarray(atoms.chain_id, dtype=str)
+        CAP["export_res_ids"] = np.asarray(atoms.res_id, dtype=int)
+        CAP["export_res_names"] = np.asarray(atoms.res_name, dtype=str)
         raise FeaturesCaptured
 
 
@@ -317,7 +320,8 @@ def main():
     # -------- serialize fixtures --------
     arrays, meta = {}, {}
     for key in ["feats", "Xn", "coord_to_be_noised", "t", "init_out", "dm_out",
-                "blocks", "dt_indices", "dtok_internal", "export_atom_names", "export_elements"]:
+                "blocks", "dt_indices", "dtok_internal", "export_atom_names", "export_elements",
+                "export_chain_ids", "export_res_ids", "export_res_names"]:
         if key in CAP:
             flatten(CAP[key], key, arrays, meta)
     for key in ["rollout_coords", "rollout_resname", "rollout_atom_name"]:

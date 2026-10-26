@@ -19,6 +19,7 @@ SCORER = ROOT / "Sources/iProteinStudio/Resources/rfd3_overlay/scripts/score_bin
 
 
 def load_scorer():
+    sys.path.insert(0, str(SCORER.parent))
     spec = importlib.util.spec_from_file_location("rfd3_motif_scorer", SCORER)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader
@@ -116,6 +117,28 @@ def main() -> None:
         missing_gate = run_filter_gate(root / "missing-gate", design, partial, row)
         assert missing_gate["is_hit"].lower() == "false", missing_gate
         assert "maximum_motif_rmsd_unavailable" in missing_gate["failed_filters"], missing_gate
+
+        # Original geometry is separate from recovery of a possibly distorted
+        # generated scaffold, and original residue numbering is not reused.
+        source_atoms = {}
+        for origin, generated in json.loads(row['diffused_index_map']).items():
+            position = int(generated[1:])
+            source_atoms[origin] = dict(component='PHE', atoms={a: base[(position, a)].tolist() for a in names})
+        source_row = {**row, 'motif_reference_schema': 1, 'motif_reference_atoms': source_atoms,
+                      'motif_reference_sha256': scorer.checksum(source_atoms),
+                      'motif_mapping_sha256': scorer.checksum(dict(mapping=json.loads(row['diffused_index_map']),
+                                                                   fixed_atoms=json.loads(row['motif_fixed_atoms'])))}
+        value, details = scorer.motif_input_rmsd(str(prediction), source_row)
+        assert value is not None and value < 1e-3 and set(details) == set(source_atoms)
+        value, _ = scorer.motif_input_rmsd(str(bad), source_row)
+        assert value is not None and value > .5
+        root_agreement, _ = scorer.motif_recovery_rmsd(str(bad), str(bad), source_row)
+        assert root_agreement < 1e-5
+        gate = run_filter_gate(root / 'source-gate', bad, bad, source_row)
+        assert 'maximum_motif_input_rmsd' in gate['failed_filters'] and gate['is_hit'].lower() == 'false'
+        changed = {**source_row, 'motif_reference_sha256': 'tampered'}
+        assert scorer.motif_input_rmsd(str(prediction), changed) == (None, {})
+        assert scorer.motif_input_rmsd(str(partial), source_row) == (None, {})
 
     print("RFdiffusion3 motif correspondence and recovery scoring: PASS")
 

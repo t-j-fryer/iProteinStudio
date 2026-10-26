@@ -77,8 +77,11 @@ INSTALL_COMPONENTS = {
     "antifold": "--with-antifold",
     "lasermpnn": "--with-lasermpnn",
     "rfd3": "--with-rfd3",
+    "rfd4": "--with-rfd4",
 }
 
+
+from .memory import memory_request, requested_policy
 
 def _bounded_int(value: Any, label: str, minimum: int, maximum: int) -> int:
     if isinstance(value, bool):
@@ -138,6 +141,19 @@ def rfd3_runtime_scripts(root: Path) -> List[Path]:
 
 
 def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[str], resource_class: str, provenance: List[Dict[str, Any]]) -> Dict[str, Any]:
+    from .memory import check_plan, configs_for_plan
+    normalized = {**normalized, 'memory_policy': requested_policy(normalized)}
+    try:
+        workloads = configs_for_plan(kind, normalized)
+    except StudioError:
+        if normalized['memory_policy'] != 'override':
+            raise
+        workloads = []
+    if workloads:
+        normalized = {**normalized, 'memory_workloads': workloads}
+    memory = check_plan(kind, normalized)
+    if memory is not None:
+        normalized = {**normalized, 'memory_admission': memory}
     from .composition import PLAN_CONTEXT
     if PLAN_CONTEXT.get() is not None:
         normalized = {**normalized, "pipeline_recipe": PLAN_CONTEXT.get()}
@@ -315,10 +331,12 @@ def _prediction_plan(arguments: Dict[str, Any], kind: str, output_folder: str, p
     return _persist(kind, project, {"config": config, "output": str(output)}, preview, "apple_gpu_exclusive", _script_provenance([script] + template_inputs))
 
 
+@memory_request
 def prediction_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     return _prediction_plan(arguments, "prediction", "prediction_runs", "prediction-mcp")
 
 
+@memory_request
 def target_prepare_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     sequences = arguments.get("sequences")
     if not isinstance(sequences, list) or not sequences:
@@ -438,11 +456,12 @@ def _normalize_iterative_arguments(values: Any) -> Tuple[List[str], str]:
         module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
         try: module.validate(normalized)
         except ValueError as exc: raise StudioError(str(exc)) from exc
-    elif predictor.startswith('esmfold2-'):
+    elif predictor.startswith('esmfold2-') and not (predictor == 'esmfold2-full-mlx' and option_values.get('--workflow') == 'nanobody'):
         raise StudioError('ESMFold2 refinement needs --initialization-method hallucination with a starting predictor, or rfd3.')
     return normalized, predictor
 
 
+@memory_request
 def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     root = runtime_root()
     project = validate_slug(arguments.get("project", ""))
@@ -565,6 +584,7 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     return _persist("iterative_design", project, normalized, preview, "apple_gpu_exclusive", _script_provenance(scripts))
 
 
+@memory_request
 def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
     if expected_mode not in RFD3_MODES:
         raise StudioError(f"Internal unsupported RFD3 mode: {expected_mode}")

@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Reads the durable output formats already written by PredictionController,
 /// NanoHunter campaigns and RFdiffusion3 campaigns. It never invents a metric:
@@ -8,12 +9,70 @@ enum RunResultsLoader {
 
     static func load(root: URL, workflow: StudioWorkflow) -> [StudioResultItem] {
         switch workflow {
+        case .rfd4: return rfd4Results(root: root)
         case .nise: return niseResults(root: root)
         case .prediction: return predictionResults(root: root)
         case .iterative:
             if fm.fileExists(atPath: root.appendingPathComponent("studio_engine_batch.json").path) { return batchResults(root: root) }
             return iterativeResults(root: root) + ligandScreeningResults(root: root)
         case .rfdiffusion3: return rfd3Results(root: root) + ligandScreeningResults(root: root)
+        }
+    }
+
+    private static func rfd4Results(root: URL) -> [StudioResultItem] {
+        let children = ((try? fm.contentsOfDirectory(at: root.appendingPathComponent("budget_families"), includingPropertiesForKeys: nil)) ?? [])
+            .flatMap { rfd4Results(root: $0) }
+        let config = jsonObject(at: root.appendingPathComponent("rfd4_config.json")) ?? [:]
+        let settings = config["settings"] as? [String: Any] ?? [:]
+        let directories = ["generation", "candidates"].flatMap { name in
+            (try? fm.contentsOfDirectory(at: root.appendingPathComponent(name), includingPropertiesForKeys: nil)) ?? []
+        }
+        var rows = directories.compactMap { jsonObject(at: $0.appendingPathComponent("completed.json"))?["result"] as? [String: Any] }
+        for family in (try? fm.contentsOfDirectory(at: root.appendingPathComponent("families"), includingPropertiesForKeys: nil)) ?? [] {
+            if fm.fileExists(atPath: family.appendingPathComponent("final/completed.json").path),
+               let data = try? Data(contentsOf: family.appendingPathComponent("final/results.json")),
+               let native = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                var feedback: [String: [String: Any]] = [:]
+                for unit in (try? fm.contentsOfDirectory(at: family.appendingPathComponent("scores"), includingPropertiesForKeys: nil)) ?? [] {
+                    if fm.fileExists(atPath: unit.appendingPathComponent("completed.json").path),
+                       let values = jsonObject(at: unit.appendingPathComponent("rows.json")) as? [String: [String: Any]] { feedback.merge(values) { _, new in new } }
+                }
+                rows += native.map { row in
+                    var enriched = row
+                    if let id = row["id"] as? String, let oracle = feedback[id] { enriched["metrics"] = oracle["metrics"] }
+                    return enriched
+                }
+            }
+        }
+        return children + rows.compactMap { row in
+            guard let path = row["structure"] as? String, let id = row["id"] as? String else { return nil }
+            let structure = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+            guard structure.path.hasPrefix(root.standardizedFileURL.resolvingSymlinksInPath().path + "/"),
+                  let data = try? Data(contentsOf: structure),
+                  let expected = row["structure_sha256"] as? String,
+                  SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == expected else { return nil }
+            let chains = row["sequences"] as? [String: String] ?? [:]
+            var sequence = row["sequence"] as? String
+            if sequence == nil && chains.count == 1 { sequence = chains.values.first }
+            if sequence == nil, let target = config["target_sequence"] as? String {
+                let binders = chains.values.filter { $0 != target }
+                if binders.count == 1 { sequence = binders.first }
+            }
+            if sequence == nil { sequence = chains[settings["binder_chain"] as? String ?? "A"] }
+            let score = (row["ipsae_min"] as? NSNumber)?.doubleValue
+            var metrics = score.map { [StudioResultMetric(kind: .ipsaeMinimum, value: $0)] } ?? []
+            let oracleMetrics = row["metrics"] as? [String: Double] ?? [:]
+            if let value = oracleMetrics["boltz.pbind"] { metrics.append(.init(kind: .bindingProbability, value: value)) }
+            if let value = oracleMetrics["boltz.ligand_plddt"] { metrics.append(.init(kind: .ligandPLDDT, value: value)) }
+            let parent = row["parent_id"] as? String
+            let family = row["family"] as? String ?? id
+            return StudioResultItem(id: "rfd4|" + id, title: id,
+                subtitle: parent.map { "Parent: " + $0 + " · selection feedback" } ?? "RFD4 joint sequence/structure generation",
+                structureURL: structure, sequence: sequence,
+                metrics: metrics, confidenceURL: (row["confidence"] as? String).map { URL(fileURLWithPath: $0) },
+                stage: .design, scoreSource: row["engine"] as? String ?? "RFD4",
+                groupID: family, groupTitle: family, variantID: id, variantTitle: id,
+                artifactRole: parent == nil ? .generatedBackbone : .designedComplex)
         }
     }
 
@@ -577,6 +636,8 @@ enum RunResultsLoader {
                    let value = values[predictorKey] {
                     metricRow["motif_prediction_rmsd"] = String(value)
                 }
+                addPredictorAggregate(raw: raw, key: "motif_input_rmsd_by_predictor",
+                                      predictor: predictorKey, to: "maximum_motif_input_rmsd", row: &metricRow)
                 let documents = confidenceDocuments(near: structure, within: structure.deletingLastPathComponent())
                 let predictor = friendlyPredictor(predictorKey)
                 results.append(StudioResultItem(
@@ -591,7 +652,9 @@ enum RunResultsLoader {
                     motifMapping: dictionaryOfStrings(raw["diffused_index_map"])
                         ?? dictionaryOfStrings(row["diffused_index_map"]) ?? [:],
                     motifResidueRMSDs: predictorDictionaryOfDoubles(
-                        raw["motif_rmsd_by_residue"], predictor: predictorKey)
+                        raw["motif_input_rmsd_by_residue"], predictor: predictorKey)
+                        ?? predictorDictionaryOfDoubles(row["motif_input_rmsd_by_residue"], predictor: predictorKey)
+                        ?? predictorDictionaryOfDoubles(raw["motif_rmsd_by_residue"], predictor: predictorKey)
                         ?? predictorDictionaryOfDoubles(
                             row["motif_rmsd_by_residue"], predictor: predictorKey) ?? [:],
                     groupID: groupID, groupTitle: groupTitle,
@@ -834,7 +897,8 @@ enum RunResultsLoader {
         return resultFiles.compactMap { result -> [String: String]? in
             guard let object = jsonObject(at: result) else { return nil }
             var row = stringRow(object)
-            for key in ["diffused_index_map", "motif_fixed_atoms", "motif_insertion_rmsd_by_token"] {
+            for key in ["diffused_index_map", "motif_fixed_atoms", "motif_insertion_rmsd_by_token",
+                        "motif_reference_atoms", "motif_candidate_rmsd_by_residue"] {
                 if let value = object[key],
                    let data = try? JSONSerialization.data(withJSONObject: value),
                    let text = String(data: data, encoding: .utf8) { row[key] = text }
@@ -880,6 +944,8 @@ enum RunResultsLoader {
         add(.binderRMSD, rowNumber(["maximum_binder_rmsd", "binder_rmsd"]))
         add(.motifInsertionRMSD, rowNumber(["motif_insertion_rmsd"]))
         add(.motifPredictionRMSD, rowNumber(["motif_prediction_rmsd", "maximum_motif_rmsd"]))
+        add(.motifInputRMSD, rowNumber(["motif_input_rmsd", "maximum_motif_input_rmsd"]))
+        add(.motifCandidateRMSD, rowNumber(["motif_candidate_rmsd_to_input"]))
         add(.motifMaximumDrift, rowNumber(["motif_max_drift"]))
         add(.backboneCAValidity, rowNumber(["ca_valid_pct"]))
 

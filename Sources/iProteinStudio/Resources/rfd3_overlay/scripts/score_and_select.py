@@ -218,6 +218,9 @@ def score_proteins(rows: list[dict], args: argparse.Namespace) -> None:
         # diagnostics. These columns originate in immutable per-backbone JSON;
         # ranking must not sever them from the sequence and predictions.
         for key in ("diffused_index_map", "motif_fixed_atoms",
+                    "motif_reference_schema", "motif_reference_atoms", "motif_reference_sha256",
+                    "motif_mapping_sha256", "motif_candidate_rmsd_to_input",
+                    "motif_candidate_rmsd_by_residue", "motif_candidate_metric_stage",
                     "motif_insertion_rmsd", "motif_insertion_rmsd_by_token",
                     "motif_max_drift", "ca_valid_pct", "fixed_residues"):
             if source.get(key, "") not in ("", None):

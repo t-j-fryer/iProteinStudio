@@ -38,7 +38,7 @@ enum CommandBuilder {
             "--iptm-threshold", String(format: "%.2f", request.hitThreshold),
         ]
 
-        if request.targetKind == .protein {
+        if request.hasProteinTarget {
             args += ["--refinement-epitope-guidance", request.refinementEpitopeGuidance ? "auto" : "off"]
         }
         if request.hasSeparateInitialization {
@@ -46,7 +46,7 @@ enum CommandBuilder {
             if request.initializationMethod == "hallucination" {
                 args += ["--initialization-predictor", request.startingEngine.predictor.runnerValue,
                          "--initialization-model", (request.startingEngine.model ?? .v2flash).rawValue]
-            } else if request.targetKind == .protein, let path = request.initializationTargetPath {
+            } else if request.hasProteinTarget, let path = request.initializationTargetPath {
                 args += ["--initialization-target", path]
             }
         }
@@ -142,7 +142,7 @@ enum CommandBuilder {
         // real MSA. `--require-target-msa` is the important one — without it an
         // unreachable MSA server silently degrades the run to single-sequence
         // mode, which changes the science without changing the command.
-        if request.targetKind == .protein {
+        if request.hasProteinTarget {
             args += ["--target-msa-mode", "auto",
                      "--target-msa-generator", "auto",
                      "--require-target-msa"]
@@ -152,7 +152,7 @@ enum CommandBuilder {
         case .nanobody:
             args += ["--nanobody-cdrs", request.cdrs.flagValue]
             if let cdrRanges, !cdrRanges.isEmpty { args += ["--nanobody-cdr-ranges", cdrRanges] }
-        case .minibinder, .peptide:
+        case .minibinder, .peptide, .monomer:
             if request.usesNativeRegions {
                 if let mpnnSeed { args += ["--binder-random-seed", String(mpnnSeed)] }
                 if request.nativeBinderMode == "partialRedesign" {

@@ -257,6 +257,25 @@
       "command_family": "esmfold2",
       "experimental": true,
       "session": "ESMFold2Session"
+    },
+    "rfd4": {
+      "component": "rfd4",
+      "label": "RFD4",
+      "capabilities": [
+        "joint-sequence-structure",
+        "conditioning",
+        "partial-diffusion",
+        "inverse-folding"
+      ],
+      "schedule": "resident",
+      "experimental": true,
+      "mappings": {
+        "venvs/NanoHunter_rfd4": "python",
+        "src/RFD4-Proteina": "sources/RFD4-Proteina"
+      },
+      "model_paths": [
+        "models/rfd4"
+      ]
     }
   }
 }

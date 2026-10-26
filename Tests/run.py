@@ -10,6 +10,10 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FAST_PYTHON = [
+    "test_design_workflows.py", "test_rfd4_multichain.py",
+    "test_motif_beta_bridge.py",
+    "test_memory_admission.py",
+    "test_memory_override.py",
     "test_hunter_msa_auto.py",
     "test_geometry_reporting.py", "test_output_reporting.py", "test_ligand_efficiency.py",
     "test_plan_reuse.py", "test_process_tree.py",
@@ -42,9 +46,10 @@ FAST_SHELL = [
     "test_process_runner_cancellation.sh", "test_workspace_organization.sh", "test_pipeline_snapshot.sh",
 ]
 SCIENCE = [
+    "test_motif_beta.py", "test_motif_beta_native.py", "test_motif_template_features.py",
     "test_hunter_stages.py", "test_hunter_epitope_guidance.py",
     "test_live_iterative_results.py",
-    "test_resident_prediction_resume.py", "test_openfold_resident.py", "test_prediction_profiles.py", "test_esmfold2_adapter.py",
+    "test_resident_prediction_resume.py", "test_openfold_resident.py", "test_prediction_profiles.py", "test_esmfold2_adapter.py", "test_esmfold2_cdr.py", "test_rfd4.py",
     "test_rfd3_audit_regressions.py",
     "test_prediction_templates.py", "test_ligand_screening.py",
     "test_nise_cohort_transfer.py", "test_nise_objective.py", "test_nise_pool.py",
@@ -59,6 +64,7 @@ SCIENCE = [
 # Managed engines intentionally have different dependencies. Tests needing
 # Biotite can use the existing Protenix environment without modifying Boltz.
 BIOTITE_TESTS = {
+    "test_motif_beta.py", "test_motif_template_features.py",
     "test_rfd3_audit_regressions.py", "test_prediction_templates.py",
     "test_monomer_initialization_pipeline.py", "test_rfd3_motif_scoring.py",
     "test_rfd3_worked_examples.py", "test_rfd3_surface_origins.py",

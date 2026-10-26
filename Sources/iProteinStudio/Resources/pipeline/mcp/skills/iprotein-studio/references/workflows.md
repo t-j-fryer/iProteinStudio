@@ -7,7 +7,9 @@ schema for required fields. Tool names here omit client prefixes.
 | --- | --- | --- |
 | Fold complete sequences | `prediction` | `prediction_plan` |
 | Prepare a target structure/MSA | `prediction` | `target_prepare_plan` |
-| Protein Hunter | `iterative_design` | `iterative_design_plan` |
+| X-token Hallucination / Protein Hunter | `iterative_design` | `iterative_design_plan` |
+| RFdiffusion4 | `rfd4` | `rfd4_plan` |
+| Template-guided Boltz motif beta | `motif_beta` | `motif_beta_plan` |
 | Ligand NISE | `nise` | `nise_plan` |
 | De novo RFdiffusion3 | `rfd3_protein_binder` | `rfd3_denovo_plan` |
 | Partial diffusion | `rfd3_partial_diffusion` | `rfd3_partial_diffusion_plan` |
@@ -22,9 +24,10 @@ engine/scaffold allocations. Separate initialization and refinement use the
 same validated planner arguments. Optional ligand screening is exposed through
 `ligand_verification`; RFdiffusion3 uses `request.nesso`.
 
-ESMFold2 Fast/Full require complete sequences: use them for prediction/checking
-or refinement after a supported separate initialization stage, not X-token
-hallucination. They do not apply target templates, pocket guidance or Boltz's
+ESMFold2 Fast requires complete sequences. Full also supports fixed-framework
+CDR-only X-token starts with masked scaffold alignment columns. Whole-chain
+Full X-token hallucination remains unsupported. Use complete sequences for
+ordinary prediction/checking or refinement after a separate initialization stage. They do not apply target templates, pocket guidance or Boltz's
 affinity head. RFdiffusion3 starts are for de-novo binders, not fixed-framework
 nanobodies. Guidance is stage-specific.
 
@@ -65,3 +68,34 @@ Legacy noising fields in saved schemas are not the current GUI's default route.
 `results_overview` with a returned run ID → `results_query` with a returned
 dataset name. Describe actual available results; a limited response does not
 establish that all candidates or cycles have been inspected.
+
+## RFdiffusion4 and recommended workflows
+
+RFD4 supports monomers, protein/ligand binders, supported nanobody frameworks,
+structural motifs, partial diffusion, inverse folding and native annotated inputs.
+Fixed/iterative/greedy/beam sequence exploration and native RFD4 rollout search
+are separate choices. Read the schema and evidence reference before setting budgets.
+Recommended protein/nanobody sequence targets use target_prepare_plan with Full
+and automatic per-chain MSAs first; preserve colon-separated B/C/... chains,
+explicit hotspot numbering and target preparation provenance. Bare hotspot
+numbers are ambiguous for multiple chains. The design-time budget begins after
+preparation; queue time is excluded.
+
+Monomers may use RFD4, native unconditional RFD3 followed by refinement, or a
+compatible X-token predictor. Exclude RFD3 fixed-framework nanobody generation:
+the user's trial failed and this route is not pursued. RFD4 optimization offers
+partial diffusion and inverse folding, not unrelated generation tasks.
+
+## Template-guided Boltz motif beta
+
+Discover motif_beta_catalog, then workflow_guide(motif_beta). The public planner
+and pipeline_recipe_plan route motif_beta use the same adapter as the app's
+Design → Motif scaffolding → Atomic motif beta button. Stage prepare writes
+files only; backbones and cycles perform compute through job_start. Requests are
+bounded to 1–5 roots. Inspect the returned total prediction budget: guidance adds
+separate untemplated ranking checks, and multiple designers/policies add arms.
+Original-input atom mappings and ligand identities are immutable. Template
+geometry can come from mapped RFD3 residues or the original benchmark residues.
+Only Boltz automatic cycling is exposed; Protenix/IntelliFold features are
+CPU-qualified, not qualified model workflows. General custom-motif X-token
+scaffolding is unavailable. See references/evidence.md for the evidence limits.

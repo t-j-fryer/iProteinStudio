@@ -309,3 +309,13 @@ MCP v39 uses resident OpenFold3 across repeated prediction and design requests,
 with validated per-input receipts and explicit model seeds. Existing immutable
 job snapshots remain unchanged. CPU MPNN caches imports/checkpoint tensors while
 retaining upstream per-request execution. See `docs/CLI.md` and Lab Book 0272.
+
+
+## RFD4, motif beta and evidence (bridge 45)
+
+`rfd4_plan` and `motif_beta_plan` use the shared immutable planner/broker.
+`motif_beta_catalog` is read-only; the motif recipe route is `motif_beta`.
+The CLI provides `plan-rfd4`, `plan-motif-beta`, `motif-catalog`, `guide` and
+`evidence`. Read `iprotein://skills/studio/evidence` for dated validation limits
+before recommending settings. See [workflow routing](skills/iprotein-studio/references/workflows.md).
+RFD3 fixed-framework nanobody generation is excluded following its failed trial.

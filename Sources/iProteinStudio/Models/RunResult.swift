@@ -290,6 +290,8 @@ struct StudioResultMetric: Identifiable, Hashable {
         case binderRMSD
         case motifInsertionRMSD
         case motifPredictionRMSD
+        case motifInputRMSD
+        case motifCandidateRMSD
         case motifMaximumDrift
         case backboneCAValidity
 
@@ -327,6 +329,8 @@ struct StudioResultMetric: Identifiable, Hashable {
             case .binderRMSD: return "binder-alone RMSD"
             case .motifInsertionRMSD: return "motif placement RMSD"
             case .motifPredictionRMSD: return "predicted motif RMSD"
+            case .motifInputRMSD: return "motif RMSD to input"
+            case .motifCandidateRMSD: return "scaffold motif RMSD to input"
             case .motifMaximumDrift: return "fixed-atom drift"
             case .backboneCAValidity: return "valid Cα spacing"
             }
@@ -375,6 +379,10 @@ struct StudioResultMetric: Identifiable, Hashable {
                 return "Atom RMSD used to assign each unindexed source motif token to a generated scaffold residue before the fixed atoms are copied into the output. Lower is better."
             case .motifPredictionRMSD:
                 return "RMSD of the explicitly selected motif atoms in an independent sequence prediction after fitting those motif atoms to the generated design. Lower means the functional geometry was recovered."
+            case .motifInputRMSD:
+                return "Selected atoms in the predicted motif aligned to the original input motif using the saved residue mapping and one global fit. Lower is better; this is distinct from agreement with the generated backbone."
+            case .motifCandidateRMSD:
+                return "Selected atoms in the proposed RFD3 scaffold aligned to the original motif, before fixed guide atoms are copied into the exported PDB. Use this to compare initial motif placement across scaffolds."
             case .motifMaximumDrift:
                 return "Largest displacement of an explicitly fixed motif atom during RFdiffusion3 sampling. It should remain near zero."
             case .backboneCAValidity:
@@ -395,7 +403,7 @@ struct StudioResultMetric: Identifiable, Hashable {
             return String(format: "%.1f", conventional)
         case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance,
              .complexRMSD, .binderBackboneRMSD, .binderRMSD, .ligandRMSD, .pocketPreorgRMSD,
-             .motifInsertionRMSD, .motifPredictionRMSD, .motifMaximumDrift:
+             .motifInsertionRMSD, .motifPredictionRMSD, .motifInputRMSD, .motifCandidateRMSD, .motifMaximumDrift:
             return String(format: "%.2f Å", value)
         case .binderPLDDT:
             let conventional = value <= 1.000_001 ? value * 100 : value

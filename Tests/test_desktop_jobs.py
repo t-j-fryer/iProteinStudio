@@ -20,6 +20,14 @@ from iprotein_mcp.submission import submit
 
 class DesktopJobTests(unittest.TestCase):
     def setUp(self):
+        # These are queue/provenance tests with inert engine scripts, not model
+        # qualification. Freeze a small synthetic workload through the *real*
+        # admission policy; test_memory_admission covers extraction/rejection.
+        memory_fixture = patch('iprotein_mcp.memory.configs_for_plan', return_value=[{
+            'predictors':['boltz'], 'jobs':[{'name':'queue-fixture', 'chains':[
+                {'kind':'protein','id':'A','sequence':'ACDEFG','msa':'empty'}]}]}])
+        memory_fixture.start()
+        self.addCleanup(memory_fixture.stop)
         self.temporary = tempfile.TemporaryDirectory(prefix="studio-desktop-jobs-")
         self.root = Path(self.temporary.name).resolve()
         self.environment = dict(os.environ)

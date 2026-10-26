@@ -21,7 +21,8 @@ def capture(root, store):
     bridge = Path(__file__).resolve().parents[1]
     support = bridge / 'runtime_support'
     if not support.is_dir(): support = bridge.parent / 'scripts'
-    for name in ('runtime_package.py', 'runtime_transaction.py', 'runtime_view.py', 'engine_registry.py', 'engine_registry.json'):
+    for name in ('runtime_package.py', 'runtime_transaction.py', 'runtime_view.py', 'engine_registry.py', 'engine_registry.json',
+                 'memory_admission.py', 'memory_profiles.json', 'prediction_profiles.json'):
         p = support / name
         if p.is_file(): files['mcp/runtime_support/' + name] = {'source': p, 'sha256': file_digest(p)}
     inventory = {name: item['sha256'] for name, item in files.items()}

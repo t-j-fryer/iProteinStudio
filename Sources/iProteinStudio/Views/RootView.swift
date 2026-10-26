@@ -184,6 +184,8 @@ struct ProjectDetailView: View {
     @State private var choosingDesign = false
     @State private var showingRename = false
     @State private var renameText = ""
+    @State private var savingWorkflow = false
+    @State private var workflowName = ""
 
     private var mode: Binding<WorkspaceMode> {
         Binding(
@@ -194,7 +196,7 @@ struct ProjectDetailView: View {
 
     private var activeMode: WorkspaceMode? {
         if run.isRunning { return .iterative }
-        if rfd3.isRunning { return .rfdiffusion }
+        if rfd3.isRunning || app.rfd4.isRunning { return .rfdiffusion }
         if prediction.isRunning { return .predict }
         if app.nise.isRunning { return .nise }
         return nil
@@ -203,7 +205,7 @@ struct ProjectDetailView: View {
     private var hasDisplayedRun: Bool {
         switch mode.wrappedValue {
         case .iterative: return run.projectID == project.id && run.campaignRoot != nil
-        case .rfdiffusion: return rfd3.projectSlug == project.slug && rfd3.campaignRoot != nil
+        case .rfdiffusion: return (rfd3.projectSlug == project.slug && rfd3.campaignRoot != nil) || (app.rfd4.projectSlug == project.slug && app.rfd4.outputRoot != nil)
         case .predict: return prediction.projectSlug == project.slug && prediction.outputRoot != nil
         case .nise: return app.nise.projectSlug == project.slug && app.nise.outputRoot != nil
         }
@@ -212,7 +214,7 @@ struct ProjectDetailView: View {
     private var canPrepareNewRun: Bool {
         switch mode.wrappedValue {
         case .iterative: return run.canStartAnother
-        case .rfdiffusion: return rfd3.canStartAnother
+        case .rfdiffusion: return rfd3.canStartAnother && app.rfd4.canStartAnother
         case .predict: return prediction.canStartAnother
         case .nise: return app.nise.canStartAnother
         }
@@ -221,7 +223,7 @@ struct ProjectDetailView: View {
     private func prepareNewRun() {
         switch mode.wrappedValue {
         case .iterative: run.prepareNewRun()
-        case .rfdiffusion: rfd3.prepareNewRun()
+        case .rfdiffusion: rfd3.prepareNewRun(); app.rfd4.prepareNewRun()
         case .predict: prediction.prepareNewRun()
         case .nise: app.nise.prepareNewRun()
         }
@@ -330,11 +332,17 @@ struct ProjectDetailView: View {
             if !choosingDesign && mode.wrappedValue != .predict {
                 HStack(spacing: 8) {
                     Button { choosingDesign = true } label: {
-                        Label("Design methods", systemImage: "chevron.left")
+                        Label("Design home", systemImage: "chevron.left")
                     }
                     .accessibilityIdentifier("choose-design-method")
-                    Text(mode.wrappedValue.label).font(.callout.weight(.medium))
+                    Text(mode.wrappedValue == .iterative && project.designIntention != nil
+                         ? (project.request.initializationMethod == "rfd3" ? "RFdiffusion3 + refinement" : "X-token Hallucination")
+                         : mode.wrappedValue.label).font(.callout.weight(.medium))
                     Spacer()
+                    Button("Save workflow as button…") {
+                        workflowName = project.designIntention?.label ?? mode.wrappedValue.label
+                        savingWorkflow = true
+                    }
                 }
                 .padding(.horizontal, 16).padding(.vertical, 8)
             }
@@ -363,7 +371,7 @@ struct ProjectDetailView: View {
                             DesignFormView(project: project, installer: installer, run: run)
                         }
                     case .rfdiffusion:
-                        RFD3View(project: project, controller: rfd3, installer: installer)
+                        DiffusionView(project: project, controller: rfd3, installer: installer)
                     case .nise:
                         NISEView(project: project, controller: app.nise, installer: installer)
                     case .predict:
@@ -378,7 +386,7 @@ struct ProjectDetailView: View {
                 .accessibilityHidden(choosingDesign)
 
                 if choosingDesign {
-                    DesignMethodChooser(previousMode: mode.wrappedValue) { selection in
+                    DesignHomeView(project: project, installer: installer) { selection in
                         mode.wrappedValue = selection
                         choosingDesign = false
                     }
@@ -388,6 +396,14 @@ struct ProjectDetailView: View {
             .layoutPriority(1)
             .clipped()
         }
+        .sheet(isPresented: $savingWorkflow) {
+            SaveDesignWorkflowSheet(name: $workflowName) {
+                let current = app.projects.first { $0.id == project.id } ?? project
+                let route: DesignWorkflowRoute = mode.wrappedValue == .nise ? .nise : mode.wrappedValue == .iterative ? (current.request.designType == .monomer && current.request.initializationMethod == "rfd3" ? .rfd3Monomer : .proteinHunter) : current.diffusionEngine == "rfd4" ? .rfd4 : .rfd3
+                return app.saveWorkflow(name: workflowName, project: current, route: route)
+            }
+        }
+        .onAppear { if mode.wrappedValue != .predict && !hasDisplayedRun { choosingDesign = true } }
     }
 }
 

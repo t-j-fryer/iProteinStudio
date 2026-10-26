@@ -14,6 +14,37 @@ def sha(p):
         for b in iter(lambda:f.read(8<<20),b''):h.update(b)
     return h.hexdigest()
 
+def relocate_path_file(path, sources, output):
+    """Freeze a path-only editable loader only into explicitly vendored source.
+
+    Hatchling and newer setuptools emit these instead of finder modules. Never
+    preserve a release-machine path or admit an undeclared source directory.
+    """
+    lines = path.read_text().splitlines()
+    rewritten = []
+    for line in lines:
+        if line.startswith('/'):
+            original = Path(line).resolve()
+            matches = [(name, Path(source).resolve()) for name, source in sources.items()
+                       if original == Path(source).resolve() or Path(source).resolve() in original.parents]
+            if len(matches) != 1: raise ValueError('Unresolved absolute path file: ' + str(path))
+            name, source = matches[0]
+            target = output / 'sources' / name / original.relative_to(source)
+            if not target.is_dir(): raise ValueError('Vendored editable source missing: ' + str(target))
+            # site.py normalizes '..' before following a symlinked interpreter
+            # prefix (Studio's venv compatibility path). Keep the .pth entry
+            # local and let the filesystem resolve its internal source link.
+            local = path.parent / ('_studio_source_' + hashlib.sha256(str(target.relative_to(output)).encode()).hexdigest()[:16])
+            relative = os.path.relpath(target, path.parent)
+            if local.is_symlink():
+                if os.readlink(local) != relative: raise ValueError('Conflicting source link: ' + str(local))
+            else: local.symlink_to(relative, target_is_directory=True)
+            rewritten.append(local.name)
+        elif line.strip() and not line.lstrip().startswith('#'):
+            raise ValueError('Unexpected executable path loader: ' + str(path))
+        else: rewritten.append(line)
+    path.write_text('\n'.join(rewritten) + '\n')
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--python',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--engine',required=True);p.add_argument('--imports',required=True);p.add_argument('--source',action='append',default=[]);p.add_argument('--standalone-python',type=Path);p.add_argument('--binary',action='append',default=[]);p.add_argument('--asset-mount',action='append',default=[]);p.add_argument('--runtime-link',action='append',default=[]);a=p.parse_args()
     probe='import sys,sysconfig,json;print(json.dumps(dict(base=sys.base_prefix,site=sysconfig.get_path("purelib"),version=sys.version.split()[0])))'
@@ -75,7 +106,8 @@ def main():
                 else:raise ValueError('Missing editable source: '+str(source))
                 editable.append(name)
             finder.unlink();path.unlink()
-        elif any(line.startswith('/') for line in text.splitlines()):raise ValueError('Unresolved absolute path file: '+str(path))
+        elif any(line.startswith('/') for line in text.splitlines()):
+            relocate_path_file(path, dict(v.split('=', 1) for v in a.source), out)
     for value in a.binary:
         name,source=value.split('=',1)
         if not re.fullmatch('[A-Za-z0-9_.-]+',name):raise ValueError('Unsafe binary name')

@@ -7,13 +7,14 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "Sources/iProteinStudio/"
-MODELS = ["NumericInputValue.swift", "ProteinSequenceInput.swift", "Predictor.swift", "RFD3Request.swift", "DesignRequest.swift", "DesignEngine.swift", "DesignPoint.swift", "RunResult.swift"]
+MODELS = ["NumericInputValue.swift", "ProteinSequenceInput.swift", "Predictor.swift", "RFD3Request.swift", "RFD4Request.swift", "DesignRequest.swift", "DesignEngine.swift", "DesignPoint.swift", "RunResult.swift"]
 with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
     tmp = Path(raw)
     flags = ["swiftc", "-module-cache-path", str(tmp / "modules")]
     if os.environ.get("SDKROOT"):
         flags += ["-sdk", os.environ["SDKROOT"]]
     cases = {
+        "recommended_workflows": [SOURCE + "Models/" + name for name in ["RFD4Request.swift", "WorkspaceOrganization.swift", "RecommendedDesign.swift"]] + ["Tests/RecommendedWorkflowHarness.swift"],
         "target_structure_snapshot": [SOURCE + "Core/TargetStructureSnapshot.swift", "Tests/TargetStructureSnapshotHarness.swift"],
         "workflow_requests": [SOURCE + "Models/" + name for name in [
             "Predictor.swift", "ProteinSequenceInput.swift", "RFD3Request.swift", "PredictionRequest.swift"
@@ -27,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
             SOURCE + "Core/TemplateWriter.swift", SOURCE + "Core/CommandBuilder.swift",
             SOURCE + "Core/CDRDetector.swift", SOURCE + "Core/ResumeContract.swift", "Tests/EngineBatchControllerHarness.swift"],
         "prediction_templates": [SOURCE + "Models/Predictor.swift", SOURCE + "Models/PredictionRequest.swift", "Tests/PredictionTemplateContractHarness.swift"],
-        "nise": [SOURCE + "Models/" + name for name in ["NISERequest.swift", "WorkspaceOrganization.swift", "Project.swift"]] + ["Tests/NISERequestContractHarness.swift"],
+        "nise": [SOURCE + "Models/" + name for name in ["NISERequest.swift", "RFD4Request.swift", "WorkspaceOrganization.swift", "Project.swift"]] + ["Tests/NISERequestContractHarness.swift"],
         "core": [str(path.relative_to(ROOT)) for path in sorted((ROOT / "Sources/StudioCore").glob("*.swift"))] + ["Tests/StudioCoreContractHarness.swift"],
         "nise_results": ["Tests/NISEResultsContractHarness.swift", SOURCE + "Models/RunResult.swift", SOURCE + "Core/Results/NISEResults.swift", SOURCE + "Core/Results/RunResultsLoader.swift"],
         "results": ["Tests/PredictionResultsContractHarness.swift", SOURCE + "Models/RunResult.swift", SOURCE + "Core/Results/RunResultsLoader.swift", SOURCE + "Core/Results/NISEResults.swift"],

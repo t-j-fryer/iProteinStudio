@@ -4,6 +4,8 @@ import Foundation
 // metrics watcher. The production workflow enum lives in RunHistoryStore; this
 // narrow harness defines only the surface needed by the loader.
 enum StudioWorkflow: String, Codable {
+    case rfd4
+
     case iterative, nise, rfdiffusion3, prediction
     var label: String { rawValue }
 }
@@ -621,6 +623,13 @@ struct IterativeCommandContractHarness {
         expect(request.validationIssues.contains { $0.message.contains("de novo") }, "RFD3 cannot replace a fixed nanobody framework")
         let old = try JSONDecoder().decode(DesignRequest.self, from: Data("{}".utf8))
         expect(!old.hasSeparateInitialization, "historical runs stay on the original path")
+        var cdr = request
+        cdr.initializationMethod = nil
+        cdr.designPredictor = .esmfold2Full
+        expect(cdr.initializationEngineChoices.contains(.esmfold2Full), "Full is available for fixed-framework CDR initialization")
+        expect(!cdr.initializationEngineChoices.contains(.esmfold2Fast), "Fast cannot initialize X-token CDRs")
+        cdr.designType = .minibinder
+        expect(!cdr.initializationEngineChoices.contains(.esmfold2Full), "Full cannot initialize an all-X minibinder")
     }
 
     static func testNativeRegions() throws {
@@ -658,7 +667,28 @@ struct IterativeCommandContractHarness {
         expect(old.nativeBinderMode == "deNovo" && !old.usesNativeRegions, "legacy requests retain de novo mode")
     }
 
+    static func testMonomerRoutesAndBaseInstall() throws {
+        var request = proteinRequest()
+        request.designType = .monomer; request.applyTypeDefaults()
+        expect(request.validationIssues.isEmpty, "target-free monomer request validates")
+        expect(request.targetChains.isEmpty && !request.hasProteinTarget, "monomer contains no target chains")
+        let args = arguments(request)
+        expect(args.contains("--random-binder") && !args.contains("--require-target-msa"), "monomer uses native unconditioned seed without target MSA flags")
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent("monomer-\(UUID().uuidString).yaml")
+        defer { try? FileManager.default.removeItem(at: path) }
+        try TemplateWriter.write(request, to: path)
+        let yaml = try String(contentsOf: path, encoding: .utf8)
+        expect(yaml.components(separatedBy: "  - protein:").count == 2 && !yaml.contains("id: B"), "monomer template has exactly chain A")
+        request.initializationMethod = "rfd3"; request.designPredictor = .esmfold2Full
+        expect(request.validationIssues.isEmpty, "RFD3 monomer start requires no target structure")
+        expect(!arguments(request).contains("--initialization-target"), "monomer never passes a target structure")
+        expect(InstallComponent.baseSelection == [.rfd4, .esmfold2Full, .boltz, .boltzAffinity, .mpnn, .abmpnn, .lasermpnn], "base setup contains precisely the requested models")
+        expect(InstallComponent.esmfold2Full.requires.contains(.esmfold2), "base Full includes its shared encoder/runtime dependency")
+        expect(InstallComponent.boltzAffinity.requires.contains(.boltz), "affinity includes folding runtime")
+    }
+
     static func main() async throws {
+        try testMonomerRoutesAndBaseInstall()
         try testNativeRegions()
         try testSeparateStages()
         try testLigandNessoOptions()

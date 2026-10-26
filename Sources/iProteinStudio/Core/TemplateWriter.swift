@@ -12,7 +12,7 @@ enum TemplateWriter {
         case .nanobody:
             binderA = clean(request.scaffoldSequence)
             guard !binderA.isEmpty else { throw NHError.message("Scaffold sequence is empty.") }
-        case .minibinder, .peptide:
+        case .minibinder, .peptide, .monomer:
             binderA = request.usesNativeRegions ? request.cleanSourceBinder : String(repeating: "G", count: max(1, request.binderMinLen))
         }
 

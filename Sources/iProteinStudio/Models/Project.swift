@@ -12,6 +12,9 @@ struct Project: Identifiable, Codable, Hashable {
     /// design request rather than in a separate project type, so a target can be
     /// approached both ways without re-entering it.
     var rfd3: RFD3Request = RFD3Request()
+    var rfd4: RFD4Request = RFD4Request()
+    var diffusionEngine = "rfd3"
+    var designIntention: DesignIntention?
     /// Prediction-only batches for this project.
     var prediction: PredictionRequest = PredictionRequest()
     var nise: NISERequest = NISERequest()
@@ -30,7 +33,7 @@ struct Project: Identifiable, Codable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, createdAt, request, rfd3, prediction, nise, preferredMode, slug, runNames
+        case id, name, createdAt, request, rfd3, rfd4, diffusionEngine, designIntention, prediction, nise, preferredMode, slug, runNames
     }
 
     /// Resilient decoding so schema changes never drop saved projects.
@@ -41,6 +44,9 @@ struct Project: Identifiable, Codable, Hashable {
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         request = try c.decodeIfPresent(DesignRequest.self, forKey: .request) ?? DesignRequest()
         rfd3 = try c.decodeIfPresent(RFD3Request.self, forKey: .rfd3) ?? RFD3Request()
+        rfd4 = try c.decodeIfPresent(RFD4Request.self, forKey: .rfd4) ?? RFD4Request()
+        diffusionEngine = try c.decodeIfPresent(String.self, forKey: .diffusionEngine) ?? "rfd3"
+        designIntention = try c.decodeIfPresent(DesignIntention.self, forKey: .designIntention)
         prediction = try c.decodeIfPresent(PredictionRequest.self, forKey: .prediction) ?? PredictionRequest()
         nise = try c.decodeIfPresent(NISERequest.self, forKey: .nise) ?? NISERequest()
         preferredMode = try c.decodeIfPresent(WorkspaceMode.self, forKey: .preferredMode) ?? .iterative

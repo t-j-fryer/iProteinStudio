@@ -4,6 +4,12 @@ The app is a front end. Everything it does is a script you can run yourself, and
 the app writes its settings to disk before running them — so any run started in
 the UI can be repeated, inspected, or scripted without it.
 
+The RFD4 development integration uses `studioctl.py plan-rfd4 request.json`, then
+the returned immutable plan ID and digest with `start`. Call the RFD4 workflow
+guide and detection first; do not invoke its scientific runner directly. The
+typed request covers generation, native rollout search and protein sequence
+search. See [RFD4](RFD4.md) for task inputs, local runtime availability and limits.
+
 Throughout, `$ROOT` is the managed installation:
 
 ```bash
@@ -973,3 +979,20 @@ Five affinity recycles and both heads remain unchanged. Small-molecule LASErMPNN
 routes use owner-scoped CPU residency and post-load seed resets; NISE Phase1 has
 bounded CPU prefetch for independent Boltz units. See docs/NISE.md and
 PREDICTION_PROFILES.md for qualification limits and saved-job behaviour.
+
+
+## Current intention workflows and motif beta
+
+`studioctl.py plan-rfd4 request.json` freezes the RFD4 generation/search route.
+`studioctl.py motif-catalog`, `guide motif_beta` and `plan-motif-beta request.json`
+expose the same benchmark-motif beta as the app. Use `start PLAN_ID SHA256` only
+after reviewing the returned immutable plan. The `prepare` stage is file-only;
+`backbones` and `cycles` perform compute. See [motif beta](MOTIF_BETA.md) for the
+request and its qualification limits. `studioctl.py evidence` prints the bundled
+method-selection evidence; this is a dated reference, not a live result query.
+
+Recommended sequence targets, multichain identities, seven-cycle presets and
+custom intention routes are documented in [RFD4](RFD4.md). Base installation
+selection is `setup_pipeline.sh --base`; public runtime/fresh-machine limits are
+in [Install](INSTALL_UNSIGNED_BETA.md). RFD3 fixed-framework nanobody generation
+was tried unsuccessfully and is excluded from the supported routes.

@@ -46,6 +46,7 @@ enum SequenceDesigner: String, CaseIterable, Codable, Identifiable {
 
 /// What kind of binder is being designed.
 enum DesignType: String, CaseIterable, Codable, Identifiable, Hashable {
+    case monomer
     case nanobody      // fixed VHH scaffold, redesign CDRs (AntiFold / MPNN)
     case minibinder    // de novo mini-protein binder vs a target (random binder + MPNN)
     case peptide       // short de novo peptide binder
@@ -53,6 +54,7 @@ enum DesignType: String, CaseIterable, Codable, Identifiable, Hashable {
     var id: String { rawValue }
     var label: String {
         switch self {
+        case .monomer: return "Monomer"
         case .nanobody:   return "Nanobody"
         case .minibinder: return "Mini-binder"
         case .peptide:    return "Peptide"
@@ -60,6 +62,7 @@ enum DesignType: String, CaseIterable, Codable, Identifiable, Hashable {
     }
     var blurb: String {
         switch self {
+        case .monomer: return "Create a protein without a binding target."
         case .nanobody:   return "Redesign the CDR loops of a stable VHH scaffold against your target."
         case .minibinder: return "Design a de-novo mini-protein binder against your target."
         case .peptide:    return "Design a short de-novo peptide binder against your target."
@@ -70,7 +73,7 @@ enum DesignType: String, CaseIterable, Codable, Identifiable, Hashable {
     var defaultLengthRange: ClosedRange<Int> {
         switch self {
         case .nanobody:   return 110...130
-        case .minibinder: return 60...120
+        case .minibinder, .monomer: return 60...120
         case .peptide:    return 8...25
         }
     }
@@ -514,7 +517,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         switch designType {
         case .nanobody:
             return [.antifold, .abmpnn]
-        case .minibinder, .peptide:
+        case .minibinder, .peptide, .monomer:
             return targetKind == .ligand ? [.ligandmpnn, .lasermpnn] : [.proteinmpnn, .solublempnn]
         }
     }
@@ -523,7 +526,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         switch designType {
         case .nanobody:
             return .antifold
-        case .minibinder, .peptide:
+        case .minibinder, .peptide, .monomer:
             return targetKind == .ligand ? .ligandmpnn : .solublempnn
         }
     }
@@ -533,10 +536,10 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// ligand-aware designer require.
     var workflow: String { designType == .nanobody ? "nanobody" : "protein" }
 
-    var hasProteinTarget: Bool { targetKind == .protein }
+    var hasProteinTarget: Bool { designType != .monomer && targetKind == .protein }
 
     var targetChainResult: Result<[ProteinChainInput], ProteinSequenceInputError> {
-        ProteinSequenceInput.parse(targetSequence, startingAt: 1, minimumLength: 5)
+        designType == .monomer ? .success([]) : ProteinSequenceInput.parse(targetSequence, startingAt: 1, minimumLength: 5)
     }
 
     var targetChains: [ProteinChainInput] {
@@ -554,7 +557,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     var usesBoltzDesignEngine: Bool { targetingPredictor.runnerValue == Predictor.boltz.runnerValue }
 
     var hasTargetTemplate: Bool {
-        targetKind == .protein
+        hasProteinTarget
             && !targetTemplatePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
@@ -685,7 +688,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
             set.append(initializationMethod == "rfd3" ? .rfd3 : startingEngine.component)
             if initializationMethod == "rfd3" && targetKind == .ligand { set.append(.boltz) }
         }
-        if designPredictor == .esmfold2Full && targetKind == .protein { set.append(.boltz) }
+        if designPredictor == .esmfold2Full && hasProteinTarget { set.append(.boltz) }
         for p in effectivePostPredictors where !set.contains(p.component) { set.append(p.component) }
         if usesIntelliFold && intellifoldModel == .v2 { set.append(.intellifoldFull) }
         if !set.contains(designer.component) { set.append(designer.component) }
@@ -757,12 +760,15 @@ struct DesignRequest: Codable, Equatable, Hashable {
         }
         var issues: [DesignValidationIssue] = []
         func add(_ field: String, _ message: String) { issues.append(.init(field: field, message: message)) }
+        if designType == .monomer && (targetKind != .protein || !targetSequence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !targetTemplatePath.isEmpty || !epitopeResidues.isEmpty) {
+            add("target", "Monomer design has no binding target, target template or hotspots.")
+        }
         if targetKind == .protein, let error = targetSequenceError { add("target", error) }
         if targetKind == .ligand && targetSmiles.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             add("target", "Add a ligand SMILES to continue.")
         }
         if targetKind == .ligand, let error = nesso.validationError { add("nesso", error) }
-        if (designPredictor == .esmfold2Fast || designPredictor == .esmfold2Full) && !hasSeparateInitialization {
+        if (designPredictor == .esmfold2Fast || designPredictor == .esmfold2Full) && !hasSeparateInitialization && !(designType == .nanobody && designPredictor == .esmfold2Full) {
             add("models", "ESMFold2 refinement needs a separate starting engine or RFdiffusion3. It cannot generate X-token starts.")
         }
         if !["deNovo", "partialRedesign", "motifScaffolding"].contains(nativeBinderMode) {
@@ -788,12 +794,12 @@ struct DesignRequest: Codable, Equatable, Hashable {
         if let method = initializationMethod, !["hallucination", "rfd3"].contains(method) {
             add("models", "Choose a supported starting-backbone method.")
         }
-        if hasSeparateInitialization && initializationMethod == "hallucination" && !DesignEngine.initializationChoices.contains(startingEngine) {
+        if hasSeparateInitialization && initializationMethod == "hallucination" && !initializationEngineChoices.contains(startingEngine) {
             add("models", "Choose a supported X-token starting engine.")
         }
         if initializationMethod == "rfd3" {
             if designType == .nanobody { add("binder", "RFdiffusion3 creates de novo backbones; select Minibinder rather than a fixed nanobody framework.") }
-            if targetKind == .protein && !FileManager.default.fileExists(atPath: initializationTargetPath ?? "") {
+            if hasProteinTarget && !FileManager.default.fileExists(atPath: initializationTargetPath ?? "") {
                 add("models", "Choose a target PDB/CIF for RFdiffusion3. Its complete target chains must match the target sequences.")
             }
         }
@@ -824,6 +830,10 @@ struct DesignRequest: Codable, Equatable, Hashable {
             if let error = secondaryStructureCompatibilityError { add("binder", error) }
         }
         return issues
+    }
+
+    var initializationEngineChoices: [DesignEngine] {
+        DesignEngine.initializationChoices + (designType == .nanobody ? [.esmfold2Full] : [])
     }
 
     var isRunnable: Bool { validationIssues.isEmpty }
@@ -880,6 +890,11 @@ struct DesignRequest: Codable, Equatable, Hashable {
 
     /// Apply sensible defaults when switching design type.
     mutating func applyTypeDefaults() {
+        if designType == .monomer {
+            targetKind = .protein; targetSequence = ""; targetTemplatePath = ""; epitopeResidues = ""
+            postOnlyHits = false
+            postFilters.minimumIPTM = nil; postFilters.minimumIPSAEMin = nil
+        }
         let r = designType.defaultLengthRange
         binderMinLen = r.lowerBound
         binderMaxLen = r.upperBound

@@ -39,36 +39,62 @@ feed and downloads the signed app archive from GitHub Releases. Engines and mode
 weights remain separate, explicitly selected downloads. See
 [how releases reach users](docs/UPDATES_AND_RELEASES.md).
 
-## Predict, design and inspect
+## Design by intention
 
-Use **New Prediction** for a fold, or create a **Workspace** to keep a design
-project together. Within a workspace, **Predict** folds existing sequences;
-**Design** opens the three design methods below.
+**Design** offers recommended workflows, a custom builder and reusable saved
+workflow buttons. Choose monomers, minibinders, nanobodies, small-molecule
+binders, motif scaffolding or optimization of an existing structure. The builder
+shows methods suitable for that intention; saved buttons reopen editable settings.
 
-| Workflow | Purpose |
+| Recommended workflow | Starting structure and assessment |
 | --- | --- |
-| **Protein Hunter** | Iterative minibinder, nanobody and peptide design. Choose starting backbones and refinement engines separately, compare engine campaigns, and check candidates with other predictors. |
-| **NISE** | Small-molecule binder search from Protein Hunter or RFdiffusion3 starts. Boltz structure/affinity optimisation, with experimental NESSO/PSICHIC screening or selection objectives. |
-| **RFdiffusion3** | Backbone generation, partial diffusion and motif scaffolding, followed by sequence design and prediction. |
-| **Predict** | Structure prediction from sequences, FASTA or CSV, with explicit per-chain alignments and templates where supported. |
+| Minibinder / nanobody · easy | Native RFD4 generation followed by ESMFold2 Full scoring |
+| Minibinder / nanobody · hard | RFD4 starts, then SolubleMPNN / AbMPNN proposals and Full refolding, up to seven beam cycles |
+| Small-molecule binder · easy | Native RFD4 followed by Boltz P(bind) + ligand pLDDT/100 |
+| Small-molecule binder · hard | RFD4 starts, LASErMPNN beam exploration and the same Boltz objective |
 
-Protein Hunter supports nanobody scaffold selection, engine-specific target
-templates and hotspots, and an initialization-only secondary-structure control.
-Its [starting/refinement stages](docs/PROTEIN_HUNTER_STAGES.md) can combine
-hallucination or RFdiffusion3 backbones with complete-sequence refinement,
-including experimental ESMFold2. [NISE](docs/NISE.md) integrates backbone
-generation, sequence proposals, ligand geometry checks and iterative selection.
-These are Studio workflow extensions around upstream methods; the prediction
-models and sequence-design algorithms retain their original attribution.
+These are configured starting workflows, not experimentally established target
+difficulty classes or universal success rankings. Supply the target, optional
+hotspots and active design time. Protein targets may be structures or complete
+sequences separated by `:`. Sequence targets are prepared as an assembly with
+ESMFold2 Full and per-chain MSAs before design. Target preparation has a separate
+time budget; queue time does not count toward active design time.
 
-Follow the [step-by-step walkthroughs](docs/QUICKSTART.md) for a first prediction,
-protein binder, small-molecule binder or saved-result review.
+| Custom method | Capabilities |
+| --- | --- |
+| **RFD4** | Joint sequence/structure generation; monomers, protein/ligand binders, supported nanobody frameworks, structural motifs, partial diffusion, inverse folding and native conditions. Fixed, iterative, greedy and beam sequence exploration; separate native rollout search. |
+| **RFdiffusion3** | Backbone generation, unconditional monomer starts, partial diffusion and structural motif scaffolding, followed by sequence design and prediction. |
+| **X-token Hallucination** | Original Protein Hunter algorithms for compatible monomer/binder starts, CDR design, sequence-motif preservation and partial sequence redesign. Full supports fixed-framework CDR-only starts; whole-chain ESMFold2 X-token generation is unsupported. |
+| **NISE** | Small-molecule search with Boltz structure/affinity selection and optional experimental NESSO/PSICHIC screening or objectives. |
+| **Template-guided Boltz motif beta** | Design → Motif scaffolding → Atomic motif beta. Pinned AME-41 motifs, explicit residue maps, RFD3 starts, mapped template guidance and separate untemplated ranking checks. Bounded 1–5-root pilots. |
+| **Predict** | Complete sequences, FASTA or CSV, with per-chain alignments and templates where supported. |
 
-Colon-separated protein sequences define separate chains. Natural targets can
-use cached or requested MSAs; de-novo chains use explicit single-sequence inputs.
-Missing requested inputs cause an error rather than a silent change of method.
-Remote MSA requests send the relevant sequences to an external service; see
-[Privacy](PRIVACY.md).
+RFD3 fixed-framework nanobody generation was tried unsuccessfully and is excluded.
+The motif beta's CPU inputs/features are checked; a full model-cycle qualification
+remains outstanding. Protenix/IntelliFold motif template exports have CPU checks
+only. General custom-motif template-guided X-token scaffolding is not available.
+See [RFD4](docs/RFD4.md), [motif beta](docs/MOTIF_BETA.md),
+[Protein Hunter stages](docs/PROTEIN_HUNTER_STAGES.md) and [NISE](docs/NISE.md).
+
+Colon-separated protein sequences remain separate chains throughout supported
+workflows. Natural targets use requested/cached MSAs; de-novo chains use explicit
+single-sequence inputs. Missing requested inputs cause an error rather than a
+silent change of method. Remote MSA requests send relevant sequences to an
+external service; see [Privacy](PRIVACY.md).
+
+## Base setup and qualification
+
+The base selection is **RFD4, ESMFold2 Full, Boltz-2 plus affinity, SolubleMPNN,
+AbMPNN and LASErMPNN**. Studio resolves shared ESMC weights, managed Python and
+engine environments, chemical data and libraries. Additional engines such as
+RFD3 are optional. The complete base needs Apple Silicon and macOS 26.2+.
+
+This README describes current source. Public RFD4 runtime distribution and a
+clean-machine test of the new base selection remain pending; do not assume an
+older downloaded app exposes every source feature. RFD4 and guided beta memory
+estimates are not calibrated, so their visible memory override is an explicit,
+recorded choice. Existing installed workflows and their saved runtime identities
+remain separate from these qualification limits.
 
 ## Engines
 
@@ -77,7 +103,7 @@ Remote MSA requests send the relevant sequences to an external service; see
 | Structure prediction | Boltz-2, IntelliFold v2 Flash/full, Protenix v2/Mini, OpenFold3/MLX; experimental ESMFold2 Fast/Full MLX |
 | Experimental guided proposals | Protenix Constraint, separate from unconstrained validation |
 | Sequence design | ProteinMPNN, SolubleMPNN, LigandMPNN, AbMPNN, AntiFold, LASErMPNN |
-| Backbone generation | RFdiffusion3/MLX |
+| Backbone generation | RFdiffusion3/MLX; experimental RFD4 integration |
 | Experimental ligand screening | NESSO-1 and PSICHIC-XL |
 
 Engine settings and schedules follow the app's qualified profiles. Confidence
@@ -90,7 +116,7 @@ See [prediction settings](docs/PREDICTION_PROFILES.md) for compute budgets and
 
 ## Jobs and results
 
-All four workflows and MCP clients use the same managed execution queue.
+All workflows and MCP clients use the same managed execution queue.
 Submitted jobs continue when the app closes. Completed checkpoints remain on
 disk; supported **Resume** actions use the saved settings and retained runtime.
 Projects, alignments and results live under `~/.iproteinstudio`, outside the app.
@@ -110,6 +136,12 @@ recipes and engine/scaffold batches use the existing planners; selected
 candidates can be exported with sequences, structures, scores and provenance.
 Optional [RCSB discovery](docs/AI_ASSISTANTS.md#optional-rcsb-discovery) adds
 structure search and residue mapping through the official RCSB MCP server.
+
+The CLI and MCP expose typed RFD4 and motif-beta plans through the shared queue.
+The bundled [workflow evidence reference](Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/references/evidence.md)
+helps assistants distinguish measured findings, bounded technical checks and
+user-defined presets. Current campaign data is reviewed through the result tools,
+not treated as a universal engine leaderboard.
 
 The [assistant guide](docs/AI_ASSISTANTS.md) covers setup, tool order, examples,
 current GUI/MCP differences and an optional portable operating skill. Local

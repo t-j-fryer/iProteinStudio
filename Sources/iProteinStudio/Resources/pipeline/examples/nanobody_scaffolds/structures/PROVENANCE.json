@@ -1,0 +1,8 @@
+{
+  "7xl0_vobarilizumab": {
+    "source": "Validation/output/target_b_rfd3_nanobody_v1/run_20261013/scaffolds/7xl0_vobarilizumab/scaffold.pdb",
+    "sha256": "fe777508f858a1f8ab2811d8c4d0648d01bb70e6c2b2a4d57ee8fad25661ec82",
+    "description": "Existing audited apo scaffold used by qualified RFD4 nanobody authoring; framework coordinates only, no target or model weights.",
+    "receipt_sha256": "7c426b767dfacc448f1e09983305ae2c8cd10c29b2cc6d8f013b9ef50ac85dee"
+  }
+}

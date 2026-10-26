@@ -1,0 +1,276 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project",
+    "run_name",
+    "request"
+  ],
+  "properties": {
+    "project": {
+      "type": "string"
+    },
+    "run_name": {
+      "type": "string"
+    },
+    "memory_policy": {
+      "enum": [
+        "enforce",
+        "override"
+      ]
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "integer",
+          "default": 1
+        },
+        "task": {
+          "type": "string",
+          "default": "monomer",
+          "enum": [
+            "monomer",
+            "protein",
+            "ligand",
+            "nanobody",
+            "motif",
+            "partial",
+            "inverse",
+            "annotated"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "default": ""
+        },
+        "length": {
+          "type": "integer",
+          "default": 120,
+          "minimum": 1,
+          "maximum": 2000
+        },
+        "count": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "seed": {
+          "type": "integer",
+          "default": 42,
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "target_chain": {
+          "type": "string",
+          "default": "B"
+        },
+        "binder_chain": {
+          "type": "string",
+          "default": "A"
+        },
+        "hotspots": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "contig": {
+          "type": "string",
+          "default": ""
+        },
+        "conditions": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "condition",
+              "value",
+              "selection"
+            ],
+            "properties": {
+              "condition": {
+                "enum": [
+                  "C_CRD",
+                  "C_SEQ",
+                  "C_IDX",
+                  "C_CRDGRP",
+                  "C_CENTROID",
+                  "C_HOT",
+                  "C_RAS",
+                  "C_SEC",
+                  "C_HB",
+                  "C_PISTACK",
+                  "C_PICATION",
+                  "C_SALT",
+                  "C_HPHOB",
+                  "C_MCOORD",
+                  "C_CATH"
+                ]
+              },
+              "value": {
+                "type": [
+                  "boolean",
+                  "number",
+                  "string"
+                ]
+              },
+              "selection": {
+                "type": "string"
+              },
+              "group": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "partial_fraction": {
+          "type": "number",
+          "default": 0.5
+        },
+        "search": {
+          "type": "string",
+          "default": "native",
+          "enum": [
+            "native",
+            "fixed",
+            "iterative",
+            "greedy",
+            "beam"
+          ]
+        },
+        "cycles": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "proposals": {
+          "type": "integer",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 64
+        },
+        "beam_width": {
+          "type": "integer",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 64
+        },
+        "sequence_model": {
+          "type": "string",
+          "default": "solublempnn"
+        },
+        "predictor": {
+          "type": "string",
+          "default": "esmfold2-full-mlx"
+        },
+        "target_msa": {
+          "type": "string",
+          "default": ""
+        },
+        "scaffold_msa": {
+          "type": "string",
+          "default": ""
+        },
+        "cdr_ranges": {
+          "type": "string",
+          "default": ""
+        },
+        "omit_amino_acids": {
+          "type": "string",
+          "default": ""
+        },
+        "temperature": {
+          "type": "number",
+          "default": 0.1
+        },
+        "optimized_kernels": {
+          "type": "boolean",
+          "default": false
+        },
+        "annotated_input": {
+          "type": "boolean",
+          "default": false
+        },
+        "assess_native": {
+          "type": "boolean",
+          "default": false
+        },
+        "starting_structures": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_target_chain": {
+          "type": "string",
+          "default": ""
+        },
+        "native_search": {
+          "type": "boolean",
+          "default": false
+        },
+        "native_beam_width": {
+          "type": "integer",
+          "default": 2
+        },
+        "native_branches": {
+          "type": "integer",
+          "default": 2
+        },
+        "native_checkpoints": {
+          "type": "array",
+          "default": [
+            8,
+            15
+          ],
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          }
+        },
+        "native_partial_fraction": {
+          "type": "number",
+          "default": 0.5
+        },
+        "ligand_smiles": {
+          "type": "string",
+          "default": ""
+        },
+        "time_budget_minutes": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0,
+          "maximum": 10080
+        },
+        "scaffold_id": {
+          "enum": [
+            "7xl0_vobarilizumab",
+            null
+          ]
+        },
+        "hotspot_residues": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Chain-qualified source residues, e.g. B32 C55. Required instead of bare numbers for multiple target chains."
+        }
+      }
+    }
+  }
+}

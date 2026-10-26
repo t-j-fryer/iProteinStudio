@@ -336,7 +336,7 @@ struct RunResultsView: View {
     }
 
     private static func preferredDistributionMetric(in items: [StudioResultItem]) -> StudioResultMetric.Kind? {
-        let order: [StudioResultMetric.Kind] = [.iptm, .ipsaeMinimum, .motifPredictionRMSD,
+        let order: [StudioResultMetric.Kind] = [.iptm, .ipsaeMinimum, .motifInputRMSD, .motifCandidateRMSD, .motifPredictionRMSD,
                                                 .motifInsertionRMSD, .plddt, .rankingScore,
                                                 .backboneCAValidity]
         return order.first { kind in items.contains { $0.metrics.contains { $0.kind == kind } } }
@@ -529,7 +529,9 @@ private struct RunResultDetail: View {
                     if !item.motifMapping.isEmpty {
                         DisclosureGroup("Motif correspondence") {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Source residues are matched to their actual positions in the generated chain. RMSD values use the same global fit of the explicitly constrained motif atoms.")
+                                Text(item.metrics.contains(where: { $0.kind == .motifInputRMSD })
+                                     ? "Source residues are mapped to sequence positions. Each RMSD uses the same global fit to the original input motif."
+                                     : "Source residues are mapped to sequence positions. Residue values describe the recorded generation or generated-backbone recovery metric; see its metric explanation.")
                                     .font(.caption2).foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                                 ForEach(item.motifMapping.keys.sorted(), id: \.self) { source in
@@ -654,7 +656,7 @@ private struct MetricTile: View {
         case .ipsaeMinimum: return .teal
         case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance,
              .complexRMSD, .binderBackboneRMSD, .binderRMSD,
-             .motifInsertionRMSD, .motifPredictionRMSD, .motifMaximumDrift: return .orange
+             .motifInsertionRMSD, .motifPredictionRMSD, .motifInputRMSD, .motifCandidateRMSD, .motifMaximumDrift: return .orange
         case .pocketFractionWithinCutoff: return .indigo
         case .bindingProbability: return .purple
         case .psichicBindingProxy, .psichicAffinity, .psichicNonbinder, .psichicAntagonist, .psichicAgonist, .nessoBindingProbability, .nessoAffinity, .nessoPlacementEntropy, .nessoInterfaceEntropy, .nessoScreeningScore: return .indigo

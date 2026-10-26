@@ -32,7 +32,7 @@ class GPUStorageTests(unittest.TestCase):
   from iprotein_mcp import broker,common
   with tempfile.TemporaryDirectory() as d, patch.dict(os.environ,{'IPROTEINSTUDIO_AGENT_ROOT':d}):
    jid='job-storage-worker';path=broker.state_path(jid)
-   plan={'id':'plan-test','sha256':'test','kind':'prediction','resource_class':'apple_gpu_exclusive','normalized_request':{}}
+   plan={'id':'plan-test','sha256':'test','kind':'prediction','resource_class':'apple_gpu_exclusive','normalized_request':{'config':{'jobs':[{'name':'inert','chains':[{'id':'A','kind':'protein','sequence':'ACDE','msa':'empty'}]}], 'predictors':['boltz']}, 'memory_policy':'override'}}
    common.atomic_json(path,{'id':jid,'pid':os.getpid(),'status':'running'})
    common.atomic_json(path.parent/'plan.json',plan)
    with patch.object(broker,'load_plan',return_value=plan), patch.object(broker.signal,'signal'), patch.object(broker,'_finish_manifest'), patch.object(broker,'_execute_prediction',return_value=0) as execute:

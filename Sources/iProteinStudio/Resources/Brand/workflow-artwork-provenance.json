@@ -1,0 +1,45 @@
+{
+  "prompts": {
+    "common": "Use case: logo-brand. New square native app workflow icon, using the provided images ONLY as style references. Match their softly lit matte porous ceramic sculpture, warm ivory, moss olive, terracotta palette and rounded organic forms. Compact strong silhouette, generous transparent margins, readable at 64px. True transparent background, no tile, no floor, no text, no watermark. ",
+    "subjects": {
+      "monomer": "Subject: one self-contained moss olive globular folded protein sculpture, a compact folded ribbon with two small open loops and a terracotta accent tucked into its fold. One object only, no other binding partner, not a long helix.",
+      "nanobody": "Subject: one compact upright ivory single-domain antibody beta-sandwich sculpture, represented by four smooth folded flattened ceramic ribbons with three small terracotta binding loops at its top. A tiny moss green target lobe touches the top loops. Not a Y-shaped full antibody. Rounded simplified silhouette.",
+      "ligand": "Subject: a compact ivory globular protein pocket cradling a small clearly visible terracotta molecule consisting of five connected rounded beads, with a moss olive curved fold defining the pocket. Emphasize the contrast of the tiny bead molecule and the larger folded protein.",
+      "motif": "Subject: a short terracotta curved folded ribbon motif preserved at the center of an open moss olive globular protein scaffold, with an ivory curved fold joining the surrounding scaffold. Sculptural nested organic forms with readable open spaces, not arrows.",
+      "optimize": "Subject: a compact ivory folded protein core being closely embraced by one moss olive curved outer ribbon with a terracotta tip, suggesting careful reshaping of an existing structure. One connected rounded organic sculpture, no tools, no arrows, no gears."
+    },
+    "minibinder": "Use case: logo-brand. Create a new square app workflow icon for Minibinder matching the supplied reference icons softly lit, matte porous ceramic sculpture aesthetic, rounded forms, warm ivory, moss olive and terracotta palette. References are STYLE ONLY. Subject: a large ivory globular folded protein with a small moss-green globular folded protein nestling precisely into a shallow pocket on its side. Both are compact rounded organic folds with a few visible sculptural loops, not long helices, not antibody Y shapes. Center the pair, strong silhouette legible at 64px, generous 12% margin. True transparent background, no tile, no floor, no text, no letters, no arrows, no watermark."
+  },
+  "tool": "image_gen.imagegen",
+  "date": "2026-10-26",
+  "assets": {
+    "minibinder": {
+      "file": "workflow-minibinder.png",
+      "sha256": "9f2b23bb9806b3d333d422fdbdf344b855d2d245c2e5b731e69e1572063cfaae"
+    },
+    "monomer": {
+      "file": "workflow-monomer.png",
+      "sha256": "a16fa3dcbc2a7b98e01cdd9b9782096d50a12dd882c5c6218d762cd491d30c91"
+    },
+    "nanobody": {
+      "file": "workflow-nanobody.png",
+      "sha256": "df2a7cd05bb5855b32a65c568a62d10dfa48790cbed17bff21775bf7a7fde07a"
+    },
+    "ligand": {
+      "file": "workflow-ligand.png",
+      "sha256": "c0bbbb9f9604253478940ba536698ee9d750d216beae0ef261e6db4ae2ecb5f8"
+    },
+    "motif": {
+      "file": "workflow-motif.png",
+      "sha256": "48b887817f926a9834a4f573a052f4b86b58a0fbe28021ed5186fd506713b6bb"
+    },
+    "optimize": {
+      "file": "workflow-optimize.png",
+      "sha256": "5b9e0fd34fb092d030f6fd304b22358d0e2e37db7824825c59eaa377bfc9d86e"
+    }
+  },
+  "references": [
+    "nise.png",
+    "backbone.png"
+  ]
+}

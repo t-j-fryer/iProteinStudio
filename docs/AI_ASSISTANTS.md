@@ -5,6 +5,12 @@ The GUI and bridge share the job queue, retained inputs, runtime provenance and
 results. An assistant is optional; protein-model inference runs on the Mac,
 while the assistant itself may use an external service.
 
+The RFD4 development build adds `rfd4_plan` and the `rfd4` workflow guide. Refresh
+the client's tool schema after updating; a source feature is not necessarily
+available in an already-connected server. Full CDR-only initialization uses the
+existing iterative-design route with the nanobody workflow. See [RFD4](RFD4.md)
+and the [current RFD4 capability and qualification guide](RFD4.md).
+
 ## Connect
 
 1. Open **AI** in Studio's toolbar, or **Settings → AI assistants**.
@@ -159,3 +165,25 @@ Detailed limits and tool order are in the
 See the [MCP review](MCP_REVIEW.md) for qualification status and remaining work.
 These additions are bundled source features; the connected server's tool list
 is authoritative until an updated app is deployed.
+
+
+## Current design routes and evidence (bridge 45)
+
+Discover `rfd4_plan`, `motif_beta_catalog` and `motif_beta_plan` in the connected
+server before using them. Both planners also have executable v2 recipe routes.
+`workflow_guide` accepts `rfd4` and `motif_beta`. The motif planner reuses the
+app adapter and its bounded pilot/chemistry/memory checks; only Boltz automatic
+cycling is exposed. CPU feature tests do not qualify full model cycles.
+
+Read `iprotein://skills/studio/evidence` before recommending engines or budgets.
+The bundled skill links this dated evidence reference, including source Lab Book
+entries, measured hardware/scope, smoke-test limits and failed routes. Use current
+`results_overview`/`results_query` data for campaign-specific recommendations;
+never infer an experimental hit or universal ranking from the presets.
+
+Custom workflows call the original Protein Hunter route **X-token Hallucination**.
+Full's fixed-framework CDR-only starts are supported; whole-chain Full/Fast
+X-token generation is not. RFD3 fixed-framework nanobody generation was tried
+unsuccessfully and is excluded, not pending. General coordinate-template-guided
+X-token scaffolding remains unavailable. Use the existing benchmark motif beta
+for its explicit supported scope. [Capability matrix](RFD4.md#custom-workflow-capabilities).

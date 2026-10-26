@@ -64,7 +64,7 @@ private struct InnerSetup: View {
                 reuseCard(existing)
             }
 
-            Text("Every setup automatically installs the core ProteinMPNN, SolubleMPNN and LigandMPNN sequence designers. AbMPNN is selected by default and can be retried separately if its download fails. The recommended setup also installs Boltz-2 structure prediction, IntelliFold v2 Flash, Protenix v2 and Mini, and AntiFold. Large full-model and affinity checkpoints remain separate choices. Setup runs once and needs an internet connection.")
+            Text("Base setup includes RFD4, ESMFold2 Full, Boltz-2 with its affinity head, SolubleMPNN, AbMPNN and LASErMPNN. Studio also installs their managed Python environments, shared ESMC encoder, chemical data and required libraries. ProteinMPNN and LigandMPNN share the core sequence-design installation. Other engines are optional. The complete base setup requires Apple Silicon and macOS 26.2 or newer.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -72,9 +72,13 @@ private struct InnerSetup: View {
             DisclosureGroup(isExpanded: $showOptions) {
                 optionalComponents
             } label: {
-                Text("Optional extras").font(.callout.weight(.medium))
+                Text("Customize base setup and optional extras").font(.callout.weight(.medium))
             }
             .frame(maxWidth: 480)
+
+            Button("Use base selection") {
+                installer.optionalSelection = InstallComponent.baseSelection.subtracting([.mpnn])
+            }
 
             Button {
                 var selected = installer.optionalSelection
@@ -90,7 +94,7 @@ private struct InnerSetup: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
 
-            Text("Setup checks Apple's Command Line Tools before downloading engines. If they are missing, Studio will offer to open Apple's installer. The full Xcode app is not required. The default standalone install downloads many gigabytes and can take a while on first run.")
+            Text("Portable engine packages include their own runtime dependencies; you do not need to install Python, Homebrew or Xcode. A source-build fallback requires Apple's Command Line Tools, which Studio checks before proceeding. The base setup downloads many gigabytes and can take a while on first run.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

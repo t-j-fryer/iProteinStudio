@@ -284,6 +284,80 @@
         "sha256": "60ca19f2898188beba92944365f7b909efd9c99212f5018af75cc47cd9a6184a",
         "label": "ESMFold2 Fast model.safetensors"
       }
+    ],
+    "rfd4": [
+      {
+        "path": "models/rfd4/diffusers/.cache/huggingface/trees/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b.json",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/.cache/huggingface/trees/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b.json",
+        "sha256": "2636441af4fd492deef16d02f28e9be2323575660b02920109e77952d8ed0119",
+        "label": "RFD4 .cache/huggingface/trees/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b.json"
+      },
+      {
+        "path": "models/rfd4/diffusers/bb_ca_scheduler/scheduler_config.json",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/bb_ca_scheduler/scheduler_config.json",
+        "sha256": "0970867fe4051a83d01964eea1756c69d99a7d02c353b041ca3f086aaa5cb6c7",
+        "label": "RFD4 bb_ca_scheduler/scheduler_config.json"
+      },
+      {
+        "path": "models/rfd4/diffusers/examples/examples.json",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/examples/examples.json",
+        "sha256": "fb25bf30cc878fcee2736105892f9b7ca9ca55cb15ad86f3a1fd0f741e2a048f",
+        "label": "RFD4 examples/examples.json"
+      },
+      {
+        "path": "models/rfd4/diffusers/local_latents_scheduler/scheduler_config.json",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/local_latents_scheduler/scheduler_config.json",
+        "sha256": "dd2b987604c58d42ef59fd571785a9f48974328d28f324ad7e2759700784726a",
+        "label": "RFD4 local_latents_scheduler/scheduler_config.json"
+      },
+      {
+        "path": "models/rfd4/diffusers/model_index.json",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/model_index.json",
+        "sha256": "1e21dba845aaf63b79d1b17dcca21b32da8a7f8605ee90533e0a44581492b5ba",
+        "label": "RFD4 model_index.json"
+      },
+      {
+        "path": "models/rfd4/diffusers/transformer/config.json",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/transformer/config.json",
+        "sha256": "4d21da9d38a0501467a2039cf36a65622650f40ce90cc544d2d7138074871e6f",
+        "label": "RFD4 transformer/config.json"
+      },
+      {
+        "path": "models/rfd4/diffusers/transformer/diffusion_pytorch_model.safetensors",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/transformer/diffusion_pytorch_model.safetensors",
+        "sha256": "1228a09c52eafc0262c31eac5d61cca3cd9ddf8e68e3fd8904553ab585773f86",
+        "label": "RFD4 transformer/diffusion_pytorch_model.safetensors"
+      },
+      {
+        "path": "models/rfd4/diffusers/vae/config.json",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/vae/config.json",
+        "sha256": "41be3ac16d00565f7c075862b44bd92f7957064f8ee8680b2b657a82c00096b2",
+        "label": "RFD4 vae/config.json"
+      },
+      {
+        "path": "models/rfd4/diffusers/vae/diffusion_pytorch_model.safetensors",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/vae/diffusion_pytorch_model.safetensors",
+        "sha256": "9964734a208f3d6fc41526bff84f07a79c7465e1b44fa16f336ab716a28cca2c",
+        "label": "RFD4 vae/diffusion_pytorch_model.safetensors"
+      },
+      {
+        "path": "models/rfd4/native/.cache/huggingface/trees/a06e2509c7033b010fc43614e9fd840303588502.json",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina/resolve/a06e2509c7033b010fc43614e9fd840303588502/.cache/huggingface/trees/a06e2509c7033b010fc43614e9fd840303588502.json",
+        "sha256": "c425d2ee5b687992345c13068d7bf624c97c626499392495d71ca4c7cef1ecc3",
+        "label": "RFD4 .cache/huggingface/trees/a06e2509c7033b010fc43614e9fd840303588502.json"
+      },
+      {
+        "path": "models/rfd4/native/config.json",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina/resolve/a06e2509c7033b010fc43614e9fd840303588502/config.json",
+        "sha256": "154ea927ab8005b7eac2d047a792147fb4606ab4878e496aa8414b6b40dad368",
+        "label": "RFD4 config.json"
+      },
+      {
+        "path": "models/rfd4/native/model.safetensors",
+        "url": "https://huggingface.co/nvidia/RFD4-Proteina/resolve/a06e2509c7033b010fc43614e9fd840303588502/model.safetensors",
+        "sha256": "5b549dd61adb2f6c6b5cb95bda13f40f5e31556b4e6c755edc0ca6f011c68fb0",
+        "label": "RFD4 model.safetensors"
+      }
     ]
   }
 }

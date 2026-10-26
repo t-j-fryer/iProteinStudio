@@ -13,12 +13,14 @@ final class AppState: ObservableObject {
     @Published var storageMessage: String?
     @Published private(set) var storageAvailable = true
     @Published var scaffolds: [Scaffold] = []
+    @Published var savedWorkflows: [SavedDesignWorkflow] = []
 
     let installer = PipelineInstaller()
     let run = RunController()
     let rfd3 = RFD3Controller()
     let prediction = PredictionController()
     let nise = NISEController()
+    let rfd4 = RFD4Controller()
     let metrics = MetricsWatcher()
     let thumbnails = ThumbnailStore()
     let smilesThumbnails = SmilesThumbnailStore()
@@ -28,14 +30,16 @@ final class AppState: ObservableObject {
     private struct Persisted: Codable {
         var projects: [Project]
         var archivedProjects: [Project] = []
-        enum CodingKeys: String, CodingKey { case projects, archivedProjects }
-        init(projects: [Project], archivedProjects: [Project] = []) {
-            self.projects = projects; self.archivedProjects = archivedProjects
+        var savedWorkflows: [SavedDesignWorkflow] = []
+        enum CodingKeys: String, CodingKey { case projects, archivedProjects, savedWorkflows }
+        init(projects: [Project], archivedProjects: [Project] = [], savedWorkflows: [SavedDesignWorkflow] = []) {
+            self.projects = projects; self.archivedProjects = archivedProjects; self.savedWorkflows = savedWorkflows
         }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             projects = try c.decode([Project].self, forKey: .projects)
             archivedProjects = try c.decodeIfPresent([Project].self, forKey: .archivedProjects) ?? []
+            savedWorkflows = try c.decodeIfPresent([SavedDesignWorkflow].self, forKey: .savedWorkflows) ?? []
         }
     }
     private var lastSaved = Persisted(projects: [])
@@ -67,6 +71,7 @@ final class AppState: ObservableObject {
             }
             catch { /* The execution lease remains authoritative between polls. */ }
         }.store(in: &observers)
+        rfd4.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &observers)
         nise.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &observers)
         run.$campaignRoot.removeDuplicates().sink { [weak self] root in
             if let root { self?.metrics.start(root: root) }
@@ -186,13 +191,14 @@ final class AppState: ObservableObject {
     func save() -> Bool {
         guard storageAvailable else { return false }
         do {
-            let next = Persisted(projects: projects, archivedProjects: archivedProjects)
+            let next = Persisted(projects: projects, archivedProjects: archivedProjects, savedWorkflows: savedWorkflows)
             try store.save(next)
             lastSaved = next
             return true
         } catch {
             projects = lastSaved.projects
             archivedProjects = lastSaved.archivedProjects
+            savedWorkflows = lastSaved.savedWorkflows
             storageMessage = "This change could not be saved. Your previous settings were kept. \(error.localizedDescription)"
             return false
         }
@@ -218,6 +224,7 @@ final class AppState: ObservableObject {
             }
             lastSaved = saved
             projects = saved.projects; archivedProjects = saved.archivedProjects
+            savedWorkflows = saved.savedWorkflows
             storageAvailable = true
         } catch {
             storageAvailable = false
@@ -233,6 +240,7 @@ final class AppState: ObservableObject {
                 if job.kind.contains("iterative") { run.reattach(project: project, root: root, jobID: job.id) }
                 else if job.kind.contains("nise") { nise.reattach(root: root, jobID: job.id) }
                 else if job.kind.contains("prediction") { prediction.reattach(root: root, jobID: job.id) }
+                else if job.kind.contains("rfd4") { rfd4.reattach(root: root, jobID: job.id) }
                 else if job.kind.contains("rfd3") || job.kind.contains("rfdiffusion3") { rfd3.reattach(root: root, jobID: job.id) }
             }
             if let root = run.campaignRoot, run.isRunning { metrics.start(root: root) }

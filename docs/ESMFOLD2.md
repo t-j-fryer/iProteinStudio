@@ -17,8 +17,9 @@ not included in the app or runtime archive.
 | Studio tested profile | 3 loops, 50 requested sampling steps | 3 loops, 50 requested sampling steps |
 | Pocket restraints / template guidance / Boltz affinity | Unavailable | Unavailable |
 
-Both support protein chains and SMILES ligands. Neither is available as the
-Protein Hunter X-token design engine. These experimental MLX predictions are
+Both support protein chains and SMILES ligands. Full also supports Protein
+Hunter CDR-only X-token initialization within a fixed nanobody framework.
+Fast and whole-chain X-token initialization remain unsupported. These experimental MLX predictions are
 not claimed to be numerically equivalent to the reference PyTorch model.
 The step counts above identify Studio's tested profiles; actual denoising
 passes differ because the upstream schedule includes recycling and step reuse.
@@ -38,8 +39,9 @@ sequence-only. See [Lab Book 0214](../lab_book/0214-test-esmfold2-fast.md).
   Full follows the requested MSA policy. Missing requested alignments fail
   rather than silently falling back to sequence-only input.
 - **Protein Hunter:** independent checks of completed sequences and final
-  small-molecule screening follow-up. Initial X-token hallucination stays with
-  the existing design engines. Fast and Full are the same model family, not
+  small-molecule screening follow-up. Full can initialize selected nanobody CDRs;
+  the framework and target must contain complete standard sequences, and scaffold
+  alignment CDR columns are masked. Fast and Full are the same model family, not
   independent evidence of one another.
 - **RFdiffusion3:** prediction of MPNN sequences and optional additional checks.
   ESMFold2 is an unrestrained refold, not a continuation of RFD3 conditioning.
@@ -96,6 +98,7 @@ known limitations and untested cases.
 ## Protein Hunter refinement
 
 ESMFold2 Fast/Full can refine complete MPNN sequences after an explicit separate
-cycle-00 generator. They remain unavailable for X-token hallucination.
+cycle-00 generator. Full can also perform the fixed-framework CDR initialization
+described above. Whole-chain monomer and minibinder X-token starts are unsupported.
 See [Protein Hunter stages](PROTEIN_HUNTER_STAGES.md) for guidance scope, MSA
 policy and the same portable-runtime setup.

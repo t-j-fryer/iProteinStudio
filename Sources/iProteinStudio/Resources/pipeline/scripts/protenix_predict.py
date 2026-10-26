@@ -168,13 +168,34 @@ def apply_target_template(document: dict, yaml_path: Path,
     if not expected_digest or sha256(template_path) != expected_digest:
         die("target template checksum changed after the campaign was prepared")
     query_chains = [str(value).upper() for value in metadata.get("query_chains") or []]
-    prediction_scope = metadata.get("scope") == "prediction"
+    motif_scope = metadata.get("scope") == "motif-beta"
+    prediction_scope = metadata.get("scope") == "prediction" or motif_scope
     if not query_chains or ("A" in query_chains and not prediction_scope):
         die("target_template.query_chains must name target proteins and must exclude binder chain A")
     if any(chain not in proteins for chain in query_chains):
         die("target template names a missing or non-protein query chain")
 
     structure_chains = _structure_chains(template_path)
+    if motif_scope:
+        indices = metadata.get("motif_query_indices")
+        if (query_chains != ['A'] or set(structure_chains) != {'A'} or not isinstance(indices, list)
+                or not indices or any(type(i) is not int for i in indices)
+                or indices != sorted(set(indices))):
+            die('motif-beta requires one explicitly mapped scaffold chain A')
+        query = proteins['A']['sequence']
+        template_sequence, atoms = structure_chains['A']
+        if (query != metadata.get('query_sequence') or min(indices) < 0 or max(indices) >= len(query)
+                or ''.join(query[i] for i in indices) != template_sequence):
+            die('motif-beta template identity or positional mapping changed')
+        sidecars = yaml_path.parent / '.target_templates'
+        sidecars.mkdir(parents=True, exist_ok=True)
+        path = sidecars / f'{yaml_path.stem}_motif.json'
+        path.write_text(json.dumps([dict(mmcif=_mmcif_string(atoms), queryIndices=indices,
+                                        templateIndices=list(range(len(indices))))]) + '\n')
+        empty = sidecars / 'empty.json'; empty.write_text('[]\n')
+        for chain, protein in proteins.items():
+            protein['templatesPath'] = str((path if chain == 'A' else empty).resolve())
+        return
     sidecars = yaml_path.parent / ".target_templates"
     sidecars.mkdir(parents=True, exist_ok=True)
     empty_path = sidecars / "binder_A_empty.json"

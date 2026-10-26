@@ -5,6 +5,28 @@ engines and checkpoints are downloaded separately after the user chooses them;
 they are not part of the application binary and remain under their upstream
 terms.
 
+## RFD4 portable integration
+
+RFD4 scientific code is supplied by RosettaCommons/RFD4-Proteina (revision
+`2db07bb444d91695f8c10e6acb7648e9297f9221`), NVIDIA's RFD4-Proteina-prep
+(`c9959efdebd75ac7fe9129fbbf0e291a6e0487d5`), and Hugging Face Diffusers
+(`3421fed4a1655508436a5ca0c5179e88b0ec0afd`). Native and prep sources retain
+their BSD 3-Clause licences (Institute for Protein Design, University of
+Washington, 2026); Diffusers retains its Apache-2.0 licence. The separate runtime
+preserves upstream sources and licence files. Studio provides orchestration,
+input/output audits, Apple adapters and the interface. Model weights remain
+separate and subject to their upstream terms; none are bundled with the app.
+
+## RFdiffusion2 AME-41 benchmark inputs
+
+- Project: <https://github.com/RosettaCommons/RFdiffusion2>
+- Revision: `d365cbf4db3958814a9f8e4f6f94fa309dfebc2b`
+- Role: original catalytic motif atom selections and coordinate fixtures in the atomic motif beta
+- Licence: BSD 3-Clause, University of Washington, 2025
+- Unchanged licence and inputs: `pipeline/scripts/motif_beta/data/upstream/` in the app resources.
+
+Studio's derived inventory is not a verified release of Artios' 38-case subset.
+
 ## Sparkle 2.9.2
 
 - Project: <https://github.com/sparkle-project/Sparkle>

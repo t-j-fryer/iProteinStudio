@@ -2,6 +2,8 @@ import Foundation
 import CryptoKit
 
 enum StudioWorkflow: String, Codable {
+    case rfd4
+
     case iterative, nise, rfdiffusion3, prediction
     var label: String { rawValue }
 }

@@ -24,8 +24,10 @@ struct ManagedJob: Decodable, Identifiable {
     var isActive: Bool { ["queued", "running", "stopping"].contains(status) }
     var output: URL? { output_root.map { URL(fileURLWithPath: $0) } }
     var workflowLabel: String {
+        if kind == "desktop_motif_beta" { return "Atomic motif beta" }
         if kind.contains("iterative") { return "Protein Hunter" }
         if kind.contains("nise") { return "NISE" }
+        if kind.contains("rfd4") { return "RFD4" }
         if kind.contains("rfd3") || kind.contains("rfdiffusion3") { return "RFdiffusion3" }
         if kind.contains("prediction") || kind == "desktop_target_prepare" { return "Predict" }
         return kind
@@ -235,6 +237,7 @@ final class ManagedJobSession {
     func submit(project: String, workflow: String, output: URL,
                 preparing: @escaping (String) -> Void = { _ in },
                 update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) {
+        let memoryPolicy = UserDefaults.standard.bool(forKey: "overrideMemoryCheck") ? "override" : "enforce"
         self.update = update; self.failure = failure
         id = nil; cancellationRequested = false; hasSession = true
         task?.cancel()
@@ -258,7 +261,7 @@ final class ManagedJobSession {
             defer { progressTask.cancel() }
             do {
                 let request = output.appendingPathComponent("studio_submission.json")
-                try JSONEncoder().encode(["project": project, "workflow": workflow, "output": output.path])
+                try JSONEncoder().encode(["project": project, "workflow": workflow, "output": output.path, "memory_policy": memoryPolicy])
                     .write(to: request, options: .atomic)
                 let job = try await BrokerClient.call(["_desktop-submit", request.path], as: ManagedJob.self)
                 progressTask.cancel()

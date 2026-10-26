@@ -13,6 +13,7 @@ from pathlib import Path
 
 import mlx.core as mx
 import numpy as np
+from rfd3_motif_reference import checksum, fit_report
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +52,7 @@ def pdb_atom_field(name: str, element: str) -> str:
 
 
 class Fixture:
+    export_residue_ids = None  # Legacy single-ligand fixtures remain readable.
     def __init__(self, path: Path, ligand_code: str, motif_source_residues: list[str],
                  motif_fixed_atoms: dict[str, list[str]]):
         self.path = path
@@ -59,6 +61,10 @@ class Fixture:
             self.coord = np.asarray(z["coord_to_be_noised"], dtype=np.float32)
             self.export_names = np.asarray(z["export_atom_names"], dtype=str) if "export_atom_names" in z else None
             self.export_elements = np.asarray(z["export_elements"], dtype=str) if "export_elements" in z else None
+            self.export_residue_ids = (
+                list(zip(z["export_chain_ids"].astype(str), z["export_res_ids"].astype(int),
+                         z["export_res_names"].astype(str)))
+                if all(k in z for k in ("export_chain_ids", "export_res_ids", "export_res_names")) else None)
         self.tok = np.asarray(self.feats["atom_to_token_map"], dtype=int)
         self.names = decode_atom_names(self.feats["ref_atom_name_chars"])
         self.fixed_atoms = np.asarray(self.feats["is_motif_atom_with_fixed_coord"], dtype=bool)
@@ -116,7 +122,13 @@ class Fixture:
         if self.export_names.shape != (self.n_atoms,) or self.export_elements.shape != (self.n_atoms,):
             raise ValueError("Ligand export metadata does not match the feature atom count")
         names = self.export_names[ligand_atoms].tolist()
-        if len(set(names)) != len(names) or any(not n or len(n) > 4 or not n.isascii() or any(c.isspace() for c in n) for n in names):
+        if self.export_residue_ids is not None and len(self.export_residue_ids) != self.n_atoms:
+            raise ValueError("Ligand residue identity metadata does not match feature atom count")
+        if self.export_residue_ids is None and ',' in self.ligand_code:
+            raise ValueError("Multiple ligands require residue identity metadata; regenerate the fixtures")
+        identities = [(self.export_residue_ids[a] if self.export_residue_ids is not None else None,
+                       self.export_names[a]) for a in ligand_atoms]
+        if len(set(identities)) != len(names) or any(not n or len(n) > 4 or not n.isascii() or any(c.isspace() for c in n) for n in names):
             raise ValueError("Ligand export atom names must be unique valid PDB identifiers")
         # The model's ligand name features are element labels; verify that
         # export metadata addresses those same ordered atoms.
@@ -185,7 +197,7 @@ class Fixture:
                 candidate_atoms = {self.names[a]: a for a in np.where(self.tok == candidate)[0]}
                 pairs = [(ga, candidate_atoms[self.names[ga]]) for ga in guide_atoms
                          if self.names[ga] in candidate_atoms]
-                if not pairs:
+                if len(pairs) != len(guide_atoms):
                     continue
                 delta = np.asarray([coords[ca] - coords[ga] for ga, ca in pairs])
                 rmsd = float(np.sqrt((delta * delta).sum(-1).mean()))
@@ -214,11 +226,36 @@ class Fixture:
             })
             for i, source in enumerate(rmsds)
         }
+        reference_atoms, candidate_atoms, owners = {}, [], []
+        source_points = []
+        for source, guide in zip(mapping, guide_order):
+            _, slot_to_real = self._slot_maps(guide)
+            candidate = assignments[guide]
+            slots = {self.names[a]: a for a in np.where(self.tok == candidate)[0]}
+            source_atoms = {}
+            for a in np.where((self.tok == guide) & self.fixed_atoms)[0]:
+                name = slot_to_real.get(self.names[a], self.names[a])
+                if name not in fixed_atoms[source]:
+                    continue
+                xyz = np.asarray(self.coord[0, a], dtype=float).tolist()
+                source_atoms[name] = xyz
+                source_points.append(xyz)
+                candidate_atoms.append(coords[slots[self.names[a]]])
+                owners.append(source)
+            reference_atoms[source] = dict(component=AA3[int(self.restype[guide])], atoms=source_atoms)
+        candidate_rmsd, per_residue = fit_report(candidate_atoms, source_points, owners)
         return assignments, {
             "diffused_index_map": mapping,
             "motif_insertion_rmsd": float(np.mean(list(rmsds.values()))),
             "motif_insertion_rmsd_by_token": rmsds,
             "motif_fixed_atoms": fixed_atoms,
+            "motif_reference_schema": 1,
+            "motif_reference_atoms": reference_atoms,
+            "motif_reference_sha256": checksum(reference_atoms),
+            "motif_mapping_sha256": checksum(dict(mapping=mapping, fixed_atoms=fixed_atoms)),
+            "motif_candidate_rmsd_to_input": candidate_rmsd,
+            "motif_candidate_rmsd_by_residue": per_residue,
+            "motif_candidate_metric_stage": "before fixed motif atoms are copied into exported PDB",
             "fixed_residues": " ".join(sorted(mapping.values(), key=lambda x: int(x[1:]))),
         }
 
@@ -233,6 +270,14 @@ class Fixture:
             asym = int(self.asym_id[token]); per_asym[asym] += 1
             target_num[int(token)] = per_asym[asym]
         ligand_num = {t: 1 for t in self.ligand_tokens}
+        ligand_atoms = np.where(np.isin(self.tok, self.ligand_tokens))[0]
+        ligand_ids = list(dict.fromkeys(self.export_residue_ids[a] for a in ligand_atoms)) if self.export_residue_ids is not None else []
+        # One chain per molecular instance, avoiding fixed protein partners.
+        alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+        free_chains = [c for c in alphabet if c not in {'A', *target_chain.values()}]
+        if len(ligand_ids) > len(free_chains):
+            raise ValueError("Too many ligand instances for PDB export")
+        ligand_chains = dict(zip(ligand_ids, free_chains))
         design_num = {t: i + 1 for i, t in enumerate(self.design_tokens)}
         lines: list[str] = []
         serial = 1
@@ -275,6 +320,11 @@ class Fixture:
             elif token in ligand_num:
                 output_name = self.export_names[atom_idx]
                 record, chain, resnum, resname = "HETATM", "B", 1, self.ligand_code
+                if self.export_residue_ids is not None:
+                    identity = self.export_residue_ids[atom_idx]
+                    chain, resname = ligand_chains[identity], identity[2]
+                    if not resname or len(resname) > 3:
+                        raise ValueError("Ligand component cannot be represented in a PDB")
             else:
                 continue
             element = "".join(c for c in output_name if c.isalpha())[:2].strip().upper() or "C"
@@ -290,6 +340,11 @@ class Fixture:
             serial += 1
         lines.extend(["TER", "END"])
         path.write_text("\n".join(lines) + "\n")
+        if ligand_ids:
+            motif_meta['ligand_instance_map'] = [
+                dict(source_chain=key[0], source_residue=int(key[1]), component=key[2],
+                     output_chain=ligand_chains[key], output_residue=1)
+                for key in ligand_ids]
         return motif_meta
 
     def metrics(self, coords: np.ndarray) -> dict[str, float | int | None]:

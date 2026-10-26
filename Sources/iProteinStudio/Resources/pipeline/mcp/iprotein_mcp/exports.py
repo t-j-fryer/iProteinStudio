@@ -60,7 +60,7 @@ def _complete_index(run_id):
             sequence_cache[source_id] = sequences
         if source_id not in source_cache:
             source_cache[source_id] = []
-            for relative in ('studio_run.json', 'studio_job.json', 'config/studio_request.json'):
+            for relative in ('studio_run.json', 'studio_job.json', 'config/studio_request.json', 'rfd4_config.json', 'settings.json'):
                 path = (source_root/relative).resolve()
                 if path.is_file():
                     if source_root not in path.parents: raise StudioError('Unsafe source manifest.')

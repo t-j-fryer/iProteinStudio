@@ -45,7 +45,7 @@ if (root/('wait-'+name)).exists():
 '''.replace('FIXTURE_ROOT', repr(str(self.root))))
             runner.chmod(0o755)
             template = child / 'design.yaml'
-            template.write_text('synthetic fixture only')
+            template.write_text(json.dumps({'sequences':[{'protein':{'id':'B','sequence':'ACDE','msa':'empty'}}]}))
             args = ['--out-root', str(self.workspace), '--run-name', name, '--template-yaml', str(template),
                     '--num-runs', '12', '--num-opt-cycles', '5', '--design-scheduler', 'resident']
             common.atomic_json(child / 'studio_run.json', {'pipelineSnapshot': str(snapshot), 'arguments': args,
@@ -64,7 +64,11 @@ if (root/('wait-'+name)).exists():
         self.tmp.cleanup()
 
     def plan(self):
-        return desktop_plan({'project': 'demo', 'workflow': 'iterative_batch', 'output': str(self.batch)})
+        # Inert workers exercise orchestration, not the host's available model memory.
+        plan = desktop_plan({'project': 'demo', 'workflow': 'iterative_batch',
+                             'output': str(self.batch), 'memory_policy': 'override'})
+        self.assertEqual(plan['normalized_request']['memory_policy'], 'override')
+        return plan
 
     def start(self):
         plan = self.plan()

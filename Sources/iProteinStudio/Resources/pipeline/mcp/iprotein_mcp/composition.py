@@ -9,6 +9,8 @@ from . import plans
 PLAN_CONTEXT=ContextVar('studio_plan_context',default=None)
 SCHEMAS=Path(__file__).resolve().parents[1]/'schemas'
 ROUTES={
+    'motif_beta':('motif-beta-v1.json','motif_beta'),
+    'rfd4':('rfd4-v1.json','rfd4'),
     'prediction':('prediction-v1.json','prediction'),
     'protein_hunter':('iterative-design-v1.json','iterative_design'),
     'protein_hunter_batch':('iterative-batch-v1.json','iterative_design'),
@@ -21,17 +23,21 @@ PIPELINE_SCHEMA={'type':'object','additionalProperties':False,'required':['schem
     'properties':{'schema_version':{'type':'integer','const':2},'route':{'enum':list(ROUTES)},
                   'parameters':{'type':'object'},'name':{'type':'string','minLength':1,'maxLength':120}}}
 
+from .memory import memory_request, requested_policy
+
 def pipeline_catalog():
     routes={}
     for name,(schema,guide) in ROUTES.items():
         routes[name]={'workflow_guide':guide,'parameters_schema':json.loads((SCHEMAS/schema).read_text())}
     return dict(schema_version=2,recipe_schema=PIPELINE_SCHEMA,routes=routes,
         stage_contracts={
+            'rfd4':'Joint sequence/structure generation or imported structures → optional fixed/iterative/greedy/beam exploration → configured protein or ligand assessment; native diffusion rollouts are separate.',
             'protein_hunter':'Supported initialization → sequence design/refinement cycles → requested independent checks → optional ligand verification.',
             'rfd3_denovo':'Backbone generation → sequence assignment → configured prediction and assessment; ligand screening selects the explicit native route.',
             'ligand_nise':'Initial generator → proposal/geometry/selection stages → optional final checks.'},
         interpretation='Executable recipes bind complete existing workflow schemas. They do not execute arbitrary graphs; prototype v1 sample recipes must be explicitly rebound to a supported v2 route.')
 
+@memory_request
 def recipe_plan(recipe):
     validate_schema(recipe,PIPELINE_SCHEMA,'recipe')
     route=recipe['route'];parameters=copy.deepcopy(recipe['parameters'])
@@ -39,6 +45,12 @@ def recipe_plan(recipe):
     context={'schema_version':2,'recipe':copy.deepcopy(recipe),'recipe_sha256':canonical_digest(recipe)}
     token=PLAN_CONTEXT.set(context)
     try:
+        if route=='motif_beta':
+            from .motif_beta import plan
+            return plan(parameters)
+        if route=='rfd4':
+            from .rfd4 import plan
+            return plan(parameters)
         if route=='prediction':return plans.prediction_plan(parameters)
         if route=='protein_hunter':return plans.iterative_plan(parameters)
         if route=='protein_hunter_batch':return iterative_batch_plan(parameters)
@@ -54,6 +66,7 @@ def recipe_plan(recipe):
 def _option(arguments,flag,default=None):
     return arguments[arguments.index(flag)+1] if flag in arguments else default
 
+@memory_request
 def iterative_batch_plan(arguments):
     schema=json.loads((SCHEMAS/'iterative-batch-v1.json').read_text())
     validate_schema(arguments,schema)

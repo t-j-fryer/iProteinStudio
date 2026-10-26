@@ -1,0 +1,264 @@
+{
+  "version": 1,
+  "policy": "protein-memory-v1",
+  "source_lab_books": [
+    "0241",
+    "0244",
+    "0245",
+    "0299",
+    "0457"
+  ],
+  "hardware": "Apple M4 Max, 40-core GPU, 64 GB unified memory, macOS 26.6.1",
+  "scope": "Historical protein-only inference; maxima include sampled loading and request footprints. Estimates, not guarantees.",
+  "margin": 1.3,
+  "overhead_gib": 1.0,
+  "profiles": {
+    "boltz": {
+      "base_gib": 4.79,
+      "quadratic_gib": 3.02898e-05,
+      "cubic_bytes": 16,
+      "maximum_tokens": 916,
+      "anchors": [
+        {
+          "tokens": 96,
+          "peak_gib": 4.773059,
+          "n": 5
+        },
+        {
+          "tokens": 164,
+          "peak_gib": 4.786883,
+          "n": 5
+        },
+        {
+          "tokens": 370,
+          "peak_gib": 9.688342,
+          "n": 5
+        },
+        {
+          "tokens": 916,
+          "peak_gib": 26.393361,
+          "n": 5
+        }
+      ]
+    },
+    "intellifold": {
+      "base_gib": 4.42,
+      "quadratic_gib": 2.36855e-05,
+      "cubic_bytes": 0,
+      "maximum_tokens": 916,
+      "anchors": [
+        {
+          "tokens": 96,
+          "peak_gib": 4.309651,
+          "n": 5
+        },
+        {
+          "tokens": 164,
+          "peak_gib": 4.416813,
+          "n": 5
+        },
+        {
+          "tokens": 370,
+          "peak_gib": 7.520634,
+          "n": 5
+        },
+        {
+          "tokens": 916,
+          "peak_gib": 24.290213,
+          "n": 5
+        }
+      ]
+    },
+    "intellifold-full": {
+      "base_gib": 8.32,
+      "quadratic_gib": 6.28009e-05,
+      "cubic_bytes": 0,
+      "maximum_tokens": 916,
+      "anchors": [
+        {
+          "tokens": 96,
+          "peak_gib": 7.207647,
+          "n": 5
+        },
+        {
+          "tokens": 164,
+          "peak_gib": 8.315069,
+          "n": 5
+        },
+        {
+          "tokens": 370,
+          "peak_gib": 16.009726,
+          "n": 5
+        },
+        {
+          "tokens": 916,
+          "peak_gib": 61.008522,
+          "n": 5
+        }
+      ]
+    },
+    "openfold-3-mlx": {
+      "base_gib": 8.04,
+      "quadratic_gib": 7.03516e-05,
+      "cubic_bytes": 16,
+      "maximum_tokens": 916,
+      "anchors": [
+        {
+          "tokens": 96,
+          "peak_gib": 7.854193,
+          "n": 5
+        },
+        {
+          "tokens": 164,
+          "peak_gib": 8.031653,
+          "n": 5
+        },
+        {
+          "tokens": 370,
+          "peak_gib": 16.24314,
+          "n": 5
+        },
+        {
+          "tokens": 916,
+          "peak_gib": 78.513236,
+          "n": 5
+        }
+      ]
+    },
+    "esmfold2-fast-mlx": {
+      "base_gib": 20.12,
+      "quadratic_gib": 2.26718e-05,
+      "cubic_bytes": 0,
+      "maximum_tokens": 916,
+      "anchors": [
+        {
+          "tokens": 96,
+          "peak_gib": 19.569038,
+          "n": 5
+        },
+        {
+          "tokens": 164,
+          "peak_gib": 20.110695,
+          "n": 5
+        },
+        {
+          "tokens": 370,
+          "peak_gib": 21.633979,
+          "n": 5
+        },
+        {
+          "tokens": 916,
+          "peak_gib": 39.133521,
+          "n": 5
+        }
+      ]
+    },
+    "esmfold2-full-mlx": {
+      "base_gib": 20.72,
+      "quadratic_gib": 2.9421e-05,
+      "cubic_bytes": 0,
+      "maximum_tokens": 916,
+      "anchors": [
+        {
+          "tokens": 96,
+          "peak_gib": 20.249993,
+          "n": 5
+        },
+        {
+          "tokens": 164,
+          "peak_gib": 20.716454,
+          "n": 5
+        },
+        {
+          "tokens": 370,
+          "peak_gib": 22.291725,
+          "n": 5
+        },
+        {
+          "tokens": 916,
+          "peak_gib": 45.402259,
+          "n": 5
+        }
+      ]
+    },
+    "protenix-mini": {
+      "base_gib": 4.79,
+      "quadratic_gib": 3.25247e-05,
+      "cubic_bytes": 16,
+      "maximum_tokens": 916,
+      "anchors": [
+        {
+          "tokens": 96,
+          "peak_gib": 4.782596,
+          "n": 5
+        },
+        {
+          "tokens": 164,
+          "peak_gib": 4.770237,
+          "n": 5
+        },
+        {
+          "tokens": 370,
+          "peak_gib": 9.013569,
+          "n": 5
+        },
+        {
+          "tokens": 916,
+          "peak_gib": 43.525305,
+          "n": 5
+        }
+      ]
+    },
+    "protenix-constraint-v0.5": {
+      "base_gib": 6.14,
+      "quadratic_gib": 3.61785e-05,
+      "cubic_bytes": 16,
+      "maximum_tokens": 916,
+      "anchors": [
+        {
+          "tokens": 96,
+          "peak_gib": 6.135472,
+          "n": 5
+        },
+        {
+          "tokens": 164,
+          "peak_gib": 6.0723,
+          "n": 5
+        },
+        {
+          "tokens": 370,
+          "peak_gib": 10.067311,
+          "n": 5
+        },
+        {
+          "tokens": 916,
+          "peak_gib": 47.943884,
+          "n": 5
+        }
+      ]
+    },
+    "protenix-v2": {
+      "base_gib": 7.25,
+      "quadratic_gib": 3.65013e-05,
+      "cubic_bytes": 32,
+      "maximum_tokens": 370,
+      "anchors": [
+        {
+          "tokens": 96,
+          "peak_gib": 6.586186,
+          "n": 5
+        },
+        {
+          "tokens": 164,
+          "peak_gib": 7.242192,
+          "n": 5
+        },
+        {
+          "tokens": 370,
+          "peak_gib": 13.748784,
+          "n": 5
+        }
+      ]
+    }
+  }
+}

@@ -469,6 +469,10 @@ private struct MotifMappingSummary: View {
     var body: some View {
         DisclosureGroup("Motif correspondence") {
             VStack(alignment: .leading, spacing: 6) {
+                Text(item.metrics.contains(where: { $0.kind == .motifInputRMSD })
+                     ? "Per-residue RMSDs share one global fit to the original input motif."
+                     : "Residue values describe the recorded generation or generated-backbone recovery metric.")
+                    .font(.caption2).foregroundStyle(.secondary)
                 ForEach(item.motifMapping.keys.sorted(), id: \.self) { source in
                     HStack {
                         Text(source).font(.caption.monospaced().weight(.semibold))

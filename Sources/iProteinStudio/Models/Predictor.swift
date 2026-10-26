@@ -11,14 +11,14 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     case openfold3, alphafold3
     case protenixConstraint = "protenix_constraint"
     case intellifoldJAX = "intellifold_jax"
-    case rfd3
+    case rfd3, rfd4
 
     /// AlphaFold 3 and IntelliFold JAX remain decodable so old projects and
     /// run manifests still open, but they are not installable components.
     static var allCases: [InstallComponent] {
         [.boltz, .boltzAffinity, .mpnn, .abmpnn, .antifold, .lasermpnn, .nesso, .psichic,
          .intellifold, .intellifoldFull, .protenix, .protenixV2,
-         .protenixMini, .protenixConstraint, .openfold3, .esmfold2, .esmfold2Full, .esmfold2Fast, .rfd3]
+         .protenixMini, .protenixConstraint, .openfold3, .esmfold2, .esmfold2Full, .esmfold2Fast, .rfd3, .rfd4]
     }
 
     /// Runtime-only dependency rows are detected and managed, but users choose
@@ -50,6 +50,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .alphafold3:     return "AlphaFold 3 (retired)"
         case .intellifoldJAX: return "IntelliFold JAX (retired)"
         case .rfd3:           return "RFdiffusion3"
+        case .rfd4:           return "RFD4 (experimental)"
         }
     }
 
@@ -57,6 +58,12 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     /// design workflow needs one. Every prediction engine is a free choice,
     /// because they cost gigabytes and nobody needs all of them.
     var isCore: Bool { self == .mpnn }
+
+    /// Complete starting set for the recommended design workflows. Shared
+    /// runtimes remain dependencies, rather than extra user-facing choices.
+    static let baseSelection: Set<InstallComponent> = [
+        .rfd4, .esmfold2Full, .boltz, .boltzAffinity, .mpnn, .abmpnn, .lasermpnn,
+    ]
 
     /// Flag that asks `setup_pipeline.sh` to install this component.
     var installFlag: String? {
@@ -81,6 +88,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .psichic:        return "--with-psichic"
         case .nesso:          return "--with-nesso"
         case .rfd3:           return "--with-rfd3"
+        case .rfd4:           return "--with-rfd4"
         }
     }
 
@@ -107,6 +115,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .psichic:        return "~6 GB budget"
         case .nesso:          return "~6 GB budget"
         case .rfd3:           return "~5 GB"
+        case .rfd4:           return "~5 GB budget"
         }
     }
 
@@ -134,6 +143,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .psichic:             return 6 * gib
         case .nesso:               return 6 * gib
         case .rfd3:                return 5 * gib
+        case .rfd4:                return 5 * gib
         case .alphafold3, .intellifoldJAX: return 0
         }
     }
@@ -163,6 +173,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .psichic:        return "Experimental small-molecule sequence screening. Ranks 1 − nonbinder; does not generate structures. Binding accuracy for designed proteins is unvalidated."
         case .nesso:          return "Optional small-molecule sequence screening in NISE, RFdiffusion3 and Protein Hunter. Predicts small-molecule affinity; does not generate structures. Ranking accuracy for designed binders is unvalidated."
         case .rfd3:           return "The RFdiffusion3 tab — generating binder backbones from scratch."
+        case .rfd4:           return "Joint sequence and structure generation, conditioning, partial diffusion and inverse folding."
         }
     }
 
@@ -184,7 +195,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
     var minimumRuntimeMacOS: OperatingSystemVersion {
         switch self {
         case .esmfold2, .esmfold2Full, .esmfold2Fast: return OperatingSystemVersion(majorVersion: 26, minorVersion: 2, patchVersion: 0)
-        case .openfold3, .rfd3: return OperatingSystemVersion(majorVersion: 26, minorVersion: 2, patchVersion: 0)
+        case .openfold3, .rfd3, .rfd4: return OperatingSystemVersion(majorVersion: 26, minorVersion: 2, patchVersion: 0)
         case .protenix, .protenixV2, .protenixMini: return OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0)
         default: return OperatingSystemVersion(majorVersion: 14, minorVersion: 0, patchVersion: 0)
         }
@@ -215,6 +226,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
             return "Experimental, design-only checkpoint (~1.5 GB). Native Apple GPU, strict weights, no ESM download and no CPU fallback."
         case .alphafold3, .intellifoldJAX: return "No longer installable or runnable in Studio."
         case .rfd3:           return "Requires macOS 26.2 or newer. Downloads a ~1.3 GB checkpoint."
+        case .rfd4:           return "Experimental Apple GPU runtime with separately verified weights. This development build uses a locally qualified runtime package; a public download is not yet published. Requires macOS 26.2+."
         default:              return nil
         }
     }
@@ -425,7 +437,8 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
     /// Honest one-line caveat shown next to the choice. Empty when there is none.
     var caveat: String {
         switch self {
-        case .esmfold2Full, .esmfold2Fast: return "Experimental MLX port by Fausto Milletari and contributors, using Biohub models. No affinity head, template guidance or X-token hallucination. Fast and Full are one model family, not independent checks of one another."
+        case .esmfold2Full: return "Experimental MLX port by Fausto Milletari and contributors, using Biohub models. Full supports fixed-framework CDR-only X-token starts. No affinity head, template guidance or whole-chain X-token generation. Fast and Full are one model family, not independent checks of one another."
+        case .esmfold2Fast: return "Experimental MLX port by Fausto Milletari and contributors, using Biohub models. No affinity head, template guidance or X-token hallucination. Fast and Full are one model family, not independent checks of one another."
         case .alphafold3:
             return "No longer installable or runnable in Studio."
         case .intellifold:

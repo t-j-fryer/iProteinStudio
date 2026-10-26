@@ -88,10 +88,16 @@ studio_ligand_efficiency: laser-resident-postload-seed-v2; boltz-affinity50-1; b
 studio_ligand_efficiency_validation: lab_book/0430-qualify-lasermpnn-cpu-residency.md, lab_book/0432-run-biotin-affinity-efficiency.md, lab_book/0442-release-ligand-efficiency.md
 studio_epitope_guidance: shared-generation-refinement-policy-v1
 studio_output_reporting: batched-content-addressed-inspection-v1
-studio_mcp: 44
+studio_mcp: 45
 
 studio_target_msa_policy: auto-resolved-not-filename-v1
 studio_target_msa_policy_validation: lab_book/0445-hunter-auto-msa-policy.md
 
 studio_esmfold_handoff: generation-metadata-scoped-v2
 studio_esmfold_handoff_validation: lab_book/0446-clean-esmfold-refinement-metadata.md
+
+studio_design_intentions: recommended-and-saved-workflows-v1
+studio_rfd4_integration: native-generation-search-multichain-v1
+studio_motif_beta_bridge: typed-managed-plans-v1
+studio_workflow_evidence: dated-qualification-reference-20261026
+studio_current_integration_validation: lab_book/0559-integrate-rfd4-and-design-search.md, lab_book/0574-sequence-targets-and-workflow-capabilities.md, lab_book/0577-publish-workflows-and-evidence.md

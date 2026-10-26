@@ -40,6 +40,14 @@ class MCPBridgeTests(unittest.TestCase):
             plans._normalize_iterative_arguments(["openfold3-mlx" if x == "boltz" else x for x in base] + motif)
 
     def setUp(self):
+        # Protocol, provenance and queue fixtures do not represent real models.
+        # The memory policy still runs in both planner and detached worker on
+        # this frozen synthetic workload. Extraction has its own safety suite.
+        memory_fixture = patch('iprotein_mcp.memory.configs_for_plan', return_value=[{
+            'predictors':['boltz'], 'jobs':[{'name':'bridge-fixture', 'chains':[
+                {'kind':'protein','id':'A','sequence':'ACDEFG','msa':'empty'}]}]}])
+        memory_fixture.start()
+        self.addCleanup(memory_fixture.stop)
         self.temporary = tempfile.TemporaryDirectory(prefix="iproteinstudio-mcp-")
         self.root = Path(self.temporary.name).resolve()
         os.environ["IPROTEINSTUDIO_TEST_SUPPORT_ROOT"] = str(self.root)
@@ -320,9 +328,14 @@ active.unlink(); print('PBSTAGE|done|100|finished', flush=True)
         template = self.root / "projects/demo/inputs/monomer.yaml"
         request = {"project": "demo", "run_name": "baseline-benchmark", "template_path": str(template),
                    "monomer_control_benchmark": True, "arguments": base + ["--random-binder"] + controls}
-        with patch.object(plans.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "ok", "")) as check:
+        original_run = subprocess.run
+        def check_template(command, *args, **kwargs):
+            if 'check-template' in command:
+                return subprocess.CompletedProcess(command, 0, 'ok', '')
+            return original_run(command, *args, **kwargs)
+        with patch.object(plans.subprocess, "run", side_effect=check_template) as check:
             plan = plans.iterative_plan(request)
-        self.assertIn("check-template", check.call_args.args[0])
+        self.assertTrue(any('check-template' in call.args[0] for call in check.call_args_list))
         args = plan["normalized_request"]["arguments"]
         self.assertEqual(args[args.index("--design-scheduler") + 1], "run")
         self.assertNotIn("initialization_refinement", plan["normalized_request"])
