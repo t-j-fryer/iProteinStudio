@@ -68,6 +68,12 @@ The 0.2.28 ESMFold2Fast-600M integration also passed an initially empty
 600M-only installation and managed prediction/target-preparation tests without
 6B weights; see [600M qualification](../lab_book/0586-integrate-esmfold2-600-release.md).
 
+The 0.2.29 release delivers the corrected 600M descriptions and acknowledgements.
+Public downloads, signatures, feed and local app installation are verified in
+[Lab Book 0610](../lab_book/0610-release-029-capability-labels.md). Active jobs keep
+their saved code; the app defers managed workflow/bridge refresh until their
+execution lease is released.
+
 ## Maintainer release procedure
 
 1. Update `VERSION`, increase `BUILD_NUMBER`, and add concise release notes to
