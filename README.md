@@ -103,7 +103,7 @@ remain separate from these qualification limits.
 
 | Role | Available choices |
 | --- | --- |
-| Structure prediction | Boltz-2, IntelliFold v2 Flash/full, Protenix v2/Mini, OpenFold3/MLX; experimental ESMFold2 Fast/Full MLX and ESMFold2Fast-600M |
+| Structure prediction | Boltz-2, IntelliFold v2 Flash/full, Protenix v2/Mini, OpenFold3/MLX; experimental ESMFold2 Fast/Full MLX; ESMFold2Fast-600M |
 | Experimental guided proposals | Protenix Constraint, separate from unconstrained validation |
 | Sequence design | ProteinMPNN, SolubleMPNN, LigandMPNN, AbMPNN, AntiFold, LASErMPNN |
 | Backbone generation | RFdiffusion3/MLX; experimental RFD4 integration |
@@ -116,11 +116,12 @@ PSICHIC scores. [Runtime documentation](docs/PORTABLE_RUNTIME_IMPLEMENTATION.md)
 records package identities, compatibility, recovery and qualification limits.
 See [prediction settings](docs/PREDICTION_PROFILES.md) for compute budgets and
 [ESMFold2](docs/ESMFOLD2.md) for its additional memory, input and workflow limits.
-**ESMFold2Fast-600M** is an opt-in experimental predictor in the app, CLI and
+**ESMFold2Fast-600M** is an optional sequence-only predictor in the app, CLI and
 MCP, including target preparation, completed-sequence refinement and compatible
 custom workflows. Its independent 600M encoder avoids downloading ESMC-6B.
-Standard and low-memory settings are available; no 16 GB hardware compatibility
-claim is made. It has no MSA, X-token initialization, template or affinity head.
+Standard and low-memory settings are available. It reports structural confidence
+metrics for prediction and compatible refinement; see the model documentation
+for its input capabilities and measured hardware coverage.
 See [installation, capabilities and measured limits](docs/ESMFOLD2.md#memory-controls-and-esmfold2fast-600m)
 and [integration qualification](lab_book/0586-integrate-esmfold2-600-release.md).
 
@@ -157,6 +158,62 @@ The [assistant guide](docs/AI_ASSISTANTS.md) covers setup, tool order, examples,
 current GUI/MCP differences and an optional portable operating skill. Local
 protein-model inference does not require an AI assistant; a chosen assistant or
 remote MSA service may use external infrastructure. Remote access is opt-in.
+
+## Acknowledgements and scientific attribution
+
+Studio builds on the work of the researchers and maintainers below. Please cite
+the original methods and models used in your runs, as well as Studio when
+appropriate. Model authorship, Apple-silicon implementation and workflow
+integration are distinct contributions.
+
+| Contribution used in Studio | Original projects and contributors |
+| --- | --- |
+| X-token hallucination and alternating sequence/structure design | [Protein Hunter](https://github.com/yehlincho/Protein-Hunter), Yehlin Cho, Griffin Rangel, Gaurav Bhardwaj, Sergey Ovchinnikov and contributors |
+| Neural iterative selection–expansion | [NISE](https://github.com/polizzilab/NISE), the Polizzi laboratory and contributors; Studio's ligand integration and extensions retain versioned provenance |
+| Protein and ligand structure prediction; ligand affinity | [Boltz-2](https://github.com/jwohlwend/boltz), the Boltz authors and contributors |
+| IntelliFold v2 Flash/full | [IntelliFold](https://github.com/IntelliGen-AI/IntelliFold), IntelliGen-AI and contributors |
+| Protenix v2, Mini and Constraint | [Protenix](https://github.com/bytedance/Protenix), the ByteDance Protenix team and contributors |
+| OpenFold3 and its Apple-silicon implementation | [OpenFold3](https://github.com/aqlaboratory/openfold-3), the OpenFold team and contributors; [openfold-3-mlx](https://github.com/latent-spacecraft/openfold-3-mlx), Geoffrey Taghon (latent-spacecraft) and contributors |
+| ESMFold2 Fast/Full and ESMC | [Biohub ESM](https://github.com/Biohub/esm), the Biohub model authors; [MLX port](https://github.com/faustomilletari/mlx-lm) by Fausto Milletari and contributors |
+| ESMFold2Fast-600M and ESM++ encoder | [Synthyra ESMFold2-600](https://huggingface.co/Synthyra/ESMFold2-600), [ESM++](https://huggingface.co/Synthyra/ESMplusplus_large) and [FastPLMs](https://github.com/Synthyra/FastPLMs), Synthyra and contributors, adapted using the ESMFold2 MLX port above |
+| RFdiffusion3 | [RFdiffusion3 / Foundry](https://github.com/RosettaCommons/foundry), the Institute for Protein Design / RosettaCommons and collaborators; [rfd3-mlx](https://github.com/javierbq/rfd3-mlx), javierbq and contributors |
+| RFD4 | [RFD4-Proteina](https://github.com/RosettaCommons/RFD4-Proteina), the Institute for Protein Design / RosettaCommons and collaborators; [RFD4-Proteina-prep](https://github.com/NVIDIA/RFD4-Proteina-prep), NVIDIA and contributors; [Diffusers](https://github.com/huggingface/diffusers), Hugging Face and contributors |
+| ProteinMPNN, SolubleMPNN and LigandMPNN | [ProteinMPNN](https://github.com/dauparas/ProteinMPNN) and [LigandMPNN](https://github.com/dauparas/LigandMPNN), Justas Dauparas and collaborators |
+| Antibody sequence design | [AbMPNN](https://zenodo.org/records/8164693), Frédéric A. Dreyer, Daniel Cutting, Constantin Schneider, Henry Kenlay and Charlotte M. Deane; [AntiFold](https://github.com/oxpig/AntiFold), the Oxford Protein Informatics Group and collaborators. The approved equivalent AbMPNN serialization is credited to [Mosaic](https://github.com/escalante-bio/mosaic) |
+| Ligand-conditioned sequence design and packing | [LASErMPNN](https://github.com/polizzilab/LASErMPNN), the Polizzi laboratory and contributors |
+| Sequence–ligand screening | [NESSO](https://github.com/recursionpharma/nesso), Recursion and contributors; [PSICHIC](https://github.com/huankoh/PSICHIC), Huan Koh and collaborators; their ESM-2 features build on [Meta's ESM](https://github.com/facebookresearch/esm) |
+| Interface scoring | [ipSAE](https://github.com/DunbrackLab/IPSAE), Roland Dunbrack's laboratory |
+| Atomic motif benchmark inputs | [RFdiffusion2 AME benchmark](https://github.com/RosettaCommons/RFdiffusion2), the Institute for Protein Design / RosettaCommons and collaborators |
+
+We also thank the maintainers of [PyTorch](https://github.com/pytorch/pytorch),
+[MLX](https://github.com/ml-explore/mlx), [MLX-LM](https://github.com/ml-explore/mlx-lm),
+[Transformers](https://github.com/huggingface/transformers),
+[NumPy](https://numpy.org/), [SciPy](https://scipy.org/),
+[Biopython](https://biopython.org/), [Biotite](https://www.biotite-python.org/),
+[Gemmi](https://gemmi.readthedocs.io/), [RDKit](https://www.rdkit.org/),
+[ColabFold](https://github.com/sokrypton/ColabFold),
+[MMseqs2](https://github.com/soedinglab/MMseqs2) and
+[Kalign](https://github.com/TimoLassmann/kalign) for the numerical, structural,
+chemical and alignment infrastructure. Structure/reference data and optional
+discovery use [wwPDB](https://www.wwpdb.org/) and [RCSB PDB](https://www.rcsb.org/),
+including the Chemical Component Dictionary. Manuscript secondary-structure
+analyses use [DSSP](https://github.com/PDB-REDO/dssp).
+
+The desktop app uses [Sparkle](https://github.com/sparkle-project/Sparkle) for
+updates, [py2Dmol](https://github.com/sokrypton/py2Dmol) and
+[3Dmol.js](https://github.com/3dmol/3Dmol.js) for molecular views, RDKit MinimalLib
+for ligand depiction, and [uv](https://github.com/astral-sh/uv) for runtime setup.
+Swift, SwiftUI and Metal are provided by Apple. The
+[Model Context Protocol](https://modelcontextprotocol.io/) and its contributors
+provide the assistant interoperability standard.
+
+Studio contributes the native interface, portable installation, workflow
+integration, scheduling, recovery, provenance and documented search extensions.
+Acknowledgement does not imply upstream endorsement. Exact pins, adaptations and
+licence notices are retained in [third-party notices](THIRD_PARTY_NOTICES.md),
+[the pipeline notices](Sources/iProteinStudio/Resources/pipeline/THIRD_PARTY_NOTICES.md)
+and the runtime/model manifests. Model weights remain separate downloads under
+their original terms.
 
 ## Development
 

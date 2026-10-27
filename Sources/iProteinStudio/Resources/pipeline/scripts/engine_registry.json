@@ -291,7 +291,7 @@
         "models/esmfold2"
       ],
       "command_family": "esmfold2",
-      "experimental": true,
+      "experimental": false,
       "session": "ESMFold2Session"
     }
   }

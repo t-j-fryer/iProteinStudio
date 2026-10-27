@@ -1,4 +1,4 @@
-"""Pinned Synthyra 600M beta loader for the existing immutable MLX runtime.
+"""Pinned Synthyra 600M loader for the existing immutable MLX runtime.
 
 No remote Python is executed. Remapping changes tensor names only; every tensor,
 including the adapted confidence head and encoder MLM head, loads strictly.
@@ -21,7 +21,7 @@ def validate_assets(root):
         with path.open('rb') as stream:
             for block in iter(lambda: stream.read(8 << 20), b''): h.update(block)
         if h.hexdigest() != item['sha256']:
-            raise ValueError('ESMFold2 600 beta asset changed: ' + item['path'])
+            raise ValueError('ESMFold2Fast-600M asset changed: ' + item['path'])
         result[item['path']] = h.hexdigest()
     return dict(folding_revision=FOLD_REVISION, encoder_revision=ENCODER_REVISION,
                 confidence='Synthyra adapted v1; Mac calibration unqualified', files=result)
@@ -64,7 +64,7 @@ def load(root, mx, esmfold2, esmc):
             or config.get('msa_encoder', {}).get('enabled') is not False
             or config.get('confidence_head', {}).get('enabled') is not True
             or config.get('folding_trunk', {}).get('n_layers') != 24):
-        raise ValueError('Unsupported 600 beta architecture')
+        raise ValueError('Unsupported 600M architecture')
     tokenizer = json.loads((encoder / 'tokenizer.json').read_text())
     vocab = tokenizer['model']['vocab']
     if any(vocab.get(token) != i for i, token in enumerate(esmc.SEQUENCE_VOCAB)):

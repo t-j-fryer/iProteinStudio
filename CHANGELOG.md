@@ -1,11 +1,11 @@
 # iProteinStudio release notes
 
-## 0.2.28 — ESMFold2Fast-600M beta
+## 0.2.28 — ESMFold2Fast-600M
 
 - Add the separately pinned 600M model and encoder to Engines, Predict, target preparation, compatible sequence refinement, RFD3 checks, RFD4 protein/nanobody search and NISE structural checks. App, CLI, MCP and saved custom workflows retain its exact identity.
 - Install the self-contained MLX runtime and 600M assets without downloading the 6B encoder. Expose transition chunking and allocator-cache controls, including a low-memory preset. macOS 26.2+ on Apple silicon is required; memory admission remains explicitly uncalibrated.
 - Parse native confidence and interface metrics, retain seed/sample identity and avoid counting representative copies twice or mixing similarly named inputs. RFD4 results expose confidence from their exact prediction.
-- Ship evidence-aware skills and Figure 2a benchmark context. 600M remains experimental, sequence-only and without X-token initialization, template guidance or an affinity head. It does not replace the recommended Full/Boltz workflows or establish 16 GB hardware compatibility.
+- Ship evidence-aware skills and Figure 2a benchmark context. 600M is sequence-only and does not support X-token initialization, template guidance or an affinity head. It does not replace the recommended Full/Boltz workflows or establish 16 GB hardware compatibility.
 
 
 ## 0.2.27 — RFD4 and intention-based design

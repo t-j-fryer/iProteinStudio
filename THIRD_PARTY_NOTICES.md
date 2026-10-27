@@ -94,6 +94,7 @@ remain in `Sources/iProteinStudio/Resources/pipeline/THIRD_PARTY_NOTICES.md`.
 
 The managed installer can retrieve pinned versions of Boltz, LigandMPNN,
 AntiFold, IntelliFold, Protenix, LASErMPNN, OpenFold-3 MLX, RFdiffusion3 MLX,
+RFD4, ESMFold2 Fast/Full/600M, ESMC, ESM++, ProteinMPNN/SolubleMPNN, AbMPNN,
 NESSO and PSICHIC,
 their Python dependencies, model checkpoints and chemical reference data.
 Those payloads are stored outside the app in `~/.iproteinstudio`; they are not
@@ -137,7 +138,7 @@ choices, measured speed scope and experimental limitations.
 
 ## Optional ESMFold2Fast-600M
 
-The separate experimental Synthyra 600M checkpoint and ESM++ encoder are
+The separate Synthyra 600M checkpoint and ESM++ encoder are
 downloaded from pinned upstream revisions. The architecture/confidence adapter
 reuses the existing MLX port. Source licences and checkpoint notices are retained
 in [the bundled pipeline notices](Sources/iProteinStudio/Resources/pipeline/THIRD_PARTY_NOTICES.md)

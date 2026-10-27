@@ -1,7 +1,7 @@
-"""Experimental ESMFold2 architecture using the pinned MLX primitives.
+"""ESMFold2Fast-600M architecture using the pinned MLX primitives.
 
 Feature preparation/auxiliary layout derives from Fausto Milletari's MIT MLX
-port c26b9af872158d822a8c95589708eedd3b9c0831. The experimental recycling and
+port c26b9af872158d822a8c95589708eedd3b9c0831. The checkpoint-specific recycling and
 zero-MSA feature contract follows Synthyra/FastPLMs' Apache-2.0 implementation bundled
 in Synthyra/ESMFold2-600 at 38fa0be7397a485afd4a752202447693098f3d50.
 Weights/residuals use FP32; the inherited MLX folding trunk computes in BF16.
@@ -49,7 +49,7 @@ class Experimental600(port.ESMFold2Model):
         n_tokens = L
 
         res_type_oh = port._one_hot(feats["res_type"], port.NUM_RES_TYPES) * tok_mask[..., None]
-        # The 600 experimental checkpoint explicitly disables MSA features,
+        # The 600M checkpoint explicitly disables MSA features,
         # including the query-only profile; this differs from the release port.
         profile = mx.zeros_like(res_type_oh)
         deletion_mean = mx.zeros((B, L))
@@ -91,7 +91,7 @@ class Experimental600(port.ESMFold2Model):
         z_init = z_init + self.language_model(lm_hidden_states)
         pair_mask = tok_mask[:, :, None] * tok_mask[:, None, :]
         if z0 is not None:
-            raise ValueError('Experimental 600 beta does not accept an initial pair state')
+            raise ValueError('ESMFold2Fast-600M does not accept an initial pair state')
         z = mx.zeros_like(z_init)
         # Pinned FastPLMs experimental forward: zero initialization, learned
         # recycling projection, n_loops + 1 passes; no PARCAE or LM encoder.

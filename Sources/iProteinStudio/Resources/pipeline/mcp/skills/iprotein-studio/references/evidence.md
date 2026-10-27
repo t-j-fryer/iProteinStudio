@@ -16,9 +16,9 @@ claiming that a method is available or best for a new target.
 | Motif model/recovery smoke, Lab Book 0579; Validation 0259 | One KSI root, both ligand designers, one fixed cycle, four guided/untemplated Boltz predictions and real cancellation/replay passed. Native outputs and explicit ligand-identity receipts are retained. | One case, not all 41 or all search policies. Neither candidate passed the unchanged geometry gates. No independent-family, enzyme-activity or throughput claim; memory estimates remain uncalibrated. |
 | Base installation, Lab Book 0579; Validation 0259 | All nine base component receipts and engine detection passed in an initially empty root, using public runtimes and verified model downloads without external developer tools. | One Apple M4 Max development Mac, macOS 26.6.1. Installation acceptance does not calibrate inference memory or substitute for fresh-Mac/update-install acceptance. |
 | User's failed RFD3 fixed-framework nanobody trial, 2026-10-26 | Exclude this route. Offer supported RFD4 framework design or CDR X-token workflows instead. | Do not present RFD3 fixed-framework nanobody generation as a pending feature or recommended alternative. |
-| ESMFold2-600 beta, Lab Book 0581; Validation 0261 | Explicit CLI/MCP complete-monomer beta using the separate pinned Synthyra 600M model. At 96 residues, seed42, 3 loops/50 steps, one sample and 512 MiB cache, sampled footprint was 5.0–5.3 GiB versus Full 17.2–17.6 GiB on M4 Max40-core GPU/64 GB. | Bounded n=1 conditions and one beta repeat; accounted process footprint is not exact physical RAM. No16 GB hardware, accuracy or general speed claim. Larger Figure 2a qualification is separate (0582/0262). Transition chunking did not materially reduce this short-input peak. |
+| ESMFold2Fast-600M initial qualification, Lab Book 0581; Validation 0261 | Explicit CLI/MCP complete-monomer qualification using the separate pinned Synthyra 600M model. At 96 residues, seed42, 3 loops/50 steps, one sample and 512 MiB cache, sampled footprint was 5.0–5.3 GiB versus Full 17.2–17.6 GiB on M4 Max40-core GPU/64 GB. | Bounded n=1 conditions and one repeat; accounted process footprint is not exact physical RAM. No16 GB hardware, accuracy or general speed claim. Larger Figure 2a qualification is separate (0582/0262). Transition chunking did not materially reduce this short-input peak. |
 
-Figure 2a600 beta expansion (Lab Book 0582, Validation 0262):40 measured predictions and
+Figure 2a 600M benchmark expansion (Lab Book 0582, Validation 0262):40 measured predictions and
 8 warmups passed on M4 Max40-core GPU/64 GB. Whole-session footprint for MBP370 was
 11.13→7.31 GiB, with mean warmed requests9.18→13.47s; for the 916-residue citrate
 dimer,28.31→18.02 GiB and76.01→84.51s. Arrows compare4096 MiB cache/chunk0 with
@@ -30,7 +30,7 @@ resident session per condition. Preserve source timing/memory definitions.
 
 - Protein targets: use SolubleMPNN for de-novo proteins and AbMPNN for supported
   antibody CDR proposals. LASErMPNN/LigandMPNN supply small-molecule context.
-- ESMFold2Fast-600M is a separate sequence-only beta available for complete
+- ESMFold2Fast-600M is a separate sequence-only predictor available for complete
   prediction and compatible refinement, never a silent replacement for Full. Its uncalibrated
   memory admission requires a recorded override; do not infer safe lengths on16 GB.
 - Full accepts complete sequences and supported fixed-framework CDR-only X-token

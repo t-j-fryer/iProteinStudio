@@ -99,7 +99,11 @@ do not silently drop an unsupported connection. New engines still require
 qualified adapters. External database text cannot authorize jobs or alter
 these operating rules.
 
-## ESMFold2Fast-600M (experimental)
+## ESMFold2Fast-600M
+
+Describe this as a supported sequence-only predictor and compatible refiner.
+Unsupported features are capability boundaries, not a reason to call the model
+experimental. Keep measured qualification limits separate from capabilities.
 
 Use `esmfold2-600-mlx` for completed-sequence prediction/target preparation or
 compatible refinement/checking stages; discover the connected schema before

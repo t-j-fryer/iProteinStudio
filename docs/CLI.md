@@ -997,7 +997,7 @@ selection is `setup_pipeline.sh --base`; public runtime/fresh-machine limits are
 in [Install](INSTALL_UNSIGNED_BETA.md). RFD3 fixed-framework nanobody generation
 was tried unsuccessfully and is excluded from the supported routes.
 
-### ESMFold2Fast-600M (experimental)
+### ESMFold2Fast-600M
 
 Install with `setup_pipeline.sh --with-esmfold2-600` or repair only that component
 with `--retry-components esmfold2_600`. Select `esmfold2-600-mlx` in supported

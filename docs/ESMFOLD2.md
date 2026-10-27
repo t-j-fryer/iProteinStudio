@@ -1,4 +1,4 @@
-# ESMFold2 on Apple silicon (experimental)
+# ESMFold2 on Apple silicon
 
 Install **ESMFold2 Fast MLX** or **ESMFold2 Full MLX** in Engines. Studio downloads
 a verified portable runtime and revision-pinned Biohub weights. No terminal,
@@ -112,7 +112,7 @@ footprint at 96 residues on an M4 Max with 64 GB RAM; this is neither exact
 physical RAM nor a measurement on a 16 GB Mac. See Lab Book 0581 for the newer
 bounded cache/chunk controls and their explicit limitations.
 
-CLI/MCP `prediction_settings` for Full, Fast and the 600 beta accept
+CLI/MCP `prediction_settings` for Full, Fast and 600M accept
 `chunk_size` (0 means disabled) and `cache_limit_mib` (0–4096 MiB). The existing MLX hook
 chunks pair/MSA **transition layers**, not every attention operation. It trades
 activation memory against overhead and cannot guarantee a smaller total peak.
@@ -120,9 +120,9 @@ The cache cap limits reusable MLX allocations, not live tensors or total process
 memory. These choices are retained in the immutable plan, prediction profile
 and completion identity. Full/Fast defaults remain 0 and 4096 MiB.
 
-**ESMFold2Fast-600M** (`esmfold2-600-mlx`) is an opt-in experimental predictor
+**ESMFold2Fast-600M** (`esmfold2-600-mlx`) is an optional sequence-only predictor
 in the app, CLI and MCP. It uses the pinned Synthyra 24-block checkpoint,
-ESM++ 600M encoder and experimental confidence head. It is a distinct model,
+ESM++ 600M encoder and adapted confidence head. It is a distinct model,
 not Full or release Fast with smaller settings.
 
 Choose it for complete-sequence monomers, protein complexes, protein–SMILES
@@ -132,7 +132,9 @@ Custom workflows retain this choice when saved. NISE can use it for completed
 sequence folding with a NESSO/PSICHIC objective or final structural checking.
 Boltz remains necessary for Boltz affinity objectives, including RFD4 ligand search.
 600M has no MSA encoder, X-token initialization, template/pocket guidance or
-binding-affinity head. Fast, Full and 600M are the same model family and must
+binding-affinity head. These are capability boundaries, not an experimental
+status. The supported prediction/refinement routes and their qualification are
+described separately below. Fast, Full and 600M are the same model family and must
 not be represented as independent-family validation.
 
 Install in **Engines → ESMFold2Fast-600M**, or through the managed CLI:
@@ -161,13 +163,13 @@ Outputs preserve the model/encoder revisions, exact profile, seed, sample,
 model-call time and MLX memory counters. Standard confidence files expose pTM,
 ipTM when available, complex/per-chain pLDDT, ligand pLDDT on the 0–100 scale,
 PAE arrays and protein-interface ipSAE. Monomers rank by pTM; complexes by ipTM.
-The experimental confidence head is not calibrated for binding efficacy.
+These confidence scores describe predicted structures and interfaces, not binding affinity.
 See [integration qualification](../lab_book/0586-integrate-esmfold2-600-release.md)
 for tests and remaining limits.
 
 Synthyra's [FastPLMs documentation](https://github.com/Synthyra/FastPLMs/blob/main/docs/esmfold2.md)
 describes CUDA optimizations. Those kernels and GPU timings do not transfer to
-Metal automatically. This beta reuses the already installed MLX primitives;
+Metal automatically. The 600M integration reuses the already installed MLX primitives;
 its checkpoint coverage and isolated confidence-head arithmetic are checked,
 but whole-model PyTorch/CUDA parity and predictive accuracy remain unqualified.
 

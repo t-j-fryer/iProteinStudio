@@ -30,7 +30,7 @@ def normalize(overrides=None):
                 raise ValueError(f'{engine}.{key} must be an integer from {low} to {high}.')
         result[engine].update(values)
     if any(result[e]['msa_depth'] != 0 for e in ('esmfold2-fast-mlx', 'esmfold2-600-mlx')):
-        raise ValueError('ESMFold2 Fast and 600 beta are sequence-only; msa_depth must be zero.')
+        raise ValueError('ESMFold2 Fast and 600M are sequence-only; msa_depth must be zero.')
     return result
 
 

@@ -40,7 +40,7 @@ def install(root,key,local=None):
     runtime_key = 'esmfold2' if key == 'esmfold2_600' else key
     descriptors=[d for d in engines().values() if d['component']==runtime_key]
     if descriptors:
-        label = 'ESMFold2 600 MLX beta (shared runtime)' if key == 'esmfold2_600' else descriptors[0]['label']
+        label = 'ESMFold2Fast-600M (shared MLX runtime)' if key == 'esmfold2_600' else descriptors[0]['label']
         print('NHSTEP|'+key+'|5|Installing verified portable '+label,flush=True)
         cached = root/'runtime_packages'/runtime_key
         # A published profile takes precedence over a pre-release local package.

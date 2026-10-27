@@ -2,7 +2,7 @@
 """Studio I/O adapter for Fausto Milletari's pinned ESMFold2 MLX port.
 
 Full/Fast model and Biohub feature/decode code are unchanged in the portable
-runtime; the separate 600 beta adapter is revision-pinned. One loaded model handles a directory; each audited input is committed
+runtime; the separate 600M adapter is revision-pinned. One loaded model handles a directory; each audited input is committed
 atomically and can be resumed. No implicit downloads or CPU model fallback.
 """
 from __future__ import annotations

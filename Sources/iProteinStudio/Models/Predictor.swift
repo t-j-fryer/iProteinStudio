@@ -171,7 +171,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .esmfold2: return "Portable Apple MLX runtime, shared ESMC-6B encoder and chemical data. Downloaded once for Fast and Full."
         case .esmfold2Full: return "Experimental full structure predictor: 3 refinement loops and 50 requested diffusion steps. Supports per-chain MSAs or single sequences."
         case .esmfold2Fast: return "Experimental sequence-only predictor: 3 refinement loops and 50 requested diffusion steps. No MSA search."
-        case .esmfold2_600: return "Experimental smaller sequence-only predictor and complete-sequence refiner. No MSA search."
+        case .esmfold2_600: return "Smaller sequence-only predictor and complete-sequence refiner. No MSA search."
         case .openfold3:      return "Another independent folding engine, with Apple GPU kernels."
         case .alphafold3:     return "Retired after a same-input quality-control failure on Metal."
         case .lasermpnn:      return "Ligand-aware sequence design that also places side chains."
@@ -217,7 +217,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
 
     var downloadNote: String? {
         switch self {
-        case .esmfold2_600: return "Downloads the shared portable MLX runtime and independently verified 600M weights; no ESMC-6B download or external Python installation. Apple silicon/macOS 26.2+. Experimental."
+        case .esmfold2_600: return "Downloads the shared portable MLX runtime and independently verified 600M weights; no ESMC-6B download or external Python installation. Apple silicon/macOS 26.2+."
         case .esmfold2, .esmfold2Full, .esmfold2Fast: return "Downloads a self-contained runtime and pinned upstream weights; no Python, pip, Git, Xcode or Homebrew installation. Both variants share the ~25.4 GB ESMC-6B checkpoint. Apple MLX port by Fausto Milletari and contributors; original models by Biohub. Experimental. Requires macOS 26.2+."
         case .psichic:        return "Uses ESM-2 on the Apple GPU and graph scoring on CPU. Model assets download separately from the portable runtime; no developer tools are required for a released package."
         case .nesso:          return "Automatically installs NESSO and its required ESM-2 650M model and tokenizer; no separate ESM setup is needed. Exact cached ESM files are reused after checksum verification. Native Apple GPU, float32, no CPU fallback. Optional and experimental."
@@ -425,7 +425,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .esmfold2Full: return "Full MLX model; accepts MSAs or single sequences. 3 loops / 50 requested diffusion steps."
         case .esmfold2Fast: return "Sequence-only, no MSA. In two M4 Max/64 GB model-inference tests (excluding loading), ~1.2–1.6× faster than Full at matched 3-loop/50-step settings. Small exploratory benchmark, not a universal speedup."
-        case .esmfold2_600: return "Experimental 600M encoder with a 24-block folding model. Sequence-only; 3 loops / 50 requested steps. Lower measured memory use on M4 Max; not certified for 16 GB Macs."
+        case .esmfold2_600: return "600M encoder with a 24-block folding model. Sequence-only; 3 loops / 50 requested steps. Lower measured memory use on M4 Max; not certified for 16 GB Macs."
         case .boltz:
             return "Fastest, and the default. One process already saturates the GPU."
         case .boltzPotentials:
@@ -452,7 +452,7 @@ enum Predictor: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .esmfold2Full: return "Experimental MLX port by Fausto Milletari and contributors, using Biohub models. Full supports fixed-framework CDR-only X-token starts. No affinity head, template guidance or whole-chain X-token generation. Fast and Full are one model family, not independent checks of one another."
         case .esmfold2Fast: return "Experimental MLX port by Fausto Milletari and contributors, using Biohub models. No affinity head, template guidance or X-token hallucination. Fast and Full are one model family, not independent checks of one another."
-        case .esmfold2_600: return "Experimental Synthyra checkpoint and confidence head, adapted to the pinned MLX port. No affinity head, template guidance or X-token initialization. One model family with ESMFold2 Fast/Full."
+        case .esmfold2_600: return "Synthyra checkpoint and confidence head adapted to the pinned MLX port. No affinity head, template guidance or X-token initialization. One model family with ESMFold2 Fast/Full."
         case .alphafold3:
             return "No longer installable or runnable in Studio."
         case .intellifold:

@@ -116,7 +116,7 @@ struct NISEView: View {
                             Picker("Structure generator", selection: request.folding_engine) {
                                 Text("Boltz 2 · pocket guidance available").tag("boltz")
                                 Text("ESMFold2 Fast · experimental, sequence only").tag("esmfold2-fast-mlx")
-                                Text("ESMFold2Fast-600M · experimental, sequence only").tag("esmfold2-600-mlx")
+                                Text("ESMFold2Fast-600M · sequence only").tag("esmfold2-600-mlx")
                                 Text("ESMFold2 Full · experimental, sequence only here").tag("esmfold2-full-mlx")
                             }.accessibilityIdentifier("nise-folding-engine")
                             if request.wrappedValue.usesESMFolding {

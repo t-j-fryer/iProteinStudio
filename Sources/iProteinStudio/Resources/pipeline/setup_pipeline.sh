@@ -144,7 +144,7 @@ Components (combine as needed):
                                native MPS, design-only, no CPU fallback)
   --with-rfd4                  RFD4 portable joint sequence/structure generation
   --with-esmfold2-full         ESMFold2 Full MLX (portable only)
-  --with-esmfold2-600          ESMFold2Fast-600M, sequence-only beta (portable only)
+  --with-esmfold2-600          ESMFold2Fast-600M, sequence-only predictor (portable only)
   --with-esmfold2-fast         ESMFold2 Fast MLX, sequence-only (portable only)
   --with-openfold3             OpenFold-3/MLX
   --without-abmpnn             Skip the separately retryable antibody checkpoint
