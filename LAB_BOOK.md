@@ -1,6 +1,6 @@
 # Lab Book
 
-- [0579 — Qualify and release Studio 0.2.27](lab_book/0579-qualify-and-release-studio-027.md) (2026-10-26): bounded motif acceptance and runtime/app publication; in progress.
+- [0579 — Qualify and release Studio 0.2.27](lab_book/0579-qualify-and-release-studio-027.md) (2026-10-26): bounded motif/resume and clean base installation pass; 0.2.27 app/runtime published and downloaded signatures verified.
 
 Latest release preparation: [0442 — Ligand efficiency and integrated workflow fixes](lab_book/0442-release-ligand-efficiency.md).
 

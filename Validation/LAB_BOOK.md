@@ -1,6 +1,6 @@
 # Validation Lab Book
 
-- [0259 — Studio 0.2.27 release qualification](lab_book/0259-studio-release-027.md) (2026-10-26): bounded KSI model pilot, runtime relocation/installation and release delivery; in progress.
+- [0259 — Studio 0.2.27 release qualification](lab_book/0259-studio-release-027.md) (2026-10-26): bounded KSI/resume and base installation pass; runtime/app delivery and public signatures verified.
 
 Latest RFD3 correction: [0095 — RFD3 motif release acceptance](lab_book/0095-rfd3-motif-release.md).
 
