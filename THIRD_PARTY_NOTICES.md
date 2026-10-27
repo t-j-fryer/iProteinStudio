@@ -134,3 +134,12 @@ orchestration and I/O adapters. Checkpoints are downloaded separately from pinne
 Biohub revisions, never redistributed in the app or runtime archive. Model use
 remains subject to the applicable upstream terms. See docs/ESMFOLD2.md for model
 choices, measured speed scope and experimental limitations.
+
+## Optional ESMFold2Fast-600M
+
+The separate experimental Synthyra 600M checkpoint and ESM++ encoder are
+downloaded from pinned upstream revisions. The architecture/confidence adapter
+reuses the existing MLX port. Source licences and checkpoint notices are retained
+in [the bundled pipeline notices](Sources/iProteinStudio/Resources/pipeline/THIRD_PARTY_NOTICES.md)
+and `scripts/licenses/esmfold2-600/` within that pipeline. No learned weights
+are distributed in the app or repository.

@@ -63,7 +63,7 @@ def prepare(root, output, workflow, value, smiles, *, detected=None, preparation
     # Engine source/model bytes are provenance, not copied into the campaign.
     family = {'boltz': 'boltz2', 'intellifold': 'intellifold', 'protenix_v2': 'protenix',
               'protenix_mini': 'protenix', 'openfold3': 'openfold3',
-              'esmfold2_full': 'esmfold2', 'esmfold2_fast': 'esmfold2'}[opts['predictor']]
+              'esmfold2_full': 'esmfold2', 'esmfold2_fast': 'esmfold2', 'esmfold2_600': 'esmfold2'}[opts['predictor']]
     model_root = root / 'models' / family
     if family == 'boltz2':
         model_paths = [model_root / 'boltz2_conf.ckpt', model_root / 'mols']

@@ -1,0 +1,52 @@
+{
+  "experiment": "esmfold2_600_figure2a_v1",
+  "targets": [
+    "smt3",
+    "t4_lysozyme",
+    "mbp",
+    "citrate_synthase"
+  ],
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "warmup_seed": 42,
+  "samples": 1,
+  "recycles": 3,
+  "diffusion_steps": 50,
+  "msa": "empty; model has no MSA encoder",
+  "arms": [
+    {
+      "name": "figure2a",
+      "cache_limit_mib": 4096,
+      "chunk_size": 0
+    },
+    {
+      "name": "low_memory",
+      "cache_limit_mib": 512,
+      "chunk_size": 32
+    }
+  ],
+  "planned_measurements": 40,
+  "warmups": 8,
+  "memory_interval_seconds": 0.5,
+  "host_monitor_interval_seconds": 5,
+  "hardware": "Apple M4 Max 40-GPU/64-GB macOS 26.6.1",
+  "scope": "Four exact Figure2a constructs; citrate homodimer is benchmark-only, not general app complex qualification",
+  "acceptance": [
+    "exact chains/sequences and complete finite backbone",
+    "finite confidence, exact reference masks and homodimer permutation-aware assembly fit",
+    "strict asset/runtime hashes, per-unit immutable receipts",
+    "single resident identity per block, separate warmup/load and measured seeds",
+    "host-contention audit and separate process footprint/RSS/MLX allocator counters"
+  ],
+  "limits": [
+    "No actual 16 GB hardware",
+    "Seeds within one session are not independent cold-start replicates",
+    "No template, MSA, ligand, hallucination or binding-efficacy qualification",
+    "Nested synchronized stage timers must not be added"
+  ]
+}

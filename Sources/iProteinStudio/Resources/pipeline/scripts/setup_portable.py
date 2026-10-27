@@ -37,24 +37,26 @@ def install_nesso_assets(root,python):
     validate_installation(root)
 
 def install(root,key,local=None):
-    descriptors=[d for d in engines().values() if d['component']==key]
+    runtime_key = 'esmfold2' if key == 'esmfold2_600' else key
+    descriptors=[d for d in engines().values() if d['component']==runtime_key]
     if descriptors:
-        print('NHSTEP|'+key+'|5|Installing verified portable '+descriptors[0]['label'],flush=True)
-        cached = root/'runtime_packages'/key
+        label = 'ESMFold2 600 MLX beta (shared runtime)' if key == 'esmfold2_600' else descriptors[0]['label']
+        print('NHSTEP|'+key+'|5|Installing verified portable '+label,flush=True)
+        cached = root/'runtime_packages'/runtime_key
         # A published profile takes precedence over a pre-release local package.
         # Keep development-only engines usable until they acquire a release.
-        published = key in json.loads((HERE/'runtime_releases.json').read_text())['packages']
+        published = runtime_key in json.loads((HERE/'runtime_releases.json').read_text())['packages']
         if local is None and not published and (cached/'runtime.json').is_file():
             manifest=digest(cached/'runtime.json')
             mappings={k:v for d in descriptors for k,v in d['mappings'].items()}
-            base=activate(root,key,cached,manifest,[str(root/k)+'='+v for k,v in mappings.items()])
+            base=activate(root,runtime_key,cached,manifest,[str(root/k)+'='+v for k,v in mappings.items()])
         elif local:
-            package=local/(key+'-release-final3')
-            if not package.exists():package=local/(key+'-release-final2')
+            package=local/(runtime_key+'-release-final3')
+            if not package.exists():package=local/(runtime_key+'-release-final2')
             manifest=digest(package/'runtime.json')
             mappings={k:v for d in descriptors for k,v in d['mappings'].items()}
-            base=activate(root,key,package,manifest,[str(root/k)+'='+v for k,v in mappings.items()])
-        else:base=from_catalog(root,key)
+            base=activate(root,runtime_key,package,manifest,[str(root/k)+'='+v for k,v in mappings.items()])
+        else:base=from_catalog(root,runtime_key)
         python=base/'python/bin/python3'
     else:
         base=root/'components'/DEPENDENCIES[key][0]/'current';python=base/'python/bin/python3'

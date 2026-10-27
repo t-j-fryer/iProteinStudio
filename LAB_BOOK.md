@@ -1,5 +1,9 @@
 # Lab Book
 
+- [0586 — ESMFold2Fast-600M integration](lab_book/0586-integrate-esmfold2-600-release.md): app/CLI/MCP and isolated installation qualified; release delivery pending.
+
+- [0581 — ESMFold2-600 Mac beta](lab_book/0581-esmfold2-600-mac-beta.md): pinned smaller-model port and memory audit; bounded acceptance complete.
+
 - [0579 — Qualify and release Studio 0.2.27](lab_book/0579-qualify-and-release-studio-027.md) (2026-10-26): bounded motif/resume and clean base installation pass; 0.2.27 app/runtime published and downloaded signatures verified.
 
 Latest release preparation: [0442 — Ligand efficiency and integrated workflow fixes](lab_book/0442-release-ligand-efficiency.md).
@@ -332,3 +336,5 @@ Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-
 
 
 - [0577-publish-workflows-and-evidence](lab_book/0577-publish-workflows-and-evidence.md)
+
+- [0582 — Benchmark ESMFold2-600 on Figure 2a structures](lab_book/0582-benchmark-esmfold2-600-figure2a.md)

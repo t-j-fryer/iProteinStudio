@@ -23,7 +23,7 @@ DEFAULTS = json.loads(Path(__file__).with_name('prediction_profiles.json').read_
 SCHEDULE = {'boltz': (1, 8), 'intellifold': (4, 16),
             'protenix-v2': (1, 8), 'protenix-mini': (1, 8),
             'protenix-constraint-v0.5': (1, 8), 'openfold-3-mlx': (1, 1000000),
-            'esmfold2-full-mlx': (1, 100000), 'esmfold2-fast-mlx': (1, 100000)}
+            'esmfold2-full-mlx': (1, 100000), 'esmfold2-fast-mlx': (1, 100000), 'esmfold2-600-mlx': (1, 100000)}
 BUCKETS = (128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096)
 # Standard-residue heavy atoms (Boltz data/const.py ref_atoms). Unknown design
 # residues are charged as tryptophan; one terminal oxygen per chain is included.
@@ -97,7 +97,7 @@ def estimate_job(engine, job, cfg):
     settings = {**DEFAULTS[engine], **cfg.get('prediction_settings', {}).get(engine, {})}
     depth = positive(settings['msa_depth'], 'MSA depth', allow_zero=True)
     uses_msa = any(c.get('msa', 'auto') != 'empty' for c in job['chains'])
-    if engine != 'esmfold2-fast-mlx' and uses_msa and (depth == 0 or depth > 128):
+    if engine not in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'} and uses_msa and (depth == 0 or depth > 128):
         raise ValueError(f'{engine}: memory estimates require an explicit MSA cap of at most 128 rows. '
                          'Choose that cap in Prediction Settings, or use single-sequence inputs.')
     if cfg.get('affinity') or cfg.get('use_potentials') or cfg.get('template'):

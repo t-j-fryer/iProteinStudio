@@ -18,7 +18,7 @@ struct PredictionSettingsView: View {
         ["boltz": "Boltz2", "intellifold": "IntelliFold Flash", "intellifold-full": "IntelliFold Full",
          "protenix-v2": "Protenix v2", "protenix-mini": "Protenix Mini",
          "protenix-constraint-v0.5": "Protenix Constraint", "openfold-3-mlx": "OpenFold3",
-         "esmfold2-full-mlx": "ESMFold2 Full", "esmfold2-fast-mlx": "ESMFold2 Fast"][engine] ?? engine
+         "esmfold2-full-mlx": "ESMFold2 Full", "esmfold2-fast-mlx": "ESMFold2 Fast", "esmfold2-600-mlx": "ESMFold2Fast-600M"][engine] ?? engine
     }
     var body: some View {
         DisclosureGroup("Prediction accuracy & compute") {
@@ -31,7 +31,7 @@ struct PredictionSettingsView: View {
                 ForEach(defaults.keys.sorted(), id: \.self) { engine in
                     DisclosureGroup(name(engine)) {
                         Grid(alignment: .leading) {
-                            if engine != "esmfold2-fast-mlx" {
+                            if !["esmfold2-fast-mlx", "esmfold2-600-mlx"].contains(engine) {
                                 GridRow {
                                     Text("Maximum MSA rows")
                                     EditableIntStepper(value: binding(engine, "msa_depth"), in: 0...1_000_000,
@@ -49,6 +49,24 @@ struct PredictionSettingsView: View {
                                 Text(engine.hasPrefix("esmfold2") ? "Trunk loops" : "Recycles")
                                 EditableIntStepper(value: binding(engine, "recycles"), in: 0...1_000,
                                                    accessibilityLabel: "\(engine) recycles or loops")
+                            }
+                            if engine.hasPrefix("esmfold2-") {
+                                GridRow {
+                                    Text("Transition chunk size (0 = off)")
+                                    EditableIntStepper(value: binding(engine, "chunk_size"), in: 0...65_536,
+                                                       accessibilityLabel: "\(engine) transition chunk size")
+                                }
+                                GridRow {
+                                    Text("MLX cache limit (MiB)")
+                                    EditableIntStepper(value: binding(engine, "cache_limit_mib"), in: 0...4096,
+                                                       accessibilityLabel: "\(engine) cache limit")
+                                }
+                                Button("Use low-memory settings") {
+                                    binding(engine, "chunk_size").wrappedValue = 32
+                                    binding(engine, "cache_limit_mib").wrappedValue = 512
+                                }
+                                Text("Chunking trades speed for memory. The cache limit does not cap live model memory.")
+                                    .font(.caption).foregroundStyle(.secondary)
                             }
                             if engine == "boltz" {
                                 GridRow {

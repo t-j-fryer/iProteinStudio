@@ -437,7 +437,8 @@
           "items": {
             "enum": [
               "esmfold2-full-mlx",
-              "esmfold2-fast-mlx"
+              "esmfold2-fast-mlx",
+              "esmfold2-600-mlx"
             ]
           },
           "default": [],
@@ -646,6 +647,18 @@
                   "minimum": 0,
                   "maximum": 1000,
                   "default": 20
+                },
+                "chunk_size": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65536,
+                  "description": "MLX transition chunk rows; 0 disables chunking."
+                },
+                "cache_limit_mib": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4096,
+                  "description": "MLX allocator cache ceiling, not a total RAM limit."
                 }
               }
             },
@@ -670,6 +683,56 @@
                   "minimum": 0,
                   "maximum": 1000,
                   "default": 3
+                },
+                "chunk_size": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65536,
+                  "description": "MLX transition chunk rows; 0 disables chunking."
+                },
+                "cache_limit_mib": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4096,
+                  "description": "MLX allocator cache ceiling, not a total RAM limit."
+                }
+              }
+            },
+            "esmfold2-600-mlx": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "msa_depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 0,
+                  "default": 0
+                },
+                "diffusion_steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "default": 50
+                },
+                "recycles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 3
+                },
+                "chunk_size": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65536,
+                  "description": "MLX transition chunk rows; 0 disables chunking.",
+                  "default": 0
+                },
+                "cache_limit_mib": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4096,
+                  "description": "MLX allocator cache ceiling, not a total RAM limit.",
+                  "default": 512
                 }
               }
             }
@@ -693,7 +756,8 @@
       "enum": [
         "boltz",
         "esmfold2-fast-mlx",
-        "esmfold2-full-mlx"
+        "esmfold2-full-mlx",
+        "esmfold2-600-mlx"
       ],
       "default": "boltz",
       "description": "Complete-sequence structure engine. ESMFold2 requires screening-objective mode, has no pocket restraints/MSA/affinity; initial X-token generation remains Boltz."

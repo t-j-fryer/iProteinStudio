@@ -285,6 +285,7 @@ struct RFD4View: View {
                         if value.task != .ligand {
                             Text("ESMFold2 Full").tag("esmfold2-full-mlx")
                             Text("ESMFold2 Fast").tag("esmfold2-fast-mlx")
+                            Text("ESMFold2Fast-600M").tag("esmfold2-600-mlx")
                         }
                         Text("Boltz-2").tag("boltz")
                     }
@@ -300,7 +301,7 @@ struct RFD4View: View {
                         TextField("Sequence temperature", value: request.temperature, format: .number)
                         if value.task != .ligand { TextField("Exclude amino acids", text: request.omit_amino_acids) }
                     }
-                    if value.task != .ligand && value.predictor != "esmfold2-fast-mlx" {
+                    if value.task != .ligand && !["esmfold2-fast-mlx", "esmfold2-600-mlx"].contains(value.predictor) {
                         file("Target alignment", path: request.target_msa, singleSequence: true)
                         if value.task == .nanobody { file("Scaffold alignment", path: request.scaffold_msa, singleSequence: true) }
                     }

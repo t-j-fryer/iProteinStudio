@@ -14,9 +14,47 @@ enum StudioWorkflow: String, Codable {
 @main
 struct PredictionResultsContractHarness {
     static func main() throws {
+        if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "esm600-rfd4" {
+            let items = RunResultsLoader.load(root: URL(fileURLWithPath: CommandLine.arguments[2]), workflow: .rfd4)
+            precondition(items.count == 6)
+            precondition(items.allSatisfy { $0.scoreSource == "ESMFold2Fast-600M" && $0.isHit == nil })
+            precondition(items.allSatisfy { $0.metrics.contains { $0.kind == .ptm } && $0.metrics.contains { $0.kind == .ipsaeMinimum } })
+            print("PASS six actual RFD4/600M proposals with exact prediction confidence")
+            return
+        }
+        if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "esm600" {
+            let root = URL(fileURLWithPath: CommandLine.arguments[2])
+            let items = RunResultsLoader.load(root: root, workflow: .prediction)
+            precondition(items.count == 12, "600M samples were omitted or duplicated: \(items.count)")
+            precondition(items.allSatisfy { $0.scoreSource == "ESMFold2Fast-600M" && $0.isHit == nil })
+            precondition(items.allSatisfy { $0.metrics.contains { $0.kind == .iptm } && $0.metrics.contains { $0.kind == .ptm } })
+            precondition(items.filter { $0.metrics.contains { $0.kind == .ligandPLDDT } }.count == 4)
+            print("PASS 12 actual 600M samples: model labels, per-sample pTM/ipTM and four ligand-confidence records")
+            return
+        }
         let csvRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: csvRoot, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: csvRoot) }
+        let esm = csvRoot.appendingPathComponent("esm600-batch")
+        let chunk600 = esm.appendingPathComponent("esmfold2-600-mlx/bucket_0/chunk_0")
+        var csv600 = "job,predictor,exit_code,output\n"
+        for job in ["sumo", "sumo-pair", "sumo-ligand"] {
+            let leaf = chunk600.appendingPathComponent(job)
+            try FileManager.default.createDirectory(at: leaf.appendingPathComponent("pred_min"), withIntermediateDirectories: true)
+            try "data_copy".write(to: leaf.appendingPathComponent("pred_min/model_0.cif"), atomically: true, encoding: .utf8)
+            for seed in [42, 43] { for sample in [0, 1] {
+                let stem = "\(job)_seed_\(seed)_model_\(sample)"
+                try "data_sample".write(to: leaf.appendingPathComponent(stem + ".cif"), atomically: true, encoding: .utf8)
+                try "{\"ptm\":0.8,\"iptm\":0.7}".write(to: leaf.appendingPathComponent("confidence_" + stem + ".json"), atomically: true, encoding: .utf8)
+            }}
+            csv600 += "\(job),esmfold2-600-mlx,0,\(chunk600.path)\n"
+        }
+        try csv600.write(to: esm.appendingPathComponent("predictions.csv"), atomically: true, encoding: .utf8)
+        let parsed600 = RunResultsLoader.load(root: esm, workflow: .prediction)
+        precondition(parsed600.count == 12 && RunResultsLoader.groups(from: parsed600).count == 3)
+        precondition(parsed600.allSatisfy { $0.title.contains("seed ") && $0.scoreSource == "ESMFold2Fast-600M" })
+        precondition(parsed600.allSatisfy { $0.metrics.contains { $0.kind == .ptm && $0.value == 0.8 } })
+        print("PASS 600M seed/sample identity, prefix-related jobs and representative-copy exclusion")
         let malformed = csvRoot.appendingPathComponent("partial.csv")
         try "iptm,iptm\n0.8,0.9\n".write(to: malformed, atomically: true, encoding: .utf8)
         guard CSVTable.rows(at: malformed).isEmpty else { fatalError("duplicate CSV headers were accepted") }
@@ -437,18 +475,18 @@ struct PredictionResultsContractHarness {
             try JSONSerialization.data(withJSONObject: doc).write(to: receiptDir.appendingPathComponent(key + ".json"), options: .atomic)
         }
         let native = csvRoot.appendingPathComponent("native-predict")
-        for (i, engine) in ["boltz", "intellifold", "protenix-mini", "openfold-3-mlx"].enumerated() {
+        for (i, engine) in ["boltz", "intellifold", "protenix-mini", "openfold-3-mlx", "esmfold2-600-mlx"].enumerated() {
             try nativeReceipt(native, path: engine + "/bucket_128/chunk_0/predictions/input/input_model_0.pdb",
                               job: "input", engine: engine, key: String(i))
         }
         let early = RunResultsLoader.load(root: native, workflow: .prediction)
-        precondition(early.count == 4 && early.allSatisfy { $0.isHit == nil })
+        precondition(early.count == 5 && early.allSatisfy { $0.isHit == nil })
         precondition(early.allSatisfy { $0.metrics.first { $0.kind == .iptm }?.value == 0.72 })
         let boltzChunk = native.appendingPathComponent("boltz/bucket_128/chunk_0")
         try JSONSerialization.data(withJSONObject: ["predictor": "boltz", "jobs": ["input"]]).write(to: boltzChunk.appendingPathComponent("chunk_complete.json"))
-        precondition(RunResultsLoader.load(root: native, workflow: .prediction).count == 4)
+        precondition(RunResultsLoader.load(root: native, workflow: .prediction).count == 5)
         try "changed file".write(to: native.appendingPathComponent("intellifold/bucket_128/chunk_0/predictions/input/input_model_0.pdb"), atomically: true, encoding: .utf8)
-        precondition(RunResultsLoader.load(root: native, workflow: .prediction).count == 3)
+        precondition(RunResultsLoader.load(root: native, workflow: .prediction).count == 4)
 
         let nativePH = csvRoot.appendingPathComponent("native-ph")
         try nativeReceipt(nativePH, path: "run_001/cycle_00/protenix-mini/predictions/run_001_cycle_00_sample_0.pdb",

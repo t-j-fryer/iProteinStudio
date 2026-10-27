@@ -104,6 +104,7 @@ WITH_INTELLIFOLD_FULL=0
 WITH_ESMFOLD2=0
 WITH_ESMFOLD2_FULL=0
 WITH_ESMFOLD2_FAST=0
+WITH_ESMFOLD2_600=0
 WITH_PROTENIX_RUNTIME=0
 WITH_PROTENIX_V2=0
 WITH_PROTENIX_MINI=0
@@ -143,6 +144,7 @@ Components (combine as needed):
                                native MPS, design-only, no CPU fallback)
   --with-rfd4                  RFD4 portable joint sequence/structure generation
   --with-esmfold2-full         ESMFold2 Full MLX (portable only)
+  --with-esmfold2-600          ESMFold2Fast-600M, sequence-only beta (portable only)
   --with-esmfold2-fast         ESMFold2 Fast MLX, sequence-only (portable only)
   --with-openfold3             OpenFold-3/MLX
   --without-abmpnn             Skip the separately retryable antibody checkpoint
@@ -177,7 +179,7 @@ while [[ $# -gt 0 ]]; do
       IFS=',' read -r -a retry_keys <<< "${INSTALL_ONLY}"
       for retry_key in "${retry_keys[@]}"; do
         case "${retry_key}" in
-          esmfold2|esmfold2_full|esmfold2_fast|control|mpnn|abmpnn|boltz|boltz_affinity|antifold|intellifold|intellifold_full|protenix|protenix_v2|protenix_mini|protenix_constraint|nesso|psichic|lasermpnn|openfold3|rfd3|rfd4) ;;
+          esmfold2|esmfold2_full|esmfold2_fast|esmfold2_600|control|mpnn|abmpnn|boltz|boltz_affinity|antifold|intellifold|intellifold_full|protenix|protenix_v2|protenix_mini|protenix_constraint|nesso|psichic|lasermpnn|openfold3|rfd3|rfd4) ;;
           *) echo "NHFAIL|Unknown retry component: ${retry_key}"; exit 2 ;;
         esac
       done
@@ -189,6 +191,7 @@ while [[ $# -gt 0 ]]; do
     --with-intellifold-full) WITH_INTELLIFOLD=1; WITH_INTELLIFOLD_FULL=1; shift ;;
     --with-esmfold2-runtime) WITH_ESMFOLD2=1; shift ;;
     --with-esmfold2-full) WITH_ESMFOLD2=1; WITH_ESMFOLD2_FULL=1; shift ;;
+    --with-esmfold2-600) WITH_ESMFOLD2_600=1; shift ;;
     --with-esmfold2-fast) WITH_ESMFOLD2=1; WITH_ESMFOLD2_FAST=1; shift ;;
     --with-protenix-runtime) WITH_PROTENIX_RUNTIME=1; shift ;;
     --with-protenix-v2)     WITH_PROTENIX_RUNTIME=1; WITH_PROTENIX_V2=1; shift ;;
@@ -207,7 +210,8 @@ while [[ $# -gt 0 ]]; do
                             WITH_INTELLIFOLD=1; WITH_INTELLIFOLD_FULL=1
                             WITH_OPENFOLD3=1; WITH_PROTENIX_RUNTIME=1
                             WITH_PROTENIX_V2=1; WITH_PROTENIX_MINI=1; WITH_PROTENIX_CONSTRAINT=1
-                            WITH_LASERMPNN=1; WITH_RFD3=1; WITH_NESSO=1; WITH_PSICHIC=1; shift ;;
+                            WITH_LASERMPNN=1; WITH_RFD3=1; WITH_NESSO=1; WITH_PSICHIC=1
+                            WITH_RFD4=1; WITH_ESMFOLD2=1; WITH_ESMFOLD2_FULL=1; WITH_ESMFOLD2_FAST=1; WITH_ESMFOLD2_600=1; shift ;;
     --with-psichic)         WITH_PSICHIC=1; shift ;;
     --with-nesso)           WITH_NESSO=1; shift ;;
     --with-lasermpnn)       WITH_LASERMPNN=1; shift ;;
@@ -519,7 +523,7 @@ detect() {
     detector="${NANOHUNTER_ROOT}/components/control/current/python/bin/python3"
   fi
   if [[ ! -x "${detector}" ]]; then
-    for key in esmfold2 esmfold2_full esmfold2_fast mpnn abmpnn boltz boltz_affinity antifold intellifold intellifold_full protenix protenix_v2 protenix_mini protenix_constraint openfold3 lasermpnn nesso psichic rfd3 rfd4; do
+    for key in esmfold2 esmfold2_full esmfold2_fast esmfold2_600 mpnn abmpnn boltz boltz_affinity antifold intellifold intellifold_full protenix protenix_v2 protenix_mini protenix_constraint openfold3 lasermpnn nesso psichic rfd3 rfd4; do
       state "$key" missing "Run Setup to install the managed runtime."
     done
     return
@@ -1190,7 +1194,7 @@ if [[ "${IPROTEINSTUDIO_BUILD_FROM_SOURCE:-0}" != "1" ]]; then
     PORTABLE_COMPONENTS="${INSTALL_ONLY}"
   else
     PORTABLE_COMPONENTS="control,mpnn"
-    for pair in "esmfold2:$WITH_ESMFOLD2" "esmfold2_full:$WITH_ESMFOLD2_FULL" "esmfold2_fast:$WITH_ESMFOLD2_FAST" "abmpnn:$WITH_ABMPNN" "boltz:$WITH_BOLTZ" "boltz_affinity:$WITH_BOLTZ_AFFINITY" \
+    for pair in "esmfold2:$WITH_ESMFOLD2" "esmfold2_full:$WITH_ESMFOLD2_FULL" "esmfold2_fast:$WITH_ESMFOLD2_FAST" "esmfold2_600:$WITH_ESMFOLD2_600" "abmpnn:$WITH_ABMPNN" "boltz:$WITH_BOLTZ" "boltz_affinity:$WITH_BOLTZ_AFFINITY" \
       "antifold:$WITH_ANTIFOLD" "intellifold:$WITH_INTELLIFOLD" "intellifold_full:$WITH_INTELLIFOLD_FULL" \
       "protenix:$WITH_PROTENIX_RUNTIME" "protenix_v2:$WITH_PROTENIX_V2" "protenix_mini:$WITH_PROTENIX_MINI" \
       "protenix_constraint:$WITH_PROTENIX_CONSTRAINT" "openfold3:$WITH_OPENFOLD3" "rfd3:$WITH_RFD3" "rfd4:$WITH_RFD4" \
@@ -1206,7 +1210,7 @@ if [[ "$WITH_RFD4" == 1 ]]; then
   fail "RFD4 requires the verified portable runtime. Disable the developer source-build override."
 fi
 
-if [[ "$WITH_ESMFOLD2" == 1 ]]; then
+if [[ "$WITH_ESMFOLD2" == 1 || "$WITH_ESMFOLD2_600" == 1 ]]; then
   fail "ESMFold2 is distributed as a portable runtime. Disable the developer source-build override."
 fi
 

@@ -64,6 +64,10 @@ installation on a fresh second Mac is still a separate acceptance test. See
 [Lab Book 0177](../lab_book/0177-integrate-psichic-portable-runtimes.md) and
 [licensing status](../LICENSING.md).
 
+The 0.2.28 ESMFold2Fast-600M integration also passed an initially empty
+600M-only installation and managed prediction/target-preparation tests without
+6B weights; see [600M qualification](../lab_book/0586-integrate-esmfold2-600-release.md).
+
 ## Maintainer release procedure
 
 1. Update `VERSION`, increase `BUILD_NUMBER`, and add concise release notes to

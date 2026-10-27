@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Studio I/O adapter for Fausto Milletari's pinned ESMFold2 MLX port.
 
-Model and Biohub feature/decode code are shipped unchanged in the portable
-runtime. One loaded model handles a directory; each audited input is committed
+Full/Fast model and Biohub feature/decode code are unchanged in the portable
+runtime; the separate 600 beta adapter is revision-pinned. One loaded model handles a directory; each audited input is committed
 atomically and can be resumed. No implicit downloads or CPU model fallback.
 """
 from __future__ import annotations
@@ -16,7 +16,7 @@ import time
 import uuid
 
 PORT_REVISION = "c26b9af872158d822a8c95589708eedd3b9c0831"
-PROFILES = {"full": (3, 50), "fast": (3, 50)}
+PROFILES = {"full": (3, 50), "fast": (3, 50), "600": (3, 50)}
 
 
 def sha(path):
@@ -47,7 +47,7 @@ def read_input(path, model, unrestrained_check=False):
         # and Boltz-only affinity requests; Fast additionally has no MSA encoder.
         for key in ('constraints', 'properties', 'templates', 'target_template'):
             data.pop(key, None)
-        if model == 'fast':
+        if model in {'fast', '600'}:
             for item in data['sequences']:
                 if 'protein' in item: item['protein']['msa'] = 'empty'
     unsupported = set(data) - {'version', 'sequences'}
@@ -72,7 +72,7 @@ def read_input(path, model, unrestrained_check=False):
             if not sequence or set(sequence) - set(alphabet):
                 raise ValueError('ESMFold2 requires complete amino-acid sequences; X-token hallucination is not supported.')
             msa = str(item.get('msa', 'empty'))
-            if model == 'fast' and msa != 'empty':
+            if model in {'fast', '600'} and msa != 'empty':
                 raise ValueError('ESMFold2 Fast is sequence-only. Prepare an explicitly sequence-only input.')
             if msa != 'empty':
                 p = Path(msa)
@@ -140,24 +140,31 @@ class Session:
         assets = Path(root) / 'models/esmfold2'
         fold = assets / ('ESMFold2-Fast' if model == 'fast' else 'ESMFold2')
         encoder = assets / 'ESMC-6B'
-        # Match the tested checkpoint layout, precision and strict loading.
-        self.model = esmfold2.ESMFold2Model(json.loads((fold / 'config.json').read_text()))
-        weights = esmfold2.sanitize_esmfold2(mx.load(str(fold / 'model.safetensors')))
-        weights = {k: v.astype(mx.float32) if mx.issubdtype(v.dtype, mx.floating) else v for k, v in weights.items()}
-        self.model.load_weights(list(weights.items()), strict=True)
-        self.model.set_dtype(mx.float32); self.model.eval(); mx.eval(self.model.parameters())
-        del weights
-        lm = esmc.Model(esmc.ModelArgs.from_dict(json.loads((encoder / 'config.json').read_text())))
-        weights = {}
-        for shard in sorted(encoder.glob('*.safetensors')):
-            part = {k: v.astype(mx.bfloat16) if mx.issubdtype(v.dtype, mx.floating) else v for k, v in mx.load(str(shard)).items()}
-            mx.eval(list(part.values())); weights.update(part)
-        lm.load_weights(list(lm.sanitize(weights).items()), strict=True)
-        lm.set_dtype(mx.bfloat16); lm.eval(); mx.eval(lm.parameters())
-        self.model._esmc = lm
+        if model == '600':
+            from esmfold2_600 import load
+            self.model = load(root, mx, esmfold2, esmc)
+        else:
+            # Match the tested checkpoint layout, precision and strict loading.
+            self.model = esmfold2.ESMFold2Model(json.loads((fold / 'config.json').read_text()))
+            weights = esmfold2.sanitize_esmfold2(mx.load(str(fold / 'model.safetensors')))
+            weights = {k: v.astype(mx.float32) if mx.issubdtype(v.dtype, mx.floating) else v for k, v in weights.items()}
+            self.model.load_weights(list(weights.items()), strict=True)
+            self.model.set_dtype(mx.float32); self.model.eval(); mx.eval(self.model.parameters())
+            del weights
+            lm = esmc.Model(esmc.ModelArgs.from_dict(json.loads((encoder / 'config.json').read_text())))
+            weights = {}
+            for shard in sorted(encoder.glob('*.safetensors')):
+                part = {k: v.astype(mx.bfloat16) if mx.issubdtype(v.dtype, mx.floating) else v for k, v in mx.load(str(shard)).items()}
+                mx.eval(list(part.values())); weights.update(part)
+            lm.load_weights(list(lm.sanitize(weights).items()), strict=True)
+            lm.set_dtype(mx.bfloat16); lm.eval(); mx.eval(lm.parameters())
+            self.model._esmc = lm
         self.builder = ESMFold2InputBuilder(ccd_cache=assets / 'ESMFold2')
         self.profile = model
-        self.prior_cache_limit = mx.set_cache_limit(4 << 30)
+        from prediction_profiles import profile
+        self.memory_settings = profile('esmfold2-' + model + '-mlx')
+        self.model.set_chunk_size(self.memory_settings['chunk_size'] or None)
+        self.prior_cache_limit = mx.set_cache_limit(self.memory_settings['cache_limit_mib'] << 20)
         import atexit
         atexit.register(self.close)
 
@@ -185,7 +192,7 @@ class Session:
         from prediction_profiles import profile
         settings = profile('esmfold2-' + self.profile + '-mlx')
         loops, steps = settings['recycles'], settings['diffusion_steps']
-        mx.synchronize(); started = time.perf_counter()
+        mx.synchronize(); mx.reset_peak_memory(); started = time.perf_counter()
         outputs = self.model(**features, num_loops=loops, num_sampling_steps=steps,
                              num_diffusion_samples=samples, msa_max_depth=1024)
         mx.synchronize(); seconds = time.perf_counter() - started
@@ -222,10 +229,18 @@ class Session:
             confidence = dict(engine='esmfold2-' + self.profile + '-mlx',
                               complex_plddt=float(arrays['plddt'][i].mean()), ptm=float(arrays['ptm'].reshape(-1)[i]),
                               seed=seed, sample=i, num_loops=loops, num_sampling_steps=steps,
-                              msa_policy='sequence-only' if self.profile == 'fast' else 'per-chain',
+                              msa_policy='sequence-only' if self.profile in {'fast', '600'} else 'per-chain',
+                              mlx_peak_bytes=mx.get_peak_memory(), mlx_active_bytes=mx.get_active_memory(),
+                              chunk_size=self.memory_settings['chunk_size'], cache_limit_mib=self.memory_settings['cache_limit_mib'],
                               model_call_seconds=seconds, upstream_revision=PORT_REVISION)
             if 'iptm' in arrays: confidence['iptm'] = float(arrays['iptm'].reshape(-1)[i])
             confidence['confidence_score'] = confidence.get('iptm', confidence['ptm'])
+            if self.profile == '600':
+                # Interface TM is undefined for monomers; rank those by pTM.
+                from esmfold2_600 import FOLD_REVISION, ENCODER_REVISION
+                confidence.update(confidence_score=confidence['ptm'] if len(chains) == 1 else confidence.get('iptm', confidence['ptm']),
+                                  folding_revision=FOLD_REVISION, encoder_revision=ENCODER_REVISION,
+                                  confidence_calibration='experimental; Mac calibration unqualified')
             asym_map = {info.asym_id: info.chain_id for info in infos}
             token_map = [asym_map[int(v)] for v in features['asym_id'][0]]
             protein_ids = [c['id'] for c in chains if c['kind'] == 'protein']
@@ -255,6 +270,9 @@ def run(root, model, paths, output, seeds, samples, unrestrained_check=False, se
         chains, msas = read_input(path, model, unrestrained_check)
         identity = dict(input_sha256=sha(path), msas=msas, model=model, seeds=seeds, samples=samples,
                         profile=settings, port=PORT_REVISION, unrestrained_check=unrestrained_check, schema=1)
+        if model == '600':
+            from esmfold2_600 import validate_assets
+            identity['beta_assets'] = validate_assets(root)
         # JSON round trip makes tuple/list identity stable across resumptions.
         identity = json.loads(json.dumps(identity))
         dest = output / path.stem
@@ -274,7 +292,7 @@ def run(root, model, paths, output, seeds, samples, unrestrained_check=False, se
         if monitor is not None: (staging / 'studio_prediction_request.json').write_bytes(monitor)
         invalidate(dest)
         if session is None:
-            print('ESMFOLD2|loading|' + model + ' and shared ESMC-6B', flush=True)
+            print('ESMFOLD2|loading|' + model + (' and ESM++ 600M' if model == '600' else ' and shared ESMC-6B'), flush=True)
             session = Session(root, model)
         atomic(staging / 'ligand_atom_map.json', ligand_atom_maps(chains))
         pairs = []

@@ -25,12 +25,12 @@ def normalize(overrides=None):
             raise ValueError('Unknown scientific setting for ' + engine)
         for key, value in values.items():
             low = 1 if key in {'diffusion_steps', 'affinity_steps', 'affinity_samples'} else 0
-            high = {'msa_depth': 1000000, 'diffusion_steps': 10000, 'recycles': 1000, 'affinity_steps': 10000, 'affinity_samples': 128}[key]
+            high = {'msa_depth': 1000000, 'diffusion_steps': 10000, 'recycles': 1000, 'affinity_steps': 10000, 'affinity_samples': 128, 'chunk_size': 65536, 'cache_limit_mib': 4096}[key]
             if type(value) is not int or not low <= value <= high:
                 raise ValueError(f'{engine}.{key} must be an integer from {low} to {high}.')
         result[engine].update(values)
-    if result['esmfold2-fast-mlx']['msa_depth'] != 0:
-        raise ValueError('ESMFold2 Fast is sequence-only; msa_depth must be zero.')
+    if any(result[e]['msa_depth'] != 0 for e in ('esmfold2-fast-mlx', 'esmfold2-600-mlx')):
+        raise ValueError('ESMFold2 Fast and 600 beta are sequence-only; msa_depth must be zero.')
     return result
 
 

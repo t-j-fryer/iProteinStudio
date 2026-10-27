@@ -60,7 +60,12 @@ enum RunResultsLoader {
             }
             if sequence == nil { sequence = chains[settings["binder_chain"] as? String ?? "A"] }
             let score = (row["ipsae_min"] as? NSNumber)?.doubleValue
-            var metrics = score.map { [StudioResultMetric(kind: .ipsaeMinimum, value: $0)] } ?? []
+            let confidence = (row["confidence"] as? String).flatMap { resolvedURL($0, relativeTo: root) }
+                .flatMap { $0.standardizedFileURL.resolvingSymlinksInPath().path.hasPrefix(root.standardizedFileURL.resolvingSymlinksInPath().path + "/") ? $0 : nil }
+            var metrics = collectMetrics(row: [:], documents: confidence.map { [$0] } ?? [])
+            if let score, !metrics.contains(where: { $0.kind == .ipsaeMinimum }) {
+                metrics.append(.init(kind: .ipsaeMinimum, value: score))
+            }
             let oracleMetrics = row["metrics"] as? [String: Double] ?? [:]
             if let value = oracleMetrics["boltz.pbind"] { metrics.append(.init(kind: .bindingProbability, value: value)) }
             if let value = oracleMetrics["boltz.ligand_plddt"] { metrics.append(.init(kind: .ligandPLDDT, value: value)) }
@@ -69,8 +74,8 @@ enum RunResultsLoader {
             return StudioResultItem(id: "rfd4|" + id, title: id,
                 subtitle: parent.map { "Parent: " + $0 + " · selection feedback" } ?? "RFD4 joint sequence/structure generation",
                 structureURL: structure, sequence: sequence,
-                metrics: metrics, confidenceURL: (row["confidence"] as? String).map { URL(fileURLWithPath: $0) },
-                stage: .design, scoreSource: row["engine"] as? String ?? "RFD4",
+                metrics: metrics, confidenceURL: confidence,
+                stage: .design, scoreSource: friendlyPredictor(row["engine"] as? String ?? "RFD4"),
                 groupID: family, groupTitle: family, variantID: id, variantTitle: id,
                 artifactRole: parent == nil ? .generatedBackbone : .designedComplex)
         }
@@ -1003,9 +1008,15 @@ enum RunResultsLoader {
         let preferred = root.appendingPathComponent("pred_min/model_0.cif")
         let files = recursiveFiles(in: root).filter { ["cif", "pdb"].contains($0.pathExtension.lowercased()) }
         let jobKey = lookupKey(job)
-        let matching = jobKey.isEmpty ? [] : files.filter { lookupKey($0.path).contains(jobKey) }
+        let matching = jobKey.isEmpty ? [] : files.filter { file in
+            file.pathComponents.contains { lookupKey($0) == jobKey }
+                || file.lastPathComponent.hasPrefix(job + "_model")
+                || file.lastPathComponent.hasPrefix(job + "_seed")
+        }
         let eligible = matching.isEmpty && allowGeneric ? files : matching
-        let samples = eligible.filter { sampleLabel(for: $0) != nil }
+        let samples = eligible.filter {
+            !$0.pathComponents.contains("pred_min") && sampleLabel(for: $0) != nil
+        }
         if !samples.isEmpty {
             return samples.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
         }
@@ -1020,7 +1031,7 @@ enum RunResultsLoader {
     private static func sampleLabel(for url: URL) -> String? {
         let text = url.deletingPathExtension().lastPathComponent
         let patterns: [(String, String)] = [
-            (#"seed[-_]([0-9]+)[-_]sample[-_]([0-9]+)"#, "seed $1 · sample $2"),
+            (#"seed[-_]([0-9]+)[-_](?:sample|model)[-_]([0-9]+)"#, "seed $1 · sample $2"),
             (#"model[-_]([0-9]+)$"#, "sample $1"),
         ]
         for (pattern, template) in patterns {
@@ -1193,6 +1204,7 @@ enum RunResultsLoader {
         case "protenix", "protenix-v2": return "Protenix v2"
         case "esmfold2-full-mlx": return "ESMFold2 Full MLX"
         case "esmfold2-fast-mlx": return "ESMFold2 Fast MLX"
+        case "esmfold2-600-mlx": return "ESMFold2Fast-600M"
         case "protenix-mini": return "Protenix Mini"
         case "protenix-constraint-v0.5": return "Protenix Constraint v0.5"
         case "intellifold-jax", "intellifold_jax": return "IntelliFold JAX/Metal (retired)"

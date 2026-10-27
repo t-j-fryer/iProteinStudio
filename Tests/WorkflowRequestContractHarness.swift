@@ -97,6 +97,12 @@ struct WorkflowRequestContractHarness {
         expect(request.numberOfSeeds == 1 && request.diffusionSamples == 0,
                "new prediction sampling controls changed the established defaults")
 
+        request.predictors = [.esmfold2_600]
+        request.normalizeEngineOptions()
+        expect(request.effectivePredictors == [.esmfold2_600] && request.isRunnable, "600M prediction is selectable and runnable")
+        expect(Predictor.esmfold2_600.runnerValue == "esmfold2-600-mlx", "600M backend identity changed")
+        expect(Predictor.esmfold2_600.component == .esmfold2_600 && InstallComponent.esmfold2_600.requires.isEmpty, "600M install incorrectly pulls 6B assets")
+        expect(Predictor.esmfold2_600.independenceIdentity == Predictor.esmfold2Full.independenceIdentity, "600M must not count as a different model family")
         request.numberOfSeeds = 3
         request.diffusionSamples = 2
         let roundTrip = try! JSONDecoder().decode(PredictionRequest.self,

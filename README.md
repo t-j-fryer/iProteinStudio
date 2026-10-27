@@ -103,7 +103,7 @@ remain separate from these qualification limits.
 
 | Role | Available choices |
 | --- | --- |
-| Structure prediction | Boltz-2, IntelliFold v2 Flash/full, Protenix v2/Mini, OpenFold3/MLX; experimental ESMFold2 Fast/Full MLX |
+| Structure prediction | Boltz-2, IntelliFold v2 Flash/full, Protenix v2/Mini, OpenFold3/MLX; experimental ESMFold2 Fast/Full MLX and ESMFold2Fast-600M |
 | Experimental guided proposals | Protenix Constraint, separate from unconstrained validation |
 | Sequence design | ProteinMPNN, SolubleMPNN, LigandMPNN, AbMPNN, AntiFold, LASErMPNN |
 | Backbone generation | RFdiffusion3/MLX; experimental RFD4 integration |
@@ -116,6 +116,13 @@ PSICHIC scores. [Runtime documentation](docs/PORTABLE_RUNTIME_IMPLEMENTATION.md)
 records package identities, compatibility, recovery and qualification limits.
 See [prediction settings](docs/PREDICTION_PROFILES.md) for compute budgets and
 [ESMFold2](docs/ESMFOLD2.md) for its additional memory, input and workflow limits.
+**ESMFold2Fast-600M** is an opt-in experimental predictor in the app, CLI and
+MCP, including target preparation, completed-sequence refinement and compatible
+custom workflows. Its independent 600M encoder avoids downloading ESMC-6B.
+Standard and low-memory settings are available; no 16 GB hardware compatibility
+claim is made. It has no MSA, X-token initialization, template or affinity head.
+See [installation, capabilities and measured limits](docs/ESMFOLD2.md#memory-controls-and-esmfold2fast-600m)
+and [integration qualification](lab_book/0586-integrate-esmfold2-600-release.md).
 
 ## Jobs and results
 

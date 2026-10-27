@@ -132,8 +132,8 @@ struct RFD4Request: Codable, Hashable {
             if task == .ligand && search != .native && sequence_model != "lasermpnn" { issues.append("Use LASErMPNN for this small-molecule search.") }
             if task == .ligand && search != .native && omit_amino_acids != "C" { issues.append("The ligand sampler uses its qualified cysteine exclusion.") }
             if !canSearch && !(native_search && task == .ligand) { issues.append("This sequence search needs a protein target or nanobody.") }
-            if task != .ligand && predictor != "esmfold2-fast-mlx" && target_msa.isEmpty { issues.append("Choose the target alignment or single-sequence prediction.") }
-            if task == .nanobody && (cdr_ranges.isEmpty || (predictor != "esmfold2-fast-mlx" && scaffold_msa.isEmpty)) { issues.append("Set CDR ranges and the scaffold alignment policy.") }
+            if task != .ligand && !["esmfold2-fast-mlx", "esmfold2-600-mlx"].contains(predictor) && target_msa.isEmpty { issues.append("Choose the target alignment or single-sequence prediction.") }
+            if task == .nanobody && (cdr_ranges.isEmpty || (!["esmfold2-fast-mlx", "esmfold2-600-mlx"].contains(predictor) && scaffold_msa.isEmpty)) { issues.append("Set CDR ranges and the scaffold alignment policy.") }
             if search == .beam && beam_width > proposals { issues.append("The first generation needs at least one proposal per beam place.") }
         }
         if native_search {

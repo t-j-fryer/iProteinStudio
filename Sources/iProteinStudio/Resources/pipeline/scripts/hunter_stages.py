@@ -13,7 +13,7 @@ import sys
 
 ENGINES = {'boltz', 'intellifold', 'protenix-v2', 'protenix-mini',
            'protenix-constraint-v0.5', 'openfold-3-mlx',
-           'esmfold2-fast-mlx', 'esmfold2-full-mlx'}
+           'esmfold2-fast-mlx', 'esmfold2-600-mlx', 'esmfold2-full-mlx'}
 FLAGS = {'--initialization-method', '--initialization-predictor',
          '--initialization-model', '--initialization-target'}
 
@@ -205,7 +205,7 @@ def main(args):
     if refine not in {'boltz', 'protenix-v2', 'intellifold'}:
         for flag in ['--target-template', '--target-template-mode', '--target-template-threshold']:
             refine_args = replace(refine_args, flag)
-    if refine == 'esmfold2-fast-mlx':
+    if refine in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'}:
         refine_args = replace(refine_args, '--target-msa-mode', 'off')
         refine_args = replace(refine_args, '--require-target-msa', boolean=True)
     print('NHSTEP|guidance||Refinement epitope guidance: ' + ('supported' if refine in {'boltz', 'protenix-constraint-v0.5'} and value(args, '--refinement-epitope-guidance', 'auto') != 'off' else 'off; refinement may move to another target site'), flush=True)

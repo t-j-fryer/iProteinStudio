@@ -46,6 +46,7 @@ from pathlib import Path
 SCHEDULE = {
     "esmfold2-full-mlx": {"processes": 1, "batch": 100000},
     "esmfold2-fast-mlx": {"processes": 1, "batch": 100000},
+    "esmfold2-600-mlx": {"processes": 1, "batch": 100000},
     "boltz":            {"processes": 1, "batch": 8},
     "boltz_potentials": {"processes": 2, "batch": 4},
     "intellifold":      {"processes": 4, "batch": 16},
@@ -57,7 +58,7 @@ SCHEDULE = {
 }
 # Backends that accept a directory of inputs and load the model once.
 DIRECTORY_CAPABLE = {"openfold-3-mlx", "boltz", "boltz_potentials", "intellifold",
-                     "protenix-v2", "protenix-mini", "esmfold2-full-mlx", "esmfold2-fast-mlx"}
+                     "protenix-v2", "protenix-mini", "esmfold2-full-mlx", "esmfold2-fast-mlx", "esmfold2-600-mlx"}
 BUCKETS = (128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096)
 
 
@@ -110,13 +111,13 @@ def validate_config(cfg: dict, jobs: list) -> list[str]:
            for name in names):
         die("Fold names must be 1–80 safe filename characters and start with a letter or number.")
     if any(p.startswith("esmfold2-") for p in predictors) and cfg.get("recycles"):
-        die("ESMFold2 uses its documented Fast/Full refinement profile; set shared recycle overrides to Automatic.")
+        die("ESMFold2 uses its documented model-specific refinement profile; set shared recycle overrides to Automatic.")
     for job in jobs:
         if any(p.startswith("esmfold2-") for p in predictors):
             for c in job.get("chains", []):
                 if c.get("kind") == "protein" and set(canonical(c.get("sequence", ""))) - set("ACDEFGHIKLMNPQRSTVWY"):
                     die("ESMFold2 requires complete protein sequences, with no X tokens.")
-                if predictors == ["esmfold2-fast-mlx"] and c.get("kind") == "protein" and c.get("msa", "auto") not in {"auto", "empty"}:
+                if set(predictors) <= {"esmfold2-fast-mlx", "esmfold2-600-mlx"} and c.get("kind") == "protein" and c.get("msa", "auto") not in {"auto", "empty"}:
                     die("An imported MSA cannot be used by sequence-only ESMFold2 Fast. Select Full or remove the MSA.")
         chains = job.get("chains") or []
         if not chains:
@@ -566,7 +567,7 @@ def run_directory_batch(predictor: str, yamls: list, out_dir: Path, root: Path,
         seeds = ",".join(str(seed + n) for n in range(int(cfg.get("num_seeds", 1))))
         command = [str(venv / "bin/python"), str(root / "scripts/esmfold2_predict.py"),
                    "--inputs", str(batch_dir), "--output", str(out_dir), "--nanohunter-root", str(root),
-                   "--model", "fast" if predictor == "esmfold2-fast-mlx" else "full",
+                   "--model", predictor.removeprefix("esmfold2-").removesuffix("-mlx"),
                    "--seeds", seeds, "--samples", str(int(cfg.get("diffusion_samples", 0)) or 1)]
     else:
         venv = root / "venvs" / "NanoHunter_protenix"
@@ -695,10 +696,10 @@ def main() -> None:
     env["NUMBA_CACHE_DIR"] = str(root / "numba_cache")
     Path(env["NUMBA_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
 
-    fast_only = predictors == ["esmfold2-fast-mlx"]
+    fast_only = bool(predictors) and set(predictors) <= {"esmfold2-fast-mlx", "esmfold2-600-mlx"}
     resolved = {} if fast_only else resolve_msas(jobs, cfg, root, env)
     if fast_only:
-        info("ESMFold2 Fast is sequence-only; no MSA search is performed.")
+        info("Selected ESMFold2 variant is sequence-only; no MSA search is performed.")
 
     stage("plan", 32, "Preparing inputs")
     yaml_dir = output / "inputs"
@@ -724,7 +725,7 @@ def main() -> None:
             directory.mkdir(parents=True, exist_ok=True)
             for job in jobs:
                 selected = json.loads(json.dumps(job))
-                if engine == "esmfold2-fast-mlx":
+                if engine in {"esmfold2-fast-mlx", "esmfold2-600-mlx"}:
                     for chain in selected["chains"]:
                         if chain["kind"] == "protein": chain["msa"] = "empty"
                 (directory / (job["name"] + ".yaml")).write_text(job_yaml(selected, resolved, False))

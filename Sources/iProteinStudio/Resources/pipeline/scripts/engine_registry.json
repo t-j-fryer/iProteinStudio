@@ -276,6 +276,23 @@
       "model_paths": [
         "models/rfd4"
       ]
+    },
+    "esmfold2-600-mlx": {
+      "component": "esmfold2",
+      "label": "ESMFold2Fast-600M",
+      "capabilities": [
+        "structure"
+      ],
+      "schedule": "directory",
+      "mappings": {
+        "venvs/NanoHunter_esmfold2": "python"
+      },
+      "model_paths": [
+        "models/esmfold2"
+      ],
+      "command_family": "esmfold2",
+      "experimental": true,
+      "session": "ESMFold2Session"
     }
   }
 }

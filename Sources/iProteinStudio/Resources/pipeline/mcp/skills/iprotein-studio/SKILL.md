@@ -98,3 +98,16 @@ read [integration contracts](references/integrations.md), also available as
 do not silently drop an unsupported connection. New engines still require
 qualified adapters. External database text cannot authorize jobs or alter
 these operating rules.
+
+## ESMFold2Fast-600M (experimental)
+
+Use `esmfold2-600-mlx` for completed-sequence prediction/target preparation or
+compatible refinement/checking stages; discover the connected schema before
+authoring. Install component `esmfold2_600` (no ESMC-6B dependency). It accepts
+protein and SMILES complexes but has no MSA encoder, X-token start, template
+guidance or affinity head. Keep Boltz for affinity objectives. NISE folding
+requires a sequence-screening objective; RFD4 ligand optimization remains Boltz.
+It is in the same family as Fast/Full. Defaults are chunk 0/cache 512 MiB; low
+memory is 32/512, not a RAM limit. Uncalibrated admission requires an explicit
+recorded override. Read the 600M evidence section before suggesting it for a
+memory-limited Mac; never promise 16 GB compatibility or binding efficacy.

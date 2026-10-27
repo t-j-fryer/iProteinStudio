@@ -67,7 +67,7 @@ def command_for(predictor: str, yaml_path: Path, output: Path, root: Path,
         command = [str(venv / "bin/python"), str(root / "scripts/esmfold2_predict.py"),
                    "--yaml", str(yaml_path), "--output", str(output),
                    "--nanohunter-root", str(root), "--model",
-                   "fast" if predictor == "esmfold2-fast-mlx" else "full", "--unrestrained-check"]
+                   {'esmfold2-fast-mlx': 'fast', 'esmfold2-full-mlx': 'full', 'esmfold2-600-mlx': '600'}[predictor], "--unrestrained-check"]
 
     elif family == "openfold3":
         venv = root / "venvs" / "NanoHunter_openfold3_mlx"

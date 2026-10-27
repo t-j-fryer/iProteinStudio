@@ -260,7 +260,7 @@ def refinement_template(spec, destination, initial=False):
     for entry in data.get('sequences', []):
         protein = entry.get('protein', {})
         msa = protein.get('msa')
-        if engine == 'esmfold2-fast-mlx' and protein:
+        if engine in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'} and protein:
             protein['msa'] = 'empty'
         elif msa and msa not in {'empty', 'auto'} and not Path(msa).is_absolute():
             protein['msa'] = str((original / msa).resolve())

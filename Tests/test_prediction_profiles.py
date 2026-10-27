@@ -37,8 +37,8 @@ class ProfileTests(unittest.TestCase):
 
     def test_native_exceptions_and_reduced_profiles(self):
         self.assertEqual(profiles.profile('mini'), dict(msa_depth=128, diffusion_steps=5, recycles=4))
-        self.assertEqual(profiles.profile('esmfold2-full-mlx'), dict(msa_depth=128, diffusion_steps=50, recycles=3))
-        self.assertEqual(profiles.profile('esmfold2-fast-mlx'), dict(msa_depth=0, diffusion_steps=50, recycles=3))
+        self.assertEqual(profiles.profile('esmfold2-full-mlx'), dict(msa_depth=128, diffusion_steps=50, recycles=3, chunk_size=0, cache_limit_mib=4096))
+        self.assertEqual(profiles.profile('esmfold2-fast-mlx'), dict(msa_depth=0, diffusion_steps=50, recycles=3, chunk_size=0, cache_limit_mib=4096))
         for engine in ('boltz', 'intellifold', 'intellifold-full', 'protenix-v2', 'protenix-constraint-v0.5', 'openfold-3-mlx'):
             self.assertEqual(profiles.profile(engine)['diffusion_steps'], 25)
 
@@ -53,15 +53,15 @@ class ProfileTests(unittest.TestCase):
 
     def test_full_budget_override_and_sequence_only_fast_remain_independent(self):
         profiles.activate({'esmfold2-full-mlx': {'diffusion_steps': 100, 'recycles': 20, 'msa_depth': 0}})
-        self.assertEqual(profiles.profile('esmfold2-full-mlx'), dict(msa_depth=0, diffusion_steps=100, recycles=20))
-        self.assertEqual(profiles.profile('esmfold2-fast-mlx'), dict(msa_depth=0, diffusion_steps=50, recycles=3))
+        self.assertEqual(profiles.profile('esmfold2-full-mlx'), dict(msa_depth=0, diffusion_steps=100, recycles=20, chunk_size=0, cache_limit_mib=4096))
+        self.assertEqual(profiles.profile('esmfold2-fast-mlx'), dict(msa_depth=0, diffusion_steps=50, recycles=3, chunk_size=0, cache_limit_mib=4096))
 
     def test_mcp_and_cli_share_full_defaults_and_preserve_frozen_profiles(self):
         sys.path.insert(0, str(SCRIPTS.parent / 'mcp'))
         from iprotein_mcp.prediction_settings import normalize
         full = 'esmfold2-full-mlx'
         self.assertEqual(normalize()[full], profiles.profile(full))
-        self.assertEqual(normalize()[full], dict(msa_depth=128, diffusion_steps=50, recycles=3))
+        self.assertEqual(normalize()[full], dict(msa_depth=128, diffusion_steps=50, recycles=3, chunk_size=0, cache_limit_mib=4096))
         frozen = normalize({full: dict(msa_depth=128, diffusion_steps=100, recycles=20)})
         profiles.activate(frozen)
         self.assertEqual(profiles.profile(full), frozen[full])

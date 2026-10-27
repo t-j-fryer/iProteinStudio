@@ -44,7 +44,7 @@ studio_child_shutdown: bounded-grace-retained-lease-v1
 studio_rfd3_runtime_release: runtimes-2026.09.26-1
 
 studio_constraint_receipt: portable-memory-contract-v1
-studio_runner_sha256: e888a91284b4dc54411fc735821b3a435e52d0e5ece61f72d1b24b2a14cb6151
+studio_runner_sha256: b5544c2b6b89a40e8b59dc0ea15ec9e5f5effb1d886a28677c05c234f0652b9c
 
 studio_nise_rfd3_conditioning: independent-generation-labels-v1
 studio_nise_resident_workers: explicit-fresh-stage-pool-v1
@@ -83,12 +83,12 @@ studio_residency_validation: lab_book/0272-openfold-residency-and-figure3-schedu
 studio_workflow_controls: native-region-modes-and-nise-resident-default-v1
 studio_workflow_controls_validation: lab_book/0279-simplify-workflow-controls.md
 
-studio_release: 0.2.27
+studio_release: 0.2.28
 studio_ligand_efficiency: laser-resident-postload-seed-v2; boltz-affinity50-1; bounded-cpu-prefetch
 studio_ligand_efficiency_validation: lab_book/0430-qualify-lasermpnn-cpu-residency.md, lab_book/0432-run-biotin-affinity-efficiency.md, lab_book/0442-release-ligand-efficiency.md
 studio_epitope_guidance: shared-generation-refinement-policy-v1
 studio_output_reporting: batched-content-addressed-inspection-v1
-studio_mcp: 46
+studio_mcp: 48
 
 studio_target_msa_policy: auto-resolved-not-filename-v1
 studio_target_msa_policy_validation: lab_book/0445-hunter-auto-msa-policy.md
@@ -104,3 +104,9 @@ studio_current_integration_validation: lab_book/0559-integrate-rfd4-and-design-s
 
 studio_release_qualification: lab_book/0579-qualify-and-release-studio-027.md
 studio_rfd4_runtime_release: runtimes-2026.10.26-1
+
+studio_esmfold2_600_beta: pinned-synthyra-complete-sequence-v2
+studio_esmfold2_600_beta_validation: lab_book/0581-esmfold2-600-mac-beta.md
+
+studio_esmfold2_600_integration: complete-sequence-prediction-and-refinement-v1
+studio_esmfold2_600_integration_validation: lab_book/0586-integrate-esmfold2-600-release.md

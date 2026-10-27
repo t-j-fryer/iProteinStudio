@@ -119,7 +119,7 @@ class ESMBackend(BatchBackend):
         from esmfold2_predict import complete, read_input, sha, PORT_REVISION, PROFILES
         from ligand_atoms import audit_atoms
         engine = self.settings['folding_engine']
-        profile = 'fast' if engine == 'esmfold2-fast-mlx' else 'full'
+        profile = {'esmfold2-fast-mlx': 'fast', 'esmfold2-full-mlx': 'full', 'esmfold2-600-mlx': '600'}[engine]
         from prediction_profiles import profile as scientific_profile
         prediction_settings = scientific_profile(engine)
         native_root = directory / '_esm_outputs'

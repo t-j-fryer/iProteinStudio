@@ -186,11 +186,11 @@ def normalize(request):
             raise ValueError('Protein search requires a protein target or nanobody input. Ligand searches use NISE.')
         expected = ('abmpnn',) if cfg['task'] == 'nanobody' else ('solublempnn', 'proteinmpnn')
         if cfg['sequence_model'] not in expected: raise ValueError('Choose a sequence designer appropriate for this task.')
-        if cfg['predictor'] not in ('esmfold2-full-mlx', 'esmfold2-fast-mlx', 'boltz'):
-            raise ValueError('Choose Full, Fast or Boltz for protein search.')
-        if cfg['predictor'] != 'esmfold2-fast-mlx' and not cfg['target_msa']:
+        if cfg['predictor'] not in ('esmfold2-full-mlx', 'esmfold2-fast-mlx', 'esmfold2-600-mlx', 'boltz'):
+            raise ValueError('Choose Full, Fast, 600M or Boltz for protein search.')
+        if cfg['predictor'] not in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'} and not cfg['target_msa']:
             raise ValueError('Select the target alignment, or explicitly enter empty for single-sequence prediction.')
-        if cfg['task'] == 'nanobody' and (not cfg['cdr_ranges'] or (cfg['predictor'] != 'esmfold2-fast-mlx' and not cfg['scaffold_msa'])):
+        if cfg['task'] == 'nanobody' and (not cfg['cdr_ranges'] or (cfg['predictor'] not in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'} and not cfg['scaffold_msa'])):
             raise ValueError('Nanobody search requires explicit CDR ranges and a scaffold alignment (or empty).')
         if cfg['search'] == 'beam' and cfg['beam_width'] > cfg['proposals']:
             raise ValueError('The first generation must supply at least one candidate for every beam place.')

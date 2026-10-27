@@ -101,7 +101,7 @@ enum NISEResultsLoader {
         let objective = settings["objective"] as? [String: Any]
         let objectiveEngine = objective?["engine"] as? String ?? ((settings["scoring_mode"] as? String == "screening") ? (settings["screening_engine"] as? String ?? "nesso") : "boltz")
         let foldingEngine = settings["folding_engine"] as? String ?? "boltz"
-        let foldingLabel = foldingEngine == "esmfold2-fast-mlx" ? "ESMFold2 Fast" : foldingEngine == "esmfold2-full-mlx" ? "ESMFold2 Full" : "Boltz"
+        let foldingLabel = foldingEngine == "esmfold2-600-mlx" ? "ESMFold2Fast-600M" : foldingEngine == "esmfold2-fast-mlx" ? "ESMFold2 Fast" : foldingEngine == "esmfold2-full-mlx" ? "ESMFold2 Full" : "Boltz"
         if objectiveEngine != "boltz" {
             let formula = objective?["formula"] as? String ?? (objectiveEngine == "psichic" ? "1 − predicted_nonbinder" : "P(bind) + (1 − entropy_crop_pl)")
             snapshot.objectiveDescription = "Selection: \(objectiveEngine.uppercased()) · \(formula). \(foldingLabel) supplies structures for geometry checks; Boltz affinity is not evaluated."
@@ -378,7 +378,7 @@ enum NISEResultsLoader {
             guard let name = row["job"], let engine = row["predictor"],
                   let structure = row["structure_path"].flatMap({ artifact($0) }),
                   let conf = row["confidence_json"].flatMap({ artifact($0) }), let data = object(conf) else { continue }
-            let label = engine == "esmfold2-fast-mlx" ? "ESMFold2 Fast MLX" : "ESMFold2 Full MLX"
+            let label = engine == "esmfold2-600-mlx" ? "ESMFold2Fast-600M" : engine == "esmfold2-fast-mlx" ? "ESMFold2 Fast MLX" : "ESMFold2 Full MLX"
             let sample = row["sample"] ?? name
             let key = stage(.finalChecks, 1)
             let item = StudioResultItem(id: "nise|final|\(engine)|\(sample)", title: name + " · " + label,

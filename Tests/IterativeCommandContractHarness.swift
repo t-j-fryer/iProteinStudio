@@ -616,8 +616,13 @@ struct IterativeCommandContractHarness {
         expect(request.requiredComponents.contains(.boltz) && request.requiredComponents.contains(.esmfold2Fast), "both stages require their own installed component")
         let args = CommandBuilder.arguments(request: request, templateYAML: URL(fileURLWithPath: "/tmp/template.yaml"), outRoot: URL(fileURLWithPath: "/tmp/output"), runName: "mixed")
         expect(args.contains("--initialization-predictor") && args.contains("esmfold2-fast-mlx"), "mixed stages reach the CLI")
+        request.designPredictor = .esmfold2_600
+        expect(request.requiredComponents.contains(.esmfold2_600) && !request.requiredComponents.contains(.esmfold2), "600M has its own asset component without the 6B dependency")
+        let smallArgs = CommandBuilder.arguments(request: request, templateYAML: URL(fileURLWithPath: "/tmp/template.yaml"), outRoot: URL(fileURLWithPath: "/tmp/output"), runName: "small")
+        expect(smallArgs.contains("esmfold2-600-mlx"), "600M refinement reaches the CLI")
+        expect(!DesignEngine.initializationChoices.contains(.esmfold2_600), "600M cannot initialize X tokens")
         let restored = try JSONDecoder().decode(DesignRequest.self, from: JSONEncoder().encode(request))
-        expect(restored.initializationEngine == .boltz && restored.initializationMethod == "hallucination", "stage recipe round trips")
+        expect(restored.designPredictor == .esmfold2_600 && restored.initializationEngine == .boltz && restored.initializationMethod == "hallucination", "stage recipe round trips")
         request.initializationMethod = "rfd3"
         request.designType = .nanobody
         expect(request.validationIssues.contains { $0.message.contains("de novo") }, "RFD3 cannot replace a fixed nanobody framework")

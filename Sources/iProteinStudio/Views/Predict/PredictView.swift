@@ -286,7 +286,7 @@ struct PredictView: View {
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if request.wrappedValue.effectivePredictors.contains(.esmfold2Fast) {
+            if request.wrappedValue.effectivePredictors.contains(where: \.isSequenceOnly) {
                 Text("ESMFold2 Fast always uses single sequences and skips MSA search. Alignment choices below apply to the other selected engines, including Full.")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -482,7 +482,7 @@ struct PredictView: View {
                 && request.wrappedValue.effectivePredictors.contains {
                     $0 == .intellifold
                 }
-            if !request.wrappedValue.jobs.isEmpty, fullV2Selected || request.wrappedValue.effectivePredictors.contains(where: { $0 == .esmfold2Fast || $0 == .esmfold2Full }) {
+            if !request.wrappedValue.jobs.isEmpty, fullV2Selected || request.wrappedValue.effectivePredictors.contains(where: { $0.isESMFold2 }) {
                 Label("No whole-run time estimate for this selection. See the model details for the limited reference benchmarks.",
                       systemImage: "clock")
                     .font(.callout).foregroundStyle(.secondary)

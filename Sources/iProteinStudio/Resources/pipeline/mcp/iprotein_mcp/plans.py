@@ -25,7 +25,7 @@ from .common import (
 )
 
 
-PREDICTORS = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx"}
+PREDICTORS = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx", "esmfold2-600-mlx"}
 SEQUENCE_MODELS = {"lasermpnn", "ligandmpnn", "solublempnn", "proteinmpnn"}
 RFD3_MODES = {"deNovo", "partialDiffusion", "motifScaffolding"}
 BOOLEAN_ITERATIVE_FLAGS = {
@@ -64,6 +64,7 @@ RESERVED_ITERATIVE_FLAGS = {
 INSTALL_COMPONENTS = {
     "esmfold2-full": "--with-esmfold2-full",
     "esmfold2-fast": "--with-esmfold2-fast",
+    "esmfold2-600": "--with-esmfold2-600",
     "nesso": "--with-nesso",
     "psichic": "--with-psichic",
     "boltz": "--with-boltz",
@@ -237,7 +238,7 @@ def _prediction_plan(arguments: Dict[str, Any], kind: str, output_folder: str, p
     if any(value not in PREDICTORS for value in predictors) or len(set(predictors)) != len(predictors):
         raise StudioError("Prediction engines must be distinct supported engine identifiers.")
     if any(p.startswith("esmfold2-") for p in predictors) and request.get("max_parallel", 0) not in {0, 1}:
-        raise StudioError("ESMFold2 uses one loaded ESMC-6B model; choose Automatic or 1 worker.")
+        raise StudioError("ESMFold2 uses one loaded model; choose Automatic or 1 worker.")
     jobs = request.get("jobs")
     if not isinstance(jobs, list) or not jobs or len(jobs) > 10_000:
         raise StudioError("jobs must contain between 1 and 10,000 folds.")
@@ -267,7 +268,7 @@ def _prediction_plan(arguments: Dict[str, Any], kind: str, output_folder: str, p
                 if any(p.startswith("esmfold2-") for p in predictors) and "X" in sequence:
                     raise StudioError("ESMFold2 requires complete sequences; X-token hallucination is unavailable.")
                 msa = chain.get("msa", "auto")
-                if predictors == ["esmfold2-fast-mlx"] and msa not in {"auto", "empty"}:
+                if set(predictors) <= {"esmfold2-fast-mlx", "esmfold2-600-mlx"} and msa not in {"auto", "empty"}:
                     raise StudioError("ESMFold2 Fast cannot use imported MSAs. Select Full or use single sequence.")
                 if msa not in {"auto", "empty"}:
                     artifact = import_artifact(str(msa))

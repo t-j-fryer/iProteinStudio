@@ -39,7 +39,7 @@ class ESMFold2ContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'X-token'): adapter.read_input(self.input, 'full', True)
 
     def test_never_claims_affinity_or_hallucination_in_registry(self):
-        for model in ('fast', 'full'):
+        for model in ('fast', 'full', '600'):
             engine = 'esmfold2-' + model + '-mlx'
             d = descriptor(engine)
             self.assertEqual(d['capabilities'], ['structure'])

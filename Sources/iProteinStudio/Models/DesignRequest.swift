@@ -768,7 +768,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
             add("target", "Add a ligand SMILES to continue.")
         }
         if targetKind == .ligand, let error = nesso.validationError { add("nesso", error) }
-        if (designPredictor == .esmfold2Fast || designPredictor == .esmfold2Full) && !hasSeparateInitialization && !(designType == .nanobody && designPredictor == .esmfold2Full) {
+        if (designPredictor.isESMFold2) && !hasSeparateInitialization && !(designType == .nanobody && designPredictor == .esmfold2Full) {
             add("models", "ESMFold2 refinement needs a separate starting engine or RFdiffusion3. It cannot generate X-token starts.")
         }
         if !["deNovo", "partialRedesign", "motifScaffolding"].contains(nativeBinderMode) {

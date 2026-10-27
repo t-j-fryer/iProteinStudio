@@ -8,7 +8,7 @@ from .contract import atomic, seal, verify
 
 def resolve(config):
     cfg=dict(config['settings'])
-    if cfg['predictor']=='esmfold2-fast-mlx': return config
+    if cfg['predictor'] in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'}: return config
     root=Path(os.environ['NANOHUNTER_ROOT']);output=Path(config['output'])
     marker=output/'msa_completed.json'
     if marker.exists():

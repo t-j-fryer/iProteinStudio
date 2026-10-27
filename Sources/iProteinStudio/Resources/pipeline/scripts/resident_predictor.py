@@ -651,7 +651,7 @@ class ESMFold2Session:
         import torch
         from esmfold2_predict import Session
         self.torch, self.config = torch, config
-        self.profile = 'fast' if config['engine'] == 'esmfold2-fast-mlx' else 'full'
+        self.profile = {'esmfold2-fast-mlx': 'fast', 'esmfold2-full-mlx': 'full', 'esmfold2-600-mlx': '600'}[config['engine']]
         self.session = Session(Path(config['root']), self.profile)
         self.model_load_count = 1  # One folding session, including its shared ESMC encoder.
 

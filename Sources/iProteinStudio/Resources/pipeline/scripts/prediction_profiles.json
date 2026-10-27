@@ -39,11 +39,22 @@
   "esmfold2-full-mlx": {
     "msa_depth": 128,
     "diffusion_steps": 50,
-    "recycles": 3
+    "recycles": 3,
+    "chunk_size": 0,
+    "cache_limit_mib": 4096
   },
   "esmfold2-fast-mlx": {
     "msa_depth": 0,
     "diffusion_steps": 50,
-    "recycles": 3
+    "recycles": 3,
+    "chunk_size": 0,
+    "cache_limit_mib": 4096
+  },
+  "esmfold2-600-mlx": {
+    "msa_depth": 0,
+    "diffusion_steps": 50,
+    "recycles": 3,
+    "chunk_size": 0,
+    "cache_limit_mib": 512
   }
 }

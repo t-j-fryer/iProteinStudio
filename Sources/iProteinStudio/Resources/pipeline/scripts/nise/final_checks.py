@@ -44,7 +44,7 @@ def run(root, output, settings, smiles):
         print('NHSTEP|final-checks|0|Refolding final shortlist with ' + engine, flush=True)
         command = [str(root / 'venvs/NanoHunter_esmfold2/bin/python'), str(root / 'scripts/esmfold2_predict.py'),
                    '--inputs', str(inputs), '--output', str(target / engine), '--nanohunter-root', str(root),
-                   '--model', 'fast' if engine == 'esmfold2-fast-mlx' else 'full', '--seeds', str(settings['seed'])]
+                   '--model', {'esmfold2-fast-mlx': 'fast', 'esmfold2-full-mlx': 'full', 'esmfold2-600-mlx': '600'}[engine], '--seeds', str(settings['seed'])]
         with (target / (engine + '.log')).open('a') as log:
             subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
     atomic(target / 'summary.json', dict(status='completed', candidates=len(selected), engines=settings['final_predictors']))

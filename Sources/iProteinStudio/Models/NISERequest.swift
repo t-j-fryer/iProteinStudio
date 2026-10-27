@@ -150,7 +150,7 @@ struct NISERequest: Codable, Hashable {
         nise_ligand_sc_from_cycle = try c.decodeIfPresent(Int.self, forKey: .nise_ligand_sc_from_cycle) ?? nise_ligand_sc_from_cycle
     }
 
-    var foldingLabel: String { folding_engine == "esmfold2-fast-mlx" ? "ESMFold2 Fast" : folding_engine == "esmfold2-full-mlx" ? "ESMFold2 Full" : "Boltz" }
+    var foldingLabel: String { folding_engine == "esmfold2-600-mlx" ? "ESMFold2Fast-600M" : folding_engine == "esmfold2-fast-mlx" ? "ESMFold2 Fast" : folding_engine == "esmfold2-full-mlx" ? "ESMFold2 Full" : "Boltz" }
     var usesESMFolding: Bool { folding_engine != "boltz" }
     var esmEngines: [String] { Array(Set(final_predictors + (usesESMFolding ? [folding_engine] : []))).sorted() }
     var screeningLabel: String { screening_engine == "psichic" ? "PSICHIC" : "NESSO" }
@@ -206,11 +206,11 @@ struct NISERequest: Codable, Hashable {
 
     var validationIssues: [String] {
         var issues: [String] = []
-        if !["boltz", "esmfold2-fast-mlx", "esmfold2-full-mlx"].contains(folding_engine) || (usesESMFolding && (!usesScreeningObjective || resident_workers != 0)) {
+        if !["boltz", "esmfold2-fast-mlx", "esmfold2-full-mlx", "esmfold2-600-mlx"].contains(folding_engine) || (usesESMFolding && (!usesScreeningObjective || resident_workers != 0)) {
             issues.append("ESMFold2 folding requires NESSO/PSICHIC as the objective and a single managed ESMFold2 session.")
         }
-        if final_predictors.contains(where: { !["esmfold2-fast-mlx", "esmfold2-full-mlx"].contains($0) }) || Set(final_predictors).count != final_predictors.count {
-            issues.append("Choose distinct ESMFold2 Fast/Full final checks.")
+        if final_predictors.contains(where: { !["esmfold2-fast-mlx", "esmfold2-full-mlx", "esmfold2-600-mlx"].contains($0) }) || Set(final_predictors).count != final_predictors.count {
+            issues.append("Choose distinct ESMFold2 Fast/Full/600M final checks.")
         }
         if !["boltz", "screening"].contains(scoring_mode)
             || !nesso_early_score_gate.isFinite || !(0...2).contains(nesso_early_score_gate)

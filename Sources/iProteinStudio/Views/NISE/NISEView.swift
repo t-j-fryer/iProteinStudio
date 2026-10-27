@@ -19,7 +19,7 @@ struct NISEView: View {
         Binding(get: { app.projects.first(where: { $0.id == project.id })?.nise ?? project.nise },
                 set: { value in app.updateProject(id: project.id) { $0.nise = value } })
     }
-    private var ready: Bool { request.wrappedValue.esmEngines.allSatisfy { value in installer.isUsable(value == "esmfold2-fast-mlx" ? .esmfold2Fast : .esmfold2Full) } && installer.isUsable(.boltz) && installer.isUsable(.boltzAffinity) && installer.isUsable(.lasermpnn) && (request.wrappedValue.backbone_method != "rfdiffusion3" || installer.isUsable(.rfd3)) && (!request.wrappedValue.usesNesso || installer.isUsable(request.wrappedValue.screening_engine == "psichic" ? .psichic : .nesso)) }
+    private var ready: Bool { request.wrappedValue.esmEngines.allSatisfy { value in installer.isUsable(value == "esmfold2-600-mlx" ? .esmfold2_600 : value == "esmfold2-fast-mlx" ? .esmfold2Fast : .esmfold2Full) } && installer.isUsable(.boltz) && installer.isUsable(.boltzAffinity) && installer.isUsable(.lasermpnn) && (request.wrappedValue.backbone_method != "rfdiffusion3" || installer.isUsable(.rfd3)) && (!request.wrappedValue.usesNesso || installer.isUsable(request.wrappedValue.screening_engine == "psichic" ? .psichic : .nesso)) }
     private var atomChoicesReady: Bool {
         cohortURL != nil || !request.wrappedValue.hasAtomSelections || (atomMapVerified
             && ligandAtoms.signature == request.wrappedValue.ligand_atom_signature
@@ -116,6 +116,7 @@ struct NISEView: View {
                             Picker("Structure generator", selection: request.folding_engine) {
                                 Text("Boltz 2 · pocket guidance available").tag("boltz")
                                 Text("ESMFold2 Fast · experimental, sequence only").tag("esmfold2-fast-mlx")
+                                Text("ESMFold2Fast-600M · experimental, sequence only").tag("esmfold2-600-mlx")
                                 Text("ESMFold2 Full · experimental, sequence only here").tag("esmfold2-full-mlx")
                             }.accessibilityIdentifier("nise-folding-engine")
                             if request.wrappedValue.usesESMFolding {
@@ -253,7 +254,7 @@ struct NISEView: View {
                 }
                 GroupBox("Optional final structure checks") {
                     VStack(alignment: .leading, spacing: 8) {
-                        ForEach([Predictor.esmfold2Fast, .esmfold2Full]) { engine in
+                        ForEach([Predictor.esmfold2Fast, .esmfold2Full, .esmfold2_600]) { engine in
                             Toggle(engine.label, isOn: Binding(
                                 get: { request.wrappedValue.final_predictors.contains(engine.runnerValue) },
                                 set: { selected in

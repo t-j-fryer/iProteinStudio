@@ -137,12 +137,12 @@ class Engine:
         inputs = unit / 'inputs'
         inputs.mkdir(exist_ok=True)
         msa = 'empty'
-        if cfg['task'] == 'nanobody' and cfg['scaffold_msa'] != 'empty' and cfg['predictor'] != 'esmfold2-fast-mlx':
+        if cfg['task'] == 'nanobody' and cfg['scaffold_msa'] != 'empty' and cfg['predictor'] not in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'}:
             msa = str(inputs / 'scaffold.a3m')
             subprocess.run([sys.executable, str(self.scripts / 'nanobody_masked_msa.py'), cfg['scaffold_msa'], msa,
                             sequence, original[binder], 'CDR1 CDR2 CDR3', cfg['cdr_ranges'],
                             str(self.scripts.parent / 'examples/nanobody_scaffolds/catalog.tsv'), '128', '-'], check=True)
-        target_msa = 'empty' if cfg['predictor'] == 'esmfold2-fast-mlx' else cfg['target_msa']
+        target_msa = 'empty' if cfg['predictor'] in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'} else cfg['target_msa']
         document = dict(version=1, sequences=[dict(protein=dict(id=binder, sequence=sequence, msa=msa)),
                                              *[dict(protein=dict(id=c, sequence=seq, msa=self.config.get('target_msas', {}).get(c, target_msa))) for c, seq in targets.items()]])
         yp = inputs / (proposal['id'] + '.yaml')
@@ -153,7 +153,7 @@ class Engine:
         started = time.perf_counter()
         if cfg['predictor'].startswith('esmfold2-'):
             from esmfold2_predict import run
-            profile = 'full' if cfg['predictor'] == 'esmfold2-full-mlx' else 'fast'
+            profile = {'esmfold2-full-mlx': 'full', 'esmfold2-fast-mlx': 'fast', 'esmfold2-600-mlx': '600'}[cfg['predictor']]
             self.session = run(self.root, profile, [yp], predictions, [proposal['predictor_seed']], 1, session=self.session)
             leaf = predictions / yp.stem
             structure = leaf / 'pred_min/model_0.cif'

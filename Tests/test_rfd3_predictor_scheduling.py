@@ -69,7 +69,7 @@ class RFD3PredictorSchedulingTests(unittest.TestCase):
             smiles = base / 'ligand.smi'; smiles.write_text('CCO\n')
             cfg = dict(nanohunter_root=str(base), smiles_file=str(smiles),
                        boltz_chunk_size=1, boltz_calibrate_n=1, num_backbones=1,
-                       sequences_per_backbone=1, extra_predictors=['esmfold2-fast-mlx'],
+                       sequences_per_backbone=1, extra_predictors=['esmfold2-600-mlx'],
                        target_sequence='AAAA', target_chain='B')
             expected = str(base / 'rfd3_overlay/scripts/run_predictors.py')
             with patch.object(ligand, 'ROOT', engine), patch.object(ligand, 'run') as run, patch.object(ligand, 'count_csv', return_value=1):

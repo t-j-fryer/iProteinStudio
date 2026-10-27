@@ -896,7 +896,16 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
                 binders = [v for v in chains.values() if v != config['target_sequence']]
                 if len(binders) == 1: sequence = binders[0]
             if not sequence: sequence = chains.get(config.get('settings', {}).get('binder_chain'))
-            artifacts = [dict(role="design", path=row["structure"], metrics={k:row[k] for k in ("ipsae_min", "score") if k in row}, is_hit=None)]
+            metrics = {k:row[k] for k in ("ipsae_min", "score") if k in row}
+            confidence = row.get('confidence')
+            if confidence:
+                path = Path(confidence).resolve()
+                if root.resolve() in path.parents and path.is_file():
+                    document = load_json(path)
+                    metrics.update({k:v for k,v in document.items() if k in
+                        {'ptm', 'iptm', 'complex_plddt', 'chain_plddt', 'ligand_plddt', 'ipsae_min', 'confidence_score'}})
+            artifacts = [dict(role="design", path=row["structure"], predictor=row.get('engine'),
+                              confidence_json=confidence, metrics=metrics, is_hit=None)]
             if row.get('oracle_structure'):
                 artifacts.append(dict(role='selection_oracle', path=row['oracle_structure'], metrics=row.get('metrics', {}), is_hit=None))
             group = grouped.setdefault(row["family"], dict(id=row["family"], title=row["family"], is_hit=None, variants=[]))
@@ -942,7 +951,7 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
     Claude skill: desktop clients receive the same scientific routing rules.
     """
     if workflow == "nise":
-        return {"folding_options": "folding_engine defaults to boltz. ESMFold2 Fast/Full MLX require scoring_mode=screening and resident_workers=0. Complete sequences use unrestrained sequence-only folding with the same postfold geometry filters; initial Protein Hunter X generation stays Boltz. No ESMFold2 affinity or pocket guidance. Optional final_predictors provide independent refolds without changing optimisation. Fast/Full are one family.", "workflow": "nise", "tool": "nise_plan", "designer": "lasermpnn", "predictor": "boltz",
+        return {"folding_options": "folding_engine defaults to boltz. ESMFold2 Fast/Full/600M MLX require scoring_mode=screening and resident_workers=0. Complete sequences use unrestrained sequence-only folding with the same postfold geometry filters; initial Protein Hunter X generation stays Boltz. No ESMFold2 affinity or pocket guidance. Optional final_predictors provide independent refolds without changing optimisation. Fast/Full/600M are one family.", "workflow": "nise", "tool": "nise_plan", "designer": "lasermpnn", "predictor": "boltz",
                 "objective": "ligand_pLDDT/100 + affinity_probability_binary; missing affinity fails",
                 "order": ["system_detect", "nise_plan", "job_start with plan digest", "job_status", "results_overview", "results_query"],
                 "scope": "Small molecules only. Apo preorganisation is an optional final shortlist analysis.",
@@ -1068,7 +1077,8 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
     if workflow not in guides:
         raise StudioError(f"Unknown workflow guide: {workflow}")
     return {"workflow": workflow, **common, **guides[workflow],
-            "esmfold2": "Experimental esmfold2-fast-mlx / esmfold2-full-mlx support complete-sequence protein and SMILES-ligand prediction. Fast has no MSA encoder; Full uses the requested MSA. No template/pocket guidance or affinity head. Full supports validated fixed-framework CDR-only X-token initialization; Fast and whole-chain X-token generation remain unsupported. Available for independent completed-sequence checks and Protein Hunter refinement after an explicit separate initialization stage. Portable runtime on Apple silicon/macOS 26.2+, separate pinned weights; no external installs. Credits: Fausto Milletari and contributors' MLX port, Biohub ESMFold2/ESMC and Apple MLX. docs/ESMFOLD2.md records measured Fast/Full comparisons and limits."}
+            "esmfold2": "Experimental esmfold2-fast-mlx / esmfold2-full-mlx support complete-sequence protein and SMILES-ligand prediction. Fast has no MSA encoder; Full uses the requested MSA. No template/pocket guidance or affinity head. Full supports validated fixed-framework CDR-only X-token initialization; Fast and whole-chain X-token generation remain unsupported. Available for independent completed-sequence checks and Protein Hunter refinement after an explicit separate initialization stage. Portable runtime on Apple silicon/macOS 26.2+, separate pinned weights; no external installs. Credits: Fausto Milletari and contributors' MLX port, Biohub ESMFold2/ESMC and Apple MLX. docs/ESMFOLD2.md records measured Fast/Full comparisons and limits.",
+            "esmfold2_600_beta": "ESMFold2Fast-600M (esmfold2-600-mlx): separate pinned Synthyra experimental model/encoder/confidence head. App/CLI/MCP complete protein and SMILES-complex prediction, target preparation, RFD3 checks, protein/nanobody RFD4 sequence search, completed-sequence iterative refinement, NISE sequence-objective folding/final checks. No X-token initialization, templates or affinity head. Sequence-only; skip auto MSA, never silently consume an imported MSA. Same family as Fast/Full. Install esmfold2_600 without ESMC-6B. Defaults chunk_size=0, cache_limit_mib=512; low-memory preset 32/512 is not a total RAM cap. Memory admission remains uncalibrated and needs a recorded override. Lab0581/0582/0586, Validation0261/0262/0263 record bounded tests; no physical 16GB or general accuracy qualification."}
 
 
 def workflow_guide(workflow: str) -> Dict[str, Any]:
@@ -1083,7 +1093,7 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
     guide['prediction_settings'] = {
         'defaults': normalize(),
         'override': 'prediction_settings[engine] with msa_depth, diffusion_steps and recycles; iterative CLI uses --prediction-settings-json.',
-        'scope': 'Prediction only; RFdiffusion generation, guidance, affinity and sample counts retain separate controls. MSA depth includes query; 0 preserves supplied rows. ESMFold2 Fast remains sequence-only. Saved jobs retain their frozen runtime and settings.',
+        'scope': 'Prediction only; RFdiffusion generation, guidance, affinity and sample counts retain separate controls. MSA depth includes query; 0 preserves supplied rows. ESMFold2 Fast and 600M remain sequence-only. Saved jobs retain their frozen runtime and settings.',
         'evidence': 'Lab Book 0234; reduced settings can change outputs and are not universal accuracy guarantees.'}
     return guide
 

@@ -57,6 +57,20 @@ orchestration and I/O adapters. Checkpoints are downloaded separately from pinne
 Biohub revisions, never redistributed in the app or runtime archive. Model use
 remains subject to the applicable upstream terms. See docs/ESMFOLD2.md for model
 choices, measured speed scope and experimental limitations.
+## ESMFold2-600 / ESM++ experimental adapter
+
+The optional ESMFold2Fast-600M beta ports the experimental architecture and adapted
+confidence head from [Synthyra ESMFold2-600](https://huggingface.co/Synthyra/ESMFold2-600),
+revision `38fa0be7397a485afd4a752202447693098f3d50`, using the existing
+Fausto Milletari MLX primitives. Synthyra/FastPLMs source implementation: Apache-2.0; checkpoint terms: MIT.
+Pinned upstream notices and the MLX-LM MIT text are retained under
+`scripts/licenses/esmfold2-600/`.
+The [ESM++ large encoder](https://huggingface.co/Synthyra/ESMplusplus_large)
+is pinned at `f813401638b3fddab09748aec1ad2bf537aa4208`.
+Weights remain separately downloaded assets; no remote Python is executed.
+Tensor names are mapped strictly, including the experimental confidence head.
+This adapter does not imply endorsement or numerical equivalence to CUDA.
+
 # AME-41 benchmark data added for the atomic motif beta
 
 Original RFdiffusion2 inputs from RosettaCommons/RFdiffusion2 at revision

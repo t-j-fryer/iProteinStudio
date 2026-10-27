@@ -16,11 +16,23 @@ claiming that a method is available or best for a new target.
 | Motif model/recovery smoke, Lab Book 0579; Validation 0259 | One KSI root, both ligand designers, one fixed cycle, four guided/untemplated Boltz predictions and real cancellation/replay passed. Native outputs and explicit ligand-identity receipts are retained. | One case, not all 41 or all search policies. Neither candidate passed the unchanged geometry gates. No independent-family, enzyme-activity or throughput claim; memory estimates remain uncalibrated. |
 | Base installation, Lab Book 0579; Validation 0259 | All nine base component receipts and engine detection passed in an initially empty root, using public runtimes and verified model downloads without external developer tools. | One Apple M4 Max development Mac, macOS 26.6.1. Installation acceptance does not calibrate inference memory or substitute for fresh-Mac/update-install acceptance. |
 | User's failed RFD3 fixed-framework nanobody trial, 2026-10-26 | Exclude this route. Offer supported RFD4 framework design or CDR X-token workflows instead. | Do not present RFD3 fixed-framework nanobody generation as a pending feature or recommended alternative. |
+| ESMFold2-600 beta, Lab Book 0581; Validation 0261 | Explicit CLI/MCP complete-monomer beta using the separate pinned Synthyra 600M model. At 96 residues, seed42, 3 loops/50 steps, one sample and 512 MiB cache, sampled footprint was 5.0–5.3 GiB versus Full 17.2–17.6 GiB on M4 Max40-core GPU/64 GB. | Bounded n=1 conditions and one beta repeat; accounted process footprint is not exact physical RAM. No16 GB hardware, accuracy or general speed claim. Larger Figure 2a qualification is separate (0582/0262). Transition chunking did not materially reduce this short-input peak. |
+
+Figure 2a600 beta expansion (Lab Book 0582, Validation 0262):40 measured predictions and
+8 warmups passed on M4 Max40-core GPU/64 GB. Whole-session footprint for MBP370 was
+11.13→7.31 GiB, with mean warmed requests9.18→13.47s; for the 916-residue citrate
+dimer,28.31→18.02 GiB and76.01→84.51s. Arrows compare4096 MiB cache/chunk0 with
+512 MiB cache/chunk32, changing both controls. The dimer is research-only;
+no general complex route or16 GB certification is implied. Five seeds share one
+resident session per condition. Preserve source timing/memory definitions.
 
 ## Decision rules that follow
 
 - Protein targets: use SolubleMPNN for de-novo proteins and AbMPNN for supported
   antibody CDR proposals. LASErMPNN/LigandMPNN supply small-molecule context.
+- ESMFold2Fast-600M is a separate sequence-only beta available for complete
+  prediction and compatible refinement, never a silent replacement for Full. Its uncalibrated
+  memory admission requires a recorded override; do not infer safe lengths on16 GB.
 - Full accepts complete sequences and supported fixed-framework CDR-only X-token
   starts. Fast and whole-chain Full X-token generation remain unsupported.
 - Structural motif conditioning, sequence-motif preservation and sparse template
@@ -55,3 +67,23 @@ Cycle 00 is not an optimized design. Include failures and avoid choosing a
 favorable cycle per arm without declaring it. Unequal budgets, target subsets
 or different checking models do not establish a universal engine ranking.
 Local raw campaign data is not bundled with this skill or automatically uploaded.
+
+## ESMFold2Fast-600M
+
+Lab0581/Validation0261 establish strict pinned loading and bounded Mac inference;
+Lab0582/Validation0262 record the four-target Figure 2a benchmark (M4 Max, 40 GPU
+cores, 64 GB, macOS 26.6.1; five measured seeds plus one warmup per target/profile).
+For 370-residue MBP, standard/low-memory mean warmed request times were
+9.18/13.47 s and whole-session accounted footprints 11.13/7.31 GiB. For the
+916-residue citrate synthase dimer they were 76.01/84.51 s and 28.31/18.02 GiB.
+Low memory used transition chunk 32/cache 512 MiB; the benchmark standard used
+chunk 0/cache 4096 MiB (distinct from the app's conservative 512 MiB cache default).
+Accounted footprint is not exact physical RAM. The dimer exceeds 16 GiB even in
+the low-memory setting. These are source benchmark results, not measurements on
+the user's machine. No actual 16 GB Mac, general accuracy, binding efficacy or
+whole-model CUDA parity is qualified.
+
+Lab0586/Validation0263 cover app/CLI/MCP integration, installation and output
+contracts. Confidence is model-specific: pTM for monomers, ipTM for complexes,
+protein ipSAE when available, pLDDT and PAE; none is an affinity head. Read actual
+completed output receipts before reporting a workflow as successful.

@@ -51,13 +51,13 @@ def normalize(request):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from prediction_profiles import normalize as normalize_profiles
     cfg['prediction_settings'] = normalize_profiles(cfg['prediction_settings'])
-    if cfg['folding_engine'] not in {'boltz', 'esmfold2-fast-mlx', 'esmfold2-full-mlx'}:
+    if cfg['folding_engine'] not in {'boltz', 'esmfold2-fast-mlx', 'esmfold2-600-mlx', 'esmfold2-full-mlx'}:
         raise ValueError('Unknown NISE structure engine.')
     if cfg['folding_engine'] != 'boltz' and (cfg['scoring_mode'] != 'screening' or cfg['resident_workers']):
         raise ValueError('ESMFold2 folding requires NESSO/PSICHIC optimisation and one managed ESMFold2 session, not a Boltz worker pool.')
     final = cfg['final_predictors']
-    if not isinstance(final, list) or any(p not in {'esmfold2-full-mlx', 'esmfold2-fast-mlx'} for p in final) or len(set(final)) != len(final):
-        raise ValueError('Final structure checks must be distinct ESMFold2 Fast/Full engines.')
+    if not isinstance(final, list) or any(p not in {'esmfold2-full-mlx', 'esmfold2-fast-mlx', 'esmfold2-600-mlx'} for p in final) or len(set(final)) != len(final):
+        raise ValueError('Final structure checks must be distinct ESMFold2 Fast/Full/600M engines.')
     if cfg["scoring_mode"] not in ("boltz", "screening"):
         raise ValueError("Choose Boltz selection or the screening engine as the optimisation objective.")
     if cfg["scoring_mode"] == "screening":
@@ -190,12 +190,20 @@ def required_files(root, request=None):
     esm_engines = set(request.get('final_predictors', [])) if request else set()
     if request and request.get('folding_engine', 'boltz') != 'boltz': esm_engines.add(request['folding_engine'])
     if esm_engines:
-        files += [root / 'venvs/NanoHunter_esmfold2/bin/python', root / 'scripts/esmfold2_predict.py']
-        files += [root / 'models/esmfold2/ESMC-6B/config.json', root / 'models/esmfold2/ESMFold2/ccd.pkl']
-        files += [root / f'models/esmfold2/ESMC-6B/model-{i:05d}-of-00006.safetensors' for i in range(1, 7)]
+        files += [root / 'venvs/NanoHunter_esmfold2/bin/python', root / 'scripts/esmfold2_predict.py',
+                  root / 'models/esmfold2/ESMFold2/ccd.pkl']
+        if esm_engines - {'esmfold2-600-mlx'}:
+            files += [root / 'models/esmfold2/ESMC-6B/config.json']
+            files += [root / f'models/esmfold2/ESMC-6B/model-{i:05d}-of-00006.safetensors' for i in range(1, 7)]
         for engine in sorted(esm_engines):
-            head = 'ESMFold2-Fast' if engine == 'esmfold2-fast-mlx' else 'ESMFold2'
-            files += [root / 'models/esmfold2' / head / name for name in ('model.safetensors', 'config.json')]
+            if engine == 'esmfold2-600-mlx':
+                import json
+                manifest = json.loads((root / 'scripts/runtime_assets.json').read_text())
+                files += [root / a['path'] for a in manifest['assets']['esmfold2_600']]
+                files += [root / 'scripts/esmfold2_600.py', root / 'scripts/esmfold2_600_model.py']
+            else:
+                head = 'ESMFold2-Fast' if engine == 'esmfold2-fast-mlx' else 'ESMFold2'
+                files += [root / 'models/esmfold2' / head / name for name in ('model.safetensors', 'config.json')]
     return files
 
 

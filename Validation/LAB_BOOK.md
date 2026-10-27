@@ -1,5 +1,9 @@
 # Validation Lab Book
 
+- [0263 — ESMFold2Fast-600M integration](lab_book/0263-esmfold2-600-integration.md): bounded prediction/refinement, installation, metrics and recovery qualified.
+
+- [0261 — ESMFold2-600 Mac beta](lab_book/0261-esmfold2-600-mac-beta.md): bounded monomer, chunking, memory and replay acceptance complete.
+
 - [0259 — Studio 0.2.27 release qualification](lab_book/0259-studio-release-027.md) (2026-10-26): bounded KSI/resume and base installation pass; runtime/app delivery and public signatures verified.
 
 Latest RFD3 correction: [0095 — RFD3 motif release acceptance](lab_book/0095-rfd3-motif-release.md).
@@ -70,3 +74,5 @@ Current acceptance: [0086 — OpenFold residency and Figure3 continuation](lab_b
 
 - [0194 — LASErMPNN CPU residency](lab_book/0194-lasermpnn-cpu-residency.md).
 - [0195 — Biotin affinity/CPU efficiency](lab_book/0195-biotin-affinity-efficiency.md).
+
+- [0262 — ESMFold2-600 Figure 2a benchmark](lab_book/0262-esmfold2-600-figure2a.md)

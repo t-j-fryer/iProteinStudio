@@ -190,3 +190,9 @@ X-token generation is not. RFD3 fixed-framework nanobody generation was tried
 unsuccessfully and is excluded, not pending. General coordinate-template-guided
 X-token scaffolding remains unavailable. Use the existing benchmark motif beta
 for its explicit supported scope. [Capability matrix](RFD4.md#custom-workflow-capabilities).
+
+ESMFold2Fast-600M is available in bridge 48 as `esmfold2-600-mlx`, with install
+component `esmfold2_600`. Discover the connected schema after updating/restarting
+the MCP server. The operating skill's evidence reference distinguishes measured
+M4 Max results from untested 16 GB hardware. Fast, Full and 600M are one model
+family; their agreement is not independent-family validation.

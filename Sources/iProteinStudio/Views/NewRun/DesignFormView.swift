@@ -824,7 +824,7 @@ struct PredictorPicker: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if request.hasSeparateInitialization {
-                    Text("Generation guidance applies to cycle 00. Later cycles use only the refinement engine’s supported guidance. ESMFold2 is unrestrained: Fast uses no MSA; Full can use target MSAs. Both share the installed ESMC weights. Starts are checkpointed and never counted as optimized designs.")
+                    Text("Generation guidance applies to cycle 00. Later cycles use only the refinement engine’s supported guidance. ESMFold2 is unrestrained: Fast and 600M use no MSA; Full can use target MSAs. 600M uses its own smaller encoder. Starts are checkpointed and never counted as optimized designs.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -843,7 +843,7 @@ struct PredictorPicker: View {
                         HStack(spacing: 6) {
                             Text(p.label)
                             if !allowedDesignChoices.contains(p.predictor) {
-                                Text(p.predictor == .esmfold2Fast || p.predictor == .esmfold2Full ? "choose a separate starting stage above" : "incompatible with targeting settings").font(.caption2).foregroundStyle(.orange)
+                                Text(p.predictor.isESMFold2 ? "choose a separate starting stage above" : "incompatible with targeting settings").font(.caption2).foregroundStyle(.orange)
                             } else if !installer.isUsable(p.component) {
                                 Text("not installed").font(.caption2).foregroundStyle(.orange)
                             }

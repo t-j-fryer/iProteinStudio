@@ -433,7 +433,7 @@ Core:
   --initialization-predictor TOOL   cycle-00 engine; --predictor drives cycles 01 onward
   --initialization-model MODEL      starting IntelliFold v2-flash | v2
   --initialization-target PATH      protein target PDB/CIF for RFdiffusion3 starts
-  --predictor TOOL                 esmfold2-fast-mlx | esmfold2-full-mlx (refinement only) | boltz | protenix-constraint-v0.5 | protenix-v2 | protenix-mini | intellifold | openfold-3-mlx
+  --predictor TOOL                 esmfold2-600-mlx | esmfold2-fast-mlx | esmfold2-full-mlx (refinement only) | boltz | protenix-constraint-v0.5 | protenix-v2 | protenix-mini | intellifold | openfold-3-mlx
   --sequence-designer TOOL         auto | proteinmpnn | solublempnn | ligandmpnn | lasermpnn | abmpnn | antifold
                                    (lasermpnn: small-molecule minibinders only; --workflow protein + ligand; CPU-only)
                                    default: ${SEQUENCE_DESIGNER}
@@ -588,7 +588,7 @@ norm_predictor() {
   local raw
   raw="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
   case "${raw}" in
-    esmfold2-full-mlx|esmfold2-fast-mlx) echo "${raw}" ;;
+    esmfold2-full-mlx|esmfold2-fast-mlx|esmfold2-600-mlx) echo "${raw}" ;;
     boltz) echo "boltz" ;;
     intellifold) echo "intellifold" ;;
     protenix-v2|protenixv2|protenix_v2) echo "protenix-v2" ;;
@@ -808,6 +808,7 @@ safe_predictor_name() {
     protenix-constraint-v0.5) echo "protenix_constraint_v0_5" ;;
     esmfold2-full-mlx) echo "esmfold2_full" ;;
     esmfold2-fast-mlx) echo "esmfold2_fast" ;;
+    esmfold2-600-mlx) echo "esmfold2_600" ;;
     openfold-3-mlx) echo "openfold3" ;;
     none) echo "none" ;;
     *) return 1 ;;
@@ -1091,7 +1092,7 @@ TARGET_MSA_GENERATOR="$(printf '%s' "${TARGET_MSA_GENERATOR}" | tr '[:upper:]' '
 case "${TARGET_MSA_GENERATOR}" in
   auto)
     case "${PREDICTOR}" in
-      boltz|esmfold2-full-mlx|esmfold2-fast-mlx) TARGET_MSA_GENERATOR="boltz" ;;
+      boltz|esmfold2-full-mlx|esmfold2-fast-mlx|esmfold2-600-mlx) TARGET_MSA_GENERATOR="boltz" ;;
       intellifold) TARGET_MSA_GENERATOR="intellifold" ;;
       protenix-v2|protenix-mini|protenix-constraint-v0.5) TARGET_MSA_GENERATOR="protenix" ;;
       openfold-3-mlx) TARGET_MSA_GENERATOR="openfold" ;;
@@ -1267,7 +1268,7 @@ if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" || "${DESIGN_SCHEDULER}" == "residen
     *) die "--design-scheduler ${DESIGN_SCHEDULER} supports protein and nanobody workflows." ;;
   esac
   case "${PREDICTOR}" in
-    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx|esmfold2-full-mlx|esmfold2-fast-mlx) ;;
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx|esmfold2-full-mlx|esmfold2-fast-mlx|esmfold2-600-mlx) ;;
     *) die "--design-scheduler ${DESIGN_SCHEDULER} does not support predictor ${PREDICTOR}." ;;
   esac
   if [[ "${WORKFLOW}" == "nanobody" && "${SCAFFOLD_FROM_TEMPLATE}" -ne 1 ]]; then
@@ -1282,7 +1283,7 @@ if [[ "${DESIGN_SCHEDULER}" == "cycle-wave" || "${DESIGN_SCHEDULER}" == "residen
 fi
 if [[ "${DESIGN_SCHEDULER}" == "resident" ]]; then
   case "${PREDICTOR}" in
-    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx|esmfold2-full-mlx|esmfold2-fast-mlx) ;;
+    boltz|intellifold|protenix-v2|protenix-mini|protenix-constraint-v0.5|openfold-3-mlx|esmfold2-full-mlx|esmfold2-fast-mlx|esmfold2-600-mlx) ;;
     *) die "--design-scheduler resident has no validated worker for predictor ${PREDICTOR}." ;;
   esac
   [[ -f "${RESIDENT_PREDICTOR}" ]] || die "Resident predictor worker not found: ${RESIDENT_PREDICTOR}"
@@ -1658,7 +1659,7 @@ fi
 # boltz + intellifold.
 require_predictor_venv() {
   case "$1" in
-    esmfold2-full-mlx|esmfold2-fast-mlx)
+    esmfold2-full-mlx|esmfold2-fast-mlx|esmfold2-600-mlx)
       [[ -x "${REPO_ROOT}/venvs/NanoHunter_esmfold2/bin/python" ]] || die "Install ESMFold2 in Engines." ;;
     boltz)
       [[ -x "${BOLTZ_VENV}/bin/python" ]] || die "Boltz venv not found: ${BOLTZ_VENV}" ;;
@@ -3382,7 +3383,7 @@ resolve_a3m_from_msa_path() {
 pick_target_msa_for_predictor() {
   local msa_path="$1"
   local predictor="$2"
-  if [[ "${predictor}" == "esmfold2-fast-mlx" ]]; then echo ""; return 0; fi
+  if [[ "${predictor}" == "esmfold2-fast-mlx" || "${predictor}" == "esmfold2-600-mlx" ]]; then echo ""; return 0; fi
 
   if [[ -z "${msa_path}" ]]; then
     echo ""
@@ -5285,9 +5286,10 @@ run_predictor_once() {
     protenix-v2|protenix-mini|protenix-constraint-v0.5)
       run_predict_protenix "${predictor}" "${cycle_yaml}" "${cycle_dir}/${predictor}" "${pred_min}"
       ;;
-    esmfold2-full-mlx|esmfold2-fast-mlx)
+    esmfold2-full-mlx|esmfold2-fast-mlx|esmfold2-600-mlx)
       local esm_model="full" esm_out="${cycle_dir}/${predictor}"
       [[ "${predictor}" == "esmfold2-fast-mlx" ]] && esm_model="fast"
+      [[ "${predictor}" == "esmfold2-600-mlx" ]] && esm_model="600"
       mkdir -p "${esm_out}" "${pred_min}"
       "${REPO_ROOT}/venvs/NanoHunter_esmfold2/bin/python" "${PIPELINE_CODE_ROOT}/scripts/esmfold2_predict.py" \
         --yaml "${cycle_yaml}" --output "${esm_out}" --nanohunter-root "${REPO_ROOT}" \
@@ -6045,7 +6047,7 @@ start_resident_predictor() {
       worker_python="${PROTENIX_CONSTRAINT_VENV}/bin/python"
       resident_model="constraint"
       ;;
-    esmfold2-full-mlx|esmfold2-fast-mlx)
+    esmfold2-full-mlx|esmfold2-fast-mlx|esmfold2-600-mlx)
       worker_python="${REPO_ROOT}/venvs/NanoHunter_esmfold2/bin/python"
       resident_model="${PREDICTOR}"
       ;;
@@ -6443,7 +6445,7 @@ run_cycle_wave_predictor_batch() {
         conf="$(find "${leaf}" -maxdepth 1 -type f -name '*_summary_confidences.json' | sort | head -n 1 || true)"
         struct="$(find "${leaf}" -maxdepth 1 -type f \( -name '*.cif' -o -name '*.pdb' \) | sort | head -n 1 || true)"
         ;;
-      protenix-v2|protenix-mini|protenix-constraint-v0.5|esmfold2-full-mlx|esmfold2-fast-mlx)
+      protenix-v2|protenix-mini|protenix-constraint-v0.5|esmfold2-full-mlx|esmfold2-fast-mlx|esmfold2-600-mlx)
         leaf="${output_dir}/${stem}/pred_min"
         conf="${leaf}/confidence.json"
         struct="${leaf}/model_0.cif"
@@ -7285,7 +7287,7 @@ post_score_python() {
     boltz) echo "${BOLTZ_VENV}/bin/python" ;;
     intellifold) echo "${INTELLIFOLD_VENV}/bin/python" ;;
     protenix-v2|protenix-mini) echo "${PROTENIX_VENV}/bin/python" ;;
-    esmfold2-full-mlx|esmfold2-fast-mlx) echo "${REPO_ROOT}/venvs/NanoHunter_esmfold2/bin/python" ;;
+    esmfold2-full-mlx|esmfold2-fast-mlx|esmfold2-600-mlx) echo "${REPO_ROOT}/venvs/NanoHunter_esmfold2/bin/python" ;;
     openfold-3-mlx) echo "${OPENFOLD_VENV}/bin/python" ;;
     *) die "No managed scoring interpreter is defined for post-predictor ${predictor}." ;;
   esac

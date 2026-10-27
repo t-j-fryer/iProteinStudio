@@ -346,6 +346,44 @@
         "sha256": "5b549dd61adb2f6c6b5cb95bda13f40f5e31556b4e6c755edc0ca6f011c68fb0",
         "label": "RFD4 model.safetensors"
       }
+    ],
+    "esmfold2_600": [
+      {
+        "path": "models/esmfold2/ESMFold2/ccd.pkl",
+        "url": "https://huggingface.co/biohub/ESMFold2/resolve/8fc3ff471022fdce52c77030685eb775de0c00a3/ccd.pkl",
+        "sha256": "9ff44b1927c6b9198e38ffe0928706827a09a350c15530beeeabebfa88038fc5",
+        "label": "ESMFold2/ccd.pkl"
+      },
+      {
+        "path": "models/esmfold2/ESMFold2-600/config.json",
+        "url": "https://huggingface.co/Synthyra/ESMFold2-600/resolve/38fa0be7397a485afd4a752202447693098f3d50/config.json",
+        "sha256": "320811c034045e5e0c78fe576e0d369cc3df84cd4ee6fda9f6070799dfab38fe",
+        "label": "ESMFold2-600 config.json"
+      },
+      {
+        "path": "models/esmfold2/ESMFold2-600/model.safetensors",
+        "url": "https://huggingface.co/Synthyra/ESMFold2-600/resolve/38fa0be7397a485afd4a752202447693098f3d50/model.safetensors",
+        "sha256": "4e3baff4574120dfa58a25f34c910a05943e343ce63ad268775d2ce33b3b8c64",
+        "label": "ESMFold2-600 model.safetensors"
+      },
+      {
+        "path": "models/esmfold2/ESMplusplus-large/config.json",
+        "url": "https://huggingface.co/Synthyra/ESMplusplus_large/resolve/f813401638b3fddab09748aec1ad2bf537aa4208/config.json",
+        "sha256": "648dffd051440532262bd628724a173b4c39e70ba69c55942b98d9ce64104bbf",
+        "label": "ESMplusplus_large config.json"
+      },
+      {
+        "path": "models/esmfold2/ESMplusplus-large/tokenizer.json",
+        "url": "https://huggingface.co/Synthyra/ESMplusplus_large/resolve/f813401638b3fddab09748aec1ad2bf537aa4208/tokenizer.json",
+        "sha256": "b12089969b5bedb6907af3d9f355d325cdc6af98400803235150dd87a792d90e",
+        "label": "ESMplusplus_large tokenizer.json"
+      },
+      {
+        "path": "models/esmfold2/ESMplusplus-large/model.safetensors",
+        "url": "https://huggingface.co/Synthyra/ESMplusplus_large/resolve/f813401638b3fddab09748aec1ad2bf537aa4208/model.safetensors",
+        "sha256": "4aff3f8c5de68c4d3e3824eb2c478e4a47355d3f849f3c745e5c8a5ee6cff851",
+        "label": "ESMplusplus_large model.safetensors"
+      }
     ]
   }
 }

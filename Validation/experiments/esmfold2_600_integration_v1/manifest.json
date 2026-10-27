@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "purpose": "Bounded 600M app/CLI/MCP integration qualification",
+  "source_commit": "0295016",
+  "mlx_port": "c26b9af872158d822a8c95589708eedd3b9c0831",
+  "folding_repo": "Synthyra/ESMFold2-600",
+  "folding_revision": "38fa0be7397a485afd4a752202447693098f3d50",
+  "encoder_repo": "Synthyra/ESMplusplus_large",
+  "encoder_revision": "f813401638b3fddab09748aec1ad2bf537aa4208",
+  "policy": {
+    "msa": "explicit empty",
+    "seed": 42,
+    "samples": 1,
+    "loops": 3,
+    "steps": 50,
+    "backend": "MLX Metal; no CPU inference fallback",
+    "folding_dtype": "FP32 weights/residuals; inherited BF16 folding-trunk computation",
+    "encoder_dtype": "bfloat16",
+    "chunk_sizes": [
+      null,
+      32
+    ],
+    "cache_limit_mib": 512
+  },
+  "planned_inputs": [
+    "SUMO complete sequence control",
+    "SUMO two-chain complex",
+    "SUMO + ethanol structural smoke",
+    "existing benign two-chain structure for one-cycle sequence refinement"
+  ],
+  "acceptance": [
+    "native Swift build and executed request/results harnesses",
+    "exact 600 variant throughout schemas/adapters/resident workflows",
+    "600-only isolated installation without 6B weights",
+    "immutable managed prediction plans; complete-sequence, chain, confidence and finite-coordinate audit",
+    "one bounded sequence-design/refold cycle",
+    "completed submission replay and cancellation/resume contracts",
+    "release asset and signature verification"
+  ],
+  "limits": [
+    "No physical 16GB hardware test",
+    "No general accuracy, confidence calibration or binding efficacy",
+    "No whole-model CUDA parity",
+    "No default memory profile promotion"
+  ],
+  "additional_control": {
+    "engine": "esmfold2-full-mlx",
+    "input": "same monomer",
+    "msa": "empty",
+    "seed": 42,
+    "samples": 1,
+    "loops": 3,
+    "steps": 50,
+    "chunk_sizes": [
+      0,
+      32
+    ],
+    "cache_limit_mib": 512,
+    "purpose": "contemporaneous Full memory/speed control; no 16 GB validation"
+  }
+}

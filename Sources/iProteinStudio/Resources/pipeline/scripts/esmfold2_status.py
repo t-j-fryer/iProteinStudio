@@ -8,7 +8,7 @@ def detect(root):
     root = Path(root)
     assets = json.loads(Path(__file__).with_name('runtime_assets.json').read_text())['assets']
     shared = False
-    for key in ('esmfold2', 'esmfold2_full', 'esmfold2_fast'):
+    for key in ('esmfold2', 'esmfold2_full', 'esmfold2_fast', 'esmfold2_600'):
         try:
             receipt = json.loads((root / 'receipts' / (key + '.json')).read_text())
             base = root / receipt['runtime_path']
@@ -20,7 +20,7 @@ def detect(root):
                           for a in assets[key]))
         except (OSError, ValueError, KeyError): ok = False
         if key == 'esmfold2': shared = ok
-        else: ok = ok and shared
+        elif key != 'esmfold2_600': ok = ok and shared
         print('NHSTATE|' + key + ('|ok|Verified portable ESMFold2 assets' if ok else '|missing|Install or repair ESMFold2 in Engines'), flush=True)
 
 

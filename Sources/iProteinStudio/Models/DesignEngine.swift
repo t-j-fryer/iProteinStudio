@@ -10,7 +10,7 @@ enum DesignEngine: String, Codable, Hashable, Identifiable {
     case intellifoldFlash = "intellifold"
     case intellifoldFull = "intellifold_full"
     case openfold3
-    case esmfold2Full = "esmfold2_full", esmfold2Fast = "esmfold2_fast"
+    case esmfold2Full = "esmfold2_full", esmfold2Fast = "esmfold2_fast", esmfold2_600 = "esmfold2_600"
     // Preserve unavailable historical choices so they fail visibly.
     case alphafold3, intellifoldJAX
 
@@ -18,6 +18,8 @@ enum DesignEngine: String, Codable, Hashable, Identifiable {
         self = predictor == .intellifold && model == .v2
             ? .intellifoldFull : Self(rawValue: predictor.rawValue)!
     }
+    var isSequenceOnly: Bool { self == .esmfold2Fast || self == .esmfold2_600 }
+    var isESMFold2: Bool { isSequenceOnly || self == .esmfold2Full }
     var id: String { rawValue }
     var predictor: Predictor {
         self == .intellifoldFull ? .intellifold : Predictor(rawValue: rawValue)!
@@ -41,7 +43,7 @@ enum DesignEngine: String, Codable, Hashable, Identifiable {
     var supportsEpitopePocket: Bool { predictor.supportsEpitopePocket }
     var caveat: String { self == .intellifoldFull ? "Requires the full-v2 checkpoint. Flash and Full are the same model family for independent checking." : predictor.caveat }
     var blurb: String { predictor.blurb }
-    static var initializationChoices: [DesignEngine] { choices.filter { $0 != .esmfold2Fast && $0 != .esmfold2Full } }
+    static var initializationChoices: [DesignEngine] { choices.filter { !$0.isESMFold2 } }
     static var choices: [DesignEngine] {
         Predictor.designChoices.flatMap { predictor in
             predictor == .intellifold ? [.intellifoldFlash, .intellifoldFull] : [DesignEngine(predictor: predictor)]

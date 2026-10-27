@@ -996,3 +996,25 @@ custom intention routes are documented in [RFD4](RFD4.md). Base installation
 selection is `setup_pipeline.sh --base`; public runtime/fresh-machine limits are
 in [Install](INSTALL_UNSIGNED_BETA.md). RFD3 fixed-framework nanobody generation
 was tried unsuccessfully and is excluded from the supported routes.
+
+### ESMFold2Fast-600M (experimental)
+
+Install with `setup_pipeline.sh --with-esmfold2-600` or repair only that component
+with `--retry-components esmfold2_600`. Select `esmfold2-600-mlx` in supported
+Predict, target preparation, refinement/checking, RFD3, protein/nanobody RFD4
+search and NISE plans. NISE folding needs a sequence-screening objective; Boltz
+remains required for affinity objectives. A separate initialization stage must
+produce complete sequences before 600M refinement. No X-token, MSA or template
+guidance is supported by this checkpoint.
+
+The 600M prediction profile accepts `chunk_size` (0 disables; low-memory 32) and
+`cache_limit_mib` (default/low-memory 512), plus the existing loops/steps controls.
+These do not impose a total RAM cap. Memory admission is uncalibrated: use the
+normal explicit `memory_policy: "override"` only after reviewing the preflight.
+Plans, queue, resume and metrics use the same contracts as other predictors.
+See [capabilities and qualification](ESMFOLD2.md#memory-controls-and-esmfold2fast-600m).
+
+For per-sample confidence through the CLI, call `results RUN_ID --dataset
+live_predictions`; MCP clients use `results_overview` before `results_query`.
+PAE and per-residue pLDDT arrays remain alongside each structure, while timing,
+MLX counters and model/encoder revisions are in its exact confidence JSON.

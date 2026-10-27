@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rfd3_resume import bind_inputs, save_receipt, verify_receipt, sha256
 
 
-SUPPORTED = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx"}
+SUPPORTED = {"boltz", "intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx", "esmfold2-600-mlx"}
 RETIRED = {"alphafold3", "intellifold-jax"}
 RESIDENT_PREDICTORS = {"boltz", "intellifold", "protenix-mini"}
 CYCLE_WAVE_PREDICTORS = {"protenix-v2"}

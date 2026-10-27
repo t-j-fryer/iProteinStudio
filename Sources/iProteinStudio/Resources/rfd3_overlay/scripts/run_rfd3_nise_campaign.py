@@ -190,7 +190,7 @@ def prepare_and_predict(cfg: dict, campaign: Path, logs: Path, mode: str) -> Non
 
     # Optional independent second opinions, run over the same inputs. Agreement
     # between unrelated models is far stronger evidence than one high score.
-    supported = {"intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx"}
+    supported = {"intellifold", "protenix-v2", "protenix-mini", "openfold-3-mlx", "esmfold2-full-mlx", "esmfold2-fast-mlx", "esmfold2-600-mlx"}
     requested = cfg.get("extra_predictors", [])
     retired = [p for p in requested if p in {"alphafold3", "intellifold-jax"}]
     if retired:

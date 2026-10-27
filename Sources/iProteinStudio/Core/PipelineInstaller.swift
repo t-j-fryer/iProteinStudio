@@ -248,6 +248,8 @@ final class PipelineInstaller: ObservableObject {
             relative = ["venvs/NanoHunter_esmfold2", "components/esmfold2", "models/esmfold2/ESMC-6B", "models/esmfold2/ESMFold2/ccd.pkl", "receipts/esmfold2.json"]
         case .esmfold2Full:
             relative = ["models/esmfold2/ESMFold2/model.safetensors", "models/esmfold2/ESMFold2/config.json", "receipts/esmfold2_full.json"]
+        case .esmfold2_600:
+            relative = ["models/esmfold2/ESMFold2-600", "models/esmfold2/ESMplusplus-large", "receipts/esmfold2_600.json"]
         case .esmfold2Fast:
             relative = ["models/esmfold2/ESMFold2-Fast", "receipts/esmfold2_fast.json"]
         case .openfold3:
