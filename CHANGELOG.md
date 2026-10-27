@@ -1,5 +1,11 @@
 # iProteinStudio release notes
 
+## 0.2.29 — Clearer 600M descriptions and scientific acknowledgements
+
+- Describe ESMFold2Fast-600M by its supported prediction/refinement capabilities across the app, installer, CLI, MCP and operating skill. Remove the blanket experimental label; retain explicit input and measured hardware limits.
+- Expand README acknowledgements for the integrated scientific tools, model authors, Apple-silicon ports and supporting libraries; update bundled notices.
+- Ship bridge 49 with the corrected guidance. Model weights, scientific algorithms, settings and existing job snapshots are unchanged.
+
 ## 0.2.28 — ESMFold2Fast-600M
 
 - Add the separately pinned 600M model and encoder to Engines, Predict, target preparation, compatible sequence refinement, RFD3 checks, RFD4 protein/nanobody search and NISE structural checks. App, CLI, MCP and saved custom workflows retain its exact identity.

@@ -340,3 +340,5 @@ Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-
 - [0582 — Benchmark ESMFold2-600 on Figure 2a structures](lab_book/0582-benchmark-esmfold2-600-figure2a.md)
 
 - [0608 — Correct 600M labels and scientific credits](lab_book/0608-correct-600m-labels-and-credits.md): capability-based descriptions across app/CLI/MCP/skills; comprehensive upstream acknowledgements; build and 13 regression checks passed.
+
+- [0610 — Release corrected 600M descriptions](lab_book/0610-release-029-capability-labels.md): app 0.2.29/build75, bridge49; package and public-download verification.
