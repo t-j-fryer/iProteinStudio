@@ -1,6 +1,6 @@
 # 0586 — ESMFold2Fast-600M integration qualification
 
-Date: 2026-10-26. Status: software qualification passed; release delivery pending.
+Date: 2026-10-26. Status: bounded software qualification and release delivery complete.
 Base commit 0295016. Hardware: Apple M4 Max, 40 GPU cores, 64 GB unified memory,
 macOS 26.6.1. Exact pre-release source/runtime/asset identities are frozen in the
 managed plans, rather than represented as a clean source commit.
@@ -72,8 +72,7 @@ calibration, binding efficacy or whole-model CUDA parity is newly qualified.
 These integrations reuse existing stages; they are experimental, not efficacy
 claims. No default memory calibration or performance setting is promoted.
 Prior Figure 2a evidence remains Lab0582/Validation0262. No model weights are
-committed or packaged. Public app delivery and queue restoration are recorded
-below once verified.
+committed or packaged. Public app delivery and queue restoration are recorded below.
 
 ## Production restoration
 
@@ -83,3 +82,27 @@ It was the only active/queued job in the captured pre-test queue. Bridge 48 is
 staged in the managed installation. Final MCP RFD4 overview contains six
 600M proposals with pTM and interface metrics; the native results harness
 passes against those same six outputs.
+
+## Release delivery
+
+Published [v0.2.28-beta](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.28-beta),
+build 74. Integration/tag source: `f2ac9c46905ab87ecaf0ca331e14df65d3f88eb4`;
+initial live appcast commit: `e479a8f`. Public downloads were independently
+retrieved using `Validation/experiments/studio_release_027_v1/verify_distribution.py`
+with `--version 0.2.28 --build 74`. SHA-256 checksums, GitHub asset metadata,
+Sparkle EdDSA signature, unchanged update public key, live feed version/build/URL,
+extracted bundle signature and DMG integrity all passed. The receipt is
+`Validation/output/esmfold2_600_integration_v1/release-download/verification.json`.
+
+- ZIP SHA-256: `c5b334720f48a257ff53c7b0206c782c988d4c55020d943c64d88adde2be0ed9`.
+- DMG SHA-256: `21f97596e9b16152e4fef3ba56c45ae7c19cc4d9e0f8132a56134fe9518f8048`.
+
+The locally installed application was updated from 0.2.26 to 0.2.28 (74), with
+the old bundle and workspace configuration backed up in the evidence directory.
+Native accessibility inspection of the explicitly selected installed app
+confirmed the existing workspace opens, Engines reports ESMFold2Fast-600M
+installed, and the acceptance workspace's Predict engine selector includes it.
+No new scientific job was launched through this UI inspection. The release build
+and packaged-resource contract passed. This is the existing ad-hoc trusted beta
+channel; notarization, a physical second-Mac installation and an actual Sparkle
+update installation were not tested.

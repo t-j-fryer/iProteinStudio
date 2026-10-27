@@ -1,6 +1,6 @@
 # Lab Book
 
-- [0586 — ESMFold2Fast-600M integration](lab_book/0586-integrate-esmfold2-600-release.md): app/CLI/MCP and isolated installation qualified; release delivery pending.
+- [0586 — ESMFold2Fast-600M integration](lab_book/0586-integrate-esmfold2-600-release.md): app/CLI/MCP and isolated installation qualified; 0.2.28 beta published and verified.
 
 - [0581 — ESMFold2-600 Mac beta](lab_book/0581-esmfold2-600-mac-beta.md): pinned smaller-model port and memory audit; bounded acceptance complete.
 
