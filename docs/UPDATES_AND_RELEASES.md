@@ -56,8 +56,10 @@ Developer ID signed or notarized. Sparkle signatures verify continuity with the
 project's key; they do not replace Apple's identity/notarization checks or the
 first-install Gatekeeper approval.
 
-The empty-root installer test, paired runtime tests, app checksums and update
-signatures have been checked on the development Mac. A full old-app-to-new-app
+The 0.2.27 complete base installation passed in an initially empty isolated root,
+without preseeded models or external developer tools. Runtime relocation and
+native fixtures also passed; see [release qualification](../lab_book/0579-qualify-and-release-studio-027.md).
+App checksums and update signatures are verified for each published release. A full old-app-to-new-app
 installation on a fresh second Mac is still a separate acceptance test. See
 [Lab Book 0177](../lab_book/0177-integrate-psichic-portable-runtimes.md) and
 [licensing status](../LICENSING.md).

@@ -90,9 +90,10 @@ AbMPNN and LASErMPNN**. Studio resolves shared ESMC weights, managed Python and
 engine environments, chemical data and libraries. Additional engines such as
 RFD3 are optional. The complete base needs Apple Silicon and macOS 26.2+.
 
-The RFD4 portable runtime is published for the 0.2.27 app release. The new base
-selection is undergoing an isolated empty-root installation test; a second
-physical Mac remains outside this qualification. See
+The RFD4 portable runtime is published for the 0.2.27 app release. The complete base
+selection passed installation and detection in an isolated, initially empty root
+with no preseeded model files or external developer tools. A second physical Mac
+remains outside this qualification. See
 [release qualification](lab_book/0579-qualify-and-release-studio-027.md). RFD4 and guided beta memory
 estimates are not calibrated, so their visible memory override is an explicit,
 recorded choice. Existing installed workflows and their saved runtime identities
