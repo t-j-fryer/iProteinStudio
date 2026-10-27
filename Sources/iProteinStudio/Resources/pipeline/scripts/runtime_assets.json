@@ -287,12 +287,6 @@
     ],
     "rfd4": [
       {
-        "path": "models/rfd4/diffusers/.cache/huggingface/trees/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b.json",
-        "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/.cache/huggingface/trees/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b.json",
-        "sha256": "2636441af4fd492deef16d02f28e9be2323575660b02920109e77952d8ed0119",
-        "label": "RFD4 .cache/huggingface/trees/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b.json"
-      },
-      {
         "path": "models/rfd4/diffusers/bb_ca_scheduler/scheduler_config.json",
         "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/bb_ca_scheduler/scheduler_config.json",
         "sha256": "0970867fe4051a83d01964eea1756c69d99a7d02c353b041ca3f086aaa5cb6c7",
@@ -339,12 +333,6 @@
         "url": "https://huggingface.co/nvidia/RFD4-Proteina-Diffusers/resolve/92fc3ae50e336b2ec59c713c19cfd43e5d3e923b/vae/diffusion_pytorch_model.safetensors",
         "sha256": "9964734a208f3d6fc41526bff84f07a79c7465e1b44fa16f336ab716a28cca2c",
         "label": "RFD4 vae/diffusion_pytorch_model.safetensors"
-      },
-      {
-        "path": "models/rfd4/native/.cache/huggingface/trees/a06e2509c7033b010fc43614e9fd840303588502.json",
-        "url": "https://huggingface.co/nvidia/RFD4-Proteina/resolve/a06e2509c7033b010fc43614e9fd840303588502/.cache/huggingface/trees/a06e2509c7033b010fc43614e9fd840303588502.json",
-        "sha256": "c425d2ee5b687992345c13068d7bf624c97c626499392495d71ca4c7cef1ecc3",
-        "label": "RFD4 .cache/huggingface/trees/a06e2509c7033b010fc43614e9fd840303588502.json"
       },
       {
         "path": "models/rfd4/native/config.json",

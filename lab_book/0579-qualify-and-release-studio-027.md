@@ -29,7 +29,7 @@ Motif failed attempts remain intact. Attempt 01 failed native parsing because At
 
 The full fast suite passed 67/67 command groups, including all 14 Swift XCTest cases and standalone Swift contracts. Public motif bridge tests passed 2/2; `swift build` passed. Initial motif-unit invocations used unsuitable existing environments (Boltz lacked Biotite; RFD3 lacked Gemmi); the existing Protenix interpreter passed all 17 without altering any environment.
 
-Native UI inspection was retried and the external computer-use service again closed its native pipe. Final visual/accessibility acceptance is not claimed.
+Native UI inspection partially recovered: the recommended easy/hard buttons, saved workflow, six intention-based custom options and motif chooser’s template-guided Boltz beta button were exposed in the accessibility tree. After clicking the beta button the external computer-use pipe closed repeatedly; its destination screen, full visual inspection and VoiceOver acceptance are not claimed. No scientific job was started from the UI. See `ui-observation.json` in the validation output.
 
 Attempt 04 completed all four native Boltz predictions and broker resume, but the strict output audit rejected generic native `LIG` residue labels. The submitted CCD entity map now produces a separately saved mapped PDB and identity receipt; native PDB bytes remain intact. Completed-unit receipts also bind native confidence JSON. A read-only replay of the two retained untemplated outputs into a separate audit directory passed atom/element, sequence and metric validation. Neither passed the configured geometry gates; no thresholds were changed.
 
@@ -52,3 +52,5 @@ See `Validation/experiments/studio_release_027_v1/manifest.json` and the managed
 ## Limits and what was not tested
 
 One benchmark motif is a software smoke test, not broad motif performance qualification. No wet-lab testing, threshold promotion, memory calibration or second physical Mac. Other template engines and arbitrary custom-motif workflows remain outside this Boltz beta acceptance.
+
+The first empty-root base attempt caught two RFD4 catalog entries for locally generated Hugging Face tree-cache JSON files. Their claimed upstream URLs return 404. The exact failed downloader was stopped to allow other components to finish, and both cache-only entries were removed. All actual upstream model/configuration hashes remain unchanged. The catalog regression now forbids cache directories in asset paths and URLs. Initial logs/receipts remain intact; retry uses the same isolated root and its already verified public downloads, without preseeded model assets.

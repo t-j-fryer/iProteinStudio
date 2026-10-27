@@ -64,6 +64,8 @@ class Tests(unittest.TestCase):
   for key,items in setup_portable.ASSETS.items():
    for item in items:
     self.assertEqual(len(item['sha256']),64);self.assertTrue(item['url'].startswith('https://'));self.assertNotIn('..',Path(item['path']).parts)
+    self.assertNotIn('.cache',Path(item['path']).parts, 'Local download metadata is not an upstream model asset')
+    self.assertNotIn('/.cache/',item['url'])
   source=(SCRIPTS.parent/'setup_pipeline.sh').read_text()
   self.assertLess(source.index('scripts/setup_portable.py'),source.index('if ! configure_apple_build_tools'))
   self.assertIn('IPROTEINSTUDIO_BUILD_FROM_SOURCE:-0',source)
