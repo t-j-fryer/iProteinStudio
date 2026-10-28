@@ -1,0 +1,15 @@
+{
+  "tag": "v0.2.30-beta",
+  "build": 76,
+  "verified_downloads": {
+    "iProteinStudio-0.2.30-unsigned-beta-apple-silicon.dmg": "66c96c7721c07e6c7914d7bc63e83b64378f97242047d61e7911af0edec65208",
+    "iProteinStudio-0.2.30-unsigned-beta-apple-silicon.zip": "d90617bd0e4abfad4ad4113fae7e6c1fa8a4d3eff89f1911cdbe2a15d153dfeb"
+  },
+  "live_feed": "https://raw.githubusercontent.com/t-j-fryer/iProteinStudio/main/appcast.xml",
+  "sparkle_signature_verified": true,
+  "previous_public_key_matches": true,
+  "downloaded_bundle_signature_valid": true,
+  "dmg_verified": true,
+  "notarized": false,
+  "physical_second_mac_test": false
+}

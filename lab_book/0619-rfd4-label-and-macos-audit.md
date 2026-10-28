@@ -4,7 +4,7 @@ title: Correct RFD4 labels and audit macOS requirements
 date: 2026-10-28
 author: Codex
 type: audit
-status: in-progress
+status: complete
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory
 tags: [rfd4, install, release, compatibility]
 ---
@@ -65,5 +65,19 @@ inference. Version 0.2.30/build76/bridge50 packages only wording and documentati
 
 ## Next
 
-Complete the release checks and record public delivery. Older-OS qualification
-is separate work and is not implied by this label correction.
+Published [v0.2.30-beta](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.30-beta),
+build 76, from source `6e6596d00dd9d470b2f0049979517748896b2f1c`; initial
+appcast commit `dedb4b1`. Release build and package-resource contract passed;
+27 memory-admission tests passed; bundled CLI doctor reports bridge 50.
+Public DMG/ZIP downloads passed GitHub digests, checksums, Sparkle signature,
+previous-key continuity, codesign and DMG checks. [Public receipt](artifacts/0619-macos-audit/download-verification.json).
+
+Installed the verified public ZIP, retaining the previous app for rollback.
+The Engines UI visibly shows **RFD4** without the experimental label. The
+active campaign retained its independent worker and saved plan; identifying
+operational details remain local. Managed bridge 49 remains in use until the
+active job releases its execution lease, when Studio stages bundled bridge 50.
+The campaign was not cancelled and its runtime was not replaced.
+
+Older-OS qualification remains separate work. No lower-version compatibility
+claim or scientific result was added by publishing this release.
