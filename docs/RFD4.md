@@ -37,7 +37,7 @@ Plans freeze inputs, model identities, code, settings and prediction budgets.
 All inference uses Studio's broker and shared execution lock. Completion receipts
 are checked before reuse; interrupted attempts are retained. Runs above ten
 families complete one end-to-end family before proceeding. Memory admission is
-not yet calibrated for RFD4, so running it requires the visible experimental
+not yet calibrated for RFD4, so running it requires the explicit
 memory override. Optional Metal kernels must match reference output exactly on
 the first input before the campaign proceeds.
 
@@ -134,3 +134,10 @@ only, not qualified model inference or automatic cycling. Ordinary target
 templates do not template the designed chain and are not a substitute for this.
 
 Implementation and bounded technical checks: [Lab Book 0574](../lab_book/0574-sequence-targets-and-workflow-capabilities.md).
+
+## macOS support
+
+Studio currently gates RFD4 at macOS 26.2. The shipped runtime manifest and
+its native binaries declare 14.0; a 26.2 dependency was not found in the binary
+audit. This is a conservative support gate, not a demonstrated RFD4 requirement.
+Older-system inference remains untested. See [the dependency audit](MACOS_SUPPORT.md).

@@ -342,3 +342,5 @@ Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-
 - [0608 — Correct 600M labels and scientific credits](lab_book/0608-correct-600m-labels-and-credits.md): capability-based descriptions across app/CLI/MCP/skills; comprehensive upstream acknowledgements; build and 13 regression checks passed.
 
 - [0610 — Release corrected 600M descriptions](lab_book/0610-release-029-capability-labels.md): app 0.2.29/build75, bridge49; package and public-download verification.
+
+- [0619 — Correct RFD4 labels and audit macOS requirements](lab_book/0619-rfd4-label-and-macos-audit.md): binary deployment targets versus support gates; release 0.2.30.

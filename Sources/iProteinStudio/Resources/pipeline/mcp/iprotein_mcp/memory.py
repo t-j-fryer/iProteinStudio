@@ -134,7 +134,7 @@ def configs_for_plan(kind, normalized):
     if kind == 'desktop_iterative_batch':
         return [cfg for child in normalized['engine_campaigns'] for cfg in iterative_configs(child)]
     if kind == 'desktop_rfd4':
-        raise StudioError('RFD4 memory estimates are not yet qualified. Choose the explicit memory override to run this experimental engine.')
+        raise StudioError('RFD4 memory estimates are not yet qualified. Choose the explicit memory override to run RFD4.')
     if kind.startswith('rfd3_') or kind == 'desktop_rfdiffusion3' or kind.startswith('desktop_nise'):
         raise StudioError('Memory estimates for RFdiffusion3 and ligand NISE are not yet qualified. '
                           'This run is blocked by the memory check; no model has been loaded.')

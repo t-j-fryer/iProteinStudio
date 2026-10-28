@@ -23,7 +23,10 @@ archives, but not Apple Developer ID signed or notarized. See [licensing status]
 
 - **App:** macOS 14 or later, Apple Silicon.
 - **Protenix v2/Mini packages:** macOS 26.0 or later.
-- **OpenFold3/RFdiffusion3/RFD4/ESMFold2 packages:** macOS 26.2 or later.
+- **OpenFold3/RFdiffusion3/ESMFold2 packages:** macOS 26.2 or later.
+- **RFD4:** Studio currently requires 26.2+, although its shipped binaries declare
+  14.0. This is a conservative support gate, not a demonstrated model requirement.
+  See [the macOS dependency audit](docs/MACOS_SUPPORT.md).
 - **Setup:** internet access and disk space for the engines and weights selected
   in **Engines**. Released portable packages do not require Xcode, Command Line
   Tools, Git, Homebrew or a separately installed Python.
@@ -106,7 +109,7 @@ remain separate from these qualification limits.
 | Structure prediction | Boltz-2, IntelliFold v2 Flash/full, Protenix v2/Mini, OpenFold3/MLX; experimental ESMFold2 Fast/Full MLX; ESMFold2Fast-600M |
 | Experimental guided proposals | Protenix Constraint, separate from unconstrained validation |
 | Sequence design | ProteinMPNN, SolubleMPNN, LigandMPNN, AbMPNN, AntiFold, LASErMPNN |
-| Backbone generation | RFdiffusion3/MLX; experimental RFD4 integration |
+| Backbone generation | RFdiffusion3/MLX and RFD4 |
 | Experimental ligand screening | NESSO-1 and PSICHIC-XL |
 
 Engine settings and schedules follow the app's qualified profiles. Confidence

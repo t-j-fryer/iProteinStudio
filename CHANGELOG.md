@@ -1,5 +1,11 @@
 # iProteinStudio release notes
 
+## 0.2.30 — Correct RFD4 installation descriptions
+
+- Remove the stale RFD4 experimental label and the incorrect claim that its portable runtime is unpublished. Keep memory-estimate limits separate from engine status.
+- Document the actual macOS dependency requirements, including the RFD4 support-gate discrepancy and Protenix Kalign build requirement. OS gates, runtime archives and scientific settings are unchanged.
+- Deliver corrected guidance through bridge 50.
+
 ## 0.2.29 — Clearer 600M descriptions and scientific acknowledgements
 
 - Describe ESMFold2Fast-600M by its supported prediction/refinement capabilities across the app, installer, CLI, MCP and operating skill. Remove the blanket experimental label; retain explicit input and measured hardware limits.

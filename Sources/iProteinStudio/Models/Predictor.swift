@@ -51,7 +51,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
         case .alphafold3:     return "AlphaFold 3 (retired)"
         case .intellifoldJAX: return "IntelliFold JAX (retired)"
         case .rfd3:           return "RFdiffusion3"
-        case .rfd4:           return "RFD4 (experimental)"
+        case .rfd4:           return "RFD4"
         }
     }
 
@@ -232,7 +232,7 @@ enum InstallComponent: String, CaseIterable, Codable, Identifiable, Hashable {
             return "Experimental, design-only checkpoint (~1.5 GB). Native Apple GPU, strict weights, no ESM download and no CPU fallback."
         case .alphafold3, .intellifoldJAX: return "No longer installable or runnable in Studio."
         case .rfd3:           return "Requires macOS 26.2 or newer. Downloads a ~1.3 GB checkpoint."
-        case .rfd4:           return "Experimental Apple GPU runtime with separately verified weights. This development build uses a locally qualified runtime package; a public download is not yet published. Requires macOS 26.2+."
+        case .rfd4:           return "Published Apple GPU runtime with separately verified model downloads. Current Studio support requires macOS 26.2 or newer."
         default:              return nil
         }
     }

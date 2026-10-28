@@ -10,7 +10,7 @@ The app downloads optional standalone-CPython engine archives from GitHub Releas
 
 The 12 archives total approximately 2.94 GB compressed, downloaded only for selected components. They exclude learned model weights. Model assets download separately from approved upstream URLs with pinned checksums. LASErMPNN's required fixed chemical geometry tables and dataset identifiers are included as static data; they are not its learned checkpoint. The app archive does not embed these engine runtimes or weights.
 
-The native app requires macOS 14 or later. These Protenix v2/Mini profiles require macOS 26.0 or later; OpenFold3 and RFdiffusion3 require 26.2 or later. These are minimums: 26.6.1 qualifies. Setup disables incompatible optional selections, and the installer checks compatibility before downloading. Lower-OS engine profiles require separate rebuilding and qualification.
+The native app requires macOS 14 or later. These Protenix v2/Mini profiles require macOS 26.0 or later; OpenFold3 and RFdiffusion3 require 26.2 or later. These are minimums: 26.6.1 qualifies. Setup disables incompatible optional selections, and the installer checks compatibility before downloading. See [the macOS dependency audit](MACOS_SUPPORT.md) for the libraries responsible and the separate RFD4 support gate. Lower-OS engine profiles require qualification; some need dependency rebuilding.
 
 ## Recovery and reproducibility
 
