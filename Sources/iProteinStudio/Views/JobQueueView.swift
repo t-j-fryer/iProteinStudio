@@ -4,6 +4,7 @@ import SwiftUI
 /// being observed. Opening a job changes observation, never its saved settings.
 struct JobQueueView: View {
     @EnvironmentObject var app: AppState
+    @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var jobs = JobCenter.shared
     @ObservedObject var run: RunController
@@ -103,7 +104,10 @@ struct JobQueueView: View {
             }
             HStack {
                 Button("Progress & logs") { selectedJob = job }
-                if let project {
+                if let request = job.resultsRequest {
+                    Button(job.isActive ? "View live results" : "View results") { openWindow(value: request) }
+                }
+                if let project, job.resultsRequest == nil {
                     Button("Show run") { show(job, project: project) }
                     .disabled(!canShow(job))
                 }

@@ -23,6 +23,9 @@ struct ManagedJob: Decodable, Identifiable {
     let monitoring_warning: String?
     var isActive: Bool { ["queued", "running", "stopping"].contains(status) }
     var output: URL? { output_root.map { URL(fileURLWithPath: $0) } }
+    var resultsRequest: RunResultsWindowRequest? {
+        output.flatMap { JobResultsDestination.request(kind: kind, root: $0, title: display_name) }
+    }
     var workflowLabel: String {
         if kind == "desktop_motif_beta" { return "Atomic motif beta" }
         if kind.contains("iterative") { return "Protein Hunter" }

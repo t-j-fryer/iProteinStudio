@@ -2,6 +2,7 @@ import SwiftUI
 import StudioCore
 
 struct JobProgressView: View {
+    @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: JobDetailModel
     @StateObject private var resources = ResourceUsageMonitor()
@@ -91,6 +92,9 @@ struct JobProgressView: View {
                 Button("Check & clean up…") { Task { await model.checkRecovery() } }.disabled(model.busy)
                 Button("Copy support report") { copySupport() }
                     .help("Copies job status, system details and recent resource readings without raw logs or sequences")
+                if let request = model.job.resultsRequest {
+                    Button(model.job.isActive ? "View live results" : "View results") { openWindow(value: request) }
+                }
                 Button("Copy visible log") { copy(visibleLines.joined(separator: "\n")) }
                     .help("Logs may contain sequences, structures or local file paths. Review before sharing.")
                 Spacer()

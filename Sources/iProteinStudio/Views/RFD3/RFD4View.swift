@@ -36,6 +36,7 @@ struct DiffusionView: View {
 }
 
 struct RFD4View: View {
+    @Environment(\.openWindow) private var openWindow
     @EnvironmentObject var app: AppState
     let project: Project
     @ObservedObject var controller: RFD4Controller
@@ -238,7 +239,11 @@ struct RFD4View: View {
                     }
                     if let output = controller.outputRoot {
                         Button("Open run files") { NSWorkspace.shared.open(output) }
-                        if controller.phase == .finished { RFD4ResultsView(root: output) }
+                        Button("View live results") {
+                            openWindow(value: RunResultsWindowRequest(root: output, workflow: .rfd4))
+                        }
+                        Text("Completed structures appear automatically in the results window while the run continues.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                     if !controller.log.isEmpty {
                         DisclosureGroup("Progress log") { Text(progressLog).font(.system(.caption, design: .monospaced)).textSelection(.enabled) }
@@ -320,45 +325,6 @@ struct RFD4View: View {
                 if panel.runModal() == .OK, let url = panel.url { path.wrappedValue = url.path }
             }
             if singleSequence { Button("Automatic") { path.wrappedValue = "auto" }; Button("Single sequence") { path.wrappedValue = "empty" } }
-        }
-    }
-}
-
-struct RFD4ResultsView: View {
-    let root: URL
-    @State private var rows: [Row] = []
-    @State private var error: String?
-    @State private var budgetSummary: String?
-    struct Row: Decodable, Identifiable {
-        let id: String
-        let family: String
-        let structure: String
-        let cycle: Int?
-        let ipsae_min: Double?
-        let score: Double?
-        let parent_id: String?
-    }
-    var body: some View {
-        VStack(alignment: .leading) {
-            Text("Saved candidates").font(.headline)
-            if let budgetSummary { Text(budgetSummary).font(.callout).foregroundStyle(.secondary) }
-            if let error { Text(error).foregroundStyle(.red) }
-            Table(rows) {
-                TableColumn("Candidate", value: \.id)
-                TableColumn("Family", value: \.family)
-                TableColumn("Parent") { Text($0.parent_id ?? "Generated") }
-                TableColumn("Cycle") { Text($0.cycle.map(String.init) ?? "—") }
-                TableColumn("ipSAE") { row in Text(row.ipsae_min.map { String(format: "%.3f", $0) } ?? "Not assessed") }
-                TableColumn("Search score") { row in Text(row.score.map { String(format: "%.3f", $0) } ?? "—") }
-                TableColumn("Structure") { row in Button("Open") { NSWorkspace.shared.open(URL(fileURLWithPath: row.structure)) } }
-            }.frame(minHeight: 240)
-        }.task(id: root) {
-            if let data = try? Data(contentsOf: root.appendingPathComponent("budget_result.json")),
-               let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                budgetSummary = "\(result["reason"] as? String == "time_budget" ? "Design time reached" : "Family limit reached") · \(result["complete_families"] as? Int ?? 0) completed families · \(result["saved_candidates"] as? Int ?? 0) saved candidates."
-            } else { budgetSummary = nil }
-            do { rows = try JSONDecoder().decode([Row].self, from: Data(contentsOf: root.appendingPathComponent("results.json"))); error = nil }
-            catch { self.error = error.localizedDescription }
         }
     }
 }

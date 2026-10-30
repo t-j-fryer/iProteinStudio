@@ -32,6 +32,16 @@ struct PredictionResultsContractHarness {
             print("PASS 12 actual 600M samples: model labels, per-sample pTM/ipTM and four ligand-confidence records")
             return
         }
+        let arbitraryRoot = FileManager.default.temporaryDirectory.appendingPathComponent("unregistered-workspace")
+        for (kind, workflow) in [("desktop_iterative", StudioWorkflow.iterative),
+                                 ("desktop_nise", .nise), ("desktop_rfd3", .rfdiffusion3),
+                                 ("desktop_rfd4", .rfd4), ("desktop_prediction", .prediction),
+                                 ("desktop_target_prepare", .prediction)] {
+            let request = JobResultsDestination.request(kind: kind, root: arbitraryRoot, title: "Live run")
+            precondition(request?.workflow == workflow && request?.root.path == arbitraryRoot.path && request?.title == "Live run")
+        }
+        precondition(JobResultsDestination.request(kind: "desktop_runtime_benchmark", root: arbitraryRoot, title: nil) == nil)
+        print("PASS live-results destinations without registered projects; unknown formats remain unsupported")
         let csvRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: csvRoot, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: csvRoot) }

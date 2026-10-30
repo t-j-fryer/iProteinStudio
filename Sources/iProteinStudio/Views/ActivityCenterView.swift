@@ -47,7 +47,12 @@ struct ActivityCenterView: View {
                             liveRow(title: job.display_name ?? job.project, message: job.message ?? job.status,
                                     image: "waveform.path", stop: { jobs.cancel(job) })
                                 .disabled(job.status == "stopping")
-                            Button("Progress & logs") { progressJob = job }.controlSize(.small)
+                            HStack {
+                                Button("Progress & logs") { progressJob = job }
+                                if let request = job.resultsRequest {
+                                    Button("View live results") { openWindow(value: request) }
+                                }
+                            }.controlSize(.small)
                         }
                     }
                 }

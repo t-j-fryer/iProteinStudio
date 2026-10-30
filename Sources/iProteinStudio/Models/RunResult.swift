@@ -32,7 +32,7 @@ enum StudioResultStage: String, CaseIterable, Hashable {
         case .startingStructure: return "Unoptimized starting structure"
         case .design: return "Design stage"
         case .postPrediction: return "Independent post-prediction"
-        case .generatedBackbone: return "RFdiffusion3 backbone"
+        case .generatedBackbone: return "Generated backbone"
         case .verificationPrediction: return "RFdiffusion3 verification in progress"
         case .rankedDesign: return "Ranked verification"
         }
@@ -485,5 +485,20 @@ struct ResultBrowserFilter: Equatable {
     func includes(_ item: StudioResultItem) -> Bool {
         (stage.isEmpty || item.stage.rawValue == stage) && (source.isEmpty || item.scoreSource == source)
             && (query.isEmpty || [item.title, item.subtitle, item.groupTitle, item.variantTitle ?? ""].joined(separator: " ").localizedCaseInsensitiveContains(query))
+    }
+}
+
+/// Routes supported jobs to a live browser without requiring a workspace match.
+/// Custom experimental output formats need an explicit adapter, never a guess.
+enum JobResultsDestination {
+    static func request(kind: String, root: URL, title: String?) -> RunResultsWindowRequest? {
+        let workflow: StudioWorkflow
+        if kind.contains("iterative") { workflow = .iterative }
+        else if kind.contains("nise") { workflow = .nise }
+        else if kind.contains("rfd4") { workflow = .rfd4 }
+        else if kind.contains("rfd3") || kind.contains("rfdiffusion3") { workflow = .rfdiffusion3 }
+        else if kind.contains("prediction") || kind == "desktop_target_prepare" { workflow = .prediction }
+        else { return nil }
+        return RunResultsWindowRequest(root: root, workflow: workflow, title: title)
     }
 }

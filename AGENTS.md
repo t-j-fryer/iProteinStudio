@@ -92,3 +92,12 @@ Ligand NISE is exposed through its dedicated Studio tab and versioned upstream
 port; see `docs/NISE.md`. Protein/cross-reactive NISE remains upstream.
 RFdiffusion3 against DNA/RNA is out of scope — the nucleic-acid checkpoint is
 not obtainable. Do not wire those additional modes in without being asked.
+
+## Local paper release candidate
+
+This worktree is the local `release/paper-next` candidate. Track upcoming release
+work in `PUBLIC_RELEASE_TODO.md`. The original `release/paper-0.2.30` baseline
+must remain fixed. Preparing or committing a candidate does not authorize public
+GitHub publication, a release upload, an appcast change, or replacing the installed
+stable application. Publish only when explicitly requested. Only reviewed public
+changes belong here; experimental peptide workflows remain outside this candidate.

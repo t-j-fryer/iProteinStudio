@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0659 — Prepare public live-results fix](lab_book/0659-public-live-results-candidate.md): local paper candidate adds queue/progress/activity viewing and live RFD4 results; no experimental peptide workflow promotion.
+
 - [0586 — ESMFold2Fast-600M integration](lab_book/0586-integrate-esmfold2-600-release.md): app/CLI/MCP and isolated installation qualified; 0.2.28 beta published and verified.
 
 - [0581 — ESMFold2-600 Mac beta](lab_book/0581-esmfold2-600-mac-beta.md): pinned smaller-model port and memory audit; bounded acceptance complete.

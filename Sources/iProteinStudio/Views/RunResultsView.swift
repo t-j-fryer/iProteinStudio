@@ -265,15 +265,18 @@ struct RunResultsView: View {
                 } else if workflow == .rfdiffusion3 {
                     Text("Backbone → MPNN sequence derivative → complex and binder-alone checks. Completed models remain visible even when outside the ranked shortlist; only recorded filter verdicts count as hits.")
                         .font(.caption).foregroundStyle(.secondary)
+                } else if workflow == .rfd4 {
+                    Text("Families group generated backbones, native refolds and search proposals. Use stage and score-source filters to distinguish generation from prediction. Search gates are not experimental hit verdicts.")
+                        .font(.caption).foregroundStyle(.secondary)
                 } else {
                     Text("Trajectory → starting structure and design cycles → independent checks. Use stage and score-source filters to separate design confidence from verification.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 HStack(spacing: 12) {
                     SummaryCard(value: groups.count,
-                                label: workflow == .rfdiffusion3 ? "backbones" : (workflow == .prediction ? "input jobs" : "trajectories"))
+                                label: workflow == .rfd4 ? "families" : (workflow == .rfdiffusion3 ? "backbones" : (workflow == .prediction ? "input jobs" : "trajectories")))
                     SummaryCard(value: groups.flatMap(\.variants).count,
-                                label: workflow == .rfdiffusion3 ? "MPNN derivatives" : (workflow == .prediction ? "model samples" : "cycles"))
+                                label: workflow == .rfd4 ? "assessed candidates" : (workflow == .rfdiffusion3 ? "MPNN derivatives" : (workflow == .prediction ? "model samples" : "cycles")))
                     SummaryCard(value: items.count, label: "related structures")
                     if workflow != .prediction { SummaryCard(value: savedHitUnitCount, label: "saved hits") }
                 }
