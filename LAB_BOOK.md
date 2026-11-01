@@ -1,5 +1,9 @@
 # Lab Book
 
+- [0681 — Prepare shared app update](lab_book/0681-prepare-shared-app-update.md): public and beta configuration fixes, CLI/MCP51 and release qualification; respects the running benchmark.
+
+- [0679 — Repair shared design configuration](lab_book/0679-public-design-configuration.md): public candidate and beta labels, frameworks/CDRs, sequence targets, length allocation, predictors and hit filters; CPU checks pass; new GPU routes and mixed-target refinement remain release follow-ups.
+
 - [0659 — Prepare public live-results fix](lab_book/0659-public-live-results-candidate.md): local paper candidate adds queue/progress/activity viewing and live RFD4 results; no experimental peptide workflow promotion.
 
 - [0586 — ESMFold2Fast-600M integration](lab_book/0586-integrate-esmfold2-600-release.md): app/CLI/MCP and isolated installation qualified; 0.2.28 beta published and verified.

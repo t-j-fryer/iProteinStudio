@@ -18,12 +18,12 @@ def main():
         cfg = normalize(json.loads(args.config.read_text()))
         print(json.dumps(dict(settings=cfg, predictions=prediction_budget(cfg))))
     elif args.action == 'author':
-        from rfd4.prepare import author
-        author(args.root, json.loads(args.config.read_text()), args.output)
+        from rfd4.prepare import author_lengths
+        author_lengths(args.root, json.loads(args.config.read_text()), args.output)
     elif args.action == 'audit':
-        from rfd4.prepare import audit_features
+        from rfd4.prepare import audit_lengths
         cfg = normalize(json.loads(args.config.read_text()))
-        audit_features(args.output / 'annotated.cif', cfg, args.output / 'feature_audit.json')
+        audit_lengths(cfg, args.output)
     elif args.action == 'audit-starts':
         from rfd4.prepare import audit_features
         cfg = normalize(json.loads(args.config.read_text()))

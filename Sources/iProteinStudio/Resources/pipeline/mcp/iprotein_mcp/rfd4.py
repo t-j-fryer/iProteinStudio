@@ -48,7 +48,9 @@ def prepare(output, request):
             required += [root / 'models/rfd4/native' / name for name in ('model.safetensors', 'config.json')]
         if search:
             engines += ['boltz' if cfg['task'] == 'ligand' else cfg['predictor']]
-            family = 'boltz' if cfg['predictor'] == 'boltz' or cfg['task'] == 'ligand' else 'esmfold2'
+            identity = module.predictor_identity(cfg['predictor'])
+            engines[-1] = identity['engine']
+            family = identity['runtime']
             required.append(root / f'venvs/NanoHunter_{family}/bin/python')
             if cfg['search'] != 'native':
                 engines += [cfg['sequence_model']]
@@ -62,17 +64,18 @@ def prepare(output, request):
                                  'abmpnn':'abmpnn.pt'}[cfg['sequence_model']]]
             # The selected portable runtime's model directory is preserved by
             # runtime_view; fingerprint its model receipts and files as well.
-            models = root / ('models/boltz2' if family == 'boltz' else 'models/esmfold2')
+            models = root / 'models' / {'boltz':'boltz2','esmfold2':'esmfold2','intellifold':'intellifold','protenix':'protenix','protenix_constraint':'protenix_constraint','openfold3_mlx':'openfold3'}[family]
             required += [p for p in models.rglob('*') if p.is_file()]
             if cfg['task'] == 'ligand':
                 required.append(root / 'models/boltz2/boltz2_aff.ckpt')
-            if cfg['target_msa'] == 'auto':
+            if cfg['target_msa'] == 'auto' or cfg['scaffold_msa'] == 'auto':
                 engines += ['boltz']
                 required.append(root / 'venvs/NanoHunter_boltz/bin/boltz')
         if cfg['scaffold_id']:
             required += [root / 'examples/nanobody_scaffolds/structures' / (cfg['scaffold_id'] + '.pdb'),
-                         root / 'examples/nanobody_scaffolds/structures/PROVENANCE.json',
-                         root / 'examples/nanobody_scaffolds/msas' / cfg['scaffold_id'] / 'full_msa.a3m']
+                         root / 'examples/nanobody_scaffolds/structures/PROVENANCE.json', root / 'examples/nanobody_scaffolds/catalog.tsv']
+            msa = root / 'examples/nanobody_scaffolds/msas' / cfg['scaffold_id'] / 'full_msa.a3m'
+            if cfg['scaffold_msa']=='auto' and msa.is_file(): required.append(msa)
         for path in required + [runner]:
             if not path.is_file(): raise ValueError('Install the required RFD4/search component: ' + str(path))
         if not cfg['starting_structures']:
@@ -87,6 +90,8 @@ def prepare(output, request):
                     if result.returncode: raise ValueError('RFD4 ' + action + ' failed: ' + result.stderr[-2000:])
                 module.seal(receipt, dict(passed=True), [output / 'settings.json', output / 'annotated.cif',
                             output / 'condition_spec.json', output / 'feature_audit.json',
+                            *list((output / 'length_inputs').rglob('*.*')),
+                            *([output / 'length_inputs.json'] if cfg.get('length_plan') else []),
                             *[output / name for name in ('molecule.json', 'molecule.cif', 'reference.cif', 'protein_source.cif', 'framework_identity.json', 'target_identity.json') if (output / name).is_file()]])
             inputs += [output / name for name in ('annotated.cif', 'condition_spec.json', 'feature_audit.json', 'preflight_completed.json')]
             inputs += [output / name for name in ('molecule.json', 'molecule.cif', 'reference.cif', 'protein_source.cif', 'framework_identity.json') if (output / name).is_file()]
@@ -103,6 +108,9 @@ def prepare(output, request):
                 module.seal(receipt, dict(passed=True), [output / 'settings.json', *cfg['starting_structures'], *audits])
             inputs += [receipt, *audits]
         config = dict(settings=cfg, output=str(output), annotated_cif=str(output / 'annotated.cif'))
+        if cfg.get('length_plan'):
+            config['length_inputs'] = load_json(output / 'length_inputs.json')
+            inputs += [output / 'length_inputs.json', *[p for p in (output / 'length_inputs').rglob('*') if p.is_file()]]
         identity = output / 'target_identity.json'
         if cfg['task'] in ('protein', 'nanobody') and not identity.is_file():
             sys.path.insert(0, str(root / 'rfd3_scripts'))
@@ -130,8 +138,8 @@ def prepare(output, request):
             inputs.append(identity)
         module.fixed(output / 'rfd4_config.json', config)
         controller = python if not cfg['starting_structures'] or cfg['native_search'] else root / (
-            'venvs/NanoHunter_boltz/bin/python' if cfg['predictor'] == 'boltz' else 'venvs/NanoHunter_esmfold2/bin/python')
-        command = [str(controller), '-B', str(runner), 'run', '--root', str(root),
+            'venvs/NanoHunter_' + module.predictor_identity(cfg['predictor'])['runtime'] + '/bin/python')
+        command = ['/usr/bin/caffeinate', '-dimsu', str(controller), '-B', str(runner), 'run', '--root', str(root),
                    '--config', str(output / 'rfd4_config.json'), '--output', str(output)]
         scripts = sorted((root / 'scripts').rglob('*.py')) + sorted((root / 'rfd3_scripts').rglob('*.py'))
         provenance = _script_provenance(list(dict.fromkeys(scripts + inputs + required +

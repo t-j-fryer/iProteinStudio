@@ -52,15 +52,15 @@ def main(config_path):
         return run(path,child_stage)
     search = cfg['search'] != 'native' or cfg['assess_native']
     native = cfg['native_search']
-    predictor_python = root / ('venvs/NanoHunter_boltz/bin/python' if cfg['predictor'] == 'boltz'
-                              else 'venvs/NanoHunter_esmfold2/bin/python')
+    from .predictors import runtime_spec
+    predictor_python, predictor_env = runtime_spec(root, cfg['predictor'])
     def stage(action, python, first=False):
         from .budget import checkpoint, BudgetExhausted
         checkpoint()
         command = [str(python), '-B', str(script), action, '--root', str(root),
                    '--config', str(path), '--output', str(output)]
         if first: command.append('--first')
-        result=subprocess.run(command, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'))
+        result=subprocess.run(command, env=dict(predictor_env if action == 'search' else os.environ, PYTHONDONTWRITEBYTECODE='1'))
         if result.returncode==75: raise BudgetExhausted()
         result.check_returncode()
     def generate(first=False):

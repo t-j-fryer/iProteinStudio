@@ -101,15 +101,21 @@ def normalize(request):
                     assess_native=False, starting_structures=[], native_search=False,
                     native_beam_width=2, native_branches=2, native_checkpoints=[8, 15],
                     native_partial_fraction=0.5, ligand_smiles='', time_budget_minutes=None, scaffold_id=None,
-                    hotspot_residues=None)
+                    hotspot_residues=None, length_plan=None, hit_filters=None)
     unknown = set(request) - set(defaults)
     if unknown: raise ValueError('Unknown RFD4 settings: ' + ', '.join(sorted(unknown)))
     cfg = {**defaults, **request}
     if cfg['time_budget_minutes'] is not None and (type(cfg['time_budget_minutes']) not in (int, float)
             or not math.isfinite(cfg['time_budget_minutes']) or not 0 < cfg['time_budget_minutes'] <= 10080):
         raise ValueError('Design time must be positive and no more than seven days.')
-    if cfg['scaffold_id'] is not None and (cfg['task'] != 'nanobody' or cfg['scaffold_id'] != '7xl0_vobarilizumab'):
-        raise ValueError('Choose an installed, qualified nanobody framework.')
+    if cfg['scaffold_id'] is not None and (cfg['task'] != 'nanobody' or cfg['scaffold_id'] not in SCAFFOLDS):
+        raise ValueError('Choose a bundled nanobody framework or a custom annotated input.')
+    if cfg['scaffold_id'] and not cfg['cdr_ranges']:
+        import csv
+        catalog=Path(__file__).resolve().parents[2]/'examples/nanobody_scaffolds/catalog.tsv'
+        entries={r['scaffold_id']:r for r in csv.DictReader(catalog.read_text().splitlines(),delimiter='\t')}
+        row=entries[cfg['scaffold_id']]
+        cfg['cdr_ranges']=','.join(f"CDR{i}:"+row[f'cdr{i}_range_1based'] for i in (1,2,3))
     if cfg['scaffold_msa'] == 'auto' and not cfg['scaffold_id']:
         raise ValueError('Automatic scaffold alignment requires a selected framework; choose an explicit alignment for a custom framework.')
     if cfg['scaffold_id'] and (cfg['binder_chain'] != 'A' or cfg['target_chain'] != 'B'):
@@ -119,6 +125,8 @@ def normalize(request):
     for key, low, high in [('length', 1, 2000), ('count', 1, 10000), ('seed', 0, 2**32-1),
                            ('cycles', 1, 100), ('proposals', 1, 64), ('beam_width', 1, 64)]:
         integer(cfg[key], key, low, high)
+    allocated_lengths(cfg)
+    validate_hit_filters(cfg)
     if cfg['seed'] + cfg['count'] - 1 >= 2**32:
         raise ValueError('The requested generation seeds exceed the 32-bit range.')
     for key in ('optimized_kernels', 'annotated_input', 'assess_native', 'native_search'):
@@ -186,8 +194,8 @@ def normalize(request):
             raise ValueError('Protein search requires a protein target or nanobody input. Ligand searches use NISE.')
         expected = ('abmpnn',) if cfg['task'] == 'nanobody' else ('solublempnn', 'proteinmpnn')
         if cfg['sequence_model'] not in expected: raise ValueError('Choose a sequence designer appropriate for this task.')
-        if cfg['predictor'] not in ('esmfold2-full-mlx', 'esmfold2-fast-mlx', 'esmfold2-600-mlx', 'boltz'):
-            raise ValueError('Choose Full, Fast, 600M or Boltz for protein search.')
+        if cfg['predictor'] not in PREDICTORS:
+            raise ValueError('Choose a supported structure predictor.')
         if cfg['predictor'] not in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'} and not cfg['target_msa']:
             raise ValueError('Select the target alignment, or explicitly enter empty for single-sequence prediction.')
         if cfg['task'] == 'nanobody' and (not cfg['cdr_ranges'] or (cfg['predictor'] not in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'} and not cfg['scaffold_msa'])):
@@ -213,3 +221,81 @@ def select(rows, width):
         raise ValueError('Incomplete or nonfinite search generation; refusing to select parents.')
     # Same stable family-wide ranking as the completed beam experiment; no elitism.
     return sorted(rows, key=lambda r: (-r['score'], r['id']))[:width]
+
+
+SCAFFOLDS = ('7xl0_vobarilizumab', '7eow_caplacizumab', '8coh_gefurulimab',
+             '8z8v_ozoralizumab_alb8', 'gontivimab', 'isecarosmab', 'sonelokimab', '3eak_nbbcii10_fgla')
+PREDICTORS = ('esmfold2-full-mlx', 'esmfold2-fast-mlx', 'esmfold2-600-mlx', 'boltz',
+              'intellifold', 'intellifold-full', 'protenix-v2', 'protenix-mini',
+              'protenix-constraint-v0.5', 'openfold-3-mlx')
+
+
+def predictor_identity(name):
+    if name not in PREDICTORS: raise ValueError('Unknown RFD4 predictor: ' + str(name))
+    engine = 'intellifold' if name == 'intellifold-full' else name
+    if name.startswith('esmfold2-'): runtime, model = 'esmfold2', name
+    elif name.startswith('intellifold'): runtime, model = 'intellifold', ('v2' if name.endswith('-full') else 'v2-flash')
+    elif name.startswith('protenix-'): runtime, model = ('protenix_constraint' if 'constraint' in name else 'protenix'), name
+    elif name == 'openfold-3-mlx': runtime, model = 'openfold3_mlx', 'openfold3'
+    else: runtime, model = 'boltz', 'boltz2'
+    return dict(engine=engine, runtime=runtime, model=model)
+
+
+def allocated_lengths(cfg):
+    plan = cfg.get('length_plan')
+    if plan is None: return [cfg['length']] * cfg['count']
+    if cfg['task'] not in ('monomer', 'protein', 'ligand') or cfg['starting_structures'] or cfg['annotated_input'] or cfg['native_search']:
+        raise ValueError('Length allocation requires newly generated monomers or binders without native diffusion search.')
+    if not isinstance(plan, dict) or set(plan) - {'minimum','maximum','counts'}:
+        raise ValueError('Invalid length allocation.')
+    low=integer(plan.get('minimum'), 'minimum length', 1, 2000)
+    high=integer(plan.get('maximum'), 'maximum length', low, 2000)
+    count=integer(cfg['count'], 'count', 1, 10000)
+    counts=plan.get('counts')
+    if counts is not None:
+        if not isinstance(counts, dict) or not counts: raise ValueError('Custom length counts are empty.')
+        remaining={}
+        for key, n in counts.items():
+            if not isinstance(key,str) or not key.isdigit() or str(int(key))!=key: raise ValueError('Use integer lengths.')
+            remaining[integer(int(key),'length',low,high)]=integer(n,'length count',1,10000)
+        if sum(remaining.values()) != count: raise ValueError('Length counts must add up to the family count.')
+        result=[]
+        while len(result)<count:
+            for key in sorted(remaining):
+                if remaining[key]: result.append(key);remaining[key]-=1
+        return result
+    if count < high-low+1:
+        if count==1:return [(low+high)//2]
+        return [low+int(i*(high-low)/(count-1)+0.5) for i in range(count)]
+    return [low+i%(high-low+1) for i in range(count)]
+
+
+def family_config(config, index):
+    cfg=config['settings']
+    if not cfg.get('length_plan'): return config
+    length=allocated_lengths(cfg)[index]
+    path=config.get('length_inputs',{}).get(str(length))
+    if not path:raise ValueError('Missing audited input for family length ' + str(length))
+    return dict(config, annotated_cif=path, settings=dict(cfg,length=length))
+
+
+def validate_hit_filters(cfg):
+    filters=cfg.get('hit_filters')
+    if filters is None:return
+    if not isinstance(filters,dict):raise ValueError('Hit filters must be metric cutoffs.')
+    for key, value in filters.items():
+        if key not in ('ipsae_min','iptm','complex_plddt') or type(value) not in (int,float) or not math.isfinite(value) or not 0<=value<=1:
+            raise ValueError('Protein hit cutoffs must be between 0 and 1.')
+    if filters and (cfg['task'] not in ('protein','nanobody') or not (cfg['search']!='native' or cfg['assess_native'] or cfg['native_search'])):
+        raise ValueError('Protein hit filters require protein or nanobody assessment.')
+
+
+def filter_verdict(cfg, scores):
+    filters=cfg.get('hit_filters')
+    if not filters:return {}
+    failed=[]
+    for name, cutoff in filters.items():
+        value=scores.get(name)
+        if value is None or not math.isfinite(float(value)) or float(value)<cutoff: failed.append(name)
+    return dict(hit_filter_passed=not failed, hit_filter_failures=failed,
+                hit_filter_cutoffs=filters, hit_filter_scope='design_feedback_not_independent_validation')

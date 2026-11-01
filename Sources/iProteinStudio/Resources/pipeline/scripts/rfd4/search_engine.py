@@ -162,14 +162,12 @@ class Engine:
             verify(receipt)
             artifacts = [receipt]
         else:
-            from resident_predictor import BoltzSession
+            from resident_predictor import make_session
+            from .predictors import session_config, prediction_files
             if self.session is None:
-                self.session = BoltzSession(dict(root=str(self.root), model='boltz2', engine_args=['--seed', '42', '--diffusion_samples', '1']))
+                self.session = make_session(session_config(self.root, cfg['predictor'], yp, self.output / 'predictor_session', proposal['predictor_seed']))
             self.session.predict(inputs, predictions, 1)
-            confidences = list(predictions.rglob('confidence_*_model_0.json'))
-            structures = list(predictions.rglob('*_model_0.cif')) + list(predictions.rglob('*_model_0.pdb'))
-            if len(confidences) != 1 or len(structures) != 1: raise ValueError('Boltz output cardinality mismatch.')
-            structure, confidence = structures[0], confidences[0]
+            structure, confidence = prediction_files(predictions, yp.stem)
             artifacts = [p for p in predictions.rglob('*') if p.is_file()]
         observed = sequences(structure)
         if observed != {binder: sequence, **targets}:
@@ -191,6 +189,8 @@ class Engine:
                       target_chains=list(targets), score_scope='minimum_directional_ipSAE_across_all_protein_pairs',
                       score_role='native_feedback' if self.cfg['search'] != 'native' else 'native_sequence_assessment',
                       prediction_and_audit_seconds=time.perf_counter()-started)
+        from .contract import filter_verdict
+        record.update(filter_verdict(cfg, {**scores, 'ipsae_min':score}))
         return record, [sequence_done, yp, *artifacts] + ([Path(msa)] if msa != 'empty' else [])
 
     def close(self):

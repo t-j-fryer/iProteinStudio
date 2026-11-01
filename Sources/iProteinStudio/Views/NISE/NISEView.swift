@@ -39,6 +39,7 @@ struct NISEView: View {
                 if cohortURL == nil {
                 GroupBox("Small molecule") {
                     VStack(alignment: .leading, spacing: 10) {
+                        Text("Molecule SMILES").font(.callout)
                         TextField("SMILES", text: request.smiles, axis: .vertical)
                             .textFieldStyle(.roundedBorder).lineLimit(2...5)
                             .accessibilityIdentifier("nise-smiles")
@@ -288,7 +289,7 @@ struct NISEView: View {
                             }
                             Text("RFD3 generation finishes before the Boltz pool starts. Two workers use more memory; the throughput benefit was measured on our 64 GB M4 Max and is not guaranteed on other Macs.").font(.caption)
                         }
-                        TextField("Generation and folding seed", value: request.seed, format: .number)
+                        StudioFormField("Generation and folding seed") { TextField("Seed", value: request.seed, format: .number) }
                             .disabled(cohortURL != nil)
                         Text("LASErMPNN has no upstream seed control. Studio saves the exact sampled sequences and audited predictions for resume.").font(.caption)
                     }

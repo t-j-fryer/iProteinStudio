@@ -76,6 +76,8 @@ enum RunResultsLoader {
                 structureURL: structure, sequence: sequence,
                 metrics: metrics, confidenceURL: confidence,
                 stage: .design, scoreSource: friendlyPredictor(row["engine"] as? String ?? "RFD4"),
+                isHit: row["hit_filter_passed"] as? Bool,
+                failedFilters: row["hit_filter_failures"] as? [String] ?? [],
                 groupID: family, groupTitle: family, variantID: id, variantTitle: id,
                 artifactRole: parent == nil ? .generatedBackbone : .designedComplex)
         }

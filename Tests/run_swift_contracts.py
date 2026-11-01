@@ -36,7 +36,12 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
             SOURCE + "Core/ResumeContract.swift", SOURCE + "Core/TemplateWriter.swift", SOURCE + "Core/CommandBuilder.swift",
             SOURCE + "Core/MetricsWatcher.swift", SOURCE + "Core/Results/RunResultsLoader.swift", SOURCE + "Core/Results/NISEResults.swift", "Tests/IterativeCommandContractHarness.swift"],
     }
+    cases['rfd4_configuration'] = [SOURCE + 'Models/RFD4Request.swift', 'Tests/RFD4ConfigurationHarness.swift']
+    selected = os.environ.get('STUDIO_SWIFT_CASES', '').split(',')
     for name, sources in cases.items():
+        if selected != [''] and name not in selected: continue
+        if SOURCE + 'Models/RFD4Request.swift' in sources:
+            sources.append(SOURCE + 'Models/RFD4LengthPlan.swift')
         sources += [SOURCE + "Core/ControlPython.swift"]
         binary = tmp / name
         subprocess.run(flags + ["-parse-as-library"] + sources + ["-o", str(binary)], cwd=ROOT, check=True)

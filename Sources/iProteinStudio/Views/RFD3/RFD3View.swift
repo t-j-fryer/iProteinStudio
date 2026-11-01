@@ -447,6 +447,7 @@ struct RFD3View: View {
                         .textFieldStyle(.roundedBorder).frame(width: 100)
                         .font(.system(.body, design: .monospaced))
                 }
+                Text("Ligand SMILES · sequence design and verification").font(.callout)
                 TextField("Ligand SMILES (required for sequence design and verification)",
                           text: request.smiles)
                     .textFieldStyle(.roundedBorder)
@@ -634,6 +635,11 @@ struct RFD3View: View {
             Text("List each source residue and only the atoms needed to preserve function. RFD3 may place these residues at new scaffold positions; Studio records the mapping and fixes them during MPNN design.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Text("Source residue").frame(width: 90, alignment: .leading)
+                Text("Atoms to preserve")
+                Spacer()
+            }.font(.callout)
             ForEach(Array(request.wrappedValue.motifSites.indices), id: \.self) { index in
                 HStack {
                     TextField("A108", text: Binding(
@@ -944,7 +950,7 @@ struct RFD3View: View {
                     if request.wrappedValue.originStrategy == .explicit {
                         HStack(spacing: 8) {
                             ForEach(0..<3, id: \.self) { i in
-                                TextField(["X", "Y", "Z"][i], value: Binding(
+                                StudioFormField(["X (Å)", "Y (Å)", "Z (Å)"][i]) { TextField(["X", "Y", "Z"][i], value: Binding(
                                     get: { request.wrappedValue.originXYZ.indices.contains(i) ? request.wrappedValue.originXYZ[i] : 0 },
                                     set: { nv in
                                         var xyz = request.wrappedValue.originXYZ
@@ -953,7 +959,7 @@ struct RFD3View: View {
                                         request.wrappedValue.originXYZ = xyz
                                     }
                                 ), format: .number)
-                                .textFieldStyle(.roundedBorder).frame(width: 80)
+                                .textFieldStyle(.roundedBorder).frame(width: 80) }
                             }
                         }
                         Text("Expert control. Coordinates are passed exactly and do not imply hotspot conditioning.")

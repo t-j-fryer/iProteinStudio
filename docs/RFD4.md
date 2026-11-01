@@ -7,7 +7,7 @@ Choose **Design → a recommended workflow**, or select an intention under **Bui
 | Monomer | Requested length; joint sequence/structure generation |
 | Protein binder | Target structure and source chain; Studio derives the contig; optional source-numbered hotspots |
 | Small-molecule binder | SMILES with explicit stereochemistry/charge, or a chemical component with explicit bonds; checked conformer preparation preserves chemistry |
-| Nanobody | Target structure plus the audited 7XL0 framework, or custom annotated input / retained segments |
+| Nanobody | Target structure plus any of the eight bundled frameworks, or custom annotated input / retained segments |
 | Motif | Native annotated CIF, or explicit retained residues and generated segments |
 | Partial diffusion | Complete source coordinates and partial trajectory fraction |
 | Inverse folding | Source coordinates; native inverse-folding operation with a terminal C-alpha preservation audit |
@@ -22,8 +22,11 @@ the run. The released sampling schedule is preserved.
 
 Protein, nanobody and small-molecule inputs can use fixed-backbone sampling, iterative refinement,
 greedy search or beam search. SolubleMPNN is the protein-binder default; AbMPNN
-redesigns only the specified nanobody CDRs. Full, Fast or Boltz refolds complete
-sequences. Every proposal and its exact parent are retained. Beam selection ranks
+redesigns only the specified nanobody CDRs. The predictor menu groups ESMFold2
+Full/Fast/600M, Boltz-2, IntelliFold Flash/Full, Protenix v2/Mini/Constraint and
+OpenFold-3 by family. These reuse the existing resident adapters and require their
+own installed checkpoint; an absent engine is never substituted. Each proposal
+receives one prediction sample at the selected engine’s Studio profile. Every proposal and its exact parent are retained. Beam selection ranks
 the current family generation without retaining a parent by default. Imported
 starting structures permit these searches on existing backbones too.
 
@@ -39,7 +42,7 @@ are checked before reuse; interrupted attempts are retained. Runs above ten
 families complete one end-to-end family before proceeding. Memory admission is
 not yet calibrated for RFD4, so running it requires the explicit
 memory override. Optional Metal kernels must match reference output exactly on
-the first input before the campaign proceeds.
+the first input of each generation stage and each new length before proceeding.
 
 This integration does not promote retrospective adaptive-depth allocation,
 multi-cycle inverse-fold/refold experiments, or unqualified conditioning profiles
@@ -54,8 +57,8 @@ not enabled.
 Easy minibinder/nanobody workflows generate native RFD4 sequences and assess them
 with ESMFold2 Full. Hard workflows start with RFD4, then use SolubleMPNN or AbMPNN
 proposals and Full refolding for up to seven cycles, four proposals per parent,
-and four surviving parents. Nanobody redesign is restricted to CDR1/2/3 on the
-7XL0 framework. Easy small-molecule workflows assess the native RFD4 sequence with
+and four surviving parents. Recommended nanobody buttons default to CDR1/2/3 on
+the 7XL0 framework; the detailed custom form offers all eight catalogue frameworks. Easy small-molecule workflows assess the native RFD4 sequence with
 Boltz; hard workflows use seven-cycle LASErMPNN beams and the same combined score.
 These are the user-selected workflow definitions, not new efficacy claims.
 
@@ -69,7 +72,8 @@ secondary bound, not a requested cohort before the time limit.
 
 Automatic target alignments reuse Studio's cache or contact the configured MSA
 server; explicit alignments and single-sequence policy remain selectable. The
-chosen framework uses its bundled alignment. Missing required assets fail before
+chosen framework uses its bundled alignment, or the shared cache/server resolver
+when a catalogue framework has no bundled alignment. Missing required assets fail before
 launch; models and alignment policies are never silently substituted.
 
 The custom builder offers only methods appropriate for the selected intention.
@@ -80,7 +84,7 @@ workspaces remain readable; workflow snapshots have a versioned schema.
 
 ### Sequence targets and assemblies
 
-Recommended protein and nanobody buttons accept a structure or complete sequences
+Both the recommended buttons and the detailed RFD4 form accept a structure or complete protein sequences
 separated with `:`. ESMFold2 Full prepares the entire assembly through a managed
 `target_prepare` job, with chains B, C, D onward and per-sequence automatic MSAs.
 The shared resolver reuses audited alignments or requests missing ones through
@@ -113,7 +117,7 @@ condition authoring; ligand inputs still need explicit chemical connectivity.
 | --- | --- |
 | Monomer | RFD4; native unconditional RFD3 followed by sequence refinement; X-token hallucination with a compatible predictor |
 | Minibinder | RFD4; RFD3; X-token hallucination |
-| Nanobody | RFD4 with the audited framework; X-token hallucination, including ESMFold2 Full CDR-only starts |
+| Nanobody | RFD4 with a catalogue framework; X-token hallucination, including ESMFold2 Full CDR-only starts |
 | Small-molecule binder | RFD4; RFD3; X-token hallucination; NISE |
 | Motif scaffolding | RFD4/RFD3 structural conditioning; Boltz sequence-motif X-token starts; the existing atomic-motif beta |
 | Optimize a structure | RFD4 partial diffusion or inverse folding; RFD3 partial diffusion; X-token partial sequence redesign |
@@ -141,3 +145,48 @@ Studio currently gates RFD4 at macOS 26.2. The shipped runtime manifest and
 its native binaries declare 14.0; a 26.2 dependency was not found in the binary
 audit. This is a conservative support gate, not a demonstrated RFD4 requirement.
 Older-system inference remains untested. See [the dependency audit](MACOS_SUPPORT.md).
+
+
+## Detailed configuration
+
+- **Target structure** is the protein to bind, not the nanobody framework. Multiple
+  protein target chains retain their assembly geometry. The detailed form can
+  predict a target once from sequences separated with `:` through the existing
+  managed target-preparation job. Its time is separate from the design budget.
+- **Nanobody framework** loads its own CDR1/2/3 boundaries from the catalogue.
+  Positions are one-based and inclusive in the nanobody sequence. They determine
+  which positions AbMPNN can change and which positions are masked in its MSA.
+  An advanced override is explicit and can be reset to the catalogue boundaries.
+  The 3EAK boundaries were transferred by sequence alignment, not independently
+  numbered. A custom annotated input needs explicit boundaries and an MSA policy.
+- **Sequence sampling temperature** controls sampling diversity. **Excluded amino
+  acids** uses one-letter codes: `C` excludes cysteine; empty allows all residues.
+  **Generation seed** sets reproducible per-family seeds. Designed chain A and
+  target chains B onward are output chain roles; epitope fields use input chains.
+- **Length range** distributes starts evenly over the requested integer lengths.
+  When starts are fewer than lengths, they span the interval; a single start uses
+  its midpoint. Custom counts must sum to the family budget. Starts are interleaved
+  by length, including timed runs. Each distinct length gets a separately authored,
+  audited native input in the frozen plan. Imported structures and native
+  during-diffusion search retain their own fixed lengths.
+- **Hit filters** flag candidates meeting all selected ipSAE(min), iPTM and/or mean
+  complex pLDDT cutoffs. Cutoffs use the 0–1 scale; missing metrics fail that filter.
+  Verdicts, failed criteria and cutoffs are saved beside the candidate. The Hits
+  view reads those verdicts. Every proposal is retained and parent selection is
+  unchanged. These are search-score gates, not independent validation.
+- **Optimized GPU operations** are custom Metal pair operations. Exact comparison
+  against the reference adds checking work at the beginning; it is not an accuracy
+  option or a guarantee of a speedup on every input. The option stays off by default.
+
+### Mixed protein–ligand targets
+
+Prediction supports protein–ligand complexes, and the small-molecule design task
+supports explicit ligand inputs. The protein/nanobody refinement route does **not**
+yet preserve ligand context throughout generation, MPNN handoff and reprediction.
+It now rejects non-protein target entities instead of silently dropping them.
+Native annotated inputs can express molecular conditions, but this does not qualify
+mixed-target refinement. That extension remains an explicit release follow-up.
+
+The expanded framework authoring and engine routing have CPU/contract tests.
+This is not an end-to-end GPU qualification of every new combination; see
+[configuration work and test limits](../lab_book/0679-public-design-configuration.md).

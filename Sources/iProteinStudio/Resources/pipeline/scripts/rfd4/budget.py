@@ -48,7 +48,9 @@ def run(config_path, stage):
             for index in range(cfg['count']):
                 child=output/'budget_families'/f"seed_{cfg['seed']+index}"
                 child.mkdir(parents=True,exist_ok=True)
-                child_cfg=dict(config,output=str(child),settings=dict(cfg,count=1,seed=cfg['seed']+index,time_budget_minutes=None))
+                from .contract import family_config
+                current=family_config(config,index)
+                child_cfg=dict(current,output=str(child),settings=dict(current['settings'],count=1,seed=cfg['seed']+index,time_budget_minutes=None,length_plan=None))
                 if cfg['starting_structures']:child_cfg['settings']['starting_structures']=[cfg['starting_structures'][index]]
                 fixed(child/'rfd4_config.json',child_cfg)
                 fixed(child/'studio_job.json',json.loads((output/'studio_job.json').read_text()))

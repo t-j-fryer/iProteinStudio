@@ -72,6 +72,13 @@ time budget; queue time does not count toward active design time.
 | **Template-guided Boltz motif beta** | Design → Motif scaffolding → Atomic motif beta. Pinned AME-41 motifs, explicit residue maps, RFD3 starts, mapped template guidance and separate untemplated ranking checks. Bounded 1–5-root pilots. |
 | **Predict** | Complete sequences, FASTA or CSV, with per-chain alignments and templates where supported. |
 
+The detailed RFD4 form accepts sequence targets, balanced length ranges or custom
+counts, and optional saved hit filters. Predictors are grouped by model family,
+including optional installed engines. Choose any of eight bundled nanobody
+frameworks; its CDR boundaries load automatically, with an explicit advanced
+override. All populated fields retain their labels. See
+[detailed configuration](docs/RFD4.md#detailed-configuration).
+
 RFD3 fixed-framework nanobody generation was tried unsuccessfully and is excluded.
 The motif beta has CPU input/feature checks and a bounded end-to-end KSI
 test covering both designers, guided/untemplated predictions and pause/resume.
@@ -136,7 +143,7 @@ disk; supported **Resume** actions use the saved settings and retained runtime.
 Projects, alignments and results live under `~/.iproteinstudio`, outside the app.
 
 Results keep trajectories, cycles, backbones and sequence derivatives together.
-A saved hit belongs to its independently checked output. Cycle 00 is an initial
+A saved hit belongs to its exact scored output. RFD4 search-hit filters label optimization feedback; independent validation remains a separate step. Cycle 00 is an initial
 structure, not an optimized design. See [Job queue](docs/JOB_QUEUE.md),
 [Results](docs/RESULTS.md) and [Storage](docs/OUTPUT_STORAGE.md).
 

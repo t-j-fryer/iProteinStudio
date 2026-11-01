@@ -5,11 +5,12 @@ The GUI and bridge share the job queue, retained inputs, runtime provenance and
 results. An assistant is optional; protein-model inference runs on the Mac,
 while the assistant itself may use an external service.
 
-The RFD4 development build adds `rfd4_plan` and the `rfd4` workflow guide. Refresh
-the client's tool schema after updating; a source feature is not necessarily
-available in an already-connected server. Full CDR-only initialization uses the
-existing iterative-design route with the nanobody workflow. See [RFD4](RFD4.md)
-and the [current RFD4 capability and qualification guide](RFD4.md).
+RFD4 is available through `rfd4_plan` and the `rfd4` workflow guide. GUI, CLI
+and MCP share its request validation, length allocation, framework/CDR definitions,
+predictor identities and saved hit filters. Reconnect the client after an app
+update and check `studioctl.py doctor`; an already-running server retains its
+loaded code. Full CDR-only X-token initialization is a separate iterative-design
+route. See [RFD4 capabilities and qualification](RFD4.md).
 
 ## Connect
 

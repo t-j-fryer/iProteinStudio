@@ -6,7 +6,7 @@ struct RunNameField: View {
     let mode: WorkspaceMode
 
     var body: some View {
-        TextField("Run name (optional)", text: Binding(
+        StudioFormField("Run name (optional)") { TextField("Run name", text: Binding(
             get: { app.projects.first(where: { $0.id == project.id })?.runNames[mode.rawValue] ?? "" },
             set: { name in app.updateProject(id: project.id) { $0.runNames[mode.rawValue] = String(name.prefix(120)) } }))
             .textFieldStyle(.roundedBorder)
@@ -14,5 +14,6 @@ struct RunNameField: View {
             .help("A name for this run in Queue and Activity. Leave blank for an automatic name. Reusing a name creates a separate run.")
             .accessibilityLabel("Run name, optional")
             .accessibilityIdentifier("run-name-\(mode.rawValue)")
+        }.frame(maxWidth: 280)
     }
 }

@@ -11,7 +11,7 @@ struct SaveDesignWorkflowSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Save workflow").font(.title2.bold())
-            TextField("Button name", text: $name).textFieldStyle(.roundedBorder)
+            StudioFormField("Workflow button name") { TextField("Name", text: $name).textFieldStyle(.roundedBorder) }
             Text("Saves the current settings and input references. Open the button from Design home to review them before starting.").font(.callout).foregroundStyle(.secondary)
             if failed { Text(app.storageMessage ?? "The workflow could not be saved.").foregroundStyle(.red) }
             HStack {
@@ -201,7 +201,7 @@ struct RecommendedDesignSheet: View {
     private var configuration: some View {
         VStack(alignment: .leading, spacing: 18) {
             if intention == .smallMolecule {
-                TextField("Molecule SMILES", text: $molecule).textFieldStyle(.roundedBorder)
+                StudioFormField("Molecule SMILES") { TextField("SMILES", text: $molecule).textFieldStyle(.roundedBorder) }
                 Text("Paste one molecule, including its intended stereochemistry and charge. Studio prepares and checks its 3D structure.").font(.caption).foregroundStyle(.secondary)
             } else {
                 proteinTargetInput
@@ -274,7 +274,7 @@ struct RecommendedDesignSheet: View {
                     TextField("All protein chains, or a comma-separated selection", text: $chain)
                 }
             }
-            TextField("Hotspots (optional), e.g. B32 C55", text: $hotspots).textFieldStyle(.roundedBorder)
+            StudioFormField("Epitope residues / hotspots (optional)", explanation: "Input chain and residue number, e.g. B32 C55") { TextField("Hotspots", text: $hotspots).textFieldStyle(.roundedBorder) }
                 .disabled(targetPredictor.isRunning)
             Text("Use source residue numbering. Bare numbers are accepted for a single target chain.").font(.caption).foregroundStyle(.secondary)
             if parsedHotspots == nil { Text("Use positive residue numbers or chain-qualified residues such as B32 C55.").foregroundStyle(.orange) }

@@ -6,6 +6,7 @@ are upstream code. Score cache is keyed by rollout identity AND sequence.
 import json, os, sys, subprocess, time, uuid
 from pathlib import Path
 from .contract import atomic as save, sha, seal as seal_files, verify
+from .predictors import runtime_spec
 
 def verified(directory):
     marker = Path(directory) / 'completed.json'
@@ -63,7 +64,7 @@ class Scorer:
         (self.q/'requests').mkdir(parents=True); (self.q/'responses').mkdir()
         save(self.q/'config.json',{**cfg,'score_queue':str(self.q)})
         self.log=(self.q/'worker.log').open('w')
-        self.proc=subprocess.Popen([cfg['python'],'-B',str(Path(__file__).resolve().parents[1]/'rfd4_cli.py'),'oracle','--root',os.environ['NANOHUNTER_ROOT'],'--config',str(self.q/'config.json'),'--output',cfg['output']],stdout=self.log,stderr=subprocess.STDOUT)
+        self.proc=subprocess.Popen([cfg['python'],'-B',str(Path(__file__).resolve().parents[1]/'rfd4_cli.py'),'oracle','--root',os.environ['NANOHUNTER_ROOT'],'--config',str(self.q/'config.json'),'--output',cfg['output']],stdout=self.log,stderr=subprocess.STDOUT,env=runtime_spec(Path(os.environ['NANOHUNTER_ROOT']),cfg['settings']['predictor'])[1])
         self.wait(self.q/'ready.json')
     def wait(self,path):
         deadline=time.monotonic()+7200
@@ -198,6 +199,7 @@ def run_family(cfg,root,model,scorer):
                             metrics=oracle['metrics'], oracle_structure=oracle['structure'],
                             oracle_structure_sha256=oracle['structure_sha256'], score_receipts=oracle['receipts'],
                             score_role='native_rollout_feedback', engine='RFD4 native beam',
+                            **({key:oracle[key] for key in ('hit_filter_passed','hit_filter_failures','hit_filter_cutoffs','hit_filter_scope') if key in oracle}),
                             **({'ipsae_min':result.get('reward')} if cfg['settings']['task']!='ligand' else {})))
     expected=cfg['beam_width']*(cfg['n_branch']*len(cfg['checkpoints'])+int(cfg['checkpoints'][-1] < round(60*cfg['fraction'])))
     if len(records)!=expected: raise RuntimeError(f'Expected all {expected} scored rollouts; got {len(records)}')
@@ -218,7 +220,7 @@ def main(path, first_only=False):
     cfg = dict(config, upstream=str(rt/'sources/RFD4-Proteina'), native_model=str(Path(os.environ['NANOHUNTER_ROOT'])/'models/rfd4/native'),
                fraction=config['settings']['native_partial_fraction'], checkpoints=config['settings']['native_checkpoints'],
                beam_width=config['settings']['native_beam_width'], n_branch=config['settings']['native_branches'],
-               python=str(Path(os.environ['NANOHUNTER_ROOT'])/('venvs/NanoHunter_boltz/bin/python' if config['settings']['task']=='ligand' or config['settings']['predictor']=='boltz' else 'venvs/NanoHunter_esmfold2/bin/python')))
+               python=str(runtime_spec(Path(os.environ['NANOHUNTER_ROOT']), config['settings']['predictor'])[0]))
     os.environ.update(DEBUG='false', PROJECT_ROOT=cfg['upstream'], DATA_PATH=cfg['upstream'], PYTORCH_ENABLE_MPS_FALLBACK='0', HF_HUB_OFFLINE='1')
     import torch
     from rfproteina.proteina import Proteina

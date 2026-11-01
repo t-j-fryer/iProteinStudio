@@ -94,6 +94,8 @@ struct RFD4Request: Codable, Hashable {
     var ligand_smiles = ""
     var time_budget_minutes: Double?
     var scaffold_id: String?
+    var length_plan: RFD4LengthPlan?
+    var hit_filters: [String: Double]?
     var canSearch: Bool { task == .protein || task == .nanobody || task == .ligand }
     var needsPrediction: Bool { search != .native || assess_native || native_search }
     var predictions: Int {
@@ -114,7 +116,15 @@ struct RFD4Request: Codable, Hashable {
     }
     var validationIssues: [String] {
         var issues: [String] = []
-        if task != .monomer && source.isEmpty && starting_structures.isEmpty && !(task == .ligand && !ligand_smiles.isEmpty) { issues.append("Choose a source structure.") }
+        if let plan = length_plan {
+            if ![.monomer, .protein, .ligand].contains(task) || !starting_structures.isEmpty || annotated_input || native_search { issues.append("Length allocation applies to newly generated monomers or binders.") }
+            issues += plan.issues(count: count)
+        }
+        for (metric, cutoff) in hit_filters ?? [:] {
+            if !["ipsae_min", "iptm", "complex_plddt"].contains(metric) || !cutoff.isFinite || !(0...1).contains(cutoff) { issues.append("Hit cutoffs must be between 0 and 1.") }
+        }
+        if !(hit_filters ?? [:]).isEmpty && (!needsPrediction || task == .ligand) { issues.append("Protein hit filters require a protein or nanobody assessment.") }
+        if task != .monomer && source.isEmpty && starting_structures.isEmpty && !(task == .ligand && !ligand_smiles.isEmpty) { issues.append("Choose a target structure or predict one from its sequence.") }
         if let minutes = time_budget_minutes, !minutes.isFinite || minutes <= 0 || minutes > 10080 { issues.append("Choose a design time between zero and seven days.") }
         if scaffold_msa == "auto" && scaffold_id == nil { issues.append("Choose an explicit alignment for a custom framework.") }
         if scaffold_id != nil && (binder_chain != "A" || target_chain != "B") { issues.append("Automatic framework assembly uses binder A and target B.") }

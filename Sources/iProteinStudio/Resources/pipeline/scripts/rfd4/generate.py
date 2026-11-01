@@ -119,18 +119,24 @@ def main(config_path, first_only=False):
     pipe.vae.eval().requires_grad_(False)
     cfg = config['settings']
     records = []
+    qualified_lengths = set()
     with torch.inference_mode():
         for index in range(1 if first_only else cfg['count']):
+            from .contract import family_config
+            current = family_config(config, index)
             seed = cfg['seed'] + index
-            if cfg['optimized_kernels'] and index == 0:
-                control = call(pipe, config, seed, output / 'qualification/reference', False)
-            result = call(pipe, config, seed, output / 'generation' / f'seed_{seed}', cfg['optimized_kernels'])
-            if cfg['optimized_kernels'] and index == 0:
+            qualify = cfg['optimized_kernels'] and (index == 0 or (cfg.get('length_plan') and current['settings']['length'] not in qualified_lengths))
+            qualification = output / 'qualification' if index == 0 else output / 'qualification' / ('length_' + str(current['settings']['length']))
+            if qualify:
+                control = call(pipe, current, seed, qualification / 'reference', False)
+            result = call(pipe, current, seed, output / 'generation' / f'seed_{seed}', cfg['optimized_kernels'])
+            if qualify:
                 with np.load(control['tensors']) as a, np.load(result['tensors']) as b:
                     parity = set(a.files) == set(b.files) and all(np.array_equal(a[k], b[k]) for k in a.files)
                 if not parity: raise ValueError('Optimized RFD4 differs from the reference on this input; campaign stopped.')
-                seal(output / 'qualification/completed.json', dict(passed=True, seed=seed),
-                     [output / 'qualification/reference/completed.json', output / 'generation' / f'seed_{seed}' / 'completed.json'])
+                seal(qualification / 'completed.json', dict(passed=True, seed=seed),
+                     [qualification / 'reference/completed.json', output / 'generation' / f'seed_{seed}' / 'completed.json'])
+            qualified_lengths.add(current['settings']['length'])
             records.append(result)
             atomic(output / 'progress.json', dict(stage='generation', completed=index+1, total=cfg['count']))
             print('RFD4_GENERATED', index+1, cfg['count'], seed, flush=True)

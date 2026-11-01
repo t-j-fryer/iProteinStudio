@@ -123,6 +123,7 @@ def author(root, cfg, destination):
             import biotite.structure as bs
             from biotite.sequence import ProteinSequence
             from .targets import selected_chains
+            require_protein_target(array)
             array = array[bs.filter_amino_acids(array)]
             chains = selected_chains(array.chain_id, cfg['source_target_chain'])
             identities = []
@@ -181,9 +182,35 @@ def audit_features(path, cfg, destination):
 def main():
     action, root, config, output = sys.argv[1:]
     cfg = normalize(json.loads(Path(config).read_text()))
-    if action == 'author': author(Path(root), cfg, Path(output))
-    elif action == 'audit': audit_features(Path(output) / 'annotated.cif', cfg, Path(output) / 'feature_audit.json')
+    if action == 'author': author_lengths(Path(root), cfg, Path(output))
+    elif action == 'audit': audit_lengths(cfg, Path(output))
     else: raise ValueError('Unknown RFD4 input operation.')
+
+
+
+
+def author_lengths(root, cfg, destination):
+    from .contract import allocated_lengths
+    cfg=normalize(cfg); destination=Path(destination)
+    lengths=list(dict.fromkeys(allocated_lengths(cfg)))
+    if not cfg.get('length_plan'):return author(root,cfg,destination)
+    for index,length in enumerate(lengths):
+        target=destination if index==0 else destination/'length_inputs'/str(length)
+        author(root,dict(cfg,length=length,length_plan=None),target)
+    atomic(destination/'length_inputs.json',{str(length):str((destination if i==0 else destination/'length_inputs'/str(length))/'annotated.cif') for i,length in enumerate(lengths)})
+
+
+def audit_lengths(cfg,destination):
+    destination=Path(destination)
+    index=destination/'length_inputs.json'
+    paths=json.loads(index.read_text()) if cfg.get('length_plan') else {str(cfg['length']):str(destination/'annotated.cif')}
+    for length,path in paths.items():audit_features(path,dict(cfg,length=int(length)),Path(path).parent/'feature_audit.json')
+
+
+def require_protein_target(atoms):
+    import biotite.structure as bs
+    if any(~(bs.filter_amino_acids(atoms) | bs.filter_solvent(atoms))):
+        raise ValueError('This target contains non-protein entities. Protein refinement cannot yet preserve and assess ligand context. Select a protein-only structure, or use native annotated input without protein refinement.')
 
 
 if __name__ == '__main__': main()

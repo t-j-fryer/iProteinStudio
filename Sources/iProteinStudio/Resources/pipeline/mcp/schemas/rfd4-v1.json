@@ -169,7 +169,19 @@
         },
         "predictor": {
           "type": "string",
-          "default": "esmfold2-full-mlx"
+          "default": "esmfold2-full-mlx",
+          "enum": [
+            "esmfold2-full-mlx",
+            "esmfold2-fast-mlx",
+            "esmfold2-600-mlx",
+            "boltz",
+            "intellifold",
+            "intellifold-full",
+            "protenix-v2",
+            "protenix-mini",
+            "protenix-constraint-v0.5",
+            "openfold-3-mlx"
+          ]
         },
         "target_msa": {
           "type": "string",
@@ -254,12 +266,7 @@
           "exclusiveMinimum": 0,
           "maximum": 10080
         },
-        "scaffold_id": {
-          "enum": [
-            "7xl0_vobarilizumab",
-            null
-          ]
-        },
+        "scaffold_id": {},
         "hotspot_residues": {
           "type": [
             "array",
@@ -269,6 +276,55 @@
             "type": "string"
           },
           "description": "Chain-qualified source residues, e.g. B32 C55. Required instead of bare numbers for multiple target chains."
+        },
+        "length_plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minimum",
+            "maximum"
+          ],
+          "properties": {
+            "minimum": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000
+            },
+            "maximum": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000
+            },
+            "counts": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000
+              }
+            }
+          }
+        },
+        "hit_filters": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ipsae_min": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "iptm": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "complex_plddt": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
         }
       }
     }

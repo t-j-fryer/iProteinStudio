@@ -136,7 +136,7 @@ struct DesignFormView: View {
                             Text("Length: \(TemplateWriter.clean(request.wrappedValue.targetSequence).count) aa")
                                 .font(.caption).foregroundStyle(.secondary)
                             Spacer()
-                            TextField("Epitope hotspots (e.g. 32 55)", text: request.epitopeResidues)
+                            StudioFormField("Epitope hotspots", explanation: "Target residue numbers, e.g. 32 55") { TextField("Hotspots", text: request.epitopeResidues) }
                                 .textFieldStyle(.roundedBorder).frame(width: 240)
                                 .help("Bare residue numbers use the first target chain (B). For multimers use chain-qualified residues such as C55. RFdiffusion3 generation, Boltz and Protenix Constraint v0.5 can apply these residues.")
                                 .disabled(!request.wrappedValue.supportsEpitopePocket)
@@ -172,7 +172,7 @@ struct DesignFormView: View {
                     } else {
                         Text("Paste a SMILES string for the small molecule you want to bind. Design uses LigandMPNN, which is ligand-aware.")
                             .font(.callout).foregroundStyle(.secondary)
-                        TextField("Ligand SMILES, e.g. C=CC1=C(C)C2=N…", text: request.targetSmiles)
+                        StudioFormField("Ligand SMILES") { TextField("SMILES", text: request.targetSmiles) }
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                         SmilesView(smiles: request.wrappedValue.targetSmiles)
@@ -794,6 +794,7 @@ struct PredictorPicker: View {
                 }
                 if request.initializationMethod == "rfd3" {
                     if request.hasProteinTarget {
+                        Text("Target structure for RFdiffusion3 (PDB or CIF)").font(.callout)
                         HStack {
                             TextField("Target PDB/CIF for RFdiffusion3", text: Binding(
                                 get: { request.initializationTargetPath ?? "" }, set: { request.initializationTargetPath = $0 }
@@ -1276,9 +1277,9 @@ private struct NativeHunterRegionControls: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if request.usesNativeRegions {
-                TextField("Source binder sequence (amino acids only)", text: $request.sourceBinderSequence, axis: .vertical)
+                StudioFormField("Source binder sequence (amino acids only)") { TextField("Sequence", text: $request.sourceBinderSequence, axis: .vertical) }
                     .textFieldStyle(.roundedBorder).lineLimit(2...5)
-                TextField(request.nativeBinderMode == "partialRedesign" ? "Regions to redesign, e.g. 10-20,35-40" : "Motif regions to preserve, e.g. 10-20,35-40", text: $request.binderRegionRanges)
+                StudioFormField(request.nativeBinderMode == "partialRedesign" ? "Regions to redesign" : "Motif regions to preserve", explanation: "Inclusive sequence positions, e.g. 10-20,35-40") { TextField("Regions", text: $request.binderRegionRanges) }
                     .textFieldStyle(.roundedBorder)
                 Text("Positions refer to the source sequence, starting at 1. Separate ordered ranges with commas; use 10-10 for a single residue.").font(.caption)
                 if request.nativeBinderMode == "motifScaffolding" {

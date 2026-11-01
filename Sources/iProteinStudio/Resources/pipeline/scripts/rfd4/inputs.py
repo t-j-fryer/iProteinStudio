@@ -68,6 +68,8 @@ def nanobody_source(root, cfg, destination):
         raise ValueError('The framework must use contiguous one-based residue numbers.')
     b = parse(cfg['source'], config=preset)['asym_unit'][0]
     from .targets import selected_chains, residue_segments, hotspot_map
+    from .prepare import require_protein_target
+    require_protein_target(b)
     b = b[bs.filter_amino_acids(b)]
     chains = selected_chains(b.chain_id, cfg['source_target_chain'])
     hot = hotspot_map(cfg, chains)

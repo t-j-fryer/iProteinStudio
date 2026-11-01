@@ -4,7 +4,7 @@ The app is a front end. Everything it does is a script you can run yourself, and
 the app writes its settings to disk before running them — so any run started in
 the UI can be repeated, inspected, or scripted without it.
 
-The RFD4 development integration uses `studioctl.py plan-rfd4 request.json`, then
+RFD4 uses `studioctl.py plan-rfd4 request.json`, then
 the returned immutable plan ID and digest with `start`. Call the RFD4 workflow
 guide and detection first; do not invoke its scientific runner directly. The
 typed request covers generation, native rollout search and protein sequence
@@ -80,7 +80,7 @@ Long tool calls do not hold an MCP request open. A workflow uses:
    inside the protocol, so the advice is identical in Codex, Claude Code and
    desktop clients.
 2. Call `prediction_plan`, `target_prepare_plan`, `iterative_design_plan`, `nise_plan`, or one of
-   the three mode-specific RFD3 plan tools.
+   `rfd4_plan`, `motif_beta_plan`, or the three mode-specific RFD3 plan tools.
 3. Review the normalized request, exact command preview, input/script hashes and
    output location.
 4. Pass both returned `plan_id` and `plan_sha256` to `job_start`.
@@ -1018,3 +1018,41 @@ For per-sample confidence through the CLI, call `results RUN_ID --dataset
 live_predictions`; MCP clients use `results_overview` before `results_query`.
 PAE and per-residue pLDDT arrays remain alongside each structure, while timing,
 MLX counters and model/encoder revisions are in its exact confidence JSON.
+
+
+### RFD4 configuration shared with the app
+
+Use `plan-rfd4` (or MCP `rfd4_plan`) with the `project`, `run_name` and `request`
+fields. `request` follows the bundled `rfd4-v1.json` schema. Existing requests
+without the optional fields retain their original fixed-length/no-filter behavior.
+
+- `length_plan: {"minimum": 75, "maximum": 120}` distributes the `count` starts
+  evenly across that range. If fewer starts than lengths are requested, the
+  allocation spans the range; one start uses the midpoint. Optional
+  `counts: {"75": 5, "120": 5}` specifies exact per-length counts, which must sum
+  to `count`. Native rollout search and imported starts keep their fixed lengths.
+- `hit_filters: {"ipsae_min": 0.5, "iptm": 0.5, "complex_plddt": 0.7}` records optional
+  conjunctive cutoffs on the 0–1 scale. Missing/nonfinite scores fail the relevant
+  gate. pLDDT here is mean complex pLDDT. All candidates remain saved; these gates
+  do not change parent selection or constitute independent validation.
+- `scaffold_id` selects one of the eight catalogue frameworks. Omit `cdr_ranges`
+  to use its catalogue boundaries; explicit ranges override them. Positions are
+  one-based, inclusive, and refer to the nanobody sequence. Set `scaffold_msa: "auto"` for the app’s automatic policy; a missing required alignment never becomes single-sequence
+  silently. The 3EAK boundaries have alignment-derived provenance.
+- Protein/nanobody `predictor` choices are `esmfold2-full-mlx`,
+  `esmfold2-fast-mlx`, `esmfold2-600-mlx`, `boltz`, `intellifold`,
+  `intellifold-full`, `protenix-v2`, `protenix-mini`,
+  `protenix-constraint-v0.5` and `openfold-3-mlx`. Each uses its own installed
+  runtime and Studio profile; no checkpoint is substituted. Ligand scoring
+  remains Boltz.
+
+Prepare sequence targets with `plan-target` / `target_prepare_plan` first, then
+pass the returned completed structure to the design plan. Mixed protein–ligand
+target refinement is rejected because ligand context is not preserved through
+that route. Use dedicated ligand design for small-molecule binders.
+
+After inspecting the normalized request and prediction budget, submit with
+`start PLAN_ID SHA256`. This retains the shared queue, runtime/code snapshots,
+keep-awake protection and checkpoint/resume behavior. `optimized_kernels` remains
+false by default; when enabled, reference equivalence is checked at each new
+length and generation stage. It does not select a higher-accuracy model.

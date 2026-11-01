@@ -20,7 +20,7 @@ schemas rather than assuming source features are deployed. The
 [MCP review](../../../../../docs/MCP_REVIEW.md) records proposed improvements and
 external integrations separately from supported operations.
 
-## Discovery, batches and exports (bridge v41)
+## Discovery, batches and exports
 
 - Optional official RCSB MCP 0.15.0: install from the native AI settings, then
   `rcsb_tools` → `rcsb_query` → `rcsb_import_structure` for an explicit assembly.
@@ -38,7 +38,7 @@ external integrations separately from supported operations.
 
 See [integration contracts](skills/iprotein-studio/references/integrations.md)
 for bounds, upstream attribution, residue mapping and scientific interpretation.
-The source-only additions require an updated app/bridge before clients see them.
+After an app update, reconnect long-lived clients to load the new bridge and schemas.
 
 ## Profiles
 
@@ -319,3 +319,13 @@ The CLI provides `plan-rfd4`, `plan-motif-beta`, `motif-catalog`, `guide` and
 `evidence`. Read `iprotein://skills/studio/evidence` for dated validation limits
 before recommending settings. See [workflow routing](skills/iprotein-studio/references/workflows.md).
 RFD3 fixed-framework nanobody generation is excluded following its failed trial.
+
+
+## RFD4 configuration
+
+`rfd4_plan` uses the same typed request as the native app and `studioctl.py
+plan-rfd4`. The versioned schema includes optional length allocation, explicit
+model profiles, eight catalogue frameworks with automatic CDR ranges, and saved
+protein hit filters. See the [RFD4 guide](../../../../../docs/RFD4.md) and
+[CLI field definitions](../../../../../docs/CLI.md#rfd4-configuration-shared-with-the-app).
+Use the connected `workflow_guide` and schema before authoring a request.

@@ -29,9 +29,19 @@ def resolve(config):
         files.extend(Path(p) for p in set(per_chain.values()))
         if len(per_chain)==1: resolved['target_msa']=next(iter(per_chain.values()))
     if cfg['scaffold_msa']=='auto':
+        sys.path.insert(0,str(root/'rfd3_scripts'))
         if not cfg.get('scaffold_id'): raise ValueError('Choose a framework alignment or a known framework.')
         path=root/'examples/nanobody_scaffolds/msas'/cfg['scaffold_id']/'full_msa.a3m'
-        if not path.is_file(): raise ValueError('The requested framework alignment is missing.')
+        if not path.is_file():
+            import csv
+            from predict_batch import resolve_msas, materialize_msas, sequence_key
+            catalog=root/'examples/nanobody_scaffolds/catalog.tsv'
+            entries={r['scaffold_id']:r for r in csv.DictReader(catalog.read_text().splitlines(),delimiter='\t')}
+            sequence=entries[cfg['scaffold_id']]['sequence']
+            jobs=[dict(name='framework',chains=[dict(id='A',kind='protein',sequence=sequence,msa='auto')])]
+            policy=dict(msa=dict(cache_dir=str(root/'msa_cache'),index_roots=[str(root/'msa_cache'),str(root/'projects'),str(root/'objects')],allow_server=True))
+            found=resolve_msas(jobs,policy,root,dict(os.environ))
+            path=Path(materialize_msas(found,output/'inputs',root/'objects')[sequence_key(sequence)])
         copy=output/'inputs/framework.a3m';copy.parent.mkdir(exist_ok=True,parents=True);copy.write_bytes(path.read_bytes())
         resolved['scaffold_msa']=str(copy);files.append(copy)
     if resolved or per_chain:

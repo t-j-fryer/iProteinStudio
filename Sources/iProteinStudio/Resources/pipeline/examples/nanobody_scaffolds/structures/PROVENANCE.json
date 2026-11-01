@@ -4,5 +4,47 @@
     "sha256": "fe777508f858a1f8ab2811d8c4d0648d01bb70e6c2b2a4d57ee8fad25661ec82",
     "description": "Existing audited apo scaffold used by qualified RFD4 nanobody authoring; framework coordinates only, no target or model weights.",
     "receipt_sha256": "7c426b767dfacc448f1e09983305ae2c8cd10c29b2cc6d8f013b9ef50ac85dee"
+  },
+  "7eow_caplacizumab": {
+    "source": "Validation/output/target_b_rfd3_nanobody_v1/run_20261013/scaffolds/7eow_caplacizumab/scaffold.pdb",
+    "sha256": "7198311e6a6cd76b1eb673cec7dd0c5664985efcf2a4e5e5e1dd2b4cabc62de6",
+    "receipt_sha256": "8da7596d8ae0ab196936666209f9135af4c2917138e3fed2abfc6bde4e9becd6",
+    "description": "Previously audited apo prediction of the catalogue sequence; framework coordinates only. RFD4 input authoring is separately CPU-tested; not a claim of design success."
+  },
+  "8coh_gefurulimab": {
+    "source": "Validation/output/target_b_rfd3_nanobody_v1/run_20261013/scaffolds/8coh_gefurulimab/scaffold.pdb",
+    "sha256": "aa696032149713a5429a524dba485b751965d281f2fbfe277f8cedda29b49d6d",
+    "receipt_sha256": "b95a70ca26b8602ae330b283fb1eac3ef91d662fd11d4b56f0e2882404f08c62",
+    "description": "Previously audited apo prediction of the catalogue sequence; framework coordinates only. RFD4 input authoring is separately CPU-tested; not a claim of design success."
+  },
+  "8z8v_ozoralizumab_alb8": {
+    "source": "Validation/output/target_b_rfd3_nanobody_v1/run_20261013/scaffolds/8z8v_ozoralizumab_alb8/scaffold.pdb",
+    "sha256": "e1e1f1e6b122a8cf06e22650b94b45a3ba85ff9669ef76fe9a07e9199ebfc13a",
+    "receipt_sha256": "b11f51b01eff041ffc60e92f5da4a800434a2a178888ba158652866ebcaa5e0f",
+    "description": "Previously audited apo prediction of the catalogue sequence; framework coordinates only. RFD4 input authoring is separately CPU-tested; not a claim of design success."
+  },
+  "gontivimab": {
+    "source": "Validation/output/target_b_rfd3_nanobody_v1/run_20261013/scaffolds/gontivimab/scaffold.pdb",
+    "sha256": "2003bb76ad3299b1e1b4bb57ad801a1494904343e42a21c3082c416d2821b877",
+    "receipt_sha256": "8bc452c8dce73fdf219a799773508ff03eb8ae61a932850e3d9a2fcf25de86f8",
+    "description": "Previously audited apo prediction of the catalogue sequence; framework coordinates only. RFD4 input authoring is separately CPU-tested; not a claim of design success."
+  },
+  "isecarosmab": {
+    "source": "Validation/output/target_b_rfd3_nanobody_v1/run_20261013/scaffolds/isecarosmab/scaffold.pdb",
+    "sha256": "e9c8c928f9d666cc62edfa25fea009f93997bfb434b930c66e36710fe7cc154f",
+    "receipt_sha256": "b76437bf7e47a976754c247a4c8d8f8f2185c9bc24ff3b2cc07f32fdf22c7610",
+    "description": "Previously audited apo prediction of the catalogue sequence; framework coordinates only. RFD4 input authoring is separately CPU-tested; not a claim of design success."
+  },
+  "sonelokimab": {
+    "source": "Validation/output/target_b_rfd3_nanobody_v1/run_20261013/scaffolds/sonelokimab/scaffold.pdb",
+    "sha256": "e2ec2e77c8911be084603a6d3fe20d68811a91d56a4fca19ec9cfd9e1961aba0",
+    "receipt_sha256": "1354452f867e3e659e7f0cccdffef131d7fa57edcc03185ffef7d734c0376c3c",
+    "description": "Previously audited apo prediction of the catalogue sequence; framework coordinates only. RFD4 input authoring is separately CPU-tested; not a claim of design success."
+  },
+  "3eak_nbbcii10_fgla": {
+    "source": "Validation/output/target_b_rfd3_nanobody_v1/run_20261013/scaffolds/3eak_nbbcii10_fgla/scaffold.pdb",
+    "sha256": "d69d3ab3554b879ea41c6bf03accb7774e29f979b230533d1ccdeb7278cd98aa",
+    "receipt_sha256": "ad323a0e77c4edb85609898a5bbafb61fb5d80db9d1ff51bfb23938a85f8c4c9",
+    "description": "Previously audited apo prediction of the catalogue sequence; framework coordinates only. RFD4 input authoring is separately CPU-tested; not a claim of design success."
   }
 }

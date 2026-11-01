@@ -12,3 +12,12 @@ automatically; publication and release packaging are separate steps.
 
 The existing 0.2.30 app remains the preserved baseline. This candidate excludes
 experimental peptide workflow code and private beta installation controls.
+
+- [x] Fix persistent design-field labels and explain Metal kernel checks.
+- [x] Add catalogue framework/CDR selection, sequence target preparation, balanced
+  length allocation/custom counts, family-grouped RFD4 predictor choices and saved
+  protein hit filters (Lab Book 0679).
+- [ ] Qualify the newly exposed predictor/framework combinations end to end on GPU
+  before a public binary release; CPU input preparation is not inference validation.
+- [ ] Preserve and assess ligand context throughout mixed protein–ligand target
+  design. Current protein refinement rejects such inputs rather than dropping entities.

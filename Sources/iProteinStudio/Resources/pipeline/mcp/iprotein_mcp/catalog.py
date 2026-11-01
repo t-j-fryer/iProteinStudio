@@ -276,7 +276,7 @@ def query_results(run_id: str, dataset: Optional[str], metric: Optional[str], hi
             live if selected == "live_predictions" else
             _normalize_result_rows(selected, csv_rows(path / selected, limit=1000)))
     if hit_only:
-        rows = [row for row in rows if str(row.get("hit", row.get("passes_filters", ""))).lower() in {"1", "true", "yes", "pass"}]
+        rows = [row for row in rows if str(row.get("hit", row.get("passes_filters", row.get("hit_filter_passed", "")))).lower() in {"1", "true", "yes", "pass"}]
     if metric:
         rows = [row for row in rows if row.get(metric, "") not in {"", None}]
         def numeric(row: Dict[str, str]) -> float:
@@ -904,15 +904,22 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
                     document = load_json(path)
                     metrics.update({k:v for k,v in document.items() if k in
                         {'ptm', 'iptm', 'complex_plddt', 'chain_plddt', 'ligand_plddt', 'ipsae_min', 'confidence_score'}})
+            # Report only the saved gate verdict; never infer a hit from a score.
+            verdict = row.get('hit_filter_passed')
+            if type(verdict) is not bool: verdict = None
+            gate = {key: row[key] for key in ('hit_filter_passed', 'hit_filter_failures',
+                    'hit_filter_cutoffs', 'hit_filter_scope') if key in row}
+            if hit_only and verdict is not True: continue
             artifacts = [dict(role="design", path=row["structure"], predictor=row.get('engine'),
-                              confidence_json=confidence, metrics=metrics, is_hit=None)]
+                              confidence_json=confidence, metrics=metrics, is_hit=verdict, **gate)]
             if row.get('oracle_structure'):
                 artifacts.append(dict(role='selection_oracle', path=row['oracle_structure'], metrics=row.get('metrics', {}), is_hit=None))
             group = grouped.setdefault(row["family"], dict(id=row["family"], title=row["family"], is_hit=None, variants=[]))
-            group["variants"].append(dict(id=row["id"], parent_id=row.get("parent_id"), cycle=row.get("cycle"), sequence=sequence, is_hit=None,
-                artifacts=artifacts))
+            group["variants"].append(dict(id=row["id"], parent_id=row.get("parent_id"), cycle=row.get("cycle"), sequence=sequence, is_hit=verdict,
+                artifacts=artifacts, **gate))
+            group["is_hit"] = _verdict([variant["is_hit"] for variant in group["variants"]])
         result = dict(organization="family -> search generation/proposal -> structure and feedback", groups=list(grouped.values())[:limit],
-                      truncated=len(grouped)>limit, note="All proposals are retained. Selection feedback is not independent validation; no hit verdict is inferred.")
+                      truncated=len(grouped)>limit, note="All proposals are retained. Saved hit gates describe design feedback, not independent validation. No unsaved hit verdict is inferred.")
     elif workflow == "rfdiffusion3":
         result = _rfd3_overview(root, limit)
     else:
@@ -1072,6 +1079,12 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
         'Fixed, iterative, greedy and beam sequence searches are distinct from native during-diffusion rollout search. Preserve exact parent IDs and every evaluated candidate.',
         'A campaign above ten families first completes one end-to-end family. Failed or changed receipts stop resumption.',
         'Protein search requires an explicit target MSA policy; Fast is sequence-only. Search scores are optimization feedback, not independent validation.',
+        'Optional length_plan distributes count across minimum/maximum integer lengths; counts may specify exact allocations summing to count. Imported starts and native rollout search retain fixed lengths.',
+        'All eight catalogue scaffold_id values load their CDR ranges when omitted; overrides are explicit one-based inclusive nanobody positions. The 3EAK boundaries are alignment-derived. Required scaffold MSAs never silently fall back.',
+        'Protein/nanobody refinement supports the installed ESMFold2 Full/Fast/600M, Boltz, IntelliFold Flash/Full, Protenix v2/Mini/Constraint and OpenFold-3 profiles. Ligand scoring remains Boltz. Never substitute a missing engine.',
+        'Optional hit_filters use ipsae_min, iptm and complex_plddt (mean complex pLDDT) on a 0-1 scale, combined with AND. Missing or nonfinite metrics fail; every proposal remains saved. Search-filter verdicts are not independent validation.',
+        'Prepare sequence targets with target_prepare_plan before design. Mixed protein-ligand target refinement is rejected rather than dropping ligand context.',
+        'Optimized Metal kernels are off by default; enabled kernels must match reference outputs at each new length and generation stage.',
         'RFD4 memory estimates are unqualified; the explicit memory override is recorded when selected.'
     ])
     if workflow not in guides:

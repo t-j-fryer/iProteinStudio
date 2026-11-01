@@ -7,6 +7,7 @@ struct Scaffold: Identifiable, Hashable {
     let recommendedUse: String
     let sequence: String
     let notes: String
+    var cdrRanges: String = ""
 
     var shortName: String { displayName }
 }
@@ -14,10 +15,11 @@ struct Scaffold: Identifiable, Hashable {
 /// Loads the vendored scaffold catalog (examples/nanobody_scaffolds/catalog.tsv).
 enum ScaffoldCatalog {
     static func load() -> [Scaffold] {
-        // Prefer the staged copy; fall back to the bundled resource.
+        // The app catalogue matches the snapshot submitted by this version; do not
+        // hide newly bundled frameworks behind an older staged catalogue.
         let candidates: [URL?] = [
-            AppPaths.isPipelineStaged ? AppPaths.catalogTSV : nil,
             AppPaths.bundledPipeline?.appendingPathComponent("examples/nanobody_scaffolds/catalog.tsv"),
+            AppPaths.isPipelineStaged ? AppPaths.catalogTSV : nil,
         ]
         guard let url = candidates.compactMap({ $0 }).first(where: { FileManager.default.fileExists(atPath: $0.path) }),
               let text = try? String(contentsOf: url, encoding: .utf8)
@@ -42,7 +44,8 @@ enum ScaffoldCatalog {
                 displayName: col(iName).isEmpty ? col(iID) : col(iName),
                 recommendedUse: col(iUse),
                 sequence: seq,
-                notes: col(iNotes)
+                notes: col(iNotes),
+                cdrRanges: ["cdr1", "cdr2", "cdr3"].enumerated().map { "CDR\($0.offset + 1):" + col(idx($0.element + "_range_1based")) }.joined(separator: ",")
             ))
         }
         return out
