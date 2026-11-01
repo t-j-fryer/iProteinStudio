@@ -17,9 +17,7 @@ experimental peptide workflow code and private beta installation controls.
 - [x] Add catalogue framework/CDR selection, sequence target preparation, balanced
   length allocation/custom counts, family-grouped RFD4 predictor choices and saved
   protein hit filters (Lab Book 0679).
-- [ ] Qualify the newly exposed predictor/framework combinations end to end on GPU
-  before a public binary release; CPU input preparation is not inference validation.
-- [ ] Preserve and assess ligand context throughout mixed protein–ligand target
-  design. Current protein refinement rejects such inputs rather than dropping entities.
+- [x] Qualify the newly exposed predictor/framework combinations end to end on GPU (Lab Books 0681 and 0684).
+- [x] Preserve and assess noncovalent ligand context throughout RFD4 protein/nanobody target design (Lab Book 0684).
 
-- [ ] Complete mixed protein–ligand target qualification before publishing0.2.31: code, CLI/MCP, exports and UI help integrated; native CPU audits and offline tests pass. Keep draft and installed apps held until queued GPU checks pass (Lab0684).
+- [x] Complete mixed protein–ligand qualification: twelve managed routes passed complete-assembly and protein-only score audits before publication (Lab Book 0684).

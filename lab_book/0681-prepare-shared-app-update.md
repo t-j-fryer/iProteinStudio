@@ -62,3 +62,7 @@ Reviewed the public candidate diff including its previously prepared live-result
 fix. The added structures contain only the existing public catalogue's apo
 frameworks. No model weights, private peptide workflows, manuscript results or
 new machine-specific paths are included in the public changes.
+
+## GPU acceptance and publication
+
+All 11 queued release checks completed; 12 generated starts and 22 refold predictions passed the retained-output audit. The published release contains RELEASE_QUALIFICATION.json. This is bounded software acceptance, not an efficacy claim. Artifact source: c4f53d9c77f69c8265b71274fdc6d51b68822b0e. Local delivery status is recorded separately.

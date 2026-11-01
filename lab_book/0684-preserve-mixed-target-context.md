@@ -4,7 +4,7 @@ title: Preserve molecular context through protein-target design
 date: 2026-11-01
 author: Codex
 type: implementation
-status: in-progress
+status: completed
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory
 ---
 
@@ -49,3 +49,7 @@ OpenFold3's resident writer generated structures but discarded its already compu
 Corrected a native-preflight regression: generated nanobody placeholders must not be reinterpreted as experimental ligand chemistry. Native authoring already audits the source; explicit annotated inputs omit only generated binder placeholders before strict per-ligand sanitization. Real protein-only and biotin-bearing annotated fixtures passed, along with ten mixed tests, the37-test MCP suite and both Swift builds.
 
 Native nanobody generation completed, but AbMPNN failed while writing the combined protein/ligand PDB: RFD4 uses NaN B factors for unscored generated atoms, making ProDy compare an AtomGroup unequal to itself. Normalize only nonfinite B factors in the temporary MPNN input to zero, with an explicit atom-level record; retain original CIF/confidence unchanged. The exact failed fixture reproduced the error, and the corrected copy passed ProDy concatenation with all13 MPNN input feature fields exactly equal and all16 ligand atoms retained. Eleven mixed tests and both Swift builds passed. Native nanobody generation is reused from its verified receipt; supersede only the queued protein check.
+
+## Final technical acceptance
+
+The corrected twelve-condition mixed-target cohort completed and passed the read-only identity, protein-only score and geometry-gating audit. This covers two native generation/refinement routes and ten predictor profiles, with two predictions per route. A geometry rejection remains a rejection; technical acceptance does not require an efficacy hit. Earlier failed/superseded jobs remain retained. RELEASE_QUALIFICATION.json contains each verdict. The public release was published from c4f53d9c77f69c8265b71274fdc6d51b68822b0e; installed-app delivery is recorded separately.

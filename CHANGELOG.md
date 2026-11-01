@@ -5,7 +5,7 @@
 - Keep parameter names visible across design forms. Explain sampling temperature, amino-acid exclusions, chain roles and the optional reference-checked Metal operations.
 - Offer all eight bundled nanobody frameworks with their own CDR ranges; add target preparation from protein sequences to the detailed RFD4 form.
 - Add balanced length ranges, custom length counts, family-grouped predictor choices and saved protein hit filters. Preserve every candidate and its lineage.
-- Keep protein–ligand target-context limits explicit instead of silently discarding non-protein entities.
+- Preserve noncovalent ligand chemistry and atom identities throughout RFD4 protein/nanobody generation and refinement. Check complete assemblies separately from protein-interface confidence; covalently linked assemblies remain excluded.
 - Deliver matching CLI, MCP 51, operating guidance and README documentation. New RFD4 jobs retain job-scoped sleep protection; existing jobs keep their saved code and settings.
 
 ## 0.2.30 — Correct RFD4 installation descriptions
