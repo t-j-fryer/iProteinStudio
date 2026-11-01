@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0682 — Isolate retained runtime metadata](lab_book/0682-isolate-retained-runtime-metadata.md): independent nested-view inventories, release validation retry and mixed-target scope.
+
 - [0681 — Prepare shared app update](lab_book/0681-prepare-shared-app-update.md): public and beta configuration fixes, CLI/MCP51 and release qualification; respects the running benchmark.
 
 - [0679 — Repair shared design configuration](lab_book/0679-public-design-configuration.md): public candidate and beta labels, frameworks/CDRs, sequence targets, length allocation, predictors and hit filters; CPU checks pass; new GPU routes and mixed-target refinement remain release follow-ups.

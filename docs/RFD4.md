@@ -180,12 +180,25 @@ Older-system inference remains untested. See [the dependency audit](MACOS_SUPPOR
 
 ### Mixed protein–ligand targets
 
+This means a protein binder being designed against a protein that already carries
+a small molecule, such as an enzyme with a bound cofactor. The complete assembly
+contains the new binder, the target protein and the ligand. It is distinct from
+designing a protein that binds a free small molecule.
+
 Prediction supports protein–ligand complexes, and the small-molecule design task
 supports explicit ligand inputs. The protein/nanobody refinement route does **not**
 yet preserve ligand context throughout generation, MPNN handoff and reprediction.
 It now rejects non-protein target entities instead of silently dropping them.
 Native annotated inputs can express molecular conditions, but this does not qualify
 mixed-target refinement. That extension remains an explicit release follow-up.
+
+The protein search adapter currently extracts protein sequences and writes
+protein-only MPNN and predictor inputs. Carrying the ligand through requires
+retaining its chemical identity and atom mapping, passing it to compatible
+prediction routes at every cycle, and checking the resulting three-component
+assembly. Merely retaining the original ligand in a displayed structure would
+not establish that the search considered it. The input rejection prevents
+misleading results; it is not an implementation of mixed-target design.
 
 The expanded framework authoring and engine routing have CPU/contract tests.
 This is not an end-to-end GPU qualification of every new combination; see

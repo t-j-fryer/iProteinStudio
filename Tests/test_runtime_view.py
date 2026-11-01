@@ -4,6 +4,30 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'Sources/iProteinStudio/Resources/pipeline/scripts'))
 import runtime_view
 class Tests(unittest.TestCase):
+ def test_nested_views_keep_independent_metadata(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp).resolve()/'root';root.mkdir()
+   (root/'models').mkdir();(root/'models/test.pt').write_bytes(b'weights')
+   package=root/'components/tool';package.mkdir(parents=True)
+   registry={'tool':dict(component='tool',model_paths=['models/test.pt'],mappings={})}
+   with patch.object(runtime_view,'engines',return_value=registry):
+    parent=runtime_view.build(root,root/'parent',{})
+    initial={n:(parent/n).read_bytes() for n in ('assets.json','view.json')}
+    bound={'tool':dict(path=str(package),manifest_sha256='fixture')}
+    child=runtime_view.build(parent,root/'child',bound)
+    child_initial={n:(child/n).read_bytes() for n in initial}
+    sibling=runtime_view.build(parent,root/'sibling',{})
+    for name,data in initial.items():
+     self.assertEqual((parent/name).read_bytes(),data)
+     self.assertFalse((child/name).is_symlink())
+     self.assertFalse((sibling/name).is_symlink())
+     self.assertEqual((child/name).read_bytes(),child_initial[name])
+    runtime_view.build(parent,child,bound)
+    runtime_view.build(parent,sibling,{})
+    (child/'models/test.pt').write_bytes(b'tampered')
+    with self.assertRaisesRegex(ValueError,'Retained model data changed'):
+     runtime_view.build(parent,child,bound)
+
  def test_binding_preserves_paths_and_source_local_assets(self):
   with tempfile.TemporaryDirectory() as tmp:
    root=Path(tmp).resolve()/'root';source=root/'src/Tool';source.mkdir(parents=True)

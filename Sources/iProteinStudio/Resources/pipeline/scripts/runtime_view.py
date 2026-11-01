@@ -34,6 +34,8 @@ def build(root,destination,bindings,code_snapshot=None):
     spec=dict(root=str(root),bindings=bindings)
     if code_snapshot: spec["code_snapshot"] = code_snapshot
     if destination.exists():
+        if any((destination/name).is_symlink() for name in ('assets.json','view.json')):
+            raise ValueError('Runtime view metadata must be private files; create a new plan.')
         if json.loads((destination/'view.json').read_text())!=spec:raise ValueError('Runtime view does not match saved bindings')
         for name,expected in json.loads((destination/'assets.json').read_text()).items():
             if digest(destination/name)!=expected:raise ValueError('Retained model data changed: '+name)
@@ -54,6 +56,10 @@ def build(root,destination,bindings,code_snapshot=None):
         target.mkdir(parents=True,exist_ok=True)
         names={p.name for p in original.iterdir()} if original.is_dir() else set()
         names|={p[len(prefix):].split('/')[0] for p in set(maps)|assets if p.startswith(prefix)}
+        # A source may itself be a retained view. Never inherit its metadata as
+        # links: writing this view's inventory would mutate the parent and all
+        # sibling views, invalidating already queued plans.
+        if not prefix:names-={'assets.json','view.json'}
         for name in sorted(names):
             rel=prefix+name;src=original/name;dst=target/name
             if rel in assets and src.exists():
