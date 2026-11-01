@@ -48,6 +48,22 @@ def fixture(folder,smiles='C[C@@H](O)C(=O)[O-]'):
 
 
 class MixedTargetTests(unittest.TestCase):
+    def test_mpnn_input_handles_missing_native_confidence_without_changing_source(self):
+        import hashlib,math
+        with tempfile.TemporaryDirectory() as tmp:
+            folder=Path(tmp);source,cfg,_=fixture(folder)
+            st=gemmi.read_structure(str(source));st[0]['A'][0][0].b_iso=float('nan')
+            st[0]['C'][0][0].b_iso=17.0
+            st.make_mmcif_document().write_file(str(source));before=hashlib.sha256(source.read_bytes()).hexdigest()
+            parent=folder/'parent.pdb';normalized=write_mpnn_parent(source,parent,cfg,{'A':'A','B':'B'})
+            self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(),before)
+            self.assertTrue(math.isnan(gemmi.read_structure(str(normalized))[0]['A'][0][0].b_iso))
+            model=gemmi.read_structure(str(parent))[0]
+            self.assertEqual(model['A'][0][0].b_iso,0.)
+            self.assertEqual(model['C'][0][0].b_iso,17.)
+            self.assertEqual(len(model['C'][0]),6)
+            self.assertEqual(json.loads(parent.with_suffix('.chain_map.json').read_text())['nonfinite_b_factors_serialized_as_zero'],[dict(chain='A',residue='1',atom='CA')])
+
     def test_ligand_pairs_cannot_change_protein_search_reward(self):
         scores=dict(ipsae_min=.01,ipsae_directional={'A>B':.8,'B>A':.7,'A>C':.01,'C>A':.02})
         scoped=protein_interface_scores(scores,['A','B'])

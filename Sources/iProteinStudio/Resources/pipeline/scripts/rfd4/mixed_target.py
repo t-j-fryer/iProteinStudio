@@ -294,8 +294,21 @@ def write_mpnn_parent(source,destination,config,mapping):
         if chain.name in mapping:chain.name='__'+mapping[chain.name]
     for chain in model:
         if chain.name.startswith('__'):chain.name=chain.name[2:]
+    # RFD4 uses NaN B factors for generated atoms without confidence values.
+    # ProDy compares every atom attribute when joining backbone/ligand views;
+    # NaN makes even the same AtomGroup compare unequal. B factors are not
+    # MPNN inputs. Normalize only this disposable PDB, retaining the raw CIF.
+    missing_b=[]
+    for chain in model:
+        for residue in chain:
+            for atom in residue:
+                if not math.isfinite(atom.b_iso):
+                    missing_b.append(dict(chain=chain.name,residue=str(residue.seqid),atom=atom.name))
+                    atom.b_iso=0.0
     structure.write_pdb(str(destination))
-    atomic(Path(destination).with_suffix('.chain_map.json'),dict(source_sha256=sha(normalized),source_to_mpnn=mapping))
+    atomic(Path(destination).with_suffix('.chain_map.json'),dict(source_sha256=sha(normalized),source_to_mpnn=mapping,
+           nonfinite_b_factors_serialized_as_zero=missing_b,
+           b_factor_scope='MPNN input serialization only; coordinates, chemistry and source confidence unchanged.'))
     return normalized
 
 
