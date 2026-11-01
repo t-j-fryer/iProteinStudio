@@ -78,7 +78,8 @@ def verify_outputs(arguments: list[str]) -> None:
                 f"and {len(detailed)} detailed-confidence file(s)")
 
     try:
-        annotate_intellifold(output)
+        for yaml_path in yaml_paths:
+            annotate_intellifold(prediction_root / yaml_path.stem, yaml_path)
     except (IPSAEError, OSError, ValueError) as exc:
         die(f"ipSAE scoring failed: {exc}")
 

@@ -31,7 +31,7 @@ except ImportError:
 try:
     import ipsae_score
 except ImportError:
-    sys.modules['ipsae_score'] = types.SimpleNamespace(annotate_intellifold=lambda _: None)
+    sys.modules['ipsae_score'] = types.SimpleNamespace(annotate_intellifold=lambda *args: None)
 from prediction_resume import PredictionLedger, RecordSeedDataset, artifacts, input_identity
 from resident_predictor import IntelliFoldSession
 

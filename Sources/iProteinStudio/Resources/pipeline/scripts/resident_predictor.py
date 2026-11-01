@@ -537,7 +537,7 @@ class IntelliFoldSession:
                     args, self.model, input_features, record, structure, out_dir, seed
                 )
             leaf = out_dir / "predictions" / record.id
-            annotate_intellifold(leaf)
+            annotate_intellifold(leaf, yaml_paths[record.id])
             compact_detailed_confidence(leaf)
             check_inputs_unchanged(record.id)
             ledger.commit(record.id)

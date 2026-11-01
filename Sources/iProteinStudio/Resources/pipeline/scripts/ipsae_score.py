@@ -232,8 +232,18 @@ def annotate_boltz(yaml_path: Path, output: Path) -> int:
     return annotated
 
 
-def annotate_intellifold(output: Path) -> int:
+def annotate_intellifold(output: Path, yaml_path: Path) -> int:
     """Annotate IntelliFold summary confidence files from detailed PAE JSON."""
+    document = yaml.safe_load(yaml_path.read_text()) or {}
+    protein_lengths = {}
+    for wrapped in document.get('sequences', []):
+        if 'protein' not in wrapped:
+            continue
+        entity = wrapped['protein']; ids = entity['id']
+        for chain in ids if isinstance(ids, list) else [ids]:
+            if str(chain) in protein_lengths:
+                raise IPSAEError('Duplicate protein chain in IntelliFold input')
+            protein_lengths[str(chain)] = len(''.join(entity['sequence'].split()))
     detailed = sorted(
         path for path in json_variants(output, "*_confidences.json")
         if "summary_confidences" not in path.name
@@ -245,7 +255,9 @@ def annotate_intellifold(output: Path) -> int:
         chains = data.get("token_chain_ids")
         if pae is None or chains is None:
             continue
-        proteins = _ordered_unique(chains)
+        proteins = list(protein_lengths)
+        if any(chains.count(chain) != length for chain, length in protein_lengths.items()):
+            raise IPSAEError('IntelliFold protein PAE tokens differ from the input sequence lengths')
         if len(proteins) < 2:
             continue
         detail_name = path.name.removesuffix(".gz")
@@ -325,13 +337,14 @@ def main() -> None:
     boltz.add_argument("--output", type=Path, required=True)
     intellifold = subparsers.add_parser("intellifold")
     intellifold.add_argument("--output", type=Path, required=True)
+    intellifold.add_argument("--yaml", type=Path, required=True)
     args = parser.parse_args()
 
     try:
         if args.engine == "boltz":
             count = annotate_boltz(args.yaml.resolve(), args.output.resolve())
         else:
-            count = annotate_intellifold(args.output.resolve())
+            count = annotate_intellifold(args.output.resolve(), args.yaml.resolve())
     except (IPSAEError, OSError, ValueError, json.JSONDecodeError) as exc:
         raise SystemExit(f"ipSAE scoring failed: {exc}") from exc
     print(f"ipSAE: annotated {count} multimer prediction(s)")

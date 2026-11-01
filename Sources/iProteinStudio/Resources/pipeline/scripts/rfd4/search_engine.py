@@ -74,9 +74,6 @@ class Engine:
         self.output = Path(config['output'])
         self.worker = self.output / 'workers' / f'mpnn_{os.getpid()}'
         self.session = None
-        if config.get('target_ligands'):
-            from .mixed_target import validate_predictor
-            validate_predictor(config)
         for path in (self.root / 'rfd3_scripts', self.root / 'rfd3_overlay/scripts'):
             sys.path.insert(0, str(path))
 
@@ -102,8 +99,8 @@ class Engine:
             pdb = attempt / 'parent.pdb'
             mapping = {binder: 'A', **{c: chr(66+i) for i, c in enumerate(targets)}}
             if self.config.get('target_ligands'):
-                from .mixed_target import write_mpnn_parent
-                write_mpnn_parent(parent['structure'],pdb,self.config,mapping)
+                from .mixed_target import context_operation
+                context_operation(self.root,self.config,parent['structure'],pdb,'mpnn-parent',mapping=mapping)
             else:
                 write_selected_pdb(parent['structure'], pdb, mapping)
             if sequences(pdb) != {mapping[c]: seq for c, seq in original.items()}:
@@ -185,12 +182,13 @@ class Engine:
             artifacts = [p for p in predictions.rglob('*') if p.is_file()]
         assembly=None
         if self.config.get('target_ligands'):
-            from .mixed_target import canonical_assembly, assembly_metrics
+            from .mixed_target import context_operation
             raw_structure=structure
-            structure=canonical_assembly(raw_structure,unit/'assembly.cif',self.config,predictor=cfg['predictor'])
-            assembly=assembly_metrics(structure,self.config)
+            checked=context_operation(self.root,self.config,raw_structure,unit/'assembly.cif','assessment',predictor=cfg['predictor'])
+            structure=Path(checked['structure']);assembly=checked['assembly_audit']
             atomic(unit/'assembly_audit.json',assembly)
             artifacts += [raw_structure,structure,structure.with_suffix('.atom_map.json'),unit/'assembly_audit.json']
+            artifacts += checked['operation_artifacts']
         observed = sequences(structure)
         if observed != {binder: sequence, **targets}:
             raise ValueError('Predicted chain sequences differ from the supplied candidate.')
@@ -212,6 +210,14 @@ class Engine:
                 chain_map = [binder] * len(sequence) + [c for c, seq in targets.items() for _ in seq]
             if pae.shape != (len(chain_map), len(chain_map)): raise ValueError('PAE shape does not match the complete assembly.')
             scores.update(calculate_ipsae(pae, chain_map, [binder, *targets]))
+        if self.config.get('target_ligands'):
+            from .mixed_target import protein_interface_scores
+            scores=protein_interface_scores(scores,[binder,*targets])
+            # Keep the native confidence file immutable alongside an explicitly
+            # protein-scoped summary used by filters, search and result export.
+            artifacts.append(confidence)
+            confidence=unit/'protein_interface_confidence.json'
+            atomic(confidence,scores);artifacts.append(confidence)
         score = float(scores['ipsae_min'])
         if not math.isfinite(score): raise ValueError('Nonfinite interface score.')
         record = dict(sequence=sequence, sequences=observed, structure=str(structure), structure_sha256=sha(structure),

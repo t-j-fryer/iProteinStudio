@@ -190,6 +190,53 @@ def add_prediction_ligands(document,config):
     return document
 
 
+def protein_interface_scores(scores, chains):
+    """Use only explicitly identified protein pairs for protein-design feedback."""
+    from itertools import combinations
+    directions=scores.get('ipsae_directional',{})
+    requested=[f'{a}>{b}' for a in chains for b in chains if a!=b]
+    if len(chains)<2 or any(k not in directions or not math.isfinite(float(directions[k])) for k in requested):
+        raise ValueError('Mixed-target prediction needs finite directional ipSAE for every protein pair.')
+    selected={k:float(directions[k]) for k in requested}
+    pairs={f'{a}:{b}':dict(forward=selected[f'{a}>{b}'],reverse=selected[f'{b}>{a}'],
+                         minimum=min(selected[f'{a}>{b}'],selected[f'{b}>{a}']),
+                         maximum=max(selected[f'{a}>{b}'],selected[f'{b}>{a}'])) for a,b in combinations(chains,2)}
+    return {**scores,'ipsae_min':min(p['minimum'] for p in pairs.values()),
+            'ipsae_directional':selected,'ipsae_pairs':pairs,
+            'ipsae_pair_minimums':{k:v['minimum'] for k,v in pairs.items()},
+            'ipsae_directional_n0res':{k:v for k,v in scores.get('ipsae_directional_n0res',{}).items() if k in selected},
+            'ipsae_protein_chains':list(chains)}
+
+
+def context_operation(root,config,source,destination,mode,**options):
+    """Use the pinned chemistry runtime, without altering predictor environments."""
+    import os,subprocess
+    destination=Path(destination);request=destination.with_suffix('.context_request.json')
+    result=destination.with_suffix('.context_result.json')
+    atomic(request,dict(config=config,source=str(source),destination=str(destination),mode=mode,**options))
+    venv=Path(root)/'venvs/NanoHunter_rfd4'
+    env=dict(os.environ,VIRTUAL_ENV=str(venv),PATH=str(venv/'bin')+os.pathsep+os.environ.get('PATH',''),PYTHONDONTWRITEBYTECODE='1',PYTHONNOUSERSITE='1')
+    subprocess.run([str(venv/'bin/python'),'-B',str(Path(__file__).resolve().parents[1]/'rfd4_cli.py'),
+                    'mixed-assembly','--root',str(root),'--config',str(request),'--output',str(result)],env=env,check=True)
+    report=json.loads(result.read_text())
+    if report['source_sha256']!=sha(source):raise ValueError('Assembly source changed during chemistry checks.')
+    report['operation_artifacts']=[request,result]
+    return report
+
+
+def execute_context_operation(request,output):
+    """CPU-only implementation; model weights and accelerator libraries stay unloaded."""
+    source=request['source'];config=request['config'];destination=request['destination']
+    if request['mode']=='mpnn-parent':
+        normalized=write_mpnn_parent(source,destination,config,request['mapping'])
+        report=dict(structure=str(normalized))
+    elif request['mode']=='assessment':
+        normalized=canonical_assembly(source,destination,config,predictor=request['predictor'])
+        report=dict(structure=str(normalized),assembly_audit=assembly_metrics(normalized,config))
+    else:raise ValueError('Unknown molecular context operation.')
+    atomic(output,dict(source_sha256=sha(source),**report))
+
+
 def canonical_assembly(source,destination,config,protein_mapping=None,predictor=None):
     """Audit and normalize a complete assembly without dropping any entity."""
     import gemmi
@@ -233,11 +280,22 @@ def write_mpnn_parent(source,destination,config,mapping):
     import gemmi
     normalized=canonical_assembly(source,Path(destination).with_suffix('.cif'),config)
     structure=gemmi.read_structure(str(normalized));model=structure[0]
+    mapping=dict(mapping)
+    used=set(mapping.values())
+    # Imported assemblies may use B for a ligand. MPNN's protein role mapping
+    # must not then merge it with the target protein that becomes B.
+    for chain in model:
+        if chain.name not in mapping:
+            available=[c for c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' if c not in used]
+            if not available:raise ValueError('MPNN parent has too many distinct chains for PDB format.')
+            name=chain.name if len(chain.name)==1 and chain.name not in used else available[0]
+            mapping[chain.name]=name;used.add(name)
     for chain in model:
         if chain.name in mapping:chain.name='__'+mapping[chain.name]
     for chain in model:
         if chain.name.startswith('__'):chain.name=chain.name[2:]
     structure.write_pdb(str(destination))
+    atomic(Path(destination).with_suffix('.chain_map.json'),dict(source_sha256=sha(normalized),source_to_mpnn=mapping))
     return normalized
 
 

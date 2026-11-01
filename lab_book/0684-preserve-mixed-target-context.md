@@ -35,3 +35,11 @@ CPU implementation checks complete; no completed mixed-target GPU qualification 
 ## Release status
 
 The shared patch is present in `.worktrees/paper-release` and beta. Installed apps and the draft GitHub release are not yet promoted. The previous delivery watcher is stopped; completing mixed-target GPU qualification is an additional delivery requirement.
+
+## GPU integration findings and corrections
+
+The first IntelliFold mixed assembly completed two cycles and retained all ligand atoms. Its existing annotation incorrectly included ligand chains in the global ipSAE minimum. Corrected the shared IntelliFold scorer to use the input YAML's protein identities and verified token counts. Mixed-target search also explicitly scopes its exported confidence and reward to protein pairs. Raw predictions and native confidence remain preserved.
+
+The 600M check failed before inference because its isolated environment does not contain Gemmi. Chemistry normalization/checks now execute as CPU-only operations in the already pinned RFD4 preparation runtime, rather than changing predictor environments. A real call from the ESMFold2 environment passed. Added collision-free ligand chain mapping for temporary MPNN PDB inputs and saved the mapping.
+
+Superseded only the still-queued mixed-target tests; retained completed/failed outputs. The corrected twelve-condition cohort uses fresh immutable plans (`qualified2`). Other release checks continue unchanged. No new manuscript job was interrupted.
