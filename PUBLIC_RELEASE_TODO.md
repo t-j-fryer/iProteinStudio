@@ -21,3 +21,5 @@ experimental peptide workflow code and private beta installation controls.
   before a public binary release; CPU input preparation is not inference validation.
 - [ ] Preserve and assess ligand context throughout mixed protein–ligand target
   design. Current protein refinement rejects such inputs rather than dropping entities.
+
+- [ ] Complete mixed protein–ligand target qualification before publishing0.2.31: code, CLI/MCP, exports and UI help integrated; native CPU audits and offline tests pass. Keep draft and installed apps held until queued GPU checks pass (Lab0684).

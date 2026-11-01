@@ -43,7 +43,8 @@
         },
         "source": {
           "type": "string",
-          "default": ""
+          "default": "",
+          "description": "Target PDB/CIF or annotated native input. Protein/nanobody workflows retain all non-water, noncovalent ligand instances with their source chemistry and atom identities; every prediction includes them. Covalent polymer\u2013ligand links and nucleic-acid context require a separate workflow."
         },
         "length": {
           "type": "integer",

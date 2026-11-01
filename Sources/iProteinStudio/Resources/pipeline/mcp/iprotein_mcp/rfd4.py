@@ -40,6 +40,9 @@ def prepare(output, request):
         search = cfg['search'] != 'native' or cfg['assess_native'] or cfg['native_search']
         engines = [] if cfg['starting_structures'] and not cfg['native_search'] else ['rfd4']
         required = [] if not engines else [python, root / 'components/rfd4/current/runtime.json']
+        if cfg['starting_structures'] and cfg['task'] in ('protein','nanobody'):
+            engines.append('rfd4')
+            required += [python,root/'components/rfd4/current/runtime.json']
         if not cfg['starting_structures']:
             for sub in ('transformer', 'vae'):
                 required.append(root / 'models/rfd4/diffusers' / sub / 'diffusion_pytorch_model.safetensors')
@@ -92,7 +95,7 @@ def prepare(output, request):
                             output / 'condition_spec.json', output / 'feature_audit.json',
                             *list((output / 'length_inputs').rglob('*.*')),
                             *([output / 'length_inputs.json'] if cfg.get('length_plan') else []),
-                            *[output / name for name in ('molecule.json', 'molecule.cif', 'reference.cif', 'protein_source.cif', 'framework_identity.json', 'target_identity.json') if (output / name).is_file()]])
+                            *[output / name for name in ('molecule.json', 'molecule.cif', 'reference.cif', 'protein_source.cif', 'framework_identity.json', 'target_identity.json', 'target_ligands.json') if (output / name).is_file()]])
             inputs += [output / name for name in ('annotated.cif', 'condition_spec.json', 'feature_audit.json', 'preflight_completed.json')]
             inputs += [output / name for name in ('molecule.json', 'molecule.cif', 'reference.cif', 'protein_source.cif', 'framework_identity.json') if (output / name).is_file()]
         elif cfg['native_search']:
@@ -107,7 +110,20 @@ def prepare(output, request):
                 if result.returncode: raise ValueError('RFD4 imported input audit failed: ' + result.stderr[-2000:])
                 module.seal(receipt, dict(passed=True), [output / 'settings.json', *cfg['starting_structures'], *audits])
             inputs += [receipt, *audits]
+        if cfg['task'] in ('protein','nanobody') and ((output/'context_completed.json').exists() or not (output/'target_ligands.json').is_file()):
+            receipt=output/'context_completed.json'
+            if receipt.exists():module.verify(receipt)
+            else:
+                result=subprocess.run([str(python),'-B',str(runner),'inspect-context','--root',str(root),'--config',str(output/'settings.json'),'--output',str(output)],capture_output=True,text=True,timeout=300*cfg['count'])
+                (output/'context.log').write_text(result.stdout+result.stderr)
+                if result.returncode:raise ValueError('Molecular context audit failed: '+result.stderr[-2000:])
+                module.seal(receipt,dict(passed=True),[output/'context_audit.json',*list(output.glob('imported_*.*')),*[output/n for n in ('target_ligands.json','starting_assemblies.json') if (output/n).is_file()]])
+            inputs += [receipt,output/'context_audit.json',*list(output.glob('imported_*.*'))]
         config = dict(settings=cfg, output=str(output), annotated_cif=str(output / 'annotated.cif'))
+        if (output/'starting_assemblies.json').is_file():
+            config['starting_assemblies']=json.loads((output/'starting_assemblies.json').read_text())
+            if not isinstance(config['starting_assemblies'],list) or len(config['starting_assemblies'])!=cfg['count'] or any(not isinstance(p,str) or not Path(p).is_file() for p in config['starting_assemblies']):raise ValueError('Imported assembly audit returned invalid structures.')
+            inputs += [output/'starting_assemblies.json',*map(Path,config['starting_assemblies'])]
         if cfg.get('length_plan'):
             config['length_inputs'] = load_json(output / 'length_inputs.json')
             inputs += [output / 'length_inputs.json', *[p for p in (output / 'length_inputs').rglob('*') if p.is_file()]]
@@ -136,6 +152,10 @@ def prepare(output, request):
             if len(config.get('target_sequences', {})) > 1 and cfg['target_msa'] not in ('auto', 'empty', ''):
                 raise ValueError('Multiple target chains require automatic per-chain MSAs or explicit single-sequence mode.')
             inputs.append(identity)
+        ligand_context=output/'target_ligands.json'
+        if ligand_context.is_file():
+            config['target_ligands']=load_json(ligand_context)
+            inputs.append(ligand_context)
         module.fixed(output / 'rfd4_config.json', config)
         controller = python if not cfg['starting_structures'] or cfg['native_search'] else root / (
             'venvs/NanoHunter_' + module.predictor_identity(cfg['predictor'])['runtime'] + '/bin/python')

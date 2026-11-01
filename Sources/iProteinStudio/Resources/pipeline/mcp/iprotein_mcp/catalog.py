@@ -911,7 +911,12 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
                     'hit_filter_cutoffs', 'hit_filter_scope') if key in row}
             if hit_only and verdict is not True: continue
             artifacts = [dict(role="design", path=row["structure"], predictor=row.get('engine'),
-                              confidence_json=confidence, metrics=metrics, is_hit=verdict, **gate)]
+                              confidence_json=_run_artifact_reference(root,confidence) if confidence else None, metrics=metrics, is_hit=verdict, **gate)]
+            if row.get('assembly_audit'):
+                artifacts[0]['assembly_audit']=row['assembly_audit']
+                structure=Path(row['structure'])
+                for relative,role in [(structure.with_suffix('.atom_map.json'),'ligand_atom_mapping'),(structure.parent/'assembly_audit.json','complete_assembly_audit')]:
+                    if (root/relative).is_file():artifacts.append(dict(role=role,path=relative.as_posix(),is_hit=None))
             if row.get('oracle_structure'):
                 artifacts.append(dict(role='selection_oracle', path=row['oracle_structure'], metrics=row.get('metrics', {}), is_hit=None))
             group = grouped.setdefault(row["family"], dict(id=row["family"], title=row["family"], is_hit=None, variants=[]))
@@ -1083,7 +1088,7 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
         'All eight catalogue scaffold_id values load their CDR ranges when omitted; overrides are explicit one-based inclusive nanobody positions. The 3EAK boundaries are alignment-derived. Required scaffold MSAs never silently fall back.',
         'Protein/nanobody refinement supports the installed ESMFold2 Full/Fast/600M, Boltz, IntelliFold Flash/Full, Protenix v2/Mini/Constraint and OpenFold-3 profiles. Ligand scoring remains Boltz. Never substitute a missing engine.',
         'Optional hit_filters use ipsae_min, iptm and complex_plddt (mean complex pLDDT) on a 0-1 scale, combined with AND. Missing or nonfinite metrics fail; every proposal remains saved. Search-filter verdicts are not independent validation.',
-        'Prepare sequence targets with target_prepare_plan before design. Mixed protein-ligand target refinement is rejected rather than dropping ligand context.',
+        'Prepare sequence targets with target_prepare_plan before design. Mixed protein-ligand targets retain all non-water ligand instances through generation and prediction; inspect target_ligands.json, complete assembly atom maps and assembly_audit/hit_filter_passed. Protein inverse folders remain protein-backbone models; ipSAE is not ligand affinity. Covalently linked ligands and nucleic acids need a separate workflow.',
         'Optimized Metal kernels are off by default; enabled kernels must match reference outputs at each new length and generation stage.',
         'RFD4 memory estimates are unqualified; the explicit memory override is recorded when selected.'
     ])

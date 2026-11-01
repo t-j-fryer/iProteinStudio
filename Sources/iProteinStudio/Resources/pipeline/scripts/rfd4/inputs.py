@@ -68,8 +68,13 @@ def nanobody_source(root, cfg, destination):
         raise ValueError('The framework must use contiguous one-based residue numbers.')
     b = parse(cfg['source'], config=preset)['asym_unit'][0]
     from .targets import selected_chains, residue_segments, hotspot_map
-    from .prepare import require_protein_target
-    require_protein_target(b)
+    from .mixed_target import prepare_target, write_components
+    mixed=prepare_target(b,cfg,destination)
+    context=None
+    if mixed:
+        b,context,hotspots=mixed
+        cfg=dict(cfg,source_target_chain=','.join(context['protein_chains']),hotspots=[],hotspot_residues=hotspots)
+    ligand_parts=[] if not context else [b[b.chain_id==l['chain']] for l in context['ligands']]
     b = b[bs.filter_amino_acids(b)]
     chains = selected_chains(b.chain_id, cfg['source_target_chain'])
     hot = hotspot_map(cfg, chains)
@@ -99,16 +104,22 @@ def nanobody_source(root, cfg, destination):
     conditions = {'C_CRD':{True:[dict(select=f"({target_selection}) and sel('*/*/*/[N,CA,C,O]') and not has_nan_coord()")]},
         'C_CRDGRP':{1:[dict(select=fs+" and sel('*/*/*/[N,CA,C,O]') and not has_nan_coord()")]},
         'C_SEQ':{True:[dict(select=f"({target_selection}) or "+fs)]},'C_CATH':{'2.60.40.x':[dict(select="sel('A')")]}}
+    for part in ligand_parts:
+        chain=str(part.chain_id[0]);targets.append(part)
+        target_segments.append(residue_segments(chain,part.res_id))
+        conditions['C_CRD'][True].append(dict(select=f"sel('{chain}') and not has_nan_coord()"))
+        conditions['C_SEQ'][True].append(dict(select=f"sel('{chain}')"))
     if selections: conditions['C_HOT']={True:[dict(select=selection) for selection in selections]}
     reference=Path(destination)/'reference.cif'
     combined = a
     for part in targets: combined = combined + part
     to_cif_file(combined,reference)
+    if context:write_components(reference,context)
     spec=dict(input=str(reference),contig=','.join(pieces)+',/0,'+',/0,'.join(target_segments),conditions=conditions)
     if cfg['conditions'] or cfg['contig']: raise ValueError('Use annotated input for custom framework conditions.')
     write_condition_spec_cif('studio_nanobody',spec,Path(destination)/'annotated.cif',spec_dir=Path(destination),validate=True)
     atomic(Path(destination)/'condition_spec.json',spec)
-    atomic(Path(destination)/'target_identity.json',dict(chains=identities))
+    if not context:atomic(Path(destination)/'target_identity.json',dict(chains=identities))
     atomic(Path(destination)/'framework_identity.json',dict(sequence=sequence,ranges=ranges,source_sha256=sha(scaffold)))
 
 

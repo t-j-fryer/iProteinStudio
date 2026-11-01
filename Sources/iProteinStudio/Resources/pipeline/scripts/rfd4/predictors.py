@@ -36,5 +36,8 @@ def prediction_files(predictions, identifier):
         return leaf/'model_0.cif', leaf/'confidence.json'
     structures=list(predictions.rglob('*_model_0.cif'))+list(predictions.rglob('*_model_0.pdb'))
     confidences=list(predictions.rglob('confidence_*_model_0.json'))
+    if not structures and not confidences:
+        structures=list(predictions.rglob(identifier+'_seed-*_sample-0.cif'))
+        confidences=list(predictions.rglob(identifier+'_seed-*_sample-0_summary_confidences.json'))
     if len(structures)!=1 or len(confidences)!=1:raise ValueError('Predictor output cardinality mismatch.')
     return structures[0],confidences[0]

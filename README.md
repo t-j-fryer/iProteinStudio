@@ -76,7 +76,7 @@ The detailed RFD4 form accepts sequence targets, balanced length ranges or custo
 counts, and optional saved hit filters. Predictors are grouped by model family,
 including optional installed engines. Choose any of eight bundled nanobody
 frameworks; its CDR boundaries load automatically, with an explicit advanced
-override. All populated fields retain their labels. See
+override. Protein/nanobody targets can carry noncovalent small molecules through generation and each prediction, with saved chemical identities, atom maps and complete-assembly checks. All populated fields retain their labels. See
 [detailed configuration](docs/RFD4.md#detailed-configuration).
 
 RFD3 fixed-framework nanobody generation was tried unsuccessfully and is excluded.

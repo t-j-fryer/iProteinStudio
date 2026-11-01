@@ -93,8 +93,13 @@ def call(pipe, config, seed, directory, optimized):
                   sampled_max_driver_bytes=max(memory), optimized=optimized,
                   tensors=str(attempt / 'tensors.npz'), generation_is_validation=False)
     record['native_structure'] = str(native_structure)
+    extra=[]
+    if config.get('target_ligands'):
+        from .mixed_target import assembly_metrics
+        record['assembly_audit']=assembly_metrics(structure,config)
+        extra=[structure.with_suffix('.atom_map.json')]
     atomic(attempt / 'measurement.json', record)
-    seal(done, record, [directory / 'identity.json', structure, native_structure, fasta, attempt / 'tensors.npz', attempt / 'measurement.json'])
+    seal(done, record, [directory / 'identity.json', structure, native_structure, fasta, attempt / 'tensors.npz', attempt / 'measurement.json', *extra])
     return record
 
 

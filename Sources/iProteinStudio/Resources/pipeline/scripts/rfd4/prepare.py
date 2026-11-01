@@ -41,7 +41,7 @@ def write_condition_spec_cif(*args, **kwargs):
         native.apply_contig = original
 
 
-def condition_spec(cfg, source, atoms):
+def condition_spec(cfg, source, atoms, context=None):
     chains = sorted(set(map(str, atoms.chain_id)))
     conditions = {}
     def add(name, value, selection, group=None):
@@ -51,12 +51,13 @@ def condition_spec(cfg, source, atoms):
     from .targets import selected_chains, residue_segments, hotspot_map
     contig = cfg['contig']
     targets = selected_chains(chains, cfg['source_target_chain']) if cfg['task'] in ('protein', 'ligand') else []
+    ligand_chains=[l['chain'] for l in (context or {}).get('ligands',[])]
     if cfg['task'] in ('protein', 'ligand') and not contig:
         if cfg['binder_chain'] != 'A' or cfg['target_chain'] != 'B':
             raise ValueError('Automatic binder authoring produces binder A and targets B onward. Use an annotated CIF for other output chain IDs.')
         if cfg['task'] == 'ligand' and len(targets) != 1:
             raise ValueError('Select one ligand chain.')
-        segments = [residue_segments(c, atoms.res_id[atoms.chain_id == c]) for c in targets]
+        segments = [residue_segments(c, atoms.res_id[atoms.chain_id == c]) for c in [*targets,*ligand_chains]]
         contig = f"{cfg['length']}-{cfg['length']},/0," + ',/0,'.join(segments)
         for target in targets:
             if cfg['task'] == 'protein':
@@ -65,6 +66,9 @@ def condition_spec(cfg, source, atoms):
             else:
                 add('C_CRD', True, f"sel('{target}') and not has_nan_coord()")
             add('C_SEQ', True, f"sel('{target}')")
+        for chain in ligand_chains:
+            add('C_CRDGRP', 1, f"sel('{chain}') and not has_nan_coord()")
+            add('C_SEQ', True, f"sel('{chain}')")
     if cfg['hotspots'] or cfg.get('hotspot_residues'):
         for target, residues in hotspot_map(cfg, targets or chains).items():
             if not residues: continue
@@ -119,28 +123,35 @@ def author(root, cfg, destination):
         from atomworks.io.parser import parse
         from rfproteina.utils.parse_presets import RCSB_WITH_METALS
         array = parse(cfg['source'], config=RCSB_WITH_METALS.replace(build_assembly=None, altloc='first'))['asym_unit'][0]
+        context=None
         if cfg['task'] == 'protein':
             import biotite.structure as bs
             from biotite.sequence import ProteinSequence
             from .targets import selected_chains
-            require_protein_target(array)
-            array = array[bs.filter_amino_acids(array)]
-            chains = selected_chains(array.chain_id, cfg['source_target_chain'])
+            from .mixed_target import prepare_target, write_components
+            mixed=prepare_target(array,cfg,destination)
+            if mixed:
+                array,context,hot=mixed
+                cfg=dict(cfg,source_target_chain=','.join(context['protein_chains']),hotspots=[],hotspot_residues=hot)
+            else:
+                array = array[bs.filter_amino_acids(array)]
+            chains = selected_chains(array.chain_id[bs.filter_amino_acids(array)], cfg['source_target_chain'])
             identities = []
             for i, target in enumerate(chains):
                 protein = array[array.chain_id == target]
                 _, names = bs.get_residues(protein)
                 identities.append(dict(source_chain=target, native_chain=target, output_chain=chr(66+i),
                     sequence=''.join(ProteinSequence.convert_letter_3to1(name) for name in names)))
-            atomic(destination / 'target_identity.json', dict(chains=identities))
+            if not context: atomic(destination / 'target_identity.json', dict(chains=identities))
         # Preserve the original entity, bond and custom chemical-component
         # tables. A coordinate-only CIF round trip loses their connectivity.
         source = Path(cfg['source']).resolve()
-        if cfg['task'] == 'protein' and source.suffix.lower() == '.pdb':
+        if cfg['task'] == 'protein' and (context or source.suffix.lower() == '.pdb'):
             from atomworks.io.utils.io_utils import to_cif_file
             source = destination / 'protein_source.cif'
             to_cif_file(array, source)
-        spec = condition_spec(cfg, source, array)
+            if context: write_components(source,context)
+        spec = condition_spec(cfg, source, array,context)
         atomic(destination / 'condition_spec.json', spec)
         write_condition_spec_cif('studio', spec, output, spec_dir=destination, validate=True)
     return output
@@ -174,7 +185,12 @@ def audit_features(path, cfg, destination):
         expected = Chem.MolFromSmiles(cfg['ligand_smiles'])
         if expected is None or len(Chem.GetMolFrags(molecule)) != 1 or Chem.MolToSmiles(Chem.RemoveHs(molecule)) != Chem.MolToSmiles(Chem.RemoveHs(expected)):
             raise ValueError('The source ligand graph, charge or stereochemistry differs from the requested scoring SMILES.')
-    atomic(destination, dict(passed=True, tokens=count, input_sha256=sha(path),
+    context_path=Path(path).parent/'target_ligands.json'
+    context_audit=[]
+    if context_path.is_file():
+        from .mixed_target import audit_conditioned
+        context_audit=audit_conditioned(atoms,json.loads(context_path.read_text()))
+    atomic(destination, dict(passed=True, ligand_context=context_audit, tokens=count, input_sha256=sha(path),
                             features={k: dict(shape=list(v.shape), dtype=str(v.dtype))
                                       for k, v in features.items() if isinstance(v, torch.Tensor)}))
 
@@ -205,12 +221,6 @@ def audit_lengths(cfg,destination):
     index=destination/'length_inputs.json'
     paths=json.loads(index.read_text()) if cfg.get('length_plan') else {str(cfg['length']):str(destination/'annotated.cif')}
     for length,path in paths.items():audit_features(path,dict(cfg,length=int(length)),Path(path).parent/'feature_audit.json')
-
-
-def require_protein_target(atoms):
-    import biotite.structure as bs
-    if any(~(bs.filter_amino_acids(atoms) | bs.filter_solvent(atoms))):
-        raise ValueError('This target contains non-protein entities. Protein refinement cannot yet preserve and assess ligand context. Select a protein-only structure, or use native annotated input without protein refinement.')
 
 
 if __name__ == '__main__': main()

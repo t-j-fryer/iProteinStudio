@@ -361,7 +361,7 @@ struct RFD4View: View {
             }
             if [.protein, .nanobody].contains(value.task) {
                 DisclosureGroup("Targets containing ligands or other molecules") {
-                    Text("Prediction supports protein–ligand complexes. This protein-design route currently preserves protein chains only, so ligand-containing target files are rejected rather than silently losing their context. Native annotated input can retain explicit molecular conditions; refinement of mixed targets needs separate support.").font(.caption).foregroundStyle(.secondary)
+                    Text("Include the target protein and its bound small molecules in the source PDB or CIF. All non-water ligand instances are retained through generation and every prediction. Studio saves their chemistry and atom identities and checks the complete predicted assembly. SolubleMPNN and AbMPNN redesign protein sequences; they do not model ligand interactions. Covalently attached ligands and DNA/RNA need a separate workflow.").font(.caption).foregroundStyle(.secondary)
                 }
             }
         }

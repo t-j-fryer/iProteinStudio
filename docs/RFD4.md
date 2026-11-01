@@ -185,20 +185,33 @@ a small molecule, such as an enzyme with a bound cofactor. The complete assembly
 contains the new binder, the target protein and the ligand. It is distinct from
 designing a protein that binds a free small molecule.
 
-Prediction supports protein–ligand complexes, and the small-molecule design task
-supports explicit ligand inputs. The protein/nanobody refinement route does **not**
-yet preserve ligand context throughout generation, MPNN handoff and reprediction.
-It now rejects non-protein target entities instead of silently dropping them.
-Native annotated inputs can express molecular conditions, but this does not qualify
-mixed-target refinement. That extension remains an explicit release follow-up.
+For protein/nanobody targets, supply a PDB or CIF containing the target protein
+and its noncovalently bound small molecules. Studio retains every non-water
+ligand instance, including when protein target chains are selected explicitly.
+Supply a file containing only the intended ligand instances. It records an exact
+chemical graph, formal charge, source-coordinate stereochemistry and source atom
+names in `target_ligands.json`; it does not standardize or change protonation.
+Missing connectivity, incomplete coordinates, covalent links to polymers and
+nucleic-acid context fail before submission.
 
-The protein search adapter currently extracts protein sequences and writes
-protein-only MPNN and predictor inputs. Carrying the ligand through requires
-retaining its chemical identity and atom mapping, passing it to compatible
-prediction routes at every cycle, and checking the resulting three-component
-assembly. Merely retaining the original ligand in a displayed structure would
-not establish that the search considered it. The input rejection prevents
-misleading results; it is not an implementation of mixed-target design.
+RFD4 conditions on the protein–ligand assembly. Every subsequent compatible
+prediction contains the target proteins, designed chain and the same ligands.
+SolubleMPNN/ProteinMPNN and AbMPNN retain their protein-backbone roles: the ligand
+is retained in the parent assembly but these inverse folders are not claimed to
+score ligand interactions. Prediction and complete-assembly checks provide that
+structural context during search. This is separate from the dedicated free-ligand
+binder workflow, which uses LASErMPNN and the ligand affinity objective.
+
+Each prediction keeps its original output plus a complete `assembly.cif`, an
+explicit native-to-source atom map and `assembly_audit.json`. Missing atoms,
+changed elements or chain identities stop the run. A separate geometry verdict
+reports target-aligned ligand RMSD and checks source stereochemistry, gross bond-length errors and severe protein–ligand
+clashes; a failed verdict cannot be reported as a passing hit. Protein ipSAE is
+calculated with the predictor's full token layout and excludes ligand tokens
+from protein-interface pairs. It is not a ligand affinity score. All candidates
+remain saved and search ranking remains protein ipSAE; geometry is an explicit
+hit gate. Imported mixed assemblies require the RFD4 CPU preparation component
+and chemically defined CIFs (or complete CCD-defined ligands in PDB files).
 
 The expanded framework authoring and engine routing have CPU/contract tests.
 This is not an end-to-end GPU qualification of every new combination; see

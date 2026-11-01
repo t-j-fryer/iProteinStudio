@@ -1047,9 +1047,7 @@ without the optional fields retain their original fixed-length/no-filter behavio
   remains Boltz.
 
 Prepare sequence targets with `plan-target` / `target_prepare_plan` first, then
-pass the returned completed structure to the design plan. Mixed protein–ligand
-target refinement is rejected because ligand context is not preserved through
-that route. Use dedicated ligand design for small-molecule binders.
+pass the returned completed structure to the design plan. For mixed protein–ligand targets, supply the complete source assembly: all non-water ligand instances are retained, chemically fingerprinted and included in each prediction. See [molecular context and audit outputs](RFD4.md#mixed-proteinligand-targets). Dedicated free-ligand binder design remains a separate task.
 
 After inspecting the normalized request and prediction budget, submit with
 `start PLAN_ID SHA256`. This retains the shared queue, runtime/code snapshots,

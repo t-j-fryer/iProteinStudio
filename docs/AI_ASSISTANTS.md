@@ -197,3 +197,7 @@ component `esmfold2_600`. Discover the connected schema after updating/restartin
 the MCP server. The operating skill's evidence reference distinguishes measured
 M4 Max results from untested 16 GB hardware. Fast, Full and 600M are one model
 family; their agreement is not independent-family validation.
+
+### Mixed protein–ligand target context
+
+For RFD4 protein/nanobody design, submit the complete target structure. All non-water ligands are retained in every prediction, with their chemistry and atom maps saved. Inspect `target_ligands.json`, each candidate's `assembly_audit`, and `hit_filter_passed`; protein ipSAE does not assess ligand affinity. Native generated and imported assembly paths use the same checks. The sequence designers remain protein-backbone models. Covalently linked polymer–ligand assemblies and nucleic-acid context are excluded. See [RFD4 details](RFD4.md#mixed-proteinligand-targets).

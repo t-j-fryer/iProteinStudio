@@ -68,11 +68,19 @@ class Configuration(unittest.TestCase):
             self.assertEqual(cfg['cdr_ranges'],','.join(f"CDR{i}:"+row[f'cdr{i}_range_1based'] for i in (1,2,3)))
     def test_mixed_target_entities_are_not_silently_dropped(self):
         import biotite.structure as bs
-        from rfd4.prepare import require_protein_target
+        from rfd4.mixed_target import ligand_mask
         atoms=bs.AtomArray(2);atoms.res_name=['ALA','HOH'];atoms.element=['C','O']
-        require_protein_target(atoms)
+        self.assertFalse(ligand_mask(atoms).any())
         atoms.res_name=['ALA','ZN'];atoms.element=['C','Zn']
-        with self.assertRaisesRegex(ValueError,'non-protein entities'):require_protein_target(atoms)
+        self.assertEqual(list(ligand_mask(atoms)),[False,True])
+    def test_intellifold_native_filenames_and_ambiguous_outputs(self):
+        with tempfile.TemporaryDirectory() as raw:
+            leaf=Path(raw)/'inputs/predictions/query';leaf.mkdir(parents=True)
+            structure=leaf/'query_seed-42_sample-0.cif';confidence=leaf/'query_seed-42_sample-0_summary_confidences.json'
+            structure.write_text('coordinates');confidence.write_text('{}')
+            self.assertEqual(prediction_files(raw,'query'),(structure,confidence))
+            (leaf/'query_seed-43_sample-0.cif').write_text('another')
+            with self.assertRaises(ValueError):prediction_files(raw,'query')
     def test_legacy_request_has_same_single_length_and_no_filter(self):
         cfg=normalize({'length':92,'count':3})
         self.assertEqual(allocated_lengths(cfg),[92]*3)

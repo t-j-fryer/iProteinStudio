@@ -7,7 +7,7 @@ from pathlib import Path
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['validate', 'author', 'audit', 'audit-starts', 'generate', 'search', 'native', 'oracle', 'run'])
+    parser.add_argument('action', choices=['validate', 'author', 'audit', 'audit-starts', 'inspect-context', 'generate', 'search', 'native', 'oracle', 'run'])
     parser.add_argument('--root', type=Path, required=True)
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
@@ -31,6 +31,9 @@ def main():
             if Path(path).suffix.lower() != '.cif':
                 raise ValueError('Native search requires annotated CIF starting structures.')
             audit_features(Path(path), cfg, args.output / f'start_{index:05d}_audit.json')
+    elif args.action == 'inspect-context':
+        from rfd4.mixed_target import inspect_existing
+        inspect_existing(args.root,normalize(json.loads(args.config.read_text())),args.output)
     elif args.action == 'generate':
         from rfd4.generate import main as generate
         generate(args.config, first_only=args.first)

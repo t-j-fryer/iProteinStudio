@@ -87,8 +87,7 @@ unless explicitly overridden. Do not reuse 7XL0 ranges for another framework.
 `hit_filters` stores AND-combined ipSAE(min), iPTM and mean complex pLDDT gates
 on a 0–1 scale. A missing metric fails its gate; search selection and saved
 proposal counts remain unchanged. These verdicts are search feedback, not a
-separate validation. Mixed protein–ligand target refinement is unsupported and
-fails explicitly. The dedicated small-molecule route remains available.
+separate validation. Protein/nanobody targets may include noncovalent small molecules: retain the complete source assembly, inspect `target_ligands.json`, and check each candidate's `assembly_audit` and `hit_filter_passed`. Every prediction includes the retained ligands. SolubleMPNN/AbMPNN use protein backbones; ipSAE describes protein interfaces, not ligand affinity. Missing chemistry, covalent polymer links or DNA/RNA fail explicitly. Use the dedicated small-molecule route for free-ligand binder design.
 
 Monomers may use RFD4, native unconditional RFD3 followed by refinement, or a
 compatible X-token predictor. Exclude RFD3 fixed-framework nanobody generation:

@@ -55,7 +55,11 @@ def canonical_protein(path, config, destination):
     binders = set(observed) - set(mapping)
     if len(binders) != 1: raise ValueError('Cannot identify the designed chain.')
     mapping[binders.pop()] = cfg['binder_chain']
-    write_selected_pdb(path, destination, mapping)
+    if config.get('target_ligands'):
+        from .mixed_target import canonical_assembly
+        destination=canonical_assembly(path,destination,config,mapping)
+    else:
+        write_selected_pdb(path, destination, mapping)
     if sequences(destination) != {mapping[k]:v for k, v in observed.items()}:
         raise ValueError('Role normalization changed a protein sequence.')
     return destination
@@ -70,6 +74,9 @@ class Engine:
         self.output = Path(config['output'])
         self.worker = self.output / 'workers' / f'mpnn_{os.getpid()}'
         self.session = None
+        if config.get('target_ligands'):
+            from .mixed_target import validate_predictor
+            validate_predictor(config)
         for path in (self.root / 'rfd3_scripts', self.root / 'rfd3_overlay/scripts'):
             sys.path.insert(0, str(path))
 
@@ -94,7 +101,11 @@ class Engine:
             attempt.mkdir(parents=True)
             pdb = attempt / 'parent.pdb'
             mapping = {binder: 'A', **{c: chr(66+i) for i, c in enumerate(targets)}}
-            write_selected_pdb(parent['structure'], pdb, mapping)
+            if self.config.get('target_ligands'):
+                from .mixed_target import write_mpnn_parent
+                write_mpnn_parent(parent['structure'],pdb,self.config,mapping)
+            else:
+                write_selected_pdb(parent['structure'], pdb, mapping)
             if sequences(pdb) != {mapping[c]: seq for c, seq in original.items()}:
                 raise ValueError('Parent conversion changed sequence or chain identity.')
             if native:
@@ -133,7 +144,7 @@ class Engine:
                 raise ValueError('Designed sequence length or alphabet differs from the requested binder.')
             atomic(attempt / 'sequence.json', dict(sequence=sequence, parent_sha256=parent['structure_sha256']))
             seal(sequence_done, dict(sequence=sequence, parent_sha256=parent['structure_sha256']),
-                 [pdb, attempt / 'sequence.json'] + list((attempt / 'seqs').glob('*.fa')))
+                 [pdb, attempt / 'sequence.json'] + list(attempt.glob('parent.*')) + list((attempt / 'seqs').glob('*.fa')))
         inputs = unit / 'inputs'
         inputs.mkdir(exist_ok=True)
         msa = 'empty'
@@ -145,6 +156,9 @@ class Engine:
         target_msa = 'empty' if cfg['predictor'] in {'esmfold2-fast-mlx', 'esmfold2-600-mlx'} else cfg['target_msa']
         document = dict(version=1, sequences=[dict(protein=dict(id=binder, sequence=sequence, msa=msa)),
                                              *[dict(protein=dict(id=c, sequence=seq, msa=self.config.get('target_msas', {}).get(c, target_msa))) for c, seq in targets.items()]])
+        if self.config.get('target_ligands'):
+            from .mixed_target import add_prediction_ligands
+            add_prediction_ligands(document,self.config)
         yp = inputs / (proposal['id'] + '.yaml')
         text = yaml.safe_dump(document, sort_keys=False)
         if yp.exists() and yp.read_text() != text: raise ValueError('Saved prediction input changed.')
@@ -169,6 +183,14 @@ class Engine:
             self.session.predict(inputs, predictions, 1)
             structure, confidence = prediction_files(predictions, yp.stem)
             artifacts = [p for p in predictions.rglob('*') if p.is_file()]
+        assembly=None
+        if self.config.get('target_ligands'):
+            from .mixed_target import canonical_assembly, assembly_metrics
+            raw_structure=structure
+            structure=canonical_assembly(raw_structure,unit/'assembly.cif',self.config,predictor=cfg['predictor'])
+            assembly=assembly_metrics(structure,self.config)
+            atomic(unit/'assembly_audit.json',assembly)
+            artifacts += [raw_structure,structure,structure.with_suffix('.atom_map.json'),unit/'assembly_audit.json']
         observed = sequences(structure)
         if observed != {binder: sequence, **targets}:
             raise ValueError('Predicted chain sequences differ from the supplied candidate.')
@@ -179,8 +201,16 @@ class Engine:
             pae_files = list(predictions.rglob('pae_*_model_0.npz'))
             if len(pae_files) != 1: raise ValueError('Protein search requires an audited PAE matrix.')
             with np.load(pae_files[0], allow_pickle=False) as values: pae = values['pae']
-            chain_map = [binder] * len(sequence) + [c for c, seq in targets.items() for _ in seq]
-            if pae.shape != (len(chain_map), len(chain_map)): raise ValueError('PAE shape does not match the protein chains.')
+            if self.config.get('target_ligands'):
+                if cfg['predictor']!='boltz': raise ValueError('Predictor did not provide its native ligand-aware PAE mapping.')
+                from ipsae_score import _boltz_layout
+                chain_map,protein_ids=_boltz_layout(yp,len(pae))
+                if protein_ids != [binder,*targets]:raise ValueError('Prediction protein token order differs from the request.')
+                expected_tokens=len(sequence)+sum(map(len,targets.values()))+sum(len(l['atoms']) for l in self.config['target_ligands']['ligands'])
+                if len(pae)!=expected_tokens:raise ValueError('Prediction ligand token count differs from the retained atoms.')
+            else:
+                chain_map = [binder] * len(sequence) + [c for c, seq in targets.items() for _ in seq]
+            if pae.shape != (len(chain_map), len(chain_map)): raise ValueError('PAE shape does not match the complete assembly.')
             scores.update(calculate_ipsae(pae, chain_map, [binder, *targets]))
         score = float(scores['ipsae_min'])
         if not math.isfinite(score): raise ValueError('Nonfinite interface score.')
@@ -191,6 +221,15 @@ class Engine:
                       prediction_and_audit_seconds=time.perf_counter()-started)
         from .contract import filter_verdict
         record.update(filter_verdict(cfg, {**scores, 'ipsae_min':score}))
+        if assembly is not None:
+            record['assembly_audit']=assembly
+            record['ligand_context']=self.config['target_ligands']
+            record['sequence_designer_context']='Protein backbone only; ligand retained for generation, prediction and assembly checks.'
+            record['hit_filter_passed']=record.get('hit_filter_passed',True) and assembly['passed']
+            if not assembly['passed']:
+                record['hit_filter_passed']=False
+                record.setdefault('hit_filter_failures',[]).append('complete_assembly_geometry')
+            record['assembly_passed']=assembly['passed']
         return record, [sequence_done, yp, *artifacts] + ([Path(msa)] if msa != 'empty' else [])
 
     def close(self):

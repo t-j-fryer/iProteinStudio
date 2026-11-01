@@ -67,11 +67,11 @@ def main(config_path):
         if cfg['starting_structures']:
             # Import once; these files were copied and fingerprinted at preflight.
             rows = [dict(id=f'seed_{cfg["seed"]+i}', family=f'seed_{cfg["seed"]+i}', seed=cfg['seed']+i,
-                         structure=p, structure_sha256=sha(p)) for i, p in enumerate(cfg['starting_structures'])]
+                         structure=p, structure_sha256=sha(p)) for i, p in enumerate(config.get('starting_assemblies',cfg['starting_structures']))]
             atomic(output / 'generated.json', rows[:1] if first else rows)
             if not first:
                 seal(output / 'generation_completed.json', dict(imported=len(rows)),
-                     [output / 'generated.json', *cfg['starting_structures']])
+                     [output / 'generated.json', *cfg['starting_structures'], *config.get('starting_assemblies',[])])
         else:
             stage('generate', root / 'venvs/NanoHunter_rfd4/bin/python', first)
     # A completed end-to-end first family is mandatory before a larger cohort.

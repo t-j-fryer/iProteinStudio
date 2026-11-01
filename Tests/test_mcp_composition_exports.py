@@ -20,6 +20,10 @@ from server import MCPServer
 
 class IntegrationTests(unittest.TestCase):
     def setUp(self):
+        # Synthetic protocol jobs have no real model/sequence memory footprint.
+        # Admission itself is covered by the memory suite and bridge fixtures.
+        memory_fixture=patch('iprotein_mcp.memory.configs_for_plan',return_value=[{'predictors':['boltz'],'jobs':[{'name':'protocol-fixture','chains':[{'kind':'protein','id':'A','sequence':'ACDEFG','msa':'empty'}]}]}])
+        memory_fixture.start();self.addCleanup(memory_fixture.stop)
         self.temp=tempfile.TemporaryDirectory(prefix='studio-contract-')
         self.root=Path(self.temp.name).resolve()
         self.env=patch.dict(os.environ,{'IPROTEINSTUDIO_TEST_SUPPORT_ROOT':str(self.root),'IPROTEINSTUDIO_AGENT_ROOT':str(self.root/'agent')})
