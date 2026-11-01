@@ -110,7 +110,9 @@ def prepare(output, request):
                 if result.returncode: raise ValueError('RFD4 imported input audit failed: ' + result.stderr[-2000:])
                 module.seal(receipt, dict(passed=True), [output / 'settings.json', *cfg['starting_structures'], *audits])
             inputs += [receipt, *audits]
-        if cfg['task'] in ('protein','nanobody') and ((output/'context_completed.json').exists() or not (output/'target_ligands.json').is_file()):
+        # Native authoring already inspected the source graph. Reinterpreting its
+        # generated-residue placeholders as an experimental structure is invalid.
+        if cfg['task'] in ('protein','nanobody') and (cfg['starting_structures'] or cfg['annotated_input']):
             receipt=output/'context_completed.json'
             if receipt.exists():module.verify(receipt)
             else:

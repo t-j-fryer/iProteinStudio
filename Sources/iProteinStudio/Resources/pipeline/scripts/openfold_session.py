@@ -29,12 +29,14 @@ class OpenFoldSession:
         from openfold_runner_yaml import GPU
         from inference_optimizations import OpenFoldPreparation,ResidentModels
         ckpt=Path(os.environ.get('OPENFOLD_CHECKPOINT_PATH',self.root/'models/openfold3/of3_ft3_v1.pt'))
-        self.identity=dict(schema=1,checkpoint=digest(ckpt),adapter={name:digest(Path(__file__).with_name(name)) for name in ('openfold_session.py','openfold_query_json.py','openfold_mps.py','openfold_positions.py','inference_optimizations.py','openfold_runner_yaml.py')},settings=self.settings,seeds=self.seeds,samples=self.samples)
+        self.identity=dict(schema=1,checkpoint=digest(ckpt),adapter={name:digest(Path(__file__).with_name(name)) for name in ('openfold_session.py','openfold_confidence.py','ipsae_score.py','openfold_query_json.py','openfold_mps.py','openfold_positions.py','inference_optimizations.py','openfold_runner_yaml.py')},settings=self.settings,seeds=self.seeds,samples=self.samples)
         ec=InferenceExperimentConfig(inference_ckpt_path=ckpt,**yaml.safe_load(GPU))
         self.runner=InferenceExperimentRunner(ec,self.samples,len(self.seeds),False,False,self.work/'predictions')
         shared=self.runner.model_config.architecture.shared
         shared.num_recycles=self.settings['recycles'];shared.diffusion.no_full_rollout_steps=self.settings['diffusion_steps']
         self.runner.seeds=self.seeds
+        from openfold_confidence import install
+        self.confidence_writer=install(self.runner)
         self.preparation=OpenFoldPreparation(InferenceExperimentRunner)
         self.residency=ResidentModels()
         try:
@@ -76,6 +78,7 @@ class OpenFoldSession:
                 # Never let upstream skip an incomplete previous query by existence.
                 qname='q_'+uuid.uuid4().hex;attempt=self.work/'requests'/qname;attempt.mkdir(parents=True)
                 data=yaml.safe_load(path.read_text());binder=next((x['protein']['sequence'] for x in data['sequences'] if x.get('protein',{}).get('id')=='A'),'')
+                self.confidence_writer.studio_protein_ids=[str(cid) for x in data['sequences'] if 'protein' in x for cid in (x['protein']['id'] if isinstance(x['protein']['id'],list) else [x['protein']['id']])]
                 binder=''.join(c if c in 'ACDEFGHIKLMNPQRSTVWY' else 'A' for c in binder)
                 query=attempt/'query.json'
                 cmd=[sys.executable,str(Path(__file__).with_name('openfold_query_json.py')),str(path),binder,qname,str(query),'','',str(self.seeds[0])]
@@ -98,6 +101,8 @@ class OpenFoldSession:
                     for p in confidence:
                         value=json.loads(p.read_text());json.dumps(value,allow_nan=False)
                         if not value:raise ValueError('Empty OpenFold confidence')
+                        if len(self.confidence_writer.studio_protein_ids)>=2 and 'ipsae_min' not in value:
+                            raise ValueError('OpenFold protein-interface PAE annotation was not saved.')
                     for p in src.iterdir():
                         if p.is_file():
                             # Publish real files in the caller's output tree. Native

@@ -375,9 +375,15 @@ def inspect_existing(root, cfg, destination):
             part=source_atoms[source_mask & (source_atoms.chain_id==c) & (source_atoms.res_id==r) & (source_atoms.ins_code==i) & (source_atoms.res_name==n)]
             source_chemistry.append(molecule_record(part,f'{c}:{r}{i}:{n}',c,n)['canonical_smiles'])
     for index,path in enumerate(paths):
-        atoms=parse(path,config=RCSB_WITH_METALS.replace(build_assembly=None,altloc='first'))['asym_unit'][0]
-        # Ignore the generated-protein expandable placeholder in annotated input.
-        atoms=atoms[atoms.res_name!='<M>']
+        # Annotated RFD4 inputs contain unknown generated-protein placeholders.
+        # Do not apply experimental-structure atom completion/valence repair to
+        # those placeholders. Every actual ligand is sanitized below by RDKit.
+        preset=RCSB_WITH_METALS.replace(build_assembly=None,altloc='first')
+        if not cfg['starting_structures']:preset=preset.replace(add_missing_atoms=False)
+        atoms=parse(path,config=preset)['asym_unit'][0]
+        if not cfg['starting_structures']:
+            placeholders=(atoms.chain_id==cfg['binder_chain']) & ((atoms.res_name=='<M>') | (atoms.element=='X'))
+            atoms=atoms[~placeholders]
         mask=ligand_mask(atoms)
         rows=[]
         keys=list(dict.fromkeys((str(c),int(r),str(i),str(n)) for c,r,i,n in zip(atoms.chain_id[mask],atoms.res_id[mask],atoms.ins_code[mask],atoms.res_name[mask])))
