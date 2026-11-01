@@ -213,6 +213,4 @@ remain saved and search ranking remains protein ipSAE; geometry is an explicit
 hit gate. Imported mixed assemblies require the RFD4 CPU preparation component
 and chemically defined CIFs (or complete CCD-defined ligands in PDB files).
 
-The expanded framework authoring and engine routing have CPU/contract tests.
-This is not an end-to-end GPU qualification of every new combination; see
-[configuration work and test limits](../lab_book/0679-public-design-configuration.md).
+Bounded end-to-end checks cover ten predictor profiles, eight catalogue frameworks, two protein lengths, and twelve mixed-target routes with two predictions each. One native nanobody start was reused from its audited generation after a serialization fix. These establish software integration, not binding efficacy or every possible framework/engine combination. See [qualification and limits](../lab_book/0684-preserve-mixed-target-context.md).

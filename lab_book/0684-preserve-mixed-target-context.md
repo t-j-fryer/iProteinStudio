@@ -14,7 +14,7 @@ User explicitly requested mixed protein–ligand target support, including prese
 
 ## What was done
 
-Implementing explicit source-graph manifests, native RFD4 conditioning, ligand-bearing prediction inputs, complete-assembly exports, mapped atom identities and separate geometry verdicts. Protein and antibody inverse folders retain their established roles; no ligand-aware sequence-design claim. Noncovalent small-molecule context is the scope; bonded polymer–ligand assemblies and nucleic acids are not implicitly approximated.
+Implemented explicit source-graph manifests, native RFD4 conditioning, ligand-bearing prediction inputs, complete-assembly exports, mapped atom identities and separate geometry verdicts. Protein and antibody inverse folders retain their established roles; no ligand-aware sequence-design claim. Noncovalent small-molecule context is the scope; bonded polymer–ligand assemblies and nucleic acids are not implicitly approximated.
 
 ## Validation
 
@@ -22,7 +22,7 @@ See Validation entry0331 and experiments/rfd4_mixed_target_v1. CPU authoring, ch
 
 ## Limits and what was not tested
 
-CPU implementation checks complete; no completed mixed-target GPU qualification yet. Existing release qualification checks protein-only routes and cannot qualify this change.
+Technical qualification is complete for the bounded cohort below. Covalent assemblies, nucleic-acid context, broad chemical coverage, binding efficacy and cross-Mac behavior were not tested. Native UI inspection was unavailable because the computer-use service failed to start.
 
 ## Checks completed
 
@@ -34,7 +34,7 @@ CPU implementation checks complete; no completed mixed-target GPU qualification 
 
 ## Release status
 
-The shared patch is present in `.worktrees/paper-release` and beta. Installed apps and the draft GitHub release are not yet promoted. The previous delivery watcher is stopped; completing mixed-target GPU qualification is an additional delivery requirement.
+The shared patch is present in public and beta. Version 0.2.31 was published after all qualification audits passed. Installed-app delivery is recorded separately; previous draft artifacts and superseded test jobs remain retained.
 
 ## GPU integration findings and corrections
 
@@ -53,3 +53,11 @@ Native nanobody generation completed, but AbMPNN failed while writing the combin
 ## Final technical acceptance
 
 The corrected twelve-condition mixed-target cohort completed and passed the read-only identity, protein-only score and geometry-gating audit. This covers two native generation/refinement routes and ten predictor profiles, with two predictions per route. A geometry rejection remains a rejection; technical acceptance does not require an efficacy hit. Earlier failed/superseded jobs remain retained. RELEASE_QUALIFICATION.json contains each verdict. The public release was published from c4f53d9c77f69c8265b71274fdc6d51b68822b0e; installed-app delivery is recorded separately.
+
+## Acceptance summary
+
+- Eleven general release routes passed: 22 refold predictions covering the selected ten predictor profiles, eight catalogue frameworks and two lengths.
+- Twelve mixed-target routes passed the technical audit: 24 predictions, including native protein generation and audited native nanobody generation reused for its corrected refinement. All predictions retain the complete ligand atom inventory and protein-only score scope.
+- Seventeen assemblies passed the geometry gate; seven failed it and remained rejected. This is an integrity check, not a measured binding success rate.
+- Eleven mixed CPU regressions, the real ProDy feature-equivalence check, OpenFold native-writer tests, resident-resume/MCP checks, both Swift builds, bundle signatures and artifact hashes passed.
+- Binary source: `c4f53d9c77f69c8265b71274fdc6d51b68822b0e`. Public release includes `RELEASE_QUALIFICATION.json`. No weights or predictor environments were changed.
