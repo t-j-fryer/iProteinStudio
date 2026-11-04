@@ -30,7 +30,7 @@ struct RFD4MotifEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Choose the motif to scaffold").font(.title2)
-            Text("Select residues on the structure or in the list, then choose the exact atoms whose geometry should be retained. Amber spheres mark the chosen coordinate atoms. Labels use RFD4’s parsed input chain IDs and residue numbers.").font(.callout)
+            Text("Select residues on the structure or in the list, then choose the atoms to condition. Amber spheres mark the chosen atoms. RFD4 conditions generation on this geometry; inspect the generated motif because coordinates are not guaranteed to match exactly.").font(.callout)
             if inspector.running { ProgressView("Reading native residue and atom identities…") }
             if let error = inspector.error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
             if sourceChanged { Text("The source file changed. Choose the motif again on the current structure.").foregroundStyle(.orange) }
@@ -75,8 +75,8 @@ struct RFD4MotifEditor: View {
                 HStack(alignment: .top, spacing: 28) {
                     VStack(alignment: .leading, spacing: 8) {
                         Picker("Motif geometry", selection: $motif.coordinate_mode) {
-                            Text("Fix selected coordinates").tag("absolute")
-                            Text("Keep relative geometry (one rigid group)").tag("relative")
+                            Text("Absolute-coordinate conditioning").tag("absolute")
+                            Text("Relative-coordinate conditioning (one group)").tag("relative")
                         }
                         Toggle("Keep motif residue identities", isOn: $motif.fix_sequence)
                         Text("Backbone-only coordinates can allow sequence redesign. Selected sidechain atoms require the residue identity to stay fixed.").font(.caption).foregroundStyle(.secondary)
@@ -89,7 +89,7 @@ struct RFD4MotifEditor: View {
                         bounds("Before motif", values: $motif.prefix)
                         bounds("Between separated motif segments", values: $motif.linker)
                         bounds("After motif", values: $motif.suffix)
-                        Text("Equal bounds fix the length. Use 0 / 0 to omit a segment. Only selected source residues are retained; the rest is generated.").font(.caption).foregroundStyle(.secondary)
+                        Text(motif.unindexed ? "Free placement: motif residues occupy generated positions. Final length is the sum of these segments; their labels do not fix motif locations. Use 0 / 0 to omit a segment." : "Indexed placement: final length adds the selected motif residues to these segments. Equal bounds fix the length; 0 / 0 omits a segment.").font(.caption).foregroundStyle(.secondary)
                     }.frame(width: 360)
                 }
             }

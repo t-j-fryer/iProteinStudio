@@ -9,6 +9,12 @@ SOURCE=REPO/'Sources/iProteinStudio/Resources/examples/t4_lysozyme/2LZM.pdb'
 def motif():
  return dict(residues=[dict(chain='A',residue=i,atoms=['N','CA','C','O']) for i in [10,11,20]],coordinate_mode='absolute',fix_sequence=True,unindexed=False,group_segments=True,prefix=[8,8],linker=[5,5],suffix=[8,8])
 class Contracts(unittest.TestCase):
+ def test_native_unindexed_length_semantics(self):
+  from rfd4.motif import scaffold_length_bounds
+  m=motif();self.assertEqual(scaffold_length_bounds(m),[24,24])
+  m['unindexed']=True;self.assertEqual(scaffold_length_bounds(m),[21,21])
+  m.update(prefix=[0,0],suffix=[0,0],linker=[0,0])
+  with self.assertRaises(ValueError):normalize(dict(task='motif',source=str(SOURCE),motif=m))
  def test_defaults_explicit_optout_and_old_conditions(self):
   self.assertTrue(normalize({})['optimized_kernels'])
   self.assertFalse(normalize(dict(optimized_kernels=False))['optimized_kernels'])

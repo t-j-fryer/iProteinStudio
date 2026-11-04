@@ -52,8 +52,17 @@ def validate(cfg):
     # remain the explicit route for multi-chain or non-protein motifs.
     if len({r['chain'] for r in rows}) != 1:
         raise ValueError('The guided motif scaffold uses one source protein chain; use native annotated input for multi-chain motifs.')
-    if sum(motif[k][1] for k in ('prefix', 'suffix')) + len(rows) + motif['linker'][1] * (len(segments(rows)) - 1) > 2000:
+    minimum, maximum = scaffold_length_bounds(motif)
+    if motif['unindexed'] and minimum < len(rows):
+        raise ValueError('Free-placement motifs need at least one generated scaffold position per selected residue.')
+    if maximum > 2000:
         raise ValueError('The maximum scaffold length exceeds 2000 residues.')
+
+
+def scaffold_length_bounds(motif):
+    # Upstream unindexing removes source residues; insertion assigns them to
+    # generated positions instead of adding more residues to the scaffold.
+    return [sum(motif[k][i] for k in ('prefix', 'suffix')) + motif['linker'][i] * (len(segments(motif['residues'])) - 1) + (0 if motif['unindexed'] else len(motif['residues'])) for i in (0, 1)]
 
 
 def segments(rows):

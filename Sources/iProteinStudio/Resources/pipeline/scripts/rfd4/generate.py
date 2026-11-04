@@ -21,7 +21,7 @@ def call(pipe, config, seed, directory, optimized):
     attempt = directory / ('attempt_' + str(time.time_ns()))
     attempt.mkdir(parents=True)
     cfg = config['settings']
-    features, atoms = prepare_cif(config['annotated_cif'], seed=cfg['seed'], device='mps')
+    features, atoms = prepare_cif(config['annotated_cif'], seed=seed, device='mps')
     keys = ['padding_mask', 'is_in_context_conditioning', 'supports_local_latent', 'token_type', 'atom37_mask']
     conditioning = {k: v for k, v in features.items() if k not in keys + ['coords_nm']}
     args = {k: features[k] for k in keys}

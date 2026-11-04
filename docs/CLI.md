@@ -1123,3 +1123,11 @@ then pass its completed structure into the motif plan. Annotated CIFs retain
 their existing settings; typed motifs cannot silently override them.
 
 Native syntax: [upstream input preparation](https://rfd4-proteina.org/latest/how-to/input_prep/yaml-json.html).
+
+For indexed motifs, final scaffold length includes the selected motif residues
+plus the generated segments. Unindexed motifs occupy generated positions: final
+length is the sum of the generated segments, without adding motif residues again.
+Lengths sample from each design seed. Coordinate conditioning is a model input,
+not an exact output guarantee; assess generated motif RMSD and refolding before
+interpreting a design as successful. Upstream exposes motif-adherence metrics:
+https://rfd4-proteina.org/latest/reference/metrics.html

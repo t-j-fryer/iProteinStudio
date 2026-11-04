@@ -282,7 +282,7 @@ struct RFD4ConfigurationFields: View {
                 if let motif = value.motif {
                     Text(motif.residues.map { $0.id + " [" + $0.atoms.joined(separator: ", ") + "]" }.joined(separator: "; "))
                         .font(.caption.monospaced()).textSelection(.enabled)
-                    Text("Geometry: " + (motif.coordinate_mode == "absolute" ? "fixed coordinates" : "relative rigid group") + " · " + (motif.fix_sequence ? "fixed residue identities" : "backbone-only sequence redesign") + " · " + (motif.unindexed ? "free sequence placement" : "indexed placement"))
+                    Text("Geometry conditioning: " + (motif.coordinate_mode == "absolute" ? "absolute coordinates" : "relative group") + " · " + (motif.fix_sequence ? "fixed residue identities" : "backbone-only sequence redesign") + " · " + (motif.unindexed ? "free sequence placement" : "indexed placement"))
                         .font(.caption).foregroundStyle(.secondary)
                     Button("Clear motif") { request.wrappedValue.motif = nil }
                 }

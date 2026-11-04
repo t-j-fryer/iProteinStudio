@@ -2,6 +2,7 @@
 
 ## 0.2.33 — Native motif authoring
 
+- Sample motif segment lengths from each design seed and explain native free-placement length accounting and geometry conditioning.
 - Select motif residues and coordinate atoms from a structure or a separately predicted sequence structure. Expose native geometry, identity, indexing and scaffold-length controls.
 - Highlight selected motif atoms, retain native residue numbering and reject changed inspected inputs.
 - Default new RFD4 jobs to optimized kernels, with an explicit opt-out; preserve saved choices. Shared app, CLI and MCP 54 contract.

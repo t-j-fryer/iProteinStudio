@@ -89,7 +89,8 @@ struct RFD4Motif: Codable, Hashable {
         if [prefix, linker, suffix].allSatisfy({ $0.count == 2 && $0.allSatisfy { (0...2000).contains($0) } }) {
             let sorted = residues.sorted { $0.residue < $1.residue }
             let gaps = zip(sorted, sorted.dropFirst()).filter { pair in pair.1.residue != pair.0.residue + 1 }.count
-            if prefix[1] + suffix[1] + linker[1] * gaps + residues.count > 2000 { result.append("The maximum scaffold length exceeds 2000 residues.") }
+            if prefix[1] + suffix[1] + linker[1] * gaps + (unindexed ? 0 : residues.count) > 2000 { result.append("The maximum scaffold length exceeds 2000 residues.") }
+            if unindexed && prefix[0] + suffix[0] + linker[0] * gaps < residues.count { result.append("Free placement needs at least one generated scaffold position per motif residue.") }
         }
         if !fix_sequence && residues.contains(where: { !Set($0.atoms).isSubset(of: ["N", "CA", "C", "O"]) }) { result.append("Sidechain coordinates reveal sequence. Keep residue identities fixed or select backbone atoms only.") }
         for bounds in [prefix, linker, suffix] {
