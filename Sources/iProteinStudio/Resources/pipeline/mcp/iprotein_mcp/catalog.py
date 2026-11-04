@@ -1094,7 +1094,7 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
         'New configuration routes have CPU/contract qualification in Lab Book 0719; end-to-end GPU qualification remains pending. Do not describe them as measured scientific improvements.',
         'Optional hit_filters use ipsae_min, iptm and complex_plddt (mean complex pLDDT) on a 0-1 scale, combined with AND. Missing or nonfinite metrics fail; every proposal remains saved. Search-filter verdicts are not independent validation.',
         'Prepare sequence targets with target_prepare_plan before design. Mixed protein-ligand targets retain all non-water ligand instances through generation and prediction; inspect target_ligands.json, complete assembly atom maps and assembly_audit/hit_filter_passed. Protein inverse folders remain protein-backbone models; ipSAE is not ligand affinity. Covalently linked ligands and nucleic acids need a separate workflow.',
-        'Optimized Metal kernels are off by default; enabled kernels must match reference outputs at each new length and generation stage.',
+        'Optimized Metal kernels are off by default. Normal generation does not run extra standard-reference designs; exact equivalence is tested in developer validation. Output-integrity and resume checks remain enabled.',
         'RFD4 memory estimates are unqualified; the explicit memory override is recorded when selected.'
     ])
     if workflow not in guides:

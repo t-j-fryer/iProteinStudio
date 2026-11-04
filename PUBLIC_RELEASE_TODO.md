@@ -36,3 +36,5 @@ experimental peptide workflow code and private beta installation controls.
 - [x] Typed RFD4 family budgets, measured Metal help, unified Prediction setup and optional templates; T4 lysozyme/2LZM example (Lab0731).
 
 - [x] Full workflow configuration without Quick Setup; explain prediction worker/model reuse defaults (Lab0733).
+
+- [x] Remove automatic RFD4 reference inference; retain developer validation and production integrity checks (Lab0741).

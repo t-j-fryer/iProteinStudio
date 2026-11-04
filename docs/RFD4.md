@@ -41,8 +41,10 @@ All inference uses Studio's broker and shared execution lock. Completion receipt
 are checked before reuse; interrupted attempts are retained. Runs above ten
 families complete one end-to-end family before proceeding. Memory admission is
 not yet calibrated for RFD4, so running it requires the explicit
-memory override. Optional Metal kernels must match reference output exactly on
-the first input of each generation stage and each new length before proceeding.
+memory override. Optional Metal kernels generate only the requested designs.
+Exact-reference comparisons belong to developer validation; normal jobs do not
+duplicate generation for qualification. Finite-output, target-sequence, sampling
+completion and saved-artifact integrity checks remain enabled.
 
 This integration does not promote retrospective adaptive-depth allocation,
 multi-cycle inverse-fold/refold experiments, or unqualified conditioning profiles
@@ -174,9 +176,9 @@ Older-system inference remains untested. See [the dependency audit](MACOS_SUPPOR
   Verdicts, failed criteria and cutoffs are saved beside the candidate. The Hits
   view reads those verdicts. Every proposal is retained and parent selection is
   unchanged. These are search-score gates, not independent validation.
-- **Optimized GPU operations** are custom Metal pair operations. Exact comparison
-  against the reference adds checking work at the beginning; it is not an accuracy
-  option or a guarantee of a speedup on every input. The option stays off by default.
+- **Optimized GPU operations** are custom Metal pair operations. Reference comparison
+  is performed in developer validation, not automatically within design jobs.
+  This is not an accuracy option or a guarantee of a speedup on every input. The option stays off by default.
 
 ### Mixed protein–ligand targets
 
@@ -319,6 +321,7 @@ total speedup. They exclude model loading, preparation, export and downstream
 prediction. All compared saved tensor fields and sequences matched exactly;
 coordinate differences were zero. That establishes output agreement for the
 tested cases, not biological accuracy or equal binding yield across targets.
-Studio repeats the first structure in each generation stage/new length against
-the reference and stops on a mismatch. The check adds overhead, so short runs
-may take longer. The option remains off by default.
+Normal jobs no longer repeat designs against the reference. Developer validation
+retains matched standard/optimized comparisons; production retains output-integrity
+and resume checks. Existing saved plans keep their frozen behavior. The optimized
+option remains off by default.

@@ -381,9 +381,9 @@ struct RFD4ConfigurationFields: View {
     private var executionForm: some View {
                 DisclosureGroup("Execution") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Toggle("Use optimized GPU operations (checked against reference)", isOn: request.optimized_kernels)
+                        Toggle("Use optimized GPU operations", isOn: request.optimized_kernels)
                         Text("Combines GPU operations while preserving the model, weights and sampling steps. The tested outputs were identical to the standard implementation, including sequences and coordinates. This is a speed option; biological accuracy was not independently compared.").font(.caption)
-                        Text("The first structure in each generation stage, and at each new length, is generated twice to check exact agreement. A mismatch stops the run. This extra check can outweigh the saving in short runs.").font(.caption).foregroundStyle(.secondary)
+                        Text("Reference comparisons run during developer validation, not during your design job. Each requested design is generated once; completed outputs are checked for finite values, sequence identity and complete sampling before reuse.").font(.caption).foregroundStyle(.secondary)
                         DisclosureGroup("Measured speed and output agreement") {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("M4 Max · 40 GPU cores · 64 GB · warmed 64/128-residue generation")

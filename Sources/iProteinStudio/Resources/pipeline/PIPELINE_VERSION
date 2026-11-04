@@ -88,7 +88,7 @@ studio_ligand_efficiency: laser-resident-postload-seed-v2; boltz-affinity50-1; b
 studio_ligand_efficiency_validation: lab_book/0430-qualify-lasermpnn-cpu-residency.md, lab_book/0432-run-biotin-affinity-efficiency.md, lab_book/0442-release-ligand-efficiency.md
 studio_epitope_guidance: shared-generation-refinement-policy-v1
 studio_output_reporting: batched-content-addressed-inspection-v1
-studio_mcp: 52
+studio_mcp: 53
 
 studio_target_msa_policy: auto-resolved-not-filename-v1
 studio_target_msa_policy_validation: lab_book/0445-hunter-auto-msa-policy.md
@@ -113,3 +113,6 @@ studio_esmfold2_600_integration_validation: lab_book/0586-integrate-esmfold2-600
 
 studio_rfd4_configuration: catalogue-cdrs-length-allocation-hit-gates-v1
 studio_rfd4_configuration_validation: lab_book/0679-public-design-configuration.md, lab_book/0681-prepare-shared-app-update.md
+
+studio_rfd4_kernel_validation: developer-only-no-production-reference-v1
+studio_rfd4_kernel_validation_record: lab_book/0741-remove-runtime-kernel-reference.md
