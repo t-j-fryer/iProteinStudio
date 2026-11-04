@@ -1,8 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Guided design form. Adapts to the chosen design type (nanobody vs de-novo
-/// mini-binder / peptide). Sensible defaults; advanced options tucked away.
+/// Complete configuration form for the chosen design type.
 struct DesignFormView: View {
     @EnvironmentObject var app: AppState
     let project: Project
@@ -17,8 +16,7 @@ struct DesignFormView: View {
     }
     @StateObject private var numericValidation = NumericInputValidation()
     @State private var validationDestination: String?
-    @State private var showAdvanced = false
-    @State private var setupExperience: SetupExperience = .quick
+    private let setupExperience: SetupExperience = .advanced
     @State private var showTargetPrep = false
     @State private var showTargetTemplateImporter = false
     @State private var targetTemplateImportError: String?
@@ -41,7 +39,6 @@ struct DesignFormView: View {
             VStack(alignment: .leading, spacing: 20) {
                 header
                 modePicker
-                SetupExperiencePicker(selection: $setupExperience)
                 if !request.wrappedValue.usesNativeRegions && project.designIntention == nil {
                     ExamplesBar { example in
                         var r = request.wrappedValue
@@ -248,10 +245,8 @@ struct DesignFormView: View {
                 Card(title: request.wrappedValue.usesNativeRegions ? "6 · Run settings" : "5 · Run settings", systemImage: "gauge.with.dots.needle.67percent") {
                     RunSettings(request: request)
                     if setupExperience == .advanced {
-                        DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
-                            PredictionSettingsView(settings: request.prediction_settings)
-                            AdvancedSettings(request: request, projectDir: AppPaths.projectDir(project))
-                        }.font(.callout)
+                        PredictionSettingsView(settings: request.prediction_settings)
+                        AdvancedSettings(request: request, projectDir: AppPaths.projectDir(project))
                     }
                 }
             }

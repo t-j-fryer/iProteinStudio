@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0733 — Full workflow configuration](lab_book/0733-full-workflow-configuration.md): advanced fields directly, clearer prediction scheduling help.
+
 - [0682 — Isolate retained runtime metadata](lab_book/0682-isolate-retained-runtime-metadata.md): independent nested-view inventories, release validation retry and mixed-target scope.
 
 - [0681 — Prepare shared app update](lab_book/0681-prepare-shared-app-update.md): public and beta configuration fixes, CLI/MCP51 and release qualification; respects the running benchmark.

@@ -43,7 +43,7 @@ struct DiffusionView: View {
                     }
                 } })
     }
-    @State private var setupExperience: SetupExperience = .quick
+    private let setupExperience: SetupExperience = .advanced
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -64,11 +64,10 @@ struct DiffusionView: View {
                     Text("The generator changes the conditioning, sequence design and search options below.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                SetupExperiencePicker(selection: $setupExperience)
                 if engine.wrappedValue == "rfd4" {
-                    RFD4ConfigurationFields(project: project, controller: app.rfd4, installer: installer, setupExperience: $setupExperience)
+                    RFD4ConfigurationFields(project: project, controller: app.rfd4, installer: installer, setupExperience: .constant(setupExperience))
                 } else {
-                    RFD3ConfigurationFields(project: project, controller: controller, installer: installer, setupExperience: $setupExperience)
+                    RFD3ConfigurationFields(project: project, controller: controller, installer: installer, setupExperience: .constant(setupExperience))
                 }
             }.padding(28).frame(maxWidth: 860, alignment: .leading).frame(maxWidth: .infinity)
         }

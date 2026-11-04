@@ -449,7 +449,7 @@ struct PredictView: View {
                 .font(.caption2).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
             Divider().padding(.vertical, 2)
-            Text("Folds are grouped by size so a compiled shape is reused, and each engine runs at the process count and batch size measured fastest for it. Leave these alone unless you have a reason.")
+            Text("Concurrent processes load separate model workers and share the same GPU and memory. Folds per model load reuses each loaded model for several predictions in sequence; it does not predict those folds simultaneously. More processes can be slower and use more memory.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
@@ -459,7 +459,7 @@ struct PredictView: View {
                         EditableIntStepper(value: request.maxParallel, in: 0...8,
                                            accessibilityLabel: "Concurrent processes")
                         if request.wrappedValue.maxParallel == 0 {
-                            Text("measured optimum").font(.caption).foregroundStyle(.secondary)
+                            Text("automatic · engine default").font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -469,13 +469,16 @@ struct PredictView: View {
                         EditableIntStepper(value: request.batchSize, in: 0...32,
                                            accessibilityLabel: "Folds per model load")
                         if request.wrappedValue.batchSize == 0 {
-                            Text("measured optimum").font(.caption).foregroundStyle(.secondary)
+                            Text("automatic · engine default").font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
             }
+            Text("At 0, Studio uses engine-specific scheduling defaults. These combine measured settings with resident-model scheduling; they are not a measured optimum for every protein size or Mac. ESMFold2 and OpenFold-3 normally keep one model worker loaded across the input directory.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             if request.wrappedValue.maxParallel != 0 || request.wrappedValue.batchSize != 0 {
-                Label("Overriding these discards the per-engine measurements — Boltz saturates the GPU with one process, IntelliFold wants four.",
+                Label("Manual settings replace the selected engines’ scheduling defaults. ESMFold2 requires one worker. Check memory use and throughput on your own inputs before increasing concurrency.",
                       systemImage: "exclamationmark.triangle")
                     .font(.caption).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
