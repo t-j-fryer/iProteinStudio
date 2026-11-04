@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0757 — Motif release qualification](lab_book/0757-release-motif-controls.md): ten GPU outputs, five exact matched kernel pairs and native per-design length checks.
+
 - [0747 — RFD4 motif authoring](lab_book/0747-rfd4-motif-authoring.md): native residue/atom controls, CPU/viewer qualification and default-on kernels; local candidate.
 
 - [0743 — Publish recent Studio updates](lab_book/0743-release-recent-updates.md): ten GPU routes passed, exact T4 kernel parity; build81 / MCP53 public release and installed apps.

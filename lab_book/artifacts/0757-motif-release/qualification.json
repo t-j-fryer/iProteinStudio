@@ -1,0 +1,206 @@
+{
+  "passed": true,
+  "source_commit": "d5810dee431b0c45cc37dd5769145d5b7530d9d6",
+  "code_sha256": "8d71648c5ebb1c9ea8a1f954dd15b5413a9617ba98e7397778e1985eacf0b387",
+  "scope": "Ten native outputs; software/native-output equivalence, not motif quality or efficacy",
+  "native_kernel_parity": [
+    {
+      "optimized": "absolute-optimized",
+      "standard": "absolute-standard",
+      "passed": true,
+      "exact_saved_tensors": true,
+      "exact_sequences": true,
+      "paired_designs": 1
+    },
+    {
+      "optimized": "relative-indexed",
+      "standard": "native-relative-indexed",
+      "passed": true,
+      "exact_saved_tensors": true,
+      "exact_sequences": true,
+      "paired_designs": 1
+    },
+    {
+      "optimized": "unindexed-variable",
+      "standard": "native-unindexed-variable",
+      "passed": true,
+      "exact_saved_tensors": true,
+      "exact_sequences": true,
+      "paired_designs": 2
+    },
+    {
+      "optimized": "predicted-backbone-redesign",
+      "standard": "native-predicted-backbone-redesign",
+      "passed": true,
+      "exact_saved_tensors": true,
+      "exact_sequences": true,
+      "paired_designs": 1
+    }
+  ],
+  "version": "0.2.33",
+  "build": 82,
+  "mcp": 54,
+  "hardware": "Apple M4 Max, 40-core GPU, 64 GB unified memory",
+  "schedule": {
+    "diffusion_steps": 60,
+    "model_recycles": 180
+  },
+  "runtime_manifests": {
+    "control": "2e3438fb4eabf8d45173eb866bb3976ee12f73b74572934fc164219b458e776e",
+    "rfd4": "881120a852911b115009d9d846f3751b481b032ab4d58b0390f55581198a82bd"
+  },
+  "initial_designs": 6,
+  "final_designs": 10,
+  "receipt_reuse": {
+    "passed": true,
+    "job_id": "job-b1d3afbe9d6d",
+    "same_completed_job": true,
+    "unchanged_files": 23,
+    "new_inference": false
+  },
+  "limitations": [
+    "This qualifies input wiring and native output equivalence, not motif efficacy.",
+    "All outputs exceeded the original strict 0.05 angstrom maximum atom error criterion; the failed initial audit is retained.",
+    "Unindexed motif RMSD was 6.317 and 3.623 angstrom for the two final seeds; these are not validated motif designs.",
+    "No new refolding, functional assay, other-Mac test, fresh source sequence prediction, mid-run interruption or memory soak in this campaign.",
+    "Previous kernel campaign, cancellation and memory evidence remains in Lab Books 0741/0743."
+  ],
+  "routes": [
+    {
+      "name": "absolute-standard",
+      "passed": true,
+      "receipt_sha256": "74a797cf5c10c841eb839e759fdfd9c4742fa06f58a24757fa54bd2429a3151f",
+      "designs": [
+        {
+          "seed": 751,
+          "length": 73,
+          "selected_atoms": 25,
+          "strict_geometry_005A_passed": false,
+          "motif_rmsd_angstrom": 0.16919481049379786,
+          "max_atom_error_angstrom": 0.34934889171080336
+        }
+      ]
+    },
+    {
+      "name": "absolute-optimized",
+      "passed": true,
+      "receipt_sha256": "82d30e4e3530c6a25320bc0bb071d12f57babc48723e6d88d59ffa352a3a9a42",
+      "designs": [
+        {
+          "seed": 751,
+          "length": 73,
+          "selected_atoms": 25,
+          "strict_geometry_005A_passed": false,
+          "motif_rmsd_angstrom": 0.16919481049379786,
+          "max_atom_error_angstrom": 0.34934889171080336
+        }
+      ]
+    },
+    {
+      "name": "relative-indexed",
+      "passed": true,
+      "receipt_sha256": "aa9399687dc18a48d2bec0c847c8eb70501a5927cd85c492a59e66b44088e081",
+      "designs": [
+        {
+          "seed": 752,
+          "length": 73,
+          "selected_atoms": 12,
+          "strict_geometry_005A_passed": false,
+          "motif_rmsd_angstrom": 1.3962988509601286,
+          "max_atom_error_angstrom": 3.292594916691676
+        }
+      ]
+    },
+    {
+      "name": "unindexed-variable",
+      "passed": true,
+      "receipt_sha256": "96274ce3d1ef0204d2d4ddf0440fdd68b2dcf962072a60e234cc0351d00fdd9c",
+      "designs": [
+        {
+          "seed": 753,
+          "length": 66,
+          "selected_atoms": 12,
+          "strict_geometry_005A_passed": false,
+          "motif_rmsd_angstrom": 6.317491334764404,
+          "max_atom_error_angstrom": 9.920823878228942
+        },
+        {
+          "seed": 754,
+          "length": 70,
+          "selected_atoms": 12,
+          "strict_geometry_005A_passed": false,
+          "motif_rmsd_angstrom": 3.6234768559327613,
+          "max_atom_error_angstrom": 6.9808374569488185
+        }
+      ]
+    },
+    {
+      "name": "predicted-backbone-redesign",
+      "passed": true,
+      "receipt_sha256": "533d905d342ad7b942185442d3088d9cc54ec9ecd9b2a336eddb06a5e86f7cd3",
+      "designs": [
+        {
+          "seed": 755,
+          "length": 73,
+          "selected_atoms": 12,
+          "strict_geometry_005A_passed": false,
+          "motif_rmsd_angstrom": 0.1801385248169922,
+          "max_atom_error_angstrom": 0.40046636410100095
+        }
+      ]
+    },
+    {
+      "name": "native-relative-indexed",
+      "passed": true,
+      "receipt_sha256": "b2ee5b8f0f8ca8aa64f86fcffafbb93f698c0c5c549ab2b6060eb6b01687ee57",
+      "designs": [
+        {
+          "seed": 752,
+          "length": 73,
+          "selected_atoms": 12,
+          "strict_geometry_005A_passed": false,
+          "motif_rmsd_angstrom": 1.3962988509601286,
+          "max_atom_error_angstrom": 3.292594916691676
+        }
+      ]
+    },
+    {
+      "name": "native-unindexed-variable",
+      "passed": true,
+      "receipt_sha256": "15b4156e241da24faff7190d6e756b1664f3c82cb9dc98bb5a5672fceae9ebce",
+      "designs": [
+        {
+          "seed": 753,
+          "length": 66,
+          "selected_atoms": 12,
+          "strict_geometry_005A_passed": false,
+          "motif_rmsd_angstrom": 6.317491334764404,
+          "max_atom_error_angstrom": 9.920823878228942
+        },
+        {
+          "seed": 754,
+          "length": 70,
+          "selected_atoms": 12,
+          "strict_geometry_005A_passed": false,
+          "motif_rmsd_angstrom": 3.6234768559327613,
+          "max_atom_error_angstrom": 6.9808374569488185
+        }
+      ]
+    },
+    {
+      "name": "native-predicted-backbone-redesign",
+      "passed": true,
+      "receipt_sha256": "8e01d6bb553287050e04d24dac17c52fcb1f21107e308966bf25f3374f0ad66c",
+      "designs": [
+        {
+          "seed": 755,
+          "length": 73,
+          "selected_atoms": 12,
+          "strict_geometry_005A_passed": false,
+          "motif_rmsd_angstrom": 0.1801385248169922,
+          "max_atom_error_angstrom": 0.40046636410100095
+        }
+      ]
+    }
+  ]
+}
