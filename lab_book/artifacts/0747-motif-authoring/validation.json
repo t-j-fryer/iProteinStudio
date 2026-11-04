@@ -40,5 +40,8 @@
   "saved_false_preserved": true,
   "gpu_motif_inference": false,
   "sequence_prediction_rerun": false,
-  "published": false
+  "published": false,
+  "native_input_regression_tests": 6,
+  "native_input_regression_passed": 6,
+  "beta_installed_and_opened": true
 }

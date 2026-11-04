@@ -62,3 +62,9 @@ modified or resumed by this task. No new GPU motif inference, motif-retention or
 functional efficacy campaign, other-Mac testing, VoiceOver, notarization, live
 sequence prediction, or public publication was performed. Private research and
 model weights are excluded from the public candidate.
+
+Final acceptance: all six additional native input regression tests passed, including
+all eight frameworks, weighted framework inputs, ligand conditions and length
+allocation. Beta0.2.33-dev/build82 was installed and reopened; the previous beta
+bundle is retained locally for rollback. The installed stable app remains0.2.32.
+The public0.2.33/build82 candidate is built locally and has not been published.
