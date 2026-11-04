@@ -97,11 +97,11 @@ def normalize(request):
                     partial_fraction=0.5, search='native', cycles=5, proposals=4, beam_width=4,
                     sequence_model='solublempnn', predictor='esmfold2-full-mlx',
                     target_msa='', scaffold_msa='', cdr_ranges='', omit_amino_acids='C',
-                    temperature=0.1, optimized_kernels=False, annotated_input=False,
+                    temperature=0.1, optimized_kernels=True, annotated_input=False,
                     assess_native=False, starting_structures=[], native_search=False,
                     native_beam_width=2, native_branches=2, native_checkpoints=[8, 15],
                     native_partial_fraction=0.5, ligand_smiles='', time_budget_minutes=None, scaffold_id=None,
-                    hotspot_residues=None, length_plan=None, hit_filters=None, selection_metric=None, scaffold_weights=None, ligand_conformers=None, ligand_conformer=None, ligand_atom_conditions=None, ligand_attachment_atom=None, ligand_attachment_linker_atom=None, ligand_search_pdb=None, ligand_is_conjugated=None)
+                    hotspot_residues=None, length_plan=None, hit_filters=None, motif=None, selection_metric=None, scaffold_weights=None, ligand_conformers=None, ligand_conformer=None, ligand_atom_conditions=None, ligand_attachment_atom=None, ligand_attachment_linker_atom=None, ligand_search_pdb=None, ligand_is_conjugated=None)
     unknown = set(request) - set(defaults)
     if unknown: raise ValueError('Unknown RFD4 settings: ' + ', '.join(sorted(unknown)))
     cfg = {**defaults, **request}
@@ -131,6 +131,11 @@ def normalize(request):
     allocated_lengths(cfg)
     selection_metric(cfg)
     validate_ligand_options(cfg)
+    if cfg.get('motif') is not None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('studio_rfd4_motif', Path(__file__).with_name('motif.py'))
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        module.validate(cfg)
     validate_hit_filters(cfg)
     if cfg['seed'] + cfg['count'] - 1 >= 2**32:
         raise ValueError('The requested generation seeds exceed the 32-bit range.')
@@ -148,7 +153,7 @@ def normalize(request):
         raise ValueError('Choose a search or assessment when importing starting structures.')
     if cfg['task'] != 'monomer' and not cfg['source'] and not cfg['starting_structures'] and not (cfg['task'] == 'ligand' and cfg['ligand_smiles']):
         raise ValueError('Choose the source structure or annotated RFD4 CIF.')
-    if cfg['task'] in ('nanobody', 'motif') and not cfg['annotated_input'] and not cfg['contig'] and not cfg['starting_structures'] and not cfg['scaffold_id']:
+    if cfg['task'] in ('nanobody', 'motif') and not cfg['annotated_input'] and not cfg['contig'] and not cfg['starting_structures'] and not cfg['scaffold_id'] and not cfg.get('motif'):
         raise ValueError('Define the retained residues and generated segments, or supply an annotated RFD4 CIF.')
     if not cfg['binder_chain'] or not cfg['target_chain'] or cfg['binder_chain'] == cfg['target_chain']:
         raise ValueError('Choose distinct binder and target chains.')

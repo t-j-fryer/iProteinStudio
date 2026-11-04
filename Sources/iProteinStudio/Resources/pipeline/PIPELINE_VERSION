@@ -116,3 +116,6 @@ studio_rfd4_configuration_validation: lab_book/0679-public-design-configuration.
 
 studio_rfd4_kernel_validation: developer-only-no-production-reference-v1
 studio_rfd4_kernel_validation_record: lab_book/0741-remove-runtime-kernel-reference.md
+
+studio_rfd4_motif_authoring: native-typed-atom-selection-v1
+studio_rfd4_kernel_default: optimized-new-requests-v1

@@ -1,0 +1,44 @@
+{
+  "version": "0.2.33",
+  "build": 82,
+  "mcp": 54,
+  "hardware": "Apple M4 Max / 64 GB",
+  "offline_groups": 68,
+  "offline_groups_passed": 68,
+  "offline_note": "67 groups passed in the full run; Swift contracts rerun successfully after a concurrent final wording edit.",
+  "swift_build_beta": true,
+  "swift_build_public": true,
+  "native_cpu_cases": [
+    "absolute",
+    "relative",
+    "unindexed",
+    "variable lengths",
+    "backbone sequence redesign",
+    "combined relative/unindexed/variable"
+  ],
+  "negative_cases": [
+    "absent atom",
+    "changed source fingerprint",
+    "invalid/ambiguous requests"
+  ],
+  "combined_tensor_audit": {
+    "tokens": 23,
+    "length_range": [
+      21,
+      27
+    ],
+    "relative_atoms": 12,
+    "fixed_sequence_residues": 3,
+    "index_groups": [
+      2,
+      1
+    ]
+  },
+  "native_viewer_harness": true,
+  "packaged_beta_manual_controls": true,
+  "default_kernels": true,
+  "saved_false_preserved": true,
+  "gpu_motif_inference": false,
+  "sequence_prediction_rerun": false,
+  "published": false
+}

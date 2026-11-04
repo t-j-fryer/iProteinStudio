@@ -9,11 +9,12 @@ struct TargetStructureView: View {
     @Binding var selected: [String]
     var showSurface: Bool
     var ligand: Bool = false
+    var selectedAtoms: [String: [String]]? = nil
 
     var body: some View {
-        if showSurface && !ligand {
+        if (showSurface && !ligand) || selectedAtoms != nil {
             LegacyTargetStructureView(structurePath: structurePath, selected: $selected,
-                                      showSurface: true, ligand: false)
+                                      showSurface: showSurface, ligand: false, selectedAtoms: selectedAtoms)
         } else {
             Py2DmolViewer(structurePath: structurePath, selection: ligand ? nil : $selected,
                           showsControls: true)
@@ -27,6 +28,7 @@ private struct LegacyTargetStructureView: NSViewRepresentable {
     @Binding var selected: [String]
     var showSurface: Bool
     var ligand: Bool = false          // ball-and-stick view, no hotspot picking
+    var selectedAtoms: [String: [String]]? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(selected: $selected, ligand: ligand) }
 
@@ -45,7 +47,7 @@ private struct LegacyTargetStructureView: NSViewRepresentable {
 
     func updateNSView(_ web: WKWebView, context: Context) {
         context.coordinator.apply(structurePath: structurePath, showSurface: showSurface,
-                                  selection: selected)
+                                  selection: selected, atoms: selectedAtoms)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -59,25 +61,33 @@ private struct LegacyTargetStructureView: NSViewRepresentable {
         private var pendingPath: String?
         private var pendingSurface = false
         private var pendingSelection: [String] = []
+        private var pendingAtoms: [String: [String]]?
+        private var lastAtoms = ""
 
         init(selected: Binding<[String]>, ligand: Bool) { self.selected = selected; self.ligand = ligand }
 
         func webView(_ w: WKWebView, didFinish n: WKNavigation!) {
             ready = true
-            apply(structurePath: pendingPath, showSurface: pendingSurface, selection: pendingSelection, force: true)
+            apply(structurePath: pendingPath, showSurface: pendingSurface, selection: pendingSelection, atoms: pendingAtoms, force: true)
         }
 
-        func apply(structurePath: String?, showSurface: Bool, selection: [String], force: Bool = false) {
+        func apply(structurePath: String?, showSurface: Bool, selection: [String], atoms: [String: [String]]? = nil, force: Bool = false) {
+            pendingAtoms = atoms
             pendingPath = structurePath; pendingSurface = showSurface; pendingSelection = selection
             guard ready, let web else { return }
             if let path = structurePath, path != loadedPath,
                let data = FileManager.default.contents(atPath: path) {
                 loadedPath = path
-                lastPushed = []   // JS resets its selection on load
+                lastPushed = []; lastAtoms = ""   // JS resets its selection on load
                 let b64 = data.base64EncodedString()
                 let fmt = path.lowercased().hasSuffix(".pdb") ? "pdb" : "cif"
-                let fn = ligand ? "loadLigandB64" : "loadTargetB64"
+                let fn = atoms != nil ? "loadMotifB64" : ligand ? "loadLigandB64" : "loadTargetB64"
                 web.evaluateJavaScript("\(fn)(\"\(b64)\",\"\(fmt)\")", completionHandler: nil)
+            }
+            let atomJSON = atoms.flatMap { try? JSONEncoder().encode($0) }.flatMap { String(data: $0, encoding: .utf8) } ?? "null"
+            if atomJSON != lastAtoms || force {
+                lastAtoms = atomJSON
+                web.evaluateJavaScript("setAtomSelection(\(atomJSON))", completionHandler: nil)
             }
             if ligand { return }   // no surface / hotspot selection for ligands
             if showSurface != surface || force {

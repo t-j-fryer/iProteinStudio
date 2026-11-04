@@ -73,6 +73,14 @@ establish that all candidates or cycles have been inspected.
 
 RFD4 supports monomers, protein/ligand binders, supported nanobody frameworks,
 structural motifs, partial diffusion, inverse folding and native annotated inputs.
+For motif scaffolding, an ordinary structure plus the typed `motif` object selects
+exact source residues/coordinate atoms, fixed or relative geometry, residue
+identities, indexed or unindexed placement and scaffold/linker length ranges.
+Inspect native IDs first with `rfd4_cli.py inspect-motif`; preserve its source
+fingerprint. Sequence input first uses the existing target-preparation workflow.
+The guided route uses one protein chain; multi-chain and non-protein motifs use
+native annotated CIFs. Optimized kernels default on for new requests; an explicit
+`optimized_kernels=false` remains supported and saved jobs retain their settings.
 Fixed/iterative/greedy/beam sequence exploration and native RFD4 rollout search
 are separate choices. Read the schema and evidence reference before setting budgets.
 Recommended protein/nanobody sequence targets use target_prepare_plan with Full

@@ -62,6 +62,43 @@ struct RFD4Conformer: Codable, Hashable {
     var weight: Double
 }
 
+struct RFD4MotifResidue: Codable, Hashable, Identifiable {
+    var chain: String
+    var residue: Int
+    var atoms: [String]
+    var id: String { chain + ":" + String(residue) }
+}
+
+struct RFD4Motif: Codable, Hashable {
+    var source_sha256: String?
+    var residues: [RFD4MotifResidue] = []
+    var coordinate_mode = "absolute"
+    var fix_sequence = true
+    var unindexed = false
+    var group_segments = true
+    var prefix = [20, 20]
+    var linker = [10, 10]
+    var suffix = [20, 20]
+    var issues: [String] {
+        var result: [String] = []
+        if !["absolute", "relative"].contains(coordinate_mode) { result.append("Choose fixed coordinates or relative geometry.") }
+        if Set(residues.map(\.id)).count != residues.count { result.append("Choose each motif residue once.") }
+        if residues.contains(where: { $0.residue < 1 || $0.residue > Int(Int32.max) }) { return ["Use positive native residue numbers."] }
+        if residues.isEmpty || residues.contains(where: { $0.atoms.isEmpty }) { result.append("Choose motif residues and at least one coordinate atom in each.") }
+        if Set(residues.map(\.chain)).count > 1 { result.append("The guided motif uses one source protein chain. Use native annotated input for multi-chain motifs.") }
+        if [prefix, linker, suffix].allSatisfy({ $0.count == 2 && $0.allSatisfy { (0...2000).contains($0) } }) {
+            let sorted = residues.sorted { $0.residue < $1.residue }
+            let gaps = zip(sorted, sorted.dropFirst()).filter { pair in pair.1.residue != pair.0.residue + 1 }.count
+            if prefix[1] + suffix[1] + linker[1] * gaps + residues.count > 2000 { result.append("The maximum scaffold length exceeds 2000 residues.") }
+        }
+        if !fix_sequence && residues.contains(where: { !Set($0.atoms).isSubset(of: ["N", "CA", "C", "O"]) }) { result.append("Sidechain coordinates reveal sequence. Keep residue identities fixed or select backbone atoms only.") }
+        for bounds in [prefix, linker, suffix] {
+            if bounds.count != 2 || bounds[0] < 0 || bounds[0] > bounds[1] || bounds[1] > 2000 || (bounds[0] == 0 && bounds[1] != 0) { result.append("Use 0–0 to omit a segment, or positive ordered length bounds up to 2000.") }
+        }
+        return result
+    }
+}
+
 struct RFD4Request: Codable, Hashable {
     var schema = 1
     var task: RFD4Task = .monomer
@@ -88,7 +125,7 @@ struct RFD4Request: Codable, Hashable {
     var cdr_ranges = ""
     var omit_amino_acids = "C"
     var temperature = 0.1
-    var optimized_kernels = false
+    var optimized_kernels = true
     var annotated_input = false
     var assess_native = false
     var starting_structures: [String] = []
@@ -102,6 +139,7 @@ struct RFD4Request: Codable, Hashable {
     var scaffold_id: String?
     var length_plan: RFD4LengthPlan?
     var hit_filters: [String: Double]?
+    var motif: RFD4Motif?
     var ligand_conformers: [RFD4Conformer]?
     var ligand_conformer: String?
     var ligand_atom_conditions: [String: [String]]?
@@ -157,6 +195,12 @@ struct RFD4Request: Codable, Hashable {
     }
     var validationIssues: [String] {
         var issues: [String] = []
+        if let motif {
+            issues += motif.issues
+            if task != .motif || annotated_input || !contig.isEmpty || !starting_structures.isEmpty { issues.append("Guided motifs require an ordinary source structure without a manual contig.") }
+            if conditions.contains(where: { ["C_CRD", "C_CRDGRP", "C_SEQ", "C_IDX"].contains($0.condition) }) { issues.append("Set motif geometry, identity and indexing in the motif controls.") }
+            if !hotspots.isEmpty || !(hotspot_residues ?? []).isEmpty { issues.append("Use native motif conditions instead of protein-binder hotspots.") }
+        }
         if !selectionMetrics.contains(selectedMetric) { issues.append("Choose a selection metric supported by this task.") }
         if let weights = scaffold_weights {
             if task != .nanobody || annotated_input || native_search || !starting_structures.isEmpty { issues.append("Framework allocation requires newly generated nanobodies without native rollout search.") }
@@ -187,7 +231,7 @@ struct RFD4Request: Codable, Hashable {
         if task == .protein && !contig.isEmpty { issues.append("Clear the retained segments for protein de novo design; Studio derives them.") }
         if binder_chain.isEmpty || target_chain.isEmpty || binder_chain == target_chain { issues.append("Choose distinct binder and target chains.") }
         if Set(hotspots).count != hotspots.count || hotspots.contains(where: { $0 < 1 }) { issues.append("Use unique positive hotspot residue numbers.") }
-        if (task == .nanobody || task == .motif) && !annotated_input && contig.isEmpty && starting_structures.isEmpty && scaffold_id == nil { issues.append("Choose an annotated CIF, or define the retained residues and generated segments.") }
+        if (task == .nanobody || task == .motif) && !annotated_input && contig.isEmpty && starting_structures.isEmpty && scaffold_id == nil && motif == nil { issues.append(task == .motif ? "Choose motif residues and atoms, or use an already annotated RFD4 CIF." : "Choose an annotated CIF, or define the retained residues and generated segments.") }
         if !starting_structures.isEmpty && starting_structures.count != count { issues.append("Use one imported structure per family.") }
         if !starting_structures.isEmpty && !needsPrediction { issues.append("Choose a search or assessment for imported structures.") }
         if needsPrediction {

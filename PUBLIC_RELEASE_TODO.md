@@ -38,3 +38,5 @@ experimental peptide workflow code and private beta installation controls.
 - [x] Full workflow configuration without Quick Setup; explain prediction worker/model reuse defaults (Lab0733).
 
 - [x] Remove automatic RFD4 reference inference; retain developer validation and production integrity checks (Lab0741).
+
+- [x] Prepare motif structure/sequence input, native residue/atom controls and default-on optimized kernels (Lab0747); 0.2.33/build82 local candidate, not published.

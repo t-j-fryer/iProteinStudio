@@ -2,6 +2,15 @@ import Foundation
 
 @main struct RFD4ConfigurationHarness {
     static func main() throws {
+        precondition(RFD4Request().optimized_kernels)
+        var motifRequest = RFD4Request(); motifRequest.task = .motif; motifRequest.source = "motif.pdb"
+        var motif = RFD4Motif(); motif.residues = [.init(chain: "A", residue: 10, atoms: ["N", "CA", "C", "O"])]
+        motifRequest.motif = motif; precondition(motifRequest.validationIssues.isEmpty)
+        motifRequest.optimized_kernels = false
+        let motifCopy = try JSONDecoder().decode(RFD4Request.self, from: JSONEncoder().encode(motifRequest))
+        precondition(motifCopy == motifRequest && !motifCopy.optimized_kernels)
+        motifRequest.motif?.fix_sequence = false; motifRequest.motif?.residues[0].atoms = ["CB"]
+        precondition(!motifRequest.validationIssues.isEmpty)
         let plan = RFD4LengthPlan(minimum: 75, maximum: 79)
         precondition(plan.lengths(count: 2) == [75,79])
         precondition(plan.lengths(count: 1) == [77])

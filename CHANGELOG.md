@@ -1,5 +1,11 @@
 # iProteinStudio release notes
 
+## 0.2.33 — Native motif authoring
+
+- Select motif residues and coordinate atoms from a structure or a separately predicted sequence structure. Expose native geometry, identity, indexing and scaffold-length controls.
+- Highlight selected motif atoms, retain native residue numbering and reject changed inspected inputs.
+- Default new RFD4 jobs to optimized kernels, with an explicit opt-out; preserve saved choices. Shared app, CLI and MCP 54 contract.
+
 ## 0.2.32 — Unified backbone design and explicit objectives
 
 - Use T4 lysozyme (2LZM) as the built-in protein example, with verified PDB/CIF and explicit template guidance.

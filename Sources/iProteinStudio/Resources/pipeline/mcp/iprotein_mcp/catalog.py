@@ -1079,10 +1079,11 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
             ],
         },
     }
-    guides['rfd4'] = dict(tool='rfd4_plan', defaults=dict(task='monomer', count=1, search='native', optimized_kernels=False), rules=[
+    guides['rfd4'] = dict(tool='rfd4_plan', defaults=dict(task='monomer', count=1, search='native', optimized_kernels=True), rules=[
         'Use the typed RFD4 plan and job_start. The native and preprocessing runtimes are pinned and checked in separate processes.',
         'For protein binders use SolubleMPNN by default and omit contig. An explicit target chain and optional source-numbered hotspots define conditioning.',
-        'Monomers, protein/ligand conditioning, annotated motifs/nanobodies, partial diffusion and inverse folding use the released Diffusers configuration.',
+        'Monomers, protein/ligand conditioning, motifs/nanobodies, partial diffusion and inverse folding use the released Diffusers configuration.',
+        'Motif scaffolding accepts a typed motif object: explicit native chain/residue/atom selections, absolute or relative coordinates, sequence identity, indexed/unindexed groups and prefix/linker/suffix bounds. Inspect with rfd4_cli inspect-motif; source_sha256 binds the inspected structure. Predict sequences with target_prepare_plan first. Guided motifs use one protein chain; multi-chain/non-protein motifs use native annotated CIFs.',
         'Fixed, iterative, greedy and beam sequence searches are distinct from native during-diffusion rollout search. Preserve exact parent IDs and every evaluated candidate.',
         'A campaign above ten families first completes one end-to-end family. Failed or changed receipts stop resumption.',
         'Protein search requires an explicit target MSA policy; Fast is sequence-only. Search scores are optimization feedback, not independent validation.',
@@ -1094,7 +1095,7 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
         'New configuration routes have CPU/contract qualification in Lab Book 0719; end-to-end GPU qualification remains pending. Do not describe them as measured scientific improvements.',
         'Optional hit_filters use ipsae_min, iptm and complex_plddt (mean complex pLDDT) on a 0-1 scale, combined with AND. Missing or nonfinite metrics fail; every proposal remains saved. Search-filter verdicts are not independent validation.',
         'Prepare sequence targets with target_prepare_plan before design. Mixed protein-ligand targets retain all non-water ligand instances through generation and prediction; inspect target_ligands.json, complete assembly atom maps and assembly_audit/hit_filter_passed. Protein inverse folders remain protein-backbone models; ipSAE is not ligand affinity. Covalently linked ligands and nucleic acids need a separate workflow.',
-        'Optimized Metal kernels are off by default. Normal generation does not run extra standard-reference designs; exact equivalence is tested in developer validation. Output-integrity and resume checks remain enabled.',
+        'Optimized Metal kernels are on by default for new requests; set optimized_kernels=false to opt out. Normal generation does not run extra standard-reference designs; exact equivalence is tested in developer validation. Output-integrity and resume checks remain enabled.',
         'RFD4 memory estimates are unqualified; the explicit memory override is recorded when selected.'
     ])
     if workflow not in guides:

@@ -25,6 +25,9 @@
     const hoverEl = document.getElementById('hover');
     let selected = new Set();
     let surfaceOn = false;
+    let selectedAtoms = null;
+    function residueParts(token) { return String(token).match(/^(.+):(-?\d+)$/) || String(token).match(/^(.+?)(-?\d+)$/); }
+    function setAtomSelection(atoms) { selectedAtoms = atoms; rebuild(); }
 
     // Kyte-Doolittle hydrophobicity (higher = more hydrophobic).
     const KD = {ILE:4.5,VAL:4.2,LEU:3.8,PHE:2.8,CYS:2.5,MET:1.9,ALA:1.8,GLY:-0.4,
@@ -50,7 +53,7 @@
       }
       // Highlight selected residues as bold red sticks (visible through the surface).
       selected.forEach(token => {
-        const match = String(token).match(/^(.+?)(-?\d+)$/);
+        const match = residueParts(token);
         if (!match) return;
         viewer.setStyle({chain: match[1], resi: Number(match[2])}, {
           cartoon: surfaceOn ? { colorfunc: hydroColor, arrows: true, thickness: 0.9 }
@@ -59,6 +62,17 @@
         });
       });
     }
+
+    // Exact motif coordinate atoms have a distinct sphere overlay.
+    const residueStyle = baseStyle;
+    baseStyle = function() {
+      residueStyle();
+      Object.keys(selectedAtoms || {}).forEach(token => {
+        const match = residueParts(token); if (!match) return;
+        viewer.addStyle({chain:match[1], resi:Number(match[2]), atom:selectedAtoms[token]},
+          {sphere:{color:'0xffb000', scale:0.38}});
+      });
+    };
 
     // Replace the whole selection from Swift (e.g. removing one chip). Does not
     // post back, to avoid a feedback loop with click selection.
@@ -70,6 +84,10 @@
       rebuild();
     }
 
+    let motifLoading = false;
+    function loadMotifB64(b64, format) {
+      motifLoading = true; loadTargetB64(b64, format); motifLoading = false;
+    }
     function loadTargetB64(b64, format) {
       viewer.clear(); selected = new Set(); surfaceOn = false;
       const text = decodeURIComponent(escape(window.atob(b64)));
@@ -77,13 +95,13 @@
       baseStyle();
       viewer.setHoverable({}, true,
         function(atom) {
-          hoverEl.textContent = atom.resn + ' ' + atom.resi + (atom.chain ? ' · ' + atom.chain : '');
+          hoverEl.textContent = atom.resn + ' ' + atom.resi + (atom.chain ? ' · ' + atom.chain : '') + ' · ' + atom.atom;
           hoverEl.style.opacity = 1;
         },
         function() { hoverEl.style.opacity = 0; });
-      viewer.setClickable({}, true, function(atom) { toggleResidue((atom.chain || '') + atom.resi); });
+      viewer.setClickable({}, true, function(atom) { toggleResidue((atom.chain || '') + (selectedAtoms !== null ? ':' : '') + atom.resi); });
       viewer.zoomTo(); viewer.zoom(0.9); viewer.render();
-      postSelection();
+      if (!motifLoading) postSelection();
     }
 
     // Ligand-only view: ball-and-stick, colored by element, hover shows atom.

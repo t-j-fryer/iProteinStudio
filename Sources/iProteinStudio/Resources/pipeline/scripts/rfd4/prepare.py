@@ -87,6 +87,9 @@ def condition_spec(cfg, source, atoms, context=None):
             if 'hotspot' in values: add('C_HOT',True,selection)
             hb=int('hbondDonor' in values)+2*int('hbondAcceptor' in values)
             if hb: add('C_HB',hb,selection)
+    if cfg.get('motif'):
+        from .motif import compile_spec
+        contig, conditions = compile_spec(cfg['motif'], atoms)
     for row in cfg['conditions']:
         add(row['condition'], row['value'], row['selection'], row.get('group'))
     spec = dict(input=str(source), conditions=conditions)
@@ -96,6 +99,9 @@ def condition_spec(cfg, source, atoms, context=None):
 
 def author(root, cfg, destination):
     cfg = normalize(cfg)
+    if cfg.get('motif') and cfg['motif'].get('source_sha256'):
+        if sha(cfg['source']) != cfg['motif']['source_sha256']:
+            raise ValueError('The motif source changed since inspection. Inspect and select the motif again.')
     destination = Path(destination).resolve()
     destination.mkdir(parents=True, exist_ok=True)
     rt = runtime(root)
@@ -160,7 +166,7 @@ def author(root, cfg, destination):
         # Preserve the original entity, bond and custom chemical-component
         # tables. A coordinate-only CIF round trip loses their connectivity.
         source = Path(cfg['source']).resolve()
-        if cfg['task'] == 'protein' and (context or source.suffix.lower() == '.pdb'):
+        if (cfg['task'] == 'protein' and context) or source.suffix.lower() == '.pdb':
             from atomworks.io.utils.io_utils import to_cif_file
             source = destination / 'protein_source.cif'
             to_cif_file(array, source)

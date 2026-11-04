@@ -95,6 +95,7 @@ struct RFD4ConfigurationFields: View {
     @StateObject private var ligandIntelligence = LigandIntelligence(useRFD4Runtime: true)
     @StateObject private var ligandInspector = RFD3TargetInspector(useRFD4Runtime: true)
     @State private var showEpitope = false
+    @State private var showMotif = false
     @State private var pickedResidues: [String] = []
     @State private var showTargetSurface = true
     @State private var extraLength = 100
@@ -117,6 +118,7 @@ struct RFD4ConfigurationFields: View {
             Group {
                 VStack(alignment: .leading, spacing: 20) {
                     startingStructures
+                    if value.task == .motif && !value.annotated_input { motifForm }
                     if value.task == .ligand && !value.ligand_smiles.isEmpty && value.source.isEmpty { ligandPreparation }
                     if [.protein, .nanobody].contains(value.task) && !value.annotated_input { epitopeForm }
                     conditionsForm
@@ -133,6 +135,14 @@ struct RFD4ConfigurationFields: View {
             startBar
         }.environment(\.numericInputValidation, numericValidation)
         .onAppear { synchronizeTextInputs() }
+        .sheet(isPresented: $showMotif) {
+            RFD4MotifEditor(source: value.source, initial: value.motif) { motif in
+                request.wrappedValue.motif = motif
+                request.wrappedValue.contig = ""
+                request.wrappedValue.hotspots = []; request.wrappedValue.hotspot_residues = nil
+                request.wrappedValue.conditions.removeAll { ["C_CRD", "C_CRDGRP", "C_SEQ", "C_IDX"].contains($0.condition) }
+            }
+        }
         .sheet(isPresented: $showEpitope) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Choose the target epitope").font(.title2)
@@ -153,6 +163,10 @@ struct RFD4ConfigurationFields: View {
         .onChange(of: value.hotspot_residues) { _, _ in synchronizeTextInputs() }
         .onChange(of: value.hotspots) { _, _ in synchronizeTextInputs() }
         .onChange(of: value.native_checkpoints) { _, _ in synchronizeTextInputs() }
+        .onChange(of: value.source) { _, _ in request.wrappedValue.motif = nil }
+        .onChange(of: value.annotated_input) { _, enabled in
+            if enabled { request.wrappedValue.motif = nil; targetFromSequence = false }
+        }
     }
     private func synchronizeTextInputs() {
         hotspotText = (value.hotspots.map(String.init) + (value.hotspot_residues ?? [])).joined(separator: ", ")
@@ -185,7 +199,8 @@ struct RFD4ConfigurationFields: View {
                             request.wrappedValue.ligand_conformers = nil; request.wrappedValue.ligand_conformer = nil; request.wrappedValue.ligand_atom_conditions = nil
                             request.wrappedValue.ligand_attachment_atom = nil; request.wrappedValue.ligand_attachment_linker_atom = nil; request.wrappedValue.ligand_is_conjugated = nil; request.wrappedValue.ligand_search_pdb = nil
                             if task == .ligand { request.wrappedValue.predictor = "boltz" }
-                            request.wrappedValue.annotated_input = [.motif, .annotated].contains(task)
+                            request.wrappedValue.motif = nil
+                            request.wrappedValue.annotated_input = task == .annotated
                             if task == .nanobody, let scaffold = scaffolds.first(where: { $0.id == "7xl0_vobarilizumab" }) {
                                 request.wrappedValue.scaffold_id = scaffold.id
                                 request.wrappedValue.cdr_ranges = scaffold.cdrRanges
@@ -237,7 +252,7 @@ struct RFD4ConfigurationFields: View {
                             }
                         }
                         if setupExperience == .advanced { StudioFormField("Generation seed") { TextField("Seed", value: request.seed, format: .number) }.help("Sets the random starting point for reproducible generation. Each family uses the next seed.") }
-                        if value.task != .monomer {
+                        if value.task != .monomer && value.task != .motif {
                             field("Target chains in input structure", text: request.source_target_chain, hint: "Leave empty to retain all protein chains.")
                             if setupExperience == .advanced {
                             HStack { field("Designed chain ID", text: request.binder_chain); field("First target chain ID", text: request.target_chain) }
@@ -246,6 +261,10 @@ struct RFD4ConfigurationFields: View {
                             Text("Annotated inputs retain native atom conditions, motifs and expandable segments. Their conditions are checked before a job is queued.").font(.caption).foregroundStyle(.secondary)
                             }
                         }
+                        if value.task == .motif {
+                            Toggle("Use an already annotated RFD4 CIF", isOn: request.annotated_input)
+                            Text("For an ordinary structure, choose the motif below. Annotated CIFs already contain native motif and scaffold conditions.").font(.caption).foregroundStyle(.secondary)
+                        }
                         if value.task == .partial {
                             Slider(value: request.partial_fraction, in: 0.01...1) { Text("Partial diffusion") }
                             Text("Diffuse \(value.partial_fraction, format: .percent.precision(.fractionLength(0))) of the trajectory.")
@@ -253,6 +272,23 @@ struct RFD4ConfigurationFields: View {
                         if value.task == .inverse { Text("Keep the supplied backbone and generate its sequence and local atom representation.").font(.caption) }
                     }.padding(8)
                 }
+    }
+    private var motifForm: some View {
+        Card(title: "Motif residues, atoms and scaffold", systemImage: "scope") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Provide a structure, or predict one from a sequence above. Choose the residues and exact atoms to preserve, then set the generated scaffold segments and native geometry/index controls.")
+                Button(value.motif == nil ? "Choose motif residues and atoms…" : "Edit motif residues and atoms…") { showMotif = true }
+                    .disabled(value.source.isEmpty || targetPredictor.isRunning)
+                if let motif = value.motif {
+                    Text(motif.residues.map { $0.id + " [" + $0.atoms.joined(separator: ", ") + "]" }.joined(separator: "; "))
+                        .font(.caption.monospaced()).textSelection(.enabled)
+                    Text("Geometry: " + (motif.coordinate_mode == "absolute" ? "fixed coordinates" : "relative rigid group") + " · " + (motif.fix_sequence ? "fixed residue identities" : "backbone-only sequence redesign") + " · " + (motif.unindexed ? "free sequence placement" : "indexed placement"))
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Clear motif") { request.wrappedValue.motif = nil }
+                }
+                Text("The guided form scaffolds residues from one protein chain. Native annotated CIFs remain available for multi-chain, ligand or metal motifs. Applying a guided selection replaces manual motif layout, geometry conditions and protein-binder hotspots.").font(.caption).foregroundStyle(.secondary)
+            }
+        }
     }
     private var ligandRequest: Binding<RFD3Request> {
         Binding(get: {
@@ -359,7 +395,7 @@ struct RFD4ConfigurationFields: View {
                 if !value.annotated_input && value.task != .monomer {
                     DisclosureGroup("Native conditions and retained segments") {
                         VStack(alignment: .leading, spacing: 8) {
-                            if value.task != .protein && value.scaffold_id == nil {
+                            if value.task != .protein && value.scaffold_id == nil && value.motif == nil {
                                 field("Retained residues and generated segments", text: request.contig, hint: "Optional for de novo design")
                             }
                             Text("Leave segments empty for de novo protein or ligand binders. Studio derives them from the selected target chain.").font(.caption)
@@ -381,7 +417,7 @@ struct RFD4ConfigurationFields: View {
     private var executionForm: some View {
                 DisclosureGroup("Execution") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Toggle("Use optimized GPU operations", isOn: request.optimized_kernels)
+                        Toggle("Use optimized GPU operations (default for new jobs)", isOn: request.optimized_kernels)
                         Text("Combines GPU operations while preserving the model, weights and sampling steps. The tested outputs were identical to the standard implementation, including sequences and coordinates. This is a speed option; biological accuracy was not independently compared.").font(.caption)
                         Text("Reference comparisons run during developer validation, not during your design job. Each requested design is generated once; completed outputs are checked for finite values, sequence identity and complete sampling before reuse.").font(.caption).foregroundStyle(.secondary)
                         DisclosureGroup("Measured speed and output agreement") {
@@ -516,7 +552,7 @@ struct RFD4ConfigurationFields: View {
     }
     private var targetInput: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if ([.protein, .nanobody].contains(value.task) && !value.annotated_input) || (value.task == .nanobody && value.scaffold_id != nil) {
+            if ([.protein, .nanobody, .motif].contains(value.task) && !value.annotated_input) || (value.task == .nanobody && value.scaffold_id != nil) {
                 Picker("Target input", selection: $targetFromSequence) {
                     Text("Structure file").tag(false)
                     Text("Predict from sequence").tag(true)
@@ -543,7 +579,7 @@ struct RFD4ConfigurationFields: View {
                 if let path = targetPredictor.cifPath { Text("Ready: " + URL(fileURLWithPath: path).lastPathComponent).foregroundStyle(.secondary) }
             } else {
                 file(value.annotated_input && value.scaffold_id == nil ? "Annotated design structure (CIF)" : "Target structure (PDB or CIF)", path: request.source)
-                Text(value.task == .nanobody && value.scaffold_id != nil ? "Supply the protein you want the nanobody to bind. Studio adds the selected framework; this file is not the nanobody framework." : "Supply the target protein or protein assembly. Target chains are retained together during design.").font(.caption).foregroundStyle(.secondary)
+                Text(value.task == .motif ? "Supply the structure containing your motif. Selected residues and atoms define the motif; the rest of the source is not automatically retained." : value.task == .nanobody && value.scaffold_id != nil ? "Supply the protein you want the nanobody to bind. Studio adds the selected framework; this file is not the nanobody framework." : "Supply the target protein or protein assembly. Target chains are retained together during design.").font(.caption).foregroundStyle(.secondary)
             }
             if [.protein, .nanobody].contains(value.task) {
                 DisclosureGroup("Targets containing ligands or other molecules") {

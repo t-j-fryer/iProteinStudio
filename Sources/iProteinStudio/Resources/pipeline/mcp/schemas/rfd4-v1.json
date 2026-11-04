@@ -206,7 +206,7 @@
         },
         "optimized_kernels": {
           "type": "boolean",
-          "default": false
+          "default": true
         },
         "annotated_input": {
           "type": "boolean",
@@ -432,6 +432,111 @@
             "boolean",
             "null"
           ]
+        },
+        "motif": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Guided single-chain protein motif; compiled to native C_CRD/C_CRDGRP, C_SEQ, C_IDX and expandable contig segments. Source numbering comes from native parsing. Use annotated CIF for multi-chain/non-protein motifs.",
+          "additionalProperties": false,
+          "required": [
+            "residues",
+            "coordinate_mode",
+            "fix_sequence",
+            "unindexed",
+            "group_segments",
+            "prefix",
+            "linker",
+            "suffix"
+          ],
+          "properties": {
+            "residues": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "chain",
+                  "residue",
+                  "atoms"
+                ],
+                "properties": {
+                  "chain": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+                  },
+                  "residue": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "atoms": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+                    }
+                  }
+                }
+              }
+            },
+            "coordinate_mode": {
+              "enum": [
+                "absolute",
+                "relative"
+              ]
+            },
+            "fix_sequence": {
+              "type": "boolean"
+            },
+            "unindexed": {
+              "type": "boolean"
+            },
+            "group_segments": {
+              "type": "boolean"
+            },
+            "prefix": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2000
+              }
+            },
+            "linker": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2000
+              }
+            },
+            "suffix": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2000
+              }
+            },
+            "source_sha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "Optional fingerprint of the inspected source; changed files are rejected."
+            }
+          }
         }
       }
     }

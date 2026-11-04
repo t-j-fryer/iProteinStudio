@@ -178,7 +178,7 @@ Older-system inference remains untested. See [the dependency audit](MACOS_SUPPOR
   unchanged. These are search-score gates, not independent validation.
 - **Optimized GPU operations** are custom Metal pair operations. Reference comparison
   is performed in developer validation, not automatically within design jobs.
-  This is not an accuracy option or a guarantee of a speedup on every input. The option stays off by default.
+  This is not an accuracy option or a guarantee of a speedup on every input. New requests use this option by default; turn it off to use standard operations.
 
 ### Mixed protein–ligand targets
 
@@ -324,4 +324,34 @@ tested cases, not biological accuracy or equal binding yield across targets.
 Normal jobs no longer repeat designs against the reference. Developer validation
 retains matched standard/optimized comparisons; production retains output-integrity
 and resume checks. Existing saved plans keep their frozen behavior. The optimized
-option remains off by default.
+option is on by default for new requests; explicit saved choices are preserved.
+
+### Guided RFD4 motif authoring
+
+Choose Motif scaffolding and supply a PDB/CIF, or use Predict from sequence to
+prepare a saved structure through the normal queue. Choose motif residues in the
+viewer/list and their exact finite coordinate atoms; amber spheres mark those
+atoms. Input labels are the pinned native parser’s chain IDs and residue numbers.
+The inspected source hash is retained and checked before authoring.
+
+Geometry maps to native `C_CRD` (absolute) or `C_CRDGRP` (one relative group).
+Sequence identity maps to `C_SEQ`; sidechain coordinate selection requires fixed
+identity. Free sequence placement uses `C_IDX=false`, grouping either contiguous
+segments or individual residues. Prefix/linker/suffix minimum/maximum lengths
+compile to native expandable contig segments; 0–0 omits a segment. The guided
+form scaffolds one protein chain. Multi-chain/non-protein motifs and other native
+conditions remain available through annotated CIFs and the explicit condition editor.
+
+CLI/MCP use the same typed `motif` object. Example request (ordinary 2LZM chain A):
+
+```json
+{"task":"motif","source":"2LZM.pdb","motif":{"residues":[{"chain":"A","residue":10,"atoms":["N","CA","C","O"]}],"coordinate_mode":"absolute","fix_sequence":true,"unindexed":false,"group_segments":true,"prefix":[30,35],"linker":[5,10],"suffix":[30,35]}}
+```
+
+`rfd4_cli.py inspect-motif --root ROOT --config source.json --output INSPECTION`
+reads `{ "source": "2LZM.pdb" }` and saves the native inventory, normalized viewer
+CIF and source fingerprint. Sequence inputs use `target_prepare_plan` first;
+then pass its completed structure into the motif plan. Annotated CIFs retain
+their existing settings; typed motifs cannot silently override them.
+
+Native syntax: [upstream input preparation](https://rfd4-proteina.org/latest/how-to/input_prep/yaml-json.html).
