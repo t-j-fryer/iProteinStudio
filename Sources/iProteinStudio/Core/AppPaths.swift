@@ -198,28 +198,20 @@ enum AppPaths {
         bundledResource("examples")
     }
 
-    /// Copy the examples out, and seed the alignment cache with the one they
-    /// ship. Without that seeding a new user's first action queues behind a
-    /// public MSA server, which often takes longer than the fold and sometimes
-    /// simply fails — the worst possible first impression, and avoidable
-    /// because the alignment is already in the bundle.
+    /// Refresh bundled examples and cache any explicitly supplied alignments.
     static func stageExamples() {
         guard let src = bundledExamples,
               let items = try? fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
         else { return }
         for item in items {
             let dest = examplesDir.appendingPathComponent(item.lastPathComponent)
-            // Examples are versioned application assets, not user projects.
-            // Refresh them atomically so a corrected structure reaches an
-            // existing installation as well as a clean one. Keeping the first
-            // copy forever previously pinned a scientifically invalid aCbx
-            // target even after the bundle was fixed.
+            // Refresh versioned assets without changing saved user inputs.
             try? stageBundledItem(item, at: dest)
-        }
-        let alignment = examplesDir.appendingPathComponent("acbx/target_msa.a3m")
-        let seeded = msaCache.appendingPathComponent("example_acbx.a3m")
-        if fm.fileExists(atPath: alignment.path), !fm.fileExists(atPath: seeded.path) {
-            try? fm.copyItem(at: alignment, to: seeded)
+            let alignment = item.appendingPathComponent("target_msa.a3m")
+            let seeded = msaCache.appendingPathComponent("example_\(item.lastPathComponent).a3m")
+            if fm.fileExists(atPath: alignment.path), !fm.fileExists(atPath: seeded.path) {
+                try? fm.copyItem(at: alignment, to: seeded)
+            }
         }
     }
 

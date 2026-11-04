@@ -1,9 +1,0 @@
-sequences:
-  - protein:
-      id: A
-      sequence:
-      msa: empty
-  - protein:
-      id: B
-      sequence: IRCFITPDITSKDCPNGHVCYTKTWCDAFCSIRGKRVDLGCAATCPTVKTGVDIQCCSTDNCNPFPTRKRP
-version: 1

@@ -1,0 +1,18 @@
+{
+  "pdb_id": "2LZM",
+  "source_chain": "A",
+  "target_chain": "B",
+  "residues": 164,
+  "sequence": "MNIFEMLRIDEGLRLKIYKDTEGYYTIGIGHLLTKSPSLNAAKSELDKAIGRNCNGVITKDEAEKLFNQDVDAAVRGILRNAKLKPVYDSLDAVRRCALINMVFQMGETGVAGFTNSLRMLQQKRWDEAAVNLAKSRWYNQTPNRAKRVITTFRTGTWDAYKNL",
+  "source_urls": {
+    "2LZM.pdb": "https://files.rcsb.org/download/2LZM.pdb",
+    "2LZM.cif": "https://files.rcsb.org/download/2LZM.cif"
+  },
+  "sha256": {
+    "target.fasta": "bc540ed2991a762f6530d8a9b520d1ce050f13c23007a961c6379c8caf8eb63e",
+    "2LZM.pdb": "a305932376e1e45428c956164117bd3ab1bbc59cdab6b2ae38b7974c0e83ce6f",
+    "2LZM.cif": "9fa81cd0454d37c53cd5046b96ef7d993a99c249e77a2da4dc3adf7cdc263d90",
+    "target.pdb": "52265ae69a6ab7968bbe7e37433ae34a923610ca512f00eb38b0a40d5a0a630f"
+  },
+  "transformation": "Keep ATOM records from chain A, relabel to B; preserve atom identities, residue numbering and coordinates. Omit solvent. Original PDB and CIF are unchanged."
+}

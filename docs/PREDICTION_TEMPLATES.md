@@ -5,7 +5,7 @@ using the same **Guide** mode as Protein Hunter. This works for monomers and
 protein complexes, including complexes that also contain a ligand.
 
 1. Enter your sequences and choose **Read & assign chains**.
-2. In **Structure template (optional)**, choose your structure file.
+2. Turn on **Use a structure template**, then choose your PDB/CIF file.
 3. Tick the **query chains** you want to guide. For a monomer this is usually A.
    For a binder–target complex, select only the target chains if the binder should
    remain untemplated. These are the chain letters assigned by Predict, which
@@ -17,12 +17,25 @@ protein complexes, including complexes that also contain a ligand.
 | Boltz-2 | Guide mode |
 | IntelliFold v2 Flash / full v2 | Guide mode, local template features |
 | Protenix v2 | Guide mode, local template features |
-| Protenix Mini / OpenFold-3 | Unavailable; remove the template or deselect these engines |
+| Protenix Mini / OpenFold-3 | Unavailable; turn off guidance or deselect these engines |
 
-The template section is available in both Quick and Advanced views. Removing
-its file returns to ordinary prediction. Changing template selection does not
-require re-reading unchanged sequences; changing sequences or their MSA policy
-does. A template does not replace your choice of alignment or Single sequence.
+Prediction has one setup form: alignments, sampling, throughput and all engine
+settings are available without an Advanced tab. Template controls appear only
+when **Use a structure template** is on. Switching it off removes the template
+from the submitted configuration while retaining the file and chain choices for
+later use. Older saved guided setups remain enabled on upgrade. Turning it on
+without an existing file blocks starting.
+
+The built-in **T4 lysozyme** example replaces any previous template selection
+with its bundled experimental **2LZM** PDB, selects query chain A, and leaves
+guidance off. The original PDB and mmCIF also ship under `examples/t4_lysozyme`.
+No T4 alignment is bundled: the selected policy reuses or prepares one. No
+structure is implicitly used as guidance while the switch is off. **4TW1** is
+a bacterial LukGH complex, not T4 lysozyme; previously saved imported templates
+remain user choices rather than defaults.
+
+Changing guidance does not require re-reading unchanged sequences; changing
+sequences or their alignment policy does. Templates and alignments are separate.
 
 ## Choosing chains and structures
 

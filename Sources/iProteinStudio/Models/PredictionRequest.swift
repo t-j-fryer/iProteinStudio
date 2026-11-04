@@ -115,8 +115,9 @@ struct PredictionRequest: Codable, Hashable {
     /// Imported workspace-owned structure, copied again into each prediction run.
     var templatePath: String = ""
     var templateChainIDs: [String] = []
+    var templateEnabled: Bool = false
 
-    var hasTemplate: Bool { !templatePath.isEmpty }
+    var hasTemplate: Bool { templateEnabled && !templatePath.isEmpty }
     var commonProteinChainIDs: [String] {
         guard let first = jobs.first else { return [] }
         return first.chains.filter { chain in
@@ -219,7 +220,7 @@ struct PredictionRequest: Codable, Hashable {
                 issues.append("ESMFold2 needs complete protein sequences, without X tokens.")
             }
         }
-        if hasTemplate {
+        if templateEnabled {
             if !["pdb", "cif", "mmcif"].contains(URL(fileURLWithPath: templatePath).pathExtension.lowercased())
                 || !FileManager.default.fileExists(atPath: templatePath) {
                 issues.append("Choose an existing PDB, CIF or mmCIF template file.")
@@ -277,7 +278,7 @@ struct PredictionRequest: Codable, Hashable {
         case prediction_settings
         case pastedSequences, sequenceFile, pairing, partnerSequence, partnerSmiles
         case binderMSA, partnerMSA, predictors, intellifoldModel, useBoltzPotentials, runAffinityHead
-        case templatePath, templateChainIDs
+        case templatePath, templateChainIDs, templateEnabled
         case offlineOnly, numberOfSeeds, diffusionSamples, maxParallel, batchSize, jobs, parsedInputSignature
     }
 
@@ -289,6 +290,8 @@ struct PredictionRequest: Codable, Hashable {
         let d = PredictionRequest()
         templatePath = try c.decodeIfPresent(String.self, forKey: .templatePath) ?? d.templatePath
         templateChainIDs = try c.decodeIfPresent([String].self, forKey: .templateChainIDs) ?? d.templateChainIDs
+        // Existing saved templates were active; preserve that intent on upgrade.
+        templateEnabled = try c.decodeIfPresent(Bool.self, forKey: .templateEnabled) ?? !templatePath.isEmpty
         pastedSequences   = try c.decodeIfPresent(String.self, forKey: .pastedSequences) ?? d.pastedSequences
         sequenceFile      = try c.decodeIfPresent(String.self, forKey: .sequenceFile) ?? d.sequenceFile
         pairing           = try c.decodeIfPresent(PairingMode.self, forKey: .pairing) ?? d.pairing

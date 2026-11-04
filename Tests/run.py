@@ -57,7 +57,7 @@ SCIENCE = [
     "test_monomer_initialization_pipeline.py",
     "test_workflow_pipelines.py", "test_rfd3_partial_validation.py", "test_rfd3_motif_scoring.py",
     "test_rfd3_worked_examples.py", "test_rfd3_surface_origins.py", "test_rfd3_target_export.py",
-    "test_acbx_example_integrity.py", "test_ligand_conditioning.py",
+    "test_lysozyme_example_integrity.py", "test_ligand_conditioning.py",
 ]
 
 

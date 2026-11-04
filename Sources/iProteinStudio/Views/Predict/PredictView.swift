@@ -18,7 +18,6 @@ struct PredictView: View {
     @State private var parseError: String?
     @State private var isParsing = false
     @State private var templateImportError: String?
-    @State private var setupExperience: SetupExperience = .quick
     @AppStorage("overrideMemoryCheck") private var overrideMemoryCheck = false
     @StateObject private var memory = MemoryAdmissionPreview()
 
@@ -48,27 +47,28 @@ struct PredictView: View {
             ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
-                SetupExperiencePicker(selection: $setupExperience)
                 ExamplesBar(kinds: [.protein]) { example in
                     request.wrappedValue.apply(example)
                     parse()
                 }
+                Text("The T4 lysozyme example includes its sequence and experimental structure (2LZM). Template guidance starts off. Alignments are prepared or reused according to your policy.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Card(title: "1 · Sequences", systemImage: "text.alignleft") { sequencesSection }
                 Card(title: "2 · How to fold them", systemImage: "square.on.square") { pairingSection }
-                if setupExperience == .advanced {
-                    Card(title: "3 · Alignments", systemImage: "square.stack.3d.down.right") { msaSection }
-                }
-                Card(title: "Structure template (optional)", systemImage: "cube.transparent") { templateSection }
-                Card(title: "4 · Engines", systemImage: "cpu") { engineSection }
-                if setupExperience == .advanced {
-                    Card(title: "5 · Sampling & throughput", systemImage: "gauge.with.dots.needle.67percent") {
-                        throughputSection
-                        PredictionSettingsView(settings: request.prediction_settings)
+                Card(title: "3 · Alignments", systemImage: "square.stack.3d.down.right") { msaSection }
+                Card(title: "Structure template (optional)", systemImage: "cube.transparent") {
+                    Toggle("Use a structure template", isOn: request.templateEnabled)
+                        .toggleStyle(.switch).accessibilityIdentifier("predict-template-enabled")
+                    if request.wrappedValue.templateEnabled { templateSection }
+                    else {
+                        Text("Off: supplied structure coordinates are not used to guide the prediction. Sequence alignments remain available separately.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                } else {
-                    Label("Alignments are reused automatically; measured throughput settings remain selected.",
-                          systemImage: "checkmark.seal")
-                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Card(title: "4 · Engines", systemImage: "cpu") { engineSection }
+                Card(title: "5 · Sampling & throughput", systemImage: "gauge.with.dots.needle.67percent") {
+                    throughputSection
+                    PredictionSettingsView(settings: request.prediction_settings)
                 }
             }
             .padding(28).frame(maxWidth: 860, alignment: .leading).frame(maxWidth: .infinity)
@@ -231,7 +231,9 @@ struct PredictView: View {
                 Button(request.wrappedValue.hasTemplate ? "Replace structure…" : "Choose PDB / CIF…") { importTemplate() }
                     .accessibilityIdentifier("predict-template-import")
                 if request.wrappedValue.hasTemplate {
-                    Text(URL(fileURLWithPath: request.wrappedValue.templatePath).lastPathComponent)
+                    Text(request.wrappedValue.templatePath == ExampleTarget.t4Lysozyme.structurePath
+                         ? "T4 lysozyme · 2LZM (bundled PDB)"
+                         : URL(fileURLWithPath: request.wrappedValue.templatePath).lastPathComponent)
                         .font(.caption.monospaced()).lineLimit(1).truncationMode(.middle)
                     Button("Remove") { request.wrappedValue.templatePath = ""; request.wrappedValue.templateChainIDs = [] }
                 }

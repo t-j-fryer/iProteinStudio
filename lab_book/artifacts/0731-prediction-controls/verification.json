@@ -1,0 +1,26 @@
+{
+  "build": "79",
+  "version": "0.2.32-dev",
+  "example": "T4 lysozyme / 2LZM",
+  "experimental_structure_integrity_tests": 3,
+  "bundle_files_match_source": true,
+  "old_example_not_bundled": true,
+  "ui": {
+    "isolated": true,
+    "synthetic_inputs": true,
+    "model_execution": false,
+    "prediction_advanced_removed": true,
+    "alignments_and_sampling_visible": true,
+    "template_switch_reveals_and_hides_fields": true,
+    "family_field_no_arrows": true,
+    "typed_family_count": 27,
+    "invalid_zero_shows_error": true,
+    "corrected_value_clears_error": true,
+    "metal_evidence_disclosure": true
+  },
+  "limits": [
+    "No new neural predictions or timing benchmarks",
+    "Public binary release held by prior ligand qualification failure",
+    "Existing user workspaces and runs unchanged"
+  ]
+}

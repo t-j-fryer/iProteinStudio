@@ -130,7 +130,7 @@ common=(
   --check-config
 )
 
-cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/examples/acbx/target.pdb" \
+cp "${REPO_ROOT}/Sources/iProteinStudio/Resources/examples/t4_lysozyme/target.pdb" \
   "${FIXTURE_ROOT}/target_template.pdb"
 
 output="$(NANOHUNTER_ROOT="${FIXTURE_ROOT}" NANOHUNTER_VENV_PREFIX=Test \

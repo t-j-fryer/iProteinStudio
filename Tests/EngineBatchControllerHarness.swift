@@ -18,6 +18,8 @@ enum AppPaths {
     static let fm = FileManager.default
     static let support = fm.temporaryDirectory.appendingPathComponent("engine-controller-\(UUID())")
     static var projects: URL { support.appendingPathComponent("projects") }
+    static var examplesDir: URL { support.appendingPathComponent("examples") }
+    static var bundledExamples: URL? { examplesDir }
     static var pipeline: URL { support.appendingPathComponent("pipeline") }
     static var msaCache: URL { support.appendingPathComponent("msa") }
     static var scaffoldMSACache: URL { support.appendingPathComponent("scaffold") }
@@ -82,6 +84,20 @@ enum RunResultsLoader { static func iterativeHitThreshold(root: URL) -> Double {
 @main struct EngineBatchControllerHarness {
     @MainActor static func main() async throws {
         defer { try? AppPaths.fm.removeItem(at: AppPaths.support) }
+        var prediction = PredictionRequest()
+        prediction.templateEnabled = true
+        prediction.templatePath = "previous-target.pdb"
+        prediction.templateChainIDs = ["B"]
+        prediction.apply(.t4Lysozyme)
+        precondition(!prediction.templateEnabled && !prediction.hasTemplate)
+        precondition(prediction.templatePath == ExampleTarget.t4Lysozyme.structurePath && prediction.templateChainIDs == ["A"])
+        precondition(PredictionController.config(request: prediction, outputDir: AppPaths.support).template == nil)
+        prediction.templateEnabled = true
+        let guided = PredictionController.config(request: prediction, outputDir: AppPaths.support)
+        precondition(guided.template?.path == ExampleTarget.t4Lysozyme.structurePath && guided.template?.chains == ["A"])
+        prediction.templateEnabled = false
+        precondition(PredictionController.config(request: prediction, outputDir: AppPaths.support).template == nil,
+                     "Turning the switch off must remove the template from execution, not just hide it")
         var project = Project(name: "Engine fixture")
         project.request.designType = .minibinder
         project.request.targetSequence = "ACDEFGHIKLMN"

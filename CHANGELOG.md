@@ -2,6 +2,9 @@
 
 ## 0.2.32 — Unified backbone design and explicit objectives
 
+- Use T4 lysozyme (2LZM) as the built-in protein example, with verified PDB/CIF and explicit template guidance.
+- Make RFD4 family budgets typeable, explain measured Metal speed/output checks, and combine Prediction setup controls in one form.
+
 - Configure RFdiffusion3 and RFD4 in one form with an in-form generator selector.
 - Allocate nanobody starts across multiple frameworks with adjustable weights.
 - Select supported ranking metrics for sequence and native rollout searches; expose ESMFold2 ligand-confidence routes alongside Boltz.

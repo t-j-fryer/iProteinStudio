@@ -109,7 +109,7 @@ struct ProjectSidebar: View {
             NameEditorSheet(
                 title: "New Workspace",
                 prompt: "A workspace can contain predictions, Protein Hunter, and RFdiffusion3 runs for the same piece of work.",
-                placeholder: "e.g. Cobratoxin binders",
+                placeholder: "e.g. Lysozyme binders",
                 name: $newName,
                 actionLabel: "Create"
             ) {

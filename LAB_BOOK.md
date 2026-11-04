@@ -360,3 +360,5 @@ Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-
 - [0726 — Merge backbone form and ligand highlights](lab_book/0726-merge-backbone-form-and-ligand-highlights.md)
 
 - [0727 — Publish unified design release](lab_book/0727-publish-unified-design-release.md)
+
+- [0731 — Simplify prediction controls and replace the protein example](lab_book/0731-prediction-controls-and-lysozyme.md)

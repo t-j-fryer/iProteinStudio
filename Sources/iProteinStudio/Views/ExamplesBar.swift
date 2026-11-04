@@ -2,10 +2,8 @@ import SwiftUI
 
 /// Offers the worked examples at the top of a tab.
 ///
-/// A new user with no target of their own otherwise has nothing to press. Both
-/// examples are real: α-cobratoxin is an antivenom target and ships with its
-/// alignment already generated, so pressing one of these does not begin with a
-/// wait on a public server.
+/// The protein example includes an experimental structure; the small-molecule
+/// example demonstrates the shared molecule controls.
 struct ExamplesBar: View {
     /// Only examples this tab can actually use.
     var kinds: Set<ExampleTarget.Kind> = [.protein, .smallMolecule]

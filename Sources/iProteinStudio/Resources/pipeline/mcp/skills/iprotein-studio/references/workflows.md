@@ -118,3 +118,12 @@ geometry can come from mapped RFD3 residues or the original benchmark residues.
 Only Boltz automatic cycling is exposed; Protenix/IntelliFold features are
 CPU-qualified, not qualified model workflows. General custom-motif X-token
 scaffolding is unavailable. See references/evidence.md for the evidence limits.
+
+## Built-in protein example
+
+Use T4 lysozyme (PDB 2LZM, 164 residues) when the user requests the built-in
+protein example. The app bundles its sequence and experimental PDB/CIF. No
+alignment is bundled: retain the user's alignment policy and preflight any
+requested preparation. Structure guidance is optional and must be explicit;
+ordinary prediction does not use the example coordinates as a hidden template.
+Saved user targets and frozen runs are not replaced by this example update.

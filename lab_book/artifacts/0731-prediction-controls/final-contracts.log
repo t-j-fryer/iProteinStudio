@@ -1,0 +1,19 @@
+PASS workflow request contract
+Sources/iProteinStudio/Core/RFD3Controller.swift:181:32: warning: 'init(contentsOf:)' was deprecated in macOS 15: Use `init(contentsOf:encoding:)` instead [#DeprecatedDeclaration]
+179 |             // Compatibility for campaigns launched before the durable broker.
+180 |             // Keep polling until their recorded process has actually exited.
+181 |             if let text = try? String(contentsOf: campaign.appendingPathComponent("campaign.pid")),
+    |                                `- warning: 'init(contentsOf:)' was deprecated in macOS 15: Use `init(contentsOf:encoding:)` instead [#DeprecatedDeclaration]
+182 |                let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 1 {
+183 |                 kill(lastWasProtein ? pid : -pid, SIGTERM)
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+PASS scaffold equal/custom budgets, round-trip, exclusions and 21 engine/scaffold campaign manifests
+PASS immediate numeric edits, invalid submission gates, per-framework mode, selection changes, round-trip and batch result root
+PASS queue submission across workspaces, independent manifests, observation switching and submission guard
+PASS NISE history exposes phase progress before the first scored candidate
+PASS prepared batch is not resumable interruption; queue and interrupted history remain distinct
+PASS NISE, Predict and RFdiffusion3 queue observation, workspace switching and pending-job guards
+PASS native engine-batch preparation, saved launch records, progress routing and all-before-submit failure
+PASS Predict template request, persistence and chain/engine constraints
+PASS RFD4 length allocation, validation, frozen settings and backward decoding

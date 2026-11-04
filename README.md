@@ -254,3 +254,11 @@ analysis and atom inspection, preview suggested restraints, and show coloured
 atom-role rings with Clear all. Target and framework alignments are sequence MSAs.
 The same request fields are available through CLI and MCP 52; see
 [the RFD4 guide](docs/RFD4.md) and [CLI reference](docs/CLI.md).
+
+### Built-in protein example
+
+The app and default protein CLI recipe use **T4 lysozyme (2LZM)**. The 164-residue
+sequence, original experimental PDB/mmCIF and a chain-B target PDB are bundled
+under `Sources/iProteinStudio/Resources/examples/t4_lysozyme/`. Template guidance
+in Predict is an explicit on/off switch, off when the example is selected.
+No precomputed T4 alignment is bundled; alignment policy remains explicit.

@@ -32,3 +32,5 @@ experimental peptide workflow code and private beta installation controls.
 - [ ] Publish only after explicit release authorization; this work stays local.
 
 - [x] One in-form RFD3/RFD4 generator selector, explained molecule actions, reviewed suggestions, Clear all and visible atom-role overlays; optional tautomer notes (Lab Book 0726).
+
+- [x] Typed RFD4 family budgets, measured Metal help, unified Prediction setup and optional templates; T4 lysozyme/2LZM example (Lab0731).

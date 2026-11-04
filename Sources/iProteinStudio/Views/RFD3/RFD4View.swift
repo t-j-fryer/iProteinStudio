@@ -92,6 +92,7 @@ struct RFD4ConfigurationFields: View {
     @State private var targetEngine: TargetEngine = .esmfold2Full
     @StateObject private var targetPredictor = TargetPredictor()
     @State private var customCDRs = false
+    @StateObject private var numericValidation = NumericInputValidation()
     @StateObject private var ligandIntelligence = LigandIntelligence(useRFD4Runtime: true)
     @StateObject private var ligandInspector = RFD3TargetInspector(useRFD4Runtime: true)
     @State private var showEpitope = false
@@ -131,7 +132,8 @@ struct RFD4ConfigurationFields: View {
             }
             Divider()
             startBar
-        }.onAppear { synchronizeTextInputs() }
+        }.environment(\.numericInputValidation, numericValidation)
+        .onAppear { synchronizeTextInputs() }
         .sheet(isPresented: $showEpitope) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Choose the target epitope").font(.title2)
@@ -212,7 +214,14 @@ struct RFD4ConfigurationFields: View {
                             if value.time_budget_minutes != nil {
                                 StudioFormField("Active design time (minutes)") { TextField("Minutes", value: Binding(get: { value.time_budget_minutes ?? 60 }, set: { request.wrappedValue.time_budget_minutes = $0 }), format: .number) }
                                 Text("Finishes the current operation and saves completed candidates. Queue time is excluded.").font(.caption).foregroundStyle(.secondary)
-                            } else { Stepper("Families: \(value.count)", value: request.count, in: 1...10000) }
+                            } else {
+                                StudioFormField("Families") {
+                                    EditableIntStepper(value: request.count, in: 1...10000,
+                                        accessibilityLabel: "Families", showsStepper: false)
+                                }
+                                Text("Independent starting structures. Enter a whole number from 1 to 10,000.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                         } else {
                             Text("\(value.starting_structures.count) imported structures, one per family")
                             Button("Generate new structures") { request.wrappedValue.starting_structures = []; request.wrappedValue.count = 1 }
@@ -374,7 +383,17 @@ struct RFD4ConfigurationFields: View {
                 DisclosureGroup("Execution") {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle("Use optimized GPU operations (checked against reference)", isOn: request.optimized_kernels)
-                        Text("Uses custom Metal operations for pair representations inside RFD4. The first structure in each generation stage (and at each new length) is generated twice to check exact agreement with the standard implementation; a mismatch stops the run. This adds an initial checking cost and is not an accuracy setting.").font(.caption)
+                        Text("Combines GPU operations while preserving the model, weights and sampling steps. The tested outputs were identical to the standard implementation, including sequences and coordinates. This is a speed option; biological accuracy was not independently compared.").font(.caption)
+                        Text("The first structure in each generation stage, and at each new length, is generated twice to check exact agreement. A mismatch stops the run. This extra check can outweigh the saving in short runs.").font(.caption).foregroundStyle(.secondary)
+                        DisclosureGroup("Measured speed and output agreement") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("M4 Max · 40 GPU cores · 64 GB · warmed 64/128-residue generation")
+                                    .font(.caption.weight(.semibold))
+                                Text("Triangle operations: 5.5–12.9% less generation time in the seven consistently faster test settings. One other setting was inconclusive. The added pair operations saved a further 8.2–12.2% against that triangle baseline in a separate test. These are separate comparisons, not a measured combined speedup.")
+                                Text("All saved output tensors matched exactly in those comparisons (0 Å coordinate difference). For a 216-token SUMO–binder first-call check, standard/optimized generation took 41.50/41.67 seconds: identical outputs, but no speed advantage in that single comparison.")
+                                Text("These timings exclude model loading, input preparation, export and downstream prediction. They do not establish a whole-workflow speedup or unchanged binding success across targets. Sources: Lab Books 0502, 0506 and 0514; details in docs/RFD4.md.")
+                            }.font(.caption).foregroundStyle(.secondary)
+                        }
                         MemoryPolicyControl()
                     }.padding(8)
                 }
@@ -388,7 +407,7 @@ struct RFD4ConfigurationFields: View {
             }
             Spacer()
             Button("Start RFD4 run") { controller.start(request: value, project: project, name: name) }
-                .buttonStyle(.borderedProminent).disabled(!ready || !value.validationIssues.isEmpty || !controller.canStartAnother || hotspotError != nil || checkpointError != nil || (targetFromSequence && targetPredictor.cifPath != value.source) || targetPredictor.isRunning)
+                .buttonStyle(.borderedProminent).disabled(!numericValidation.invalidEditors.isEmpty || !ready || !value.validationIssues.isEmpty || !controller.canStartAnother || hotspotError != nil || checkpointError != nil || (targetFromSequence && targetPredictor.cifPath != value.source) || targetPredictor.isRunning)
         }.padding(.horizontal, 28).padding(.vertical, 14).background(.bar)
     }
     private var progressLog: String { controller.log.suffix(60).joined(separator: "\n") }

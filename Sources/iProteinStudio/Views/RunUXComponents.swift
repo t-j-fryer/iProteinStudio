@@ -26,15 +26,17 @@ struct EditableIntStepper: View {
     let step: Int
     let suffix: String
     let accessibilityLabel: String
+    let showsStepper: Bool
     @Environment(\.numericInputValidation) private var validation
     @State private var editorID = UUID()
     @State private var draft: String
     @FocusState private var isFocused: Bool
 
     init(value: Binding<Int>, in range: ClosedRange<Int>, step: Int = 1,
-         suffix: String = "", accessibilityLabel: String) {
+         suffix: String = "", accessibilityLabel: String, showsStepper: Bool = true) {
         _value = value; self.range = range; self.step = max(1, step)
         self.suffix = suffix; self.accessibilityLabel = accessibilityLabel
+        self.showsStepper = showsStepper
         _draft = State(initialValue: String(value.wrappedValue))
     }
     private var parsed: Int? {
@@ -54,8 +56,10 @@ struct EditableIntStepper: View {
                     .monospacedDigit().frame(width: 76).focused($isFocused)
                     .accessibilityLabel(accessibilityLabel)
                 if !suffix.isEmpty { Text(suffix).foregroundStyle(.secondary) }
-                Stepper("", value: Binding(get: { value }, set: { edit(String($0)) }), in: range, step: step)
-                    .labelsHidden().fixedSize().accessibilityLabel("Adjust \(accessibilityLabel)")
+                if showsStepper {
+                    Stepper("", value: Binding(get: { value }, set: { edit(String($0)) }), in: range, step: step)
+                        .labelsHidden().fixedSize().accessibilityLabel("Adjust \(accessibilityLabel)")
+                }
             }
             if parsed == nil {
                 Text("Enter a whole number from \(range.lowerBound) to \(range.upperBound).")

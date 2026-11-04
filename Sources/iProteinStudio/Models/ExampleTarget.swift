@@ -3,11 +3,8 @@ import Foundation
 /// Worked examples, so a new user can see the app do something real before
 /// having a target of their own.
 ///
-/// Both ship with everything needed to run immediately — including aCbx's
-/// alignment, 1,148 sequences already generated. That matters more than it
-/// sounds: without it the first thing a new user experiences is a wait on a
-/// public MSA server, which frequently takes longer than the fold and sometimes
-/// fails outright.
+/// T4 lysozyme ships with its experimental PDB/CIF. Alignment preparation
+/// follows the selected policy; no precomputed T4 alignment is bundled.
 struct ExampleTarget: Identifiable, Hashable {
     enum Kind: Hashable { case protein, smallMolecule }
 
@@ -27,14 +24,13 @@ struct ExampleTarget: Identifiable, Hashable {
     var attachmentCoreAtom: Int?
     var attachmentLinkerAtom: Int?
 
-    static let acbx = ExampleTarget(
-        id: "acbx",
-        name: "α-Cobratoxin",
-        subtitle: "71-residue snake toxin · alignment included",
+    static let t4Lysozyme = ExampleTarget(
+        id: "t4_lysozyme",
+        name: "T4 lysozyme",
+        subtitle: "164-residue enzyme · PDB/CIF 2LZM included",
         kind: .protein,
-        goodFor: "Folding, and designing binders against a real antivenom target. Its alignment ships with the app, so nothing waits on a server.",
-        sequence: "IRCFITPDITSKDCPNGHVCYTKTWCDAFCSIRGKRVDLGCAATCPTVKTGVDIQCCSTDNCNPFPTRKRP",
-        hotspots: ["B67", "B69", "B71"])
+        goodFor: "Try protein prediction or binder setup using an experimental enzyme structure. Alignments follow your selected policy; none is bundled.",
+        sequence: "MNIFEMLRIDEGLRLKIYKDTEGYYTIGIGHLLTKSPSLNAAKSELDKAIGRNCNGVITKDEAEKLFNQDVDAAVRGILRNAKLKPVYDSLDAVRRCALINMVFQMGETGVAGFTNSLRMLQQKRWDEAAVNLAKSRWYNQTPNRAKRVITTFRTGTWDAYKNL")
 
     static let fluorescein = ExampleTarget(
         id: "fluorescein",
@@ -48,13 +44,15 @@ struct ExampleTarget: Identifiable, Hashable {
         attachmentCoreAtom: 1,
         attachmentLinkerAtom: 2)
 
-    static let all: [ExampleTarget] = [.acbx, .fluorescein]
+    static let all: [ExampleTarget] = [.t4Lysozyme, .fluorescein]
 
     /// The structure file, for RFdiffusion3 — which designs against geometry,
     /// not sequence, so a protein target needs coordinates.
     var structurePath: String? {
         guard kind == .protein else { return nil }
-        return AppPaths.examplesDir.appendingPathComponent("\(id)/target.pdb").path
+        // Beta cannot stage shared example assets. Read this app's bundled
+        // version; controllers preserve their own run-scoped input copy.
+        return AppPaths.bundledExamples?.appendingPathComponent("\(id)/target.pdb").path
     }
 }
 
@@ -104,16 +102,15 @@ extension RFD3Request {
             structureTargetSequence = example.sequence
             targetStructurePath = example.structurePath ?? ""
             targetChain = "B"
-            // The bundled example PDB contains the complete mature toxin as
+            // The bundled example PDB contains the complete protein as
             // chain B. Record the full motif explicitly: the protein campaign
             // needs the sequence to build its cached target MSA, while RFD3
             // needs the complete residue range rather than the one-residue
             // fallback used for an otherwise unspecified target.
             targetContig = "B1-\(example.sequence.count)"
-            // No scientifically validated aCbx epitope ships with Studio.
+            // No scientifically validated T4 lysozyme epitope ships with Studio.
             // Start a real campaign by sampling the solvent-accessible surface
-            // instead of presenting the legacy B67/B69/B71 execution fixture
-            // as a proven hotspot constraint.
+            // without presenting a default hotspot as a validated interface.
             conditions = [:]
             surfacePatchResidues = []
             originStrategy = .surfaceScan
@@ -237,8 +234,13 @@ extension PredictionRequest {
         pastedSequences = ">\(example.name)\n\(example.sequence)\n"
         sequenceFile = ""
         pairing = .monomer
-        // The alignment ships with the app, so this costs nothing.
+        // Reuse a matching alignment or prepare one under the selected policy.
         binderMSA = .auto
+        // An example must never inherit another target's template. Offer the
+        // matching experimental structure, with guidance explicitly off.
+        templateEnabled = false
+        templatePath = example.structurePath ?? ""
+        templateChainIDs = templatePath.isEmpty ? [] : ["A"]
         jobs = []
         parsedInputSignature = ""
     }

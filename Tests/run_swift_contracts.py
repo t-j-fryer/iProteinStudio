@@ -21,6 +21,7 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
         ]] + ["Tests/WorkflowRequestContractHarness.swift"],
         "engine_batch_controller": [SOURCE + "Models/" + name for name in MODELS] + [
             SOURCE + "Models/NISERequest.swift", SOURCE + "Models/PredictionRequest.swift",
+            SOURCE + "Models/ExampleTarget.swift",
             SOURCE + "Models/RunNaming.swift",
             SOURCE + "Core/NISEController.swift", SOURCE + "Core/PredictionController.swift",
             SOURCE + "Core/RFD3Controller.swift", SOURCE + "Core/TargetStructureSnapshot.swift", SOURCE + "Core/ProcessRunner.swift",

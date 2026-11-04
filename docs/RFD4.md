@@ -297,3 +297,28 @@ for its interaction-search experiment; that is distinct from requiring routine
 tautomer enumeration. See [the paper](https://rfd4-proteina.org/assets/paper/RFD4-Proteina.pdf)
 and [upstream interaction-metric settings](https://github.com/RosettaCommons/RFD4-Proteina/blob/main/configs/metrics/inline_metrics/ipa_metrics.yaml),
 where the inspected version has `tautomerise: false`.
+
+### Editable family budgets and Metal evidence
+
+**Families** accepts a typed integer from 1 to 10,000. Empty, non-integer and
+out-of-range edits block Start rather than silently submitting the prior budget.
+
+**Optimized GPU operations** combines custom triangle and pair operations while
+preserving model weights and sampling steps. Recorded results on an Apple M4 Max
+(40 GPU cores, 64 GB, macOS 26.6.1, BF16 MPS, Torch 2.14.1):
+
+| Comparison | Observed reduction in generation time | Scope |
+| --- | --- | --- |
+| Standard → triangle operations | 5.48–12.93% mean reductions in seven settings with both paired measurements faster | Warmed unconditional 64/128 residues, batches 1/2/4/8; 64-residue batch 8 was inconclusive |
+| Triangle → added pair operations | 8.17–12.21% | Separate warmed 64/128-residue batch 1/4 tests; four measurements per arm/settings |
+| Standard → triangle + pair, target-conditioned first call | No saving: 41.498279 → 41.673889 s | One 216-token SUMO–binder call per arm, including first-use effects |
+
+These numbers are copied from measured Lab Books 0502, 0506 and 0514, not new
+measurements. The two warmed comparisons cannot be multiplied into a claimed
+total speedup. They exclude model loading, preparation, export and downstream
+prediction. All compared saved tensor fields and sequences matched exactly;
+coordinate differences were zero. That establishes output agreement for the
+tested cases, not biological accuracy or equal binding yield across targets.
+Studio repeats the first structure in each generation stage/new length against
+the reference and stops on a mismatch. The check adds overhead, so short runs
+may take longer. The option remains off by default.

@@ -1086,3 +1086,9 @@ values are arrays drawn from `buried`, `exposed`, `hotspot`, `hbondDonor` and
 `hbondAcceptor`. Source atom identities and the translation to native RFD4 names
 are saved with preparation output. See [configuration and current qualification
 limits](RFD4.md#shared-backbone-configuration-local-candidate).
+
+The built-in protein example is now T4 lysozyme: the default protein YAML is
+`examples/t4_lysozyme_bind.yaml` (164-residue 2LZM sequence). The app bundles both
+original RCSB PDB/CIF files and a target-chain PDB. Existing explicitly supplied
+YAMLs and saved run snapshots retain their own inputs. No T4 MSA or validated
+binder hotspot is implied by this example.

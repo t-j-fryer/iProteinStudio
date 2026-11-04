@@ -5,3 +5,6 @@ Sources/iProteinStudio/Resources/pipeline/patches/*.patch -whitespace
 # PDB records have fixed-width fields; pinned upstream fixtures retain their hashes.
 Sources/**/*.pdb -whitespace
 Sources/iProteinStudio/Resources/pipeline/scripts/motif_beta/data/upstream/* -whitespace
+
+# Preserve the unchanged RCSB mmCIF download and its recorded hash.
+Sources/iProteinStudio/Resources/examples/t4_lysozyme/2LZM.cif -whitespace
