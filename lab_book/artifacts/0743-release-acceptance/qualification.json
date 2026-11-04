@@ -1,0 +1,186 @@
+{
+  "passed": true,
+  "version": "0.2.32",
+  "build": 81,
+  "bridge": 53,
+  "source_commit": "e5100c2458ab93f61b76c7aca7aae9cea43cad1a",
+  "hardware": "Apple M4 Max, 40-core GPU, 64 GB unified memory",
+  "scope": "Bounded technical integration, not efficacy or performance",
+  "checks": [
+    {
+      "name": "framework-weights",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "passed": true,
+      "predictions": 4,
+      "objective": "iptm"
+    },
+    {
+      "name": "ligand-full-conformers",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "passed": true,
+      "predictions": 4,
+      "objective": "ligand_plddt"
+    },
+    {
+      "name": "ligand-fast",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "passed": true,
+      "predictions": 2,
+      "objective": "iptm"
+    },
+    {
+      "name": "ligand-boltz",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "passed": true,
+      "predictions": 2,
+      "objective": "ligand_plddt"
+    },
+    {
+      "name": "native-objective",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "passed": true,
+      "predictions": 2,
+      "objective": "iptm"
+    },
+    {
+      "name": "optimized-t4",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "passed": true,
+      "predictions": 0,
+      "generated": 1
+    },
+    {
+      "name": "standard-t4",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "passed": true,
+      "predictions": 0,
+      "generated": 1
+    },
+    {
+      "name": "ligand-600",
+      "code_sha256": "5dd2cfd1ccd3cc5f47a65097ba5c61f3139901f2e39f5da53ee1a53c8e3fe999",
+      "passed": true,
+      "predictions": 2,
+      "objective": "complex_plddt"
+    }
+  ],
+  "prediction_checks": [
+    {
+      "name": "t4-template-off",
+      "passed": true,
+      "template_enabled": false,
+      "structure_sha256": "f18694313a22e34199c9f82af914703a89dcb7636829a7685e2ecbe56b495646"
+    },
+    {
+      "name": "t4-template-on",
+      "passed": true,
+      "template_enabled": true,
+      "structure_sha256": "8e2c28c767ff0e7004a59bb8412898785366c0b6244fdd907028d18a2fb04be7"
+    }
+  ],
+  "kernel_parity": {
+    "passed": true,
+    "seed": 740,
+    "exact": true
+  },
+  "execution_contracts": [
+    {
+      "name": "framework-weights",
+      "plan_sha256": "1cb598bd5dc140c0bfb642d0ab07d6c5acb8512385b57a8eaa34f35d21f101d6",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "memory_summary_sha256": "a9fb7022d69563659ea1a1a0b4de071f846512014fd5a426547aa69b77e8f50e"
+    },
+    {
+      "name": "ligand-full-conformers",
+      "plan_sha256": "f06c2e883d5082c76b713e59446b271c85ff2cf73e557f01624ceab1d2e2dece",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "memory_summary_sha256": "e61d5c8e1b15eaf20a29695ba3a63636596ebb9cba285fffd632867350d5748d"
+    },
+    {
+      "name": "ligand-fast",
+      "plan_sha256": "83fd9d5123ebf8c07c775f6357100c4355abcd2dd7dd69618668a8e5dd34e364",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "memory_summary_sha256": "11862fb1b317eda8ca06418a49538fe2cb9a9cb1735cdc664e8af9bc32e2eecb"
+    },
+    {
+      "name": "ligand-boltz",
+      "plan_sha256": "1d070f8c6c9703557cf12480094c6cca0ba4d10612483004d301df1c76405720",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "memory_summary_sha256": "1552671cb9559cf83d0ab963e2d39b5b30c26c1ed92b3a67ddec80890f3ce49d"
+    },
+    {
+      "name": "native-objective",
+      "plan_sha256": "8c5340f43bbbc8eaee0d49e092c40a31437394ac524108d7084c9b23d8eeb623",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "memory_summary_sha256": "23558e213766cb573b2feb9e6a19579923271922cda60cbee64837f4dfbc98d2"
+    },
+    {
+      "name": "optimized-t4",
+      "plan_sha256": "e958cc8ba7827d02373a9ee418df698ccd37c937f5a1e9b431e7a90302c3eb13",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "memory_summary_sha256": "891bd599ccf33aafd76c5a6429e603b066b1d0852670861fe66f632937bb9a42"
+    },
+    {
+      "name": "standard-t4",
+      "plan_sha256": "6bd0289dafcc228b3b7646a0ad8de71f52d9c173296e735e52efd6b84a460000",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "memory_summary_sha256": "a286836a561fbfa2bbd711a82b4dd5009b43527306b0504fbd254bf2a0bcdc74"
+    },
+    {
+      "name": "ligand-600",
+      "plan_sha256": "20024870592d31408c4fa2708e886b47a29041c56801a13c46fe71e4bf64a9c9",
+      "code_sha256": "5dd2cfd1ccd3cc5f47a65097ba5c61f3139901f2e39f5da53ee1a53c8e3fe999",
+      "memory_summary_sha256": "4788aa322d1a830ef9471759e66195a88828c374ba32f532e5caa2c08d4f8936"
+    },
+    {
+      "name": "t4-template-off",
+      "plan_sha256": "99bca0a2a62386a507d97312e5082135c5af188c1d0ae86a20fe96124873cbad",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "memory_summary_sha256": "1a6027beb59536c814ee24426d64d1a16b23fc1362ce4ec4b61f317fe6395324"
+    },
+    {
+      "name": "t4-template-on",
+      "plan_sha256": "45620b20940cbae37b0a02ffa57877b643c03c6127ba8bc95719675c60b05bf6",
+      "code_sha256": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+      "memory_summary_sha256": "7851407cd557a18960bac28e202a7a1f538a196e5c38f6e195c0f5a81bb9ab7e"
+    }
+  ],
+  "source_qualification": {
+    "initial": "859dbaab7cdb72707595ed5b20b29bf2e1b0de58e99f4528fd6dd4d4e9c83854",
+    "final": "5dd2cfd1ccd3cc5f47a65097ba5c61f3139901f2e39f5da53ee1a53c8e3fe999",
+    "changed_files": [
+      "scripts/nise/esmfold_runtime.py"
+    ],
+    "files_checked": 358,
+    "reuse_reason": "Only the explicitly guarded 600M native receipt identity changed. Full/Fast paths return the original identity unchanged (targeted tests). The failed 600M job is replaced by a fresh immutable run; other routes retain their original snapshots."
+  },
+  "offline_checks": "68/68 command groups; four native chemistry, controller and 600M receipt tests; Swift and packaged resource checks",
+  "signature": "Archive Ed25519 verified against bundled Sparkle public key",
+  "assets": {
+    "BUILD_PROVENANCE.txt": {
+      "bytes": 433,
+      "sha256": "c89fa63a1424d90d6392136bd7ee0ebf6886b62ff4144e87f8825b5eb91d9e26"
+    },
+    "iProteinStudio-0.2.32-unsigned-beta-apple-silicon.zip": {
+      "bytes": 46831175,
+      "sha256": "fa31ae6516ced02405bbebf1d82a7771fdbd2da39f59ca4a26061da1b250a69d"
+    },
+    "appcast.xml": {
+      "bytes": 126996,
+      "sha256": "6f91beffc21622febe9738f0b95466d446b221df20fcc65f063152a91b33ab4b"
+    },
+    "SHA256SUMS.txt": {
+      "bytes": 240,
+      "sha256": "d1a52610f7f23184e7bbbff22b417a3186de03afa14d57cd0e39741c7a2578c4"
+    },
+    "iProteinStudio-0.2.32-unsigned-beta-apple-silicon.dmg": {
+      "bytes": 50963563,
+      "sha256": "6dc11d9630183a3b7740486611eed2eb4dd1b95349d5a78f30410dcbd2ef399a"
+    }
+  },
+  "limitations": [
+    "Bounded technical integration, not biological efficacy or whole-workflow speed qualification.",
+    "No new hardware/OS qualification; no interactive VoiceOver or Apple Gatekeeper/notarization check in this round.",
+    "Existing ad-hoc-signed trusted beta distribution channel; not Developer ID signed or Apple notarized."
+  ]
+}

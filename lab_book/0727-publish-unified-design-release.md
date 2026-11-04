@@ -4,7 +4,7 @@ title: Qualify and publish unified design release
 date: 2026-11-03
 author: Codex
 type: implementation
-status: in-progress
+status: completed
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory
 tags: [release, rfd4, mcp, cli]
 ---
@@ -52,3 +52,10 @@ The retained delivery gate will publish only after all six checks and the output
 audit pass, with source/artifact hashes, clean public tree and unchanged remote
 main rechecked. Installation additionally waits for idle jobs and closed installed
 apps, preserves backups, and rejects an independently changed installation.
+
+## Final delivery follow-up
+
+The original failed acceptance attempt remains intact. Validation0360 and Lab
+Book0743 record the corrected source and all ten passing final routes. Published
+`v0.2.32-beta`, build81 / MCP53, from `e5100c2458ab93f61b76c7aca7aae9cea43cad1a`.
+The earlier build78 draft was replaced only after the new acceptance passed.

@@ -26,3 +26,10 @@ The first framework route queued successfully. The first ligand request was
 blocked by import-root policy; its raw request is retained. A separate managed-input
 preparation ledger uses the same scientific fixtures copied into the owned project.
 The audit combines both ledgers; no global import policy change was made.
+
+## Final delivery follow-up
+
+The original failed acceptance attempt remains intact. Validation0360 and Lab
+Book0743 record the corrected source and all ten passing final routes. Published
+`v0.2.32-beta`, build81 / MCP53, from `e5100c2458ab93f61b76c7aca7aae9cea43cad1a`.
+The earlier build78 draft was replaced only after the new acceptance passed.

@@ -28,8 +28,8 @@ experimental peptide workflow code and private beta installation controls.
   explicit sequence-search metrics, MSA explanations and clickable RFD4 epitopes.
 - [x] Share ligand analysis/conformer inputs with RFD4 using explicit native atom
   mapping; expose existing ESMFold2 ligand-confidence adapters.
-- [ ] Complete GPU qualification of newly exposed combinations before publishing.
-- [ ] Publish only after explicit release authorization; this work stays local.
+- [x] Complete GPU qualification: all ten final routes passed (Lab Book 0743, Validation 0360).
+- [x] Publish 0.2.32 build81 / MCP53 after explicit authorization and final GPU acceptance.
 
 - [x] One in-form RFD3/RFD4 generator selector, explained molecule actions, reviewed suggestions, Clear all and visible atom-role overlays; optional tautomer notes (Lab Book 0726).
 
