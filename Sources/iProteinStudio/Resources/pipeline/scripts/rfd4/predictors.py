@@ -17,6 +17,18 @@ def runtime_spec(root, predictor):
     return venv/'bin/python', env
 
 
+def search_runtime_spec(root, settings):
+    python, env = runtime_spec(root, settings['predictor'])
+    if settings['task'] == 'ligand' and settings['predictor'] != 'boltz':
+        # Chemistry/export lives in the pinned RFD4 environment. ESMClient
+        # still launches the resident model in its own pinned ESMFold2 runtime.
+        venv = Path(root) / 'venvs/NanoHunter_rfd4'
+        python = venv / 'bin/python'
+        env.update(PATH=str(venv / 'bin') + os.pathsep + os.environ.get('PATH', ''),
+                   VIRTUAL_ENV=str(venv))
+    return python, env
+
+
 def session_config(root, predictor, inputs, work, seed):
     import yaml
     identity=predictor_identity(predictor)

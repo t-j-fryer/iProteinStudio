@@ -1,4 +1,5 @@
 """Native-rollout oracle using the existing NISE Boltz worker and receipts."""
+import hashlib
 import json
 import math
 import os
@@ -6,6 +7,19 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 from .contract import sha, selection_score, selection_metric
+
+
+def esm_ligand_manifest(smiles):
+    """Use the selected predictor's native atom identity, without Boltz chemistry.
+
+    RFD4 confidence-only scoring receives the generation molecule unchanged.
+    NISE's Boltz-standardized manifest is still supplied by its own campaign.
+    """
+    from esmfold2_predict import ligand_atom_maps
+    native = ligand_atom_maps([dict(kind='ligand', id='B', smiles=smiles)])['B']
+    identity = dict(schema=1, smiles_used=native['smiles'], atoms=native['atoms'],
+                    rdkit_version=native['rdkit_version'], naming='esmfold2-native-input-order')
+    return dict(identity, signature=hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest())
 
 
 class Engine:
@@ -33,6 +47,7 @@ class Engine:
                 def allow_boltz_affinity(self): return False
             settings['folding_engine']=self.predictor
             self.backend=ConfidenceBackend(os.environ['NANOHUNTER_ROOT'],self.output,settings,self.scripts)
+            self.backend.ligand_manifest = esm_ligand_manifest(settings['smiles'])
 
     def score(self, key, structures):
         from rfd4.search_engine import sequences

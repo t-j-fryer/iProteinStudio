@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0743 — Qualify recent Studio updates](lab_book/0743-release-recent-updates.md): corrected ESM ligand controller/atom identity; authorized GPU acceptance and release in progress.
+
 - [0741 — Remove automatic kernel reference runs](lab_book/0741-remove-runtime-kernel-reference.md): shared app/CLI/MCP generation, retained integrity checks.
 
 - [0733 — Full workflow configuration](lab_book/0733-full-workflow-configuration.md): advanced fields directly, clearer prediction scheduling help.

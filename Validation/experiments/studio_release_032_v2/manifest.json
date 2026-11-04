@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "purpose": "Bounded technical release acceptance; no efficacy or performance claim",
+  "version": "0.2.32",
+  "target": "Existing public SUMO fixture and propan-1-ol CCCO",
+  "launch": "Reuse studio_release_031_v1/prepare.py --request-file through immutable studioctl plans and shared job_start",
+  "preserve": [
+    "job-scoped caffeinate",
+    "thread environment",
+    "shared queue",
+    "runtime bindings",
+    "code snapshots",
+    "resident scheduling",
+    "per-unit receipts",
+    "timing and memory accounting"
+  ],
+  "routes": [
+    {
+      "name": "framework-weights",
+      "count": 2,
+      "cycles": 1,
+      "proposals": 2,
+      "predictor": "esmfold2-full-mlx",
+      "selection_metric": "iptm",
+      "framework_weights": {
+        "7xl0_vobarilizumab": 1,
+        "7eow_caplacizumab": 1
+      }
+    },
+    {
+      "name": "ligand-full-conformers",
+      "count": 2,
+      "cycles": 1,
+      "proposals": 2,
+      "predictor": "esmfold2-full-mlx",
+      "selection_metric": "ligand_plddt",
+      "conformers": true
+    },
+    {
+      "name": "ligand-fast",
+      "count": 1,
+      "cycles": 1,
+      "proposals": 2,
+      "predictor": "esmfold2-fast-mlx",
+      "selection_metric": "iptm"
+    },
+    {
+      "name": "ligand-600",
+      "count": 1,
+      "cycles": 1,
+      "proposals": 2,
+      "predictor": "esmfold2-600-mlx",
+      "selection_metric": "complex_plddt"
+    },
+    {
+      "name": "ligand-boltz",
+      "count": 1,
+      "cycles": 1,
+      "proposals": 2,
+      "predictor": "boltz",
+      "selection_metric": "ligand_plddt"
+    },
+    {
+      "name": "native-objective",
+      "count": 1,
+      "predictor": "esmfold2-full-mlx",
+      "selection_metric": "iptm",
+      "native_search": true,
+      "native_beam_width": 1,
+      "native_branches": 1,
+      "native_checkpoints": [
+        15
+      ]
+    },
+    {
+      "name": "optimized-t4",
+      "count": 1,
+      "length": 120,
+      "search": "native",
+      "predictor": "esmfold2-full-mlx",
+      "optimized_kernels": true
+    },
+    {
+      "name": "standard-t4",
+      "count": 1,
+      "length": 120,
+      "search": "native",
+      "predictor": "esmfold2-full-mlx",
+      "optimized_kernels": false
+    }
+  ],
+  "audit": [
+    "completed immutable receipts",
+    "finite coordinates",
+    "exact prediction cardinality",
+    "requested objective recorded and finite",
+    "per-framework identity and CDRs",
+    "distinct allocated conformer inputs",
+    "native ligand conditions retained",
+    "non-Boltz routes have no affinity receipt",
+    "optimized stage generates one design without qualification folder",
+    "T4 standard/optimized exact tensor and sequence parity",
+    "T4 prediction cardinality/sequence/template propagation"
+  ],
+  "build": 81,
+  "bridge": 53,
+  "prior_attempt": "studio_release_032_v1 retained unchanged; failed ESM ligand atom parser dependency",
+  "paused_job": "job-e0d6fb15dfc2",
+  "resume": "After checks, installation and shared asset staging; original immutable NESSO job",
+  "additional_prediction_checks": [
+    "T4 lysozyme Boltz, MSA empty, template absent",
+    "T4 lysozyme Boltz, MSA empty, original2LZM CIF template enabled"
+  ]
+}

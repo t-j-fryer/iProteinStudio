@@ -63,6 +63,10 @@ def prepare(output, request):
             for sub in ('transformer', 'vae'):
                 required.append(root / 'models/rfd4/diffusers' / sub / 'diffusion_pytorch_model.safetensors')
             required += sorted((root / 'models/rfd4/diffusers').rglob('*.json'))
+        ligand_controller = cfg['task'] == 'ligand' and search and cfg['predictor'] != 'boltz'
+        if ligand_controller and 'rfd4' not in engines:
+            engines.append('rfd4')
+            required += [python, root / 'components/rfd4/current/runtime.json']
         if cfg['native_search']:
             required += [root / 'models/rfd4/native' / name for name in ('model.safetensors', 'config.json')]
         if search:
@@ -195,7 +199,7 @@ def prepare(output, request):
             config['target_ligands']=load_json(ligand_context)
             inputs.append(ligand_context)
         module.fixed(output / 'rfd4_config.json', config)
-        controller = python if not cfg['starting_structures'] or cfg['native_search'] else root / (
+        controller = python if not cfg['starting_structures'] or cfg['native_search'] or ligand_controller else root / (
             'venvs/NanoHunter_' + module.predictor_identity(cfg['predictor'])['runtime'] + '/bin/python')
         command = ['/usr/bin/caffeinate', '-dimsu', str(controller), '-B', str(root / 'scripts/rfd4_cli.py'), 'run', '--root', str(root),
                    '--config', str(output / 'rfd4_config.json'), '--output', str(output)]

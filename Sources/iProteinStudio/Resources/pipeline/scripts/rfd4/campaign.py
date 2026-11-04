@@ -52,8 +52,8 @@ def main(config_path):
         return run(path,child_stage)
     search = cfg['search'] != 'native' or cfg['assess_native']
     native = cfg['native_search']
-    from .predictors import runtime_spec
-    predictor_python, predictor_env = runtime_spec(root, cfg['predictor'])
+    from .predictors import search_runtime_spec
+    predictor_python, predictor_env = search_runtime_spec(root, cfg)
     def stage(action, python, first=False):
         from .budget import checkpoint, BudgetExhausted
         checkpoint()

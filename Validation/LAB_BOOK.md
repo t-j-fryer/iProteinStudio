@@ -1,5 +1,7 @@
 # Validation Lab Book
 
+- [0360 — Current Studio release acceptance](lab_book/0360-release-recent-updates.md): build81, eight RFD4 and two prediction routes; pending.
+
 - [0263 — ESMFold2Fast-600M integration](lab_book/0263-esmfold2-600-integration.md): bounded prediction/refinement, installation, metrics and recovery qualified; 0.2.28 public downloads verified.
 
 - [0261 — ESMFold2-600 Mac beta](lab_book/0261-esmfold2-600-mac-beta.md): bounded monomer, chunking, memory and replay acceptance complete.
