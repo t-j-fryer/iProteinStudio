@@ -7,7 +7,7 @@ silent pruning. Every evaluated proposal remains a result, including losers.
 import json
 import math
 from pathlib import Path
-from .contract import atomic, fixed, prediction_budget, select, seal, sha, verify
+from .contract import atomic, fixed, prediction_budget, selection_metric, select, seal, sha, verify
 
 
 def execute(config, starts, engine, output, finalize=True):
@@ -25,6 +25,8 @@ def execute(config, starts, engine, output, finalize=True):
         active = {r['family']: [r] for r in group}
         for cycle in range(1, cycles+1):
             for root in group:
+                if cfg.get('scaffold_weights'):
+                    engine.configure_family(root['seed'] - cfg['seed'])
                 rows = []
                 parents = [root] if policy == 'fixed' else active[root['family']]
                 for parent_index, parent in enumerate(parents):
@@ -35,6 +37,8 @@ def execute(config, starts, engine, output, finalize=True):
                                         parent_id=parent['id'], parent_structure_sha256=parent['structure_sha256'],
                                         sequence_seed=(root['seed'] * 100000 + cycle * 1000 + number) % (2**31),
                                         predictor_seed=42, policy=policy)
+                        if cfg.get('scaffold_weights'):
+                            proposal['scaffold_id'] = engine.cfg['scaffold_id']
                         unit = output / 'candidates' / identifier
                         fixed(unit / 'proposal.json', proposal)
                         done = unit / 'completed.json'
@@ -56,7 +60,7 @@ def execute(config, starts, engine, output, finalize=True):
                         atomic(output / 'progress.json', dict(stage='search', family=root['family'], cycle=cycle,
                                                              completed=len(allrows), total=prediction_budget(cfg)))
                 chosen = select(rows, width if policy == 'beam' else 1)
-                decision = dict(family=root['family'], cycle=cycle, metric='pbind + ligand_plddt/100' if cfg['task'] == 'ligand' else 'ipsae_min',
+                decision = dict(family=root['family'], cycle=cycle, metric=selection_metric(cfg),
                                 candidates=[r['id'] for r in rows], selected=[r['id'] for r in chosen],
                                 policy=policy, elitism=False)
                 fixed(output / 'decisions' / root['family'] / f'cycle_{cycle:03d}.json', decision)

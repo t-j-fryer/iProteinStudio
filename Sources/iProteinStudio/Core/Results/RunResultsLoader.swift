@@ -68,11 +68,14 @@ enum RunResultsLoader {
             }
             let oracleMetrics = row["metrics"] as? [String: Double] ?? [:]
             if let value = oracleMetrics["boltz.pbind"] { metrics.append(.init(kind: .bindingProbability, value: value)) }
-            if let value = oracleMetrics["boltz.ligand_plddt"] { metrics.append(.init(kind: .ligandPLDDT, value: value)) }
+            if let value = oracleMetrics["boltz.ligand_plddt"] ?? oracleMetrics["ligand_plddt"] { metrics.append(.init(kind: .ligandPLDDT, value: value)) }
+            for (key, kind) in [("iptm", StudioResultMetric.Kind.iptm), ("complex_plddt", StudioResultMetric.Kind.plddt)] {
+                if let value = oracleMetrics[key], !metrics.contains(where: { $0.kind == kind }) { metrics.append(.init(kind: kind, value: value)) }
+            }
             let parent = row["parent_id"] as? String
             let family = row["family"] as? String ?? id
             return StudioResultItem(id: "rfd4|" + id, title: id,
-                subtitle: parent.map { "Parent: " + $0 + " · selection feedback" } ?? "RFD4 joint sequence/structure generation",
+                subtitle: parent.map { "Parent: " + $0 + " · selection: " + (row["selection_metric"] as? String ?? "design feedback") } ?? "RFD4 joint sequence/structure generation",
                 structureURL: structure, sequence: sequence,
                 metrics: metrics, confidenceURL: confidence,
                 stage: .design, scoreSource: friendlyPredictor(row["engine"] as? String ?? "RFD4"),

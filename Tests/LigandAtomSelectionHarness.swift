@@ -31,6 +31,21 @@ struct SelectionFixtureView: View {
                              atoms: model.atoms, verified: $model.verified).padding()
     }
 }
+@MainActor final class ConditionFixture: ObservableObject {
+    @Published var conditions: [String: [String]] = ["C1": ["buried"], "C2": ["exposed"], "O3": ["hbondDonor", "hbondAcceptor", "hotspot"]]
+}
+struct ConditionFixtureView: View {
+    @ObservedObject var model: ConditionFixture
+    var body: some View {
+        VStack {
+            Text("Binding-site conditions").font(.title2)
+            LigandAtomPicker(smiles: "CCO", attachmentAtom: .constant(nil), attachmentLinkerAtom: .constant(nil),
+                             atomLabels: ["C1", "C2", "O3"], atomConditions: model.conditions, allowsAttachmentPicking: false)
+            Text("B · Buried     E · Exposed     D · Ligand donor     A · Ligand acceptor     H · Hotspot")
+            Button("Clear all atom conditions") { model.conditions = [:] }
+        }.padding()
+    }
+}
 @main struct LigandAtomSelectionHarness {
     @MainActor static func spin(_ seconds: Double) { RunLoop.main.run(until: Date().addingTimeInterval(seconds)) }
     @MainActor static func descendants(_ view: NSView) -> [NSView] {
@@ -94,6 +109,30 @@ struct SelectionFixtureView: View {
         model.request.clearAtomSelections(); spin(0.2)
         precondition(descendants(host).compactMap { $0 as? NSSegmentedControl }.allSatisfy(\.isEnabled))
         print("PASS native None/Bind/Expose selection, visible shading, independent atoms, saved map and stale-map guards")
+        let conditions = ConditionFixture()
+        let conditionHost = NSHostingView(rootView: ConditionFixtureView(model: conditions))
+        window.setContentSize(NSSize(width: 850, height: 420)); window.contentView = conditionHost
+        spin(0.5)
+        let conditionWeb = descendants(conditionHost).compactMap { $0 as? WKWebView }.first!
+        let conditionDeadline = Date().addingTimeInterval(20)
+        while (evaluate("document.querySelectorAll('[data-condition]').length", in: conditionWeb) as? Int ?? 0) != 5 && Date() < conditionDeadline { spin(0.2) }
+        precondition(evaluate("document.querySelectorAll('[data-condition]').length", in: conditionWeb) as! Int == 5)
+        precondition(evaluate("document.querySelectorAll('[data-atom=O3]').length", in: conditionWeb) as! Int == 3)
+        precondition(evaluate("(() => {const path=document.querySelector('path.bond-0'); const points=Array.from(path.getAttribute('d').matchAll(/(-?[0-9.]+),(-?[0-9.]+)/g)).map(m=>[+m[1],+m[2]]); return ['C1','C2'].every(name=>{const ring=document.querySelector('[data-atom='+name+']');return points.some(p=>Math.hypot(p[0]-Number(ring.getAttribute('cx')),p[1]-Number(ring.getAttribute('cy')))<0.2);});})()", in: conditionWeb) as! Bool, "Carbon rings must meet the actual bond endpoints")
+        precondition(evaluate("document.querySelector('#nh-labels').textContent.includes('D/A/H')", in: conditionWeb) as! Bool)
+        precondition(evaluate("new Set(Array.from(document.querySelectorAll('[data-condition]')).map(e=>e.getAttribute('stroke'))).size", in: conditionWeb) as! Int == 5)
+        precondition(evaluate("Array.from(document.querySelectorAll('[data-atom=O3]')).every(e=>e.hasAttribute('stroke-dasharray'))", in: conditionWeb) as! Bool)
+        window.setContentSize(NSSize(width: 900, height: 440)); spin(0.5)
+        precondition(evaluate("document.querySelectorAll('[data-condition]').length", in: conditionWeb) as! Int == 5)
+        if CommandLine.arguments.count > 2, let bitmap = conditionHost.bitmapImageRepForCachingDisplay(in: conditionHost.bounds) {
+            conditionHost.cacheDisplay(in: conditionHost.bounds, to: bitmap)
+            try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: CommandLine.arguments[2]))
+        }
+        // Exercise the host binding update, rather than clearing only JavaScript state.
+        conditions.conditions = [:]; spin(0.3)
+        precondition(evaluate("document.querySelectorAll('[data-condition]').length", in: conditionWeb) as! Int == 0)
+        precondition(evaluate("document.querySelector('#nh-labels').textContent.includes('D/A/H')", in: conditionWeb) as! Bool == false)
+        print("PASS five condition colours, simultaneous roles, labels, resize retention and clearing via host binding")
         window.orderOut(nil)
     }
 }

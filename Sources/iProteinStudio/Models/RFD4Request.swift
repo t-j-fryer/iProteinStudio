@@ -56,6 +56,12 @@ struct RFD4Condition: Codable, Hashable, Identifiable {
     }
 }
 
+struct RFD4Conformer: Codable, Hashable {
+    var label: String
+    var path: String
+    var weight: Double
+}
+
 struct RFD4Request: Codable, Hashable {
     var schema = 1
     var task: RFD4Task = .monomer
@@ -96,6 +102,41 @@ struct RFD4Request: Codable, Hashable {
     var scaffold_id: String?
     var length_plan: RFD4LengthPlan?
     var hit_filters: [String: Double]?
+    var ligand_conformers: [RFD4Conformer]?
+    var ligand_conformer: String?
+    var ligand_atom_conditions: [String: [String]]?
+    var ligand_attachment_atom: Int?
+    var ligand_attachment_linker_atom: Int?
+    var ligand_search_pdb: Bool?
+    var ligand_is_conjugated: Bool?
+    var selection_metric: String?
+    var scaffold_weights: [String: Int]?
+    var selectionMetrics: [String] { task == .ligand ? (predictor == "boltz" ? ["pbind_ligand_plddt", "pbind", "ligand_plddt", "iptm", "complex_plddt"] : ["ligand_plddt", "iptm", "complex_plddt"]) : ["ipsae_min", "iptm", "ptm", "complex_plddt"] }
+    var selectedMetric: String { selection_metric ?? (task == .ligand ? "pbind_ligand_plddt" : "ipsae_min") }
+    static func metricLabel(_ metric: String) -> String {
+        switch metric {
+        case "ipsae_min": return "Minimum directional ipSAE"
+        case "iptm": return "Interface confidence (iPTM)"
+        case "ptm": return "Global confidence (pTM)"
+        case "complex_plddt": return "Mean complex pLDDT (0–1)"
+        case "pbind": return "Boltz binding probability P(bind)"
+        case "ligand_plddt": return "Ligand pLDDT (0–100)"
+        default: return "P(bind) + ligand pLDDT/100"
+        }
+    }
+    var frameworkCounts: [String: Int] {
+        guard let weights = scaffold_weights, !weights.isEmpty,
+              (1...10000).contains(count), weights.values.allSatisfy({ (1...10000).contains($0) }) else { return [:] }
+        let keys = weights.keys.sorted(), total = weights.values.reduce(0, +)
+        var credit = weights.mapValues { _ in 0 }, counts = credit
+        for _ in 0..<count {
+            for key in keys { credit[key, default: 0] += weights[key] ?? 0 }
+            var selected = keys[0]
+            for key in keys.dropFirst() where credit[key, default: 0] > credit[selected, default: 0] { selected = key }
+            credit[selected, default: 0] -= total; counts[selected, default: 0] += 1
+        }
+        return counts
+    }
     var canSearch: Bool { task == .protein || task == .nanobody || task == .ligand }
     var needsPrediction: Bool { search != .native || assess_native || native_search }
     var predictions: Int {
@@ -116,6 +157,18 @@ struct RFD4Request: Codable, Hashable {
     }
     var validationIssues: [String] {
         var issues: [String] = []
+        if !selectionMetrics.contains(selectedMetric) { issues.append("Choose a selection metric supported by this task.") }
+        if let weights = scaffold_weights {
+            if task != .nanobody || annotated_input || native_search || !starting_structures.isEmpty { issues.append("Framework allocation requires newly generated nanobodies without native rollout search.") }
+            if weights.isEmpty || weights.values.contains(where: { !(1...10000).contains($0) }) || count < weights.count { issues.append("Select frameworks, positive weights and at least one family per framework.") }
+            if frameworkCounts.values.contains(0) { issues.append("Increase the family count or rebalance weights so every selected framework receives a start.") }
+            if !["auto", "empty", ""].contains(scaffold_msa) { issues.append("Use automatic per-framework alignments or single-sequence prediction for multiple frameworks.") }
+        }
+        if let conformers = ligand_conformers, !conformers.isEmpty {
+            if task != .ligand || !source.isEmpty || !starting_structures.isEmpty || annotated_input || native_search { issues.append("Conformer allocation requires newly generated SMILES-based ligand binders without native rollout search.") }
+            if count < conformers.count { issues.append("Request at least one starting family per selected ligand shape.") }
+        }
+        if native_search && task == .ligand && predictor != "boltz" { issues.append("Native ligand rollout search requires Boltz.") }
         if let plan = length_plan {
             if ![.monomer, .protein, .ligand].contains(task) || !starting_structures.isEmpty || annotated_input || native_search { issues.append("Length allocation applies to newly generated monomers or binders.") }
             issues += plan.issues(count: count)
@@ -138,7 +191,7 @@ struct RFD4Request: Codable, Hashable {
         if !starting_structures.isEmpty && starting_structures.count != count { issues.append("Use one imported structure per family.") }
         if !starting_structures.isEmpty && !needsPrediction { issues.append("Choose a search or assessment for imported structures.") }
         if needsPrediction {
-            if task == .ligand && (predictor != "boltz" || ligand_smiles.isEmpty) { issues.append("Small-molecule assessment requires Boltz and the exact molecule SMILES.") }
+            if task == .ligand && (!["boltz", "esmfold2-full-mlx", "esmfold2-fast-mlx", "esmfold2-600-mlx"].contains(predictor) || ligand_smiles.isEmpty) { issues.append("Choose a compatible ligand predictor and the exact molecule SMILES.") }
             if task == .ligand && search != .native && sequence_model != "lasermpnn" { issues.append("Use LASErMPNN for this small-molecule search.") }
             if task == .ligand && search != .native && omit_amino_acids != "C" { issues.append("The ligand sampler uses its qualified cysteine exclusion.") }
             if !canSearch && !(native_search && task == .ligand) { issues.append("This sequence search needs a protein target or nanobody.") }

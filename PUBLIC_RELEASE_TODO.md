@@ -21,3 +21,14 @@ experimental peptide workflow code and private beta installation controls.
 - [x] Preserve and assess noncovalent ligand context throughout RFD4 protein/nanobody target design (Lab Book 0684).
 
 - [x] Complete mixed protein–ligand qualification: twelve managed routes passed complete-assembly and protein-only score audits before publication (Lab Book 0684).
+
+## Shared backbone configuration — Lab Book 0719
+
+- [x] Prepare one backbone-generation entry, weighted framework allocation,
+  explicit sequence-search metrics, MSA explanations and clickable RFD4 epitopes.
+- [x] Share ligand analysis/conformer inputs with RFD4 using explicit native atom
+  mapping; expose existing ESMFold2 ligand-confidence adapters.
+- [ ] Complete GPU qualification of newly exposed combinations before publishing.
+- [ ] Publish only after explicit release authorization; this work stays local.
+
+- [x] One in-form RFD3/RFD4 generator selector, explained molecule actions, reviewed suggestions, Clear all and visible atom-role overlays; optional tautomer notes (Lab Book 0726).

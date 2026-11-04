@@ -42,7 +42,7 @@ class Engine:
         for receipt in scored['receipts']: verify(receipt,relative_root=self.config['output'])
         record=dict(sequence=sequence,sequences={'A':sequence},structure=scored['structure'],
             structure_sha256=scored['structure_sha256'],score=scored['score'],metrics=scored['metrics'],
-            score_role='native_sequence_assessment' if native else 'sequence_search_feedback',engine='Boltz-2',
+            score_role='native_sequence_assessment' if native else 'sequence_search_feedback',engine=cfg['predictor'],selection_metric=scored['selection_metric'],
             oracle_receipts=scored['receipts'])
         return record,[marker,*scored['receipts']]
 

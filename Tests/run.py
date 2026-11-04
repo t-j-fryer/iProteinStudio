@@ -49,7 +49,7 @@ SCIENCE = [
     "test_motif_beta.py", "test_motif_beta_native.py", "test_motif_template_features.py",
     "test_hunter_stages.py", "test_hunter_epitope_guidance.py",
     "test_live_iterative_results.py",
-    "test_resident_prediction_resume.py", "test_openfold_resident.py", "test_prediction_profiles.py", "test_esmfold2_adapter.py", "test_esmfold2_cdr.py", "test_rfd4.py",
+    "test_resident_prediction_resume.py", "test_openfold_resident.py", "test_prediction_profiles.py", "test_esmfold2_adapter.py", "test_esmfold2_cdr.py", "test_rfd4.py", "test_rfd4_design_controls.py",
     "test_rfd3_audit_regressions.py",
     "test_prediction_templates.py", "test_ligand_screening.py",
     "test_nise_cohort_transfer.py", "test_nise_objective.py", "test_nise_pool.py",

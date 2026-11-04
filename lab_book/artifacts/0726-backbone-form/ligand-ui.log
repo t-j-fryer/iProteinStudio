@@ -1,0 +1,6 @@
+verified=true, segmented controls=3
+bind: hotspots=["C1"], exposed=[]
+expose: hotspots=[], exposed=["C1"]
+none: hotspots=[], exposed=[]
+PASS native None/Bind/Expose selection, visible shading, independent atoms, saved map and stale-map guards
+PASS five condition colours, simultaneous roles, labels, resize retention and clearing via host binding

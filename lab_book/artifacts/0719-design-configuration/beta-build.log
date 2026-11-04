@@ -1,0 +1,25 @@
+==> swift build --build-system native -c debug
+[0/1] Planning build
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (1.56s)
+warning: '--build-system native' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system.
+warning: '--build-system native' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system.
+==> assembling build/iProteinStudio Beta.app
+build/iProteinStudio Beta.app: replacing existing signature
+   ad-hoc signed development build (self-update disabled)
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio Beta.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio Beta.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio Beta.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio Beta.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio Beta.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio Beta.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio Beta.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--prepared:/Users/thomasfryer/iProteinStudio/build/iProteinStudio Beta.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio Beta.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/thomasfryer/iProteinStudio/build/iProteinStudio Beta.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+build/iProteinStudio Beta.app: valid on disk
+build/iProteinStudio Beta.app: satisfies its Designated Requirement
+✅ Built build/iProteinStudio Beta.app
+   Version: 0.2.31-dev (77)
+   Launch with:  open "build/iProteinStudio Beta.app"

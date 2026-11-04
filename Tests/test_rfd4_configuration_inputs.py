@@ -8,6 +8,7 @@ from pathlib import Path
 REPO=Path(__file__).resolve().parents[1]
 PIPE=REPO/'Sources/iProteinStudio/Resources/pipeline'
 RUNTIME=Path(os.environ['NANOHUNTER_ROOT'])
+sys.path.insert(0,str(PIPE/'scripts'))
 
 class NativeInputs(unittest.TestCase):
     def setUp(self):
@@ -36,6 +37,38 @@ class NativeInputs(unittest.TestCase):
                 self.assertEqual(identity['sequence'],row['sequence'])
                 self.assertEqual(identity['ranges'],{f'CDR{i}':list(map(int,row[f'cdr{i}_range_1based'].split('-'))) for i in (1,2,3)})
                 self.assertTrue(json.loads((out/'feature_audit.json').read_text())['passed'])
+    def test_weighted_frameworks_get_distinct_native_inputs(self):
+        out=self.run_request('frameworks',dict(task='nanobody',source=str(self.source),count=3,
+            scaffold_weights={'7xl0_vobarilizumab':2,'7eow_caplacizumab':1},scaffold_msa='empty'))
+        paths=json.loads((out/'scaffold_inputs.json').read_text())
+        self.assertEqual(len(paths),2)
+        for scaffold,path in paths.items():
+            folder=Path(path).parent
+            self.assertTrue(json.loads((folder/'feature_audit.json').read_text())['passed'])
+            self.assertEqual(json.loads((folder/'framework_identity.json').read_text())['scaffold_id'],scaffold)
+
+    def test_ligand_controls_and_imported_conformer_reach_native_features(self):
+        from rdkit import Chem
+        from rdkit.Chem import AllChem
+        mol=Chem.AddHs(Chem.MolFromSmiles('CCO'));AllChem.EmbedMolecule(mol,randomSeed=42)
+        mol=Chem.RemoveHs(mol);sdf=self.out/'ethanol.sdf'
+        writer=Chem.SDWriter(str(sdf));writer.write(mol);writer.close()
+        from rfd4.inputs import ligand_source
+        sys.path.insert(0,str(RUNTIME/'rfd3_scripts'))
+        from ligand_intelligence import canonical_atom_names
+        names=canonical_atom_names(Chem.MolFromSmiles('CCO'))
+        out=self.run_request('ligand-controls',dict(task='ligand',ligand_smiles='CCO',length=65,count=2,
+            ligand_conformers=[dict(label='A',path=str(sdf),weight=1)],length_plan=dict(minimum=65,maximum=66),
+            ligand_atom_conditions={names[0]:['buried','hotspot'],names[1]:['exposed'],names[2]:['hbondDonor','hbondAcceptor']}))
+        paths=json.loads((out/'ligand_inputs.json').read_text())['A']
+        self.assertEqual(set(paths),{'65','66'})
+        for path in paths.values():
+            folder=Path(path).parent
+            self.assertTrue(json.loads((folder/'feature_audit.json').read_text())['passed'])
+            spec=json.loads((folder/'condition_spec.json').read_text())['conditions']
+            self.assertIn('1',spec['C_RAS']);self.assertIn('3',spec['C_RAS']);self.assertIn('3',spec['C_HB'])
+            self.assertIsNotNone(json.loads((folder/'molecule.json').read_text())['conformer_source_sha256'])
+
     def test_lengths_get_distinct_audited_native_inputs(self):
         out=self.run_request('lengths',dict(task='protein',source=str(self.source),count=3,length_plan=dict(minimum=75,maximum=77)))
         paths=json.loads((out/'length_inputs.json').read_text())

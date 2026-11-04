@@ -42,7 +42,8 @@ def main(path):
                                 parent = dict(structure=structure, structure_sha256=sha(structure))
                                 row, artifacts = engine.evaluate(proposal, parent, unit, native=True)
                                 seal(receipt, row, artifacts)
-                            rows[name] = dict(row, metrics={'protein.ipsae_min':row['score']}, receipts=[str(receipt)])
+                            rows[name] = dict(row, metrics={'protein.ipsae_min':row['ipsae_min'], 'studio.selection_score':row['score']}, receipts=[str(receipt)])
+                    for row in rows.values(): row['metrics']['studio.selection_score'] = row['score']
                     atomic(response, dict(ok=True, rows=rows))
                 except Exception:
                     atomic(response, dict(ok=False, error=traceback.format_exc()))

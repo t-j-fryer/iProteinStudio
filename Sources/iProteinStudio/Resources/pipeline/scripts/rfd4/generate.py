@@ -93,6 +93,7 @@ def call(pipe, config, seed, directory, optimized):
                   sampled_max_driver_bytes=max(memory), optimized=optimized,
                   tensors=str(attempt / 'tensors.npz'), generation_is_validation=False)
     record['native_structure'] = str(native_structure)
+    if cfg.get('scaffold_id'): record['scaffold_id'] = cfg['scaffold_id']
     extra=[]
     if config.get('target_ligands'):
         from .mixed_target import assembly_metrics
@@ -124,14 +125,15 @@ def main(config_path, first_only=False):
     pipe.vae.eval().requires_grad_(False)
     cfg = config['settings']
     records = []
-    qualified_lengths = set()
+    qualified_inputs = set()
     with torch.inference_mode():
         for index in range(1 if first_only else cfg['count']):
             from .contract import family_config
             current = family_config(config, index)
             seed = cfg['seed'] + index
-            qualify = cfg['optimized_kernels'] and (index == 0 or (cfg.get('length_plan') and current['settings']['length'] not in qualified_lengths))
-            qualification = output / 'qualification' if index == 0 else output / 'qualification' / ('length_' + str(current['settings']['length']))
+            input_identity = sha(current['annotated_cif'])
+            qualify = cfg['optimized_kernels'] and input_identity not in qualified_inputs
+            qualification = output / 'qualification' if index == 0 else output / 'qualification' / ('input_' + input_identity[:16])
             if qualify:
                 control = call(pipe, current, seed, qualification / 'reference', False)
             result = call(pipe, current, seed, output / 'generation' / f'seed_{seed}', cfg['optimized_kernels'])
@@ -141,7 +143,7 @@ def main(config_path, first_only=False):
                 if not parity: raise ValueError('Optimized RFD4 differs from the reference on this input; campaign stopped.')
                 seal(qualification / 'completed.json', dict(passed=True, seed=seed),
                      [qualification / 'reference/completed.json', output / 'generation' / f'seed_{seed}' / 'completed.json'])
-            qualified_lengths.add(current['settings']['length'])
+            qualified_inputs.add(input_identity)
             records.append(result)
             atomic(output / 'progress.json', dict(stage='generation', completed=index+1, total=cfg['count']))
             print('RFD4_GENERATED', index+1, cfg['count'], seed, flush=True)

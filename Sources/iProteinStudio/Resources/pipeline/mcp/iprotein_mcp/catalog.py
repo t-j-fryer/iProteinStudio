@@ -897,6 +897,7 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
                 if len(binders) == 1: sequence = binders[0]
             if not sequence: sequence = chains.get(config.get('settings', {}).get('binder_chain'))
             metrics = {k:row[k] for k in ("ipsae_min", "score") if k in row}
+            metrics.update({k:v for k,v in row.get('metrics',{}).items() if type(v) in (int,float)})
             confidence = row.get('confidence')
             if confidence:
                 path = Path(confidence).resolve()
@@ -910,7 +911,8 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
             gate = {key: row[key] for key in ('hit_filter_passed', 'hit_filter_failures',
                     'hit_filter_cutoffs', 'hit_filter_scope') if key in row}
             if hit_only and verdict is not True: continue
-            artifacts = [dict(role="design", path=row["structure"], predictor=row.get('engine'),
+            artifacts = [dict(role="design", path=row["structure"], predictor=row.get('engine'), selection_metric=row.get('selection_metric', config.get('settings',{}).get('selection_metric')),
+                              scaffold_id=row.get('scaffold_id'),
                               confidence_json=_run_artifact_reference(root,confidence) if confidence else None, metrics=metrics, is_hit=verdict, **gate)]
             if row.get('assembly_audit'):
                 artifacts[0]['assembly_audit']=row['assembly_audit']
@@ -1086,7 +1088,10 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
         'Protein search requires an explicit target MSA policy; Fast is sequence-only. Search scores are optimization feedback, not independent validation.',
         'Optional length_plan distributes count across minimum/maximum integer lengths; counts may specify exact allocations summing to count. Imported starts and native rollout search retain fixed lengths.',
         'All eight catalogue scaffold_id values load their CDR ranges when omitted; overrides are explicit one-based inclusive nanobody positions. The 3EAK boundaries are alignment-derived. Required scaffold MSAs never silently fall back.',
-        'Protein/nanobody refinement supports the installed ESMFold2 Full/Fast/600M, Boltz, IntelliFold Flash/Full, Protenix v2/Mini/Constraint and OpenFold-3 profiles. Ligand scoring remains Boltz. Never substitute a missing engine.',
+        'Protein/nanobody refinement supports the installed ESMFold2 Full/Fast/600M, Boltz, IntelliFold Flash/Full, Protenix v2/Mini/Constraint and OpenFold-3 profiles. Ligand sequence search supports Boltz and ESMFold2 Full/Fast/600M confidence objectives; P(bind) and native ligand rollouts require Boltz. Never substitute a missing engine.',
+        'Optional selection_metric chooses the scalar objective for sequence or native rollout search. Protein defaults to ipsae_min; ligand defaults to pbind_ligand_plddt. Missing requested scores stop selection. Preserve raw metrics and objective identity.',
+        'Optional scaffold_weights allocate starting families across catalogue frameworks with separate CDRs and MSAs. ligand_conformers allocate checked SDF shapes; ligand_atom_conditions use inspected canonical names mapped to native atom identities. Multi-framework/conformer allocation excludes native rollout search.',
+        'New configuration routes have CPU/contract qualification in Lab Book 0719; end-to-end GPU qualification remains pending. Do not describe them as measured scientific improvements.',
         'Optional hit_filters use ipsae_min, iptm and complex_plddt (mean complex pLDDT) on a 0-1 scale, combined with AND. Missing or nonfinite metrics fail; every proposal remains saved. Search-filter verdicts are not independent validation.',
         'Prepare sequence targets with target_prepare_plan before design. Mixed protein-ligand targets retain all non-water ligand instances through generation and prediction; inspect target_ligands.json, complete assembly atom maps and assembly_audit/hit_filter_passed. Protein inverse folders remain protein-backbone models; ipSAE is not ligand affinity. Covalently linked ligands and nucleic acids need a separate workflow.',
         'Optimized Metal kernels are off by default; enabled kernels must match reference outputs at each new length and generation stage.',

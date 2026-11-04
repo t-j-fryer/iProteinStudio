@@ -1,0 +1,14 @@
+{
+  "paper_sha256": "33f4efb4833763a76b84b6989b1e56c01cec0dd697ea83d056387feb821b8bcd",
+  "paper_pages": 116,
+  "artifacts": {
+    "beta": {
+      "executable_sha256": "8dd7c47aadaf49c0a10182f81d3a409184d05ab538ebdefcf3104d5376644d0b",
+      "ligandpicker_sha256": "d26bd6a5b85777987c19c622d367a389440a3c2510371a19a37794dfa8445746"
+    },
+    "public": {
+      "executable_sha256": "fd8490002f5690cd0a3c9e21ed052a96fdd790c7dc1b4ac1e319b54548b564b0",
+      "ligandpicker_sha256": "d26bd6a5b85777987c19c622d367a389440a3c2510371a19a37794dfa8445746"
+    }
+  }
+}

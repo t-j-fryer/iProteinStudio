@@ -12,6 +12,7 @@ struct LigandIntelligenceView: View {
     @Binding var request: RFD3Request
     let outputDir: URL
     var atomLabels: [String] = []
+    var allocationExplanation = "Each shape gets its own fixtures at every binder length, so batching stays intact."
 
     @State private var atomSymbols: [String] = []
 
@@ -41,7 +42,7 @@ struct LigandIntelligenceView: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Before designing, Studio can work out which shapes this molecule actually adopts and split the design budget across them.")
+            Text("Analyse checks the supplied chemical structure, generates candidate 3D shapes and groups similar shapes. With PDB search enabled, it also looks for matching experimental ligand structures. You can then choose shapes and their share of the design budget. It does not start protein design or predict binding.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -51,7 +52,7 @@ struct LigandIntelligenceView: View {
                     intelligence.reset()
                     request.conformerPlan = []
                 }
-            Text("A shape seen in a dozen unrelated crystal structures is far better evidence than any force field. Needs an internet connection.")
+            Text("Experimental structures provide observed bound shapes; they do not establish which shape dominates in your assay. PDB search needs an internet connection.")
                 .font(.caption2).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -116,6 +117,7 @@ struct LigandIntelligenceView: View {
                 coreAtoms: intelligence.analysis?.core.coreAtoms ?? [],
                 presentationAtoms: intelligence.analysis?.core.presentationAtoms ?? [],
                 atomLabels: displayedAtomLabels,
+                atomConditions: request.conditions.mapValues { $0.map(\.rawValue).sorted() },
                 allowsAttachmentPicking: request.ligandIsConjugated,
                 onAtomsResolved: { symbols in atomSymbols = symbols },
                 onAttachmentChanged: { core, linker in
@@ -130,6 +132,20 @@ struct LigandIntelligenceView: View {
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
             .onChange(of: request.attachmentAtom) { _, _ in attachmentChanged() }
             .onChange(of: request.attachmentLinkerAtom) { _, _ in attachmentChanged() }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 12) {
+                    legendDot(Color(red: 0.49, green: 0.23, blue: 0.93), "B · Buried")
+                    legendDot(Color(red: 0.03, green: 0.57, blue: 0.70), "E · Exposed")
+                    legendDot(Color(red: 0.15, green: 0.39, blue: 0.92), "D · Ligand donor")
+                    legendDot(Color(red: 0.76, green: 0.25, blue: 0.05), "A · Ligand acceptor")
+                    legendDot(Color(red: 0.75, green: 0.09, blue: 0.36), "H · Hotspot")
+                }.font(.caption2)
+                Text("Coloured rings show your atom conditions. Split rings and letter labels show multiple roles on the same atom.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Clear all atom conditions") { request.conditions = [:] }
+                    .disabled(request.conditions.values.allSatisfy { $0.isEmpty })
+            }
 
             if intelligence.analysis?.core.presentationAtoms.isEmpty == false {
                 HStack(spacing: 14) {
@@ -215,7 +231,7 @@ struct LigandIntelligenceView: View {
 
         if !analysis.qa.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(analysis.qa) { note in
+                ForEach(analysis.qa.filter { !$0.title.localizedCaseInsensitiveContains("tautomer") }) { note in
                     Label {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(note.title).font(.caption.weight(.medium))
@@ -233,6 +249,15 @@ struct LigandIntelligenceView: View {
             .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.3)))
         }
 
+        if analysis.qa.contains(where: { $0.title.localizedCaseInsensitiveContains("tautomer") }) {
+            DisclosureGroup("Tautomer details (optional)") {
+                Text("Tautomers differ in hydrogen placement and bond orders, which can change donor/acceptor roles. This check lists RDKit alternatives; it does not predict their abundance at your assay pH. Studio uses the chemical state in your supplied SMILES without changing it.")
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(analysis.qa.filter { $0.title.localizedCaseInsensitiveContains("tautomer") }) { note in
+                    Text(note.detail).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
         statesTable(analysis)
         allocationSummary()
     }
@@ -334,7 +359,7 @@ struct LigandIntelligenceView: View {
                             .frame(width: 130, alignment: .trailing)
                     }
                 }
-                Text("Each shape gets its own fixtures at every binder length, so batching stays intact.")
+                Text(allocationExplanation)
                     .font(.caption2).foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }

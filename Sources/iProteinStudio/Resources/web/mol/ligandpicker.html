@@ -27,6 +27,8 @@
     var attachmentLinker = null;    // linker-side endpoint
     var pickingEnabled = true;
     var atomLabels = [];
+    var atomConditions = {};
+    var conditionStyles = {buried:["#7c3aed","B","Buried"], exposed:["#0891b2","E","Exposed"], hbondDonor:["#2563eb","D","Ligand donor"], hbondAcceptor:["#c2410c","A","Ligand acceptor"], hotspot:["#be185d","H","Hotspot"]};
     var coreAtoms = null;           // set by the host after analysis
     var presentationAtoms = null;
     var atomPoints = [];            // [{i, u, v, sym}] in SVG pixel space
@@ -51,7 +53,7 @@
       var next = b64 ? decodeURIComponent(escape(window.atob(b64))).trim() : "";
       if (next !== pendingSmiles) {
         attachment = null; attachmentLinker = null;
-        coreAtoms = null; presentationAtoms = null; atomLabels = [];
+        coreAtoms = null; presentationAtoms = null; atomLabels = []; atomConditions = {};
       }
       pendingSmiles = next;
       if (ready) render();
@@ -73,6 +75,12 @@
     window.setAtomLabels = function (labelsJSON) {
       try { atomLabels = labelsJSON ? JSON.parse(labelsJSON) : []; }
       catch (e) { atomLabels = []; }
+      decorate();
+    };
+
+    window.setAtomConditionsB64 = function (b64) {
+      try { atomConditions = JSON.parse(decodeURIComponent(escape(window.atob(b64)))); }
+      catch (e) { atomConditions = {}; }
       decorate();
     };
 
@@ -134,96 +142,6 @@
       return out;
     }
 
-    // Where RDKit actually put each atom, read back out of its own drawing.
-    //
-    // Atom *labels* are drawn as glyph outlines whose bounding boxes sit beside
-    // the atom, not on it, which made them useless for calibration (tens of
-    // pixels out). Bond paths are exact: a bond carries "bond-K atom-I atom-J"
-    // and its first and last points are the two atom centres -- except where a
-    // label is drawn, in which case the end is pulled back to clear it. So only
-    // unlabelled ends are used as anchors.
-    function bondEndpointAnchors(svgEl) {
-      var labelled = {};
-      var all = svgEl.querySelectorAll('[class]');
-      var i, j, cls, atoms, k;
-      for (i = 0; i < all.length; i++) {
-        cls = (all[i].getAttribute('class') || '').split(/\s+/);
-        atoms = []; var isBond = false;
-        for (j = 0; j < cls.length; j++) {
-          if (cls[j].indexOf('bond-') === 0) isBond = true;
-          else if (cls[j].indexOf('atom-') === 0) atoms.push(parseInt(cls[j].slice(5), 10));
-        }
-        if (!isBond && atoms.length === 1) labelled[atoms[0]] = true;
-      }
-
-      var sums = {};
-      var paths = svgEl.querySelectorAll('path[class*="bond-"]');
-      for (i = 0; i < paths.length; i++) {
-        cls = (paths[i].getAttribute('class') || '').split(/\s+/);
-        atoms = [];
-        for (j = 0; j < cls.length; j++) {
-          if (cls[j].indexOf('atom-') === 0) atoms.push(parseInt(cls[j].slice(5), 10));
-        }
-        if (atoms.length !== 2) continue;
-        var d = paths[i].getAttribute('d') || '';
-        var pts = [], m, re = /(-?\d+\.?\d*),(-?\d+\.?\d*)/g;
-        while ((m = re.exec(d)) !== null) pts.push([parseFloat(m[1]), parseFloat(m[2])]);
-        if (pts.length < 2) continue;
-        var ends = [[atoms[0], pts[0]], [atoms[1], pts[pts.length - 1]]];
-        for (k = 0; k < 2; k++) {
-          var atom = ends[k][0], pt = ends[k][1];
-          if (labelled[atom]) continue;
-          if (!sums[atom]) sums[atom] = { u: 0, v: 0, n: 0 };
-          sums[atom].u += pt[0]; sums[atom].v += pt[1]; sums[atom].n += 1;
-        }
-      }
-      var out = {};
-      for (var key in sums) {
-        if (sums.hasOwnProperty(key)) out[key] = { u: sums[key].u / sums[key].n, v: sums[key].v / sums[key].n };
-      }
-      return out;
-    }
-
-    // Fit u = a*x + tx, v = -a*y + ty by least squares. A similarity transform
-    // with a y-flip is exactly what the drawer applies, so two labelled atoms
-    // are enough to recover it precisely.
-    function fitTransform(coords, centres) {
-      var xs = [], ys = [], us = [], vs = [];
-      for (var i = 0; i < coords.length; i++) {
-        var c = centres[coords[i].i];
-        if (!c) continue;
-        xs.push(coords[i].x); ys.push(coords[i].y); us.push(c.u); vs.push(c.v);
-      }
-      if (xs.length < 2) return null;
-      var n = xs.length, mean = function (a) { var s = 0; for (var k = 0; k < a.length; k++) s += a[k]; return s / a.length; };
-      var xc = mean(xs), yc = mean(ys), uc = mean(us), vc = mean(vs);
-      var num = 0, den = 0;
-      for (var k = 0; k < n; k++) {
-        num += (xs[k] - xc) * (us[k] - uc) - (ys[k] - yc) * (vs[k] - vc);
-        den += (xs[k] - xc) * (xs[k] - xc) + (ys[k] - yc) * (ys[k] - yc);
-      }
-      if (den < 1e-9) return null;
-      var a = num / den;
-      if (!isFinite(a) || Math.abs(a) < 1e-6) return null;
-      return { a: a, tx: uc - a * xc, ty: vc + a * yc };
-    }
-
-    // Fallback when the molecule has too few labelled atoms to calibrate
-    // against — a plain hydrocarbon, for instance. Fits the bounding box into
-    // the viewport the way the drawer does.
-    function boundingBoxTransform(coords, width, height) {
-      var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      for (var i = 0; i < coords.length; i++) {
-        minX = Math.min(minX, coords[i].x); maxX = Math.max(maxX, coords[i].x);
-        minY = Math.min(minY, coords[i].y); maxY = Math.max(maxY, coords[i].y);
-      }
-      var pad = 0.06 * Math.min(width, height) + 10;
-      var spanX = Math.max(maxX - minX, 1e-6), spanY = Math.max(maxY - minY, 1e-6);
-      var a = Math.min((width - 2 * pad) / spanX, (height - 2 * pad) / spanY);
-      var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-      return { a: a, tx: width / 2 - a * cx, ty: height / 2 + a * cy };
-    }
-
     // ---------------------------------------------------------------- render
 
     function render() {
@@ -242,7 +160,13 @@
       var molblock = "";
       try { mol.set_new_coords(); } catch (e) {}
       try { molblock = mol.get_molblock(); } catch (e) { molblock = ""; }
-      var svg = mol.get_svg(w, h);
+      var coords = molfileCoords(molblock);
+      // Ask RDKit for explicit centres in the same SVG it draws. Inferring
+      // centres from split coloured bond paths shifts rings away from atoms.
+      var colours = {}; coords.forEach(function (c) { colours[c.i] = [1, 1, 1]; });
+      var svg = mol.get_svg_with_highlights(JSON.stringify({width:w, height:h,
+        atoms:coords.map(function (c) { return c.i; }), bonds:[],
+        highlightAtomColors:colours, highlightRadius:0.22}));
       mol.delete();
 
       drawEl.innerHTML = svg;
@@ -250,15 +174,22 @@
       var svgEl = drawEl.querySelector('svg');
       if (!svgEl) { setMsg('Could not draw this molecule'); return; }
 
-      var coords = molfileCoords(molblock);
       if (!coords.length) { hintEl.textContent = ''; return; }
       atomBonds = molfileBonds(molblock);
 
-      var transform = fitTransform(coords, bondEndpointAnchors(svgEl)) ||
-                      boundingBoxTransform(coords, w, h);
-
+      var centres = {};
+      svgEl.querySelectorAll('ellipse[class]').forEach(function (ellipse) {
+        var match = (ellipse.getAttribute('class') || '').match(/(?:^|\s)atom-(\d+)(?:\s|$)/);
+        if (match) {
+          centres[Number(match[1])] = {u:Number(ellipse.getAttribute('cx')), v:Number(ellipse.getAttribute('cy'))};
+          ellipse.remove();
+        }
+      });
+      if (coords.some(function (c) { return !centres[c.i]; })) {
+        setMsg('The molecule renderer did not provide exact atom positions.'); return;
+      }
       atomPoints = coords.map(function (c) {
-        return { i: c.i, sym: c.sym, u: transform.a * c.x + transform.tx, v: -transform.a * c.y + transform.ty };
+        return {i:c.i, sym:c.sym, u:centres[c.i].u, v:centres[c.i].v};
       });
 
       // Typical bond length in pixels sets a sensible hit radius: big enough to
@@ -384,6 +315,24 @@
           c.setAttribute('fill', fill); c.setAttribute('stroke', 'none');
           g.appendChild(c);
         }
+        // Each role gets a distinct arc; simultaneous roles never hide one another.
+        var name = atomLabels.length === atomPoints.length ? atomLabels[p.i] : null;
+        var roles = name ? (atomConditions[name] || []).filter(function (role) { return conditionStyles[role]; }) : [];
+        roles.forEach(function (role, index) {
+          var style = conditionStyles[role], radius = r + 4, circumference = 2 * Math.PI * radius;
+          var ring = document.createElementNS(ns, 'circle');
+          ring.setAttribute('cx', p.u); ring.setAttribute('cy', p.v); ring.setAttribute('r', radius);
+          ring.setAttribute('fill', 'none'); ring.setAttribute('stroke', style[0]); ring.setAttribute('stroke-width', '4');
+          ring.setAttribute('data-condition', role); ring.setAttribute('data-atom', name);
+          ring.setAttribute('aria-label', name + ': ' + style[2]);
+          if (roles.length > 1) {
+            var segment = circumference / roles.length;
+            ring.setAttribute('stroke-dasharray', (segment - 2) + ' ' + (circumference - segment + 2));
+            ring.setAttribute('transform', 'rotate(' + (-90 + index * 360 / roles.length) + ' ' + p.u + ' ' + p.v + ')');
+          }
+          var title = document.createElementNS(ns, 'title'); title.textContent = name + ': ' + style[2]; ring.appendChild(title);
+          g.appendChild(ring);
+        });
         if (attachment === p.i) {
           var ring = document.createElementNS(ns, 'circle');
           ring.setAttribute('cx', p.u); ring.setAttribute('cy', p.v);
@@ -425,7 +374,8 @@
         text.setAttribute('font-size', '9.5'); text.setAttribute('font-weight', '600');
         text.setAttribute('paint-order', 'stroke'); text.setAttribute('stroke', 'white');
         text.setAttribute('stroke-width', '3'); text.setAttribute('stroke-linejoin', 'round');
-        text.setAttribute('fill', '#334155'); text.textContent = value;
+        var roles = atomLabels.length === atomPoints.length ? (atomConditions[value] || []).filter(function (role) { return conditionStyles[role]; }) : [];
+        text.setAttribute('fill', '#334155'); text.textContent = value + (roles.length ? ' · ' + roles.map(function (role) { return conditionStyles[role][1]; }).join('/') : '');
         labels.appendChild(text);
       });
       svgEl.appendChild(labels);

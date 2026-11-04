@@ -1,6 +1,6 @@
 # RFD4 in Studio
 
-Choose **Design → a recommended workflow**, or select an intention under **Build a custom workflow** and choose RFD4. The detailed form also remains available under **RFdiffusion → RFD4**. Studio 0.2.27 uses the published [RFD4 portable runtime](https://github.com/t-j-fryer/iProteinStudio/releases/tag/runtimes-2026.10.26-1) and separately pinned model downloads. See [integration acceptance](../lab_book/0559-integrate-rfd4-and-design-search.md) and [release qualification](../lab_book/0579-qualify-and-release-studio-027.md) for tested routes and limits.
+Choose **Design → a recommended workflow**, or select an intention under **Build a custom workflow** and choose RFD4. The shared **Backbone design** form has a **Generate with** dropdown for RFD4 or RFdiffusion3; its fields change with the selected generator. Studio 0.2.27 uses the published [RFD4 portable runtime](https://github.com/t-j-fryer/iProteinStudio/releases/tag/runtimes-2026.10.26-1) and separately pinned model downloads. See [integration acceptance](../lab_book/0559-integrate-rfd4-and-design-search.md) and [release qualification](../lab_book/0579-qualify-and-release-studio-027.md) for tested routes and limits.
 
 | Task | Input and behavior |
 | --- | --- |
@@ -32,7 +32,7 @@ starting structures permit these searches on existing backbones too.
 
 **Native rollout search** is a separate option. It invokes the pinned upstream
 RFD4 beam implementation and scores completed rollouts at the selected checkpoints.
-Protein oracles use interface ipSAE; ligand oracles use Boltz Pbind plus ligand
+Protein oracles default to interface ipSAE; ligand oracles default to Boltz Pbind plus ligand
 pLDDT/100. Ligand graph, charge and stereochemistry must match the supplied scoring
 SMILES. Rollout feedback is optimization evidence, not an independent binding check.
 
@@ -209,8 +209,91 @@ reports target-aligned ligand RMSD and checks source stereochemistry, gross bond
 clashes; a failed verdict cannot be reported as a passing hit. Protein ipSAE is
 calculated with the predictor's full token layout and excludes ligand tokens
 from protein-interface pairs. It is not a ligand affinity score. All candidates
-remain saved and search ranking remains protein ipSAE; geometry is an explicit
+remain saved and default search ranking remains protein ipSAE; geometry is an explicit
 hit gate. Imported mixed assemblies require the RFD4 CPU preparation component
 and chemically defined CIFs (or complete CCD-defined ligands in PDB files).
 
 Bounded end-to-end checks cover ten predictor profiles, eight catalogue frameworks, two protein lengths, and twelve mixed-target routes with two predictions each. One native nanobody start was reused from its audited generation after a serialization fix. These establish software integration, not binding efficacy or every possible framework/engine combination. See [qualification and limits](../lab_book/0684-preserve-mixed-target-context.md).
+
+### Shared backbone configuration (local candidate)
+
+The custom builder now has one **Backbone generation** starting method and an
+explicit **Backbone generator** choice. RFD3 and RFD4 retain their native
+execution and conditioning contracts. RFD3 fixed-framework nanobodies remain
+unavailable. The following additions are prepared locally; see Lab Book 0719
+for verification and remaining release qualification.
+
+For nanobodies, enable **Use multiple catalogue frameworks**, select the desired
+frameworks and set positive relative weights. A weight of two receives twice the
+starting-family allocation of a weight of one over a complete allocation period.
+Smooth weighted round robin interleaves starts; short runs may stop before the
+requested proportions are realized. Preflight rejects a finite family budget
+that never reaches one of the selected frameworks. Each family has its own
+catalogue structure, CDR boundaries and alignment. Custom annotated frameworks
+remain a separate single-framework route.
+
+**Target sequence alignment (MSA)** means evolutionarily related sequences of
+the protein being bound. **Framework sequence alignment (MSA)** supplies related
+framework sequences for nanobody prediction, with redesigned CDR positions
+masked. These are not structural alignments. Automatic uses the existing
+cache/server resolver; an imported A3M or explicit single-sequence mode remains
+available. Multiple frameworks require automatic per-framework alignments or
+single-sequence mode. Missing requested assets fail before inference.
+
+**Select candidates by** controls search ranking, separately from hit
+filters. Protein candidates can maximize ipSAE(min), iPTM, pTM or mean complex
+pLDDT. Ligand candidates can maximize Boltz P(bind), ligand pLDDT, their original
+combined score, iPTM or mean complex pLDDT. ESMFold2 Full/Fast/600M ligand routes
+support confidence objectives, using the existing complete-sequence prediction
+and ligand atom-map adapter; binding probability requires Boltz. Requested
+metrics that are absent, nonfinite or outside their declared scale stop selection.
+Raw metrics, objective identity and every proposal remain recorded. Scores from
+different engines are not assumed to be calibrated comparably. Native diffusion
+rollout search uses the selected objective through upstream reward aggregation;
+its ligand oracle remains Boltz.
+
+**Target binding site** is visible in the protein and nanobody forms. Enter
+input-chain residue IDs, or use **Select residues on target structure…** and
+click them in the viewer. The target can be imported or prepared from sequence.
+Hotspots guide backbone generation; they do not redefine the ranking objective.
+
+RFD4 SMILES input now reuses the molecule analysis panel: structure drawing,
+conjugation/linker picks, optional PDB search, chemical-state notes and selected
+conformer shares. The selected SDF conformers are copied, hashed, mapped to the
+exact SMILES graph/charge/stereochemistry and authored into separate native
+inputs. The analysis reports chemistry issues; it does not silently select a
+different tautomer or protonation state. **Inspect atoms** and **Suggest atom
+conditions** expose burial, exposure, contacts and hydrogen-bond roles. A recorded
+mapping translates the viewer's canonical atom names to RFD4's input names.
+RFD4 uses its native RASA and hydrogen-bond enums; exposed atoms cannot also
+receive pocket-pulling conditions. External annotated CIFs continue to use their
+own native conditions. Multi-framework and conformer allocation applies to
+ordinary generation and sequence search, not native rollout search.
+
+### Molecule preparation controls
+
+The generator is chosen inside one scrolling design form, without separate
+RFD3/RFD4 tabs. SMILES, linker endpoints, conformer choices and atom conditions
+carry across a switch between de novo small-molecule generators. Each generator
+keeps its own sampling and scoring controls.
+
+- **Analyse this molecule** checks chemistry, generates and groups candidate 3D
+  conformers, and optionally searches the PDB. It does not start protein design
+  or predict binding. Observed PDB shapes are not estimates of solution populations.
+- **Inspect atoms for binding-site conditions** resolves atom identities and
+  chemical roles for the condition checklist; it does not select restraints.
+- **Preview suggested atom conditions** proposes non-polar burial, ligand
+  donor/acceptor roles and exposure of an analysed linker. Applying the reviewed
+  proposal replaces the current selections. Hotspots are chosen by the user.
+- **Clear all atom conditions** clears the saved selections and drawing overlays.
+  Coloured rings and B/E/D/A/H labels identify buried, exposed, ligand donor,
+  ligand acceptor and hotspot atoms. Split rings preserve multiple roles.
+
+Tautomer notes are under an optional disclosure. They describe possible changes
+in hydrogen placement/bond order, not 3D conformers or predicted populations at
+a given pH. Studio uses the supplied SMILES chemical state. The RFD4 paper's
+Section S7.1.3 describes donor/acceptor assignment on a pH 7.4-protonated copy
+for its interaction-search experiment; that is distinct from requiring routine
+tautomer enumeration. See [the paper](https://rfd4-proteina.org/assets/paper/RFD4-Proteina.pdf)
+and [upstream interaction-metric settings](https://github.com/RosettaCommons/RFD4-Proteina/blob/main/configs/metrics/inline_metrics/ipa_metrics.yaml),
+where the inspected version has `tautomerise: false`.

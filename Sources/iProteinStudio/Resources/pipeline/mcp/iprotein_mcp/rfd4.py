@@ -9,8 +9,8 @@ from .memory import memory_request
 from .plans import _persist, _script_provenance
 
 
-def contract():
-    path = Path(__file__).resolve().parents[2] / 'scripts/rfd4/contract.py'
+def contract(pipeline=None):
+    path = (Path(pipeline) if pipeline else Path(__file__).resolve().parents[2]) / 'scripts/rfd4/contract.py'
     spec = importlib.util.spec_from_file_location('studio_rfd4_contract', path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -18,7 +18,18 @@ def contract():
 
 
 def prepare(output, request):
-    root, output, module = runtime_root(), Path(output), contract()
+    root, output = runtime_root(), Path(output)
+    # Desktop jobs already own an immutable bundle snapshot. CLI/MCP plans
+    # retain their shipped pipeline before any input authoring as well.
+    pipeline = output / '.studio_runtime/pipeline'
+    if not pipeline.exists():
+        from .code_snapshot import capture
+        from .common import agent_root
+        pipeline = Path(capture(root, agent_root() / 'code',
+                                pipeline=Path(__file__).resolve().parents[2])['path'])
+    if not (pipeline / 'scripts/rfd4_cli.py').is_file():
+        raise StudioError('The saved RFD4 workflow snapshot is incomplete.')
+    module = contract(pipeline)
     try:
         cfg = module.normalize(request)
         original = dict(cfg)
@@ -32,11 +43,16 @@ def prepare(output, request):
             if cfg[key] and cfg[key] not in ('empty', 'auto'):
                 cfg[key] = import_artifact(cfg[key])['path']
                 inputs.append(Path(cfg[key]))
+        if cfg.get('ligand_conformer'):
+            cfg['ligand_conformer']=import_artifact(cfg['ligand_conformer'])['path'];inputs.append(Path(cfg['ligand_conformer']))
+        if cfg.get('ligand_conformers'):
+            cfg['ligand_conformers']=[dict(row,path=import_artifact(row['path'])['path']) for row in cfg['ligand_conformers']]
+            inputs += [Path(row['path']) for row in cfg['ligand_conformers']]
         cfg['starting_structures'] = [import_artifact(p)['path'] for p in cfg['starting_structures']]
         inputs += [Path(p) for p in cfg['starting_structures']]
         module.fixed(output / 'settings.json', cfg)
         python = root / 'venvs/NanoHunter_rfd4/bin/python'
-        runner = root / 'scripts/rfd4_cli.py'
+        runner = pipeline / 'scripts/rfd4_cli.py'
         search = cfg['search'] != 'native' or cfg['assess_native'] or cfg['native_search']
         engines = [] if cfg['starting_structures'] and not cfg['native_search'] else ['rfd4']
         required = [] if not engines else [python, root / 'components/rfd4/current/runtime.json']
@@ -69,15 +85,16 @@ def prepare(output, request):
             # runtime_view; fingerprint its model receipts and files as well.
             models = root / 'models' / {'boltz':'boltz2','esmfold2':'esmfold2','intellifold':'intellifold','protenix':'protenix','protenix_constraint':'protenix_constraint','openfold3_mlx':'openfold3'}[family]
             required += [p for p in models.rglob('*') if p.is_file()]
-            if cfg['task'] == 'ligand':
+            if cfg['task'] == 'ligand' and cfg['predictor']=='boltz':
                 required.append(root / 'models/boltz2/boltz2_aff.ckpt')
             if cfg['target_msa'] == 'auto' or cfg['scaffold_msa'] == 'auto':
                 engines += ['boltz']
                 required.append(root / 'venvs/NanoHunter_boltz/bin/boltz')
-        if cfg['scaffold_id']:
-            required += [root / 'examples/nanobody_scaffolds/structures' / (cfg['scaffold_id'] + '.pdb'),
+        for scaffold in dict.fromkeys(module.allocated_scaffolds(cfg)):
+            if not scaffold: continue
+            required += [root / 'examples/nanobody_scaffolds/structures' / (scaffold + '.pdb'),
                          root / 'examples/nanobody_scaffolds/structures/PROVENANCE.json', root / 'examples/nanobody_scaffolds/catalog.tsv']
-            msa = root / 'examples/nanobody_scaffolds/msas' / cfg['scaffold_id'] / 'full_msa.a3m'
+            msa = root / 'examples/nanobody_scaffolds/msas' / scaffold / 'full_msa.a3m'
             if cfg['scaffold_msa']=='auto' and msa.is_file(): required.append(msa)
         for path in required + [runner]:
             if not path.is_file(): raise ValueError('Install the required RFD4/search component: ' + str(path))
@@ -88,13 +105,17 @@ def prepare(output, request):
                 for action in ('author', 'audit'):
                     result = subprocess.run([str(python), '-B', str(runner), action, '--root', str(root),
                         '--config', str(output / 'settings.json'), '--output', str(output)],
-                        capture_output=True, text=True, timeout=300)
+                        capture_output=True, text=True, timeout=300 * max(1, len(set(module.allocated_scaffolds(cfg)))) * max(1, len(cfg.get('ligand_conformers') or [])) * max(1, len(cfg.get('length_plan') or [])))
                     (output / (action + '.log')).write_text(result.stdout + result.stderr)
                     if result.returncode: raise ValueError('RFD4 ' + action + ' failed: ' + result.stderr[-2000:])
                 module.seal(receipt, dict(passed=True), [output / 'settings.json', output / 'annotated.cif',
                             output / 'condition_spec.json', output / 'feature_audit.json',
                             *list((output / 'length_inputs').rglob('*.*')),
-                            *([output / 'length_inputs.json'] if cfg.get('length_plan') else []),
+                            *list((output / 'scaffold_inputs').rglob('*.*')),
+                            *list((output / 'ligand_inputs').rglob('*.*')),
+                            *([output / 'ligand_inputs.json'] if cfg.get('ligand_conformers') else []),
+                            *([output / 'scaffold_inputs.json'] if cfg.get('scaffold_weights') else []),
+                            *([output / 'length_inputs.json'] if cfg.get('length_plan') and not cfg.get('ligand_conformers') else []),
                             *[output / name for name in ('molecule.json', 'molecule.cif', 'reference.cif', 'protein_source.cif', 'framework_identity.json', 'target_identity.json', 'target_ligands.json') if (output / name).is_file()]])
             inputs += [output / name for name in ('annotated.cif', 'condition_spec.json', 'feature_audit.json', 'preflight_completed.json')]
             inputs += [output / name for name in ('molecule.json', 'molecule.cif', 'reference.cif', 'protein_source.cif', 'framework_identity.json') if (output / name).is_file()]
@@ -126,9 +147,24 @@ def prepare(output, request):
             config['starting_assemblies']=json.loads((output/'starting_assemblies.json').read_text())
             if not isinstance(config['starting_assemblies'],list) or len(config['starting_assemblies'])!=cfg['count'] or any(not isinstance(p,str) or not Path(p).is_file() for p in config['starting_assemblies']):raise ValueError('Imported assembly audit returned invalid structures.')
             inputs += [output/'starting_assemblies.json',*map(Path,config['starting_assemblies'])]
-        if cfg.get('length_plan'):
+        if cfg.get('length_plan') and not cfg.get('ligand_conformers'):
             config['length_inputs'] = load_json(output / 'length_inputs.json')
             inputs += [output / 'length_inputs.json', *[p for p in (output / 'length_inputs').rglob('*') if p.is_file()]]
+        if cfg.get('ligand_conformers'):
+            config['ligand_inputs']=load_json(output/'ligand_inputs.json')
+            inputs += [output/'ligand_inputs.json', *[p for p in (output/'ligand_inputs').rglob('*') if p.is_file()]]
+        if cfg.get('scaffold_weights'):
+            paths=load_json(output/'scaffold_inputs.json')
+            config['scaffold_inputs']={}
+            for scaffold,path in paths.items():
+                folder=Path(path).parent
+                info=dict(annotated_cif=path)
+                identity=load_json(folder/'target_identity.json')
+                info['target_sequences']={row['output_chain']:row['sequence'] for row in identity['chains']}
+                info['target_native_chains']={row['output_chain']:row.get('native_chain',row['output_chain']) for row in identity['chains']}
+                if (folder/'target_ligands.json').is_file(): info['target_ligands']=load_json(folder/'target_ligands.json')
+                config['scaffold_inputs'][scaffold]=info
+            inputs += [output/'scaffold_inputs.json', *[p for p in (output/'scaffold_inputs').rglob('*') if p.is_file()]]
         identity = output / 'target_identity.json'
         if cfg['task'] in ('protein', 'nanobody') and not identity.is_file():
             sys.path.insert(0, str(root / 'rfd3_scripts'))
@@ -161,12 +197,12 @@ def prepare(output, request):
         module.fixed(output / 'rfd4_config.json', config)
         controller = python if not cfg['starting_structures'] or cfg['native_search'] else root / (
             'venvs/NanoHunter_' + module.predictor_identity(cfg['predictor'])['runtime'] + '/bin/python')
-        command = ['/usr/bin/caffeinate', '-dimsu', str(controller), '-B', str(runner), 'run', '--root', str(root),
+        command = ['/usr/bin/caffeinate', '-dimsu', str(controller), '-B', str(root / 'scripts/rfd4_cli.py'), 'run', '--root', str(root),
                    '--config', str(output / 'rfd4_config.json'), '--output', str(output)]
-        scripts = sorted((root / 'scripts').rglob('*.py')) + sorted((root / 'rfd3_scripts').rglob('*.py'))
+        scripts = sorted((pipeline / 'scripts').rglob('*.py')) + sorted((pipeline / 'rfd3_scripts').rglob('*.py'))
         provenance = _script_provenance(list(dict.fromkeys(scripts + inputs + required +
                       [output / 'rfd4_config.json', output / 'requested_settings.json', output / 'settings.json'])))
-        context = dict(request=cfg, supporting_engines=engines,
+        context = dict(request=cfg, supporting_engines=engines, pipeline_snapshot=str(pipeline),
                        prediction_budget=dict(maximum_structure_predictions=module.prediction_budget(cfg)),
                        scheduler=('active-time budget; sequential families; resident search within each family; atomic operation boundaries'
                                   if cfg['time_budget_minutes'] else 'resident stages; batch 1 generation; 25-family cycle waves; sequential CPU sequence design'))

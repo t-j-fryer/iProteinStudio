@@ -174,9 +174,11 @@ def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[
         bindings = capture(provenance=provenance, normalized=normalized)
         if bindings: body["runtime_bindings"] = bindings
         from .code_snapshot import capture as capture_code, provenance as code_provenance
-        snapshot = capture_code(runtime_root(), agent_root() / "code")
+        code_root = Path(normalized["pipeline_snapshot"]) if kind == "desktop_rfd4" else runtime_root()
+        snapshot = (capture_code(runtime_root(), agent_root() / "code", pipeline=code_root)
+                    if kind == "desktop_rfd4" else capture_code(runtime_root(), agent_root() / "code"))
         body["code_snapshot"] = snapshot
-        body["provenance"] = code_provenance(runtime_root(), snapshot, provenance)
+        body["provenance"] = code_provenance(code_root, snapshot, provenance)
     # Identity is derived before assigning a view path. A random path here made
     # repeated desktop submissions distinct plans and cloned weights each time.
     request_digest = canonical_digest(body)

@@ -8,4 +8,4 @@ swiftc -module-cache-path "${CLANG_MODULE_CACHE_PATH:-$ATOM_TEST_ROOT/modules}" 
   "$ROOT/Sources/iProteinStudio/Views/NISE/NISEAtomTargetingView.swift" \
   "$ROOT/Sources/iProteinStudio/Views/Structure/LigandAtomPicker.swift" \
   "$ROOT/Tests/LigandAtomSelectionHarness.swift" -o "$ATOM_TEST_ROOT/atom-ui"
-"$ATOM_TEST_ROOT/atom-ui" "$ROOT"
+"$ATOM_TEST_ROOT/atom-ui" "$ROOT" "${STUDIO_ATOM_SCREENSHOT:-$ATOM_TEST_ROOT/conditions.png}"

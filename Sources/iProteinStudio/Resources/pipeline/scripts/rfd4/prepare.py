@@ -77,6 +77,16 @@ def condition_spec(cfg, source, atoms, context=None):
             selection = f"sel('{target}/*/{residues}') and not has_nan_coord()"
             if cfg['task'] == 'protein': selection += " and not sel('*/*/*/[N,CA,C,O]')"
             add('C_HOT', True, selection)
+    if cfg.get('ligand_atom_conditions'):
+        available=set(map(str,atoms.atom_name))
+        for name,values in cfg['ligand_atom_conditions'].items():
+            if name not in available: raise ValueError('Selected ligand atom is absent: '+name)
+            selection=f"sel('B/*/*/{name}')"
+            if 'buried' in values: add('C_RAS',1,selection)
+            if 'exposed' in values: add('C_RAS',3,selection)
+            if 'hotspot' in values: add('C_HOT',True,selection)
+            hb=int('hbondDonor' in values)+2*int('hbondAcceptor' in values)
+            if hb: add('C_HB',hb,selection)
     for row in cfg['conditions']:
         add(row['condition'], row['value'], row['selection'], row.get('group'))
     spec = dict(input=str(source), conditions=conditions)
@@ -119,7 +129,11 @@ def author(root, cfg, destination):
     else:
         if cfg['task'] == 'ligand' and not cfg['source']:
             from .inputs import ligand_source
-            cfg = dict(cfg, source=str(ligand_source(root, cfg['ligand_smiles'], destination)), source_target_chain='B')
+            cfg = dict(cfg, source=str(ligand_source(root, cfg['ligand_smiles'], destination, cfg.get('ligand_conformer'))), source_target_chain='B')
+            if cfg.get('ligand_atom_conditions'):
+                names=json.loads((destination/'molecule.json').read_text())['selection_atom_map']
+                if set(cfg['ligand_atom_conditions'])-set(names): raise ValueError('Selected ligand atom is absent from the inspected SMILES.')
+                cfg=dict(cfg,ligand_atom_conditions={names[name]:values for name,values in cfg['ligand_atom_conditions'].items()})
         from atomworks.io.parser import parse
         from rfproteina.utils.parse_presets import RCSB_WITH_METALS
         array = parse(cfg['source'], config=RCSB_WITH_METALS.replace(build_assembly=None, altloc='first'))['asym_unit'][0]
@@ -185,12 +199,29 @@ def audit_features(path, cfg, destination):
         expected = Chem.MolFromSmiles(cfg['ligand_smiles'])
         if expected is None or len(Chem.GetMolFrags(molecule)) != 1 or Chem.MolToSmiles(Chem.RemoveHs(molecule)) != Chem.MolToSmiles(Chem.RemoveHs(expected)):
             raise ValueError('The source ligand graph, charge or stereochemistry differs from the requested scoring SMILES.')
+    condition_audit=[]
+    if cfg.get('ligand_atom_conditions'):
+        from rfd4_proteina_prep._cif.conditions import C_RAS, C_HB, C_HOT
+        mapping=json.loads((Path(path).parent/'molecule.json').read_text())['selection_atom_map']
+        for name,values in cfg['ligand_atom_conditions'].items():
+            native=mapping[name];mask=(atoms.atom_name==native)&(atoms.chain_id=='B')
+            if int(mask.sum())!=1: raise ValueError('Conditioned ligand atom identity was lost: '+name)
+            expected=[]
+            if 'buried' in values: expected.append((C_RAS,1))
+            if 'exposed' in values: expected.append((C_RAS,3))
+            if 'hotspot' in values: expected.append((C_HOT,True))
+            hb=int('hbondDonor' in values)+2*int('hbondAcceptor' in values)
+            if hb: expected.append((C_HB,hb))
+            for condition,value in expected:
+                if not (condition.annotation(atoms,default='generate')[mask]==value).all():
+                    raise ValueError('Native preparation dropped a ligand atom condition: '+name)
+            condition_audit.append(dict(selection_atom=name,native_atom=native,conditions=values))
     context_path=Path(path).parent/'target_ligands.json'
     context_audit=[]
     if context_path.is_file():
         from .mixed_target import audit_conditioned
         context_audit=audit_conditioned(atoms,json.loads(context_path.read_text()))
-    atomic(destination, dict(passed=True, ligand_context=context_audit, tokens=count, input_sha256=sha(path),
+    atomic(destination, dict(passed=True, ligand_conditions=condition_audit, ligand_context=context_audit, tokens=count, input_sha256=sha(path),
                             features={k: dict(shape=list(v.shape), dtype=str(v.dtype))
                                       for k, v in features.items() if isinstance(v, torch.Tensor)}))
 
@@ -209,6 +240,26 @@ def author_lengths(root, cfg, destination):
     from .contract import allocated_lengths
     cfg=normalize(cfg); destination=Path(destination)
     lengths=list(dict.fromkeys(allocated_lengths(cfg)))
+    if cfg.get('ligand_conformers'):
+        from .contract import allocated_conformers
+        paths={};pairs=list(dict.fromkeys((row['label'],length) for row,length in zip(allocated_conformers(cfg),allocated_lengths(cfg))))
+        for index,(label,length) in enumerate(pairs):
+            row=next(r for r in cfg['ligand_conformers'] if r['label']==label)
+            target=destination if index==0 else destination/'ligand_inputs'/label/str(length)
+            author(root,dict(cfg,length=length,length_plan=None,ligand_conformers=None,ligand_conformer=row['path']),target)
+            paths.setdefault(label,{})[str(length)]=str(target/'annotated.cif')
+        atomic(destination/'ligand_inputs.json',paths)
+        return
+    if cfg.get('scaffold_weights'):
+        from .contract import allocated_scaffolds
+        paths={}
+        for index, scaffold in enumerate(dict.fromkeys(allocated_scaffolds(cfg))):
+            target=destination if index==0 else destination/'scaffold_inputs'/scaffold
+            child=normalize(dict(cfg,scaffold_weights=None,scaffold_id=scaffold,cdr_ranges=''))
+            author(root,child,target)
+            paths[scaffold]=str(target/'annotated.cif')
+        atomic(destination/'scaffold_inputs.json',paths)
+        return
     if not cfg.get('length_plan'):return author(root,cfg,destination)
     for index,length in enumerate(lengths):
         target=destination if index==0 else destination/'length_inputs'/str(length)
@@ -218,6 +269,15 @@ def author_lengths(root, cfg, destination):
 
 def audit_lengths(cfg,destination):
     destination=Path(destination)
+    if cfg.get('ligand_conformers'):
+        for label,paths in json.loads((destination/'ligand_inputs.json').read_text()).items():
+            for length,path in paths.items(): audit_features(path,dict(cfg,length=int(length)),Path(path).parent/'feature_audit.json')
+        return
+    if cfg.get('scaffold_weights'):
+        for scaffold,path in json.loads((destination/'scaffold_inputs.json').read_text()).items():
+            child=normalize(dict(cfg,scaffold_weights=None,scaffold_id=scaffold,cdr_ranges=''))
+            audit_features(path,child,Path(path).parent/'feature_audit.json')
+        return
     index=destination/'length_inputs.json'
     paths=json.loads(index.read_text()) if cfg.get('length_plan') else {str(cfg['length']):str(destination/'annotated.cif')}
     for length,path in paths.items():audit_features(path,dict(cfg,length=int(length)),Path(path).parent/'feature_audit.json')

@@ -47,6 +47,9 @@ struct PipelineSnapshotContractHarness {
         guard fm.fileExists(atPath: first.appendingPathComponent("scripts/prepare_intellifold_template.py").path),
               fm.fileExists(atPath: first.appendingPathComponent("scripts/intellifold_user_template.py").path)
         else { fail("IntelliFold target-template policy was omitted from the campaign snapshot") }
+        guard fm.fileExists(atPath: first.appendingPathComponent("rfd3_scripts/ligand_intelligence.py").path),
+              fm.fileExists(atPath: first.appendingPathComponent("rfd3_scripts/protein_structure.py").path)
+        else { fail("shared ligand/structure helpers were omitted from the campaign snapshot") }
         let original = try Data(contentsOf: objectFile)
         guard try Data(contentsOf: firstFile) == original,
               try Data(contentsOf: secondFile) == original,

@@ -1,0 +1,25 @@
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+warning: /Users/thomasfryer/Library/Caches/org.swift.swiftpm is not accessible or not writable, disabling user-level cache features.
+warning: 'iproteinstudio': failed storing manifest for 'iproteinstudio' in cache: attempt to write a readonly database
+warning: 'sparkle': failed storing manifest for 'sparkle' in cache: attempt to write a readonly database
+Building for debugging...
+[Computing dependencies]
+[Using on-disk description]
+[1 / 1]
+[1 / 6]
+[1 / 7]
+[2 / 5] iProteinStudio-product
+[9 / 12] iProteinStudio-product
+[11 / 14] iProteinStudio-product
+[11 / 15] iProteinStudio-product
+[21 / 30] iProteinStudio-product
+[22 / 30] iProteinStudio-product
+[23 / 30] iProteinStudio-product
+[24 / 30] iProteinStudio-product
+[27 / 30] iProteinStudio-product
+[28 / 30] iProteinStudio-product
+[29 / 30] iProteinStudio-product
+[30 / 32] iProteinStudio-product
+[32 / 32] iProteinStudio-product
+Build complete! (27.25 sec)

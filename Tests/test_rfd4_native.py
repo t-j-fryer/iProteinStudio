@@ -22,6 +22,16 @@ class OracleTests(unittest.TestCase):
         self.assertEqual(policies([8], False)['8']['rewards'], {'protein.ipsae_min': {'weight':1.0}})
         with self.assertRaises(ValueError): normalize(dict(cfg, native_checkpoints=[31]))
 
+    @patch.dict(os.environ, DEBUG="false")
+    def test_explicit_objective_uses_upstream_reward_aggregation(self):
+        from rfproteina.rewards.reward_model import RewardModel
+        for ligand,metric,value in [(False,'iptm',.8),(True,'ligand_plddt',82)]:
+            config=policies([8],ligand,metric)['8']['rewards']
+            reward=RewardModel(config)
+            self.assertEqual(reward.aggregate_metrics_output({'studio.selection_score':value}),value)
+        cfg=normalize(dict(task='protein',source='source.cif',target_msa='empty',native_search=True,selection_metric='iptm'))
+        self.assertEqual(cfg['selection_metric'],'iptm')
+
     @patch.dict(os.environ, DEBUG="false")  # Match the adapter's upstream import environment.
     def test_upstream_generation_and_oracle_cache_contract(self):
         import numpy as np

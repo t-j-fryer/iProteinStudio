@@ -1,0 +1,11 @@
+PASS recommended routes, seven-cycle proposals, snapshot round trips, legacy migration and invalid-number rejection
+PASS live-results destinations without registered projects; unknown formats remain unsupported
+PASS 600M seed/sample identity, prefix-related jobs and representative-copy exclusion
+PASS combined batch relocation, framework identity, duplicate run numbers and trajectory playback
+PASS incremental starting structure, partial-write exclusion and completed-cycle deduplication
+PASS live Predict chunk receipts, unfinished output exclusion, CSV deduplication and unambiguous affinity attribution
+PASS unranked RFD3 preservation, shared filters, Predict input/sample grouping, template provenance and exact confidence attribution
+PASS per-input native results across all engines, stale-file rejection, chunk promotion, PH post roles, RFD3 queue identity and early NISE backbones
+PASS prediction result discovery contract
+PASS RFD4 target-role sequence identity and changed-structure exclusion
+PASS RFD4 length allocation, validation, frozen settings and backward decoding

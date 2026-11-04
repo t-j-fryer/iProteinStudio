@@ -23,6 +23,18 @@ import Foundation
         precondition(old.length_plan == nil && old.hit_filters == nil)
         request.hit_filters = ["ipsae_min":1.5]; precondition(!request.validationIssues.isEmpty)
         request.hit_filters = nil; request.native_search = true; precondition(!request.validationIssues.isEmpty)
+        var multi = RFD4Request(); multi.task = .nanobody; multi.source = "target.pdb"
+        multi.scaffold_id = "7xl0_vobarilizumab"; multi.scaffold_weights = ["7xl0_vobarilizumab":2,"7eow_caplacizumab":1]; multi.count = 3
+        multi.selection_metric = "iptm"
+        precondition(multi.validationIssues.isEmpty)
+        precondition(multi.frameworkCounts == ["7xl0_vobarilizumab":2,"7eow_caplacizumab":1])
+        let multiCopy = try JSONDecoder().decode(RFD4Request.self, from: JSONEncoder().encode(multi))
+        precondition(multiCopy == multi)
+        multi.count = 1; precondition(!multi.validationIssues.isEmpty)
+        var ligand = RFD4Request(); ligand.task = .ligand; ligand.ligand_smiles = "CCO"; ligand.predictor = "esmfold2-fast-mlx"
+        ligand.assess_native = true; ligand.selection_metric = "ligand_plddt"
+        precondition(ligand.validationIssues.isEmpty)
+        ligand.selection_metric = "pbind"; precondition(!ligand.validationIssues.isEmpty)
         print("PASS RFD4 length allocation, validation, frozen settings and backward decoding")
     }
 }

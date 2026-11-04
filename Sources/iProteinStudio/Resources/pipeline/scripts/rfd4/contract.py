@@ -101,13 +101,16 @@ def normalize(request):
                     assess_native=False, starting_structures=[], native_search=False,
                     native_beam_width=2, native_branches=2, native_checkpoints=[8, 15],
                     native_partial_fraction=0.5, ligand_smiles='', time_budget_minutes=None, scaffold_id=None,
-                    hotspot_residues=None, length_plan=None, hit_filters=None)
+                    hotspot_residues=None, length_plan=None, hit_filters=None, selection_metric=None, scaffold_weights=None, ligand_conformers=None, ligand_conformer=None, ligand_atom_conditions=None, ligand_attachment_atom=None, ligand_attachment_linker_atom=None, ligand_search_pdb=None, ligand_is_conjugated=None)
     unknown = set(request) - set(defaults)
     if unknown: raise ValueError('Unknown RFD4 settings: ' + ', '.join(sorted(unknown)))
     cfg = {**defaults, **request}
     if cfg['time_budget_minutes'] is not None and (type(cfg['time_budget_minutes']) not in (int, float)
             or not math.isfinite(cfg['time_budget_minutes']) or not 0 < cfg['time_budget_minutes'] <= 10080):
         raise ValueError('Design time must be positive and no more than seven days.')
+    allocated_scaffolds(cfg)
+    if cfg.get('scaffold_weights'):
+        cfg['scaffold_id'] = allocated_scaffolds(cfg)[0]
     if cfg['scaffold_id'] is not None and (cfg['task'] != 'nanobody' or cfg['scaffold_id'] not in SCAFFOLDS):
         raise ValueError('Choose a bundled nanobody framework or a custom annotated input.')
     if cfg['scaffold_id'] and not cfg['cdr_ranges']:
@@ -126,6 +129,8 @@ def normalize(request):
                            ('cycles', 1, 100), ('proposals', 1, 64), ('beam_width', 1, 64)]:
         integer(cfg[key], key, low, high)
     allocated_lengths(cfg)
+    selection_metric(cfg)
+    validate_ligand_options(cfg)
     validate_hit_filters(cfg)
     if cfg['seed'] + cfg['count'] - 1 >= 2**32:
         raise ValueError('The requested generation seeds exceed the 32-bit range.')
@@ -181,8 +186,8 @@ def normalize(request):
         if cfg['task'] == 'ligand' and (not isinstance(cfg['ligand_smiles'], str) or not cfg['ligand_smiles']):
             raise ValueError('Native ligand search requires the exact source molecule SMILES for Boltz scoring.')
     if cfg['task'] == 'ligand' and (cfg['search'] != 'native' or cfg['assess_native'] or cfg['native_search']):
-        if cfg['predictor'] != 'boltz' or not cfg['ligand_smiles']:
-            raise ValueError('Small-molecule search requires Boltz and the exact molecule SMILES.')
+        if cfg['predictor'] not in ('boltz','esmfold2-full-mlx','esmfold2-fast-mlx','esmfold2-600-mlx') or not cfg['ligand_smiles']:
+            raise ValueError('Choose a supported ligand predictor and the exact molecule SMILES.')
         if cfg['search'] != 'native' and cfg['sequence_model'] != 'lasermpnn':
             raise ValueError('Small-molecule sequence search requires LASErMPNN.')
         if cfg['search'] != 'native' and cfg['omit_amino_acids'] != 'C':
@@ -272,6 +277,17 @@ def allocated_lengths(cfg):
 
 def family_config(config, index):
     cfg=config['settings']
+    if cfg.get('scaffold_weights'):
+        scaffold = allocated_scaffolds(cfg)[index]
+        child = config.get('scaffold_inputs', {}).get(scaffold)
+        if not child: raise ValueError('Missing audited framework input: ' + scaffold)
+        return dict(config, **child, settings=normalize(dict(cfg, scaffold_weights=None, scaffold_id=scaffold, cdr_ranges='')))
+    if cfg.get('ligand_conformers'):
+        label=allocated_conformers(cfg)[index]['label']; length=allocated_lengths(cfg)[index]
+        path=config.get('ligand_inputs',{}).get(label,{}).get(str(length))
+        if not path: raise ValueError('Missing audited ligand conformer/length input.')
+        return dict(config,annotated_cif=path,settings=dict(cfg,length=length,ligand_conformers=None,
+            ligand_conformer=next(row['path'] for row in cfg['ligand_conformers'] if row['label']==label)))
     if not cfg.get('length_plan'): return config
     length=allocated_lengths(cfg)[index]
     path=config.get('length_inputs',{}).get(str(length))
@@ -299,3 +315,100 @@ def filter_verdict(cfg, scores):
         if value is None or not math.isfinite(float(value)) or float(value)<cutoff: failed.append(name)
     return dict(hit_filter_passed=not failed, hit_filter_failures=failed,
                 hit_filter_cutoffs=filters, hit_filter_scope='design_feedback_not_independent_validation')
+
+
+PROTEIN_METRICS = ('ipsae_min', 'iptm', 'ptm', 'complex_plddt')
+LIGAND_METRICS = ('pbind_ligand_plddt', 'pbind', 'ligand_plddt', 'iptm', 'complex_plddt')
+
+
+def selection_metric(cfg):
+    metric = cfg.get('selection_metric') or ('pbind_ligand_plddt' if cfg['task'] == 'ligand' else 'ipsae_min')
+    allowed = LIGAND_METRICS if cfg['task'] == 'ligand' else PROTEIN_METRICS
+    if cfg['task']=='ligand' and cfg.get('predictor','boltz')!='boltz' and (cfg.get('search','native')!='native' or cfg.get('assess_native') or cfg.get('native_search')) and (metric not in ('ligand_plddt','iptm','complex_plddt') or cfg.get('native_search')):
+        raise ValueError('Non-Boltz ligand prediction supports confidence-based sequence search; binding probability and native rollout search require Boltz.')
+    if metric not in allowed: raise ValueError('Unsupported selection metric for this task: ' + str(metric))
+    return metric
+
+
+def selection_score(cfg, metrics):
+    metric = selection_metric(cfg)
+    required = ('pbind', 'ligand_plddt') if metric == 'pbind_ligand_plddt' else (metric,)
+    values = {}
+    for key in required:
+        value = metrics.get(key)
+        if type(value) not in (int, float) or not math.isfinite(value):
+            raise ValueError('Requested selection metric is missing or nonfinite: ' + key)
+        maximum = 100 if key == 'ligand_plddt' else 1
+        if not 0 <= value <= maximum: raise ValueError('Selection metric outside its declared scale: ' + key)
+        values[key] = value
+    return values['pbind'] + values['ligand_plddt']/100 if metric == 'pbind_ligand_plddt' else values[metric]
+
+
+def allocated_scaffolds(cfg):
+    weights = cfg.get('scaffold_weights')
+    if weights is None: return [cfg.get('scaffold_id')] * integer(cfg['count'], 'count', 1, 10000)
+    if cfg['task'] != 'nanobody' or cfg.get('starting_structures') or cfg.get('annotated_input') or cfg.get('native_search'):
+        raise ValueError('Framework allocation requires newly generated nanobodies with sequence search or assessment.')
+    if not isinstance(weights, dict) or not weights or set(weights) - set(SCAFFOLDS):
+        raise ValueError('Select one or more catalogue frameworks.')
+    for weight in weights.values(): integer(weight, 'framework weight', 1, 10000)
+    if cfg.get('scaffold_msa') not in ('auto', 'empty', ''):
+        raise ValueError('Multiple frameworks need automatic per-framework MSAs or explicit single-sequence prediction.')
+    if cfg.get('conditions') or cfg.get('contig'):
+        raise ValueError('Framework allocation uses catalogue CDR boundaries and generated segments.')
+    count = integer(cfg['count'], 'count', 1, 10000)
+    if count < len(weights): raise ValueError('Request at least one family for every selected framework.')
+    # Smooth weighted round robin keeps timed campaigns distributed from the start.
+    keys = sorted(weights); total = sum(weights.values()); credit = dict.fromkeys(keys, 0); result = []
+    for _ in range(count):
+        for key in keys: credit[key] += weights[key]
+        selected = max(keys, key=lambda key: credit[key])
+        result.append(selected); credit[selected] -= total
+    if set(result) != set(keys): raise ValueError('Increase the family count so every selected framework receives a start.')
+    return result
+
+
+def validate_ligand_options(cfg):
+    keys=('ligand_conformers','ligand_conformer','ligand_atom_conditions','ligand_attachment_atom','ligand_attachment_linker_atom','ligand_search_pdb','ligand_is_conjugated')
+    if any(cfg.get(k) is not None for k in keys) and cfg['task'] != 'ligand':
+        raise ValueError('Ligand preparation options require a small-molecule task.')
+    for key in ('ligand_attachment_atom','ligand_attachment_linker_atom'):
+        if cfg.get(key) is not None: integer(cfg[key],key,0,10000)
+    for key in ('ligand_search_pdb','ligand_is_conjugated'):
+        if cfg.get(key) is not None and type(cfg[key]) is not bool: raise ValueError(key+' must be true or false.')
+    conditions=cfg.get('ligand_atom_conditions')
+    if conditions is not None:
+        import re
+        if not isinstance(conditions,dict): raise ValueError('Ligand atom conditions must map atom names to conditions.')
+        for name,values in conditions.items():
+            if not isinstance(name,str) or not re.fullmatch(r'[A-Z][A-Za-z]?[1-9][0-9]*',name) or not isinstance(values,list) or any(not isinstance(v,str) for v in values) or set(values)-{'buried','exposed','hotspot','hbondDonor','hbondAcceptor'}:
+                raise ValueError('Invalid ligand atom name or condition.')
+            if 'exposed' in values and set(values)-{'exposed'}: raise ValueError('An exposed ligand atom cannot also be buried or pulled into the pocket.')
+        if conditions and (cfg['source'] or cfg['annotated_input']):
+            raise ValueError('Named ligand controls require SMILES/conformer preparation; use native conditions for an external CIF.')
+    if cfg.get('ligand_conformer') is not None and (not isinstance(cfg['ligand_conformer'],str) or not cfg['ligand_conformer']):
+        raise ValueError('Choose an explicit ligand conformer SDF.')
+    if cfg.get('ligand_conformers') is not None:
+        if cfg['source'] or cfg['starting_structures'] or cfg['annotated_input'] or cfg['native_search']:
+            raise ValueError('Conformer allocation requires newly generated ligand binders without native rollout search.')
+        allocated_conformers(cfg)
+
+
+def allocated_conformers(cfg):
+    rows=cfg.get('ligand_conformers')
+    if not isinstance(rows,list) or not rows: raise ValueError('Choose at least one ligand conformer.')
+    labels=set();credits=[]
+    import re
+    for row in rows:
+        if not isinstance(row,dict) or set(row)!={'label','path','weight'}: raise ValueError('Invalid conformer allocation.')
+        if not isinstance(row['label'],str) or not re.fullmatch(r'[A-Za-z0-9_-]+',row['label']) or row['label'] in labels: raise ValueError('Conformer labels must be unique safe identifiers.')
+        if not isinstance(row['path'],str) or not row['path']: raise ValueError('Missing conformer SDF path.')
+        if type(row['weight']) not in (int,float) or not math.isfinite(row['weight']) or row['weight']<=0: raise ValueError('Conformer weights must be positive and finite.')
+        labels.add(row['label']);credits.append(0.0)
+    total=sum(row['weight'] for row in rows);result=[]
+    if not math.isfinite(total): raise ValueError('Conformer weights exceed the supported range.')
+    for _ in range(cfg['count']):
+        credits=[credit+row['weight'] for credit,row in zip(credits,rows)]
+        selected=max(range(len(rows)),key=lambda i:credits[i]);credits[selected]-=total;result.append(rows[selected])
+    if {r['label'] for r in result}!=labels: raise ValueError('Increase the family count so every selected conformer receives a start.')
+    return result

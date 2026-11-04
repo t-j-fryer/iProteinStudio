@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The RFdiffusion3 tab: generate binder backbones against a protein or a small
+/// RFdiffusion3-specific fields in the shared backbone design form: generate binder backbones against a protein or a small
 /// molecule, design sequences onto them, and verify with independent predictors.
 ///
 /// Two deliberate constraints shape this screen:
@@ -12,7 +12,7 @@ import UniformTypeIdentifiers
 /// * Sampling settings default to measured optima and say so. Batch size in
 ///   particular must not be derived from free memory: peak footprint barely
 ///   moved between batch 1 and 32 while throughput collapsed above 8.
-struct RFD3View: View {
+struct RFD3ConfigurationFields: View {
     @EnvironmentObject var app: AppState
     let project: Project
     @ObservedObject var controller: RFD3Controller
@@ -22,7 +22,7 @@ struct RFD3View: View {
     @StateObject private var intelligence = LigandIntelligence()
     @State private var showAdvanced = false
     @State private var showManualOrigin = false
-    @State private var setupExperience: SetupExperience = .quick
+    @Binding var setupExperience: SetupExperience
     @State private var showTargetPrep = false
     @State private var showMotifBeta = false
     @State private var proposedConditions: [String: Set<AtomCondition>]?
@@ -44,6 +44,7 @@ struct RFD3View: View {
                 form
             }
         }
+        .onChange(of: request.wrappedValue.conditions) { _, _ in proposedConditions = nil }
         .onChange(of: request.wrappedValue.attachmentAtom) { _, _ in
             proposedConditions = nil
         }
@@ -82,11 +83,9 @@ struct RFD3View: View {
 
     private var form: some View {
         VStack(spacing: 0) {
-            ScrollView {
+            Group {
             VStack(alignment: .leading, spacing: 20) {
-                header
                 modePicker
-                SetupExperiencePicker(selection: $setupExperience)
                 if request.wrappedValue.designMode == .deNovo && project.designIntention == nil {
                     ExamplesBar { example in
                         request.wrappedValue.apply(example)
@@ -126,6 +125,11 @@ struct RFD3View: View {
                             outputDir: AppPaths.projectDir(project)
                                 .appendingPathComponent("rfd3/assets/conformers", isDirectory: true),
                             atomLabels: inspector.atomLabels)
+                        .onAppear {
+                            if !inspector.hasResult && !inspector.isInspecting && !request.wrappedValue.conditions.isEmpty {
+                                inspector.inspectLigand(smiles: request.wrappedValue.smiles)
+                            }
+                        }
                     }
                 }
 
@@ -178,7 +182,7 @@ struct RFD3View: View {
                     Card(title: "7 · Run estimate", systemImage: "clock") { estimateRow }
                 }
             }
-            .padding(28).frame(maxWidth: 860, alignment: .leading).frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
             }
             Divider()
             startBar.padding(.horizontal, 28).padding(.vertical, 14)
@@ -328,11 +332,6 @@ struct RFD3View: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
-    }
-
-    private var header: some View {
-        StudioWorkflowHeader(mode: .rfdiffusion,
-            subtitle: "Create a backbone, explore a nearby shape, or scaffold a motif — then check the resulting sequences.")
     }
 
     // MARK: Target
@@ -533,6 +532,14 @@ struct RFD3View: View {
     }
 
     private var inspectButton: some View {
+        VStack(alignment: .leading, spacing: 6) {
+        if request.wrappedValue.targetKind == .smallMolecule {
+            Text("Inspect reads atom names and chemical roles, then opens the binding-site checklist. It does not select conditions or start a design.").font(.caption).foregroundStyle(.secondary)
+        }
+        inspectButtonControls
+        }
+    }
+    private var inspectButtonControls: some View {
         HStack {
             Button {
                 let r = request.wrappedValue
@@ -549,7 +556,7 @@ struct RFD3View: View {
                                                 ).count))
                 }
             } label: {
-                Label(inspector.hasResult ? "Re-read target" : "Read target",
+                Label(request.wrappedValue.targetKind == .smallMolecule ? "Inspect atoms for binding-site conditions" : (inspector.hasResult ? "Re-read target" : "Read target"),
                       systemImage: "magnifyingglass")
             }
             .disabled(inspector.isInspecting || !request.wrappedValue.isRunnable)
@@ -733,15 +740,19 @@ struct RFD3View: View {
                             proposedConditions = inspector.suggestedConditions(
                                 presentationAtomIndices: suggestionPresentationAtoms)
                         } label: {
-                            Label("Preview suggestions", systemImage: "sparkles")
+                            Label("Preview suggested atom conditions", systemImage: "sparkles")
                         }
                         .disabled(needsLinkerAnalysisForSuggestions)
                     }
-                    Button("Clear") {
+                    Button("Clear all conditions") {
                         request.wrappedValue.conditions = [:]
                         request.wrappedValue.surfacePatchResidues = []
                         proposedConditions = nil
                     }
+                }
+                if request.wrappedValue.targetKind == .smallMolecule {
+                    Text("Suggestions propose buried non-polar atoms, ligand donor/acceptor roles and exposure of an analysed linker. Review and apply the proposal to replace your selections; hotspots are yours to choose.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Text(conditioningHelp)
                     .font(.caption).foregroundStyle(.secondary)

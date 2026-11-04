@@ -76,3 +76,5 @@ Current acceptance: [0086 — OpenFold residency and Figure3 continuation](lab_b
 - [0195 — Biotin affinity/CPU efficiency](lab_book/0195-biotin-affinity-efficiency.md).
 
 - [0262 — ESMFold2-600 Figure 2a benchmark](lab_book/0262-esmfold2-600-figure2a.md)
+
+- [0355 — Studio 0.2.32 technical release acceptance](lab_book/0355-studio-release-032.md)

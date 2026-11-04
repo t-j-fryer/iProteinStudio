@@ -29,8 +29,10 @@ def audit_rows(output, rows):
             if root not in path.parents: raise ValueError('Oracle receipt escaped its campaign.')
             verify(path, relative_root=root)
 
-def policies(steps, ligand):
+def policies(steps, ligand, metric=None):
     rewards = {'boltz.pbind': {'weight': 1.0}, 'boltz.ligand_plddt': {'weight': .01}} if ligand else {'protein.ipsae_min': {'weight': 1.0}}
+    if metric is not None and metric != ('pbind_ligand_plddt' if ligand else 'ipsae_min'):
+        rewards = {'studio.selection_score': {'weight': 1.0}}
     return {str(s): dict(metrics=['boltz'], use_clean_prediction=False, rewards=rewards) for s in steps}
 
 
@@ -147,7 +149,7 @@ def strategy(cfg, scorer, directory):
                 metrics.append({**m,'search.reward':reward});rewards.append(reward)
             save(directory/'progress.json',{'checkpoint':key,'scored':len(ids),'max_reward':max(rewards)})
             return torch.tensor(rewards,device=model.device,dtype=torch.float32),metrics
-    return BoltzBeam(checkpoints=policies(cfg['checkpoints'], cfg['settings']['task']=='ligand'),beam_width=cfg['beam_width'],
+    return BoltzBeam(checkpoints=policies(cfg['checkpoints'], cfg['settings']['task']=='ligand', cfg['settings'].get('selection_metric')),beam_width=cfg['beam_width'],
                     n_branch=cfg['n_branch'],save_rollouts=True,save_states=True)
 
 
@@ -180,7 +182,7 @@ def run_family(cfg,root,model,scorer):
     unscored=[r for r in results if r.get('reward') is None]
     if unscored:
         from rfproteina.rewards.reward_model import RewardModel
-        reward=RewardModel(policies([1], cfg['settings']['task']=='ligand')['1']['rewards'])
+        reward=RewardModel(policies([1], cfg['settings']['task']=='ligand', cfg['settings'].get('selection_metric'))['1']['rewards'])
         values,_=model.search_strategy._compute_rewards(model,unscored,reward,
             design_ids=[r['example_id'] for r in unscored],metric_names=['boltz'])
         for r,v in zip(unscored,values.tolist(),strict=True):r['reward']=v
@@ -199,8 +201,9 @@ def run_family(cfg,root,model,scorer):
                             metrics=oracle['metrics'], oracle_structure=oracle['structure'],
                             oracle_structure_sha256=oracle['structure_sha256'], score_receipts=oracle['receipts'],
                             score_role='native_rollout_feedback', engine='RFD4 native beam',
+                            selection_metric=cfg['settings'].get('selection_metric') or ('pbind_ligand_plddt' if cfg['settings']['task']=='ligand' else 'ipsae_min'),
                             **({key:oracle[key] for key in ('hit_filter_passed','hit_filter_failures','hit_filter_cutoffs','hit_filter_scope') if key in oracle}),
-                            **({'ipsae_min':result.get('reward')} if cfg['settings']['task']!='ligand' else {})))
+                            **({'ipsae_min':oracle['ipsae_min']} if cfg['settings']['task']!='ligand' else {})))
     expected=cfg['beam_width']*(cfg['n_branch']*len(cfg['checkpoints'])+int(cfg['checkpoints'][-1] < round(60*cfg['fraction'])))
     if len(records)!=expected: raise RuntimeError(f'Expected all {expected} scored rollouts; got {len(records)}')
     save(final/'results.json',records)

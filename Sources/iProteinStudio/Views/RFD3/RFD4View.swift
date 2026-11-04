@@ -9,6 +9,29 @@ struct DiffusionView: View {
     private var engine: Binding<String> {
         Binding(get: { app.projects.first(where: { $0.id == project.id })?.diffusionEngine ?? project.diffusionEngine },
                 set: { value in app.updateProject(id: project.id) { p in
+                    // These are shared molecule inputs, not generator-specific flags.
+                    if value == "rfd3", p.rfd4.task == .ligand, p.rfd4.source.isEmpty, !p.rfd4.annotated_input {
+                        p.rfd3.targetKind = .smallMolecule; p.rfd3.ligandSource = .smiles
+                        p.rfd3.sequenceModel = .lasermpnn
+                        p.rfd3.smiles = p.rfd4.ligand_smiles
+                        p.rfd3.attachmentAtom = p.rfd4.ligand_attachment_atom
+                        p.rfd3.attachmentLinkerAtom = p.rfd4.ligand_attachment_linker_atom
+                        p.rfd3.ligandIsConjugated = p.rfd4.ligand_is_conjugated ?? false
+                        p.rfd3.searchPDB = p.rfd4.ligand_search_pdb ?? true
+                        p.rfd3.conditions = (p.rfd4.ligand_atom_conditions ?? [:]).mapValues { Set($0.compactMap(AtomCondition.init(rawValue:))) }
+                        p.rfd3.conformerPlan = (p.rfd4.ligand_conformers ?? []).map { ConformerChoice(label: $0.label, path: $0.path, weight: $0.weight) }
+                    } else if value == "rfd4", p.rfd3.targetKind == .smallMolecule, p.rfd3.ligandSource == .smiles, p.rfd3.designMode == .deNovo {
+                        p.rfd4.task = .ligand; p.rfd4.source = ""; p.rfd4.annotated_input = false
+                        p.rfd4.sequence_model = "lasermpnn"
+                        if !p.rfd4.selectionMetrics.contains(p.rfd4.selectedMetric) { p.rfd4.selection_metric = nil }
+                        p.rfd4.ligand_smiles = p.rfd3.smiles
+                        p.rfd4.ligand_attachment_atom = p.rfd3.attachmentAtom
+                        p.rfd4.ligand_attachment_linker_atom = p.rfd3.attachmentLinkerAtom
+                        p.rfd4.ligand_is_conjugated = p.rfd3.ligandIsConjugated
+                        p.rfd4.ligand_search_pdb = p.rfd3.searchPDB
+                        p.rfd4.ligand_atom_conditions = p.rfd3.conditions.mapValues { $0.map(\.rawValue).sorted() }
+                        p.rfd4.ligand_conformers = p.rfd3.conformerPlan.isEmpty ? nil : p.rfd3.conformerPlan.map { RFD4Conformer(label: $0.label, path: $0.path, weight: $0.weight) }
+                    }
                     p.diffusionEngine = value
                     if value == "rfd3", let intention = p.designIntention {
                         let kind: RFD3TargetKind = intention == .smallMolecule ? .smallMolecule : .protein
@@ -20,29 +43,46 @@ struct DiffusionView: View {
                     }
                 } })
     }
+    @State private var setupExperience: SetupExperience = .quick
     var body: some View {
-        VStack(spacing: 0) {
-            if project.designIntention?.routes.contains(.rfd3) ?? true {
-            Picker("Generator", selection: engine) {
-                Text("RFdiffusion3").tag("rfd3")
-                Text("RFD4").tag("rfd4")
-            }.pickerStyle(.segmented).padding()
-            }
-            if engine.wrappedValue == "rfd4" {
-                RFD4View(project: project, controller: app.rfd4, installer: installer)
-            } else { RFD3View(project: project, controller: controller, installer: installer) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(spacing: 14) {
+                    StudioArtwork(name: project.designIntention?.artwork ?? "backbone").frame(width: 68, height: 68)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Backbone design").font(.largeTitle.weight(.semibold))
+                        Text("Configure your target, binding site and design workflow.").foregroundStyle(.secondary)
+                    }
+                }
+                Card(title: "Backbone generator", systemImage: "cube.transparent") {
+                    Picker("Generate with", selection: engine) {
+                        Text("RFD4").tag("rfd4")
+                        if project.designIntention?.routes.contains(.rfd3) ?? true {
+                            Text("RFdiffusion3").tag("rfd3")
+                        }
+                    }.pickerStyle(.menu)
+                    Text("The generator changes the conditioning, sequence design and search options below.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                SetupExperiencePicker(selection: $setupExperience)
+                if engine.wrappedValue == "rfd4" {
+                    RFD4ConfigurationFields(project: project, controller: app.rfd4, installer: installer, setupExperience: $setupExperience)
+                } else {
+                    RFD3ConfigurationFields(project: project, controller: controller, installer: installer, setupExperience: $setupExperience)
+                }
+            }.padding(28).frame(maxWidth: 860, alignment: .leading).frame(maxWidth: .infinity)
         }
     }
 }
 
-struct RFD4View: View {
+struct RFD4ConfigurationFields: View {
     @Environment(\.openWindow) private var openWindow
     @EnvironmentObject var app: AppState
     let project: Project
     @ObservedObject var controller: RFD4Controller
     @ObservedObject var installer: PipelineInstaller
     @State private var name = ""
-    @State private var setupExperience: SetupExperience = .quick
+    @Binding var setupExperience: SetupExperience
     @State private var hotspotText = ""
     @State private var hotspotError: String?
     @State private var checkpointText = "8, 15"
@@ -52,7 +92,13 @@ struct RFD4View: View {
     @State private var targetEngine: TargetEngine = .esmfold2Full
     @StateObject private var targetPredictor = TargetPredictor()
     @State private var customCDRs = false
+    @StateObject private var ligandIntelligence = LigandIntelligence(useRFD4Runtime: true)
+    @StateObject private var ligandInspector = RFD3TargetInspector(useRFD4Runtime: true)
+    @State private var showEpitope = false
+    @State private var pickedResidues: [String] = []
+    @State private var showTargetSurface = true
     @State private var extraLength = 100
+    @State private var proposedLigandConditions: [String: [String]]?
     private var scaffolds: [Scaffold] { ScaffoldCatalog.load() }
 
     private var request: Binding<RFD4Request> {
@@ -68,11 +114,11 @@ struct RFD4View: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
+            Group {
                 VStack(alignment: .leading, spacing: 20) {
-                    header
-                    SetupExperiencePicker(selection: $setupExperience)
                     startingStructures
+                    if value.task == .ligand && !value.ligand_smiles.isEmpty && value.source.isEmpty { ligandPreparation }
+                    if [.protein, .nanobody].contains(value.task) && !value.annotated_input { epitopeForm }
                     conditionsForm
                     if value.canSearch { searchForm }
                     if setupExperience == .advanced && value.canSearch { nativeSearchForm }
@@ -81,26 +127,31 @@ struct RFD4View: View {
                     ForEach(value.validationIssues, id: \.self) { Text($0).foregroundStyle(.orange) }
                     if !ready { Text("Install the selected generator, sequence designer and predictor in Engines.").foregroundStyle(.orange) }
                     progressSection
-                }.padding(28).frame(maxWidth: 860, alignment: .leading).frame(maxWidth: .infinity)
+                }.frame(maxWidth: .infinity, alignment: .leading)
             }
             Divider()
             startBar
         }.onAppear { synchronizeTextInputs() }
+        .sheet(isPresented: $showEpitope) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Choose the target epitope").font(.title2)
+                Text("Click target residues to add or remove contact hotspots. Residues retain their input chain IDs and numbering.")
+                Toggle("Show target surface", isOn: $showTargetSurface)
+                TargetStructureView(structurePath: value.source, selected: $pickedResidues, showSurface: showTargetSurface)
+                Text(pickedResidues.joined(separator: ", ")).textSelection(.enabled)
+                HStack {
+                    Button("Cancel") { showEpitope = false }
+                    Spacer()
+                    Button("Use selected residues") { updateHotspots(pickedResidues.joined(separator: " ")); synchronizeTextInputs(); showEpitope = false }
+                }
+            }.padding(20).frame(minWidth: 850, minHeight: 650)
+        }
         .onChange(of: targetPredictor.phase) { _, phase in
             if case .done(let path) = phase { request.wrappedValue.source = path; request.wrappedValue.source_target_chain = "" }
         }
         .onChange(of: value.hotspot_residues) { _, _ in synchronizeTextInputs() }
         .onChange(of: value.hotspots) { _, _ in synchronizeTextInputs() }
         .onChange(of: value.native_checkpoints) { _, _ in synchronizeTextInputs() }
-    }
-    private var header: some View {
-        HStack(spacing: 16) {
-            StudioArtwork(name: project.designIntention?.artwork ?? "backbone").frame(width: 68, height: 68)
-            VStack(alignment: .leading, spacing: 5) {
-                Text("RFD4").font(.largeTitle.weight(.semibold))
-                Text("Generate structures and sequences, then explore and assess your candidates.").foregroundStyle(.secondary)
-            }
-        }
     }
     private func synchronizeTextInputs() {
         hotspotText = (value.hotspots.map(String.init) + (value.hotspot_residues ?? [])).joined(separator: ", ")
@@ -127,8 +178,11 @@ struct RFD4View: View {
                             request.wrappedValue.native_search = false
                             request.wrappedValue.sequence_model = task == .ligand ? "lasermpnn" : task == .nanobody ? "abmpnn" : "solublempnn"
                             request.wrappedValue.scaffold_id = nil
+                            request.wrappedValue.scaffold_weights = nil; request.wrappedValue.selection_metric = nil
                             request.wrappedValue.length_plan = nil; request.wrappedValue.hit_filters = nil
                             targetFromSequence = false
+                            request.wrappedValue.ligand_conformers = nil; request.wrappedValue.ligand_conformer = nil; request.wrappedValue.ligand_atom_conditions = nil
+                            request.wrappedValue.ligand_attachment_atom = nil; request.wrappedValue.ligand_attachment_linker_atom = nil; request.wrappedValue.ligand_is_conjugated = nil; request.wrappedValue.ligand_search_pdb = nil
                             if task == .ligand { request.wrappedValue.predictor = "boltz" }
                             request.wrappedValue.annotated_input = [.motif, .annotated].contains(task)
                             if task == .nanobody, let scaffold = scaffolds.first(where: { $0.id == "7xl0_vobarilizumab" }) {
@@ -138,7 +192,11 @@ struct RFD4View: View {
                             }
                         }
                         if value.task == .ligand {
-                            field("Molecule SMILES", text: request.ligand_smiles)
+                            field("Molecule SMILES", text: request.ligand_smiles).onChange(of: value.ligand_smiles) { _, _ in
+                                ligandIntelligence.reset(); ligandInspector.reset()
+                                request.wrappedValue.ligand_conformers = nil; request.wrappedValue.ligand_atom_conditions = nil
+                                request.wrappedValue.ligand_attachment_atom = nil; request.wrappedValue.ligand_attachment_linker_atom = nil
+                            }
                             Text("One molecule with explicit stereochemistry and charge. A checked 3D conformer is prepared when no structure is supplied.").font(.caption).foregroundStyle(.secondary)
                             DisclosureGroup("Use an existing molecule structure") { file("Molecule CIF", path: request.source) }
                         } else if value.task != .monomer { targetInput }
@@ -188,6 +246,107 @@ struct RFD4View: View {
                     }.padding(8)
                 }
     }
+    private var ligandRequest: Binding<RFD3Request> {
+        Binding(get: {
+            var shared = RFD3Request()
+            shared.smiles = value.ligand_smiles
+            shared.attachmentAtom = value.ligand_attachment_atom
+            shared.attachmentLinkerAtom = value.ligand_attachment_linker_atom
+            shared.ligandIsConjugated = value.ligand_is_conjugated ?? false
+            shared.searchPDB = value.ligand_search_pdb ?? true
+            shared.numDesigns = value.count
+            shared.conformerPlan = (value.ligand_conformers ?? []).map { ConformerChoice(label: $0.label, path: $0.path, weight: $0.weight) }
+            shared.conditions = (value.ligand_atom_conditions ?? [:]).mapValues { Set($0.compactMap(AtomCondition.init(rawValue:))) }
+            return shared
+        }, set: { shared in
+            var updated = value
+            updated.ligand_attachment_atom = shared.attachmentAtom
+            updated.ligand_attachment_linker_atom = shared.attachmentLinkerAtom
+            updated.ligand_search_pdb = shared.searchPDB
+            updated.ligand_is_conjugated = shared.ligandIsConjugated
+            updated.ligand_conformers = shared.conformerPlan.isEmpty ? nil : shared.conformerPlan.map { RFD4Conformer(label: $0.label, path: $0.path, weight: $0.weight) }
+            updated.ligand_atom_conditions = shared.conditions.mapValues { $0.map(\.rawValue).sorted() }
+            request.wrappedValue = updated
+        })
+    }
+    private var ligandPreparation: some View {
+        Card(title: "Molecule shapes and binding site", systemImage: "sparkles.rectangle.stack") {
+            VStack(alignment: .leading, spacing: 12) {
+                LigandIntelligenceView(intelligence: ligandIntelligence, request: ligandRequest,
+                    outputDir: AppPaths.projectDir(project).appendingPathComponent("rfd4/assets/conformers"), atomLabels: ligandInspector.atomLabels,
+                    allocationExplanation: "Starts are interleaved across the selected shapes and lengths. Each selected shape/length input is checked before submission.")
+                Button("Inspect atoms for binding-site conditions") { proposedLigandConditions = nil; ligandInspector.inspectLigand(smiles: value.ligand_smiles) }
+                Text("Inspect reads atom names and chemical roles from your SMILES and opens the condition checklist. It does not select conditions or run a design.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if ligandInspector.isInspecting { ProgressView() }
+                if let error = ligandInspector.error { Text(error).foregroundStyle(.orange) }
+                if ligandInspector.hasResult {
+                    Text("Bury/expose use RFD4’s native solvent-accessibility bins. Hotspot asks for a contact; donor/acceptor describe the ligand atom. These conditions guide generation, not the predictor’s ranking score.").font(.caption).foregroundStyle(.secondary)
+                    Button("Preview suggested atom conditions") {
+                        let exposed = Set(ligandIntelligence.analysis?.core.presentationAtoms ?? [])
+                        proposedLigandConditions = ligandInspector.suggestedConditions(presentationAtomIndices: exposed).mapValues { $0.map(\.rawValue).sorted() }
+                    }
+                    .disabled((value.ligand_is_conjugated ?? false) && ligandIntelligence.analysis == nil)
+                    Text("Suggestions propose buried non-polar atoms, donor/acceptor roles for your supplied chemical state, and exposure of an analysed linker. They do not guess hotspots. Review the proposal before replacing your selections.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if (value.ligand_is_conjugated ?? false) && ligandIntelligence.analysis == nil {
+                        Text("Analyse the selected core-to-linker bond before requesting suggestions.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let proposal = proposedLigandConditions {
+                        Text(AtomCondition.allCases.map { condition in
+                            "\(condition.label): \(proposal.values.filter { $0.contains(condition.rawValue) }.count)"
+                        }.joined(separator: " · ")).font(.caption)
+                        HStack {
+                            Button("Apply suggestions") { request.wrappedValue.ligand_atom_conditions = proposal; proposedLigandConditions = nil }
+                            Button("Cancel suggestions") { proposedLigandConditions = nil }
+                        }
+                    }
+                    ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                    ForEach(ligandInspector.sites, id: \.name) { site in
+                        HStack {
+                            Text(site.name).frame(width: 70, alignment: .leading)
+                            ForEach(AtomCondition.allCases) { condition in
+                                Toggle(condition.label, isOn: Binding(get: { value.ligand_atom_conditions?[site.name]?.contains(condition.rawValue) ?? false }, set: { on in
+                                    var selected = Set(value.ligand_atom_conditions?[site.name] ?? [])
+                                    if on {
+                                        if condition == .exposed { selected = [] } else { selected.remove("exposed") }
+                                        selected.insert(condition.rawValue)
+                                    } else { selected.remove(condition.rawValue) }
+                                    var conditions = value.ligand_atom_conditions ?? [:]; conditions[site.name] = selected.sorted()
+                                    request.wrappedValue.ligand_atom_conditions = conditions
+                                })).toggleStyle(.checkbox)
+                            }
+                        }
+                    }
+                    }
+                    }.frame(maxHeight: 260)
+                }
+            }.padding(8)
+        }
+        .onAppear {
+            if !ligandInspector.hasResult && !ligandInspector.isInspecting && !(value.ligand_atom_conditions ?? [:]).isEmpty {
+                ligandInspector.inspectLigand(smiles: value.ligand_smiles)
+            }
+        }
+        .onChange(of: value.ligand_smiles) { _, _ in proposedLigandConditions = nil }
+        .onChange(of: value.ligand_attachment_atom) { _, _ in proposedLigandConditions = nil }
+        .onChange(of: value.ligand_attachment_linker_atom) { _, _ in proposedLigandConditions = nil }
+        .onChange(of: value.ligand_atom_conditions) { _, _ in proposedLigandConditions = nil }
+    }
+    private var epitopeForm: some View {
+        Card(title: "Target binding site", systemImage: "target") {
+            VStack(alignment: .leading, spacing: 8) {
+                field("Epitope residues / hotspots (optional)", text: $hotspotText, hint: "Input chain and residue number, e.g. B32 C55")
+                    .onChange(of: hotspotText) { _, text in updateHotspots(text) }
+                Text("These residues request contacts during backbone generation. Leave empty if no epitope is known. They do not replace the search selection metric.").font(.caption).foregroundStyle(.secondary)
+                Button("Select residues on target structure…") {
+                    pickedResidues = value.hotspot_residues ?? []; showEpitope = true
+                }.disabled(value.source.isEmpty)
+                if let hotspotError { Text(hotspotError).foregroundStyle(.orange) }
+            }.padding(8)
+        }
+    }
     @ViewBuilder private var conditionsForm: some View {
                 if !value.annotated_input && value.task != .monomer {
                     DisclosureGroup("Native conditions and retained segments") {
@@ -196,9 +355,6 @@ struct RFD4View: View {
                                 field("Retained residues and generated segments", text: request.contig, hint: "Optional for de novo design")
                             }
                             Text("Leave segments empty for de novo protein or ligand binders. Studio derives them from the selected target chain.").font(.caption)
-                            field("Epitope residues / hotspots (optional)", text: $hotspotText, hint: "Input chain and residue number, e.g. B32 C55")
-                                .onChange(of: hotspotText) { _, text in updateHotspots(text) }
-                            if let hotspotError { Text(hotspotError).foregroundStyle(.orange) }
                             ForEach(Array(value.conditions.indices), id: \.self) { index in
                                 HStack {
                                     Picker("Condition", selection: request.conditions[index].condition) {
@@ -280,8 +436,8 @@ struct RFD4View: View {
                     if let checkpointError { Text(checkpointError).foregroundStyle(.orange) }
                     if value.task == .ligand {
                         field("Exact ligand SMILES", text: request.ligand_smiles)
-                        Text("Boltz score: P(bind) + ligand pLDDT/100. Structure profile: 3 recycles, 25 steps; affinity: 50 steps. The input molecule must match the requested graph, charge and stereochemistry.").font(.caption)
-                    } else { Text("Protein rollouts use the structure predictor and alignment selected above; the minimum directional ipSAE selects survivors.").font(.caption) }
+                        Text("Boltz evaluates the selected objective. Structure profile: 3 recycles, 25 steps; affinity: 50 steps. The input molecule must match the requested graph, charge and stereochemistry.").font(.caption)
+                    } else { Text("Protein rollouts use the structure predictor, alignment and selection objective chosen above.").font(.caption) }
                     Text("Completed families resume from receipts. An interrupted family replays from its recorded seed and checks every cached rollout identity before reusing its score.").font(.caption)
                 }
             }.padding(8)
@@ -296,10 +452,18 @@ struct RFD4View: View {
                     Picker("Structure predictor", selection: request.predictor) {
                         ForEach(RFD4Predictor.families, id: \.self) { family in
                             Section(family) {
-                                ForEach(RFD4Predictor.allCases.filter { $0.family == family && (value.task != .ligand || $0 == .boltz) }) { option in
+                                ForEach(RFD4Predictor.allCases.filter { $0.family == family && (value.task != .ligand || $0 == .boltz || (!value.native_search && $0.family == "ESMFold2")) }) { option in
                                     Text(option.label + (installer.isUsable(option.component) ? "" : " · install in Engines")).tag(option.rawValue)
                                 }
                             }
+                        }
+                    }
+                    .onChange(of: value.predictor) { _, _ in
+                        if !value.selectionMetrics.contains(value.selectedMetric) { request.wrappedValue.selection_metric = value.selectionMetrics.first }
+                    }
+                    Group {
+                        Picker("Select candidates by (higher is better)", selection: Binding(get: { value.selectedMetric }, set: { request.wrappedValue.selection_metric = $0 })) {
+                            ForEach(value.selectionMetrics, id: \.self) { metric in Text(RFD4Request.metricLabel(metric)).tag(metric) }
                         }
                     }
                     if value.search != .native {
@@ -315,11 +479,15 @@ struct RFD4View: View {
                         if value.task != .ligand { field("Excluded amino acids", text: request.omit_amino_acids, hint: "One-letter codes; C excludes cysteine. Empty allows all amino acids.") }
                     }
                     if value.task != .ligand && !["esmfold2-fast-mlx", "esmfold2-600-mlx"].contains(value.predictor) {
-                        file("Target alignment", path: request.target_msa, singleSequence: true)
-                        if value.task == .nanobody { file("Scaffold alignment", path: request.scaffold_msa, singleSequence: true) }
+                        file("Target sequence alignment (MSA)", path: request.target_msa, singleSequence: true)
+                        Text("Related protein sequences help the predictor model the target. Automatic reuses a cached alignment or requests one from the configured MSA server. Choose… imports an A3M file; Single sequence explicitly uses no evolutionary alignment. This does not align structures or select an epitope.").font(.caption).foregroundStyle(.secondary)
+                        if value.task == .nanobody {
+                            file("Framework sequence alignment (MSA)", path: request.scaffold_msa, singleSequence: true)
+                            Text("The framework’s related sequences guide nanobody prediction. Redesigned CDR positions are masked so the starting CDR sequences do not guide the prediction. Automatic resolves the correct alignment separately for each selected framework.").font(.caption).foregroundStyle(.secondary)
+                        }
                     }
-                    if value.task == .nanobody { cdrFields }
-                    Text(value.task == .ligand ? "Selection uses P(bind) + ligand pLDDT/100. All proposals are saved. Search scores are design feedback; independent validation remains separate." : "Selection uses the minimum directional ipSAE. All proposals remain saved. Scores used to choose parents are design feedback; independent validation remains a separate step.").font(.caption)
+                    if value.task == .nanobody && value.scaffold_weights == nil { cdrFields }
+                    Text("Selection maximizes " + RFD4Request.metricLabel(value.selectedMetric) + ". All proposals are saved. A missing requested metric stops selection. These scores guide design; independent validation remains separate.").font(.caption)
                 }
             }.padding(8)
         }
@@ -372,6 +540,26 @@ struct RFD4View: View {
     }
     private var frameworkPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
+            Toggle("Use multiple catalogue frameworks", isOn: Binding(get: { value.scaffold_weights != nil }, set: { enabled in
+                request.wrappedValue.scaffold_weights = enabled ? [value.scaffold_id ?? "7xl0_vobarilizumab": 1] : nil
+                if enabled { request.wrappedValue.annotated_input = false; request.wrappedValue.scaffold_msa = "auto"; request.wrappedValue.conditions = []; request.wrappedValue.contig = ""; customCDRs = false }
+            }))
+            if let weights = value.scaffold_weights {
+                Text("Select any frameworks and set their relative share of starting families. Equal weights give equal focus; 2 versus 1 gives twice the focus. Starts are interleaved, including timed runs. Each framework keeps its own CDR boundaries.").font(.caption).foregroundStyle(.secondary)
+                ForEach(scaffolds) { scaffold in
+                    HStack {
+                        Toggle(scaffold.displayName, isOn: Binding(get: { value.scaffold_weights?[scaffold.id] != nil }, set: { enabled in
+                            if enabled { request.wrappedValue.scaffold_weights?[scaffold.id] = 1 }
+                            else { request.wrappedValue.scaffold_weights?.removeValue(forKey: scaffold.id) }
+                            if let first = request.wrappedValue.scaffold_weights?.keys.sorted().first { request.wrappedValue.scaffold_id = first }
+                        }))
+                        if weights[scaffold.id] != nil {
+                            if value.time_budget_minutes == nil { Text("\(value.frameworkCounts[scaffold.id] ?? 0) starts").font(.caption).foregroundStyle(.secondary) }
+                            Stepper("Weight: \(weights[scaffold.id] ?? 1)", value: Binding(get: { value.scaffold_weights?[scaffold.id] ?? 1 }, set: { request.wrappedValue.scaffold_weights?[scaffold.id] = $0 }), in: 1...100)
+                        }
+                    }
+                }
+            } else {
             Picker("Nanobody framework", selection: Binding(get: { value.scaffold_id ?? "custom" }, set: { id in
                 var updated = value
                 updated.scaffold_id = id == "custom" ? nil : id
@@ -384,6 +572,7 @@ struct RFD4View: View {
             })) {
                 ForEach(scaffolds) { Text($0.displayName).tag($0.id) }
                 Text("Custom framework in annotated input").tag("custom")
+            }
             }
             if let scaffold = scaffolds.first(where: { $0.id == value.scaffold_id }) {
                 Text("The framework stays fixed; the three CDR loops are redesigned. CDR boundaries are loaded from the selected framework.").font(.caption).foregroundStyle(.secondary)
@@ -466,6 +655,7 @@ struct RFD4View: View {
                 let panel = NSOpenPanel(); panel.canChooseDirectories = false
                 if panel.runModal() == .OK, let url = panel.url { path.wrappedValue = url.path }
             }
+            if !path.wrappedValue.isEmpty && path.wrappedValue != "auto" && path.wrappedValue != "empty" { Button("Clear") { path.wrappedValue = "" } }
             if singleSequence { Button("Automatic") { path.wrappedValue = "auto" }; Button("Single sequence") { path.wrappedValue = "empty" } }
         }
     }

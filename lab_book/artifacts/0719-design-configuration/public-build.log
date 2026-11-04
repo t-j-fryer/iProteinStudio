@@ -1,0 +1,40 @@
+==> swift build --build-system native -c debug
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--58304C5D6DBC2206.txt
+[3/15] Compiling iProteinStudio LigandIntelligenceView.swift
+[4/15] Compiling iProteinStudio WorkspaceOrganization.swift
+[5/15] Compiling iProteinStudio RFD4Readiness.swift
+[6/15] Compiling iProteinStudio RFD4Request.swift
+[7/15] Compiling iProteinStudio LigandIntelligence.swift
+[8/15] Compiling iProteinStudio RFD3TargetInspector.swift
+[9/15] Compiling iProteinStudio RFD4Controller.swift
+[10/15] Compiling iProteinStudio RFD4View.swift
+[11/15] Compiling iProteinStudio DesignHomeView.swift
+[12/15] Compiling iProteinStudio RunResultsLoader.swift
+[13/15] Emitting module iProteinStudio
+[13/16] Write Objects.LinkFileList
+[14/16] Linking iProteinStudio
+[15/16] Applying iProteinStudio
+Build complete! (14.25s)
+warning: '--build-system native' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system.
+warning: '--build-system native' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system.
+==> assembling build/iProteinStudio.app
+build/iProteinStudio.app: replacing existing signature
+   ad-hoc signed development build (self-update disabled)
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/paper-release/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/paper-release/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/paper-release/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/paper-release/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/paper-release/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--prepared:/Users/thomasfryer/iProteinStudio/.worktrees/paper-release/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/paper-release/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/paper-release/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/paper-release/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/thomasfryer/iProteinStudio/.worktrees/paper-release/build/iProteinStudio.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+build/iProteinStudio.app: valid on disk
+build/iProteinStudio.app: satisfies its Designated Requirement
+✅ Built build/iProteinStudio.app
+   Version: 0.2.31 (77)
+   Launch with:  open "build/iProteinStudio.app"

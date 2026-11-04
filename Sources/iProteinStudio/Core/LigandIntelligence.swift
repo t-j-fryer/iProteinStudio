@@ -134,6 +134,9 @@ final class LigandIntelligence: ObservableObject {
     /// Which states the user has chosen to design against, by id.
     @Published var selected: Set<String> = []
 
+    private let useRFD4Runtime: Bool
+    init(useRFD4Runtime: Bool = false) { self.useRFD4Runtime = useRFD4Runtime }
+
     private var runner: ProcessRunner?
     private var buffer: [String] = []
     private var analysisID = UUID()
@@ -167,11 +170,26 @@ final class LigandIntelligence: ObservableObject {
                  attachmentSymbol: String? = nil, attachmentLinkerSymbol: String? = nil,
                  searchPDB: Bool, outputDir: URL) {
         guard !isRunning else { return }
-        guard let rfd3Root = RFD3Controller.rfd3Root else {
-            error = RFD3Controller.unavailableReason ?? "RFdiffusion3 is not available."
-            return
+        let preparationRoot: URL
+        let preparationPython: URL
+        let preparationScript: URL
+        if useRFD4Runtime {
+            preparationRoot = AppPaths.support
+            preparationPython = AppPaths.support.appendingPathComponent("venvs/NanoHunter_rfd4/bin/python")
+            guard FileManager.default.isExecutableFile(atPath: preparationPython.path),
+                  let bundled = AppPaths.bundledRFD3Scripts else {
+                error = "Install RFD4 support to prepare and inspect molecules."; return
+            }
+            preparationScript = bundled.appendingPathComponent("ligand_intelligence.py")
+        } else {
+            guard let rfd3Root = RFD3Controller.rfd3Root else {
+                error = RFD3Controller.unavailableReason ?? "RFdiffusion3 is not available."; return
+            }
+            AppPaths.stageRFD3Scripts()
+            preparationRoot = rfd3Root
+            preparationPython = rfd3Root.appendingPathComponent(".venv/bin/python")
+            preparationScript = AppPaths.rfd3ScriptsDir.appendingPathComponent("ligand_intelligence.py")
         }
-        AppPaths.stageRFD3Scripts()
         reset()
         let runID = UUID()
         analysisID = runID
@@ -207,10 +225,10 @@ final class LigandIntelligence: ObservableObject {
         let runner = ProcessRunner()
         self.runner = runner
         runner.launch(
-            executable: rfd3Root.appendingPathComponent(".venv/bin/python"),
-            arguments: [AppPaths.rfd3LigandScript.path, requestURL.path],
+            executable: preparationPython,
+            arguments: [preparationScript.path, requestURL.path],
             environment: CommandBuilder.environment(),
-            workingDir: rfd3Root,
+            workingDir: preparationRoot,
             onLine: { [weak self] line in
                 guard self?.analysisID == runID else { return }
                 self?.buffer.append(line)

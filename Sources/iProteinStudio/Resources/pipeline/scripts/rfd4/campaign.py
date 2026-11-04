@@ -19,7 +19,7 @@ def refine(config, first=False):
     else:
         from .search_engine import Engine
         from .msas import resolve
-        config = resolve(config)
+        if not config['settings'].get('scaffold_weights'): config = resolve(config)
     output = Path(config['output'])
     starts = json.loads((output / 'generated.json').read_text())
     engine = Engine(config)

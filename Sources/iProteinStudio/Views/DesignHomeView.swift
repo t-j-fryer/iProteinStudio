@@ -314,8 +314,17 @@ struct CustomWorkflowSheet: View {
                     Text("Build your workflow").foregroundStyle(.secondary)
                 }
             }
-            Picker("Starting method", selection: $route) {
-                ForEach(intention.routes, id: \.self) { Text($0.label).tag($0) }
+            Picker("Starting method", selection: Binding(get: { route == .rfd3 ? .rfd4 : route }, set: { route = $0 })) {
+                ForEach(intention.routes.filter { $0 != .rfd3 }, id: \.self) { option in
+                    Text(option == .rfd4 ? "Backbone generation" : option.label).tag(option)
+                }
+            }
+            if route == .rfd4 || route == .rfd3 {
+                Picker("Backbone generator", selection: $route) {
+                    Text("RFD4").tag(DesignWorkflowRoute.rfd4)
+                    if intention.routes.contains(.rfd3) { Text("RFdiffusion3").tag(DesignWorkflowRoute.rfd3) }
+                }
+                Text("The generator determines the available conditioning and search options.").font(.caption).foregroundStyle(.secondary)
             }
             if route == .rfd4 {
                 if intention.rfd4Tasks.count > 1 {

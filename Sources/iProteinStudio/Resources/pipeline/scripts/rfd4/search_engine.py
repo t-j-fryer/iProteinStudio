@@ -68,6 +68,8 @@ def canonical_protein(path, config, destination):
 class Engine:
     def __init__(self, config):
         self.config = config
+        self.campaign_config = config
+        self.framework_configs = {}
         self.cfg = config['settings']
         self.root = Path(os.environ['NANOHUNTER_ROOT'])
         self.scripts = Path(__file__).resolve().parents[1]
@@ -76,6 +78,17 @@ class Engine:
         self.session = None
         for path in (self.root / 'rfd3_scripts', self.root / 'rfd3_overlay/scripts'):
             sys.path.insert(0, str(path))
+
+    def configure_family(self, index):
+        from .contract import family_config
+        from .msas import resolve
+        current=family_config(self.campaign_config,index)
+        scaffold=current['settings']['scaffold_id']
+        if scaffold not in self.framework_configs:
+            current=dict(current,output=str(self.output/'framework_msas'/scaffold))
+            self.framework_configs[scaffold]=resolve(current)
+        self.config=self.framework_configs[scaffold]
+        self.cfg=self.config['settings']
 
     def evaluate(self, proposal, parent, unit, native=False):
         import yaml
@@ -218,15 +231,16 @@ class Engine:
             artifacts.append(confidence)
             confidence=unit/'protein_interface_confidence.json'
             atomic(confidence,scores);artifacts.append(confidence)
-        score = float(scores['ipsae_min'])
+        from .contract import selection_score, selection_metric
+        score = selection_score(cfg, scores)
         if not math.isfinite(score): raise ValueError('Nonfinite interface score.')
         record = dict(sequence=sequence, sequences=observed, structure=str(structure), structure_sha256=sha(structure),
-                      confidence=str(confidence), score=score, ipsae_min=score, engine=cfg['predictor'],
-                      target_chains=list(targets), score_scope='minimum_directional_ipSAE_across_all_protein_pairs',
+                      confidence=str(confidence), scaffold_id=cfg.get('scaffold_id'), score=score, ipsae_min=float(scores['ipsae_min']), selection_metric=selection_metric(cfg), metrics=scores, engine=cfg['predictor'],
+                      target_chains=list(targets), score_scope=('minimum_directional_ipSAE_across_all_protein_pairs' if selection_metric(cfg)=='ipsae_min' else selection_metric(cfg)),
                       score_role='native_feedback' if self.cfg['search'] != 'native' else 'native_sequence_assessment',
                       prediction_and_audit_seconds=time.perf_counter()-started)
         from .contract import filter_verdict
-        record.update(filter_verdict(cfg, {**scores, 'ipsae_min':score}))
+        record.update(filter_verdict(cfg, scores))
         if assembly is not None:
             record['assembly_audit']=assembly
             record['ligand_context']=self.config['target_ligands']

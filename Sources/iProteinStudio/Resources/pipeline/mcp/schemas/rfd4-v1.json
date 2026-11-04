@@ -326,6 +326,112 @@
               "maximum": 1
             }
           }
+        },
+        "selection_metric": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "ipsae_min",
+            "iptm",
+            "ptm",
+            "complex_plddt",
+            "pbind_ligand_plddt",
+            "pbind",
+            "ligand_plddt"
+          ],
+          "description": "Maximize this measured score during sequence search. Null retains the task default. Missing requested scores stop selection. Native rollout search uses the same selected score through upstream reward aggregation."
+        },
+        "scaffold_weights": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "description": "Catalogue framework IDs mapped to relative starting-family weights. Smooth weighted round-robin allocation, automatic per-framework CDRs and MSAs. Applies to newly generated nanobodies, excluding native rollout search."
+        },
+        "ligand_conformer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ligand_conformers": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "object",
+            "required": [
+              "label",
+              "path",
+              "weight"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "weight": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          }
+        },
+        "ligand_atom_conditions": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "buried",
+                "exposed",
+                "hotspot",
+                "hbondDonor",
+                "hbondAcceptor"
+              ]
+            }
+          }
+        },
+        "ligand_attachment_atom": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "ligand_attachment_linker_atom": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "ligand_is_conjugated": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "ligand_search_pdb": {
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       }
     }

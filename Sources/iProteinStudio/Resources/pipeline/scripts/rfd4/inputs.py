@@ -9,21 +9,37 @@ import sys
 from .contract import atomic, sha
 
 
-def ligand_source(root, smiles, destination):
+def ligand_source(root, smiles, destination, conformer_path=None):
     import gemmi
     import numpy as np
     from rdkit import Chem
-    sys.path.insert(0, str(Path(root) / 'rfd3_scripts'))
-    from ligand_intelligence import generate_ensemble, conformer_budget
+    pipeline = Path(__file__).resolve().parents[2]
+    helpers = pipeline / 'rfd3_scripts'
+    if not helpers.is_dir(): helpers = pipeline.parent / 'rfd3'
+    if not (helpers / 'ligand_intelligence.py').is_file():
+        raise ValueError('The retained workflow is missing its ligand preparation helpers.')
+    sys.path.insert(0, str(helpers))
+    from ligand_intelligence import generate_ensemble, conformer_budget, canonical_atom_names
     from rdkit.Chem import rdMolDescriptors
     mol = Chem.MolFromSmiles(smiles)
     if mol is None or len(Chem.GetMolFrags(mol)) != 1:
         raise ValueError('Enter one connected molecule as a valid SMILES string.')
     canonical = Chem.MolToSmiles(mol, isomericSmiles=True)
-    mol, energies, field = generate_ensemble(mol, conformer_budget(rdMolDescriptors.CalcNumRotatableBonds(mol)))
-    valid = [row for row in energies if row[2]]
-    if not valid: raise ValueError('No conformer converged; provide an explicit molecular structure.')
-    conformer = min(valid, key=lambda row: (row[1], row[0]))[0]
+    selection_names = canonical_atom_names(mol)
+    if conformer_path:
+        supplied=list(Chem.SDMolSupplier(str(conformer_path),removeHs=True))
+        if len(supplied)!=1 or supplied[0] is None or supplied[0].GetNumConformers()!=1:
+            raise ValueError('A selected conformer must contain one complete SDF molecule.')
+        source=supplied[0]
+        if Chem.MolToSmiles(source,isomericSmiles=True)!=canonical: raise ValueError('Selected conformer chemistry differs from the scoring SMILES.')
+        match=source.GetSubstructMatch(mol,useChirality=True)
+        if len(match)!=mol.GetNumAtoms(): raise ValueError('Cannot map the selected conformer to SMILES atom identities.')
+        mol=Chem.RenumberAtoms(source,list(match));conformer=0;field='imported analysed conformer'
+    else:
+        mol, energies, field = generate_ensemble(mol, conformer_budget(rdMolDescriptors.CalcNumRotatableBonds(mol)))
+        valid = [row for row in energies if row[2]]
+        if not valid: raise ValueError('No conformer converged; provide an explicit molecular structure.')
+        conformer = min(valid, key=lambda row: (row[1], row[0]))[0]
     check = Chem.Mol(mol)
     Chem.RemoveStereochemistry(check); Chem.AssignStereochemistryFrom3D(check, confId=conformer)
     if Chem.MolToSmiles(check, isomericSmiles=True) != canonical:
@@ -45,7 +61,7 @@ def ligand_source(root, smiles, destination):
         bonds.add_row(['L;G',names[bond.GetBeginAtomIdx()],names[bond.GetEndAtomIdx()],order,'Y' if bond.GetIsAromatic() else 'N'])
     path = Path(destination) / 'molecule.cif'; doc.write_file(str(path))
     atomic(Path(destination) / 'molecule.json', dict(canonical_smiles=canonical, source_sha256=sha(path),
-        conformer=conformer, force_field=field, seed=20260811, atom_names=names, stereochemistry_verified=True))
+        conformer=conformer, conformer_source_sha256=sha(conformer_path) if conformer_path else None, force_field=field, seed=20260811, atom_names=names, selection_atom_map=dict(zip(selection_names,names)), stereochemistry_verified=True))
     return path
 
 
@@ -120,7 +136,7 @@ def nanobody_source(root, cfg, destination):
     write_condition_spec_cif('studio_nanobody',spec,Path(destination)/'annotated.cif',spec_dir=Path(destination),validate=True)
     atomic(Path(destination)/'condition_spec.json',spec)
     if not context:atomic(Path(destination)/'target_identity.json',dict(chains=identities))
-    atomic(Path(destination)/'framework_identity.json',dict(sequence=sequence,ranges=ranges,source_sha256=sha(scaffold)))
+    atomic(Path(destination)/'framework_identity.json',dict(scaffold_id=cfg['scaffold_id'],sequence=sequence,ranges=ranges,source_sha256=sha(scaffold)))
 
 
 def ligand_pdb(source, destination):

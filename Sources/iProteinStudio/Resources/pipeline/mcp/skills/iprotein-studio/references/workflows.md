@@ -81,6 +81,17 @@ explicit hotspot numbering and target preparation provenance. Bare hotspot
 numbers are ambiguous for multiple chains. The design-time budget begins after
 preparation; queue time is excluded.
 
+The configuration candidate adds `selection_metric` for sequence and native
+rollout objectives. Only metrics produced by the selected engine are allowed;
+missing requested values fail. Defaults remain protein ipSAE(min) and ligand
+P(bind) + ligand pLDDT/100. `scaffold_weights` splits starting families among
+catalogue frameworks with separate CDRs/MSAs. `ligand_conformers` supplies copied,
+chemically checked SDFs; `ligand_atom_conditions` uses inspected canonical atom
+names, explicitly mapped to native RFD4 atoms. Multi-framework/conformer
+allocation excludes native rollout search. These additions have CPU and contract
+checks; GPU qualification remains pending (Lab Book 0719). Discover the connected
+schema rather than assuming the candidate has been deployed.
+
 RFD4's optional `length_plan` allocates the requested count across lengths;
 custom counts must sum to that count. `scaffold_id` loads catalogue CDR ranges
 unless explicitly overridden. Do not reuse 7XL0 ranges for another framework.

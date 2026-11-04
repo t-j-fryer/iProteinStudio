@@ -1054,3 +1054,35 @@ After inspecting the normalized request and prediction budget, submit with
 keep-awake protection and checkpoint/resume behavior. `optimized_kernels` remains
 false by default; when enabled, reference equivalence is checked at each new
 length and generation stage. It does not select a higher-accuracy model.
+
+### Explicit RFD4 selection and allocation
+
+The shared `rfd4_cli.py validate` request and MCP `rfd4_plan` request accept
+optional `selection_metric`, `scaffold_weights`, `ligand_conformers` and
+`ligand_atom_conditions`. These pass through the same normalization and immutable
+plan/provenance checks used by the app. Omitted fields preserve the task defaults.
+
+```json
+{
+  "task": "nanobody",
+  "source": "target.pdb",
+  "count": 12,
+  "search": "beam",
+  "sequence_model": "abmpnn",
+  "predictor": "esmfold2-full-mlx",
+  "target_msa": "auto",
+  "scaffold_msa": "auto",
+  "scaffold_weights": {"7xl0_vobarilizumab": 2, "7eow_caplacizumab": 1},
+  "selection_metric": "iptm"
+}
+```
+
+Framework weights allocate **starting families**, not search beam slots or
+adaptive per-framework compute time. CDRs are loaded separately from each
+catalogue entry. A ligand conformer row is `{ "label": "A", "path": "shape.sdf",
+"weight": 1 }`; selected shapes must preserve the exact scoring SMILES chemistry.
+Ligand atom-condition keys are canonical names returned by molecule inspection;
+values are arrays drawn from `buried`, `exposed`, `hotspot`, `hbondDonor` and
+`hbondAcceptor`. Source atom identities and the translation to native RFD4 names
+are saved with preparation output. See [configuration and current qualification
+limits](RFD4.md#shared-backbone-configuration-local-candidate).

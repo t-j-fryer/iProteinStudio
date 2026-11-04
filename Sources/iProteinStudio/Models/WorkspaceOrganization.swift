@@ -91,7 +91,7 @@ enum WorkspaceMode: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .iterative:   return "Protein Hunter"
         case .nise: return "NISE"
-        case .rfdiffusion: return "RFdiffusion"
+        case .rfdiffusion: return "Backbone design"
         case .predict:     return "Predict"
         }
     }
@@ -109,7 +109,7 @@ enum WorkspaceMode: String, CaseIterable, Codable, Identifiable, Hashable {
         switch self {
         case .iterative:   return "Untitled Workspace"
         case .nise: return "Untitled NISE"
-        case .rfdiffusion: return "Untitled RFdiffusion"
+        case .rfdiffusion: return "Untitled backbone design"
         case .predict:     return "Untitled Prediction"
         }
     }

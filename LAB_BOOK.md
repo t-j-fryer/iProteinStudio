@@ -354,3 +354,9 @@ Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-
 - [0619 — Correct RFD4 labels and audit macOS requirements](lab_book/0619-rfd4-label-and-macos-audit.md): binary deployment targets versus support gates; release 0.2.30.
 
 - [0684 — Preserve mixed-target context](lab_book/0684-preserve-mixed-target-context.md): molecular identity, every-cycle ligand inputs and complete-assembly checks; GPU qualification pending.
+
+- [0719 — Unify backbone design configuration and explicit search objectives](lab_book/0719-unify-design-configuration.md) — local candidate implementation and verification; no publication.
+
+- [0726 — Merge backbone form and ligand highlights](lab_book/0726-merge-backbone-form-and-ligand-highlights.md)
+
+- [0727 — Publish unified design release](lab_book/0727-publish-unified-design-release.md)

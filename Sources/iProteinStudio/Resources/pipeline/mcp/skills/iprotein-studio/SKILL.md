@@ -110,7 +110,10 @@ compatible refinement/checking stages; discover the connected schema before
 authoring. Install component `esmfold2_600` (no ESMC-6B dependency). It accepts
 protein and SMILES complexes but has no MSA encoder, X-token start, template
 guidance or affinity head. Keep Boltz for affinity objectives. NISE folding
-requires a sequence-screening objective; RFD4 ligand optimization remains Boltz.
+requires a sequence-screening objective. The local RFD4 configuration candidate
+also supports ESMFold2 ligand-confidence sequence search; Boltz remains required
+for binding-probability objectives and native ligand rollouts. Discover the
+connected schema and read the qualification limits before using those additions.
 It is in the same family as Fast/Full. Defaults are chunk 0/cache 512 MiB; low
 memory is 32/512, not a RAM limit. Uncalibrated admission requires an explicit
 recorded override. Read the 600M evidence section before suggesting it for a

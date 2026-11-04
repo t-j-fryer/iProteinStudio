@@ -22,6 +22,8 @@ struct LigandAtomPicker: NSViewRepresentable {
     /// RFD3 atom names in original SMILES order. When unavailable, the drawing
     /// shows zero-based indices rather than inventing a mapping.
     var atomLabels: [String] = []
+    /// Canonical atom names mapped to the active binding-site conditions.
+    var atomConditions: [String: [String]] = [:]
     var allowsAttachmentPicking = true
     /// Reports the atom symbols in index order, so a mismatch between the
     /// depiction's atom numbering and the analysis's can be caught rather than
@@ -52,7 +54,7 @@ struct LigandAtomPicker: NSViewRepresentable {
         context.coordinator.apply(attachment: attachmentAtom,
                                   linker: attachmentLinkerAtom,
                                   core: coreAtoms, presentation: presentationAtoms,
-                                  labels: atomLabels, picking: allowsAttachmentPicking)
+                                  labels: atomLabels, conditions: atomConditions, picking: allowsAttachmentPicking)
     }
 
     static func dismantleNSView(_ web: WKWebView, coordinator: Coordinator) {
@@ -88,11 +90,12 @@ struct LigandAtomPicker: NSViewRepresentable {
         }
 
         func apply(attachment: Int?, linker: Int?, core: [Int], presentation: [Int],
-                   labels: [String], picking: Bool) {
+                   labels: [String], conditions: [String: [String]], picking: Bool) {
             guard ready, let web else { return }
             // Cheap change detection: these fire on every SwiftUI update, and
             // re-running the JS would fight the user's own clicks.
-            let signature = "\(attachment ?? -1)|\(linker ?? -1)|\(core)|\(presentation)|\(labels)|\(picking)"
+            let conditionData = (try? JSONEncoder().encode(conditions)) ?? Data("{}".utf8)
+            let signature = "\(conditionData.base64EncodedString())|\(attachment ?? -1)|\(linker ?? -1)|\(core)|\(presentation)|\(labels)|\(picking)"
             guard signature != lastState else { return }
             lastState = signature
 
@@ -104,6 +107,7 @@ struct LigandAtomPicker: NSViewRepresentable {
             let presJSON = (try? String(data: JSONEncoder().encode(presentation), encoding: .utf8)) ?? "[]"
             let labelsJSON = (try? String(data: JSONEncoder().encode(labels), encoding: .utf8)) ?? "[]"
             web.evaluateJavaScript("setAtomLabels('\(labelsJSON)')", completionHandler: nil)
+            web.evaluateJavaScript("setAtomConditionsB64(\"\(conditionData.base64EncodedString())\")", completionHandler: nil)
             if core.isEmpty && presentation.isEmpty {
                 web.evaluateJavaScript("setRegions(null, null)", completionHandler: nil)
             } else {
@@ -132,6 +136,7 @@ struct LigandAtomPicker: NSViewRepresentable {
                       core: parent.coreAtoms,
                       presentation: parent.presentationAtoms,
                       labels: parent.atomLabels,
+                      conditions: parent.atomConditions,
                       picking: parent.allowsAttachmentPicking)
             case "pick":
                 let core = payload["core"] as? Int ?? -1

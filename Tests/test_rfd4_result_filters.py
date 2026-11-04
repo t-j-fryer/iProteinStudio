@@ -16,12 +16,15 @@ class SavedGateTests(unittest.TestCase):
    (root/'results.json').write_text('[]')
    for name,verdict in [('pass',True),('fail',False),('unfiltered',None)]:
     leaf=root/'candidates'/name;leaf.mkdir(parents=True);pdb=leaf/'model.pdb';pdb.write_text('fixture')
-    row=dict(id=name,family=name,structure=str(pdb),sequence='AAAA',ipsae_min=.9)
+    row=dict(id=name,family=name,structure=str(pdb),sequence='AAAA',ipsae_min=.9,selection_metric='iptm',metrics={'iptm':.7},scaffold_id='7xl0_vobarilizumab')
     if verdict is not None:row.update(hit_filter_passed=verdict,hit_filter_cutoffs={'ipsae_min':.5},hit_filter_failures=[] if verdict else ['iptm'],hit_filter_scope='design_feedback_not_independent_validation')
     seal(leaf/'completed.json',row,[pdb])
    run='test/rfd4_runs/fixture'
    overview=results_overview(run,limit=20,hit_only=False)
    groups={g['id']:g for g in overview['groups']}
+   artifact=groups['pass']['variants'][0]['artifacts'][0]
+   self.assertEqual(artifact['selection_metric'],'iptm');self.assertEqual(artifact['metrics']['iptm'],.7)
+   self.assertEqual(artifact['scaffold_id'],'7xl0_vobarilizumab')
    self.assertTrue(groups['pass']['is_hit']);self.assertFalse(groups['fail']['is_hit']);self.assertIsNone(groups['unfiltered']['is_hit'])
    self.assertEqual(groups['pass']['variants'][0]['artifacts'][0]['hit_filter_scope'],'design_feedback_not_independent_validation')
    self.assertEqual([g['id'] for g in results_overview(run,limit=20,hit_only=True)['groups']],['pass'])

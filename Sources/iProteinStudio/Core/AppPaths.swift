@@ -332,6 +332,15 @@ enum AppPaths {
                                                    isDirectory: true)
         do {
             try fm.copyItem(at: bundled, to: staged)
+            // RFD4 preparation shares the versioned ligand/structure helpers.
+            // Preserve their bundled code with every new workflow snapshot.
+            for (resource, name) in [("rfd3", "rfd3_scripts"), ("rfd3_overlay", "rfd3_overlay")] {
+                let source = bundled.deletingLastPathComponent().appendingPathComponent(resource)
+                let target = staged.appendingPathComponent(name)
+                if !fm.fileExists(atPath: target.path) {
+                    try fm.copyItem(at: source, to: target)
+                }
+            }
             removeGeneratedCaches(from: staged)
             for name in ["nanohunter_run.sh", "setup_pipeline.sh"] {
                 let path = staged.appendingPathComponent(name).path

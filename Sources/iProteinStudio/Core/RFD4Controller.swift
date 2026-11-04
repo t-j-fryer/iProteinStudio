@@ -49,6 +49,8 @@ final class RFD4Controller: ObservableObject {
                     predictionCache: AppPaths.support.appendingPathComponent("target_predictions"))
                 frozen.source = target.path
             }
+            if let path = request.ligand_conformer { frozen.ligand_conformer = try copy(path) }
+            frozen.ligand_conformers = try request.ligand_conformers?.map { RFD4Conformer(label: $0.label, path: try copy($0.path), weight: $0.weight) }
             frozen.target_msa = try copy(request.target_msa)
             frozen.scaffold_msa = try copy(request.scaffold_msa)
             frozen.starting_structures = try request.starting_structures.map(copy)

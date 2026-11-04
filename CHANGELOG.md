@@ -1,5 +1,15 @@
 # iProteinStudio release notes
 
+## 0.2.32 — Unified backbone design and explicit objectives
+
+- Configure RFdiffusion3 and RFD4 in one form with an in-form generator selector.
+- Allocate nanobody starts across multiple frameworks with adjustable weights.
+- Select supported ranking metrics for sequence and native rollout searches; expose ESMFold2 ligand-confidence routes alongside Boltz.
+- Share molecule analysis, conformer choices and atom conditions. Explain each action, preview suggestions and clear all conditions. Show labelled colour rings for every selected atom role.
+- Add clickable RFD4 epitopes and clarify target/framework sequence alignments.
+- Ship matching CLI/MCP 52 schemas, guidance, result objectives and retained preflight/execution code, including bundled ligand helpers.
+- Native rollout search retains one framework/conformer per run. Computational scores are not experimental binding validation.
+
 ## 0.2.31 — Clearer design configuration
 
 - Keep parameter names visible across design forms. Explain sampling temperature, amino-acid exclusions, chain roles and the optional reference-checked Metal operations.

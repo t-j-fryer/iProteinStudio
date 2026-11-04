@@ -43,7 +43,7 @@ resident session per condition. Preserve source timing/memory definitions.
 - Boltz P(bind) + ligand pLDDT/100 is the combined ligand objective. NESSO/PSICHIC
   screening and their optional optimization objectives are distinct; do not mix
   their scores or claim validated affinity for designed binders.
-- Multichain RFD4 retains the existing minimum directional ipSAE across all protein
+- Multichain RFD4 defaults to the existing minimum directional ipSAE across all protein
   chain pairs, including target–target pairs. Do not describe it as binder-only.
 - Memory estimates are admission estimates, not measured peaks. RFD4/guided beta
   profiles remain uncalibrated; explicit overrides are recorded and do not imply
@@ -87,3 +87,13 @@ Lab0586/Validation0263 cover app/CLI/MCP integration, installation and output
 contracts. Confidence is model-specific: pTM for monomers, ipTM for complexes,
 protein ipSAE when available, pLDDT and PAE; none is an affinity head. Read actual
 completed output receipts before reporting a workflow as successful.
+
+
+## Design configuration candidate (Lab Book 0719)
+
+Weighted framework/conformer preparation, explicit sequence/native objectives,
+and shared atom-condition mapping have CPU/input/contract checks. The ESMFold2
+ligand-confidence route reuses the existing complete-sequence ligand adapter.
+These checks do not establish end-to-end GPU search performance, binding efficacy,
+or score comparability between predictors. Native ligand rollouts still use
+Boltz; multi-framework/conformer allocation excludes native rollout search.

@@ -22,6 +22,9 @@ final class RFD3TargetInspector: ObservableObject {
     @Published var error: String?
     @Published var isInspecting = false
 
+    private let useRFD4Runtime: Bool
+    init(useRFD4Runtime: Bool = false) { self.useRFD4Runtime = useRFD4Runtime }
+
     private var runner: ProcessRunner?
     private var buffer: [String] = []
     private var inspectionID = UUID()
@@ -54,11 +57,26 @@ final class RFD3TargetInspector: ObservableObject {
 
     private func run(_ args: [String]) {
         guard !isInspecting else { return }
-        guard let rfd3Root = RFD3Controller.rfd3Root else {
-            error = RFD3Controller.unavailableReason ?? "RFdiffusion3 is not available."
-            return
+        let preparationRoot: URL
+        let preparationPython: URL
+        let preparationScript: URL
+        if useRFD4Runtime {
+            preparationRoot = AppPaths.support
+            preparationPython = AppPaths.support.appendingPathComponent("venvs/NanoHunter_rfd4/bin/python")
+            guard FileManager.default.isExecutableFile(atPath: preparationPython.path),
+                  let bundled = AppPaths.bundledRFD3Scripts else {
+                error = "Install RFD4 support to prepare and inspect molecules."; return
+            }
+            preparationScript = bundled.appendingPathComponent("inspect_target.py")
+        } else {
+            guard let rfd3Root = RFD3Controller.rfd3Root else {
+                error = RFD3Controller.unavailableReason ?? "RFdiffusion3 is not available."; return
+            }
+            AppPaths.stageRFD3Scripts()
+            preparationRoot = rfd3Root
+            preparationPython = rfd3Root.appendingPathComponent(".venv/bin/python")
+            preparationScript = AppPaths.rfd3ScriptsDir.appendingPathComponent("inspect_target.py")
         }
-        AppPaths.stageRFD3Scripts()
         reset()
         let runID = UUID()
         inspectionID = runID
@@ -68,10 +86,10 @@ final class RFD3TargetInspector: ObservableObject {
         let runner = ProcessRunner()
         self.runner = runner
         runner.launch(
-            executable: rfd3Root.appendingPathComponent(".venv/bin/python"),
-            arguments: [AppPaths.rfd3InspectScript.path] + args,
+            executable: preparationPython,
+            arguments: [preparationScript.path] + args,
             environment: CommandBuilder.environment(),
-            workingDir: rfd3Root,
+            workingDir: preparationRoot,
             onLine: { [weak self] line in
                 guard self?.inspectionID == runID else { return }
                 self?.buffer.append(line)

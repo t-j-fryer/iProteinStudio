@@ -244,3 +244,13 @@ Measured performance and qualification limits are recorded in the
 
 [Support](SUPPORT.md) · [Security](SECURITY.md) · [Licensing](LICENSING.md) ·
 [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+### Backbone configuration in 0.2.32
+
+One design form selects RFD3 or RFD4 and exposes the relevant controls. RFD4
+adds weighted framework allocation, explicit search objectives, clickable epitopes
+and compatible ligand-confidence predictors. Shared molecule tools explain
+analysis and atom inspection, preview suggested restraints, and show coloured
+atom-role rings with Clear all. Target and framework alignments are sequence MSAs.
+The same request fields are available through CLI and MCP 52; see
+[the RFD4 guide](docs/RFD4.md) and [CLI reference](docs/CLI.md).

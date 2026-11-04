@@ -88,7 +88,7 @@ studio_ligand_efficiency: laser-resident-postload-seed-v2; boltz-affinity50-1; b
 studio_ligand_efficiency_validation: lab_book/0430-qualify-lasermpnn-cpu-residency.md, lab_book/0432-run-biotin-affinity-efficiency.md, lab_book/0442-release-ligand-efficiency.md
 studio_epitope_guidance: shared-generation-refinement-policy-v1
 studio_output_reporting: batched-content-addressed-inspection-v1
-studio_mcp: 51
+studio_mcp: 52
 
 studio_target_msa_policy: auto-resolved-not-filename-v1
 studio_target_msa_policy_validation: lab_book/0445-hunter-auto-msa-policy.md
