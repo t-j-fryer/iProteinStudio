@@ -46,3 +46,12 @@ Distribution is the existing trusted-beta channel (ad-hoc app signature and sign
 Sparkle archive), not an Apple-notarized release. The public diff contains generic
 app/CLI/MCP changes, tests, documentation and sanitized qualification evidence;
 private research, raw campaigns and weights are excluded.
+
+## Delivery
+
+Published v0.2.33-beta from clean packaging commit58ef2ca. GitHub asset sizes
+and SHA256 digests match the independently signature-verified local archives.
+Public and local beta apps are installed and open at build82. Shared CLI/MCP54
+passes doctor and source-byte comparisons. Previous app bundles are retained
+locally for rollback. The original paused NESSO plan was resumed through the broker;
+its immutable plan digest and original code/runtime remain unchanged.
