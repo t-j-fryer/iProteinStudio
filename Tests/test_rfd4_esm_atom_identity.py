@@ -28,6 +28,19 @@ class IdentityTests(unittest.TestCase):
         python,_=search_runtime_spec(Path("/runtime"),dict(task="protein",predictor="esmfold2-full-mlx"))
         self.assertEqual(str(python),"/runtime/venvs/NanoHunter_esmfold2/bin/python")
 
+    def test_600_receipt_requires_verified_native_assets(self):
+        from esmfold_runtime import native_asset_identity
+        original={'model':'600','seeds':[42]}
+        assets={'folding_revision':'pinned-fold','encoder_revision':'pinned-encoder','files':{'weights':'sha'}}
+        with patch('esmfold2_600.validate_assets',return_value=assets) as validate:
+            self.assertEqual(native_asset_identity('/runtime','600',original),dict(original,beta_assets=assets))
+            validate.assert_called_once_with('/runtime')
+        for profile in ['full','fast']:
+            with patch('esmfold2_600.validate_assets',side_effect=AssertionError('wrong model')):
+                self.assertIs(native_asset_identity('/runtime',profile,original),original)
+        with patch('esmfold2_600.validate_assets',side_effect=ValueError('changed weights')):
+            with self.assertRaisesRegex(ValueError,'changed weights'):native_asset_identity('/runtime','600',original)
+
     def test_export_and_audit_accept_only_exact_native_identity(self):
         import gemmi
         smiles='CCCO';manifest=esm_ligand_manifest(smiles)

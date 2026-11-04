@@ -89,6 +89,14 @@ def convert_structure(native, destination, manifest=None):
     structure.write_pdb(str(destination))
 
 
+def native_asset_identity(root, profile, identity):
+    """Match the native writer's pinned 600M completion identity exactly."""
+    if profile == '600':
+        from esmfold2_600 import validate_assets
+        return dict(identity, beta_assets=validate_assets(root))
+    return identity
+
+
 class ESMBackend(BatchBackend):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -148,6 +156,7 @@ class ESMBackend(BatchBackend):
             _, msas = read_input(path, profile)
             identity = dict(input_sha256=sha(path), msas=msas, model=profile, seeds=[args.seed], samples=1,
                 profile=prediction_settings, port=PORT_REVISION, unrestrained_check=False, schema=1)
+            identity = native_asset_identity(self.root, profile, identity)
             if not complete(native, identity): raise RuntimeError('Invalid ESMFold2 atomic output: ' + name)
             pdb = unit / (name + '.pdb')
             convert_structure(native, pdb, None if apo else self.atom_manifest(smiles))

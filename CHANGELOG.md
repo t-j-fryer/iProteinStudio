@@ -10,7 +10,10 @@
 - Select supported ranking metrics for sequence and native rollout searches; expose ESMFold2 ligand-confidence routes alongside Boltz.
 - Share molecule analysis, conformer choices and atom conditions. Explain each action, preview suggestions and clear all conditions. Show labelled colour rings for every selected atom role.
 - Add clickable RFD4 epitopes and clarify target/framework sequence alignments.
-- Ship matching CLI/MCP 52 schemas, guidance, result objectives and retained preflight/execution code, including bundled ligand helpers.
+- Ship matching CLI/MCP 53 schemas, guidance, result objectives and retained preflight/execution code, including bundled ligand helpers.
+- Show full workflow configuration directly and explain prediction concurrency versus sequential model reuse.
+- Remove automatic standard-reference generation from optimized RFD4 jobs; retain output-integrity and resume checks. Exact comparisons remain in developer validation.
+- Correct ESMFold2 ligand atom identity and controller routing without changing the supplied molecule or installing extra predictor dependencies.
 - Native rollout search retains one framework/conformer per run. Computational scores are not experimental binding validation.
 
 ## 0.2.31 — Clearer design configuration
