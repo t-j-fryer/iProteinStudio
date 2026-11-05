@@ -2,6 +2,15 @@ import Foundation
 import Combine
 
 struct RFD4MotifInventory: Decodable {
+    struct Chain: Decodable, Identifiable {
+        let chain: String
+        let sequence: String
+        var id: String { chain }
+    }
+    struct Ligand: Decodable, Identifiable {
+        let id: String
+        let name: String
+    }
     struct Residue: Decodable, Identifiable {
         let chain: String
         let residue: Int
@@ -12,6 +21,8 @@ struct RFD4MotifInventory: Decodable {
     let source_sha256: String
     let preview: String
     let residues: [Residue]
+    let chains: [Chain]
+    let ligands: [Ligand]
 }
 
 final class RFD4MotifInspector: ObservableObject {

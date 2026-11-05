@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0762 — Public motif assessment](lab_book/0762-public-motif-assessment.md): promote validated partner-aware apo/holo prediction and RMSD gates; release in progress.
+
 - [0757 — Motif release qualification](lab_book/0757-release-motif-controls.md): ten GPU outputs, five exact matched kernel pairs and native per-design length checks.
 
 - [0747 — RFD4 motif authoring](lab_book/0747-rfd4-motif-authoring.md): native residue/atom controls, CPU/viewer qualification and default-on kernels; local candidate.

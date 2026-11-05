@@ -135,3 +135,10 @@ alignment is bundled: retain the user's alignment policy and preflight any
 requested preparation. Structure guidance is optional and must be explicit;
 ordinary prediction does not use the example coordinates as a hidden template.
 Saved user targets and frozen runs are not replaced by this example update.
+
+
+Guided RFD4 motifs can retain source `partner_chains` and `ligand_ids` and request
+`motif_assessment` apo/holo final predictions. Read docs/RFD4.md for exact shape
+and partner-aligned RMSD definitions. Preserve the native insertion map and both
+mode receipts. All requested cutoffs/modes must pass; no gate stays unclassified.
+Sequence partners require joint complex preparation, not an invented spatial pose.

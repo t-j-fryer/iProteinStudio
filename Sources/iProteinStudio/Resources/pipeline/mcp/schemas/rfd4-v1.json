@@ -535,8 +535,62 @@
               ],
               "pattern": "^[0-9a-f]{64}$",
               "description": "Optional fingerprint of the inspected source; changed files are rejected."
+            },
+            "partner_chains": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true,
+              "description": "Source protein chains retained in the motif coordinate frame; excludes the motif-bearing chain."
+            },
+            "ligand_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true,
+              "description": "Exact source ligand instance IDs returned by inspect-motif."
             }
           }
+        },
+        "motif_assessment": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "apo",
+            "holo"
+          ],
+          "properties": {
+            "apo": {
+              "type": "boolean"
+            },
+            "holo": {
+              "type": "boolean"
+            },
+            "rmsd_max": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            },
+            "placement_rmsd_max": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            }
+          },
+          "description": "Final untemplated predictions of the native scaffold. All selected modes must pass motif-fitted RMSD; optional holo placement uses a partner fit. Cutoffs in angstrom; omitted/null means no gate, never automatic success. Guided motifs only; no sequence search."
         }
       }
     }

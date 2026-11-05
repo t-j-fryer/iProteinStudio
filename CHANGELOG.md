@@ -1,5 +1,10 @@
 # iProteinStudio release notes
 
+## 0.2.34 — Motif partner assessment
+
+- Retain selected protein/ligand partners during native motif scaffolding.
+- Add final apo/holo structure prediction and explicit source-motif shape/placement RMSD hit criteria across app, CLI and MCP55.
+
 ## 0.2.33 — Native motif authoring
 
 - Sample motif segment lengths from each design seed and explain native free-placement length accounting and geometry conditioning.

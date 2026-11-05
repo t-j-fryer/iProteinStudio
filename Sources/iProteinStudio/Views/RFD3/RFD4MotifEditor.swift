@@ -28,6 +28,7 @@ struct RFD4MotifEditor: View {
         })
     }
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 12) {
             Text("Choose the motif to scaffold").font(.title2)
             Text("Select residues on the structure or in the list, then choose the atoms to condition. Amber spheres mark the chosen atoms. RFD4 conditions generation on this geometry; inspect the generated motif because coordinates are not guaranteed to match exactly.").font(.callout)
@@ -71,6 +72,23 @@ struct RFD4MotifEditor: View {
                     Text("\(motif.residues.count) residues · \(motif.residues.reduce(0) { $0 + $1.atoms.count }) coordinate atoms")
                     Button("Clear all") { motif.residues = [] }
                 }
+                DisclosureGroup("Retain binding partners from this complex") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Choose the partner side of a protein interface, bound small molecules, or both. They stay in the source motif’s coordinate frame during generation. The motif-bearing chain becomes the new scaffold; unselected source chains are omitted.").font(.caption)
+                        ForEach(inventory.chains) { chain in
+                            Toggle("Protein chain \(chain.chain) · \(chain.sequence.count) residues", isOn: Binding(get: { (motif.partner_chains ?? []).contains(chain.chain) }, set: { on in
+                                var chains = motif.partner_chains ?? []; chains.removeAll { $0 == chain.chain }; if on { chains.append(chain.chain) }; motif.partner_chains = chains
+                            })).disabled(motif.residues.contains { $0.chain == chain.chain })
+                        }
+                        ForEach(inventory.ligands) { ligand in
+                            Toggle("Ligand \(ligand.id)", isOn: Binding(get: { (motif.ligand_ids ?? []).contains(ligand.id) }, set: { on in
+                                var ids = motif.ligand_ids ?? []; ids.removeAll { $0 == ligand.id }; if on { ids.append(ligand.id) }; motif.ligand_ids = ids
+                            }))
+                        }
+                        Button("Clear retained partners") { motif.partner_chains = nil; motif.ligand_ids = nil }
+                        Text("A separate sequence has no binding pose. Use Predict from sequence with both chains to prepare a proposed complex first, then select the motif and partner here. Covalently attached ligands and nucleic acids require a separate workflow.").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 Divider()
                 HStack(alignment: .top, spacing: 28) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -100,12 +118,13 @@ struct RFD4MotifEditor: View {
                 Button("Use this motif") { motif.source_sha256 = inspector.inventory?.source_sha256; apply(motif); dismiss() }.buttonStyle(.borderedProminent)
                     .disabled(inspector.inventory == nil || inspector.running || missingSelections || !motif.issues.isEmpty || !numericValidation.invalidEditors.isEmpty)
             }
-        }.padding(20).frame(width: 900, height: 780)
+        }.padding(20)
+        }.frame(width: 900, height: 780)
             .environment(\.numericInputValidation, numericValidation)
             .task(id: source) { inspector.inspect(source: source) }
             .onChange(of: inspector.inventory?.source_sha256) { _, fingerprint in
                 if let fingerprint, let saved = motif.source_sha256, fingerprint != saved {
-                    motif.residues = []; sourceChanged = true
+                    motif.residues = []; motif.partner_chains = nil; motif.ligand_ids = nil; sourceChanged = true
                 }
             }
             .onDisappear { inspector.cancel() }

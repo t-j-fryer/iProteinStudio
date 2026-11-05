@@ -101,7 +101,7 @@ def normalize(request):
                     assess_native=False, starting_structures=[], native_search=False,
                     native_beam_width=2, native_branches=2, native_checkpoints=[8, 15],
                     native_partial_fraction=0.5, ligand_smiles='', time_budget_minutes=None, scaffold_id=None,
-                    hotspot_residues=None, length_plan=None, hit_filters=None, motif=None, selection_metric=None, scaffold_weights=None, ligand_conformers=None, ligand_conformer=None, ligand_atom_conditions=None, ligand_attachment_atom=None, ligand_attachment_linker_atom=None, ligand_search_pdb=None, ligand_is_conjugated=None)
+                    hotspot_residues=None, length_plan=None, hit_filters=None, motif=None, motif_assessment=None, selection_metric=None, scaffold_weights=None, ligand_conformers=None, ligand_conformer=None, ligand_atom_conditions=None, ligand_attachment_atom=None, ligand_attachment_linker_atom=None, ligand_search_pdb=None, ligand_is_conjugated=None)
     unknown = set(request) - set(defaults)
     if unknown: raise ValueError('Unknown RFD4 settings: ' + ', '.join(sorted(unknown)))
     cfg = {**defaults, **request}
@@ -136,6 +136,33 @@ def normalize(request):
         spec = importlib.util.spec_from_file_location('studio_rfd4_motif', Path(__file__).with_name('motif.py'))
         module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
         module.validate(cfg)
+    if cfg.get('motif_assessment') is not None:
+        assessment = cfg['motif_assessment']
+        if not isinstance(assessment,dict) or not {'apo','holo'} <= set(assessment) or set(assessment) - {'apo','holo','rmsd_max','placement_rmsd_max'}:
+            raise ValueError('Supply apo/holo choices and explicit optional motif RMSD cutoffs.')
+        assessment=cfg['motif_assessment']={'rmsd_max':None,'placement_rmsd_max':None,**assessment}
+        if cfg['task'] != 'motif' or not cfg.get('motif') or cfg['search'] != 'native' or cfg['native_search'] or cfg['assess_native']:
+            raise ValueError('Motif assessment checks generated guided motifs; sequence/native rollout search is a separate workflow.')
+        if any(type(assessment[k]) is not bool for k in ('apo','holo')) or not (assessment['apo'] or assessment['holo']):
+            raise ValueError('Select apo, holo, or both motif assessments.')
+        for key in ('rmsd_max','placement_rmsd_max'):
+            cutoff=assessment[key]
+            if cutoff is not None and (type(cutoff) not in (int,float) or not math.isfinite(cutoff) or not 0 < cutoff <= 100):
+                raise ValueError('Motif RMSD cutoffs must be finite, positive angstrom values up to 100.')
+        if assessment['holo'] and not (cfg['motif'].get('partner_chains') or cfg['motif'].get('ligand_ids')):
+            raise ValueError('Holo assessment needs explicitly retained source partners.')
+        if assessment['placement_rmsd_max'] is not None and not assessment['holo']:
+            raise ValueError('Partner-aligned placement RMSD requires holo assessment.')
+        if sum(len(r['atoms']) for r in cfg['motif']['residues']) < 3:
+            raise ValueError('Motif RMSD assessment needs at least three noncollinear selected atoms.')
+        if cfg['predictor'] not in PREDICTORS: raise ValueError('Choose a supported structure predictor.')
+        if assessment['holo'] and cfg['motif'].get('ligand_ids') and cfg['predictor'] not in ('boltz','esmfold2-full-mlx','esmfold2-fast-mlx','esmfold2-600-mlx'):
+            raise ValueError('Ligand holo assessment requires Boltz or an ESMFold2 predictor with audited ligand atom mapping.')
+        if assessment['holo'] and cfg['motif'].get('partner_chains') and cfg['predictor'] not in ('esmfold2-fast-mlx','esmfold2-600-mlx') and not cfg['target_msa']:
+            raise ValueError('Choose the retained partner MSA policy, including explicit empty if desired.')
+        if cfg['time_budget_minutes'] is not None: raise ValueError('Motif final assessment requires a complete per-family budget; active-time caps are not yet supported.')
+    if cfg.get('motif') and (cfg['binder_chain'] != 'A' or cfg['target_chain'] != 'B'):
+        raise ValueError('Guided motifs use scaffold A and retained partners B onward.')
     validate_hit_filters(cfg)
     if cfg['seed'] + cfg['count'] - 1 >= 2**32:
         raise ValueError('The requested generation seeds exceed the 32-bit range.')
@@ -216,6 +243,8 @@ def normalize(request):
 
 
 def prediction_budget(cfg):
+    if cfg.get('motif_assessment'):
+        return cfg['count'] * sum(int(cfg['motif_assessment'][k]) for k in ('apo','holo'))
     if cfg['native_search']:
         terminal = int(cfg['native_checkpoints'][-1] < round(60 * cfg['native_partial_fraction']))
         return cfg['count'] * cfg['native_beam_width'] * (cfg['native_branches'] * len(cfg['native_checkpoints']) + terminal)

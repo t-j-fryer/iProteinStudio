@@ -1,0 +1,106 @@
+{
+  "version": "0.2.34",
+  "build": 83,
+  "mcp": 55,
+  "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+  "gpu_acceptance_passed": true,
+  "scope": "Technical input/output integration, not motif efficacy or known binding pose",
+  "routes": [
+    {
+      "name": "protein-full",
+      "passed": true,
+      "modes": {
+        "apo": {
+          "motif_rmsd_angstrom": 2.3136959861465454,
+          "partner_aligned_motif_rmsd_angstrom": null,
+          "hit_filter_passed": false,
+          "engine": "esmfold2-full-mlx"
+        },
+        "holo": {
+          "motif_rmsd_angstrom": 3.8094560922008625,
+          "partner_aligned_motif_rmsd_angstrom": 37.0822112210096,
+          "hit_filter_passed": false,
+          "engine": "esmfold2-full-mlx"
+        }
+      },
+      "matched_hit_verdict": false,
+      "receipt_sha256": "0f4af54a945e8edda054c821bd78ca10a862248067cd2db1ce226f151a6f208a"
+    },
+    {
+      "name": "ligand-boltz",
+      "passed": true,
+      "modes": {
+        "apo": {
+          "motif_rmsd_angstrom": 2.852463752212334,
+          "partner_aligned_motif_rmsd_angstrom": null,
+          "hit_filter_passed": false,
+          "engine": "boltz"
+        },
+        "holo": {
+          "motif_rmsd_angstrom": 2.4664051382114174,
+          "partner_aligned_motif_rmsd_angstrom": 47.63584958373238,
+          "hit_filter_passed": false,
+          "engine": "boltz"
+        }
+      },
+      "matched_hit_verdict": false,
+      "receipt_sha256": "aac4f928cb228789f7c44a6a4fc4da00f1c447ef477b7177c2b32fcb7afcfe44"
+    }
+  ],
+  "public_workflow_byte_check": {
+    "passed": true,
+    "files": {
+      "scripts/rfd4/mixed_target.py": "c2338a05e8383e4040407a4bff7558da16e8f16e6bc987dcd48b9476ded2a45d",
+      "scripts/rfd4/triangle_metal.py": "24bac5cfca931da9f3b52409ee1b1156a5229e33e052f57ef160c0f9cf387335",
+      "scripts/rfd4/targets.py": "1e649ba6fed803eea133b56030a948c950742ee8335b4783cce81f650f80598b",
+      "scripts/rfd4/predictors.py": "d13108335756082d788173c6ac102d00425bb8e0ca1f672aead2a2dc370f1208",
+      "scripts/rfd4/ligand_search.py": "35e5819179418559d8034a1b0bd8be512b77c693874bc665b217626689947102",
+      "scripts/rfd4/generate.py": "4239fef339cce2bdef8e84376615a2f39c715fb071b457bab23f5e4233212397",
+      "scripts/rfd4/search_engine.py": "01e6c579602806be385c60809fd4579ba025d566bea1faf806389f535cada710",
+      "scripts/rfd4/budget.py": "f2ac9b4d5beeaaa86d45f23493f72e778fcb7dd09d0583c414919bd588d54ccf",
+      "scripts/rfd4/motif_metrics.py": "6af2645c9a98f962229a1bb5a9ae66233c8b65e4a97bd72f605bc5a06c97ac04",
+      "scripts/rfd4/msas.py": "31b54fb418dc122b3b0d0556334e974ab6f51d7d97b258b70834f261598bc09c",
+      "scripts/rfd4/__init__.py": "d327d74df6e2d050adb5965dec4a7cdb121e0395bf7f3ad3ea8dfe4da11b2eb5",
+      "scripts/rfd4/native.py": "f3cfee48bbe0546331f1af62bdb8cd26af36b5e63a6e6567c62130363475eb05",
+      "scripts/rfd4/ligand_score.py": "42ac18ad10144f0ec9c9a4e405a67fb223c352b6435fa19fefc2b4cf3319a75b",
+      "scripts/rfd4/campaign.py": "276be777fccf2c023df68179d4e63828b89d069f8b183d4e1f25fb9295bb4e52",
+      "scripts/rfd4/inputs.py": "6e3217ee0287acd2a29b71eee4136990a7f3647249191374f8e700bae1eb7a10",
+      "scripts/rfd4/motif_assessment.py": "91d973dd4c15d0026fd12432b980d71bc4ca1544df69960ff6106bce43bee683",
+      "scripts/rfd4/motif.py": "b72b385905e1981503cf037135d3f44d39b97f9f49ce12d990c9edd2a9173ac4",
+      "scripts/rfd4/search.py": "311a558edc36f63eebd5ea68a0f130aab2bab7ffcaaa69336c8ddad716a5b55f",
+      "scripts/rfd4/native_boltz_worker.py": "45f02be16e139402aac6ea80bd60a4f6d2095f66dfc3f283fb2eff7174698ba1",
+      "scripts/rfd4/motif_context.py": "fdc79f34541179ee6540e527200205376be247d0c761f8034289a9422da3bef0",
+      "scripts/rfd4/motif_geometry.py": "798486f58c0a6bdb7b9a66c3e9e38369a800a2a111a8fa846b241f1c55a45586",
+      "scripts/rfd4/metal.py": "58f43f97c2ed9b0c7d73c836f4cfe52ff4eb19be7a3ebc6980b222093a38223e",
+      "scripts/rfd4/native_scorer.py": "c3a6a2feb79e15548d55454e910098b7ce2b6b588e5a2dc194cadb1002224cd4",
+      "scripts/rfd4/contract.py": "85e8a58b9684f5d00fece9e474bd4e3da14be7f1d53ad340e87516bca8750a04",
+      "scripts/rfd4/prepare.py": "61dfb1f1d9a03585f82159478e27d26f68ec57dcde42ef242eaedaa3b23fe1c0",
+      "scripts/rfd4_cli.py": "c475223aad42ffbb41f40876f77e80037442df9ece35aed7cb6d94d69ec19f00",
+      "mcp/iprotein_mcp/rfd4.py": "20a25728dc143c32163117d367a02892d6643e07ec7ba8a95009734f8e17e386",
+      "mcp/schemas/rfd4-v1.json": "dc5e126ecec10604d0d02c645f56057d1beee3976b36e03e9286993f08200e79"
+    }
+  },
+  "predictor_dependencies_byte_identical": true,
+  "receipt_reuse": {
+    "passed": true,
+    "unchanged_files": 68,
+    "new_inference": false
+  },
+  "public_checks": {
+    "swift_build": true,
+    "swift_configuration_and_results": true,
+    "motif_contract_geometry_tests": 6,
+    "mcp_bridge_tests": 24,
+    "release_contracts": true,
+    "workflow_regressions": true
+  },
+  "untested": [
+    "Other Macs",
+    "Fresh end-to-end update on a second Mac",
+    "Other predictors on GPU for this motif route",
+    "Long motif campaigns",
+    "Combined protein-plus-ligand GPU example",
+    "Covalent or metal partners",
+    "New source-sequence complex prediction"
+  ]
+}

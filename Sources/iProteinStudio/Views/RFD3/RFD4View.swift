@@ -123,8 +123,9 @@ struct RFD4ConfigurationFields: View {
                     if [.protein, .nanobody].contains(value.task) && !value.annotated_input { epitopeForm }
                     conditionsForm
                     if value.canSearch { searchForm }
+                    if value.task == .motif { RFD4MotifAssessmentForm(request: request, installer: installer) }
                     if setupExperience == .advanced && value.canSearch { nativeSearchForm }
-                    if value.needsPrediction && value.task != .ligand { hitFilters }
+                    if value.needsPrediction && value.task != .ligand && value.motif_assessment == nil { hitFilters }
                     executionForm
                     ForEach(value.validationIssues, id: \.self) { Text($0).foregroundStyle(.orange) }
                     if !ready { Text("Install the selected generator, sequence designer and predictor in Engines.").foregroundStyle(.orange) }
@@ -200,6 +201,7 @@ struct RFD4ConfigurationFields: View {
                             request.wrappedValue.ligand_attachment_atom = nil; request.wrappedValue.ligand_attachment_linker_atom = nil; request.wrappedValue.ligand_is_conjugated = nil; request.wrappedValue.ligand_search_pdb = nil
                             if task == .ligand { request.wrappedValue.predictor = "boltz" }
                             request.wrappedValue.motif = nil
+                            request.wrappedValue.motif_assessment = nil
                             request.wrappedValue.annotated_input = task == .annotated
                             if task == .nanobody, let scaffold = scaffolds.first(where: { $0.id == "7xl0_vobarilizumab" }) {
                                 request.wrappedValue.scaffold_id = scaffold.id
@@ -284,6 +286,10 @@ struct RFD4ConfigurationFields: View {
                         .font(.caption.monospaced()).textSelection(.enabled)
                     Text("Geometry conditioning: " + (motif.coordinate_mode == "absolute" ? "absolute coordinates" : "relative group") + " · " + (motif.fix_sequence ? "fixed residue identities" : "backbone-only sequence redesign") + " · " + (motif.unindexed ? "free sequence placement" : "indexed placement"))
                         .font(.caption).foregroundStyle(.secondary)
+                    if !(motif.partner_chains ?? []).isEmpty || !(motif.ligand_ids ?? []).isEmpty {
+                        Text("Retained partners: " + ((motif.partner_chains ?? []).map { "chain " + $0 } + (motif.ligand_ids ?? [])).joined(separator: ", "))
+                            .font(.caption).textSelection(.enabled)
+                    }
                     Button("Clear motif") { request.wrappedValue.motif = nil }
                 }
                 Text("The guided form scaffolds residues from one protein chain. Native annotated CIFs remain available for multi-chain, ligand or metal motifs. Applying a guided selection replaces manual motif layout, geometry conditions and protein-binder hotspots.").font(.caption).foregroundStyle(.secondary)
@@ -566,7 +572,7 @@ struct RFD4ConfigurationFields: View {
                     ForEach(TargetEngine.allCases) { Text($0.label).tag($0) }
                 }.disabled(targetPredictor.isRunning)
                     .onChange(of: targetEngine) { _, _ in request.wrappedValue.source = ""; targetPredictor.reset() }
-                Text("The target is predicted once using the shared queue and alignment cache. Its saved structure is then used for design; target preparation is separate from the design time limit.").font(.caption).foregroundStyle(.secondary)
+                Text(value.task == .motif ? "Enter the motif-bearing chain and any provided partner sequence as separate chains. Predict them together to establish a proposed complex pose, then choose the motif and retained partner chains. This replaces the input reference with that predicted complex; it does not dock a separate partner onto an experimental motif." : "The target is predicted once using the shared queue and alignment cache. Its saved structure is then used for design; target preparation is separate from the design time limit.").font(.caption).foregroundStyle(.secondary)
                 if targetPredictor.isRunning {
                     ProgressView("Preparing target…")
                     Button("Cancel target prediction") { targetPredictor.cancel() }

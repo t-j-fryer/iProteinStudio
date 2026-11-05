@@ -1131,3 +1131,18 @@ Lengths sample from each design seed. Coordinate conditioning is a model input,
 not an exact output guarantee; assess generated motif RMSD and refolding before
 interpreting a design as successful. Upstream exposes motif-adherence metrics:
 https://rfd4-proteina.org/latest/reference/metrics.html
+
+
+### RFD4 motif apo/holo assessment (beta)
+
+Use the normal `plan-rfd4` → immutable plan → `start` sequence. Extend a complete
+`request.motif` with optional `partner_chains: ["B"]` and `ligand_ids` from
+`rfd4_cli.py inspect-motif`. All entities must be in the source-complex frame.
+Add `motif_assessment: {"apo": true, "holo": true, "rmsd_max": 2.0,
+"placement_rmsd_max": 2.0}` for final untemplated predictions. Cutoffs are Å,
+optional/null disables that gate, and all requested modes must pass. Keep
+`search: "native"`, `assess_native: false`, and `native_search: false`. Choose
+`predictor` and an explicit retained-protein `target_msa` policy. Ligand holo
+checks use Boltz or ESMFold2. These gates do not imply experimental activity.
+The plan counts every apo/holo call. Each prediction has its own durable receipt;
+results preserve native motif correspondence and source-reference fingerprints.

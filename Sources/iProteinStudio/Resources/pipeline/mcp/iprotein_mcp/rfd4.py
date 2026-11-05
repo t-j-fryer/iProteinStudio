@@ -53,7 +53,7 @@ def prepare(output, request):
         module.fixed(output / 'settings.json', cfg)
         python = root / 'venvs/NanoHunter_rfd4/bin/python'
         runner = pipeline / 'scripts/rfd4_cli.py'
-        search = cfg['search'] != 'native' or cfg['assess_native'] or cfg['native_search']
+        search = cfg['search'] != 'native' or cfg['assess_native'] or cfg['native_search'] or bool(cfg.get('motif_assessment'))
         engines = [] if cfg['starting_structures'] and not cfg['native_search'] else ['rfd4']
         required = [] if not engines else [python, root / 'components/rfd4/current/runtime.json']
         if cfg['starting_structures'] and cfg['task'] in ('protein','nanobody'):
@@ -120,7 +120,7 @@ def prepare(output, request):
                             *([output / 'ligand_inputs.json'] if cfg.get('ligand_conformers') else []),
                             *([output / 'scaffold_inputs.json'] if cfg.get('scaffold_weights') else []),
                             *([output / 'length_inputs.json'] if cfg.get('length_plan') and not cfg.get('ligand_conformers') else []),
-                            *[output / name for name in ('molecule.json', 'molecule.cif', 'reference.cif', 'protein_source.cif', 'framework_identity.json', 'target_identity.json', 'target_ligands.json') if (output / name).is_file()]])
+                            *[output / name for name in ('molecule.json', 'molecule.cif', 'reference.cif', 'protein_source.cif', 'framework_identity.json', 'target_identity.json', 'target_ligands.json', 'motif_context.json', 'motif_reference.json') if (output / name).is_file()]])
             inputs += [output / name for name in ('annotated.cif', 'condition_spec.json', 'feature_audit.json', 'preflight_completed.json')]
             inputs += [output / name for name in ('molecule.json', 'molecule.cif', 'reference.cif', 'protein_source.cif', 'framework_identity.json') if (output / name).is_file()]
         elif cfg['native_search']:
@@ -147,6 +147,10 @@ def prepare(output, request):
                 module.seal(receipt,dict(passed=True),[output/'context_audit.json',*list(output.glob('imported_*.*')),*[output/n for n in ('target_ligands.json','starting_assemblies.json') if (output/n).is_file()]])
             inputs += [receipt,output/'context_audit.json',*list(output.glob('imported_*.*'))]
         config = dict(settings=cfg, output=str(output), annotated_cif=str(output / 'annotated.cif'))
+        if cfg.get('motif'):
+            config['motif_context']=load_json(output/'motif_context.json')
+            config['motif_reference']=str(output/'motif_reference.json')
+            inputs += [output/'motif_context.json',output/'motif_reference.json']
         if (output/'starting_assemblies.json').is_file():
             config['starting_assemblies']=json.loads((output/'starting_assemblies.json').read_text())
             if not isinstance(config['starting_assemblies'],list) or len(config['starting_assemblies'])!=cfg['count'] or any(not isinstance(p,str) or not Path(p).is_file() for p in config['starting_assemblies']):raise ValueError('Imported assembly audit returned invalid structures.')

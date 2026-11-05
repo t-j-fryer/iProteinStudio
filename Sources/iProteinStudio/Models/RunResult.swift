@@ -291,6 +291,7 @@ struct StudioResultMetric: Identifiable, Hashable {
         case motifInsertionRMSD
         case motifPredictionRMSD
         case motifInputRMSD
+        case motifPartnerRMSD
         case motifCandidateRMSD
         case motifMaximumDrift
         case backboneCAValidity
@@ -330,6 +331,7 @@ struct StudioResultMetric: Identifiable, Hashable {
             case .motifInsertionRMSD: return "motif placement RMSD"
             case .motifPredictionRMSD: return "predicted motif RMSD"
             case .motifInputRMSD: return "motif RMSD to input"
+            case .motifPartnerRMSD: return "partner-aligned motif RMSD"
             case .motifCandidateRMSD: return "scaffold motif RMSD to input"
             case .motifMaximumDrift: return "fixed-atom drift"
             case .backboneCAValidity: return "valid Cα spacing"
@@ -381,6 +383,8 @@ struct StudioResultMetric: Identifiable, Hashable {
                 return "RMSD of the explicitly selected motif atoms in an independent sequence prediction after fitting those motif atoms to the generated design. Lower means the functional geometry was recovered."
             case .motifInputRMSD:
                 return "Selected atoms in the predicted motif aligned to the original input motif using the saved residue mapping and one global fit. Lower is better; this is distinct from agreement with the generated backbone."
+            case .motifPartnerRMSD:
+                return "Fit retained partner Cα and ligand heavy atoms to the input complex, then measure the selected motif atoms without refitting them. Lower indicates recovery of the input motif placement relative to its partners."
             case .motifCandidateRMSD:
                 return "Selected atoms in the proposed RFD3 scaffold aligned to the original motif, before fixed guide atoms are copied into the exported PDB. Use this to compare initial motif placement across scaffolds."
             case .motifMaximumDrift:
@@ -403,7 +407,7 @@ struct StudioResultMetric: Identifiable, Hashable {
             return String(format: "%.1f", conventional)
         case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance,
              .complexRMSD, .binderBackboneRMSD, .binderRMSD, .ligandRMSD, .pocketPreorgRMSD,
-             .motifInsertionRMSD, .motifPredictionRMSD, .motifInputRMSD, .motifCandidateRMSD, .motifMaximumDrift:
+             .motifInsertionRMSD, .motifPredictionRMSD, .motifInputRMSD, .motifPartnerRMSD, .motifCandidateRMSD, .motifMaximumDrift:
             return String(format: "%.2f Å", value)
         case .binderPLDDT:
             let conventional = value <= 1.000_001 ? value * 100 : value

@@ -144,6 +144,9 @@ def author(root, cfg, destination):
         from rfproteina.utils.parse_presets import RCSB_WITH_METALS
         array = parse(cfg['source'], config=RCSB_WITH_METALS.replace(build_assembly=None, altloc='first'))['asym_unit'][0]
         context=None
+        if cfg.get('motif'):
+            from .motif_context import prepare as prepare_motif_context
+            array, cfg, context = prepare_motif_context(array,cfg,destination)
         if cfg['task'] == 'protein':
             import biotite.structure as bs
             from biotite.sequence import ProteinSequence
@@ -166,14 +169,22 @@ def author(root, cfg, destination):
         # Preserve the original entity, bond and custom chemical-component
         # tables. A coordinate-only CIF round trip loses their connectivity.
         source = Path(cfg['source']).resolve()
-        if (cfg['task'] == 'protein' and context) or source.suffix.lower() == '.pdb':
+        if cfg.get('motif') or (cfg['task'] == 'protein' and context) or source.suffix.lower() == '.pdb':
             from atomworks.io.utils.io_utils import to_cif_file
             source = destination / 'protein_source.cif'
             to_cif_file(array, source)
-            if context: write_components(source,context)
+            if context:
+                from .mixed_target import write_components
+                write_components(source,context)
         spec = condition_spec(cfg, source, array,context)
+        if cfg.get('motif'):
+            from .motif_context import extend_spec
+            spec = extend_spec(spec,cfg,array)
         atomic(destination / 'condition_spec.json', spec)
         write_condition_spec_cif('studio', spec, output, spec_dir=destination, validate=True)
+        if cfg.get('motif'):
+            from .motif_context import freeze_reference
+            freeze_reference(output,cfg,destination)
     return output
 
 

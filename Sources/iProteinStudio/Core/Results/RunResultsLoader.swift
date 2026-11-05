@@ -66,7 +66,10 @@ enum RunResultsLoader {
             if let score, !metrics.contains(where: { $0.kind == .ipsaeMinimum }) {
                 metrics.append(.init(kind: .ipsaeMinimum, value: score))
             }
-            let oracleMetrics = row["metrics"] as? [String: Double] ?? [:]
+            let oracleMetrics = (row["metrics"] as? [String: Any] ?? [:]).compactMapValues { ($0 as? NSNumber)?.doubleValue }
+            let assessmentMode = row["assessment_mode"] as? String
+            if let value = oracleMetrics["motif_rmsd_angstrom"] { metrics.append(.init(kind: .motifInputRMSD, value: value)) }
+            if let value = oracleMetrics["partner_aligned_motif_rmsd_angstrom"] { metrics.append(.init(kind: .motifPartnerRMSD, value: value)) }
             if let value = oracleMetrics["boltz.pbind"] { metrics.append(.init(kind: .bindingProbability, value: value)) }
             if let value = oracleMetrics["boltz.ligand_plddt"] ?? oracleMetrics["ligand_plddt"] { metrics.append(.init(kind: .ligandPLDDT, value: value)) }
             for (key, kind) in [("iptm", StudioResultMetric.Kind.iptm), ("complex_plddt", StudioResultMetric.Kind.plddt)] {
@@ -75,14 +78,15 @@ enum RunResultsLoader {
             let parent = row["parent_id"] as? String
             let family = row["family"] as? String ?? id
             return StudioResultItem(id: "rfd4|" + id, title: id,
-                subtitle: parent.map { "Parent: " + $0 + " · selection: " + (row["selection_metric"] as? String ?? "design feedback") } ?? "RFD4 joint sequence/structure generation",
+                subtitle: assessmentMode.map { $0.capitalized + " · untemplated motif assessment · all requested hit gates" } ?? (parent.map { "Parent: " + $0 + " · selection: " + (row["selection_metric"] as? String ?? "design feedback") } ?? "RFD4 joint sequence/structure generation"),
                 structureURL: structure, sequence: sequence,
                 metrics: metrics, confidenceURL: confidence,
-                stage: .design, scoreSource: friendlyPredictor(row["engine"] as? String ?? "RFD4"),
+                stage: assessmentMode == nil ? .design : .postPrediction, scoreSource: friendlyPredictor(row["engine"] as? String ?? "RFD4"),
                 isHit: row["hit_filter_passed"] as? Bool,
                 failedFilters: row["hit_filter_failures"] as? [String] ?? [],
-                groupID: family, groupTitle: family, variantID: id, variantTitle: id,
-                artifactRole: parent == nil ? .generatedBackbone : .designedComplex)
+                motifMapping: row["motif_mapping"] as? [String: String] ?? [:],
+                groupID: family, groupTitle: family, variantID: assessmentMode == nil ? id : parent, variantTitle: assessmentMode == nil ? id : parent,
+                artifactRole: assessmentMode == "apo" ? .binderAlone : assessmentMode == "holo" ? .complexReprediction : parent == nil ? .generatedBackbone : .designedComplex)
         }
     }
 

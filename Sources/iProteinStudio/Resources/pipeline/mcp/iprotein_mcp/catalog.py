@@ -911,7 +911,7 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
             gate = {key: row[key] for key in ('hit_filter_passed', 'hit_filter_failures',
                     'hit_filter_cutoffs', 'hit_filter_scope') if key in row}
             if hit_only and verdict is not True: continue
-            artifacts = [dict(role="design", path=row["structure"], predictor=row.get('engine'), selection_metric=row.get('selection_metric', config.get('settings',{}).get('selection_metric')),
+            artifacts = [dict(role=(row.get('assessment_mode')+'_motif_assessment') if row.get('assessment_mode') else "design", path=row["structure"], predictor=row.get('engine'), selection_metric=row.get('selection_metric', config.get('settings',{}).get('selection_metric')),
                               scaffold_id=row.get('scaffold_id'),
                               confidence_json=_run_artifact_reference(root,confidence) if confidence else None, metrics=metrics, is_hit=verdict, **gate)]
             if row.get('assembly_audit'):
@@ -1084,6 +1084,7 @@ def _workflow_guide(workflow: str) -> Dict[str, Any]:
         'For protein binders use SolubleMPNN by default and omit contig. An explicit target chain and optional source-numbered hotspots define conditioning.',
         'Monomers, protein/ligand conditioning, motifs/nanobodies, partial diffusion and inverse folding use the released Diffusers configuration.',
         'Motif scaffolding accepts a typed motif object: explicit native chain/residue/atom selections, absolute or relative coordinates, sequence identity, indexed/unindexed groups and prefix/linker/suffix bounds. Inspect with rfd4_cli inspect-motif; source_sha256 binds the inspected structure. Predict sequences with target_prepare_plan first. Guided motifs use one protein chain; multi-chain/non-protein motifs use native annotated CIFs.',
+        'Motif partner_chains and ligand_ids retain explicitly selected source-complex partners in the motif coordinate frame. Provided protein sequences must first be jointly predicted with the motif-bearing chain; an isolated sequence supplies no docking pose. motif_assessment selects final apo/holo predictions and optional rmsd_max/placement_rmsd_max in angstrom. All requested gates and modes must pass; missing atoms fail, no cutoff remains unclassified. These are untemplated checks using native residue insertion provenance, not experimental validation.',
         'Fixed, iterative, greedy and beam sequence searches are distinct from native during-diffusion rollout search. Preserve exact parent IDs and every evaluated candidate.',
         'A campaign above ten families first completes one end-to-end family. Failed or changed receipts stop resumption.',
         'Protein search requires an explicit target MSA policy; Fast is sequence-only. Search scores are optimization feedback, not independent validation.',

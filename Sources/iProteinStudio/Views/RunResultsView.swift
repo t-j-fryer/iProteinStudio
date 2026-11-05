@@ -659,7 +659,7 @@ private struct MetricTile: View {
         case .ipsaeMinimum: return .teal
         case .interfacePAEMinimum, .interfacePDE, .pocketMeanDistance,
              .complexRMSD, .binderBackboneRMSD, .binderRMSD,
-             .motifInsertionRMSD, .motifPredictionRMSD, .motifInputRMSD, .motifCandidateRMSD, .motifMaximumDrift: return .orange
+             .motifInsertionRMSD, .motifPredictionRMSD, .motifInputRMSD, .motifPartnerRMSD, .motifCandidateRMSD, .motifMaximumDrift: return .orange
         case .pocketFractionWithinCutoff: return .indigo
         case .bindingProbability: return .purple
         case .psichicBindingProxy, .psichicAffinity, .psichicNonbinder, .psichicAntagonist, .psichicAgonist, .nessoBindingProbability, .nessoAffinity, .nessoPlacementEntropy, .nessoInterfaceEntropy, .nessoScreeningScore: return .indigo

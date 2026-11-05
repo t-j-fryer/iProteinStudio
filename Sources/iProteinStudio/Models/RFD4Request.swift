@@ -71,6 +71,8 @@ struct RFD4MotifResidue: Codable, Hashable, Identifiable {
 
 struct RFD4Motif: Codable, Hashable {
     var source_sha256: String?
+    var partner_chains: [String]?
+    var ligand_ids: [String]?
     var residues: [RFD4MotifResidue] = []
     var coordinate_mode = "absolute"
     var fix_sequence = true
@@ -86,6 +88,7 @@ struct RFD4Motif: Codable, Hashable {
         if residues.contains(where: { $0.residue < 1 || $0.residue > Int(Int32.max) }) { return ["Use positive native residue numbers."] }
         if residues.isEmpty || residues.contains(where: { $0.atoms.isEmpty }) { result.append("Choose motif residues and at least one coordinate atom in each.") }
         if Set(residues.map(\.chain)).count > 1 { result.append("The guided motif uses one source protein chain. Use native annotated input for multi-chain motifs.") }
+        if !Set(partner_chains ?? []).isDisjoint(with: Set(residues.map(\.chain))) { result.append("A retained partner cannot also be the motif-bearing chain.") }
         if [prefix, linker, suffix].allSatisfy({ $0.count == 2 && $0.allSatisfy { (0...2000).contains($0) } }) {
             let sorted = residues.sorted { $0.residue < $1.residue }
             let gaps = zip(sorted, sorted.dropFirst()).filter { pair in pair.1.residue != pair.0.residue + 1 }.count
@@ -98,6 +101,13 @@ struct RFD4Motif: Codable, Hashable {
         }
         return result
     }
+}
+
+struct RFD4MotifAssessment: Codable, Hashable {
+    var apo = true
+    var holo = false
+    var rmsd_max: Double? = 2.0
+    var placement_rmsd_max: Double?
 }
 
 struct RFD4Request: Codable, Hashable {
@@ -141,6 +151,7 @@ struct RFD4Request: Codable, Hashable {
     var length_plan: RFD4LengthPlan?
     var hit_filters: [String: Double]?
     var motif: RFD4Motif?
+    var motif_assessment: RFD4MotifAssessment?
     var ligand_conformers: [RFD4Conformer]?
     var ligand_conformer: String?
     var ligand_atom_conditions: [String: [String]]?
@@ -177,9 +188,10 @@ struct RFD4Request: Codable, Hashable {
         return counts
     }
     var canSearch: Bool { task == .protein || task == .nanobody || task == .ligand }
-    var needsPrediction: Bool { search != .native || assess_native || native_search }
+    var needsPrediction: Bool { search != .native || assess_native || native_search || motif_assessment != nil }
     var predictions: Int {
         guard (1...10000).contains(count), (1...100).contains(cycles), (1...64).contains(proposals), (1...64).contains(beam_width) else { return 0 }
+        if let assessment = motif_assessment { return count * ((assessment.apo ? 1 : 0) + (assessment.holo ? 1 : 0)) }
         if native_search {
             guard (1...16).contains(native_beam_width), (1...16).contains(native_branches), native_checkpoints.count <= 60 else { return 0 }
             guard native_partial_fraction.isFinite, (0...1).contains(native_partial_fraction) else { return 0 }
@@ -196,6 +208,19 @@ struct RFD4Request: Codable, Hashable {
     }
     var validationIssues: [String] {
         var issues: [String] = []
+        if let assessment = motif_assessment {
+            if task != .motif || motif == nil || search != .native || assess_native || native_search { issues.append("Final motif prediction requires a guided motif and native generation.") }
+            if !assessment.apo && !assessment.holo { issues.append("Select apo, holo, or both predictions.") }
+            if assessment.holo && (motif?.partner_chains ?? []).isEmpty && (motif?.ligand_ids ?? []).isEmpty { issues.append("Select retained partners for holo prediction in the motif editor.") }
+            if assessment.placement_rmsd_max != nil && !assessment.holo { issues.append("Partner-aligned RMSD needs holo prediction.") }
+            for cutoff in [assessment.rmsd_max, assessment.placement_rmsd_max].compactMap({ $0 }) {
+                if !cutoff.isFinite || cutoff <= 0 || cutoff > 100 { issues.append("Use a positive RMSD cutoff up to 100 Å.") }
+            }
+            if (motif?.residues.reduce(0) { $0 + $1.atoms.count } ?? 0) < 3 { issues.append("RMSD assessment needs at least three noncollinear motif atoms.") }
+            if assessment.holo && !(motif?.ligand_ids ?? []).isEmpty && !["boltz", "esmfold2-full-mlx", "esmfold2-fast-mlx", "esmfold2-600-mlx"].contains(predictor) { issues.append("Ligand holo prediction requires Boltz or ESMFold2.") }
+            if assessment.holo && !(motif?.partner_chains ?? []).isEmpty && !["esmfold2-fast-mlx", "esmfold2-600-mlx"].contains(predictor) && target_msa.isEmpty { issues.append("Choose a retained partner alignment policy.") }
+            if time_budget_minutes != nil { issues.append("Complete motif assessments do not support an active-time cap.") }
+        }
         if let motif {
             issues += motif.issues
             if task != .motif || annotated_input || !contig.isEmpty || !starting_structures.isEmpty { issues.append("Guided motifs require an ordinary source structure without a manual contig.") }
@@ -235,7 +260,7 @@ struct RFD4Request: Codable, Hashable {
         if (task == .nanobody || task == .motif) && !annotated_input && contig.isEmpty && starting_structures.isEmpty && scaffold_id == nil && motif == nil { issues.append(task == .motif ? "Choose motif residues and atoms, or use an already annotated RFD4 CIF." : "Choose an annotated CIF, or define the retained residues and generated segments.") }
         if !starting_structures.isEmpty && starting_structures.count != count { issues.append("Use one imported structure per family.") }
         if !starting_structures.isEmpty && !needsPrediction { issues.append("Choose a search or assessment for imported structures.") }
-        if needsPrediction {
+        if needsPrediction && motif_assessment == nil {
             if task == .ligand && (!["boltz", "esmfold2-full-mlx", "esmfold2-fast-mlx", "esmfold2-600-mlx"].contains(predictor) || ligand_smiles.isEmpty) { issues.append("Choose a compatible ligand predictor and the exact molecule SMILES.") }
             if task == .ligand && search != .native && sequence_model != "lasermpnn" { issues.append("Use LASErMPNN for this small-molecule search.") }
             if task == .ligand && search != .native && omit_amino_acids != "C" { issues.append("The ligand sampler uses its qualified cysteine exclusion.") }

@@ -320,7 +320,7 @@ def assembly_metrics(path,config):
     model=gemmi.read_structure(str(path))[0];table=Chem.GetPeriodicTable()
     def xyz(chain):return np.array([[a.pos.x,a.pos.y,a.pos.z] for r in chain for a in r if not a.element.is_hydrogen])
     binder=xyz(model[config['settings']['binder_chain']])
-    target=np.concatenate([xyz(model[c]) for c in config['target_sequences']])
+    target=np.concatenate([xyz(model[c]) for c in config['target_sequences']]) if config['target_sequences'] else np.empty((0,3))
     reference=config['target_ligands'].get('target_ca',{})
     transform=None
     if reference:
@@ -361,7 +361,7 @@ def assembly_metrics(path,config):
             ordered=np.array([[atoms[r['name']].pos.x,atoms[r['name']].pos.y,atoms[r['name']].pos.z] for r in ligand['atoms']])
             reference_rmsd=float(np.sqrt(np.mean(np.sum(((ordered-pmean)@rotation+smean-np.array([r['xyz'] for r in ligand['atoms']]))**2,axis=1))))
         reports.append(dict(source_id=ligand['source_id'],chemical_identity_preserved=True, chemical_identity_scope='Input graph and exact mapped atom inventory; coordinate stereochemistry checked separately', target_aligned_ligand_rmsd_angstrom=reference_rmsd, stereochemistry_preserved=stereo_ok,heavy_atoms=len(coords),
-                            minimum_binder_distance_angstrom=float(bt.min()),minimum_target_distance_angstrom=float(tt.min()),
+                            minimum_binder_distance_angstrom=float(bt.min()),minimum_target_distance_angstrom=float(tt.min()) if tt.size else None,
                             other_ligand_clashes_below_1A=other_clashes,binder_clashes_below_1A=int((bt<1).sum()),target_clashes_below_1A=int((tt<1).sum()),abnormal_bonds=bad))
     return dict(passed=all(not (not r['stereochemistry_preserved'] or r['abnormal_bonds'] or r['binder_clashes_below_1A'] or r['target_clashes_below_1A'] or r['other_ligand_clashes_below_1A']) for r in reports),
                 ligands=reports,criteria='Complete identities; finite coordinates; bond lengths 0.5–1.8 times summed covalent radii; no protein–ligand heavy-atom separations below 1 Å.',

@@ -70,6 +70,9 @@ def call(pipe, config, seed, directory, optimized):
     elif cfg['task'] == 'ligand':
         from .inputs import ligand_pdb
         structure = ligand_pdb(structure, attempt / 'roles.pdb')
+    elif cfg.get('motif') and config.get('target_ligands'):
+        from .mixed_target import canonical_assembly
+        structure = canonical_assembly(structure,attempt/'roles.cif',config)
     from protein_structure import read_protein_atoms
     exported = read_protein_atoms(structure)
     if not exported or not np.isfinite([[a.x, a.y, a.z] for a in exported]).all():

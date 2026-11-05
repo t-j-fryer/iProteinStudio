@@ -363,3 +363,41 @@ Lengths sample from each design seed. Coordinate conditioning is a model input,
 not an exact output guarantee; assess generated motif RMSD and refolding before
 interpreting a design as successful. Upstream exposes motif-adherence metrics:
 https://rfd4-proteina.org/latest/reference/metrics.html
+
+
+## Partner-aware motifs and final prediction (beta)
+
+Select the motif-bearing protein residues/atoms, then select retained protein
+chains and ligand instances in the motif editor. Partners must share the input
+complex's coordinate frame. Native condition-spec authoring retains their sequence,
+chemistry and geometry in the same coordinate group as the motif. Unselected
+chains/ligands are omitted. Protein scaffolding remains on one designed chain.
+Noncovalent ligand instances use explicit native chemistry and atom maps; covalent
+attachments and nucleic acids are not supported by this guided route.
+
+For sequence input, enter the motif-bearing chain and provided partner sequences
+as separate chains and predict the complete complex first. The resulting proposed
+complex becomes the reference. Studio does not silently place a separately
+predicted target beside an experimental motif or claim a known binding pose.
+
+Final prediction can assess the scaffold alone (apo), with retained partners
+(holo), or both. Each is an untemplated prediction of the generated sequence.
+The designed chain uses an explicit empty MSA; retained natural protein partners
+use the selected alignment policy. Boltz and ESMFold2 support ligand holo checks;
+protein-only checks expose the existing protein predictors. This is final
+assessment, not motif beam reward or sequence search.
+
+Hit gates compare exactly the selected named atoms to the input motif using the
+native generator's insertion map, including unindexed motifs. Shape RMSD fits
+those motif atoms once. Optional holo placement RMSD fits retained partner Cα
+atoms and ligand heavy atoms and measures the motif without a second fit.
+Both use one proper rigid transformation; no symmetry reassignment or nearest-atom
+matching is performed. The selected fit atoms must be noncollinear. All selected
+modes must pass all requested cutoffs; missing/ambiguous atoms fail explicitly.
+No cutoff means no hit classification. The editable 2 Å initial value is a UI
+starting point, not a validated efficacy threshold. Ligand assembly integrity is
+also required when calling holo hits. Apo/holo metrics and structures remain
+separate in results. Low RMSD does not establish binding, stability or activity.
+
+Upstream semantics: https://rfd4-proteina.org/latest/concepts/conditioning.html;
+metric distinctions: https://rfd4-proteina.org/latest/reference/metrics.html.

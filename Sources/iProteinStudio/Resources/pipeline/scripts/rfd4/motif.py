@@ -9,7 +9,7 @@ def validate(cfg):
     if motif is None:
         return
     keys = {'residues', 'coordinate_mode', 'fix_sequence', 'unindexed', 'group_segments', 'prefix', 'linker', 'suffix'}
-    if not isinstance(motif, dict) or set(motif) - {'source_sha256'} != keys:
+    if not isinstance(motif, dict) or set(motif) - {'source_sha256', 'partner_chains', 'ligand_ids'} != keys:
         raise ValueError('Supply the complete typed motif configuration.')
     if motif.get('source_sha256') is not None and (not isinstance(motif['source_sha256'], str) or not re.fullmatch('[0-9a-f]{64}', motif['source_sha256'])):
         raise ValueError('Invalid inspected motif source fingerprint.')
@@ -52,6 +52,14 @@ def validate(cfg):
     # remain the explicit route for multi-chain or non-protein motifs.
     if len({r['chain'] for r in rows}) != 1:
         raise ValueError('The guided motif scaffold uses one source protein chain; use native annotated input for multi-chain motifs.')
+    for key in ('partner_chains', 'ligand_ids'):
+        values = motif.get(key) or []
+        if not isinstance(values, list) or any(not isinstance(v, str) or not v for v in values) or len(set(values)) != len(values):
+            raise ValueError('Choose unique source partner chains and ligand instances.')
+    if set(motif.get('partner_chains') or []) & {r['chain'] for r in rows}:
+        raise ValueError('The motif-bearing chain is redesigned; it cannot also be a retained partner.')
+    if len(motif.get('partner_chains') or []) + len(motif.get('ligand_ids') or []) > 25:
+        raise ValueError('Retained partners must fit chains B–Z.')
     minimum, maximum = scaffold_length_bounds(motif)
     if motif['unindexed'] and minimum < len(rows):
         raise ValueError('Free-placement motifs need at least one generated scaffold position per selected residue.')
@@ -131,6 +139,8 @@ def inspect(source, destination, root):
     source = destination / ('source' + original.suffix)
     source.write_bytes(original.read_bytes())
     atoms = parse(str(source), config=RCSB_WITH_METALS.replace(build_assembly=None, altloc='first'))['asym_unit'][0]
+    from .motif_context import inventory
+    partners = inventory(atoms)
     atoms = atoms[bs.filter_amino_acids(atoms)]
     rows = []
     structure = gemmi.Structure(); model = gemmi.Model('1')
@@ -154,6 +164,6 @@ def inspect(source, destination, root):
         raise ValueError('No protein residues with finite coordinates were found.')
     structure.add_model(model)
     preview = destination/'motif-preview.cif'; structure.make_mmcif_document().write_file(str(preview))
-    result = dict(source_sha256=sha(source), preview=str(preview), residues=rows)
+    result = dict(source_sha256=sha(source), preview=str(preview), residues=rows, **partners)
     atomic(destination/'motif-inspection.json', result)
     print(json.dumps(result))

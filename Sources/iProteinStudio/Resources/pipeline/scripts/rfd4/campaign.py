@@ -13,6 +13,12 @@ from .contract import atomic, fixed, seal, sha, verify
 
 
 def refine(config, first=False):
+    if config['settings'].get('motif_assessment'):
+        from .motif_assessment import execute
+        if config.get('target_sequences') and config['settings']['motif_assessment']['holo']:
+            from .msas import resolve
+            config=resolve(config)
+        return execute(config,first)
     from .search import execute
     if config['settings']['task'] == 'ligand':
         from .ligand_search import Engine
@@ -50,7 +56,7 @@ def main(config_path):
             if result.returncode==75: raise BudgetExhausted()
             result.check_returncode()
         return run(path,child_stage)
-    search = cfg['search'] != 'native' or cfg['assess_native']
+    search = cfg['search'] != 'native' or cfg['assess_native'] or bool(cfg.get('motif_assessment'))
     native = cfg['native_search']
     from .predictors import search_runtime_spec
     predictor_python, predictor_env = search_runtime_spec(root, cfg)
@@ -92,7 +98,7 @@ def main(config_path):
     elif native: stage('native', root / 'venvs/NanoHunter_rfd4/bin/python')
     else: atomic(output / 'results.json', json.loads((output / 'generated.json').read_text()))
     receipts = [output / 'generation_completed.json', output / 'results.json', path]
-    if search: receipts.append(output / 'search_completed.json')
+    if search: receipts.append(output / ('motif_assessment_completed.json' if cfg.get('motif_assessment') else 'search_completed.json'))
     if native: receipts.append(output / 'native_search_completed.json')
     seal(done, dict(families=cfg['count'], policy=cfg['search']), receipts)
     atomic(output / 'progress.json', dict(stage='completed', completed=cfg['count'], total=cfg['count']))

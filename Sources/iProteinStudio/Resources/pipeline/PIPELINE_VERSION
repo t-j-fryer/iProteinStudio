@@ -119,3 +119,5 @@ studio_rfd4_kernel_validation_record: lab_book/0741-remove-runtime-kernel-refere
 
 studio_rfd4_motif_authoring: native-typed-atom-selection-v1
 studio_rfd4_kernel_default: optimized-new-requests-v1
+
+motif_partner_assessment: Lab0760; explicit source partners, untemplated apo/holo and mapped RMSD gates; bridge55 beta

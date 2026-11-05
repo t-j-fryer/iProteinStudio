@@ -9,6 +9,15 @@ import Foundation
         motifRequest.optimized_kernels = false
         let motifCopy = try JSONDecoder().decode(RFD4Request.self, from: JSONEncoder().encode(motifRequest))
         precondition(motifCopy == motifRequest && !motifCopy.optimized_kernels)
+        motifRequest.motif_assessment = RFD4MotifAssessment()
+        precondition(motifRequest.validationIssues.isEmpty && motifRequest.predictions == 1)
+        motifRequest.motif_assessment?.holo = true
+        precondition(!motifRequest.validationIssues.isEmpty)
+        motifRequest.motif?.partner_chains = ["B"]; motifRequest.target_msa = "empty"
+        precondition(motifRequest.validationIssues.isEmpty && motifRequest.predictions == 2)
+        let assessmentCopy = try JSONDecoder().decode(RFD4Request.self, from: JSONEncoder().encode(motifRequest))
+        precondition(assessmentCopy == motifRequest)
+        motifRequest.motif_assessment = nil
         motifRequest.motif?.fix_sequence = false; motifRequest.motif?.residues[0].atoms = ["CB"]
         precondition(!motifRequest.validationIssues.isEmpty)
         let plan = RFD4LengthPlan(minimum: 75, maximum: 79)
