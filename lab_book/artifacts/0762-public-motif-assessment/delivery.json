@@ -1,0 +1,24 @@
+{
+  "version": "0.2.34",
+  "build": 83,
+  "mcp": 55,
+  "packaging_commit": "1a069bb6acabf3d66564e27cee121250d71c07a6",
+  "signature_verified": true,
+  "packaged_workflow_files_match": 28,
+  "no_model_weights": true,
+  "assets": {
+    "iProteinStudio-0.2.34-unsigned-beta-apple-silicon.dmg": {
+      "size": 51487176,
+      "sha256": "2f783b63bf0ac2d088ecf5e37e9b74735d111e1e7c07bd616b73f0955f63fae2"
+    },
+    "iProteinStudio-0.2.34-unsigned-beta-apple-silicon.zip": {
+      "size": 47002880,
+      "sha256": "fb2480f0ce754180af557015d18da53e247787fc5dc9bf3ab1e8c585572c6930"
+    }
+  },
+  "release_url": "https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.34-beta",
+  "public_archive_download_verified": true,
+  "remote_asset_digests_match": true,
+  "previous_app_update_key_and_feed_match": true,
+  "live_upgrade_tested": false
+}

@@ -1,6 +1,6 @@
 # Lab Book
 
-- [0762 — Public motif assessment](lab_book/0762-public-motif-assessment.md): promote validated partner-aware apo/holo prediction and RMSD gates; release in progress.
+- [0762 — Public motif assessment](lab_book/0762-public-motif-assessment.md): published0.2.34/build83/MCP55 with verified archives and signed update feed.
 
 - [0757 — Motif release qualification](lab_book/0757-release-motif-controls.md): ten GPU outputs, five exact matched kernel pairs and native per-design length checks.
 

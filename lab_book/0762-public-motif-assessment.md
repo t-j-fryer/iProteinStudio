@@ -4,7 +4,7 @@ title: Publish partner-aware motif assessment
 date: 2026-11-04
 author: Codex
 type: audit
-status: in-progress
+status: complete
 machine: Apple M4 Max, 40-core GPU, 64 GB unified memory
 ---
 
@@ -82,3 +82,20 @@ long campaign, fresh source-complex sequence prediction, other predictor GPU
 qualification or combined protein-plus-ligand GPU example. Covalent partners and
 metal motifs are outside this guided route. Package and publication verification
 will be recorded with the final delivery.
+
+
+## Delivery
+
+Published `v0.2.34-beta` from clean packaging commit
+`1a069bb6acabf3d66564e27cee121250d71c07a6`. The public DMG and ZIP sizes and
+SHA256 digests match the local verified artifacts. The downloaded public ZIP also
+passes independent Ed25519 verification. All28 scientific workflow files in the
+app match the qualified source; MCP55 and build83 are present. No model weights
+are packaged. The prior distribution app uses the same update URL and public key.
+The generated signed build83 feed is published on main with this delivery record.
+
+The existing open app was not forcibly relaunched; a live old-to-new installation
+was not tested in this promotion. Users receive the release through Check for
+Updates or the public DMG. Existing managed CLI/MCP staging follows the normal
+execution-lease boundary, preserving active jobs' frozen code and runtimes.
+No production GPU jobs were paused or changed during public promotion.
