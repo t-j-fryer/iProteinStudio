@@ -1,6 +1,6 @@
 # Public release candidate to do
 
-- [ ] Deliver0.2.37/build87 geometry preflight correction through app/CLI/MCP57; preserve confidential input boundaries (Lab0787).
+- [x] Publish the geometry preflight fix and install/reopen both build87 apps; shared CLI/MCP57 activation defers to the execution lease (Lab0787).
 
 - [x] Publish molecule-view heading and resize-grip fix in0.2.36/build86 (Labs0785–0786).
 

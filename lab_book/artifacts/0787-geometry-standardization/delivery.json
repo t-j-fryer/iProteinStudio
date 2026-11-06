@@ -29,5 +29,19 @@
       "sha256": "45fccee4fb7b8a7a967f9e62f25cf119d773bda083178d82dff3f09f24f7cdfd"
     }
   },
-  "packaged_synthetic_preflight_passed": true
+  "packaged_synthetic_preflight_passed": true,
+  "public_installed": true,
+  "beta_installed": true,
+  "public_reopened": true,
+  "beta_reopened": true,
+  "installed_build": 87,
+  "quit_open_user_authorized": true,
+  "workspace_inspected": false,
+  "confidential_molecule_inspected": false,
+  "user_run_rerun": false,
+  "bundled_cli_doctor_passed": true,
+  "bundled_bridge_version": 57,
+  "managed_bridge_version": 56,
+  "shared_refresh_deferred": true,
+  "execution_lease_busy_at_refresh": true
 }

@@ -4,7 +4,7 @@ title: Map geometry selections through native Boltz standardization
 date: 2026-11-06
 author: Codex
 type: bugfix
-status: in-progress
+status: complete
 machine: Apple Silicon development Mac; CPU regression tests only
 tags: [ligand, geometry, mcp, cli, privacy]
 ---
@@ -81,8 +81,22 @@ assets and independent Ed25519 verification pass. All four changed bundle
 resources match source; no model weights. Actual preflight from the downloaded
 package passes with synthetic glycine. Both public/beta resource contracts pass.
 
-The user explicitly approved both app restarts with workspace inspection excluded.
-Computer Use refused lifecycle input without a fresh app-state snapshot; none
-was captured. Asked for explicit permission to use macOS quit/open commands
-instead, preserving the requested no-inspection boundary. Installation is pending
-that mechanism choice. No user project or molecule has been read.
+The user explicitly approved macOS quit/open commands after the UI tool required
+an app-state snapshot. No snapshot was taken. Both public and beta apps were
+closed, installed as build87 with build86 rollback copies retained, and reopened
+using only those lifecycle commands. Bundle metadata and process-running flags
+confirm public0.2.37/build87 and beta0.2.37-dev/build87. No workspace, molecule or
+user run was inspected or rerun.
+
+Bundled CLI/MCP57 doctor passes. Shared managed assets remain on MCP56 because
+the execution lease is busy; the normal app staging path defers the refresh
+until active work releases it. No job identity, settings, outputs or logs were
+read, and no active work was paused. The shared refresh was not forced. This is
+a pending activation boundary, not a claim that local shared MCP57 is active.
+The installed app bundles contain the corrected helpers and MCP57.
+
+## Next
+
+Normal execution-lease-protected staging applies shared CLI/MCP57 after active
+work finishes. Use a new run/plan for the fix; existing frozen snapshots retain
+their original code. No confidential run validation is claimed.
