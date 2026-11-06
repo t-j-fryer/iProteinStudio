@@ -1,6 +1,6 @@
 # Public release candidate to do
 
-- [ ] Qualify and deliver geometry atom-label stereochemistry fix across app and portable CLI/MCP58 (Lab0793).
+- [x] Publish/install build89 geometry atom-label stereochemistry fix and activate shared CLI/MCP58; public download and installed preflights verified (Lab0793).
 
 - [x] Publish/install build87, activate shared CLI/MCP57, and resume the paused job with its frozen plan and completed checkpoints unchanged (Lab0787).
 
