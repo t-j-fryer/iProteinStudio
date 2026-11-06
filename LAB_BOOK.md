@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0793 — Fix geometry label stereochemistry](lab_book/0793-fix-geometry-label-stereochemistry.md): remove atom-map ranking interference before native standardization stereochemistry checks; generic CPU regressions only.
+
 - [0787 — Fix geometry standardization](lab_book/0787-fix-geometry-standardization.md): verified native Boltz atom correspondence, synthetic-only regression tests and shared app/CLI/MCP57 correction.
 
 - [0786 — Publish ligand views and geometry](lab_book/0786-publish-ligand-views.md): app0.2.36/build86, shared CLI/MCP56, corrected upgrade staging and verified public release.

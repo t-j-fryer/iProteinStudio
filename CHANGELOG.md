@@ -1,5 +1,16 @@
 # iProteinStudio release notes
 
+
+## 0.2.38 (build89)
+
+Fix false ligand-geometry preflight rejection after Boltz standardization when
+temporary atom-map labels changed stereochemical ranking. Atom identity and
+stereochemistry are checked after removing those annotations. Genuine chemical
+mismatches and ambiguous selections still fail. The app and portable CLI/MCP58
+share the correction. Start a new run to use it; existing jobs keep their frozen
+workflow code. Qualified with declared public/synthetic CPU fixtures, without
+reading user molecules or run outputs.
+
 ## 0.2.37 — Geometry selections through native Boltz standardization
 
 - Fix ligand geometry preflight when Boltz affinity standardizes the input chemical state. Trace input atoms through the pinned native standardizer; retain connectivity, isotope, stereochemistry and selection-ambiguity checks. Record the verified mapping in geometry receipts.

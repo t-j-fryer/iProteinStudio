@@ -126,3 +126,5 @@ studio_ligand_geometry: optional-holo-hit-policy-v1; Figure4-biotin-exit-parity;
 studio_ligand_geometry_validation: lab_book/0784-share-ligand-geometry-filters.md
 
 studio_ligand_geometry_state_mapping: verified-native-Boltz-standardization-v1; Lab0787; MCP57
+
+studio_ligand_geometry_stereo_mapping: annotation-free-CIP-v2; Lab0793; MCP58

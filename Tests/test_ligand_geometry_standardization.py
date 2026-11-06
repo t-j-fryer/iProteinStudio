@@ -35,6 +35,30 @@ class StandardizationTests(unittest.TestCase):
                 self.assertEqual(audit['input_to_manifest'][0], nitrogen)
                 self.assertEqual(audit['boltz_parser_sha256'], manifest['boltz_parser_sha256'])
 
+    def test_trace_labels_do_not_change_stereochemical_identity(self):
+        from rdkit import Chem
+        # Public free-biotin chemistry; no user/project molecule is read.
+        # The labelled trace has different CIP ranks at two fused-ring centres.
+        charged = 'O=C([O-])CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21'
+        reference = Chem.MolFromSmiles(charged.replace('[O-]', 'O'))
+        original = Chem.MolFromSmiles(charged)
+        annotated = Chem.Mol(original)
+        for atom in annotated.GetAtoms():
+            atom.SetAtomMapNum(100 + atom.GetIdx())
+        variants = (charged, Chem.MolToSmiles(annotated, canonical=False))
+        for smiles in variants:
+            with self.subTest(annotated=smiles != charged):
+                manifest = resolve(smiles)
+                before = json.dumps(manifest, sort_keys=True)
+                mapped = atom_settings(dict(contact_atoms=list(range(7, 16)), exposed_atoms=[0]), smiles, manifest)
+                target = Chem.MolFromSmiles(manifest['smiles_used'])
+                expected = target.GetSubstructMatch(reference, useChirality=True)
+                names = {a['index']: a['name'] for a in manifest['atoms']}
+                self.assertEqual(mapped['hotspot_atoms'], [names[expected[i]] for i in range(7, 16)])
+                self.assertEqual(mapped['exposed_atoms'], [names[expected[0]]])
+                self.assertTrue(mapped['atom_correspondence']['chemical_state_changed'])
+                self.assertEqual(json.dumps(manifest, sort_keys=True), before)
+
     def test_original_chemical_state_guard_remains_for_other_predictors(self):
         with self.assertRaisesRegex(ValueError, 'chemical state'):
             atom_settings(dict(contact_atoms=[0]), 'CC(=O)[O-]',
@@ -61,7 +85,7 @@ class StandardizationTests(unittest.TestCase):
         import boltz.data.parse.schema as schema
         from rdkit import Chem
         native = schema.standardize
-        for change in ('labels', 'connectivity', 'stereo', 'bond-stereo'):
+        for change in ('labels', 'connectivity', 'stereo', 'inverted-stereo', 'bond-stereo'):
             smiles = 'C/C=C/C[NH3+]' if change == 'bond-stereo' else 'N[C@@H](C)C(=O)[O-]'
             manifest = resolve(smiles)
             def modified(value):
@@ -71,6 +95,8 @@ class StandardizationTests(unittest.TestCase):
                     return result  # Real unlabelled parser output is unchanged.
                 if change == 'labels':
                     molecule.GetAtomWithIdx(0).SetAtomMapNum(0)
+                elif change == 'inverted-stereo':
+                    next(a for a in molecule.GetAtoms() if a.GetChiralTag() != Chem.ChiralType.CHI_UNSPECIFIED).InvertChirality()
                 elif change in ('stereo', 'bond-stereo'):
                     Chem.RemoveStereochemistry(molecule)
                 else:
@@ -89,15 +115,26 @@ class StandardizationTests(unittest.TestCase):
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(json.loads(result.stdout)['atom_correspondence']['chemical_state_changed'])
+        # Reproduce the reported preflight through the actual CLI, including
+        # the public multi-stereocentre regression and its Figure 4 core choices.
+        charged_biotin = 'O=C([O-])CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21'
+        passed = subprocess.run(command[:5] + [charged_biotin, '--policy', json.dumps(dict(
+            mode='biotin-carboxamide-v1', contact_atoms=list(range(7, 16))))], capture_output=True, text=True)
+        self.assertEqual(passed.returncode, 0, passed.stderr)
+        self.assertTrue(json.loads(passed.stdout)['valid'])
         failed = subprocess.run(command[:-1] + ['{}'], capture_output=True, text=True)
         self.assertNotEqual(failed.returncode, 0)
         self.assertIn('Select at least one', failed.stderr)
         self.assertNotIn('Traceback', failed.stderr)
 
     def test_real_holo_receipt_records_native_mapping_and_preserves_source(self):
+        for smiles in ('[NH3+]CC(=O)[O-]', 'O=C([O-])CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21'):
+            with self.subTest(smiles=smiles):
+                self.assert_holo_receipt(smiles)
+
+    def assert_holo_receipt(self, smiles):
         import gemmi
         from ligand_preview import preview
-        smiles = '[NH3+]CC(=O)[O-]'
         manifest = resolve(smiles)
         coordinates = preview(manifest['smiles_used'])['atoms']
         with tempfile.TemporaryDirectory() as directory:

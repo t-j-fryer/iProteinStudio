@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "privacy": "Only declared public/synthetic fixtures; no user molecule, failed run, workspace state or scientific output read.",
+  "cause": "Atom-map labels changed RDKit CIP rankings during native Boltz trace validation.",
+  "fix": "Clear map annotations on trace/input copies and recompute CIP before comparing chemical stereochemistry.",
+  "checks": {
+    "native_boltz_geometry_tests": 8,
+    "public_geometry_tests_total": 13,
+    "public_geometry_tests_pass": 12,
+    "private_coordinate_fixture_skips": 1,
+    "mcp_regressions": 24,
+    "private_swift_build": true,
+    "public_swift_build": true
+  },
+  "unqualified": [
+    "Confidential input not inspected or rerun",
+    "No GPU inference, performance benchmark or other-hardware claim"
+  ],
+  "app_build": 89,
+  "mcp_contract": 58,
+  "backend_version": "1.19.1"
+}

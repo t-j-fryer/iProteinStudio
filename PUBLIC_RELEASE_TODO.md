@@ -1,5 +1,7 @@
 # Public release candidate to do
 
+- [ ] Qualify and deliver geometry atom-label stereochemistry fix across app and portable CLI/MCP58 (Lab0793).
+
 - [x] Publish/install build87, activate shared CLI/MCP57, and resume the paused job with its frozen plan and completed checkpoints unchanged (Lab0787).
 
 - [x] Publish molecule-view heading and resize-grip fix in0.2.36/build86 (Labs0785–0786).

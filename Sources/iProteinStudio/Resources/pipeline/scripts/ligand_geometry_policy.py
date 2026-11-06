@@ -74,9 +74,17 @@ def _boltz_correspondence(original, smiles, used, manifest):
     if set(labels) != set(range(1, count + 1)) or len(set(labels)) != count:
         raise ValueError(message)
     order = [labels.index(i + 1) for i in range(count)]
+    # Atom-map numbers affect RDKit's CIP ranking. Use them to trace identity,
+    # then remove them and recompute stereochemistry before comparing states.
+    # Copy the original too: user-supplied map annotations must not affect CIP.
+    unlabelled_original = Chem.Mol(original)
+    for molecule in (unlabelled_original, traced):
+        for atom in molecule.GetAtoms():
+            atom.SetAtomMapNum(0)
+        Chem.AssignStereochemistry(molecule, cleanIt=True, force=True)
     # Permit only the native parser's state/representation changes. Labels must
     # prove that every atom, isotope, edge and specified stereocentre survives.
-    for first, index in zip(original.GetAtoms(), order):
+    for first, index in zip(unlabelled_original.GetAtoms(), order):
         second = traced.GetAtomWithIdx(index)
         if (first.GetAtomicNum(), first.GetIsotope()) != (second.GetAtomicNum(), second.GetIsotope()):
             raise ValueError(message)
