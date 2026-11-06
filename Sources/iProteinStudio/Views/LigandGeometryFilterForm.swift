@@ -16,6 +16,8 @@ struct LigandGeometryFilterForm: View {
                 Text("Every enabled geometry requirement must pass in the saved holo structure. Generation atom conditions and model confidence are separate settings. Missing or mismatched atoms cannot pass.")
                     .font(.caption).foregroundStyle(.secondary)
                 if policy != nil {
+                    Text("Boltz affinity can standardize the molecule’s chemical state. Geometry selections follow verified atom identities through Boltz’s own standardizer. Changed connectivity, lost stereochemistry or ambiguous selected atoms are blocked.")
+                        .font(.caption).foregroundStyle(.secondary)
                     if let preset = preview.figure4Preset {
                         Button("Use Figure 4 biotin geometry") { policy = preset }
                         Text("Requires all nine binding-core atoms within 6 Å of the binder and an open or restricted biotin amide exit. Blocked and unresolved exits fail. The exit check replaces terminal acid-oxygen SASA.")

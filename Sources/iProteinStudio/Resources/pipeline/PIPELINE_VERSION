@@ -124,3 +124,5 @@ motif_partner_assessment: Lab0760; explicit source partners, untemplated apo/hol
 
 studio_ligand_geometry: optional-holo-hit-policy-v1; Figure4-biotin-exit-parity; interactive-input-conformer-and-recorded-cones; MCP56
 studio_ligand_geometry_validation: lab_book/0784-share-ligand-geometry-filters.md
+
+studio_ligand_geometry_state_mapping: verified-native-Boltz-standardization-v1; Lab0787; MCP57

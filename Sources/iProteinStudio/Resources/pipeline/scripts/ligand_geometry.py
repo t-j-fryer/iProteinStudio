@@ -185,7 +185,7 @@ def recorded_preview(path):
         raise ValueError('No completed linker-exit receipt matches this structure.')
     raise ValueError('No recorded linker-exit calculation was found for this structure.')
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('check', 'tables', 'validate', 'recorded'))
     parser.add_argument('--structure')
@@ -215,10 +215,17 @@ if __name__ == '__main__':
                 args.predictor='boltz-structure'
         if args.action == 'validate':
             manifest = predicted_manifest(smiles, args.predictor)
-            atom_settings(policy, smiles, manifest)
+            settings = atom_settings(policy, smiles, manifest)
             if policy['mode'] == 'biotin-carboxamide-v1':
                 from biotin_exit import roles
                 roles(manifest)
-            print(json.dumps(dict(valid=True)))
+            print(json.dumps(dict(valid=True, atom_correspondence=settings['atom_correspondence'])))
         else:
             print(json.dumps(dict(checked=len(tables(args.root, policy, smiles, args.tables, args.predictor)))))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except ValueError as exc:
+        sys.exit('Ligand geometry validation failed: ' + str(exc))

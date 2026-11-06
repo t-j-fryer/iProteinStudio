@@ -1,5 +1,10 @@
 # iProteinStudio release notes
 
+## 0.2.37 — Geometry selections through native Boltz standardization
+
+- Fix ligand geometry preflight when Boltz affinity standardizes the input chemical state. Trace input atoms through the pinned native standardizer; retain connectivity, isotope, stereochemistry and selection-ambiguity checks. Record the verified mapping in geometry receipts.
+- Explain the behavior in the geometry form and report expected validation errors without a Python traceback. App, CLI and MCP57 share the correction.
+
 ## 0.2.36 — Refresh ligand workflow assets on upgrade
 
 - Refresh the staged RFdiffusion3 campaign wrapper so the optional ligand geometry gate reaches existing CLI/MCP installations. Verify overlay content hashes during release packaging.

@@ -1151,7 +1151,7 @@ results preserve native motif correspondence and source-reference fingerprints.
 ## Optional ligand geometry hit filter
 
 The small-molecule forms in Protein Hunter, RFdiffusion3, RFD4 and ligand NISE
-share an optional `ligand_geometry` policy (MCP56). RFD4 motif scaffolding also
+share an optional `ligand_geometry` policy (MCP57). RFD4 motif scaffolding also
 supports it when one explicit ligand is retained; inspect the source first so
 its exact SMILES order is known. This adds a geometry gate to the saved holo
 structure. It never turns an apo structure or another derivative into a hit.
@@ -1183,7 +1183,13 @@ atom sets, but selecting the bond alone does not enable the filter.
 RFdiffusion3/RFD4/NISE planners accept this object inside `request`.
 Protein Hunter accepts `--ligand-geometry-json '<JSON object>'` in its recorded
 CLI arguments. Omitting it disables the added gate. Exact chemical state,
-atom mapping and input validity are checked before generation; missing or changed
+atom mapping and input validity are checked before generation. Boltz affinity
+may standardize the chemical state: input atom labels are traced through the
+pinned native Boltz standardizer, and the unlabelled output must equal the
+actual scoring state. Every atom, isotope, bond connection and specified
+stereochemistry must survive. Symmetry-ambiguous selected sets remain blocked.
+Other predictor state differences remain errors. The receipt records the
+verified mapping and whether standardization changed the state; missing or changed
 geometry evidence cannot satisfy an enabled gate. Result browsing and MCP
 `results_query`/`results_overview` read the separate hash-bound geometry receipt.
 The original confidence scores and coordinate files remain the source outputs.

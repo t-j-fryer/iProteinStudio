@@ -1,0 +1,21 @@
+{
+  "version": "0.2.37",
+  "build": 87,
+  "mcp": 57,
+  "baseline_synthetic_error_reproduced": true,
+  "confidential_input_inspected": false,
+  "user_run_rerun": false,
+  "app_workspace_inspected": false,
+  "synthetic_mapping_tests": 7,
+  "existing_public_geometry_tests_passed": 4,
+  "private_fixture_skipped": 1,
+  "mcp_regressions": 24,
+  "public_swift_build": true,
+  "beta_build": true,
+  "new_gpu_inference": false,
+  "classifier_sha256": {
+    "atom_geometry.py": "240ca88910689f3fe9d75b7e6c405363bbcab15d01919cdd4c17a6f4068f5059",
+    "biotin_exit.py": "47cd74d26bf2a537a6eaed9edbbaa969f3966fbb04abc68edf3a02fbc86f75c3",
+    "linker_geometry.py": "744aec66c32db2f420961a8891fc7d464d9bc7404c5365f859b7206e019b722a"
+  }
+}

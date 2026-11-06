@@ -1,5 +1,7 @@
 # Public release candidate to do
 
+- [ ] Deliver0.2.37/build87 geometry preflight correction through app/CLI/MCP57; preserve confidential input boundaries (Lab0787).
+
 - [x] Publish molecule-view heading and resize-grip fix in0.2.36/build86 (Labs0785–0786).
 
 - [x] Publish optional ligand geometry filters, recorded cones, interactive molecule views and CLI/MCP56; verify corrected RFD3 upgrade staging in0.2.36/build86 (Labs0784–0786).
