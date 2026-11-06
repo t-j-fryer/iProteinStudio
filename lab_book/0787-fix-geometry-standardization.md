@@ -5,7 +5,7 @@ date: 2026-11-06
 author: Codex
 type: bugfix
 status: complete
-machine: Apple Silicon development Mac; CPU regression tests only
+machine: Apple Silicon development Mac; CPU regression tests and managed-job maintenance
 tags: [ligand, geometry, mcp, cli, privacy]
 ---
 
@@ -88,15 +88,23 @@ using only those lifecycle commands. Bundle metadata and process-running flags
 confirm public0.2.37/build87 and beta0.2.37-dev/build87. No workspace, molecule or
 user run was inspected or rerun.
 
-Bundled CLI/MCP57 doctor passes. Shared managed assets remain on MCP56 because
-the execution lease is busy; the normal app staging path defers the refresh
-until active work releases it. No job identity, settings, outputs or logs were
-read, and no active work was paused. The shared refresh was not forced. This is
-a pending activation boundary, not a claim that local shared MCP57 is active.
-The installed app bundles contain the corrected helpers and MCP57.
+Bundled CLI/MCP57 doctor passes. Shared activation was initially deferred by
+an active execution lease. The user then explicitly authorized pausing work,
+applying the update and resuming it. Used Studio's normal cancel/resume broker
+path for one running RFD4 job; completed checkpoints were retained. No standalone
+launcher, manual process suspension or execution-lock bypass was used.
 
-## Next
+After the worker stopped and released the lease, the app's normal staging path
+activated MCP57. All four changed managed resources match the installed public
+bundle. Managed CLI doctor passes and the corrected preflight succeeds with
+synthetic acetate. Resumed the original job through the broker; its worker and
+child are alive at the RFD4 stage and have reacquired the shared execution lock.
+The immutable plan file and digest are unchanged. All202 pre-existing completed
+checkpoint receipts have unchanged SHA256 hashes. This is operational resume
+verification, not a new scientific validation campaign or performance benchmark.
 
-Normal execution-lease-protected staging applies shared CLI/MCP57 after active
-work finishes. Use a new run/plan for the fix; existing frozen snapshots retain
-their original code. No confidential run validation is claimed.
+Only lifecycle/status metadata and opaque checkpoint hashes were inspected.
+No molecule inputs, coordinates, workspace contents, scientific settings or log
+contents were displayed. Operational job identifiers/paths remain local and are
+excluded from this public record. The original job keeps its frozen code/runtime;
+new runs/plans use the updated shared helpers.

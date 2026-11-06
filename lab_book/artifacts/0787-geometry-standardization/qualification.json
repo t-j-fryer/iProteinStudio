@@ -33,5 +33,7 @@
   "verification_used_ui_snapshot": false,
   "lifecycle_commands_user_authorized": true,
   "bundled_cli_doctor_passed": true,
-  "shared_bridge_refresh_deferred_by_execution_lease": true
+  "shared_bridge_refresh_deferred_by_execution_lease": false,
+  "shared_cli_mcp57_activation_verified": true,
+  "existing_job_pause_resume_verified": true
 }

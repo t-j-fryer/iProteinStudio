@@ -41,7 +41,16 @@
   "user_run_rerun": false,
   "bundled_cli_doctor_passed": true,
   "bundled_bridge_version": 57,
-  "managed_bridge_version": 56,
-  "shared_refresh_deferred": true,
-  "execution_lease_busy_at_refresh": true
+  "managed_bridge_version": 57,
+  "shared_refresh_deferred": false,
+  "execution_lease_busy_at_refresh": false,
+  "previous_shared_refresh_deferred": true,
+  "managed_changed_resources_match": 4,
+  "managed_cli_doctor_passed": true,
+  "managed_synthetic_preflight_passed": true,
+  "maintenance_pause_resume_complete": true,
+  "resumed_same_frozen_plan": true,
+  "completed_checkpoint_receipts_preserved": 202,
+  "resumed_worker_and_child_alive": true,
+  "execution_lease_reacquired_after_resume": true
 }

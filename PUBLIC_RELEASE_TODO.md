@@ -1,6 +1,6 @@
 # Public release candidate to do
 
-- [x] Publish the geometry preflight fix and install/reopen both build87 apps; shared CLI/MCP57 activation defers to the execution lease (Lab0787).
+- [x] Publish/install build87, activate shared CLI/MCP57, and resume the paused job with its frozen plan and completed checkpoints unchanged (Lab0787).
 
 - [x] Publish molecule-view heading and resize-grip fix in0.2.36/build86 (Labs0785–0786).
 
