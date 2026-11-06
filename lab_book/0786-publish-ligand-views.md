@@ -4,7 +4,7 @@ title: Publish ligand geometry filters and molecule views
 date: 2026-11-06
 author: Codex
 type: audit
-status: in-progress
+status: complete
 machine: Apple Silicon development Mac; CPU and native UI qualification
 tags: [release, ligand, ui, mcp, cli]
 ---
@@ -90,4 +90,22 @@ unchanged; the staged campaign wrapper is the Studio orchestration layer.
 ## Delivery
 
 Initial0.2.35 release verification is retained in delivery-0.2.35.json.
-Final0.2.36 packaging/publication and managed-staging verification are in progress.
+Published final `v0.2.36-beta` from clean packaging commit
+`7b9a02f1a591429a22db08375eff83b9fd50d7d0`. Public DMG/ZIP and both companion
+assets match local bytes. Independent CryptoKit Ed25519 verification passes.
+The live feed selects build86; all30 changed bundle resources match source and
+no model weights are present. Both beta/public packaged-resource contracts pass.
+
+Beta0.2.36-dev/build86 and public0.2.36/build86 are installed and open. Previous
+app bundles are retained locally. Public launch used normal execution-lease
+staging; all28 changed managed workflow files now match source, including the
+RFD3 wrapper and its corrected overlay receipt. Managed CLI doctor reports
+MCP56 and loads all ten schemas. Existing already-connected MCP processes may
+need a client reconnect to reload their imported Python modules/tool catalogue.
+No MCP credentials or registration permissions changed. There were no active
+jobs, and no production jobs were paused or modified. Paper baseline remains
+unchanged; the canonical public push URL remains disabled.
+
+See `artifacts/0786-public-ligand-release/delivery.json` for exact asset sizes,
+SHA256 digests and package/staging checks. Private logs and backup apps are not
+part of the public source diff.

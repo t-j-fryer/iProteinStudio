@@ -1,8 +1,8 @@
 # Public release candidate to do
 
-- [x] Include molecule-view heading and resize-grip fix in local build85 (Lab Book0785); publication pending.
+- [x] Publish molecule-view heading and resize-grip fix in0.2.36/build86 (Labs0785–0786).
 
-- [x] Prepare optional ligand geometry hit filters, recorded exit cones, interactive 2D/3D molecule views and matching CLI/MCP56 contracts (Lab Book0784); 0.2.35/build84 local candidate, publication pending.
+- [x] Publish optional ligand geometry filters, recorded cones, interactive molecule views and CLI/MCP56; verify corrected RFD3 upgrade staging in0.2.36/build86 (Labs0784–0786).
 
 Local preparation for the upcoming paper release. Changes here are not published
 automatically; publication and release packaging are separate steps.

@@ -1,0 +1,41 @@
+{
+  "version": "0.2.36",
+  "build": 86,
+  "mcp": 56,
+  "packaging_commit": "7b9a02f1a591429a22db08375eff83b9fd50d7d0",
+  "release_url": "https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.36-beta",
+  "public_archive_download_verified": true,
+  "public_assets_match": true,
+  "ed25519_signature_verified": true,
+  "appcast_build": 86,
+  "packaged_changed_resources_match": 30,
+  "packaged_weights": 0,
+  "previous_app_update_key_and_feed_match": true,
+  "assets": {
+    "BUILD_PROVENANCE.txt": {
+      "size": 433,
+      "sha256": "61368a9dfda4f4da6f4849779346f1d355c73818fd880046f8e5527af530d24b"
+    },
+    "iProteinStudio-0.2.36-unsigned-beta-apple-silicon.dmg": {
+      "size": 51205504,
+      "sha256": "a0945e5e153bd0f331e67f34cc2f3a145b39f37ad2fce194fbed4afa45dc3879"
+    },
+    "iProteinStudio-0.2.36-unsigned-beta-apple-silicon.zip": {
+      "size": 47147861,
+      "sha256": "0e9243cc7b56f68a37b41d2ddf0a416411a5d99ed1351dc0b3ed80984c89ed45"
+    },
+    "SHA256SUMS.txt": {
+      "size": 240,
+      "sha256": "77ab88c23a4bdcecc356b577855bdd6da9b66ea10f9fea78427f78c8f9f9889d"
+    }
+  },
+  "public_installed": true,
+  "public_reopened": true,
+  "public_restart_user_authorized": true,
+  "managed_resource_files_match": 28,
+  "managed_bridge_version": "56",
+  "active_jobs_at_install": 0,
+  "beta_installed_build": "86",
+  "beta_opened": true,
+  "overlay_staging_verified": true
+}

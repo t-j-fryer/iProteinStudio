@@ -1,6 +1,6 @@
 # Lab Book
 
-- [0786 — Publish ligand views and geometry](lab_book/0786-publish-ligand-views.md): app0.2.35/build85, shared CLI/MCP56 and trusted-beta release verification.
+- [0786 — Publish ligand views and geometry](lab_book/0786-publish-ligand-views.md): app0.2.36/build86, shared CLI/MCP56, corrected upgrade staging and verified public release.
 
 - [0785 — Resize molecule viewer](lab_book/0785-resize-molecule-viewer.md): single-line heading, persistent two-axis resize grip and size reset; existing RDKit/3Dmol engines retained.
 

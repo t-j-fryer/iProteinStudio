@@ -39,11 +39,27 @@
     "native_resize": "Lab0785"
   },
   "new_gpu_inference": false,
-  "packaging_pending": true,
+  "packaging_pending": false,
   "final_version": "0.2.36",
   "final_build": 86,
   "overlay_upgrade_regression": {
     "stale_0_2_35_receipt_rejected": true,
     "checksum": "465eb854e3ace67e88598c0c1b2ab60758769658d6e25e29fe7f81e3820efd6e"
+  },
+  "final_public_swift_build": true,
+  "final_beta_build": true,
+  "source_and_packaged_overlay_hash_contract": true,
+  "final_source_audit": {
+    "files": 78,
+    "source_files": 56,
+    "source_files_matching_beta": 53,
+    "existing_scope_differences": [
+      "Sources/iProteinStudio/Core/Results/RunResultsLoader.swift",
+      "Sources/iProteinStudio/Models/RunResult.swift",
+      "Sources/iProteinStudio/Views/RunResultsView.swift"
+    ],
+    "model_weights": 0,
+    "private_research_files": 0,
+    "through_packaging_commit": "7b9a02f1a591429a22db08375eff83b9fd50d7d0"
   }
 }
