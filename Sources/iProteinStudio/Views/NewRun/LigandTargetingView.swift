@@ -192,9 +192,6 @@ struct LigandTargetingView: View {
                             request = updated
                         }
                     )
-                    .frame(height: 240)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(.white))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
                     .onChange(of: request.ligandAttachmentAtom) { _, _ in intelligence.reset() }
                     .onChange(of: request.ligandAttachmentLinkerAtom) { _, _ in intelligence.reset() }
                 }

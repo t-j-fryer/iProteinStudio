@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import WebKit
 
 /// Shared atom picker with an input-order 2D drawing and rotatable 3D conformer.
@@ -15,31 +16,95 @@ struct LigandAtomPicker: View {
     var onAttachmentChanged: ((Int?, Int?) -> Void)?
     @State private var threeD = false
     @StateObject private var preview = LigandPreview()
+    @AppStorage("moleculeViewer.width") private var savedWidth = 0.0
+    @AppStorage("moleculeViewer.height") private var savedHeight = 320.0
+    @State private var draggingSize: CGSize?
+    @State private var dragOrigin: CGSize?
+
+    private var height: CGFloat { min(1000, max(240, draggingSize?.height ?? CGFloat(savedHeight))) }
 
     var body: some View {
-        VStack(spacing: 4) {
-            Picker("Molecule view", selection: $threeD) {
-                Text("2D · select atoms").tag(false)
-                Text("3D · rotate and zoom").tag(true)
-            }.pickerStyle(.segmented).frame(maxWidth: 310)
-            if threeD {
-                if let payload = preview.payload {
-                    LigandSpatialViewer(payload: payload, labels: atomLabels, conditions: atomConditions,
-                        attachment: attachmentAtom, linker: attachmentLinkerAtom, core: coreAtoms, presentation: presentationAtoms,
-                        allowsPicking: allowsAttachmentPicking, onPick: { first, second in
-                            if let changed = onAttachmentChanged { changed(first, second) }
-                            else { attachmentAtom = first; attachmentLinkerAtom = second }
-                        })
-                } else if preview.busy { ProgressView("Preparing 3D conformer…").frame(maxHeight: .infinity) }
-                else { Text(preview.error ?? "No 3D conformer available.").font(.caption).frame(maxHeight: .infinity) }
-            } else {
-                LigandAtomWebView(smiles: smiles, attachmentAtom: $attachmentAtom, attachmentLinkerAtom: $attachmentLinkerAtom,
-                    coreAtoms: coreAtoms, presentationAtoms: presentationAtoms, atomLabels: atomLabels,
-                    atomConditions: atomConditions, allowsAttachmentPicking: allowsAttachmentPicking,
-                    onAtomsResolved: onAtomsResolved, onAttachmentChanged: onAttachmentChanged)
+        GeometryReader { available in
+            let maximumWidth = available.size.width
+            let minimumWidth = min(320, maximumWidth)
+            let requestedWidth = draggingSize?.width ?? (savedWidth > 0 ? CGFloat(savedWidth) : maximumWidth)
+            let width = min(maximumWidth, max(minimumWidth, requestedWidth))
+            VStack(spacing: 6) {
+                HStack {
+                    Text("Molecule view").font(.callout.weight(.medium))
+                        .lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: 12)
+                    Picker("Molecule view", selection: $threeD) {
+                        Text("2D").tag(false)
+                        Text("3D").tag(true)
+                    }.labelsHidden().pickerStyle(.segmented).frame(width: 140)
+                }.padding(.horizontal, 8).padding(.top, 6)
+                molecule
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        }.onChange(of: threeD) { _, enabled in if enabled { preview.load(smiles: smiles) } }
-         .onChange(of: smiles) { _, value in if threeD { preview.load(smiles: value) } }
+            .frame(width: width, height: height)
+            .background(.white, in: RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+            .overlay(alignment: .bottomTrailing) {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                    .contentShape(Rectangle())
+                    .help("Drag to resize the viewer’s width and height. Double-click to reset its size.")
+                    .accessibilityLabel("Resize molecule viewer")
+                    .accessibilityValue("Width \(Int(width)), height \(Int(height))")
+                    .onHover { inside in
+                        if inside {
+                            if #available(macOS 15, *) { NSCursor.frameResize(position: .bottomRight, directions: .all).set() }
+                            else { NSCursor.crosshair.set() }
+                        } else { NSCursor.arrow.set() }
+                    }
+                    .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                        .onChanged { value in
+                            let origin = dragOrigin ?? CGSize(width: width, height: height)
+                            dragOrigin = origin
+                            draggingSize = CGSize(
+                                width: min(maximumWidth, max(minimumWidth, origin.width + value.translation.width)),
+                                height: min(1000, max(240, origin.height + value.translation.height)))
+                        }
+                        .onEnded { _ in
+                            if let size = draggingSize { savedWidth = Double(size.width); savedHeight = Double(size.height) }
+                            draggingSize = nil; dragOrigin = nil
+                        })
+                    .onTapGesture(count: 2) { resetSize() }
+                    .accessibilityAction(named: "Reset viewer size") { resetSize() }
+                    .padding(5)
+            }
+        }
+        .frame(height: height)
+        .onChange(of: threeD) { _, enabled in if enabled { preview.load(smiles: smiles) } }
+        .onChange(of: smiles) { _, value in if threeD { preview.load(smiles: value) } }
+    }
+
+    @ViewBuilder private var molecule: some View {
+        if threeD {
+            if let payload = preview.payload {
+                LigandSpatialViewer(payload: payload, labels: atomLabels, conditions: atomConditions,
+                    attachment: attachmentAtom, linker: attachmentLinkerAtom, core: coreAtoms, presentation: presentationAtoms,
+                    allowsPicking: allowsAttachmentPicking, onPick: { first, second in
+                        if let changed = onAttachmentChanged { changed(first, second) }
+                        else { attachmentAtom = first; attachmentLinkerAtom = second }
+                    })
+            } else if preview.busy { ProgressView("Preparing 3D conformer…").frame(maxHeight: .infinity) }
+            else { Text(preview.error ?? "No 3D conformer available.").font(.caption).frame(maxHeight: .infinity) }
+        } else {
+            LigandAtomWebView(smiles: smiles, attachmentAtom: $attachmentAtom, attachmentLinkerAtom: $attachmentLinkerAtom,
+                coreAtoms: coreAtoms, presentationAtoms: presentationAtoms, atomLabels: atomLabels,
+                atomConditions: atomConditions, allowsAttachmentPicking: allowsAttachmentPicking,
+                onAtomsResolved: onAtomsResolved, onAttachmentChanged: onAttachmentChanged)
+        }
+    }
+
+    private func resetSize() {
+        savedWidth = 0; savedHeight = 320; draggingSize = nil; dragOrigin = nil
     }
 }
 

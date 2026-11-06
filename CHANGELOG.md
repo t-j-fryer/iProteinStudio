@@ -2,6 +2,8 @@
 
 ## Unreleased — Ligand geometry and interactive molecule views
 
+- Keep the molecule-view heading on one line; resize the panel in both dimensions from its bottom-right grip, with remembered dimensions and double-click reset.
+
 - Add optional contact/accessibility and Figure 4 biotin linker-exit hit filters across small-molecule binder workflows, with matching CLI/MCP56 settings and recorded geometry verdicts.
 - Show sampled linker-exit cones over the tested structure, including read-only inspection of existing NISE receipts.
 - Add rotatable 3D molecule previews, zoom/pan/reset controls and 2D navigation while retaining atom identity and condition labels.

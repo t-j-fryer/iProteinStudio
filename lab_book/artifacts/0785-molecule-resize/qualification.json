@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "version": "0.2.35",
+  "build": 85,
+  "mcp": 56,
+  "swift_build": true,
+  "beta_bundle_built": true,
+  "public_candidate_built": true,
+  "native_picker_regression": true,
+  "native_layout_screenshot_reviewed": true,
+  "actual_resize_drag_verified": false,
+  "beta_restart_approval_pending": true,
+  "scientific_inference": false,
+  "engine_changes": false
+}

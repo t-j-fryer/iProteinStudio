@@ -53,8 +53,6 @@ struct NISEAtomTargetingView: View {
                     verified = matches && ready
                 })
                 .id(atoms.signature)
-                .frame(height: 260)
-                .background(RoundedRectangle(cornerRadius: 8).fill(.white))
                 Text("Choose below: Bind highlights a hotspot in green; Expose highlights a solvent-accessible atom in orange. None clears its requirement.")
                     .font(.caption)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 185))], spacing: 8) {

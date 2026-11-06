@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0785 — Resize molecule viewer](lab_book/0785-resize-molecule-viewer.md): single-line heading, persistent two-axis resize grip and size reset; existing RDKit/3Dmol engines retained.
+
 - [0784 — Shared ligand geometry and interactive views](lab_book/0784-share-ligand-geometry-filters.md): optional Figure 4/contact/SASA hit gates, exact atom maps, recorded cones and 2D/3D controls; CPU/UI qualification.
 
 - [0762 — Public motif assessment](lab_book/0762-public-motif-assessment.md): published0.2.34/build83/MCP55 with verified archives and signed update feed.

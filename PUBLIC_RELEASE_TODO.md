@@ -1,5 +1,7 @@
 # Public release candidate to do
 
+- [x] Include molecule-view heading and resize-grip fix in local build85 (Lab Book0785); publication pending.
+
 - [x] Prepare optional ligand geometry hit filters, recorded exit cones, interactive 2D/3D molecule views and matching CLI/MCP56 contracts (Lab Book0784); 0.2.35/build84 local candidate, publication pending.
 
 Local preparation for the upcoming paper release. Changes here are not published

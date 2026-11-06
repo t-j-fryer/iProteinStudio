@@ -127,9 +127,6 @@ struct LigandIntelligenceView: View {
                     request = updated
                 }
             )
-            .frame(height: 280)
-            .background(RoundedRectangle(cornerRadius: 8).fill(.white))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
             .onChange(of: request.attachmentAtom) { _, _ in attachmentChanged() }
             .onChange(of: request.attachmentLinkerAtom) { _, _ in attachmentChanged() }
 
