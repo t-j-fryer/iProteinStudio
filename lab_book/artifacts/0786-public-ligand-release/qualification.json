@@ -39,5 +39,11 @@
     "native_resize": "Lab0785"
   },
   "new_gpu_inference": false,
-  "packaging_pending": true
+  "packaging_pending": true,
+  "final_version": "0.2.36",
+  "final_build": 86,
+  "overlay_upgrade_regression": {
+    "stale_0_2_35_receipt_rejected": true,
+    "checksum": "465eb854e3ace67e88598c0c1b2ab60758769658d6e25e29fe7f81e3820efd6e"
+  }
 }

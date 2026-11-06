@@ -1,0 +1,36 @@
+{
+  "version": "0.2.35",
+  "build": 85,
+  "mcp": 56,
+  "packaging_commit": "225ac83c0a0a4d0f464597cf45c6e6cb3b7c1c49",
+  "release_url": "https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.35-beta",
+  "public_archive_download_verified": true,
+  "public_assets_match": true,
+  "ed25519_signature_verified": true,
+  "appcast_build": 85,
+  "packaged_changed_resources_match": 29,
+  "packaged_weights": 0,
+  "previous_app_update_key_and_feed_match": true,
+  "assets": {
+    "BUILD_PROVENANCE.txt": {
+      "size": 433,
+      "sha256": "6ebb0877198abcf1be6bbe6d6287ada8528d8b54c9c23db76b70723a19b21368"
+    },
+    "iProteinStudio-0.2.35-unsigned-beta-apple-silicon.dmg": {
+      "size": 51205509,
+      "sha256": "5254f4363654d8f9d945372be86f8a0da4c6a717c41a5ceab6c3e02888c19444"
+    },
+    "iProteinStudio-0.2.35-unsigned-beta-apple-silicon.zip": {
+      "size": 47147859,
+      "sha256": "464ae895cde27c44d6327a1b5c9aa233982e76104d1d5d7307befe31c036d434"
+    },
+    "SHA256SUMS.txt": {
+      "size": 240,
+      "sha256": "e4d0c6116572d588cda92a22255920d3c5382e9f363409005998c8bc6dfca5f1"
+    }
+  },
+  "public_installed": true,
+  "public_reopened": true,
+  "managed_bridge_version": "56",
+  "upgrade_audit": "RFD3 overlay retained old wrapper; corrected in0.2.36"
+}

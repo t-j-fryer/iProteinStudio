@@ -1,5 +1,9 @@
 # iProteinStudio release notes
 
+## 0.2.36 — Refresh ligand workflow assets on upgrade
+
+- Refresh the staged RFdiffusion3 campaign wrapper so the optional ligand geometry gate reaches existing CLI/MCP installations. Verify overlay content hashes during release packaging.
+
 ## 0.2.35 — Ligand geometry and interactive molecule views
 
 - Keep the molecule-view heading on one line; resize the panel in both dimensions from its bottom-right grip, with remembered dimensions and double-click reset.

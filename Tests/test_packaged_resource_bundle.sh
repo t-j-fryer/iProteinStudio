@@ -77,6 +77,21 @@ done
   || fail "resource bundle is missing the p53-MDM2 RFdiffusion3 example"
 [[ -s "${BUNDLE}/rfd3_overlay/OVERLAY_VERSION" ]] \
   || fail "resource bundle is missing the RFdiffusion3 overlay receipt"
+/usr/bin/python3 - "${ROOT}/Sources/iProteinStudio/Resources/rfd3_overlay" "${BUNDLE}/rfd3_overlay" <<'PY'
+import hashlib
+from pathlib import Path
+import sys
+
+for directory in map(Path, sys.argv[1:]):
+    receipt = dict(line.split(':', 1) for line in (directory / 'OVERLAY_VERSION').read_text().splitlines()
+                   if line and not line.startswith('#'))
+    files = sorted(directory.rglob('*.py'), key=lambda path: path.relative_to(directory).as_posix())
+    lines = ''.join(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' +
+                    path.relative_to(directory).as_posix() + '\n' for path in files)
+    actual = hashlib.sha256(lines.encode()).hexdigest()
+    if actual != receipt['checksum'].strip() or len(files) != int(receipt['files']):
+        raise SystemExit('FAIL RFdiffusion3 overlay receipt is stale: ' + str(directory))
+PY
 [[ ! -d "${APP}/iProteinStudio_iProteinStudio.bundle" ]] \
   || fail "resource bundle is incorrectly placed at the sealed app root"
 

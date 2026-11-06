@@ -1,7 +1,7 @@
 # Provenance of the vendored RFdiffusion3 overlay. Regenerate with tools/sync_rfd3.sh.
 source_repo:  https://github.com/javierbq/rfd3-mlx.git
 vendored_on:  2026-08-14T14:10:33Z
-studio_updated: 2026-10-26-esmfold2-600-v1
+studio_updated: 2026-11-06-ligand-geometry-v1
 files:        33
-checksum:     fb1ee2a386fe71450fd6a44cb77af4f848eb893d573a07f288799f13ca0762b8
+checksum:     465eb854e3ace67e88598c0c1b2ab60758769658d6e25e29fe7f81e3820efd6e
 checksum_format: sha256 of sorted Python sha256/relative-path lines
