@@ -75,5 +75,14 @@ ligand compatibility or binding-activity claim.
 
 ## Delivery
 
-Preparing the matching public patch release. The user explicitly approved both
-app restarts for installation, with workspace/molecule inspection excluded.
+Published `v0.2.37-beta` from clean commit
+`ee8188d6cd55e0a0da48adf9233eea008fea0dfd`. The live build87 feed, downloaded
+assets and independent Ed25519 verification pass. All four changed bundle
+resources match source; no model weights. Actual preflight from the downloaded
+package passes with synthetic glycine. Both public/beta resource contracts pass.
+
+The user explicitly approved both app restarts with workspace inspection excluded.
+Computer Use refused lifecycle input without a fresh app-state snapshot; none
+was captured. Asked for explicit permission to use macOS quit/open commands
+instead, preserving the requested no-inspection boundary. Installation is pending
+that mechanism choice. No user project or molecule has been read.

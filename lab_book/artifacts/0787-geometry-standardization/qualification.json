@@ -17,5 +17,16 @@
     "atom_geometry.py": "240ca88910689f3fe9d75b7e6c405363bbcab15d01919cdd4c17a6f4068f5059",
     "biotin_exit.py": "47cd74d26bf2a537a6eaed9edbbaa969f3966fbb04abc68edf3a02fbc86f75c3",
     "linker_geometry.py": "744aec66c32db2f420961a8891fc7d464d9bc7404c5365f859b7206e019b722a"
-  }
+  },
+  "source_audit": {
+    "files": 14,
+    "source_files_matching_beta": 5,
+    "private_research_files": 0,
+    "weights": 0,
+    "added_machine_paths": 0
+  },
+  "release_contracts": true,
+  "public_packaged_resource_contract": true,
+  "beta_packaged_resource_contract": true,
+  "downloaded_package_synthetic_preflight": true
 }
