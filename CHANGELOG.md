@@ -1,6 +1,6 @@
 # iProteinStudio release notes
 
-## Unreleased — Ligand geometry and interactive molecule views
+## 0.2.35 — Ligand geometry and interactive molecule views
 
 - Keep the molecule-view heading on one line; resize the panel in both dimensions from its bottom-right grip, with remembered dimensions and double-click reset.
 
