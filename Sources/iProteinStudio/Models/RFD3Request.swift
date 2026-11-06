@@ -443,6 +443,7 @@ struct RFD3Request: Codable, Hashable {
     /// required because one atom alone cannot identify which branch is linker.
     var attachmentLinkerAtom: Int?
     var searchPDB: Bool = true
+    var ligand_geometry: LigandGeometryFilter?
 
     // --- Conditioning ---
     /// Site name -> conditions applied to it.
@@ -608,6 +609,7 @@ struct RFD3Request: Codable, Hashable {
     /// Blocking problems, phrased for someone who has not read the RFD3 docs.
     var validationIssues: [String] {
         var issues: [String] = []
+        if let ligand_geometry { issues += ligand_geometry.validationIssues }
         if targetKind == .smallMolecule, let error = nesso.validationError { issues.append(error) }
         if minLength < 1 || maxLength < minLength { issues.append("Choose a valid binder-length range.") }
         if numDesigns < 1 { issues.append("Generate at least one backbone.") }

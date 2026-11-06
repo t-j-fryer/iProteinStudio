@@ -220,6 +220,12 @@ def stage_score(cfg: dict, campaign: Path, logs: Path) -> None:
     ] + (["--require-pbind"] if cfg.get("run_affinity", True) else []) + [
         "--require-top-n",
     ], logs / "score.log")
+    if cfg.get('ligand_geometry') is not None:
+        root = Path(cfg['nanohunter_root'])
+        run([str(root/'venvs/NanoHunter_boltz/bin/python'), str(root/'scripts/ligand_geometry.py'),
+             'tables', '--root', str(campaign), '--policy', json.dumps(cfg['ligand_geometry']),
+             '--smiles', read_smiles(Path(cfg['smiles_file'])), '--predictor', 'boltz' if cfg.get('run_affinity',True) else 'boltz-structure', '--tables', str(campaign/'analysis/scored_designs.csv'),
+             *([str(campaign/'predictions/holo_second_opinion/prediction_metrics.csv')] if cfg.get('extra_predictors') else [])], logs/'ligand_geometry.log')
 
 
 def stage_rmsd(cfg: dict, campaign: Path, logs: Path) -> None:

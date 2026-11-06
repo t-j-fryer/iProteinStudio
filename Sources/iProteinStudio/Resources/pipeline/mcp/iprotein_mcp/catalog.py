@@ -275,8 +275,10 @@ def query_results(run_id: str, dataset: Optional[str], metric: Optional[str], hi
             _rfd4_rows(path) if selected == "results.json" and classify_run(path) == "rfd4" else
             live if selected == "live_predictions" else
             _normalize_result_rows(selected, csv_rows(path / selected, limit=1000)))
+    from .ligand_geometry import apply as geometry_verdict
+    rows=[geometry_verdict(path,row,_run_artifact_reference(path,row.get('structure_path') or row.get('structure') or row.get('pdb'))) for row in rows]
     if hit_only:
-        rows = [row for row in rows if str(row.get("hit", row.get("passes_filters", row.get("hit_filter_passed", "")))).lower() in {"1", "true", "yes", "pass"}]
+        rows = [row for row in rows if str(row.get("hit_filter_passed", row.get("hit", row.get("passes_filters", row.get("hit_filter_passed", ""))))).lower() in {"1", "true", "yes", "pass"}]
     if metric:
         rows = [row for row in rows if row.get(metric, "") not in {"", None}]
         def numeric(row: Dict[str, str]) -> float:
@@ -312,6 +314,7 @@ def query_results(run_id: str, dataset: Optional[str], metric: Optional[str], hi
 
 
 def _boolean(value: Any) -> Optional[bool]:
+    if type(value) is bool: return value
     text = str(value or "").strip().lower()
     if text in {"1", "true", "yes", "pass"}:
         return True
@@ -392,7 +395,10 @@ def _artifact(root: Path, row: Dict[str, str], role: str, path_key: str,
     relative = _run_artifact_reference(root, row.get(path_key))
     if relative is None:
         return None
+    from .ligand_geometry import apply as geometry_verdict
+    row=geometry_verdict(root,row,relative) if context not in ("binder_alone","apo") else row
     return {
+        "ligand_geometry": row.get('ligand_geometry'),
         "role": role,
         "path": relative,
         "predictor": predictor,
@@ -888,7 +894,9 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
     elif workflow == "rfd4":
         grouped = {}
         config = load_json(root / 'rfd4_config.json')
-        for row in _rfd4_rows(root):
+        from .ligand_geometry import apply as geometry_verdict
+        for raw in _rfd4_rows(root):
+            row=geometry_verdict(root,raw,raw.get('structure'))
             sequence = row.get('sequence')
             chains = row.get('sequences', {})
             if not sequence and len(chains) == 1: sequence = next(iter(chains.values()))

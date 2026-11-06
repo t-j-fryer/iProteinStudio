@@ -8,7 +8,7 @@ import sys
 from .common import StudioError
 
 
-def prepare(root, output, workflow, value, smiles, *, detected=None, preparation_root=None, prediction_settings=None):
+def prepare(root, output, workflow, value, smiles, *, detected=None, preparation_root=None, prediction_settings=None, ligand_geometry=None):
     from .prediction_settings import normalize
     profiles = normalize(prediction_settings)
     root, output = Path(root), Path(output)
@@ -95,6 +95,7 @@ def prepare(root, output, workflow, value, smiles, *, detected=None, preparation
                   source=str(output / ('summary_all_runs.csv' if workflow == 'iterative' else 'mpnn/sequences.csv')),
                   smiles=smiles.strip(), scripts=str(snapshot / 'scripts'),
                   predictor_runner=str(snapshot / 'predictors/run_predictors.py'))
+    if ligand_geometry is not None: config['ligand_geometry']=ligand_geometry
     config['dependency_digest'] = dependency_digest
     path = prepared / 'config.json'
     if path.exists():
@@ -108,18 +109,18 @@ def prepare(root, output, workflow, value, smiles, *, detected=None, preparation
              'cwd': str(snapshot), 'stage': 'nesso-verification'}, assets)
 
 
-def frozen_preparation(root, output, workflow, options, smiles, *, prediction_settings=None):
+def frozen_preparation(root, output, workflow, options, smiles, *, prediction_settings=None, ligand_geometry=None):
     """Prepare the same native verification route without creating campaign outputs."""
     from .common import agent_root, canonical_digest
     import fcntl
     from .prediction_settings import normalize
     profiles = normalize(prediction_settings)
-    identity = canonical_digest(dict(output=str(output), workflow=workflow, options=options, smiles=smiles, prediction_settings=profiles))
+    identity = canonical_digest(dict(output=str(output), workflow=workflow, options=options, smiles=smiles, prediction_settings=profiles, ligand_geometry=ligand_geometry))
     destination = agent_root() / 'ligand_preparations' / identity
     destination.mkdir(parents=True, exist_ok=True)
     with (destination / 'prepare.lock').open('a+') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        step, assets = prepare(root, output, workflow, options, smiles, preparation_root=destination, prediction_settings=profiles)
+        step, assets = prepare(root, output, workflow, options, smiles, preparation_root=destination, prediction_settings=profiles, ligand_geometry=ligand_geometry)
     return {"directory": str(destination), "step": step}, assets
 
 

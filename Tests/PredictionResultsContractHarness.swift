@@ -539,6 +539,22 @@ struct PredictionResultsContractHarness {
         let items = RunResultsLoader.load(root: rfd4, workflow: .rfd4)
         precondition(items.count == 1 && items[0].sequence == "AA" && items[0].metrics.isEmpty)
         precondition(items[0].isHit == false && items[0].failedFilters == ["ipsae_min"])
+        var independent = items[0]; independent.isHit = true; independent.failedFilters = []
+        func writeGeometryReceipt(_ passed: Bool) throws {
+            let value: [String: Any] = ["passed": passed, "failures": passed ? [] : ["contact"], "structure_sha256": digest]
+            let canonical = try JSONSerialization.data(withJSONObject: value, options: .sortedKeys)
+            let checksum = SHA256.hash(data: canonical).map { String(format: "%02x", $0) }.joined()
+            try JSONSerialization.data(withJSONObject: ["result": value, "result_json": String(data: canonical, encoding: .utf8)!, "result_sha256": checksum]).write(to: URL(fileURLWithPath: structure.path + ".ligand_geometry.json"))
+        }
+        try writeGeometryReceipt(false)
+        precondition(LigandGeometryResult.apply(independent, required: true).isHit == false)
+        precondition(LigandGeometryResult.apply(independent, required: false).isHit == true)
+        try writeGeometryReceipt(true)
+        precondition(LigandGeometryResult.apply(independent, required: true).isHit == true)
+        precondition(LigandGeometryResult.apply(items[0], required: true).isHit == false)
+        try FileManager.default.removeItem(atPath: structure.path + ".ligand_geometry.json")
+        precondition(LigandGeometryResult.apply(independent, required: true).isHit == false)
+        print("PASS geometry AND-gates, disabled-policy preservation and missing-receipt rejection")
         try Data("changed".utf8).write(to: structure)
         precondition(RunResultsLoader.load(root: rfd4, workflow: .rfd4).isEmpty)
         print("PASS RFD4 target-role sequence identity and changed-structure exclusion")

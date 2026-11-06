@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0784 — Shared ligand geometry and interactive views](lab_book/0784-share-ligand-geometry-filters.md): optional Figure 4/contact/SASA hit gates, exact atom maps, recorded cones and 2D/3D controls; CPU/UI qualification.
+
 - [0762 — Public motif assessment](lab_book/0762-public-motif-assessment.md): published0.2.34/build83/MCP55 with verified archives and signed update feed.
 
 - [0757 — Motif release qualification](lab_book/0757-release-motif-controls.md): ten GPU outputs, five exact matched kernel pairs and native per-design length checks.

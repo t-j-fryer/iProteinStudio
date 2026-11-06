@@ -628,6 +628,55 @@
               ]
             }
           }
+        },
+        "ligand_geometry": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "schema": {
+              "type": "integer",
+              "const": 1
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "sasa",
+                "biotin-carboxamide-v1"
+              ]
+            },
+            "contact_atoms": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "uniqueItems": true
+            },
+            "exposed_atoms": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "uniqueItems": true
+            },
+            "contact_distance": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 20,
+              "default": 6
+            },
+            "exposure_min_fraction": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 1,
+              "default": 0.5
+            }
+          },
+          "description": "Optional holo geometry hit gate. Indices use exact input SMILES order. Figure 4 free-biotin mode passes open/restricted exits and fails blocked/unresolved; other molecules use explicit contact/SASA requirements."
         }
       }
     }

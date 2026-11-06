@@ -10,6 +10,7 @@ struct RFD4MotifInventory: Decodable {
     struct Ligand: Decodable, Identifiable {
         let id: String
         let name: String
+        let smiles: String?
     }
     struct Residue: Decodable, Identifiable {
         let chain: String

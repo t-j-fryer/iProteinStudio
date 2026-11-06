@@ -40,6 +40,7 @@ struct LigandTargetingView: View {
             Divider()
             understandingSection
             Divider()
+            LigandGeometryFilterForm(policy: $request.ligand_geometry, smiles: smiles, coreAtom: request.ligandAttachmentAtom, linkerAtom: request.ligandAttachmentLinkerAtom)
             atomSection
                 .disabled(!request.usesBoltzDesignEngine)
             if !request.usesBoltzDesignEngine {

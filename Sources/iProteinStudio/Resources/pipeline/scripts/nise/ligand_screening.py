@@ -251,10 +251,16 @@ def run(config, *, client_class=NessoClient, predictor_run=subprocess.run):
         if completed.returncode or len(results) != len(selected):
             atomic(output / 'results.json', sorted(results, key=lambda r: selected.index(r['candidate'])))
             raise RuntimeError('Shortlist verification is incomplete; successful folds were checkpointed. See prediction.log.')
+    if cfg.get('ligand_geometry') is not None:
+        from ligand_geometry import in_runtime
+        for result in results:
+            checked=in_runtime(root,output/result['structure'],cfg['smiles'],cfg['ligand_geometry'],predictor=predictor)
+            result['geometry_passed']=checked['passed'];result['is_hit']=checked['passed']
     results.sort(key=lambda r: selected.index(r['candidate']))
     atomic(output / 'results.json', results)
     # Include nested artifacts, so even a completed invocation is audited on resume.
     files = [output / 'results.json', output / (engine + '_screening.csv'), receipt, begin]
+    files += list(folds.rglob('*.ligand_geometry.json'))
     files += [p for p in (output / 'scores').rglob('*') if p.is_file()]
     for name in selected:
         fold_receipt = output / 'fold_receipts' / (name + '.json')

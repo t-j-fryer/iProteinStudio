@@ -95,6 +95,7 @@ struct NISEAtomTargetingView: View {
                     Text(atoms.displaySmiles).font(.caption.monospaced()).textSelection(.enabled)
                 }
             }
+            LigandGeometryFilterForm(policy: $request.ligand_geometry, smiles: request.smiles)
             Picker("Linker accessibility check", selection: $request.exposure_mode) {
                 Text("Selected atom accessibility (SASA)").tag("sasa")
                 Text("Biotin amide linker exit").tag("biotin-carboxamide-v1")

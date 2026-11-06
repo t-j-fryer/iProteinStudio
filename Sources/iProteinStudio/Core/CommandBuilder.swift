@@ -38,6 +38,10 @@ enum CommandBuilder {
             "--iptm-threshold", String(format: "%.2f", request.hitThreshold),
         ]
 
+        if request.targetKind == .ligand, let policy = request.ligand_geometry {
+            args += ["--ligand-geometry-json", policy.json]
+        }
+
         if request.hasProteinTarget {
             args += ["--refinement-epitope-guidance", request.refinementEpitopeGuidance ? "auto" : "off"]
         }

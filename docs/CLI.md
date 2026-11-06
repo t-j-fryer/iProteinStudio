@@ -1146,3 +1146,55 @@ optional/null disables that gate, and all requested modes must pass. Keep
 checks use Boltz or ESMFold2. These gates do not imply experimental activity.
 The plan counts every apo/holo call. Each prediction has its own durable receipt;
 results preserve native motif correspondence and source-reference fingerprints.
+
+
+## Optional ligand geometry hit filter
+
+The small-molecule forms in Protein Hunter, RFdiffusion3, RFD4 and ligand NISE
+share an optional `ligand_geometry` policy (MCP56). RFD4 motif scaffolding also
+supports it when one explicit ligand is retained; inspect the source first so
+its exact SMILES order is known. This adds a geometry gate to the saved holo
+structure. It never turns an apo structure or another derivative into a hit.
+NISE applies the requested gate before candidates advance; the other routes
+retain their search objective and apply the gate to completed outputs.
+
+```json
+{
+  "schema": 1,
+  "mode": "biotin-carboxamide-v1",
+  "contact_atoms": [7, 8, 9, 10, 11, 12, 13, 14, 15],
+  "exposed_atoms": [],
+  "contact_distance": 6.0,
+  "exposure_min_fraction": 0.5
+}
+```
+
+Those indices are the Figure 4 preset **only for** the exact SMILES
+`O=C(O)CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21`. The app generates the matching
+preset for the current input order. Do not reuse indices with another SMILES.
+Every selected contact atom must be within the cutoff of a binder heavy atom.
+The versioned free-biotin classifier passes open/restricted exits and fails
+blocked/unresolved exits; it replaces terminal acid-oxygen SASA. For other
+molecules use `mode: "sasa"` and explicit contact/exposed atom indices. Exposure
+is bound/isolated-ligand SASA in the same conformation, measured with the existing
+heavy-atom RDKit FreeSASA protocol. A selected linker bond can populate the two
+atom sets, but selecting the bond alone does not enable the filter.
+
+RFdiffusion3/RFD4/NISE planners accept this object inside `request`.
+Protein Hunter accepts `--ligand-geometry-json '<JSON object>'` in its recorded
+CLI arguments. Omitting it disables the added gate. Exact chemical state,
+atom mapping and input validity are checked before generation; missing or changed
+geometry evidence cannot satisfy an enabled gate. Result browsing and MCP
+`results_query`/`results_overview` read the separate hash-bound geometry receipt.
+The original confidence scores and coordinate files remain the source outputs.
+
+In Results, **Show linker-exit cone** overlays the recorded discrete nominal
+amide samples on the tested pose. Teal means standard fit with a wide direct
+exit, amber standard fit with lower clearance, and red standard overlap failure.
+The complete classifier also checks permissive/curved routes; the coloured
+samples alone do not replace its verdict. Older NISE exit receipts can be
+inspected with **Inspect recorded linker-exit cone**, without reclassification.
+Cones are idealized sampled hypotheses, not a continuous accessible region or a
+binding probability. The molecule selector offers 2D atom picking and an offline
+3D input conformer: drag rotates, scroll/pinch or +/− zooms, Control-drag pans,
+and Reset view refits. The preview is not a predicted bound pose.

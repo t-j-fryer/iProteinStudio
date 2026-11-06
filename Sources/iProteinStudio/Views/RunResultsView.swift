@@ -499,7 +499,7 @@ private struct RunResultDetail: View {
         VStack(alignment: .leading, spacing: 0) {
             detailHeader
             Divider()
-            StructureViewer(structurePath: item.structureURL.path)
+            LigandGeometryStructureViewer(structureURL: item.structureURL)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.black.opacity(0.025))
                 .accessibilityLabel("Interactive py2Dmol structure for \(item.title)")

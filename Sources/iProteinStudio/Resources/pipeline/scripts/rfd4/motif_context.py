@@ -17,6 +17,11 @@ def inventory(atoms):
     keys = list(dict.fromkeys((str(c), int(r), str(i), str(n)) for c,r,i,n in
                 zip(atoms.chain_id[other], atoms.res_id[other], atoms.ins_code[other], atoms.res_name[other])))
     ligands = [dict(id=f'{c}:{r}{i.strip()}:{n}', chain=c, residue=r, insertion_code=i, name=n) for c,r,i,n in keys]
+    from .mixed_target import molecule_record
+    for row in ligands:
+        selected=atoms[(atoms.chain_id==row['chain']) & (atoms.res_id==row['residue']) & (atoms.ins_code==row['insertion_code']) & (atoms.res_name==row['name'])]
+        try: row['smiles']=molecule_record(selected,row['id'],'B','L;0')['smiles']
+        except ValueError as exc: row['chemistry_error']=str(exc)
     return dict(chains=chains, ligands=ligands)
 
 

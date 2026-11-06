@@ -1,5 +1,7 @@
 # Public release candidate to do
 
+- [x] Prepare optional ligand geometry hit filters, recorded exit cones, interactive 2D/3D molecule views and matching CLI/MCP56 contracts (Lab Book0784); 0.2.35/build84 local candidate, publication pending.
+
 Local preparation for the upcoming paper release. Changes here are not published
 automatically; publication and release packaging are separate steps.
 

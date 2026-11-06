@@ -264,7 +264,7 @@ private struct SelectedResultViewer: View {
                 if showsTrajectory {
                     StructureTrajectoryViewer(frames: trajectoryFrames)
                 } else {
-                    StructureViewer(structurePath: item.structureURL.path)
+                    LigandGeometryStructureViewer(structureURL: item.structureURL)
                 }
             }
                 .frame(minHeight: 410, idealHeight: 470)

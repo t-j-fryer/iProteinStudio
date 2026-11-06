@@ -31,7 +31,7 @@ DEFAULTS = dict(prediction_settings={}, folding_engine="boltz", final_predictors
                 screening_engine="nesso", nesso_screen=False, nesso_top_k=16, phase0_nesso_screen=False,
                 phase0_nesso_refine_top_k=1, phase0_nesso_expand_top_k=20, phase0_gate_seqs=3,
                 phase0_sc_ca=2.0, nise_sc_ca=2.5, nise_sc_lig=2.5, nise_ligand_sc_from_cycle=3, backbone_method="protein-hunter", rfd3_num_bins=5,
-                exposure_mode="sasa", geometry_workers=0, hotspot_atoms=[], exposed_atoms=[], hotspot_distance=6.0, exposure_min_fraction=0.5,
+                ligand_geometry=None, exposure_mode="sasa", geometry_workers=0, hotspot_atoms=[], exposed_atoms=[], hotspot_distance=6.0, exposure_min_fraction=0.5,
                 ligand_atom_signature="", ligand_atoms_generated_for="")
 BOUNDS = dict(resident_workers=(0, 2), geometry_workers=(0, 64), search_policy_version=(1, 3), first_cycle_seqs=(1, 4096), noise_predictions=(1, 1024), noise_mpnn_seqs=(1, 4096), noise_advance=(1, 63), initial_proposals=(1, 4096), affinity_batch_size=(1, 128), num_starts=(1, 10000), trajectories=(1, 1000), nise_seqs=(1, 4096),
               max_cycles=(1, 1000), patience=(1, 1000), binder_min_len=(60, 250),
@@ -51,6 +51,8 @@ def normalize(request):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from prediction_profiles import normalize as normalize_profiles
     cfg['prediction_settings'] = normalize_profiles(cfg['prediction_settings'])
+    from ligand_geometry_policy import normalize as geometry_policy
+    cfg['ligand_geometry'] = geometry_policy(cfg.get('ligand_geometry'))
     if cfg['folding_engine'] not in {'boltz', 'esmfold2-fast-mlx', 'esmfold2-600-mlx', 'esmfold2-full-mlx'}:
         raise ValueError('Unknown NISE structure engine.')
     if cfg['folding_engine'] != 'boltz' and (cfg['scoring_mode'] != 'screening' or cfg['resident_workers']):
@@ -228,6 +230,12 @@ def preflight(root, request):
                                 input=json.dumps(cfg), text=True, capture_output=True, timeout=90)
         if result.returncode:
             raise ValueError("RFdiffusion3 atom conditioning preflight failed: " + result.stdout[-2000:] + result.stderr[-1000:])
+    if cfg.get('ligand_geometry') is not None:
+        import subprocess, json
+        result = subprocess.run([str(Path(root)/'venvs/NanoHunter_boltz/bin/python'),
+            str(Path(__file__).resolve().parent.parent/'ligand_geometry.py'),'validate',
+            '--smiles',cfg['smiles'],'--policy',json.dumps(cfg['ligand_geometry'])],capture_output=True,text=True,timeout=90)
+        if result.returncode: raise ValueError('Ligand geometry preflight failed: '+result.stderr[-2000:])
     if cfg["nesso_screen"] or cfg["phase0_nesso_screen"]:
         scoring_contract(cfg).validate_installation(root)
     return cfg

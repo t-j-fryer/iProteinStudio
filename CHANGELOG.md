@@ -1,5 +1,11 @@
 # iProteinStudio release notes
 
+## Unreleased — Ligand geometry and interactive molecule views
+
+- Add optional contact/accessibility and Figure 4 biotin linker-exit hit filters across small-molecule binder workflows, with matching CLI/MCP56 settings and recorded geometry verdicts.
+- Show sampled linker-exit cones over the tested structure, including read-only inspection of existing NISE receipts.
+- Add rotatable 3D molecule previews, zoom/pan/reset controls and 2D navigation while retaining atom identity and condition labels.
+
 ## 0.2.34 — Motif partner assessment
 
 - Retain selected protein/ligand partners during native motif scaffolding.

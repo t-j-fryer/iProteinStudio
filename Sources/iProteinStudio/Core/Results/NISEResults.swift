@@ -341,14 +341,16 @@ enum NISEResultsLoader {
             let groupTitle = tid.map { "Trajectory \($0 + 1)" } ?? "Lineage \(lineage)"
             let groupID = "nise|\(phase.rawValue)|" + (tid.map(String.init) ?? lineage)
             let metrics = metrics(row)
-            let item = StudioResultItem(id: "nise|\(name)|holo", title: name,
+            var item = StudioResultItem(id: "nise|\(name)|holo", title: name,
                 subtitle: "\(stages[key]!.title) · \(branchLabel) · \(label)", structureURL: structure,
                 sequence: row["sequence"] as? String, metrics: metrics, confidenceURL: rowFiles[name],
                 stage: isInitial ? .startingStructure : .design,
                 scoreSource: row["generator"] as? String ?? (objectiveEngine != "boltz" ? "\(objectiveEngine.uppercased()) objective · \(foldingLabel) geometry" : (row["psichic"] != nil ? "Boltz 2 · PSICHIC prescreen (experimental)" : (row["nesso"] == nil ? "Boltz 2" : "Boltz 2 · NESSO prescreen"))),
+                isHit: settings["ligand_geometry"] is [String: Any] && (geometry == false || eligible == false || isInitial) ? false : nil,
                 failedFilters: ((row["atom_checks"] as? [String: Any] ?? initialAtoms[name] as? [String: Any])?["failures"] as? [String]) ?? [],
                 groupID: groupID, groupTitle: groupTitle, variantID: "cycle-\(cycle)-\(name)",
                 variantTitle: "Cycle \(cycle) · \(name)", artifactRole: isInitial ? .startingStructure : .designedComplex)
+            item = LigandGeometryResult.apply(item, required: settings["ligand_geometry"] is [String: Any])
             snapshot.records.append(NISERecord(item: item, phase: phase, cycle: cycle, geometryPassed: geometry,
                 eligible: candidateNames.contains(name) || isInitial ? eligible : nil, advanced: selection[name]))
             stages[key]?.completed += 1

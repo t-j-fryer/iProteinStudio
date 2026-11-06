@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "version": "0.2.35",
+  "build": 84,
+  "mcp": 56,
+  "scope": "CPU software qualification; no new neural inference or benchmark",
+  "classifier_sha256": {
+    "atom_geometry.py": "240ca88910689f3fe9d75b7e6c405363bbcab15d01919cdd4c17a6f4068f5059",
+    "biotin_exit.py": "47cd74d26bf2a537a6eaed9edbbaa969f3966fbb04abc68edf3a02fbc86f75c3",
+    "linker_geometry.py": "744aec66c32db2f420961a8891fc7d464d9bc7404c5365f859b7206e019b722a"
+  },
+  "tests": {
+    "focused_real_geometry": 5,
+    "nise_exit": 5,
+    "nise_contracts": 11,
+    "mcp_bridge": 24,
+    "ligand_screening": 15,
+    "rfd4_regressions": 79,
+    "rfd4_packaging_repeat": 7,
+    "native_ligand_feature_audit": "pass",
+    "swift_contracts": "requests/results/migration/AND-gates pass",
+    "native_webkit": "2D selection after rotation/zoom, highlights and reset; real 3D drag, zoom and reset pass",
+    "paper_cone_replay": "two saved predicted poses; original class and nominal counts reproduced"
+  },
+  "notes": [
+    "Initial full RFD4 invocation used the Boltz interpreter and lacked AtomWorks; reran with the pinned RFD4 interpreter.",
+    "RFD4 packaging import initially lacked tools on PYTHONPATH; seven tests reran successfully with tools set.",
+    "Native WebKit tests required normal macOS cache access outside the filesystem sandbox.",
+    "Public tests omit private paper-coordinate fixtures and explicitly skip that replay.",
+    "No new GPU design run, new runtime install, binding assay or measured speed claim."
+  ],
+  "delivery": {
+    "beta_installed": true,
+    "beta_opened": true,
+    "packaged_resources_matching": 29,
+    "packaged_model_weights": 0,
+    "public_published": false,
+    "public_candidate_built": true,
+    "public_candidate_version": "0.2.35",
+    "public_candidate_build": 84,
+    "public_review": {
+      "files": 69,
+      "source_files_identical": 51,
+      "existing_scope_differences": [
+        "Sources/iProteinStudio/Core/Results/RunResultsLoader.swift",
+        "Sources/iProteinStudio/Models/RunResult.swift",
+        "Sources/iProteinStudio/Views/RunResultsView.swift"
+      ],
+      "research_files": 0,
+      "model_weights": 0
+    },
+    "public_mcp_regressions": 24,
+    "public_cpu_tests_passed": 4,
+    "public_private_fixture_replays_skipped": 1
+  }
+}

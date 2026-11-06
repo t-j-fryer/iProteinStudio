@@ -216,6 +216,7 @@ POST_IPTM_THRESHOLD="0.70"
 POST_IPTM_THRESHOLD_SET=0
 POST_INCLUDE_CYCLE00=0
 POST_BINDER_ALONE=1
+LIGAND_GEOMETRY_JSON=""
 FILTER_MIN_IPTM="0.50"
 FILTER_MIN_IPSAE="0.50"
 FILTER_MAX_COMPLEX_RMSD="2.50"
@@ -449,6 +450,7 @@ Core:
   --filter-min-binder-plddt T      binder-alone pLDDT gate (default: ${FILTER_MIN_BINDER_PLDDT})
   --filter-max-binder-rmsd A       apo-to-complex binder C-alpha RMSD (default: ${FILTER_MAX_BINDER_RMSD})
   --run-name NAME                  default: ${RUN_NAME}
+  --ligand-geometry-json JSON     Optional ligand contact/accessibility or Figure 4 biotin hit gate
   --prediction-settings-json JSON Per-engine msa_depth, diffusion_steps and recycles overrides
   --num-runs N                     default: ${N_RUNS}
   --num-opt-cycles N               optimization cycles after cycle_00 (default: ${N_CYCLES})
@@ -837,6 +839,7 @@ while [[ $# -gt 0 ]]; do
     --post-include-cycle00) POST_INCLUDE_CYCLE00=1; shift 1 ;;
     --post-binder-alone) POST_BINDER_ALONE=1; shift 1 ;;
     --post-no-binder-alone) POST_BINDER_ALONE=0; shift 1 ;;
+    --ligand-geometry-json) LIGAND_GEOMETRY_JSON="$2"; shift 2 ;;
     --filter-min-iptm) FILTER_MIN_IPTM="$2"; shift 2 ;;
     --filter-min-ipsae) FILTER_MIN_IPSAE="$2"; shift 2 ;;
     --filter-max-complex-rmsd) FILTER_MAX_COMPLEX_RMSD="$2"; shift 2 ;;
@@ -1601,6 +1604,10 @@ fi
 
 [[ -d "${REPO_ROOT}" ]] || die "Repo root not found: ${REPO_ROOT}"
 [[ -f "${TEMPLATE_YAML}" ]] || die "Template YAML not found: ${TEMPLATE_YAML}"
+if [[ -n "${LIGAND_GEOMETRY_JSON}" ]]; then
+  "${REPO_ROOT}/venvs/NanoHunter_boltz/bin/python" -B "${PIPELINE_CODE_ROOT}/scripts/ligand_geometry.py" validate \
+    --policy "${LIGAND_GEOMETRY_JSON}" --template "${TEMPLATE_YAML}" --predictor "${PREDICTOR}"
+fi
 [[ -f "${STORAGE_POLICY}" ]] || die "Storage policy helper not found: ${STORAGE_POLICY}"
 TARGET_TEMPLATE_MODE="$(printf '%s' "${TARGET_TEMPLATE_MODE}" | tr '[:upper:]' '[:lower:]')"
 case "${TARGET_TEMPLATE_MODE}" in
@@ -8404,6 +8411,11 @@ if [[ "$(post_predictors_count)" -gt 0 ]]; then
 fi
 
 build_comparison_tables
+if [[ -n "${LIGAND_GEOMETRY_JSON}" ]]; then
+  "${REPO_ROOT}/venvs/NanoHunter_boltz/bin/python" -B "${PIPELINE_CODE_ROOT}/scripts/ligand_geometry.py" tables \
+    --root "${EXPT_ROOT}" --template "${TEMPLATE_YAML}" --predictor "${PREDICTOR}" \
+    --policy "${LIGAND_GEOMETRY_JSON}" --tables "${EXPT_ROOT}/comparison_scores_long.csv"
+fi
 python3 "${STORAGE_POLICY}" index-campaign --root "${EXPT_ROOT}" >/dev/null
 
 echo

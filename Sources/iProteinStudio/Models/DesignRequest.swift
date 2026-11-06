@@ -363,6 +363,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
     /// Turn on Boltz's affinity head to get P(bind) for the ligand.
     var ligandAffinityHead: Bool = true
     /// Core-side atom of the explicitly directed core-to-linker bond.
+    var ligand_geometry: LigandGeometryFilter?
     var ligandAttachmentAtom: Int?
     /// Linker-side atom directly bonded to `ligandAttachmentAtom`.
     var ligandAttachmentLinkerAtom: Int?
@@ -760,6 +761,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         }
         var issues: [DesignValidationIssue] = []
         func add(_ field: String, _ message: String) { issues.append(.init(field: field, message: message)) }
+        if targetKind == .ligand, let ligand_geometry { for issue in ligand_geometry.validationIssues { add("target", issue) } }
         if designType == .monomer && (targetKind != .protein || !targetSequence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !targetTemplatePath.isEmpty || !epitopeResidues.isEmpty) {
             add("target", "Monomer design has no binding target, target template or hotspots.")
         }
@@ -918,6 +920,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         case postRunBinderAlone, postFilters, nesso
         case speedMode, resumeIfPossible
         case mpnnTempCycle1, mpnnTempLater, lasermpnnSeqTemp, lasermpnnFirstShellTemp
+        case ligand_geometry
         case ligandContactAtoms, ligandContactDistance, ligandContactForce
         case ligandAffinityHead, ligandIsConjugated, ligandAttachmentAtom
         case ligandAttachmentLinkerAtom, ligandAtomsGeneratedFor
@@ -992,6 +995,7 @@ struct DesignRequest: Codable, Equatable, Hashable {
         mpnnTempLater   = try c.decodeIfPresent(Double.self, forKey: .mpnnTempLater) ?? d.mpnnTempLater
         lasermpnnSeqTemp = try c.decodeIfPresent(Double.self, forKey: .lasermpnnSeqTemp) ?? d.lasermpnnSeqTemp
         lasermpnnFirstShellTemp = try c.decodeIfPresent(Double.self, forKey: .lasermpnnFirstShellTemp) ?? d.lasermpnnFirstShellTemp
+        ligand_geometry = try c.decodeIfPresent(LigandGeometryFilter.self, forKey: .ligand_geometry)
         ligandContactAtoms   = try c.decodeIfPresent([String].self, forKey: .ligandContactAtoms) ?? d.ligandContactAtoms
         ligandContactDistance = try c.decodeIfPresent(Double.self, forKey: .ligandContactDistance) ?? d.ligandContactDistance
         ligandContactForce   = try c.decodeIfPresent(Bool.self, forKey: .ligandContactForce) ?? d.ligandContactForce

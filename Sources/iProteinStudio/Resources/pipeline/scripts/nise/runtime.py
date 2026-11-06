@@ -243,7 +243,7 @@ class Backend:
 
     def check_atom_requirements_batch(self, predictions):
         if (not self.settings.get("hotspot_atoms") and not self.settings.get("exposed_atoms")
-                and self.settings.get("exposure_mode", "sasa") == "sasa"):
+                and self.settings.get("exposure_mode", "sasa") == "sasa" and self.settings.get("ligand_geometry") is None):
             return {name: True for name in predictions}
         # Preserve the lightweight legacy route. The new exit calculations use
         # reusable CPU processes, per-structure receipts and bounded memory.
@@ -256,6 +256,21 @@ class Backend:
             if self.geometry_executor is None:
                 self.geometry_executor = GeometryExecutor(self.output, self.settings, self.atom_manifest())
             results = self.geometry_executor.check(predictions)
+        if self.settings.get('exposure_mode') == 'biotin-carboxamide-v1' and self.settings.get('ligand_geometry') is None:
+            from ligand_geometry import check
+            manifest=self.atom_manifest();by_name={a['name']:a['index'] for a in manifest['atoms']}
+            policy=dict(mode=self.settings['exposure_mode'],contact_atoms=[by_name[n] for n in self.settings['hotspot_atoms']],
+                exposed_atoms=[by_name[n] for n in self.settings['exposed_atoms']],contact_distance=self.settings['hotspot_distance'],
+                exposure_min_fraction=self.settings['exposure_min_fraction'])
+            for name,prediction in predictions.items():
+                check(prediction.pdb,manifest['smiles_used'],policy,manifest=manifest,measured=results[name])
+        if self.settings.get('ligand_geometry') is not None:
+            from ligand_geometry import check
+            for name, prediction in predictions.items():
+                extra = check(prediction.pdb, self.settings['smiles'], self.settings['ligand_geometry'], manifest=self.atom_manifest())
+                if name in results:
+                    extra = dict(extra, passed=extra['passed'] and results[name]['passed'], failures=results[name]['failures'] + extra['failures'])
+                results[name] = extra
         self.atom_checks.update(results)
         return {name: result["passed"] for name,result in results.items()}
 

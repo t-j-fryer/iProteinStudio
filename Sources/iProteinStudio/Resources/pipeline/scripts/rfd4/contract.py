@@ -101,7 +101,7 @@ def normalize(request):
                     assess_native=False, starting_structures=[], native_search=False,
                     native_beam_width=2, native_branches=2, native_checkpoints=[8, 15],
                     native_partial_fraction=0.5, ligand_smiles='', time_budget_minutes=None, scaffold_id=None,
-                    hotspot_residues=None, length_plan=None, hit_filters=None, motif=None, motif_assessment=None, selection_metric=None, scaffold_weights=None, ligand_conformers=None, ligand_conformer=None, ligand_atom_conditions=None, ligand_attachment_atom=None, ligand_attachment_linker_atom=None, ligand_search_pdb=None, ligand_is_conjugated=None)
+                    hotspot_residues=None, length_plan=None, hit_filters=None, ligand_geometry=None, motif=None, motif_assessment=None, selection_metric=None, scaffold_weights=None, ligand_conformers=None, ligand_conformer=None, ligand_atom_conditions=None, ligand_attachment_atom=None, ligand_attachment_linker_atom=None, ligand_search_pdb=None, ligand_is_conjugated=None)
     unknown = set(request) - set(defaults)
     if unknown: raise ValueError('Unknown RFD4 settings: ' + ', '.join(sorted(unknown)))
     cfg = {**defaults, **request}
@@ -163,6 +163,19 @@ def normalize(request):
         if cfg['time_budget_minutes'] is not None: raise ValueError('Motif final assessment requires a complete per-family budget; active-time caps are not yet supported.')
     if cfg.get('motif') and (cfg['binder_chain'] != 'A' or cfg['target_chain'] != 'B'):
         raise ValueError('Guided motifs use scaffold A and retained partners B onward.')
+    if cfg.get('ligand_geometry') is not None:
+        import sys
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+        from ligand_geometry_policy import normalize as geometry_policy
+        cfg['ligand_geometry']=geometry_policy(cfg['ligand_geometry'])
+        if cfg['task'] not in ('ligand','motif','protein','nanobody'):
+            raise ValueError('Ligand geometry filtering requires an explicit ligand target or retained ligand.')
+        if cfg.get('motif_assessment') is not None and not cfg['motif_assessment'].get('holo'):
+            raise ValueError('Ligand geometry needs the holo motif assessment; enable holo or turn off the geometry hit filter.')
+        if cfg['task']=='ligand' and cfg['starting_structures'] and (cfg['native_search'] or (cfg['search']=='native' and not cfg['assess_native'])):
+            raise ValueError('Imported ligand structures need explicit complete-sequence assessment for geometry filtering; enable assess_native or a sequence search.')
+        if cfg['task']=='ligand' and not cfg['ligand_smiles']:
+            raise ValueError('Ligand geometry requires the exact ligand SMILES.')
     validate_hit_filters(cfg)
     if cfg['seed'] + cfg['count'] - 1 >= 2**32:
         raise ValueError('The requested generation seeds exceed the 32-bit range.')

@@ -11,6 +11,8 @@
     #msg { position: absolute; font: 12px -apple-system, sans-serif; color: #999; text-align: center; padding: 0 20px; }
     #hint { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center;
             font: 11px -apple-system, sans-serif; color: #8a8a8a; pointer-events: none; }
+    #navigation {position:absolute;top:5px;left:5px;display:flex;gap:4px;z-index:5}
+    #navigation button {background:white;border:1px solid #cbd5e1;border-radius:4px;padding:3px 7px;cursor:pointer}
     .hit { cursor: pointer; }
     .hit:hover ~ * { }
   </style>
@@ -18,6 +20,7 @@
 </head>
 <body>
   <div id="draw"></div>
+  <div id="navigation"><button onclick="zoomDrawing(1.2)" aria-label="Zoom in">＋</button><button onclick="zoomDrawing(1/1.2)" aria-label="Zoom out">−</button><button onclick="rotateDrawing(-15)" aria-label="Rotate left">↶</button><button onclick="rotateDrawing(15)" aria-label="Rotate right">↷</button><button onclick="resetDrawing()">Reset</button></div>
   <div id="msg">Enter a SMILES string</div>
   <div id="hint"></div>
   <script>
@@ -37,6 +40,16 @@
     var msgEl = document.getElementById('msg');
     var hintEl = document.getElementById('hint');
 
+    var viewScale=1, viewAngle=0, viewX=0, viewY=0, dragStart=null, dragged=false;
+    function applyDrawingView(){drawEl.style.transform='translate('+viewX+'px,'+viewY+'px) rotate('+viewAngle+'deg) scale('+viewScale+')';}
+    function zoomDrawing(factor){viewScale=Math.max(.3,Math.min(6,viewScale*factor));applyDrawingView();}
+    function rotateDrawing(degrees){viewAngle+=degrees;applyDrawingView();}
+    function resetDrawing(){viewScale=1;viewAngle=0;viewX=0;viewY=0;applyDrawingView();}
+    document.addEventListener('wheel',function(e){if(e.target.closest('#navigation'))return;e.preventDefault();zoomDrawing(Math.exp(-e.deltaY*.005));},{passive:false});
+    drawEl.addEventListener('pointerdown',function(e){dragStart={x:e.clientX,y:e.clientY,oldX:viewX,oldY:viewY};dragged=false;});
+    window.addEventListener('pointermove',function(e){if(!dragStart)return;var dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;if(Math.hypot(dx,dy)>4)dragged=true;if(dragged){viewX=dragStart.oldX+dx;viewY=dragStart.oldY+dy;applyDrawingView();}});
+    window.addEventListener('pointerup',function(){dragStart=null;});
+
     // ---------------------------------------------------------------- host API
 
     // The host injects the WASM bytes (base64) — fetch() is blocked on file://.
@@ -53,7 +66,7 @@
       var next = b64 ? decodeURIComponent(escape(window.atob(b64))).trim() : "";
       if (next !== pendingSmiles) {
         attachment = null; attachmentLinker = null;
-        coreAtoms = null; presentationAtoms = null; atomLabels = []; atomConditions = {};
+        coreAtoms = null; presentationAtoms = null; atomLabels = []; atomConditions = {}; resetDrawing();
       }
       pendingSmiles = next;
       if (ready) render();
@@ -227,7 +240,7 @@
       // the fit is slightly off -- whereas a small circle could be missed.
       svgEl.style.cursor = pickingEnabled ? 'pointer' : 'default';
       svgEl.addEventListener('click', function (event) {
-        if (!pickingEnabled) return;
+        if (!pickingEnabled || dragged) return;
         var p = nearestAtom(svgEl, event, radius * 2.2);
         if (p === null) return;
         if (attachment === null) {

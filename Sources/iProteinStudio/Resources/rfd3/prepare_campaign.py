@@ -65,6 +65,14 @@ def normalize_protein_target(req: dict, campaign: Path) -> dict[str, str]:
         fail("RFdiffusion3 supports at most 25 target chains because chain A is reserved for the binder.")
     assigned = [chr(ord("B") + index) for index in range(len(source_chains))]
     chain_map = dict(zip(source_chains, assigned))
+    if req.get('ligand_geometry') is not None:
+        if req.get('target_kind') != 'small_molecule': fail('Ligand geometry requires a small-molecule target.')
+        import subprocess
+        root=Path(req['nanohunter_root'])
+        checked=subprocess.run([str(root/'venvs/NanoHunter_boltz/bin/python'),str(root/'scripts/ligand_geometry.py'),
+            'validate','--policy',json.dumps(req['ligand_geometry']),'--smiles',req['smiles'],
+            '--predictor','boltz' if req.get('run_affinity',True) else 'boltz-structure'],capture_output=True,text=True)
+        if checked.returncode: fail('Ligand geometry preflight failed: '+checked.stderr[-2000:])
     mode = req.get("design_mode", "deNovo")
     if mode in {"partialDiffusion", "motifScaffolding"}:
         source_binder = str(req.get("source_binder_chain", "A")).strip().upper()
@@ -597,6 +605,7 @@ def main() -> None:
         "run_affinity": req.get("run_affinity", True),
         "run_apo": req.get("run_apo", True),
         "hit_filters": req.get("hit_filters", {}),
+        "ligand_geometry": req.get("ligand_geometry"),
         "extra_predictors": req.get("extra_predictors", []),
         "intellifold_model": req.get("intellifold_model", "v2-flash"),
         "prediction_settings": req.get("prediction_settings", {}),

@@ -3,6 +3,7 @@ import SwiftUI
 struct RFD4MotifEditor: View {
     let source: String
     let apply: (RFD4Motif) -> Void
+    let ligandSelected: ((String?) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @StateObject private var inspector = RFD4MotifInspector()
     @StateObject private var numericValidation = NumericInputValidation()
@@ -16,8 +17,8 @@ struct RFD4MotifEditor: View {
         }
     }
 
-    init(source: String, initial: RFD4Motif?, apply: @escaping (RFD4Motif) -> Void) {
-        self.source = source; self.apply = apply; _motif = State(initialValue: initial ?? RFD4Motif())
+    init(source: String, initial: RFD4Motif?, ligandSelected: ((String?) -> Void)? = nil, apply: @escaping (RFD4Motif) -> Void) {
+        self.source = source; self.apply = apply; self.ligandSelected = ligandSelected; _motif = State(initialValue: initial ?? RFD4Motif())
     }
     private var selected: Binding<[String]> {
         Binding(get: { motif.residues.map(\.id) }, set: { ids in
@@ -115,7 +116,10 @@ struct RFD4MotifEditor: View {
             HStack {
                 Button("Cancel") { dismiss() }
                 Spacer()
-                Button("Use this motif") { motif.source_sha256 = inspector.inventory?.source_sha256; apply(motif); dismiss() }.buttonStyle(.borderedProminent)
+                Button("Use this motif") {
+                    let ligands = inspector.inventory?.ligands.filter { (motif.ligand_ids ?? []).contains($0.id) } ?? []
+                    ligandSelected?(ligands.count == 1 ? ligands[0].smiles : nil)
+                    motif.source_sha256 = inspector.inventory?.source_sha256; apply(motif); dismiss() }.buttonStyle(.borderedProminent)
                     .disabled(inspector.inventory == nil || inspector.running || missingSelections || !motif.issues.isEmpty || !numericValidation.invalidEditors.isEmpty)
             }
         }.padding(20)

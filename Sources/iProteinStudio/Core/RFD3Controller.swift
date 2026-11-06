@@ -488,6 +488,7 @@ final class RFD3Controller: ObservableObject {
         // a protein target would produce a number that means nothing.
         payload.run_affinity = request.verification.runAffinityHead && request.targetKind == .smallMolecule
         payload.run_apo = request.verification.runApoCheck
+        payload.ligand_geometry = request.targetKind == .smallMolecule ? request.ligand_geometry : nil
         payload.hit_filters = RFD3FilterPayload(request.verification.filters)
         // For a protein target this is the whole list, not "extras": nothing is
         // pinned, because the affinity head that pins Boltz is ligand-only.
@@ -636,6 +637,7 @@ struct RFD3StudioRequest: Codable {
     var run_affinity: Bool = true
     var run_apo: Bool = true
     var hit_filters = RFD3FilterPayload()
+    var ligand_geometry: LigandGeometryFilter?
     var extra_predictors: [String] = []
     var intellifold_model: String = "v2-flash"
     var conformers: [[String: AnyJSON]] = []

@@ -47,4 +47,9 @@ def run(root, output, settings, smiles):
                    '--model', {'esmfold2-fast-mlx': 'fast', 'esmfold2-full-mlx': 'full', 'esmfold2-600-mlx': '600'}[engine], '--seeds', str(settings['seed'])]
         with (target / (engine + '.log')).open('a') as log:
             subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
-    atomic(target / 'summary.json', dict(status='completed', candidates=len(selected), engines=settings['final_predictors']))
+        if settings.get('ligand_geometry') is not None:
+            from ligand_geometry import in_runtime
+            for row in selected:
+                structure=target/engine/row['name']/'pred_min/model_0.cif'
+                in_runtime(root,structure,settings['smiles'],settings['ligand_geometry'],predictor=engine)
+    atomic(target / 'summary.json', dict(status='completed' , candidates=len(selected), engines=settings['final_predictors']))

@@ -14,6 +14,7 @@ struct DiffusionView: View {
                         p.rfd3.targetKind = .smallMolecule; p.rfd3.ligandSource = .smiles
                         p.rfd3.sequenceModel = .lasermpnn
                         p.rfd3.smiles = p.rfd4.ligand_smiles
+                        p.rfd3.ligand_geometry = p.rfd4.ligand_geometry
                         p.rfd3.attachmentAtom = p.rfd4.ligand_attachment_atom
                         p.rfd3.attachmentLinkerAtom = p.rfd4.ligand_attachment_linker_atom
                         p.rfd3.ligandIsConjugated = p.rfd4.ligand_is_conjugated ?? false
@@ -25,6 +26,7 @@ struct DiffusionView: View {
                         p.rfd4.sequence_model = "lasermpnn"
                         if !p.rfd4.selectionMetrics.contains(p.rfd4.selectedMetric) { p.rfd4.selection_metric = nil }
                         p.rfd4.ligand_smiles = p.rfd3.smiles
+                        p.rfd4.ligand_geometry = p.rfd3.ligand_geometry
                         p.rfd4.ligand_attachment_atom = p.rfd3.attachmentAtom
                         p.rfd4.ligand_attachment_linker_atom = p.rfd3.attachmentLinkerAtom
                         p.rfd4.ligand_is_conjugated = p.rfd3.ligandIsConjugated
@@ -126,6 +128,9 @@ struct RFD4ConfigurationFields: View {
                     if value.task == .motif { RFD4MotifAssessmentForm(request: request, installer: installer) }
                     if setupExperience == .advanced && value.canSearch { nativeSearchForm }
                     if value.needsPrediction && value.task != .ligand && value.motif_assessment == nil { hitFilters }
+                    if value.task == .ligand || (value.task == .motif && !(value.motif?.ligand_ids ?? []).isEmpty) {
+                        LigandGeometryFilterForm(policy: request.ligand_geometry, smiles: value.ligand_smiles, coreAtom: value.ligand_attachment_atom, linkerAtom: value.ligand_attachment_linker_atom)
+                    }
                     executionForm
                     ForEach(value.validationIssues, id: \.self) { Text($0).foregroundStyle(.orange) }
                     if !ready { Text("Install the selected generator, sequence designer and predictor in Engines.").foregroundStyle(.orange) }
@@ -137,7 +142,7 @@ struct RFD4ConfigurationFields: View {
         }.environment(\.numericInputValidation, numericValidation)
         .onAppear { synchronizeTextInputs() }
         .sheet(isPresented: $showMotif) {
-            RFD4MotifEditor(source: value.source, initial: value.motif) { motif in
+            RFD4MotifEditor(source: value.source, initial: value.motif, ligandSelected: { request.wrappedValue.ligand_smiles = $0 ?? ""; request.wrappedValue.ligand_geometry = nil }) { motif in
                 request.wrappedValue.motif = motif
                 request.wrappedValue.contig = ""
                 request.wrappedValue.hotspots = []; request.wrappedValue.hotspot_residues = nil

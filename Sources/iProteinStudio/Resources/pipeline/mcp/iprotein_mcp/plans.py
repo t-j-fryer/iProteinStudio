@@ -39,7 +39,7 @@ VALUE_ITERATIVE_FLAGS = {
     "--refinement-epitope-guidance",
     "--motif-positions", "--motif-source-seq", "--motif-fixed-positions", "--gap-between-motifs", "--partial-redesign-ranges",
     "--initialization-method", "--initialization-predictor", "--initialization-model", "--initialization-target",
-    "--prediction-settings-json", "--workflow", "--predictor", "--sequence-designer", "--num-runs",
+    "--ligand-geometry-json", "--prediction-settings-json", "--workflow", "--predictor", "--sequence-designer", "--num-runs",
     "--num-opt-cycles", "--iptm-threshold", "--predictor-seed", "--predictor-samples",
     "--model", "--post-predictor",
     "--post-mode", "--post-iptm-threshold", "--filter-min-iptm",
@@ -397,6 +397,13 @@ def _normalize_iterative_arguments(values: Any) -> Tuple[List[str], str]:
             raise StudioError("--secondary-bias-scope must be seed-only or seed-and-cycles.")
         if flag == "--seed-sampling-order" and value not in {"mask-first", "sample-then-mask"}:
             raise StudioError("--seed-sampling-order must be mask-first or sample-then-mask.")
+        if flag == '--ligand-geometry-json':
+            import importlib.util
+            helper=Path(__file__).resolve().parents[2]/'scripts/ligand_geometry_policy.py'
+            spec=importlib.util.spec_from_file_location('studio_geometry_policy',helper)
+            module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+            try:value=json.dumps(module.normalize(json.loads(value)),sort_keys=True)
+            except (TypeError,ValueError) as exc:raise StudioError('Invalid ligand geometry policy: '+str(exc)) from exc
         if flag == '--prediction-settings-json':
             from .prediction_settings import normalize as normalize_prediction_settings
             try:
@@ -578,10 +585,13 @@ def iterative_plan(arguments: Dict[str, Any]) -> Dict[str, Any]:
     if refinement or monomer_benchmark:
         scripts += [root / "scripts" / "initialization_refinement.py",
                     root / "scripts" / "initialization_assessment.py"]
+    if '--ligand-geometry-json' in user_args:
+        normalized.setdefault('supporting_engines',[]).append('boltz')
+        scripts += sorted((root/'scripts').rglob('*.py'))
     if arguments.get('ligand_verification'):
         from .ligand_screening import frozen_preparation, template_smiles
         smiles = template_smiles(root, template['path'])
-        prepared, assets = frozen_preparation(root, campaign, 'iterative', arguments['ligand_verification'], smiles, prediction_settings=prediction_settings)
+        prepared, assets = frozen_preparation(root, campaign, 'iterative', arguments['ligand_verification'], smiles, prediction_settings=prediction_settings, ligand_geometry=json.loads(user_args[user_args.index('--ligand-geometry-json')+1]) if '--ligand-geometry-json' in user_args else None)
         normalized['ligand_verification'] = prepared
         scripts += assets
     return _persist("iterative_design", project, normalized, preview, "apple_gpu_exclusive", _script_provenance(scripts))
@@ -881,7 +891,7 @@ def rfd3_plan(arguments: Dict[str, Any], expected_mode: str) -> Dict[str, Any]:
         if target_kind != 'small_molecule':
             raise StudioError('Ligand verification is restricted to small-molecule campaigns.')
         from .ligand_screening import frozen_preparation
-        prepared, assets = frozen_preparation(root, campaign, 'rfdiffusion3', request['nesso'], request['smiles'], prediction_settings=request['prediction_settings'])
+        prepared, assets = frozen_preparation(root, campaign, 'rfdiffusion3', request['nesso'], request['smiles'], prediction_settings=request['prediction_settings'], ligand_geometry=request.get('ligand_geometry'))
         normalized['ligand_verification'] = prepared
         scripts += assets
     return _persist(f"rfd3_{expected_mode}", project, normalized, preview, "apple_gpu_exclusive", _script_provenance(scripts))

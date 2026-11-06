@@ -146,6 +146,7 @@ struct RFD4Request: Codable, Hashable {
     var native_checkpoints = [8, 15]
     var native_partial_fraction = 0.5
     var ligand_smiles = ""
+    var ligand_geometry: LigandGeometryFilter?
     var time_budget_minutes: Double?
     var scaffold_id: String?
     var length_plan: RFD4LengthPlan?
@@ -247,6 +248,10 @@ struct RFD4Request: Codable, Hashable {
             if !["ipsae_min", "iptm", "complex_plddt"].contains(metric) || !cutoff.isFinite || !(0...1).contains(cutoff) { issues.append("Hit cutoffs must be between 0 and 1.") }
         }
         if !(hit_filters ?? [:]).isEmpty && (!needsPrediction || task == .ligand) { issues.append("Protein hit filters require a protein or nanobody assessment.") }
+        if let ligand_geometry {
+            issues += ligand_geometry.validationIssues
+            if let motif_assessment, !motif_assessment.holo { issues.append("Enable holo assessment to use the ligand geometry hit filter.") }
+        }
         if task != .monomer && source.isEmpty && starting_structures.isEmpty && !(task == .ligand && !ligand_smiles.isEmpty) { issues.append("Choose a target structure or predict one from its sequence.") }
         if let minutes = time_budget_minutes, !minutes.isFinite || minutes <= 0 || minutes > 10080 { issues.append("Choose a design time between zero and seven days.") }
         if scaffold_msa == "auto" && scaffold_id == nil { issues.append("Choose an explicit alignment for a custom framework.") }

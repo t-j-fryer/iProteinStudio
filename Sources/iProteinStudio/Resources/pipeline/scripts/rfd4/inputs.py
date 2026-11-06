@@ -61,7 +61,7 @@ def ligand_source(root, smiles, destination, conformer_path=None):
         bonds.add_row(['L;G',names[bond.GetBeginAtomIdx()],names[bond.GetEndAtomIdx()],order,'Y' if bond.GetIsAromatic() else 'N'])
     path = Path(destination) / 'molecule.cif'; doc.write_file(str(path))
     atomic(Path(destination) / 'molecule.json', dict(canonical_smiles=canonical, source_sha256=sha(path),
-        conformer=conformer, conformer_source_sha256=sha(conformer_path) if conformer_path else None, force_field=field, seed=20260811, atom_names=names, selection_atom_map=dict(zip(selection_names,names)), stereochemistry_verified=True))
+        conformer=conformer, conformer_source_sha256=sha(conformer_path) if conformer_path else None, force_field=field, seed=20260811, atom_names=names, selection_atom_map=dict(zip(selection_names,names)), stereochemistry_verified=True, geometry_manifest=dict(smiles_used=smiles,atoms=[dict(index=i,name=names[i],el=a.GetSymbol()) for i,a in enumerate(mol.GetAtoms()) if a.GetAtomicNum()!=1])))
     return path
 
 

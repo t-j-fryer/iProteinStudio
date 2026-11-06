@@ -121,3 +121,6 @@ studio_rfd4_motif_authoring: native-typed-atom-selection-v1
 studio_rfd4_kernel_default: optimized-new-requests-v1
 
 motif_partner_assessment: Lab0760; explicit source partners, untemplated apo/holo and mapped RMSD gates; bridge55 beta
+
+studio_ligand_geometry: optional-holo-hit-policy-v1; Figure4-biotin-exit-parity; interactive-input-conformer-and-recorded-cones; MCP56
+studio_ligand_geometry_validation: lab_book/0784-share-ligand-geometry-filters.md

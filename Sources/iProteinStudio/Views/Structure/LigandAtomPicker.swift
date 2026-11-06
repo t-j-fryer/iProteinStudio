@@ -1,6 +1,48 @@
 import SwiftUI
 import WebKit
 
+/// Shared atom picker with an input-order 2D drawing and rotatable 3D conformer.
+struct LigandAtomPicker: View {
+    let smiles: String
+    @Binding var attachmentAtom: Int?
+    @Binding var attachmentLinkerAtom: Int?
+    var coreAtoms: [Int] = []
+    var presentationAtoms: [Int] = []
+    var atomLabels: [String] = []
+    var atomConditions: [String: [String]] = [:]
+    var allowsAttachmentPicking = true
+    var onAtomsResolved: (([String]) -> Void)?
+    var onAttachmentChanged: ((Int?, Int?) -> Void)?
+    @State private var threeD = false
+    @StateObject private var preview = LigandPreview()
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Picker("Molecule view", selection: $threeD) {
+                Text("2D · select atoms").tag(false)
+                Text("3D · rotate and zoom").tag(true)
+            }.pickerStyle(.segmented).frame(maxWidth: 310)
+            if threeD {
+                if let payload = preview.payload {
+                    LigandSpatialViewer(payload: payload, labels: atomLabels, conditions: atomConditions,
+                        attachment: attachmentAtom, linker: attachmentLinkerAtom, core: coreAtoms, presentation: presentationAtoms,
+                        allowsPicking: allowsAttachmentPicking, onPick: { first, second in
+                            if let changed = onAttachmentChanged { changed(first, second) }
+                            else { attachmentAtom = first; attachmentLinkerAtom = second }
+                        })
+                } else if preview.busy { ProgressView("Preparing 3D conformer…").frame(maxHeight: .infinity) }
+                else { Text(preview.error ?? "No 3D conformer available.").font(.caption).frame(maxHeight: .infinity) }
+            } else {
+                LigandAtomWebView(smiles: smiles, attachmentAtom: $attachmentAtom, attachmentLinkerAtom: $attachmentLinkerAtom,
+                    coreAtoms: coreAtoms, presentationAtoms: presentationAtoms, atomLabels: atomLabels,
+                    atomConditions: atomConditions, allowsAttachmentPicking: allowsAttachmentPicking,
+                    onAtomsResolved: onAtomsResolved, onAttachmentChanged: onAttachmentChanged)
+            }
+        }.onChange(of: threeD) { _, enabled in if enabled { preview.load(smiles: smiles) } }
+         .onChange(of: smiles) { _, value in if threeD { preview.load(smiles: value) } }
+    }
+}
+
 /// A clickable 2D depiction: the user points at both ends of the directed
 /// core-to-linker bond instead of typing ambiguous indices.
 ///
@@ -10,7 +52,7 @@ import WebKit
 /// a floppy tail. A typed index gives the user no way to tell they got it wrong;
 /// a picture they clicked, shaded afterwards with the split that was actually
 /// used, does.
-struct LigandAtomPicker: NSViewRepresentable {
+private struct LigandAtomWebView: NSViewRepresentable {
     let smiles: String
     /// Core-side endpoint of the selected acyclic core-to-linker bond.
     @Binding var attachmentAtom: Int?
@@ -62,14 +104,14 @@ struct LigandAtomPicker: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        var parent: LigandAtomPicker
+        var parent: LigandAtomWebView
         weak var web: WKWebView?
         private var ready = false
         private var pending: String = ""
         private var lastDrawn: String?
         private var lastState: String = ""
 
-        init(_ parent: LigandAtomPicker) { self.parent = parent }
+        init(_ parent: LigandAtomWebView) { self.parent = parent }
 
         func webView(_ w: WKWebView, didFinish n: WKNavigation!) {
             // Inject the RDKit WASM bytes — fetch() is blocked on file:// URLs.

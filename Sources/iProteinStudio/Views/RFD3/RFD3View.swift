@@ -1209,6 +1209,7 @@ struct RFD3ConfigurationFields: View {
                                    accessibilityLabel: "Number of designs to keep")
             }
             if isLigand {
+                LigandGeometryFilterForm(policy: request.ligand_geometry, smiles: request.wrappedValue.smiles, coreAtom: request.wrappedValue.attachmentAtom, linkerAtom: request.wrappedValue.attachmentLinkerAtom)
                 Toggle("Also fold the best designs without the ligand",
                        isOn: request.verification.runApoCheck)
                     .toggleStyle(.checkbox)

@@ -41,6 +41,10 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
     selected = os.environ.get('STUDIO_SWIFT_CASES', '').split(',')
     for name, sources in cases.items():
         if selected != [''] and name not in selected: continue
+        if any(SOURCE + 'Models/' + name in sources for name in ('RFD4Request.swift','RFD3Request.swift','NISERequest.swift','DesignRequest.swift')):
+            sources.append(SOURCE + 'Models/LigandGeometryFilter.swift')
+        if SOURCE + 'Core/Results/RunResultsLoader.swift' in sources or SOURCE + 'Core/Results/NISEResults.swift' in sources:
+            sources.append(SOURCE + 'Core/LigandGeometryResult.swift')
         if SOURCE + 'Models/RFD4Request.swift' in sources:
             sources.append(SOURCE + 'Models/RFD4LengthPlan.swift')
         sources += [SOURCE + "Core/ControlPython.swift"]

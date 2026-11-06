@@ -8,6 +8,11 @@ enum RunResultsLoader {
     private static let fm = FileManager.default
 
     static func load(root: URL, workflow: StudioWorkflow) -> [StudioResultItem] {
+        let required = LigandGeometryResult.required(root: root)
+        return rawLoad(root: root, workflow: workflow).map { LigandGeometryResult.apply($0, required: required) }
+    }
+
+    private static func rawLoad(root: URL, workflow: StudioWorkflow) -> [StudioResultItem] {
         switch workflow {
         case .rfd4: return rfd4Results(root: root)
         case .nise: return niseResults(root: root)

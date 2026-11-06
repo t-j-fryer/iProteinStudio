@@ -100,8 +100,8 @@ struct StudioResultItem: Identifiable, Hashable {
     let artifactRole: StudioResultArtifactRole
     /// Explicit workflow verdict read from disk. Nil means that workflow did
     /// not apply a multi-metric filter; it must never be inferred silently.
-    let isHit: Bool?
-    let failedFilters: [String]
+    var isHit: Bool?
+    var failedFilters: [String]
     /// Source motif residue -> generated chain-A residue. Kept on every stage
     /// so a design never loses the identity of its functional atoms merely
     /// because it has progressed from diffusion to MPNN or prediction.

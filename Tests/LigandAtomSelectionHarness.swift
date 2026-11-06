@@ -1,6 +1,16 @@
 import SwiftUI
 import WebKit
 
+@MainActor final class LigandPreview: ObservableObject {
+    @Published var payload: String?
+    @Published var error: String?
+    @Published var busy = false
+    var atomElements: [String] = []
+    var figure4Preset: LigandGeometryFilter?
+    var splitCore: [Int] = []
+    var splitLinker: [Int] = []
+    func load(smiles: String, core: Int? = nil, linker: Int? = nil) {}
+}
 // Pre-resolved ethanol fixture: no installed engines or user workspaces.
 enum AppPaths {
     static var webRoot: URL? { URL(fileURLWithPath: CommandLine.arguments[1]).appendingPathComponent("Sources/iProteinStudio/Resources/web") }
@@ -32,6 +42,8 @@ struct SelectionFixtureView: View {
     }
 }
 @MainActor final class ConditionFixture: ObservableObject {
+    @Published var core: Int?
+    @Published var linker: Int?
     @Published var conditions: [String: [String]] = ["C1": ["buried"], "C2": ["exposed"], "O3": ["hbondDonor", "hbondAcceptor", "hotspot"]]
 }
 struct ConditionFixtureView: View {
@@ -39,8 +51,8 @@ struct ConditionFixtureView: View {
     var body: some View {
         VStack {
             Text("Binding-site conditions").font(.title2)
-            LigandAtomPicker(smiles: "CCO", attachmentAtom: .constant(nil), attachmentLinkerAtom: .constant(nil),
-                             atomLabels: ["C1", "C2", "O3"], atomConditions: model.conditions, allowsAttachmentPicking: false)
+            LigandAtomPicker(smiles: "CCO", attachmentAtom: $model.core, attachmentLinkerAtom: $model.linker,
+                             atomLabels: ["C1", "C2", "O3"], atomConditions: model.conditions, allowsAttachmentPicking: true)
             Text("B · Buried     E · Exposed     D · Ligand donor     A · Ligand acceptor     H · Hotspot")
             Button("Clear all atom conditions") { model.conditions = [:] }
         }.padding()
@@ -77,7 +89,7 @@ struct ConditionFixtureView: View {
         while !model.verified && Date() < deadline { spin(0.1) }
         let controls = descendants(host).compactMap { $0 as? NSSegmentedControl }
         print("verified=\(model.verified), segmented controls=\(controls.count)")
-        guard model.verified, let control = controls.first else {
+        guard model.verified, let control = controls.first(where: { $0.segmentCount == 3 }) else {
             print(descendants(host).map { String(describing: type(of: $0)) }.joined(separator: "\n"))
             exit(1)
         }
@@ -97,7 +109,7 @@ struct ConditionFixtureView: View {
             precondition(visible, "Atom shading must be above RDKit's opaque background")
         }
         control.selectedSegment = 1; control.sendAction(control.action, to: control.target); spin(0.2)
-        let second = descendants(host).compactMap { $0 as? NSSegmentedControl }[1]
+        let second = descendants(host).compactMap { $0 as? NSSegmentedControl }.filter { $0.segmentCount == 3 }[1]
         second.selectedSegment = 2; second.sendAction(second.action, to: second.target); spin(0.2)
         precondition(model.request.hotspot_atoms == ["C1"] && model.request.exposed_atoms == ["C2"])
         precondition(model.request.ligand_atom_signature == model.atoms.signature)
@@ -105,9 +117,9 @@ struct ConditionFixtureView: View {
         let restored = try! JSONDecoder().decode(NISERequest.self, from: JSONEncoder().encode(model.request))
         precondition(restored == model.request)
         model.request.ligand_atom_signature = "stale"; spin(0.2)
-        precondition(descendants(host).compactMap { $0 as? NSSegmentedControl }.allSatisfy { !$0.isEnabled })
+        precondition(descendants(host).compactMap { $0 as? NSSegmentedControl }.filter { $0.segmentCount == 3 }.allSatisfy { !$0.isEnabled })
         model.request.clearAtomSelections(); spin(0.2)
-        precondition(descendants(host).compactMap { $0 as? NSSegmentedControl }.allSatisfy(\.isEnabled))
+        precondition(descendants(host).compactMap { $0 as? NSSegmentedControl }.filter { $0.segmentCount == 3 }.allSatisfy(\.isEnabled))
         print("PASS native None/Bind/Expose selection, visible shading, independent atoms, saved map and stale-map guards")
         let conditions = ConditionFixture()
         let conditionHost = NSHostingView(rootView: ConditionFixtureView(model: conditions))
@@ -133,6 +145,15 @@ struct ConditionFixtureView: View {
         precondition(evaluate("document.querySelectorAll('[data-condition]').length", in: conditionWeb) as! Int == 0)
         precondition(evaluate("document.querySelector('#nh-labels').textContent.includes('D/A/H')", in: conditionWeb) as! Bool == false)
         print("PASS five condition colours, simultaneous roles, labels, resize retention and clearing via host binding")
+        _ = evaluate("zoomDrawing(1.5);rotateDrawing(30);true", in: conditionWeb)
+        for i in [0, 1] {
+            let script = "(() => {const svg=document.querySelector('svg');const atom=atomPoints[\(i)];const point=svg.createSVGPoint();point.x=atom.u;point.y=atom.v;const screen=point.matrixTransform(svg.getScreenCTM());svg.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:screen.x,clientY:screen.y}));return true;})()"
+            _ = evaluate(script, in: conditionWeb); spin(0.2)
+        }
+        precondition(conditions.core == 0 && conditions.linker == 1)
+        _ = evaluate("resetDrawing();true", in: conditionWeb)
+        precondition(conditions.core == 0 && conditions.linker == 1)
+        print("PASS exact directed-bond picking after 2D zoom/rotation and reset")
         window.orderOut(nil)
     }
 }

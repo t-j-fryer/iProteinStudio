@@ -97,7 +97,26 @@ def main(config_path):
     if search: stage('search', predictor_python)
     elif native: stage('native', root / 'venvs/NanoHunter_rfd4/bin/python')
     else: atomic(output / 'results.json', json.loads((output / 'generated.json').read_text()))
-    receipts = [output / 'generation_completed.json', output / 'results.json', path]
+    geometry_receipts=[]
+    if cfg.get('ligand_geometry') is not None:
+        from ligand_geometry import in_runtime
+        ligands=config.get('target_ligands',{}).get('ligands',[]) if isinstance(config.get('target_ligands'),dict) else config.get('target_ligands',[])
+        for row in json.loads((output/'results.json').read_text()):
+            if row.get('assessment_mode')=='apo': continue
+            source=row['structure']
+            manifest=None;chain='B';smiles=cfg['ligand_smiles'];predictor=cfg['predictor']
+            generated=(row.get('score_role') is None and not row.get('parent_id')) or row.get('score_role')=='native_rollout_feedback'
+            if ligands:
+                if len(ligands)!=1: raise ValueError('Geometry requires one explicitly retained ligand; select one ligand for this job.')
+                ligand=ligands[0];smiles=ligand['smiles'];chain=ligand['chain']
+                manifest=dict(smiles_used=smiles,atoms=[dict(index=a['index'],name=a['name'],el=a['element']) for a in ligand['atoms']])
+            elif generated:
+                molecule=json.loads(Path(config['annotated_cif']).with_name('molecule.json').read_text())
+                manifest=molecule.get('geometry_manifest')
+                if manifest is None: raise ValueError('Native ligand geometry needs the authored atom map.')
+            in_runtime(root,source,smiles,cfg['ligand_geometry'],predictor=predictor,manifest=manifest,ligand_chain=chain,runtime='boltz' if predictor=='boltz' and manifest is None else 'rfd4')
+            geometry_receipts.append(Path(source+'.ligand_geometry.json'))
+    receipts = [output / 'generation_completed.json', output / 'results.json', path, *geometry_receipts]
     if search: receipts.append(output / ('motif_assessment_completed.json' if cfg.get('motif_assessment') else 'search_completed.json'))
     if native: receipts.append(output / 'native_search_completed.json')
     seal(done, dict(families=cfg['count'], policy=cfg['search']), receipts)

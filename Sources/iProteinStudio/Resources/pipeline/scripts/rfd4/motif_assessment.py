@@ -89,18 +89,27 @@ def execute(config, first=False, predictor=None):
                 if sequences(structure)!=chains:raise ValueError('Motif assessment changed the supplied protein sequences.')
                 measured,geometry_artifacts=operation(Path(os.environ['NANOHUNTER_ROOT']),unit/'geometry',structure,'score',mapped=mapped,context=context,fix_sequence=cfg['motif']['fix_sequence'],holo=mode=='holo')
                 result=dict(**measured,mode=mode,structure=str(structure),structure_sha256=sha(structure),confidence=str(confidence),engine=cfg['predictor'],sequence=chains['A'],sequences=chains,assembly_audit=assembly)
+                if mode=='holo' and cfg.get('ligand_geometry') is not None:
+                    from ligand_geometry import in_runtime
+                    ligands=config.get('target_ligands',{}).get('ligands',[])
+                    if len(ligands)!=1:raise ValueError('Geometry filtering requires one explicit retained ligand.')
+                    ligand=ligands[0]
+                    manifest=dict(smiles_used=ligand['smiles'],atoms=[dict(index=a['index'],name=a['name'],el=a['element']) for a in ligand['atoms']])
+                    result['ligand_geometry']=in_runtime(Path(os.environ['NANOHUNTER_ROOT']),structure,ligand['smiles'],cfg['ligand_geometry'],predictor=cfg['predictor'],manifest=manifest,ligand_chain=ligand['chain'],runtime='rfd4')
+                    artifacts.append(Path(str(structure)+'.ligand_geometry.json'))
                 atomic(unit/'metrics.json',result)
                 seal(done,result,[unit/'identity.json',yp,raw,confidence,unit/'metrics.json',*artifacts,*mapping_artifacts,*geometry_artifacts])
                 modes[mode]=result;receipts.append(done)
             verdict=hit_verdict(modes,policy)
             if verdict is not None and any(r.get('assembly_audit') and not r['assembly_audit']['passed'] for r in modes.values()):verdict=False
+            if any(r.get('ligand_geometry',{}).get('passed') is False for r in modes.values()):verdict=False
             for mode,result in modes.items():
                 identifier=parent['id']+'_'+mode;unit=output/'candidates'/identifier
                 metrics={k:result[k] for k in ('motif_rmsd_angstrom','partner_aligned_motif_rmsd_angstrom') if k in result}
                 row=dict(**result,id=identifier,family=parent['family'],parent_id=parent['id'],cycle=1,metrics=metrics,
                          motif_mapping={a['source_residue']:a['chain']+str(a['position']) for a in mapped},
                          score_role='untemplated_motif_assessment',assessment_mode=mode,hit_filter_passed=verdict,
-                         hit_filter_failures=[] if verdict is not False else ['One or more requested apo/holo RMSD or assembly integrity gates failed.'],
+                         hit_filter_failures=[] if verdict is not False else ['One or more requested apo/holo RMSD, assembly integrity or ligand geometry gates failed.'],
                          hit_filter_cutoffs=policy,hit_filter_scope='All requested modes; source motif shape plus optional partner-aligned placement. Computational criteria, not binding or function.')
                 fixed(unit/'result.json',row)
                 seal(unit/'completed.json',row,[unit/'result.json',*receipts]);family_receipts.append(unit/'completed.json');allrows.append(row)

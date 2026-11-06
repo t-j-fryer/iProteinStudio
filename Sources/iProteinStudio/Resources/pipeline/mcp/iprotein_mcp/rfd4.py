@@ -202,6 +202,18 @@ def prepare(output, request):
         if ligand_context.is_file():
             config['target_ligands']=load_json(ligand_context)
             inputs.append(ligand_context)
+        if cfg.get('ligand_geometry') is not None:
+            if 'rfd4' not in engines: engines.append('rfd4')
+            if cfg['task']=='ligand':
+                validation_python=root/'venvs/NanoHunter_boltz/bin/python' if (search or cfg['native_search']) and cfg['predictor']=='boltz' else python
+                checked=subprocess.run([str(validation_python),'-B',str(pipeline/'scripts/ligand_geometry.py'),'validate',
+                    '--smiles',cfg['ligand_smiles'],'--predictor',cfg['predictor'] if search or cfg['native_search'] else 'native',
+                    '--policy',json.dumps(cfg['ligand_geometry'])],capture_output=True,text=True,timeout=90)
+                if checked.returncode: raise ValueError('Ligand geometry preflight failed: '+checked.stderr[-2000:])
+            elif not config.get('target_ligands') or len(config['target_ligands']['ligands'])!=1:
+                raise ValueError('The geometry hit filter requires one explicitly retained ligand.')
+            elif cfg['ligand_smiles'] != config['target_ligands']['ligands'][0]['smiles']:
+                raise ValueError('Inspect and select the retained ligand again before configuring geometry atom indices.')
         module.fixed(output / 'rfd4_config.json', config)
         controller = python if not cfg['starting_structures'] or cfg['native_search'] or ligand_controller else root / (
             'venvs/NanoHunter_' + module.predictor_identity(cfg['predictor'])['runtime'] + '/bin/python')

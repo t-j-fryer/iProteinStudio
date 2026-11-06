@@ -216,6 +216,15 @@ def audit_features(path, cfg, destination):
         expected = Chem.MolFromSmiles(cfg['ligand_smiles'])
         if expected is None or len(Chem.GetMolFrags(molecule)) != 1 or Chem.MolToSmiles(Chem.RemoveHs(molecule)) != Chem.MolToSmiles(Chem.RemoveHs(expected)):
             raise ValueError('The source ligand graph, charge or stereochemistry differs from the requested scoring SMILES.')
+        if cfg.get('ligand_geometry') is not None:
+            from .mixed_target import molecule_record
+            record=molecule_record(ligand,'authored-ligand','B',str(ligand.res_name[0]))
+            manifest=dict(smiles_used=record['smiles'],atoms=[dict(index=a['index'],name=a['name'],el=a['element']) for a in record['atoms']])
+            from ligand_geometry_policy import atom_settings
+            atom_settings(cfg['ligand_geometry'],cfg['ligand_smiles'],manifest)
+            molecule_path=Path(path).parent/'molecule.json'
+            saved=json.loads(molecule_path.read_text()) if molecule_path.exists() else {}
+            atomic(molecule_path,dict(saved,geometry_manifest=manifest))
     condition_audit=[]
     if cfg.get('ligand_atom_conditions'):
         from rfd4_proteina_prep._cif.conditions import C_RAS, C_HB, C_HOT

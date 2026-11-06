@@ -60,6 +60,7 @@ struct NISERequest: Codable, Hashable {
     var hotspot_distance = 6.0
     var exposure_min_fraction = 0.5
     var exposure_mode = "sasa"
+    var ligand_geometry: LigandGeometryFilter?
     var geometry_workers = 0
     var ligand_atom_signature = ""
     var ligand_atoms_generated_for = ""
@@ -68,6 +69,7 @@ struct NISERequest: Codable, Hashable {
 
     // New controls must not discard existing saved NISE requests.
     enum CodingKeys: String, CodingKey {
+        case ligand_geometry
         case prediction_settings
         case final_predictors, folding_engine
         case scoring_mode, nesso_early_score_gate, psichic_early_score_gate
@@ -102,6 +104,7 @@ struct NISERequest: Codable, Hashable {
         initial_proposals = try c.decodeIfPresent(Int.self, forKey: .initial_proposals) ?? initial_proposals
         affinity_batch_size = try c.decodeIfPresent(Int.self, forKey: .affinity_batch_size) ?? affinity_batch_size
         min_improvement = try c.decodeIfPresent(Double.self, forKey: .min_improvement) ?? min_improvement
+        ligand_geometry = try c.decodeIfPresent(LigandGeometryFilter.self, forKey: .ligand_geometry)
         exposure_mode = try c.decodeIfPresent(String.self, forKey: .exposure_mode) ?? "sasa"
         geometry_workers = try c.decodeIfPresent(Int.self, forKey: .geometry_workers) ?? 0
         hotspot_atoms = try c.decodeIfPresent([String].self, forKey: .hotspot_atoms) ?? hotspot_atoms
@@ -206,6 +209,7 @@ struct NISERequest: Codable, Hashable {
 
     var validationIssues: [String] {
         var issues: [String] = []
+        if let ligand_geometry { issues += ligand_geometry.validationIssues }
         if !["boltz", "esmfold2-fast-mlx", "esmfold2-full-mlx", "esmfold2-600-mlx"].contains(folding_engine) || (usesESMFolding && (!usesScreeningObjective || resident_workers != 0)) {
             issues.append("ESMFold2 folding requires NESSO/PSICHIC as the objective and a single managed ESMFold2 session.")
         }
