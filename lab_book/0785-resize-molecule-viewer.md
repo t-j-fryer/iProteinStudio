@@ -4,7 +4,7 @@ title: Fix molecule heading and add a resize grip
 date: 2026-11-06
 author: Codex
 type: bugfix
-status: in-progress
+status: complete
 machine: Apple Silicon development Mac; native SwiftUI/WebKit checks
 tags: [ui, ligand, viewer]
 ---
@@ -37,8 +37,11 @@ regression passes selections, condition highlights, resize redraw retention and
 exact directed-bond picking after zoom/rotation/reset. No performance measurement
 or scientific/model inference. Native screenshot reviewed: the heading remains on one line and the diagonal
 grip is visible at the panel’s bottom right. Matching public0.2.35/build85 app
-build passes. Actual drag/relaunch verification is pending permission to restart
-the running beta; build84 remains installed/running.
+build passes. After the user explicitly approved restarting beta, installed and
+reopened build85. In the existing integration acceptance workspace with ethanol
+(`CCO`), dragging the bottom-right grip changed the panel from752×320 to652×360
+points. The accessible reset action restored752×320. Heading stayed on one line.
+The previous beta bundle was retained locally; stable was not replaced.
 
 ## Decision and rationale
 
@@ -60,8 +63,7 @@ No fresh GPU run, general ligand-size benchmark or older-Mac hardware test.
 macOS14 uses a crosshair cursor; macOS15+ uses the native diagonal resize cursor.
 Public changes remain a local candidate until explicit publication.
 
-## Next
+## Delivery
 
-Install/reopen build85 after permission to close the current beta, then verify
-actual dragging. Automatic approval review rejected quitting the beta because
-it could discard unsaved workspace state; user permission requested.
+Beta build85 is installed and open. Public build85 is prepared locally and has
+not been published. No scientific job was launched or interrupted for this check.

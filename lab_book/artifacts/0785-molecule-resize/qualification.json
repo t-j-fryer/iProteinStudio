@@ -8,8 +8,14 @@
   "public_candidate_built": true,
   "native_picker_regression": true,
   "native_layout_screenshot_reviewed": true,
-  "actual_resize_drag_verified": false,
-  "beta_restart_approval_pending": true,
+  "actual_resize_drag_verified": true,
+  "resize_before_points": [752, 320],
+  "resize_after_points": [652, 360],
+  "resize_reset_points": [752, 320],
+  "beta_restart_user_authorized": true,
+  "beta_installed_and_reopened": true,
+  "stable_replaced": false,
+  "public_published": false,
   "scientific_inference": false,
   "engine_changes": false
 }
