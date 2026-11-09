@@ -104,16 +104,28 @@ and bundle route fixtures replace network component installation only; local
 Beta bundle staging is explicitly rejected to preserve runtime isolation. The
 isolated control/MPNN acceptance uses real downloads. No weights redistributed.
 
-## Next
+## Public delivery
 
-Local implementation qualification is complete. Prepare and validate a reviewed
-public candidate independently of private science optimizations. Public
-publication requires the repository's explicit release authorization. Deploy and
-qualify on the actual remote host once access is supplied.
+The user explicitly authorized publication of 0.2.41/build94 on 2026-11-09.
+Public main and release/paper-next received the reviewed installation change;
+private model/kernel optimizations remain excluded. Source commit
+`13b70b00699b30ca3732a4a3d271c0f00fa72048` passed all 70 hosted contracts:
+[GitHub run](https://github.com/t-j-fryer/iProteinStudio/actions/runs/42711297661).
 
-Public candidate0.2.41/build94 passes70/70 offline commands, app build and
-packaged-resource checks. Its actual signed development bundle installs control,
-assets and CLI into a second fresh directory without launching the app; doctor
-and project-create pass and its strict signature still verifies afterward.
-No system-tool sentinels were called. The candidate excludes private model/kernel
-optimizations. It has not been published or installed over either running app.
+Published [0.2.41/build94](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.41-beta),
+including ZIP, DMG, checksums and clean-source build provenance. Independently
+downloaded assets match the prepared bytes; CryptoKit verifies the update ZIP's
+Ed25519 signature. Version/build, update key/feed continuity, all eight changed
+pipeline resources and absence of model weights pass. Archive verification was
+performed before activating this commit's generated signed appcast; see the
+published-archives receipt. CLI/MCP schema version remains 58.
+
+The actual public GitHub source archive also completed a fresh control-only
+installation with PATH=/usr/bin:/bin, followed by doctor and project creation.
+Its asset digest matches the actual app-bundle installation; no app launch,
+model weights, system developer tools or inference were needed. Receipt:
+`artifacts/0832-headless/github-archive-qualification.json`.
+
+Neither installed app was restarted or replaced, and existing shared runtimes
+and running benchmarks were untouched. Enverge/M5 qualification remains pending
+actual remote access; installation acceptance is not scientific qualification.

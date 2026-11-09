@@ -1,5 +1,7 @@
 # Public release candidate to do
 
+- [x] Publish qualified headless GitHub/app-bundle installation and CLI onboarding as0.2.41/build94; verify actual downloads and public source archive installation (Lab0832).
+
 - [x] Publish shared power controls as public0.2.40/build93 and audit GitHub synchronization (Lab0827).
 
 - [x] Publish/install public0.2.39/build91 with numeric replacement and named engine warnings; signed downloads/feed verified and Beta90 retains both fixes (Lab0821).

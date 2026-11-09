@@ -1,0 +1,13 @@
+{
+  "source_commit": "13b70b00699b30ca3732a4a3d271c0f00fa72048",
+  "source_archive_sha256": "143a83b01fc367b394211afb71873227727406dfad9661de65c038442b5be9c5",
+  "github_archive_downloaded": true,
+  "fresh_control_install_passed": true,
+  "cli_doctor_passed": true,
+  "cli_project_create_passed": true,
+  "minimal_path": "/usr/bin:/bin",
+  "asset_digest": "2d4e30be7e36fab1215fb4fdeb07ba65a834b0421702b5da3b8b2ce247a6069a",
+  "assets": 381,
+  "model_weights_downloaded": false,
+  "inference_started": false
+}
