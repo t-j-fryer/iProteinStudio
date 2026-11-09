@@ -4,7 +4,7 @@ title: Publish number entry and named engine warnings
 date: 2026-11-09
 author: Codex
 type: release
-status: qualified
+status: complete
 tags: [ui, numeric-input, engines, release]
 ---
 
@@ -32,3 +32,24 @@ controller contract groups, and `swift build --disable-sandbox` pass. Package
 and independent public download verification follow below. No GPU work or scientific campaign is
 needed. Actual engine removal/repair and the confidential case are not tested;
 missing-engine states use explicit inert fixture dictionaries.
+
+## Delivery
+
+Published [v0.2.39-beta](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.39-beta),
+public0.2.39/build91, from clean source commit
+`15cf2489f9741fc0e38ec4b4b2b1b3c45ef7da7e`. GitHub source, signed update feed,
+ZIP/DMG downloads, checksums and provenance are updated. Downloaded assets match
+local verified packages. Independent CryptoKit Ed25519 verification passes for
+the update archive; the live feed names build91. No weights are packaged.
+
+All eighteen promoted source/test changes match the qualified Beta90 patch
+exactly apart from blank-line normalization. Compare the actual feature changes,
+not whole branch files: private installation guards remain private. Pipeline
+resources and CLI/MCP58 are unchanged. Private source release metadata is aligned
+for future builds; the installed Beta90 binary remains unchanged with both fixes.
+
+Public app was closed, so installation discarded no unsaved workspace. Installed
+and opened public91, verifying bundle version, exact executable bytes and strict
+sealed signature. Retained public89 locally for rollback. Only app lifecycle
+commands were used, with no workspace or molecule view. No job was paused or
+resumed, no scientific run was inspected and no engine installation was changed.
