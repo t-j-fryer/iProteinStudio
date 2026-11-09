@@ -224,6 +224,7 @@ struct RecommendedDesignSheet: View {
             }
             ForEach(issues, id: \.self) { Text($0).font(.caption).foregroundStyle(.orange) }
             EngineRequirementWarning(issues: installer.missingRequirements(for: requiredComponents))
+            DisclosureGroup("Mac power mode") { MacPowerModeControl() }
             DisclosureGroup("Memory admission") { MemoryPolicyControl() }
         }.frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -1,6 +1,17 @@
 # iProteinStudio release notes
 
 
+## 0.2.40 (build93)
+
+- Add a shared Mac power-mode button across workflow execution screens and the
+  main toolbar, plus a Power settings tab. Show the active source and mode.
+- Offer explicit High Power and Automatic choices for the power adapter, using
+  macOS administrator authorization and readback verification. Battery settings
+  stay unchanged. Open Power Settings when support cannot be confirmed.
+- No automatic host-mode changes on launch or job start. Existing scientific
+  settings, keep-awake behavior and CLI/MCP58 remain unchanged.
+
+
 ## 0.2.39 (build91)
 
 - Clear and replace numbers normally across workflow forms, prediction settings,

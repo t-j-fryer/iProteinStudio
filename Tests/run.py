@@ -39,6 +39,7 @@ FAST_PYTHON = [
     "test_rfd3_predictor_scheduling.py", "test_rfd3_weight_provenance.py",
 ]
 FAST_SHELL = [
+    "test_mac_power_mode.sh",
     "test_apple_build_tools_ui.sh",
     "test_iterative_cli_contract.sh", "test_iterative_results_ui_contract.sh",
     "test_rfd3_results_ui_contract.sh", "test_ai_integrations_ui_contract.sh",

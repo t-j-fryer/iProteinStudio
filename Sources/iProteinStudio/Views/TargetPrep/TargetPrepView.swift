@@ -94,6 +94,7 @@ struct TargetPrepView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            MacPowerModeToolbar()
             Button("Close", action: onClose)
         }
         .padding()

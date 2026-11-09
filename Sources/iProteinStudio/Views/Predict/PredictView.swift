@@ -426,6 +426,7 @@ struct PredictView: View {
 
     private var throughputSection: some View {
         VStack(alignment: .leading, spacing: 8) {
+            DisclosureGroup("Mac power mode") { MacPowerModeControl() }
             Text("Sampling").font(.callout.weight(.semibold))
             Text("More seeds and diffusion samples explore more stochastic outputs. They multiply work and disk use; one of each is normally enough for a first pass.")
                 .font(.caption).foregroundStyle(.secondary)

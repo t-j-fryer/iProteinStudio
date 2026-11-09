@@ -289,7 +289,10 @@ struct RFD4ConfigurationFields: View {
                 if let motif = value.motif {
                     Text(motif.residues.map { $0.id + " [" + $0.atoms.joined(separator: ", ") + "]" }.joined(separator: "; "))
                         .font(.caption.monospaced()).textSelection(.enabled)
-                    Text("Geometry conditioning: " + (motif.coordinate_mode == "absolute" ? "absolute coordinates" : "relative group") + " · " + (motif.fix_sequence ? "fixed residue identities" : "backbone-only sequence redesign") + " · " + (motif.unindexed ? "free sequence placement" : "indexed placement"))
+                    let coordinates = motif.coordinate_mode == "absolute" ? "absolute coordinates" : "relative group"
+                    let identities = motif.fix_sequence ? "fixed residue identities" : "backbone-only sequence redesign"
+                    let placement = motif.unindexed ? "free sequence placement" : "indexed placement"
+                    Text("Geometry conditioning: \(coordinates) · \(identities) · \(placement)")
                         .font(.caption).foregroundStyle(.secondary)
                     if !(motif.partner_chains ?? []).isEmpty || !(motif.ligand_ids ?? []).isEmpty {
                         Text("Retained partners: " + ((motif.partner_chains ?? []).map { "chain " + $0 } + (motif.ligand_ids ?? [])).joined(separator: ", "))
@@ -428,6 +431,7 @@ struct RFD4ConfigurationFields: View {
     private var executionForm: some View {
                 DisclosureGroup("Execution") {
                     VStack(alignment: .leading, spacing: 8) {
+                        DisclosureGroup("Mac power mode") { MacPowerModeControl() }
                         Toggle("Use optimized GPU operations (default for new jobs)", isOn: request.optimized_kernels)
                         Text("Combines GPU operations while preserving the model, weights and sampling steps. The tested outputs were identical to the standard implementation, including sequences and coordinates. This is a speed option; biological accuracy was not independently compared.").font(.caption)
                         Text("Reference comparisons run during developer validation, not during your design job. Each requested design is generated once; completed outputs are checked for finite values, sequence identity and complete sampling before reuse.").font(.caption).foregroundStyle(.secondary)

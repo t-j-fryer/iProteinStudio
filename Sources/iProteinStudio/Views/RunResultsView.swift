@@ -256,7 +256,10 @@ struct RunResultsView: View {
                     if !failures.isEmpty {
                         DisclosureGroup("\(failures.count) recorded prediction failures · successful results remain available") {
                             ForEach(Array(failures.enumerated()), id: \.offset) { _, row in
-                                Text((row["job"] ?? "Input") + " · " + (row["predictor"] ?? "Predictor") + " · exit " + (row["exit_code"] ?? "unknown"))
+                                let name = row["job"] ?? "Input"
+                                let predictor = row["predictor"] ?? "Predictor"
+                                let exitCode = row["exit_code"] ?? "unknown"
+                                Text("\(name) · \(predictor) · exit \(exitCode)")
                                     .font(.caption).textSelection(.enabled)
                             }
                             Text("Use Reveal Run to inspect the predictor logs or retry failed work from Predict.").font(.caption)

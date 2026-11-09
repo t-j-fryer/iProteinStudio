@@ -376,6 +376,7 @@ struct DesignFormView: View {
             !installer.isUsable($0)
         }
         return VStack(alignment: .leading, spacing: 6) {
+            DisclosureGroup("Mac power mode") { MacPowerModeControl() }
             Text(request.wrappedValue.budgetSummary).font(.callout.weight(.semibold)).textSelection(.enabled)
             let r = request.wrappedValue
             EngineRequirementWarning(issues: installer.missingRequirements(for: r.requiredComponents))

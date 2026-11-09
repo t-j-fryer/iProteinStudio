@@ -28,6 +28,13 @@ class DesktopJobTests(unittest.TestCase):
                 {'kind':'protein','id':'A','sequence':'ACDEFG','msa':'empty'}]}]}])
         memory_fixture.start()
         self.addCleanup(memory_fixture.stop)
+        # These workers are tiny Python fixtures, not the named real models.
+        # Record the supported override in their immutable plans so CI RAM does
+        # not turn protocol tests into hardware admission tests. Enforcement is
+        # qualified separately in test_memory_admission/test_memory_override.
+        from iprotein_mcp.memory import POLICY
+        memory_token = POLICY.set('override')
+        self.addCleanup(POLICY.reset, memory_token)
         self.temporary = tempfile.TemporaryDirectory(prefix="studio-desktop-jobs-")
         self.root = Path(self.temporary.name).resolve()
         self.environment = dict(os.environ)
@@ -478,7 +485,7 @@ while not (out/'release').exists(): time.sleep(.05)
         step = {"command": [sys.executable, str(checker)], "cwd": str(output), "stage": "nesso-verification"}
         with patch("iprotein_mcp.ligand_screening.prepare", return_value=(step, [checker])) as prepare:
             plan = desktop_plan({"project": "demo", "workflow": "iterative", "output": str(output)})
-            prepare.assert_called_once_with(self.root, output, "iterative", options, "CCO", prediction_settings=profiles)
+            prepare.assert_called_once_with(self.root, output, "iterative", options, "CCO", prediction_settings=profiles, ligand_geometry=None)
         self.assertEqual([s["stage"] for s in plan["normalized_request"]["steps"]], ["iterative-design", "nesso-verification"])
         self.assertIn(str(checker), [p["path"] for p in plan["provenance"]])
         job = broker.start_job(plan["id"], plan["sha256"]); self.jobs.append(job["id"])

@@ -92,6 +92,7 @@ struct WorkspaceView: View {
         }
         .background(StudioPalette.canvas)
         .toolbar {
+            ToolbarItem(placement: .primaryAction) { MacPowerModeToolbar() }
             ToolbarItem(placement: .primaryAction) {
                 Button { openWindow(id: "studio-introduction") } label: {
                     Label("Discover Studio", systemImage: "book.closed")

@@ -8,6 +8,7 @@ swiftc -module-cache-path "${FIXTURE}/modules" -emit-library -static -emit-modul
   -emit-module-path "${FIXTURE}/StudioCore.swiftmodule" -o "${FIXTURE}/libStudioCore.a"
 swiftc -module-cache-path "${FIXTURE}/modules" -parse-as-library -I "${FIXTURE}" -L "${FIXTURE}" -lStudioCore \
   "${ROOT}/Sources/iProteinStudio/Models/Predictor.swift" \
+  "${ROOT}/Sources/iProteinStudio/Models/EngineRequirementIssue.swift" \
   "${ROOT}/Sources/iProteinStudio/Core/PipelineInstaller.swift" \
   "${ROOT}/Tests/AppleBuildToolsInstallerHarness.swift" \
   -o "${FIXTURE}/apple-tools-contract"

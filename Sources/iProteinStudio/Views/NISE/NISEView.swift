@@ -289,6 +289,7 @@ struct NISEView: View {
                 }
                 DisclosureGroup("Execution and reproducibility") {
                     VStack(alignment: .leading, spacing: 8) {
+                        DisclosureGroup("Mac power mode") { MacPowerModeControl() }
                         Text("Models stay loaded across cycles. Studio releases the generation models before refinement and reuses the selected scoring and folding models during the search.").font(.caption)
                         if request.wrappedValue.scheduler == "resident" && !request.wrappedValue.usesESMFolding {
                             Picker("Boltz worker scheduling", selection: request.resident_workers) {

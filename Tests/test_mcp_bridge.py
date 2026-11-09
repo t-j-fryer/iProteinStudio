@@ -48,6 +48,13 @@ class MCPBridgeTests(unittest.TestCase):
                 {'kind':'protein','id':'A','sequence':'ACDEFG','msa':'empty'}]}]}])
         memory_fixture.start()
         self.addCleanup(memory_fixture.stop)
+        # These workers are tiny Python fixtures, not the named real models.
+        # Record the supported override in their immutable plans so CI RAM does
+        # not turn protocol tests into hardware admission tests. Enforcement is
+        # qualified separately in test_memory_admission/test_memory_override.
+        from iprotein_mcp.memory import POLICY
+        memory_token = POLICY.set('override')
+        self.addCleanup(POLICY.reset, memory_token)
         self.temporary = tempfile.TemporaryDirectory(prefix="iproteinstudio-mcp-")
         self.root = Path(self.temporary.name).resolve()
         os.environ["IPROTEINSTUDIO_TEST_SUPPORT_ROOT"] = str(self.root)

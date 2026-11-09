@@ -1284,6 +1284,7 @@ struct RFD3ConfigurationFields: View {
 
     private var samplingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
+            DisclosureGroup("Mac power mode") { MacPowerModeControl() }
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
                 GridRow {
                     Text("Batch size")

@@ -1,5 +1,7 @@
 # Public release candidate to do
 
+- [ ] Publish shared power controls as public0.2.40/build93 and audit GitHub synchronization (Lab0827).
+
 - [x] Publish/install public0.2.39/build91 with numeric replacement and named engine warnings; signed downloads/feed verified and Beta90 retains both fixes (Lab0821).
 
 - [x] Publish/install build89 geometry atom-label stereochemistry fix and activate shared CLI/MCP58; public download and installed preflights verified (Lab0793).

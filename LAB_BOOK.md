@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0827 — Public power controls and GitHub audit](lab_book/0827-publish-power-and-audit-github.md): reviewed power UI, private branch backup, CI status and public0.2.40/build93 delivery.
+
 - [0821 — Publish number entry and engine warnings](lab_book/0821-publish-number-entry-fixes.md): reviewed UI fixes, native editing tests and public0.2.39/build91 delivery.
 
 - [0793 — Fix geometry label stereochemistry](lab_book/0793-fix-geometry-label-stereochemistry.md): remove atom-map ranking interference before native standardization stereochemistry checks; generic CPU regressions only.
