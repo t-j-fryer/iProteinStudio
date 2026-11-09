@@ -4,7 +4,7 @@ title: Publish power controls and audit GitHub synchronization
 date: 2026-11-09
 author: Codex
 type: implementation
-status: in-progress
+status: complete
 machine: Apple M4 Max; offline/native UI and release qualification
 tags: [ui, power, release, github]
 ---
@@ -35,8 +35,10 @@ viewer remains a private beta feature; it is outside this promotion.
 
 Power fixtures, public Swift build and isolated native Automatic/High Power
 panels pass. The complete local offline entry point passes69/69 commands,
-including Swift tests and request/controller harnesses. Package and independent
-public download/signature verification follow.
+including Swift tests and request/controller harnesses. The release package passes strict code-signature and packaged-resource
+checks. Published ZIP/DMG/provenance/checksum downloads match local artifacts;
+independent CryptoKit verifies the Sparkle Ed25519 signature. The ZIP contains
+no model weights. The installed executable matches the downloaded ZIP.
 No new throughput measurement and no actual host power mutation.
 
 GitHub's latest preexisting workflow run42673219919 failed before creating jobs.
@@ -55,7 +57,8 @@ only inside inert queue fixtures, and split the two display strings into typed
 parts. Production admission remains enforced by default; its dedicated rejection
 and override tests are unchanged. The initial3.11.13 CI pin could not install because Actions does not provide
 that patch version for ARM macOS. Corrected to the available3.11.9 fixture
-interpreter. The final hosted run must pass before release.
+interpreter. GitHub run42698704242 at3e997f01494ff74ed946b0a0c033240d719838b8
+passes all69 commands, including the Swift build and Swift tests.
 
 ## Decision and rationale
 
@@ -80,7 +83,20 @@ live-exercised; generated scripts, cancellation/failure and readback are tested
 with fixtures. Real hardware support falls back to Power Settings when unknown.
 No new model inference, benchmark, other-Mac or engine installation test.
 
-## Next
+## Delivery
 
-Complete release validation, publish signed artifacts/feed, install after any
-necessary app restart approval, and report exact GitHub/CI/private-work status.
+Published [v0.2.40-beta](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.40-beta)
+from clean commit3e997f01494ff74ed946b0a0c033240d719838b8. The generated signed
+build93 appcast is included with this delivery record. Source qualification:
+[GitHub Actions run42698704242](https://github.com/t-j-fryer/iProteinStudio/actions/runs/42698704242).
+
+The user explicitly approved the public restart. Installed/opened public93 using
+only macOS quit/open commands; strict signature and executable digest verified.
+Power preferences before/after are identical. Beta92 already contains the same
+power feature and was left running. CLI/MCP58 is unchanged. No workspace viewed.
+
+Current rebased performance commitc0e6a780feab0287e2c33a49e8deaae211bdac62 is also
+backed up privately under backup/esmfold2-speed-20261109-c0e6a78, preserving the
+prior1e29a17 history. It is excluded from public promotion. Concurrent private
+beta development may advance independently; no force push is used.
+

@@ -12,12 +12,20 @@
   "mcp_contract": 58,
   "host_power_mutated": false,
   "live_authorized_mode_change_exercised": false,
-  "github_checks": "corrected runner/integration issues; awaiting final hosted run",
+  "github_checks": "69/69 passed",
   "initial_github_failure": "internal server error before jobs; retry exposed actual integration failures",
   "private_performance_branch_backed_up": "1e29a174348b022bc10258a181ed0f9cce5469de",
-  "private_features_left_unmerged": [
+  "uncommitted_research_left_local": true,
+  "github_run": "https://github.com/t-j-fryer/iProteinStudio/actions/runs/42698704242",
+  "packaging_commit": "3e997f01494ff74ed946b0a0c033240d719838b8",
+  "private_performance_latest_backup": "c0e6a780feab0287e2c33a49e8deaae211bdac62",
+  "published_release": "https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.40-beta",
+  "installed_public_build": 93,
+  "power_preferences_unchanged": true,
+  "downloaded_release_assets_verified": true,
+  "candidate_feed_signature_verified": true,
+  "private_features_not_promoted": [
     "Paper pocket viewer",
     "ESMFold2/RFD4 performance branch"
-  ],
-  "uncommitted_research_left_local": true
+  ]
 }
