@@ -48,11 +48,14 @@ benchmark entry; the desktop NESSO mock expected the old signature without the
 optional geometry argument; and the standalone installer harness omitted its new
 EngineRequirementIssue dependency. Corrected all three without changing pipeline behavior. The hosted retry also
 exposed missing ripgrep, host-RAM-dependent fake queue tests on its7GB runner,
-and two SwiftUI type-check timeouts. Install the explicit CI tool, pin CI Python
-to the supported3.11.13 baseline, record explicit supported memory overrides
+and two SwiftUI type-check timeouts. Install the explicit CI tool, pin the offline fixture CI Python
+to3.11.9 (available for ARM macOS in the official actions/python-versions
+manifest; the packaged control runtime remains3.11.13), record explicit supported memory overrides
 only inside inert queue fixtures, and split the two display strings into typed
 parts. Production admission remains enforced by default; its dedicated rejection
-and override tests are unchanged. The final hosted run must pass before release.
+and override tests are unchanged. The initial3.11.13 CI pin could not install because Actions does not provide
+that patch version for ARM macOS. Corrected to the available3.11.9 fixture
+interpreter. The final hosted run must pass before release.
 
 ## Decision and rationale
 
