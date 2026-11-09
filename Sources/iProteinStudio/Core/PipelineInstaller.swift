@@ -104,6 +104,10 @@ final class PipelineInstaller: ObservableObject {
         return component.requires.allSatisfy { components[$0]?.isUsable == true }
     }
 
+    func missingRequirements(for required: [InstallComponent]) -> [EngineRequirementIssue] {
+        EngineRequirementIssue.missing(required) { components[$0]?.isUsable == true }
+    }
+
     func detail(_ component: InstallComponent) -> String {
         components[component]?.detail ?? ""
     }

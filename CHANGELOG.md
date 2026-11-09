@@ -1,6 +1,17 @@
 # iProteinStudio release notes
 
 
+## 0.2.39 (build91)
+
+- Clear and replace numbers normally across workflow forms, prediction settings,
+  motif cutoffs and geometry controls. Unfinished required values stay visible
+  and block Start; clearing an optional cutoff turns that filter off.
+- Edit exact binder-length lists without trailing commas being replaced by zero.
+- Missing-engine warnings name the install entries and unavailable dependencies
+  in Engines, including recommended workflows and target preparation.
+- Scientific settings, models and the CLI/MCP58 contract are unchanged.
+
+
 ## 0.2.38 (build89)
 
 Fix false ligand-geometry preflight rejection after Boltz standardization when

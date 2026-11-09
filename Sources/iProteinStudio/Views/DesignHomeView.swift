@@ -170,10 +170,11 @@ struct RecommendedDesignSheet: View {
         }
         return issues
     }
-    private var ready: Bool {
-        request.requiredComponents.allSatisfy { installer.isUsable($0) }
-            && (!useSequence || (installer.isUsable(.esmfold2Full) && installer.isUsable(.boltz)))
+    private var requiredComponents: [InstallComponent] {
+        request.requiredComponents + (useSequence ? [.esmfold2Full, .boltz] : [])
     }
+    private var ready: Bool { installer.missingRequirements(for: requiredComponents).isEmpty }
+    @StateObject private var numericValidation = NumericInputValidation()
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
@@ -189,6 +190,7 @@ struct RecommendedDesignSheet: View {
             actions
         }.padding(28).frame(width: 580, height: 700)
             .interactiveDismissDisabled(targetPredictor.isRunning)
+            .environment(\.numericInputValidation, numericValidation)
             .onChange(of: targetPredictor.phase) { _, phase in
                 if case .done(let path) = phase {
                     target = path
@@ -208,7 +210,7 @@ struct RecommendedDesignSheet: View {
             }
             HStack {
                 Text("Design time")
-                TextField("Minutes", value: $minutes, format: .number).frame(width: 90).textFieldStyle(.roundedBorder)
+                NumericTextField("Minutes", value: $minutes).frame(width: 90).textFieldStyle(.roundedBorder)
                 Text("minutes").foregroundStyle(.secondary)
             }
             Text("Counts active run time. The current operation finishes before stopping; completed candidates are saved. Time in the queue does not count.")
@@ -221,7 +223,7 @@ struct RecommendedDesignSheet: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             ForEach(issues, id: \.self) { Text($0).font(.caption).foregroundStyle(.orange) }
-            if !ready { Text("Install the required engines in Engines before starting.").foregroundStyle(.orange) }
+            EngineRequirementWarning(issues: installer.missingRequirements(for: requiredComponents))
             DisclosureGroup("Memory admission") { MemoryPolicyControl() }
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -229,14 +231,14 @@ struct RecommendedDesignSheet: View {
         HStack {
                 Button("Cancel", role: .cancel) { dismiss() }.disabled(targetPredictor.isRunning)
                 Spacer()
-                Button("Customize") { apply(); dismiss(); onSelect(.rfdiffusion) }.disabled(targetPredictor.isRunning || (useSequence && target.isEmpty))
+                Button("Customize") { apply(); dismiss(); onSelect(.rfdiffusion) }.disabled(!numericValidation.invalidEditors.isEmpty || targetPredictor.isRunning || (useSequence && target.isEmpty))
                 Button(useSequence && target.isEmpty ? "Predict target & start" : "Start design") {
                     if useSequence && target.isEmpty {
                         pendingStart = true
                         targetPredictor.predict(targetKind: .protein, sequence: sequence, smiles: "", engine: .esmfold2Full)
                     } else { startDesign() }
                 }.buttonStyle(.borderedProminent)
-                    .disabled(!ready || !issues.isEmpty || parsedHotspots == nil || targetPredictor.isRunning || !app.rfd4.canStartAnother)
+                    .disabled(!numericValidation.invalidEditors.isEmpty || !ready || !issues.isEmpty || parsedHotspots == nil || targetPredictor.isRunning || !app.rfd4.canStartAnother)
         }
     }
     private var proteinTargetInput: some View {
@@ -281,6 +283,7 @@ struct RecommendedDesignSheet: View {
         }
     }
     private func startDesign() {
+        guard numericValidation.invalidEditors.isEmpty, ready, issues.isEmpty else { return }
         apply()
         let current = app.projects.first { $0.id == project.id } ?? project
         app.rfd4.start(request: request, project: current, name: "\(intention.label) · \(hard ? "hard" : "easy")")

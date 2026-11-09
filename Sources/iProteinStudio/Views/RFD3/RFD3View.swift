@@ -17,6 +17,7 @@ struct RFD3ConfigurationFields: View {
     let project: Project
     @ObservedObject var controller: RFD3Controller
     @ObservedObject var installer: PipelineInstaller
+    @StateObject private var numericValidation = NumericInputValidation()
     @ObservedObject private var jobs = JobCenter.shared
     @StateObject private var inspector = RFD3TargetInspector()
     @StateObject private var intelligence = LigandIntelligence()
@@ -44,6 +45,7 @@ struct RFD3ConfigurationFields: View {
                 form
             }
         }
+        .environment(\.numericInputValidation, numericValidation)
         .onChange(of: request.wrappedValue.conditions) { _, _ in proposedConditions = nil }
         .onChange(of: request.wrappedValue.attachmentAtom) { _, _ in
             proposedConditions = nil
@@ -192,6 +194,7 @@ struct RFD3ConfigurationFields: View {
         .clipped()
         .sheet(isPresented: $showTargetPrep) {
             TargetPrepView(
+                installer: installer,
                 targetKind: .protein,
                 targetSequence: request.wrappedValue.targetSequence,
                 targetSmiles: "",
@@ -616,7 +619,7 @@ struct RFD3ConfigurationFields: View {
             if request.wrappedValue.designMode == .partialDiffusion {
                 LabeledContent("Noise magnitude") {
                     HStack(spacing: 6) {
-                        TextField("2.0", value: request.partialT, format: .number.precision(.fractionLength(1)))
+                        NumericTextField("2.0", value: request.partialT)
                             .textFieldStyle(.roundedBorder).frame(width: 72)
                         Text("Å").foregroundStyle(.secondary)
                     }
@@ -961,7 +964,7 @@ struct RFD3ConfigurationFields: View {
                     if request.wrappedValue.originStrategy == .explicit {
                         HStack(spacing: 8) {
                             ForEach(0..<3, id: \.self) { i in
-                                StudioFormField(["X (Å)", "Y (Å)", "Z (Å)"][i]) { TextField(["X", "Y", "Z"][i], value: Binding(
+                                StudioFormField(["X (Å)", "Y (Å)", "Z (Å)"][i]) { NumericTextField(["X", "Y", "Z"][i], value: Binding(
                                     get: { request.wrappedValue.originXYZ.indices.contains(i) ? request.wrappedValue.originXYZ[i] : 0 },
                                     set: { nv in
                                         var xyz = request.wrappedValue.originXYZ
@@ -969,7 +972,7 @@ struct RFD3ConfigurationFields: View {
                                         xyz[i] = nv
                                         request.wrappedValue.originXYZ = xyz
                                     }
-                                ), format: .number)
+                                ))
                                 .textFieldStyle(.roundedBorder).frame(width: 80) }
                             }
                         }
@@ -1270,7 +1273,7 @@ struct RFD3ConfigurationFields: View {
         GridRow {
             Text(label).font(.caption)
             HStack(spacing: 5) {
-                TextField(placeholder, value: value, format: .number.precision(.fractionLength(0...2)))
+                NumericTextField(placeholder, value: value)
                     .textFieldStyle(.roundedBorder).frame(width: 72)
                 if !suffix.isEmpty { Text(suffix).font(.caption).foregroundStyle(.secondary) }
             }
@@ -1322,12 +1325,7 @@ struct RFD3ConfigurationFields: View {
                     }
                     GridRow {
                         Text("Exact lengths (optional)")
-                        TextField("e.g. 60,70,80", text: Binding(
-                            get: { request.wrappedValue.explicitLengths.map(String.init).joined(separator: ",") },
-                            set: { raw in
-                                request.wrappedValue.explicitLengths = raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? [] : raw.split(separator: ",", omittingEmptySubsequences: false).map { Int($0.trimmingCharacters(in: .whitespaces)) ?? 0 }
-                            }))
-                            .textFieldStyle(.roundedBorder)
+                        IntegerListTextField("e.g. 60,70,80", values: request.explicitLengths)
                     }
                 }
 
@@ -1378,7 +1376,7 @@ struct RFD3ConfigurationFields: View {
         let issues = r.validationIssues
         let willQueue = !jobs.active.isEmpty || controller.isRunning || app.run.isRunning || app.prediction.isRunning || app.nise.isRunning
         let missingComponents = r.requiredComponents.filter {
-            installer.components[$0] != nil && !installer.isUsable($0)
+            !installer.isUsable($0)
         }
         return VStack(alignment: .leading, spacing: 8) {
             ForEach(issues, id: \.self) { issue in
@@ -1386,11 +1384,7 @@ struct RFD3ConfigurationFields: View {
                     .font(.callout).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if !missingComponents.isEmpty {
-                Label("Install \(missingComponents.map(\.label).joined(separator: ", ")) in Setup before starting.",
-                      systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout).foregroundStyle(.orange)
-            }
+            EngineRequirementWarning(issues: installer.missingRequirements(for: r.requiredComponents))
             HStack {
                 if willQueue {
                     Label("This RFdiffusion3 run will wait in the shared job queue.",
@@ -1412,7 +1406,7 @@ struct RFD3ConfigurationFields: View {
                 .buttonStyle(.borderedProminent).controlSize(.large)
                 .accessibilityLabel(willQueue ? "Add RFdiffusion3 run to queue" : "Start RFdiffusion3 run")
                 .accessibilityIdentifier("start-rfdiffusion3-run")
-                .disabled(!r.isRunnable || !issues.isEmpty || !missingComponents.isEmpty
+                .disabled(!numericValidation.invalidEditors.isEmpty || !r.isRunnable || !issues.isEmpty || !missingComponents.isEmpty
                           || !controller.canStartAnother)
             }
         }

@@ -35,9 +35,9 @@ struct LigandGeometryFilterForm: View {
                     }
                     HStack {
                         Text("Maximum contact distance (Å)")
-                        TextField("Å", value: Binding(get: { value.contact_distance }, set: { policy?.contact_distance = $0 }), format: .number).frame(width: 70)
+                        NumericTextField("Å", value: Binding(get: { value.contact_distance }, set: { policy?.contact_distance = $0 })).frame(width: 70)
                         Text("Minimum accessibility retained")
-                        TextField("Fraction", value: Binding(get: { value.exposure_min_fraction }, set: { policy?.exposure_min_fraction = $0 }), format: .number).frame(width: 70)
+                        NumericTextField("Fraction", value: Binding(get: { value.exposure_min_fraction }, set: { policy?.exposure_min_fraction = $0 })).frame(width: 70)
                     }.font(.caption)
                     Text("Accessibility is each atom’s bound SASA divided by its isolated-ligand SASA in the same conformation. 0.5 requires at least half to remain accessible.").font(.caption).foregroundStyle(.secondary)
                     if preview.busy { ProgressView("Loading atom choices…") }

@@ -262,6 +262,7 @@ struct DesignFormView: View {
         }
         .sheet(isPresented: $showTargetPrep) {
             TargetPrepView(
+                installer: installer,
                 targetKind: request.wrappedValue.targetKind,
                 targetSequence: request.wrappedValue.targetSequence,
                 targetSmiles: request.wrappedValue.targetSmiles,
@@ -377,9 +378,10 @@ struct DesignFormView: View {
         return VStack(alignment: .leading, spacing: 6) {
             Text(request.wrappedValue.budgetSummary).font(.callout.weight(.semibold)).textSelection(.enabled)
             let r = request.wrappedValue
+            EngineRequirementWarning(issues: installer.missingRequirements(for: r.requiredComponents))
             HStack(alignment: .top, spacing: 12) {
-            if !r.isRunnable || r.ligandAtomsStale || !missingComponents.isEmpty {
-                Label(missingReason(r, missingComponents: missingComponents), systemImage: "info.circle")
+            if !r.isRunnable || r.ligandAtomsStale {
+                Label(missingReason(r), systemImage: "info.circle")
                     .font(.callout).foregroundStyle(.secondary)
             } else if willQueue {
                 Label("Your settings will be saved. This run will wait until the active job releases the GPU.", systemImage: "hourglass")
@@ -413,9 +415,8 @@ struct DesignFormView: View {
         .padding(.top, 6)
     }
 
-    private func missingReason(_ r: DesignRequest, missingComponents: [InstallComponent] = []) -> String {
+    private func missingReason(_ r: DesignRequest) -> String {
         if let issue = r.validationIssues.first { return issue.message }
-        if !missingComponents.isEmpty { return "Install \(missingComponents.map(\.label).joined(separator: ", ")) in Engines before starting." }
         return "Review the highlighted settings before starting."
     }
 
@@ -994,7 +995,7 @@ struct PredictorPicker: View {
         GridRow {
             Text(label).font(.caption)
             HStack(spacing: 5) {
-                TextField("Off", value: value, format: .number.precision(.fractionLength(0...2)))
+                NumericTextField("Off", value: value)
                     .textFieldStyle(.roundedBorder).frame(width: 72)
                 if !suffix.isEmpty { Text(suffix).font(.caption).foregroundStyle(.secondary) }
             }

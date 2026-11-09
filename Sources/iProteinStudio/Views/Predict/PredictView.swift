@@ -12,6 +12,7 @@ struct PredictView: View {
     let project: Project
     @ObservedObject var controller: PredictionController
     @ObservedObject var installer: PipelineInstaller
+    @StateObject private var numericValidation = NumericInputValidation()
     @ObservedObject private var jobs = JobCenter.shared
 
     @State private var warnings: [String] = []
@@ -77,6 +78,7 @@ struct PredictView: View {
             startBar.padding(.horizontal, 28).padding(.vertical, 14)
                 .background(.bar)
         }
+        .environment(\.numericInputValidation, numericValidation)
         .onAppear { normalizeEngineOptions() }
     }
 
@@ -521,7 +523,7 @@ struct PredictView: View {
         let issues = r.validationIssues
         let willQueue = !jobs.active.isEmpty || controller.isRunning || app.run.isRunning || app.rfd3.isRunning || app.nise.isRunning
         let missingComponents = r.requiredComponents.filter {
-            installer.components[$0] != nil && !installer.isUsable($0)
+            !installer.isUsable($0)
         }
         return VStack(alignment: .leading, spacing: 8) {
             MemoryPolicyControl()
@@ -542,11 +544,7 @@ struct PredictView: View {
                     .font(.callout).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if !missingComponents.isEmpty {
-                Label("Install \(missingComponents.map(\.label).joined(separator: ", ")) in Setup before starting.",
-                      systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout).foregroundStyle(.orange)
-            }
+            EngineRequirementWarning(issues: installer.missingRequirements(for: r.requiredComponents))
             HStack {
                 if willQueue {
                     Label("This prediction will wait in the shared job queue.",
@@ -569,7 +567,7 @@ struct PredictView: View {
                 .buttonStyle(.borderedProminent).controlSize(.large)
                 .accessibilityLabel(willQueue ? "Add prediction run to queue" : "Start prediction run")
                 .accessibilityIdentifier("start-prediction-run")
-                .disabled(!r.isRunnable || !issues.isEmpty || !missingComponents.isEmpty
+                .disabled(!numericValidation.invalidEditors.isEmpty || !r.isRunnable || !issues.isEmpty || !missingComponents.isEmpty
                           || memory.checking || memory.result == nil || memory.result?.status == "blocked"
                           || !controller.canStartAnother)
             }

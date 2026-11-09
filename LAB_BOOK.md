@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0821 — Publish number entry and engine warnings](lab_book/0821-publish-number-entry-fixes.md): reviewed UI fixes, native editing tests and public0.2.39/build91 delivery.
+
 - [0793 — Fix geometry label stereochemistry](lab_book/0793-fix-geometry-label-stereochemistry.md): remove atom-map ranking interference before native standardization stereochemistry checks; generic CPU regressions only.
 
 - [0787 — Fix geometry standardization](lab_book/0787-fix-geometry-standardization.md): verified native Boltz atom correspondence, synthetic-only regression tests and shared app/CLI/MCP57 correction.

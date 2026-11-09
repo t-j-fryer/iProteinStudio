@@ -133,7 +133,7 @@ struct RFD4ConfigurationFields: View {
                     }
                     executionForm
                     ForEach(value.validationIssues, id: \.self) { Text($0).foregroundStyle(.orange) }
-                    if !ready { Text("Install the selected generator, sequence designer and predictor in Engines.").foregroundStyle(.orange) }
+                    EngineRequirementWarning(issues: installer.missingRequirements(for: value.requiredComponents))
                     progressSection
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -233,7 +233,7 @@ struct RFD4ConfigurationFields: View {
                                 request.wrappedValue.count = $0 ? 10000 : 1
                             }))
                             if value.time_budget_minutes != nil {
-                                StudioFormField("Active design time (minutes)") { TextField("Minutes", value: Binding(get: { value.time_budget_minutes ?? 60 }, set: { request.wrappedValue.time_budget_minutes = $0 }), format: .number) }
+                                StudioFormField("Active design time (minutes)") { NumericTextField("Minutes", value: Binding(get: { value.time_budget_minutes ?? 60 }, set: { request.wrappedValue.time_budget_minutes = $0 })) }
                                 Text("Finishes the current operation and saves completed candidates. Queue time is excluded.").font(.caption).foregroundStyle(.secondary)
                             } else {
                                 StudioFormField("Families") {
@@ -258,7 +258,7 @@ struct RFD4ConfigurationFields: View {
                                 }
                             }
                         }
-                        if setupExperience == .advanced { StudioFormField("Generation seed") { TextField("Seed", value: request.seed, format: .number) }.help("Sets the random starting point for reproducible generation. Each family uses the next seed.") }
+                        if setupExperience == .advanced { StudioFormField("Generation seed") { NumericTextField("Seed", value: request.seed) }.help("Sets the random starting point for reproducible generation. Each family uses the next seed.") }
                         if value.task != .monomer && value.task != .motif {
                             field("Target chains in input structure", text: request.source_target_chain, hint: "Leave empty to retain all protein chains.")
                             if setupExperience == .advanced {
@@ -540,7 +540,7 @@ struct RFD4ConfigurationFields: View {
                         if value.search != .fixed { Stepper("Cycles: \(value.cycles)", value: request.cycles, in: 1...100) }
                         if value.search != .iterative { Stepper("Proposals per parent: \(value.proposals)", value: request.proposals, in: 1...64) }
                         if value.search == .beam { Stepper("Surviving parents: \(value.beam_width)", value: request.beam_width, in: 1...64) }
-                        StudioFormField("Sequence sampling temperature") { TextField("Temperature", value: request.temperature, format: .number) }.help("Controls sequence diversity: lower values favour the designer’s most likely amino acids; higher values sample more broadly.")
+                        StudioFormField("Sequence sampling temperature") { NumericTextField("Temperature", value: request.temperature) }.help("Controls sequence diversity: lower values favour the designer’s most likely amino acids; higher values sample more broadly.")
                         if value.task != .ligand { field("Excluded amino acids", text: request.omit_amino_acids, hint: "One-letter codes; C excludes cysteine. Empty allows all amino acids.") }
                     }
                     if value.task != .ligand && !["esmfold2-fast-mlx", "esmfold2-600-mlx"].contains(value.predictor) {
@@ -573,6 +573,7 @@ struct RFD4ConfigurationFields: View {
                 ProteinChainInputView(text: $targetSequence, startingAt: 1, placeholder: "Target protein sequence; separate chains with :", minimumLength: 5)
                     .disabled(targetPredictor.isRunning)
                     .onChange(of: targetSequence) { _, _ in request.wrappedValue.source = ""; targetPredictor.reset() }
+                EngineRequirementWarning(issues: installer.missingRequirements(for: [targetEngine.component] + (targetEngine.isSequenceOnly ? [] : [.boltz])))
                 Picker("Target structure predictor", selection: $targetEngine) {
                     ForEach(TargetEngine.allCases) { Text($0.label).tag($0) }
                 }.disabled(targetPredictor.isRunning)
@@ -666,8 +667,8 @@ struct RFD4ConfigurationFields: View {
             Toggle("Use a range of design lengths", isOn: Binding(get: { value.length_plan != nil }, set: { request.wrappedValue.length_plan = $0 ? RFD4LengthPlan(minimum: min(75,value.length), maximum: value.length) : nil }))
             if let plan = value.length_plan {
                 HStack {
-                    StudioFormField("Minimum length (aa)") { TextField("Minimum", value: Binding(get: { value.length_plan?.minimum ?? 75 }, set: { request.wrappedValue.length_plan?.minimum = $0 }), format: .number) }
-                    StudioFormField("Maximum length (aa)") { TextField("Maximum", value: Binding(get: { value.length_plan?.maximum ?? 120 }, set: { request.wrappedValue.length_plan?.maximum = $0 }), format: .number) }
+                    StudioFormField("Minimum length (aa)") { NumericTextField("Minimum", value: Binding(get: { value.length_plan?.minimum ?? 75 }, set: { request.wrappedValue.length_plan?.minimum = $0 })) }
+                    StudioFormField("Maximum length (aa)") { NumericTextField("Maximum", value: Binding(get: { value.length_plan?.maximum ?? 120 }, set: { request.wrappedValue.length_plan?.maximum = $0 })) }
                 }
                 Text("By default, starts are spread evenly across the range. If there are fewer starts than lengths, they span the range; lengths are interleaved in time-limited runs.").font(.caption).foregroundStyle(.secondary)
                 DisclosureGroup("Custom numbers of starts per length") {
@@ -680,8 +681,8 @@ struct RFD4ConfigurationFields: View {
                             }
                         }
                         HStack {
-                            StudioFormField("Additional length (aa)") { TextField("Length", value: $extraLength, format: .number) }
-                            Button("Add length") { request.wrappedValue.length_plan?.counts?[String(extraLength)] = 1 }.disabled(!(plan.minimum...max(plan.minimum,plan.maximum)).contains(extraLength))
+                            StudioFormField("Additional length (aa)") { NumericTextField("Length", value: $extraLength) }
+                            Button("Add length") { request.wrappedValue.length_plan?.counts?[String(extraLength)] = 1 }.disabled(!numericValidation.invalidEditors.isEmpty || !(plan.minimum...max(plan.minimum,plan.maximum)).contains(extraLength))
                         }
                         Button("Set total families to \(counts.values.reduce(0,+))") { request.wrappedValue.count = counts.values.reduce(0,+) }.disabled(!(1...10000).contains(counts.values.reduce(0,+)))
                     }
@@ -707,7 +708,7 @@ struct RFD4ConfigurationFields: View {
                 request.wrappedValue.hit_filters = filters.isEmpty ? nil : filters
             }))
             if value.hit_filters?[key] != nil {
-                TextField(title, value: Binding(get: { value.hit_filters?[key] ?? initial }, set: { request.wrappedValue.hit_filters?[key] = $0 }), format: .number).frame(width: 85).accessibilityLabel(title)
+                NumericTextField(title, value: Binding(get: { value.hit_filters?[key] ?? initial }, set: { request.wrappedValue.hit_filters?[key] = $0 })).frame(width: 85).accessibilityLabel(title)
             }
         }
     }

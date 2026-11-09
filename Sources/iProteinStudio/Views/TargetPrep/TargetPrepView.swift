@@ -4,6 +4,7 @@ import SwiftUI
 /// Protein targets: hover residues, hydrophobicity surface, click epitope
 /// hotspots. Ligand targets: 3D ball-and-stick view of the predicted conformer.
 struct TargetPrepView: View {
+    @ObservedObject var installer: PipelineInstaller
     let targetKind: TargetKind
     let targetSequence: String
     let targetSmiles: String
@@ -16,6 +17,7 @@ struct TargetPrepView: View {
 
     @EnvironmentObject var predictions: PredictionStore
     @StateObject private var predictor = TargetPredictor()
+    @StateObject private var numericValidation = NumericInputValidation()
     @State private var selected: [String] = []
     @State private var showSurface = false
     @State private var engine: TargetEngine
@@ -23,10 +25,11 @@ struct TargetPrepView: View {
     @State private var predictionSettings: [String: [String: Int]] = [:]
     @State private var name: String = ""
 
-    init(targetKind: TargetKind, targetSequence: String, targetSmiles: String,
+    init(installer: PipelineInstaller, targetKind: TargetKind, targetSequence: String, targetSmiles: String,
          onUse: @escaping ([String]) -> Void,
          onStructure: ((String) -> Void)? = nil,
          onClose: @escaping () -> Void) {
+        self.installer = installer
         self.targetKind = targetKind
         self.targetSequence = targetSequence
         self.targetSmiles = targetSmiles
@@ -38,6 +41,12 @@ struct TargetPrepView: View {
     }
 
     private var isLigand: Bool { targetKind == .ligand }
+    private var missingEngines: [EngineRequirementIssue] {
+        var required = [engine.component]
+        if engine == .intellifold && model == .v2 { required.append(.intellifoldFull) }
+        if !isLigand && !engine.isSequenceOnly { required.append(.boltz) }
+        return installer.missingRequirements(for: required)
+    }
 
     /// A previously computed structure for the currently selected engine+model.
     private var cachedCIF: String? {
@@ -54,6 +63,7 @@ struct TargetPrepView: View {
             footer
         }
         .frame(width: 900, height: 700)
+        .environment(\.numericInputValidation, numericValidation)
         .onChange(of: predictor.phase) { _, phase in
             if case .done(let cif) = phase {
                 recordPrediction()
@@ -131,6 +141,8 @@ struct TargetPrepView: View {
             }
             .frame(width: 360)
 
+            EngineRequirementWarning(issues: missingEngines)
+
             if cachedCIF != nil {
                 // Already computed for this target + engine + model — offer retrieval.
                 VStack(spacing: 8) {
@@ -141,16 +153,19 @@ struct TargetPrepView: View {
                         Label("Show existing structure", systemImage: "arrow.down.doc").frame(width: 240)
                     }
                     .buttonStyle(.borderedProminent).controlSize(.large)
+                    .disabled(!numericValidation.invalidEditors.isEmpty)
                     Button { predict(force: true) } label: {
                         Label("Predict again", systemImage: "arrow.clockwise")
                     }
                     .controlSize(.small)
+                    .disabled(!numericValidation.invalidEditors.isEmpty || !missingEngines.isEmpty)
                 }
             } else {
                 Button { predict(force: false) } label: {
                     Label("Predict structure", systemImage: "play.fill").frame(width: 220)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
+                .disabled(!numericValidation.invalidEditors.isEmpty || !missingEngines.isEmpty)
             }
 
             if let error {
@@ -256,6 +271,8 @@ struct TargetPrepView: View {
     }
 
     private func predict(force: Bool) {
+        guard numericValidation.invalidEditors.isEmpty,
+              (!force && cachedCIF != nil) || missingEngines.isEmpty else { return }
         predictor.predict(targetKind: targetKind, sequence: targetSequence,
                           smiles: targetSmiles, engine: engine, model: model, predictionSettings: predictionSettings, force: force)
     }

@@ -19,7 +19,15 @@ struct NISEView: View {
         Binding(get: { app.projects.first(where: { $0.id == project.id })?.nise ?? project.nise },
                 set: { value in app.updateProject(id: project.id) { $0.nise = value } })
     }
-    private var ready: Bool { request.wrappedValue.esmEngines.allSatisfy { value in installer.isUsable(value == "esmfold2-600-mlx" ? .esmfold2_600 : value == "esmfold2-fast-mlx" ? .esmfold2Fast : .esmfold2Full) } && installer.isUsable(.boltz) && installer.isUsable(.boltzAffinity) && installer.isUsable(.lasermpnn) && (request.wrappedValue.backbone_method != "rfdiffusion3" || installer.isUsable(.rfd3)) && (!request.wrappedValue.usesNesso || installer.isUsable(request.wrappedValue.screening_engine == "psichic" ? .psichic : .nesso)) }
+    @StateObject private var numericValidation = NumericInputValidation()
+    private var requiredComponents: [InstallComponent] {
+        var required: [InstallComponent] = [.boltz, .boltzAffinity, .lasermpnn]
+        required += request.wrappedValue.esmEngines.map { $0 == "esmfold2-600-mlx" ? .esmfold2_600 : $0 == "esmfold2-fast-mlx" ? .esmfold2Fast : .esmfold2Full }
+        if request.wrappedValue.backbone_method == "rfdiffusion3" { required.append(.rfd3) }
+        if request.wrappedValue.usesNesso { required.append(request.wrappedValue.screening_engine == "psichic" ? .psichic : .nesso) }
+        return required
+    }
+    private var ready: Bool { installer.missingRequirements(for: requiredComponents).isEmpty }
     private var atomChoicesReady: Bool {
         cohortURL != nil || !request.wrappedValue.hasAtomSelections || (atomMapVerified
             && ligandAtoms.signature == request.wrappedValue.ligand_atom_signature
@@ -155,7 +163,7 @@ struct NISEView: View {
                                 HStack {
                                     Text("First refinement minimum \(request.wrappedValue.objectiveLabel) score (0 disables)")
                                     Spacer()
-                                    TextField("0 disables", value: request.objectiveEarlyGate, format: .number)
+                                    NumericTextField("0 disables", value: request.objectiveEarlyGate)
                                         .textFieldStyle(.roundedBorder).frame(width: 90)
                                 }
                                 Text(request.wrappedValue.usesScreeningObjective ? "Applies only to cycle01, after geometry checks, using \(request.wrappedValue.objectiveFormula). Defaults: NESSO 0.4; PSICHIC 0.2. These are configurable baseline cutoffs, not calibrated binding probabilities. NESSO uses 0–2; PSICHIC uses 0–1. Each engine retains its own cutoff. Geometry and shortlist limits remain active." : "After geometry checks, retain lineage winners with ligand pLDDT/100 + P(bind) at or above this value. Applies only to the first refinement. The 0.80 pilot threshold is not validated across ligands.")
@@ -225,7 +233,7 @@ struct NISEView: View {
                         HStack {
                             Text("Minimum \(request.wrappedValue.objectiveLabel) score improvement to reset patience")
                             Spacer()
-                            TextField("0.01", value: request.min_improvement, format: .number)
+                            NumericTextField("0.01", value: request.min_improvement)
                                 .textFieldStyle(.roundedBorder).frame(width: 90)
                         }
                         if !request.wrappedValue.usesScreeningObjective {
@@ -289,12 +297,12 @@ struct NISEView: View {
                             }
                             Text("RFD3 generation finishes before the Boltz pool starts. Two workers use more memory; the throughput benefit was measured on our 64 GB M4 Max and is not guaranteed on other Macs.").font(.caption)
                         }
-                        StudioFormField("Generation and folding seed") { TextField("Seed", value: request.seed, format: .number) }
+                        StudioFormField("Generation and folding seed") { NumericTextField("Seed", value: request.seed) }
                             .disabled(cohortURL != nil)
                         Text("LASErMPNN has no upstream seed control. Studio saves the exact sampled sequences and audited predictions for resume.").font(.caption)
                     }
                 }
-                if !ready { Label("Install the selected NISE engines from Engines to start.", systemImage: "shippingbox") }
+                EngineRequirementWarning(issues: installer.missingRequirements(for: requiredComponents))
                 if request.wrappedValue.hasAtomSelections && !atomMapVerified {
                     Text("Load the molecule to verify its saved atom choices before starting.").font(.caption).foregroundStyle(.orange)
                 }
@@ -309,7 +317,7 @@ struct NISEView: View {
                         controller.start(request: request.wrappedValue, project: current,
                                          name: current.runNames[WorkspaceMode.nise.rawValue] ?? "", cohort: cohortURL)
                     }
-                        .buttonStyle(.borderedProminent).disabled(!ready || !controller.canStartAnother || !request.wrappedValue.validationIssues.isEmpty || !atomChoicesReady)
+                        .buttonStyle(.borderedProminent).disabled(!numericValidation.invalidEditors.isEmpty || !ready || !controller.canStartAnother || !request.wrappedValue.validationIssues.isEmpty || !atomChoicesReady)
                         .accessibilityIdentifier("nise-start")
                     if busy { Text("This search will wait in the shared job queue.").font(.caption) }
                 }
@@ -340,6 +348,7 @@ struct NISEView: View {
                 }
             }.padding(24).frame(maxWidth: 860, alignment: .leading).frame(maxWidth: .infinity)
         }
+        .environment(\.numericInputValidation, numericValidation)
         .onAppear {
             // Draft controls use the current policy. Resume reads the run's saved request.
             request.wrappedValue.partial_noising = false
@@ -431,7 +440,7 @@ struct NISEView: View {
         HStack {
             Text(label)
             Spacer()
-            TextField(label, value: value, format: .number.precision(.fractionLength(1...2)))
+            NumericTextField(label, value: value)
                 .frame(width: 80).textFieldStyle(.roundedBorder)
                 .accessibilityLabel(label)
             Stepper(label, value: value, in: 0.1...10, step: 0.1).labelsHidden()

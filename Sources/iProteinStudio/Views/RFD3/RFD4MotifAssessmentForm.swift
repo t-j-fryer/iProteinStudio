@@ -40,12 +40,12 @@ struct RFD4MotifAssessmentForm: View {
                     }
                     Toggle("Call hits using motif shape RMSD", isOn: Binding(get: { assessment.rmsd_max != nil }, set: { request.motif_assessment?.rmsd_max = $0 ? 2 : nil }))
                     if assessment.rmsd_max != nil {
-                        StudioFormField("Maximum motif RMSD (Å)") { TextField("RMSD cutoff", value: cutoff(\.rmsd_max), format: .number) }
+                        StudioFormField("Maximum motif RMSD (Å)") { NumericTextField("RMSD cutoff", value: cutoff(\.rmsd_max)) }
                     }
                     if assessment.holo {
                         Toggle("Also require motif placement relative to partners", isOn: Binding(get: { assessment.placement_rmsd_max != nil }, set: { request.motif_assessment?.placement_rmsd_max = $0 ? 2 : nil }))
                         if assessment.placement_rmsd_max != nil {
-                            StudioFormField("Maximum partner-aligned motif RMSD (Å)") { TextField("Placement cutoff", value: cutoff(\.placement_rmsd_max), format: .number) }
+                            StudioFormField("Maximum partner-aligned motif RMSD (Å)") { NumericTextField("Placement cutoff", value: cutoff(\.placement_rmsd_max)) }
                         }
                     }
                     Text("Shape RMSD fits the selected motif atoms to the input motif. Placement RMSD fits the retained partner Cα atoms and ligand heavy atoms, then measures the motif without fitting it again. At least three noncollinear fit atoms are needed. Atom names are matched exactly.").font(.caption)

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "destination": "public",
+  "version": "0.2.39",
+  "build": 91,
+  "checks": {
+    "native_production_numeric_ui": "passed",
+    "missing_engine_dependency_fixtures": "passed",
+    "swift_build": "passed",
+    "swift_contract_groups": [
+      "workflow_requests",
+      "engine_batch_controller",
+      "nise",
+      "rfd4_configuration"
+    ]
+  },
+  "private_viewer_feature_included": false,
+  "scientific_backend_changed": false,
+  "mcp_contract": 58,
+  "confidential_data_inspected": false,
+  "limits": [
+    "Engine states use fixtures; no real uninstall/repair",
+    "No GPU or scientific campaign",
+    "No live workspace inspected"
+  ]
+}

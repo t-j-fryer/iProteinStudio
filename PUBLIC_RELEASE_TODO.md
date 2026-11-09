@@ -1,5 +1,7 @@
 # Public release candidate to do
 
+- [ ] Publish numeric replacement and named engine/dependency warnings as public0.2.39/build91 (Lab0821).
+
 - [x] Publish/install build89 geometry atom-label stereochemistry fix and activate shared CLI/MCP58; public download and installed preflights verified (Lab0793).
 
 - [x] Publish/install build87, activate shared CLI/MCP57, and resume the paused job with its frozen plan and completed checkpoints unchanged (Lab0787).
