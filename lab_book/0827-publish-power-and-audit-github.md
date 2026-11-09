@@ -100,3 +100,6 @@ backed up privately under backup/esmfold2-speed-20261109-c0e6a78, preserving the
 prior1e29a17 history. It is excluded from public promotion. Concurrent private
 beta development may advance independently; no force push is used.
 
+Live feed verification after promotion confirms build93 and exact generated-feed
+bytes. Published asset hashes, archive signature, previous build91 update key/feed
+and installed executable identity all pass. See the live delivery receipt.

@@ -27,5 +27,7 @@
   "private_features_not_promoted": [
     "Paper pocket viewer",
     "ESMFold2/RFD4 performance branch"
-  ]
+  ],
+  "live_appcast_verified": true,
+  "public_feature_matches_private": true
 }
