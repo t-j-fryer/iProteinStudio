@@ -14,7 +14,7 @@ from server import MCPServer
 
 from iprotein_mcp.broker import cancel_job, list_jobs, load_state, resume_job, run_worker, start_job, wait_job
 from iprotein_mcp.catalog import detect_engines, list_projects, list_runs, query_results, run_status
-from iprotein_mcp.common import StudioError, import_artifact
+from iprotein_mcp.common import StudioError, import_artifact, project_root, project_uuid
 from iprotein_mcp.plans import admin_plan, iterative_plan, prediction_plan, rfd3_plan, target_prepare_plan
 
 
@@ -32,6 +32,8 @@ def main() -> int:
     guide.add_argument("workflow")
     sub.add_parser("detect")
     projects = sub.add_parser("projects")
+    project_create = sub.add_parser("project-create", help="Create a managed project without opening the app")
+    project_create.add_argument("project")
     runs = sub.add_parser("runs")
     runs.add_argument("--project")
     status = sub.add_parser("status")
@@ -94,6 +96,9 @@ def main() -> int:
             emit(detect_engines())
         elif args.command == "projects":
             emit({"projects": list_projects()})
+        elif args.command == "project-create":
+            path = project_root(args.project, create=True)
+            emit({"project": args.project, "id": project_uuid(args.project), "path": str(path)})
         elif args.command == "runs":
             emit({"runs": list_runs(args.project)})
         elif args.command == "status":

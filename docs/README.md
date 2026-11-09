@@ -3,6 +3,7 @@
 ## Using Studio
 
 - [Install the trusted beta](INSTALL_UNSIGNED_BETA.md)
+- [Install through CLI, SSH or an assistant](HEADLESS_INSTALL.md)
 - [First prediction and design walkthroughs](QUICKSTART.md)
 - [AI assistants and the portable operating skill](AI_ASSISTANTS.md)
 - [Application updates and GitHub Releases](UPDATES_AND_RELEASES.md)

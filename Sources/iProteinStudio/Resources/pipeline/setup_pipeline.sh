@@ -504,11 +504,13 @@ ensure_python() {
   mkdir -p "${UV_PYTHON_INSTALL_DIR}" "${UV_PYTHON_BIN_DIR}" "${UV_CACHE_DIR}" "${PIP_CACHE_DIR}"
   "${UV_BIN}" python install --managed-python "${want}" \
     || fail "Could not install exact managed CPython ${want}."
-  local resolved
+  local resolved managed_python_root
   resolved="$("${UV_BIN}" python find --managed-python "${want}" 2>/dev/null)" \
     || fail "Could not locate exact managed CPython ${want}."
+  managed_python_root="$(cd "${UV_PYTHON_INSTALL_DIR}" && pwd -P)"
+  resolved="$(cd "$(dirname "${resolved}")" && pwd -P)/$(basename "${resolved}")"
   case "${resolved}" in
-    "${UV_PYTHON_INSTALL_DIR}"/*) ;;
+    "${managed_python_root}"/*) ;;
     *) fail "uv resolved Python ${want} outside Studio's managed toolchain: ${resolved}" ;;
   esac
   [[ "$("${resolved}" -c 'import platform; print(platform.python_version())')" == "${want}" ]] \
@@ -657,6 +659,7 @@ PYTHON
 if [[ "${BOOTSTRAP_ONLY}" -eq 1 ]]; then
   acquire_install_lock
   ensure_python "${PYTHON_311_VERSION}" PYTHON_BIN
+  printf 'NHPYTHON|%s\n' "${PYTHON_BIN}"
   echo "NHDONE|ok"
   exit 0
 fi

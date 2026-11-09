@@ -1,5 +1,12 @@
 # iProteinStudio release notes
 
+## 0.2.41 (build94)
+
+- Install CLI/MCP and selected engines from a source checkout/archive or extracted public app bundle without opening the app or installing developer tools.
+- Add transactional resource staging, active-job protection, rollback/recovery and asset receipts while preserving models, projects and job snapshots.
+- Add installed CLI/MCP launchers and `studioctl project-create` for headless onboarding.
+- Keep scientific settings and MCP58 request schemas unchanged.
+
 
 ## 0.2.40 (build93)
 

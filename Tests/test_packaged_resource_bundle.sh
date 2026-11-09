@@ -35,6 +35,11 @@ for resource in download_verified.py install_components.sh abmpnn_sources.json; 
   cmp -s "${BUNDLE}/pipeline/scripts/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/scripts/${resource}" \
     || fail "installer recovery resource differs from the current source: ${resource}"
 done
+
+for resource in install_cli.sh bin/studioctl bin/studio-mcp scripts/stage_assets.py; do
+  cmp -s "${BUNDLE}/pipeline/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/${resource}" \
+    || fail "headless installer resource is missing or stale: ${resource}"
+done
 [[ -s "${BUNDLE}/pipeline/scripts/apple_build_tools.sh" ]] \
   || fail "resource bundle is missing the Apple compiler preflight"
 [[ -s "${BUNDLE}/pipeline/scripts/prediction_templates.py" ]] \

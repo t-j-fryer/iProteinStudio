@@ -14,6 +14,12 @@ route. See [RFD4 capabilities and qualification](RFD4.md).
 
 ## Connect
 
+For CLI-only or SSH hosts, install without launching the app using the
+[headless installation guide](HEADLESS_INSTALL.md). Run the installed
+`bin/studioctl doctor` and `detect`, create a project with `project-create`, and
+register `bin/studio-mcp --profile read` / `--profile run` separately. Scientific
+jobs still use the same immutable planner and durable broker.
+
 1. Open **AI** in Studio's toolbar, or **Settings → AI assistants**.
 2. Select **Read only** to inspect work, or read-and-run access to submit jobs.
 3. Enable the supported desktop client and use **Test Studio bridge**. Reconnect

@@ -197,6 +197,14 @@ while retaining account authentication and revocation.
 
 ## Install
 
+From a checkout or extracted GitHub source archive, `bash install.sh --base`
+stages the complete resources and installs the standard engines without opening
+the app. `--stage-only` installs just CLI/MCP and assets; `--with-*` selects engines.
+Use `--root` for a custom managed directory. See [headless installation](HEADLESS_INSTALL.md)
+for verification and source/app-bundle routes. The installed `bin/studioctl` and
+`bin/studio-mcp` launchers select their own managed root and pinned control Python.
+`studioctl project-create NAME` creates a project without app preferences.
+
 The default route downloads checksum-verified portable packages from GitHub
 Releases, then separate model assets from their providers. It requires no Xcode,
 Command Line Tools, Git, Homebrew or system Python. Start with `--detect`.

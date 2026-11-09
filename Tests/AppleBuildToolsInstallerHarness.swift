@@ -4,6 +4,8 @@ import StudioCore
 enum IntelliFoldModel: String, Codable, Hashable { case v2flash = "v2-flash", v2 }
 
 enum AppPaths {
+    static let isLocalBeta = false
+    static let betaRuntimeNotice = "Fixture beta cannot change the shared runtime."
     static let fm = FileManager.default
     static let support = fm.temporaryDirectory.appendingPathComponent("studio-apple-tools-\(UUID().uuidString)")
     static let pipeline = support.appendingPathComponent("pipeline")

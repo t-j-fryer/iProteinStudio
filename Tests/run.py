@@ -10,6 +10,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FAST_PYTHON = [
+    "test_headless_install.py",
     "test_design_workflows.py", "test_rfd4_multichain.py", "test_rfd4_result_filters.py",
     "test_motif_beta_bridge.py",
     "test_memory_admission.py",

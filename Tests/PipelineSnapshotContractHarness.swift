@@ -66,6 +66,7 @@ struct PipelineSnapshotContractHarness {
                                                   includingPropertiesForKeys: nil)
             .filter { !$0.lastPathComponent.hasPrefix(".") }
         guard objects.count == 1 else { fail("identical pipelines created duplicate objects") }
+        try AppPaths.stagePipelineAssets()
         print("PASS content-addressed pipeline snapshots")
     }
 }

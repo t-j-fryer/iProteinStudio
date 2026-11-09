@@ -388,3 +388,5 @@ Implementation: [0268 — Natural app identity](lab_book/0268-adopt-natural-app-
 - [0727 — Publish unified design release](lab_book/0727-publish-unified-design-release.md)
 
 - [0731 — Simplify prediction controls and replace the protein example](lab_book/0731-prediction-controls-and-lysozyme.md)
+
+- [0832 — Qualify headless Studio installation](lab_book/0832-qualify-headless-installation.md): source/archive/app-bundle bootstrap, actual app staging parity and isolated control/MPNN acceptance.

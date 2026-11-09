@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+NANOHUNTER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export NANOHUNTER_ROOT
+exec "${NANOHUNTER_ROOT}/components/control/current/python/bin/python3" "${NANOHUNTER_ROOT}/mcp/server.py" "$@"

@@ -54,3 +54,5 @@ experimental peptide workflow code and private beta installation controls.
 - [x] Prepare motif structure/sequence input, native residue/atom controls and default-on optimized kernels (Lab0747); published0.2.33/build82 after ten final GPU outputs and five exact kernel pairs (Lab0757).
 
 - [x] Publish partner-aware motif scaffolding with apo/holo prediction and input-motif RMSD gates as0.2.34/build83/MCP55 (Lab0762).
+
+- [x] Qualify the headless installer candidate and prepare public delivery (Lab0832).

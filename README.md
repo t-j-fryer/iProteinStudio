@@ -18,6 +18,13 @@ Download the Apple-silicon DMG from the newest **app** release (`v…-beta`), mo
 The separate `runtimes-…` release holds engine packages for Studio to download;
 users do not install those archives manually.
 
+**CLI / SSH / LLM installation:** from a checkout or extracted source archive,
+run `bash install.sh --base`. Use `--stage-only` for CLI/MCP without model
+weights, or select engines with `--with-*` flags. No app launch, Swift build,
+sudo, Homebrew or system Python is required. Start with
+`bash install.sh --detect`; see [headless installation](docs/HEADLESS_INSTALL.md)
+for source archives, custom roots, assistant setup and verification.
+
 Current releases are trusted betas: ad-hoc signed, with Sparkle-signed update
 archives, but not Apple Developer ID signed or notarized. See [licensing status](LICENSING.md).
 

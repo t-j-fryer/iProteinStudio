@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "candidate_version": "0.2.41",
+  "candidate_build": 94,
+  "public_offline_checks": "70/70 passed",
+  "actual_bundle_headless_fresh_install": true,
+  "app_never_launched": true,
+  "strict_bundle_signature_valid_after_install": true,
+  "packaged_resource_contract": "passed",
+  "model_weights_installed": false,
+  "control_runtime_installed": true,
+  "asset_inventory_verified": 381,
+  "asset_digest": "2d4e30be7e36fab1215fb4fdeb07ba65a834b0421702b5da3b8b2ce247a6069a",
+  "system_tool_sentinels_called": false,
+  "installed_cli_project_create": "passed",
+  "public_repository_or_release_modified": false
+}

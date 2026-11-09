@@ -60,10 +60,12 @@ def validate_slug(value: str, label: str = "project") -> str:
 
 def project_root(project: str, create: bool = False) -> Path:
     path = projects_root() / validate_slug(project)
+    if path.is_symlink() or not path.resolve().is_relative_to(projects_root().resolve()):
+        raise StudioError("Managed projects must stay inside the projects directory.")
     if create:
         path.mkdir(parents=True, exist_ok=True)
     elif not path.is_dir():
-        raise StudioError(f"Unknown project '{project}'. Create it in iProteinStudio first.")
+        raise StudioError(f"Unknown project '{project}'. Use studioctl project-create {project} or create it in iProteinStudio.")
     return path.resolve()
 
 

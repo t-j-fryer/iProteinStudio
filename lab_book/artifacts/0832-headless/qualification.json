@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "host": "Apple M4 Max, 40 GPU cores, 64 GB; local isolated root",
+  "installation_root": ".build/headless-qualification-0832",
+  "real_control_and_mpnn_install": true,
+  "system_tool_sentinels_called": false,
+  "gui_launched": false,
+  "gpu_inference_run": false,
+  "existing_installation_changed": false,
+  "cli_doctor": {
+    "bridge_version": "58",
+    "ok": true,
+    "profiles": {
+      "admin": 11,
+      "read": 19,
+      "run": 41
+    },
+    "python": "3.11.13",
+    "runtime_root": "<isolated-root>",
+    "schemas": [
+      "iterative-batch-v1.json",
+      "iterative-design-v1.json",
+      "job-start-v1.json",
+      "motif-beta-v1.json",
+      "nise-v1.json",
+      "prediction-v1.json",
+      "recipe-v1.json",
+      "rfd3-v1.json",
+      "rfd4-v1.json",
+      "target-prepare-v1.json"
+    ]
+  },
+  "mcp_profile_tool_counts": {
+    "read": 18,
+    "run": 40
+  },
+  "admin_disabled": true,
+  "launcher_root_overrides_unrelated_environment": true,
+  "asset_inventory_verified": 381,
+  "asset_digest": "1052449896b1b159149f35df9cebd4e444c9ce7b3c21cfebded03cc0a75df4c5",
+  "engine_detection": {
+    "engines": {
+      "abmpnn": {
+        "detail": "AbMPNN checkpoint absent or unverified",
+        "state": "missing"
+      },
+      "antifold": {
+        "detail": "environment or source is incomplete",
+        "state": "missing"
+      },
+      "boltz": {
+        "detail": "environment requires PyTorch 2.14.0, structure weights, and CCD data; update from Engines",
+        "state": "missing"
+      },
+      "boltz_affinity": {
+        "detail": "optional affinity checkpoint absent",
+        "state": "missing"
+      },
+      "esmfold2": {
+        "detail": "Install or repair ESMFold2 in Engines",
+        "state": "missing"
+      },
+      "esmfold2_600": {
+        "detail": "Install or repair ESMFold2 in Engines",
+        "state": "missing"
+      },
+      "esmfold2_fast": {
+        "detail": "Install or repair ESMFold2 in Engines",
+        "state": "missing"
+      },
+      "esmfold2_full": {
+        "detail": "Install or repair ESMFold2 in Engines",
+        "state": "missing"
+      },
+      "intellifold": {
+        "detail": "environment requires PyTorch 2.14.0, Flash weights, CCD, and template dependencies; update from Engines",
+        "state": "missing"
+      },
+      "intellifold_full": {
+        "detail": "optional full-v2 checkpoint or current shared IntelliFold runtime absent",
+        "state": "missing"
+      },
+      "lasermpnn": {
+        "detail": "environment, source, weights, or compiled extensions absent",
+        "state": "missing"
+      },
+      "mpnn": {
+        "detail": "ProteinMPNN / SolubleMPNN / LigandMPNN",
+        "state": "ok"
+      },
+      "nesso": {
+        "detail": "Install NESSO-1 (experimental) from Engines before enabling screening.",
+        "state": "missing"
+      },
+      "openfold3": {
+        "detail": "environment or checkpoint absent",
+        "state": "missing"
+      },
+      "protenix": {
+        "detail": "runtime or shared chemical data absent",
+        "state": "missing"
+      },
+      "protenix_constraint": {
+        "detail": "install incomplete; valid checkpoint files are reused on retry",
+        "state": "missing"
+      },
+      "protenix_mini": {
+        "detail": "Protenix Mini checkpoint absent",
+        "state": "missing"
+      },
+      "protenix_v2": {
+        "detail": "Protenix v2 checkpoint absent",
+        "state": "missing"
+      },
+      "psichic": {
+        "detail": "Install experimental PSICHIC from Engines before selecting it.",
+        "state": "missing"
+      },
+      "rfd3": {
+        "detail": "environment, checkpoint, or exported weights absent",
+        "state": "missing"
+      },
+      "rfd4": {
+        "detail": "Install or repair the RFD4 runtime in Engines",
+        "state": "missing"
+      }
+    },
+    "exit_code": 0,
+    "runtime_root": "<isolated-root>",
+    "staged": true
+  },
+  "real_update_retry_passed": true,
+  "headless_tests": 10,
+  "offline_contract_commands": "70/70 passed",
+  "app_build": "passed",
+  "actual_gui_headless_parity": "passed, including created MSA caches"
+}
