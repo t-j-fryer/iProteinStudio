@@ -67,6 +67,27 @@ struct PipelineSnapshotContractHarness {
             .filter { !$0.lastPathComponent.hasPrefix(".") }
         guard objects.count == 1 else { fail("identical pipelines created duplicate objects") }
         try AppPaths.stagePipelineAssets()
+        guard let release = firstMetadata?["workflow_release"] as? [String: Any],
+              let files = release["files"] as? [String: String], files.count == 3,
+              release["generation"] as? Int == 2026111001
+        else { fail("snapshot did not retain the optimized workflow release") }
+        for name in files.keys {
+            guard try Data(contentsOf: first.appendingPathComponent(name)) == Data(contentsOf: root.appendingPathComponent(name))
+            else { fail("bundled snapshot and staged optimized adapter differ: \(name)") }
+        }
+        let stamp = root.appendingPathComponent("WORKFLOW_RELEASE.json")
+        let savedStamp = try Data(contentsOf: stamp)
+        var future = release
+        future["generation"] = 2026111002
+        try JSONSerialization.data(withJSONObject: future).write(to: stamp)
+        do {
+            try AppPaths.stagePipelineAssets()
+            fail("an older app release replaced newer installed workflows")
+        } catch {
+            guard error.localizedDescription.contains("older workflows") else { throw error }
+        }
+        guard try Data(contentsOf: stamp) != savedStamp else { fail("downgrade guard changed the installed manifest") }
+        try savedStamp.write(to: stamp)
         print("PASS content-addressed pipeline snapshots")
     }
 }

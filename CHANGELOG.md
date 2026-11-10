@@ -1,5 +1,14 @@
 # iProteinStudio release notes
 
+## 0.2.42 (build95)
+
+- Ship the qualified ESMFold2 BF16 folding trunk and RFD4 tiled-layout/fused-pair adapters in app, CLI and MCP workflows. Record actual ESMFold2 trunk precision in prediction confidence files.
+- Verify the optimized adapter hashes during packaging, staging and new-job snapshot creation; retain the workflow release manifest in immutable job snapshots.
+- Refuse workflow downgrades in updated apps and headless installers. CLI doctor and MCP engine detection report the installed workflow implementation (bridge59).
+- Existing jobs retain their frozen scientific code. BF16 can slightly change confidence and coordinates; the explicit FP32 environment override remains available.
+
+
+
 ## 0.2.41 (build94)
 
 - Install CLI/MCP and selected engines from a source checkout/archive or extracted public app bundle without opening the app or installing developer tools.

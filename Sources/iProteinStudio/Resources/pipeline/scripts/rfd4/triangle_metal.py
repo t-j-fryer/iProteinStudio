@@ -9,25 +9,56 @@ import torch
 import torch.nn.functional as F
 
 
+# This kernel is a transpose: the input is channel-fastest, the contraction wants
+# position-fastest. Written as a per-output gather (one thread, four reads 4*c
+# elements apart) it ran at ~105-118 GB/s against ~460 GB/s achievable on an M4 Max,
+# because consecutive threads read addresses 2 KiB apart. Staging a 32x32
+# (position x channel) tile through threadgroup memory coalesces both the reads and
+# the writes. The arithmetic and its order are unchanged, so output is bit-identical
+# to the gather form; the tile is padded to 33 columns to avoid bank conflicts.
+# Lab Book 0825 (measured 3.3-5.4x on the kernel, 3.70% of generation).
+TILE = 32
 METAL = r'''
 #include <metal_stdlib>
 using namespace metal;
+#define TILE 32
 kernel void gate_layout(device const bfloat* packed,
                         device const bool* mask,
                         device bfloat* left, device bfloat* right,
                         constant uint& n, constant uint& c,
-                        uint i [[thread_position_in_grid]]) {
+                        uint3 tg [[threadgroup_position_in_grid]],
+                        uint3 tid [[thread_position_in_threadgroup]]) {
+    threadgroup bfloat ta[TILE][TILE+1];
+    threadgroup bfloat tb[TILE][TILE+1];
     uint spatial = n*n;
-    uint batch = i/(c*spatial);
-    uint channel = (i/spatial)%c;
-    uint pos = i%spatial;
-    uint p = (batch*spatial+pos)*4*c + channel;
-    bfloat ga = bfloat(1.0f/(1.0f+exp(-float(packed[p+2*c]))));
-    bfloat gb = bfloat(1.0f/(1.0f+exp(-float(packed[p+3*c]))));
-    bfloat a = bfloat(float(packed[p])*float(ga));
-    bfloat b = bfloat(float(packed[p+c])*float(gb));
-    left[i] = bfloat(float(a)*float(mask[batch*spatial+pos]));
-    right[i] = bfloat(float(b)*float(mask[batch*spatial+pos]));
+    uint batch = tg.z;
+    uint pos0 = tg.x*TILE, ch0 = tg.y*TILE;
+    uint channel = ch0 + tid.x, pos = pos0 + tid.y;
+    if (channel < c && pos < spatial) {
+        uint p = (batch*spatial+pos)*4*c + channel;
+        bfloat ga = bfloat(1.0f/(1.0f+exp(-float(packed[p+2*c]))));
+        bfloat gb = bfloat(1.0f/(1.0f+exp(-float(packed[p+3*c]))));
+        bfloat a = bfloat(float(packed[p])*float(ga));
+        bfloat b = bfloat(float(packed[p+c])*float(gb));
+        bfloat m = bfloat(float(mask[batch*spatial+pos]));
+        ta[tid.y][tid.x] = bfloat(float(a)*float(m));
+        tb[tid.y][tid.x] = bfloat(float(b)*float(m));
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    uint opos = pos0 + tid.x, och = ch0 + tid.y;
+    if (och < c && opos < spatial) {
+        uint o = (batch*c + och)*spatial + opos;
+        left[o]  = ta[tid.x][tid.y];
+        right[o] = tb[tid.x][tid.y];
+    }
+}
+// `values * sigmoid(logits)` as one pass instead of three (sigmoid, then multiply,
+// each reading and writing the whole pair tensor). Rounds to bfloat at the same two
+// points the eager statement does, so the result is bit-identical. Lab Book 0826.
+kernel void gate_mul(device const bfloat* values, device const bfloat* logits,
+                     device bfloat* out, uint i [[thread_position_in_grid]]) {
+    bfloat s = bfloat(1.0f/(1.0f+exp(-float(logits[i]))));
+    out[i] = bfloat(float(values[i])*float(s));
 }
 '''
 
@@ -53,10 +84,18 @@ def grouped(module,pairs,mask,packed=None,shader=None):
             raise ValueError('Metal adapter requires BF16 and Boolean mask')
         batch,n,_,_=p.shape;c=module.linear_a_p.out_features
         a=torch.empty((batch,c,n,n),device=p.device,dtype=p.dtype);b=torch.empty_like(a)
-        shader.gate_layout(p.contiguous(),mask.contiguous(),a,b,n,c,threads=a.numel())
+        spatial=n*n
+        shader.gate_layout(p.contiguous(),mask.contiguous(),a,b,n,c,
+                           threads=(-(-spatial//TILE)*TILE,-(-c//TILE)*TILE,batch),
+                           group_size=(TILE,TILE,1))
     x=torch.matmul(a,b.transpose(-1,-2)) if module.outgoing else torch.matmul(a.transpose(-1,-2),b)
     x=module.linear_z(module.layer_norm_out(x.permute(0,2,3,1)))
-    return x*module.linear_g(z).sigmoid()
+    g=module.linear_g(z)
+    if shader is None:
+        return x*g.sigmoid()
+    out=torch.empty_like(x)
+    shader.gate_mul(x.contiguous(),g.contiguous(),out,threads=out.numel())
+    return out
 
 
 class Adapter:

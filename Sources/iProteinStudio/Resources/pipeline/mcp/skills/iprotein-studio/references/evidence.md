@@ -97,3 +97,18 @@ ligand-confidence route reuses the existing complete-sequence ligand adapter.
 These checks do not establish end-to-end GPU search performance, binding efficacy,
 or score comparability between predictors. Native ligand rollouts still use
 Boltz; multi-framework/conformer allocation excludes native rollout search.
+
+## Deployed adapter identity (0.2.42 / bridge59)
+
+ESMFold2 Full, Fast and Fast-600M now default to BF16 folding-trunk weights; each
+prediction confidence record identifies its actual trunk precision and module
+count. Small numerical changes can move a borderline gate. RFD4's optimized
+path contains the qualified tiled layout and fused pair operations. Do not
+interpret a kernel microbenchmark as a whole-campaign speedup.
+
+Before a campaign requiring these implementations, check `system_detect`'s
+verified `workflow_release` (generation2026111001 or a qualified newer release),
+and the immutable plan's `code_snapshot.workflow_release`. The unchanged
+upstream model revision does not identify these adapter changes. Source commits
+alone do not deploy them. Existing jobs keep their accepted code; create a new
+plan/campaign to use updated workflows.

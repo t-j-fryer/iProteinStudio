@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import importlib.util
 import hashlib
 import json
 import os
@@ -18,6 +19,23 @@ SAFE_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 
 class StudioError(RuntimeError):
     """A user-actionable, fail-closed bridge error."""
+
+
+def workflow_release(pipeline: Path) -> Optional[Dict[str, Any]]:
+    """Read the code actually deployed at this path, not its upstream model tag."""
+    script = Path(pipeline) / 'scripts/workflow_release.py'
+    if not script.is_file():
+        if (Path(pipeline) / 'WORKFLOW_RELEASE.json').is_file():
+            raise StudioError('Workflow release verifier is missing. Reinstall the matching Studio release.')
+        return None
+    spec = importlib.util.spec_from_file_location('_studio_workflow_release', script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    try:
+        value = module.read(pipeline)
+    except (OSError, ValueError) as exc:
+        raise StudioError(str(exc)) from exc
+    return dict(verified=True, **value) if value else None
 
 
 def utc_now() -> str:

@@ -13,8 +13,10 @@ import shutil
 import subprocess
 import sys
 import uuid
-
 sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from workflow_release import check_update
+
 GENERATED = {"__pycache__", "numba_cache", ".DS_Store", ".git"}
 RESERVED = {"agent", "models", "components", "venvs", "src", "toolchains", "receipts",
             "projects", "objects", "msa_cache", "scaffold_msa_cache", "config.json"}
@@ -140,6 +142,7 @@ def stage(resources: Path, root: Path) -> dict:
         if not required.exists():
             raise ValueError(f"Incomplete resource payload: {required.relative_to(resources)}")
     recover(root)
+    check_update(pipeline, root)
     transaction = root / (".headless-stage-" + uuid.uuid4().hex)
     payload = transaction / "payload"
     backup = transaction / "backup"

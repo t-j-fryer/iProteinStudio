@@ -1,4 +1,5 @@
 # Provenance of the vendored NanoHunter pipeline. Regenerate with tools/sync_pipeline.sh.
+studio_workflow_release: WORKFLOW_RELEASE.json; generation2026111001; esmfold2-bf16-rfd4-tiled-pair-v1
 studio_headless_install: transactional-resource-staging-v1; cli-project-create; lab_book/0832-qualify-headless-installation.md
 upstream_repo:   https://github.com/t-j-fryer/iProteinHunter.git
 upstream_commit: 434b8fff6d7d220db57ccafb4b0bd3883dbfe18e (working tree dirty — vendored copy may not match any commit)

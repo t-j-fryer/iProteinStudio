@@ -125,4 +125,38 @@ class AtomicHandoffTests(unittest.TestCase):
             self.assertTrue(adapter.complete(dest,record['identity']))
             self.assertIn('studio_prediction_request.json',record['files'])
 
+    def test_trunk_dtype_defaults_to_bf16_and_refuses_unknown_values(self):
+        with patch.dict('os.environ', {}, clear=False):
+            import os; os.environ.pop(adapter.TRUNK_DTYPE_ENV, None)
+            self.assertEqual(adapter.trunk_dtype(), 'bfloat16')
+        with patch.dict('os.environ', {adapter.TRUNK_DTYPE_ENV: 'float32'}):
+            self.assertEqual(adapter.trunk_dtype(), 'float32')
+        for bad in ('float16', 'bf16', ''):
+            with patch.dict('os.environ', {adapter.TRUNK_DTYPE_ENV: bad}):
+                with self.assertRaisesRegex(ValueError, 'must be one of'): adapter.trunk_dtype()
+
+    @unittest.skipUnless(importlib.util.find_spec('mlx') and importlib.util.find_spec('mlx_lm'), 'needs the ESMFold2 MLX runtime')
+    def test_trunk_precision_casts_only_folding_trunks_and_retraces(self):
+        import mlx.core as mx, mlx.nn as nn
+        from mlx_lm.models import esmfold2 as port
+        class Tiny(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.folding_trunk = port.FoldingTrunk(n_layers=1, d_pair=8)
+                self.head = nn.Linear(8, 8)
+                self.confidence = [port.FoldingTrunk(n_layers=1, d_pair=8)]
+        model = Tiny(); model.set_dtype(mx.float32)
+        z = mx.random.normal((1, 5, 5, 8)); mask = mx.ones((1, 5, 5))
+        before = model.folding_trunk(z, mask=mask)  # traces with FP32 weights
+        self.assertEqual(adapter.set_trunk_precision(model, 'bfloat16', mx, port), 2)
+        self.assertEqual(model.head.weight.dtype, mx.float32)
+        for trunk in (model.folding_trunk, model.confidence[0]):
+            self.assertEqual(trunk.blocks[0].pair_transition.ffn.w12.weight.dtype, mx.bfloat16)
+            self.assertEqual(trunk.blocks[0].tri_mul_out.norm_start.weight.dtype, mx.bfloat16)
+        after = model.folding_trunk(z, mask=mask)
+        self.assertEqual(after.dtype, mx.float32)  # residual returned to the caller's dtype
+        self.assertFalse(mx.array_equal(before, after).item(), 'stale FP32 trace was reused')
+        with self.assertRaisesRegex(RuntimeError, 'no FoldingTrunk'):
+            adapter.set_trunk_precision(nn.Linear(2, 2), 'bfloat16', mx, port)
+
 if __name__ == '__main__': unittest.main()

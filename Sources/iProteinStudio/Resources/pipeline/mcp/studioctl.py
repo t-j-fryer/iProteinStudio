@@ -14,7 +14,7 @@ from server import MCPServer
 
 from iprotein_mcp.broker import cancel_job, list_jobs, load_state, resume_job, run_worker, start_job, wait_job
 from iprotein_mcp.catalog import detect_engines, list_projects, list_runs, query_results, run_status
-from iprotein_mcp.common import StudioError, import_artifact, project_root, project_uuid
+from iprotein_mcp.common import StudioError, import_artifact, project_root, project_uuid, workflow_release, runtime_root
 from iprotein_mcp.plans import admin_plan, iterative_plan, prediction_plan, rfd3_plan, target_prepare_plan
 
 
@@ -91,6 +91,8 @@ def main() -> int:
                 "runtime_root": str(__import__("iprotein_mcp.common", fromlist=["runtime_root"]).runtime_root()),
                 "profiles": servers,
                 "schemas": schemas,
+                "workflow_release": workflow_release(bridge.parent),
+                "installed_workflow_release": workflow_release(runtime_root()),
             })
         elif args.command == "detect":
             emit(detect_engines())

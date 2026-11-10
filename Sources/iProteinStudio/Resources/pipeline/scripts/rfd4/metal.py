@@ -4,6 +4,7 @@ import inspect
 import textwrap
 import types
 import torch
+import torch.nn.functional as F
 from .triangle_metal import Adapter as MetalAdapter
 
 PAIR_METAL = r'''
@@ -42,11 +43,24 @@ def pair_forward(module, values, pairs, mask, shader):
     shader.outer_add_mask(packed.contiguous(),pairs.contiguous(),pair_mask,out,n,c,threads=out.numel())
     pairs=out
     for child in (module.tri_mult_out,module.tri_mult_in,module.transition_out):
-        update=child(pairs,pair_mask)
+        update=transition_unmasked(child,pairs) if child is module.transition_out else child(pairs,pair_mask)
         out=torch.empty_like(pairs)
         shader.add_mask(pairs,update.contiguous(),pair_mask,out,c,threads=out.numel())
         pairs=out
     return pairs
+
+
+def transition_unmasked(transition,pairs):
+    """`RFD4ProteinaPairTransition.forward` without its trailing `* pair_mask`.
+
+    `add_mask` immediately re-applies the same boolean mask, and for m in {0,1}
+    `(pairs + update*m)*m` and `(pairs + update)*m` are the same bfloat16 value: at
+    m=1 the extra multiply is exact, at m=0 both are zero. Dropping it removes one
+    read and one write of the whole pair tensor per pair update. Lab Book 0826.
+    The ReLU is taken in place on linear_1's own fresh output, which nothing else
+    reads, so no value changes and one pair-sized allocation is avoided.
+    """
+    return transition.linear_2(F.relu_(transition.linear_1(transition.layer_norm(pairs))))
 
 
 class SchedulerAdapter:

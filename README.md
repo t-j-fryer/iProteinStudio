@@ -24,6 +24,8 @@ weights, or select engines with `--with-*` flags. No app launch, Swift build,
 sudo, Homebrew or system Python is required. Start with
 `bash install.sh --detect`; see [headless installation](docs/HEADLESS_INSTALL.md)
 for source archives, custom roots, assistant setup and verification.
+Check deployed adapter versions with `studioctl doctor`; see
+[workflow implementations](docs/ENGINE_IMPLEMENTATIONS.md).
 
 Current releases are trusted betas: ad-hoc signed, with Sparkle-signed update
 archives, but not Apple Developer ID signed or notarized. See [licensing status](LICENSING.md).

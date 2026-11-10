@@ -118,10 +118,11 @@ def _normalize_result_rows(dataset: str, rows: List[Dict[str, str]]) -> List[Dic
 
 
 def detect_engines() -> Dict[str, Any]:
+    from .common import workflow_release
     root = runtime_root()
     setup = root / "setup_pipeline.sh"
     if not setup.is_file():
-        return {"runtime_root": str(root), "staged": False, "engines": {}, "message": "Run iProteinStudio once to stage its managed pipeline."}
+        return {"runtime_root": str(root), "staged": False, "engines": {}, "message": "Install Studio's workflow assets through the app or bash install.sh --stage-only."}
     try:
         completed = subprocess.run(
             ["/bin/bash", str(setup), "--detect"],
@@ -143,6 +144,7 @@ def detect_engines() -> Dict[str, Any]:
         "staged": True,
         "exit_code": completed.returncode,
         "engines": engines,
+        "workflow_release": workflow_release(root),
     }
 
 

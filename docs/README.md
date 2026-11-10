@@ -7,6 +7,7 @@
 - [First prediction and design walkthroughs](QUICKSTART.md)
 - [AI assistants and the portable operating skill](AI_ASSISTANTS.md)
 - [Application updates and GitHub Releases](UPDATES_AND_RELEASES.md)
+- [Verify installed workflow implementations](ENGINE_IMPLEMENTATIONS.md)
 - [Jobs, queueing and resume](JOB_QUEUE.md)
 - [Engine progress logs](ENGINE_PROGRESS.md)
 - [Browse results](RESULTS.md)

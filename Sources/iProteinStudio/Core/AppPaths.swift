@@ -278,6 +278,8 @@ enum AppPaths {
         guard let bundled = bundledPipeline else {
             throw NHError.message("Bundled pipeline assets are missing from the app.")
         }
+        let release = try workflowRelease(at: bundled)
+        try validateWorkflowUpdate(from: bundled, to: pipeline)
         try fm.createDirectory(at: runtime, withIntermediateDirectories: true)
         let source = try contentAddressedPipeline(from: bundled)
         let digest = source.lastPathComponent
@@ -288,7 +290,7 @@ enum AppPaths {
             guard try directoryDigest(staged) == digest else {
                 throw NHError.message("Pipeline snapshot checksum verification failed.")
             }
-            let metadata: [String: Any] = [
+            var metadata: [String: Any] = [
                 "schema_version": 2,
                 "created_at": ISO8601DateFormatter().string(from: Date()),
                 "app_version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development",
@@ -297,6 +299,7 @@ enum AppPaths {
                 "content_object": source.path,
                 "materialization": methods,
             ]
+            metadata["workflow_release"] = release
             let data = try JSONSerialization.data(withJSONObject: metadata,
                                                   options: [.prettyPrinted, .sortedKeys])
             try data.write(to: staged.appendingPathComponent("snapshot.json"), options: .atomic)
@@ -481,12 +484,49 @@ enum AppPaths {
     }
 
     /// Copy vendored scripts/examples into the managed pipeline dir (idempotent).
+    static func workflowRelease(at root: URL, verify: Bool = true) throws -> [String: Any]? {
+        let path = root.appendingPathComponent("WORKFLOW_RELEASE.json")
+        guard fm.fileExists(atPath: path.path) else { return nil }
+        let required: Set<String> = ["scripts/esmfold2_predict.py", "scripts/rfd4/metal.py", "scripts/rfd4/triangle_metal.py"]
+        guard let release = try JSONSerialization.jsonObject(with: Data(contentsOf: path)) as? [String: Any],
+              release["schema"] as? Int == 1,
+              let generation = release["generation"] as? Int, generation > 0,
+              let files = release["files"] as? [String: String], Set(files.keys) == required
+        else { throw NHError.message("Invalid workflow release manifest. Reinstall the matching Studio release.") }
+        for (name, expected) in files {
+            guard expected.count == 64 else { throw NHError.message("Invalid workflow adapter checksum: \(name)") }
+            if verify {
+                let data = try Data(contentsOf: root.appendingPathComponent(name))
+                let actual = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+                guard actual == expected else {
+                    throw NHError.message("Workflow adapter differs from its release: \(name). Reinstall the matching Studio release before starting new work.")
+                }
+            }
+        }
+        return release
+    }
+
+    static func validateWorkflowUpdate(from source: URL, to installed: URL) throws {
+        let incoming = try workflowRelease(at: source)
+        guard let current = try workflowRelease(at: installed, verify: false) else { return }
+        guard let incoming,
+              let old = current["generation"] as? Int, let new = incoming["generation"] as? Int,
+              new >= old else {
+            throw NHError.message("This Studio copy contains older workflows than the installed release. Update the app or use the matching headless installer; installed workflows were preserved.")
+        }
+        if current["generation"] as? Int == incoming["generation"] as? Int,
+           !NSDictionary(dictionary: current).isEqual(to: incoming) {
+            throw NHError.message("Different workflow contents use the same release generation. Install a newer, consistently packaged Studio release.")
+        }
+    }
+
     static func stagePipelineAssets(leaseHeld: Bool = false) throws {
         let lease = leaseHeld ? nil : try ExecutionLease(directory: support.appendingPathComponent("agent"))
         defer { withExtendedLifetime(lease) {} }
         guard let src = bundledPipeline else {
             throw NHError.message("Bundled pipeline assets are missing from the app.")
         }
+        try validateWorkflowUpdate(from: src, to: pipeline)
         let items = try fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
         for item in items {
             let dest = pipeline.appendingPathComponent(item.lastPathComponent)

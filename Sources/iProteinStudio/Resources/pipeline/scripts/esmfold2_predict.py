@@ -17,6 +17,34 @@ import uuid
 
 PORT_REVISION = "c26b9af872158d822a8c95589708eedd3b9c0831"
 PROFILES = {"full": (3, 50), "fast": (3, 50), "600": (3, 50)}
+# Pair-trunk weight precision (Lab Book 0819). The pinned port casts the pair to
+# BF16 inside FoldingTrunk, but FP32 weights promoted every Linear/LayerNorm back
+# to FP32. BF16 trunk weights make the trunk run as the port documents. FP32
+# reproduces pre-0819 predictions exactly; it is recorded with every prediction.
+TRUNK_DTYPE_ENV = 'IPROTEINSTUDIO_ESMFOLD2_TRUNK_DTYPE'
+TRUNK_DTYPES = ('bfloat16', 'float32')
+
+
+def trunk_dtype():
+    value = os.environ.get(TRUNK_DTYPE_ENV, 'bfloat16')
+    if value not in TRUNK_DTYPES:
+        raise ValueError(f'{TRUNK_DTYPE_ENV} must be one of {", ".join(TRUNK_DTYPES)}; got {value!r}.')
+    return value
+
+
+def set_trunk_precision(model, dtype_name, mx, esmfold2):
+    """Cast every FoldingTrunk (main, LM encoder, PARCAE coda, confidence) only.
+
+    Must run before the first fold: FoldingTrunk's mx.compile trace captures its
+    weights. Returns the number of trunks cast; zero means the port changed.
+    """
+    trunks = [m for _, m in model.named_modules() if isinstance(m, esmfold2.FoldingTrunk)]
+    if not trunks:
+        raise RuntimeError('ESMFold2 port exposes no FoldingTrunk; refusing to guess trunk precision.')
+    for trunk in trunks:
+        trunk.set_dtype(getattr(mx, dtype_name))
+        trunk._compiled = mx.compile(trunk._apply_blocks)
+    return len(trunks)
 
 
 def sha(path):
@@ -134,6 +162,7 @@ class Session:
         import mlx.core as mx
         from mlx_lm.models import esmc, esmfold2
         from esm.models.esmfold2 import ESMFold2InputBuilder
+        self.trunk_dtype = trunk_dtype()  # validate before loading multi-GB weights
         if not mx.metal.is_available(): raise RuntimeError('ESMFold2 requires Apple Metal; CPU prediction is unavailable.')
         mx.set_default_device(mx.gpu)
         torch.set_num_threads(4)
@@ -159,6 +188,7 @@ class Session:
             lm.load_weights(list(lm.sanitize(weights).items()), strict=True)
             lm.set_dtype(mx.bfloat16); lm.eval(); mx.eval(lm.parameters())
             self.model._esmc = lm
+        self.trunk_count = set_trunk_precision(self.model, self.trunk_dtype, mx, esmfold2)
         self.builder = ESMFold2InputBuilder(ccd_cache=assets / 'ESMFold2')
         self.profile = model
         from prediction_profiles import profile
@@ -232,7 +262,8 @@ class Session:
                               msa_policy='sequence-only' if self.profile in {'fast', '600'} else 'per-chain',
                               mlx_peak_bytes=mx.get_peak_memory(), mlx_active_bytes=mx.get_active_memory(),
                               chunk_size=self.memory_settings['chunk_size'], cache_limit_mib=self.memory_settings['cache_limit_mib'],
-                              model_call_seconds=seconds, upstream_revision=PORT_REVISION)
+                              model_call_seconds=seconds, upstream_revision=PORT_REVISION,
+                              trunk_weight_dtype=self.trunk_dtype, trunk_modules=self.trunk_count)
             if 'iptm' in arrays: confidence['iptm'] = float(arrays['iptm'].reshape(-1)[i])
             confidence['confidence_score'] = confidence.get('iptm', confidence['ptm'])
             if self.profile == '600':

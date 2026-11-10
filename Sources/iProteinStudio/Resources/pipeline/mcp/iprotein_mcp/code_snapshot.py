@@ -4,13 +4,14 @@ import os
 import shutil
 import uuid
 from pathlib import Path
-from .common import canonical_digest, file_digest, StudioError
+from .common import canonical_digest, file_digest, StudioError, workflow_release
 
-NAMES = ('scripts', 'rfd3_scripts', 'rfd3_overlay', 'nanohunter_run.sh', 'examples', 'locks', 'PIPELINE_VERSION', 'THIRD_PARTY_NOTICES.md')
+NAMES = ('scripts', 'rfd3_scripts', 'rfd3_overlay', 'nanohunter_run.sh', 'examples', 'locks', 'PIPELINE_VERSION', 'WORKFLOW_RELEASE.json', 'THIRD_PARTY_NOTICES.md')
 
 def capture(root, store, pipeline=None):
     root, store = Path(root), Path(store)
     code = Path(pipeline).resolve() if pipeline else root
+    release = workflow_release(code)
     sources = {name: code / name for name in NAMES if (code / name).exists()}
     if pipeline:
         # Source/app bundles keep these peers beside pipeline; retained trees
@@ -36,6 +37,8 @@ def capture(root, store, pipeline=None):
     sha = canonical_digest(inventory)
     destination = store / sha
     spec = dict(path=str(destination), sha256=sha, entries=sorted(sources))
+    if release:
+        spec['workflow_release'] = release
     if not destination.exists():
         stage = store / ('.stage-' + uuid.uuid4().hex)
         stage.mkdir(parents=True)
@@ -65,6 +68,7 @@ def verify(spec):
     for name, expected in inventory.items():
         if file_digest(base / name) != expected:
             raise StudioError('Retained adapter changed: ' + name)
+    workflow_release(base)
     return inventory
 
 def provenance(root, spec, originals):

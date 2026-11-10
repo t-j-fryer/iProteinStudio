@@ -1,6 +1,7 @@
 """Execute real asset staging and failure recovery without an app or model inference."""
 from __future__ import annotations
 import fcntl
+import hashlib
 import importlib.util
 import json
 import os
@@ -23,6 +24,19 @@ spec.loader.exec_module(stage_assets)
 
 
 class HeadlessInstallTests(unittest.TestCase):
+    def test_older_payload_cannot_replace_newer_installed_release(self):
+        self.assertEqual(self.run_stage().returncode, 0)
+        manifest = self.root / 'WORKFLOW_RELEASE.json'
+        value = json.loads(manifest.read_text())
+        value['generation'] += 1
+        manifest.write_text(json.dumps(value))
+        before = (self.root / 'scripts/esmfold2_predict.py').read_bytes()
+        result = self.run_stage()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('older workflows', result.stderr)
+        self.assertEqual(json.loads(manifest.read_text()), value)
+        self.assertEqual((self.root / 'scripts/esmfold2_predict.py').read_bytes(), before)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="studio-headless-")
         self.addCleanup(self.temporary.cleanup)
@@ -181,9 +195,14 @@ m.stage(Path(sys.argv[2]),Path(sys.argv[3]))
                          ['--with-boltz','--with-rfd4','--with-esmfold2-600'])
         bundle = self.base / "extracted app/iProteinStudio.app/Contents/Resources/iProteinStudioResources"
         shutil.copytree(resources, bundle)
+        before = {str(p.relative_to(bundle)): hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in bundle.rglob('*') if p.is_file()}
         result = subprocess.run(["/bin/bash", str(bundle/'pipeline/install_cli.sh'), "--root", str(self.root),
                                  "--stage-only"], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+        after = {str(p.relative_to(bundle)): hashlib.sha256(p.read_bytes()).hexdigest()
+                 for p in bundle.rglob('*') if p.is_file()}
+        self.assertEqual(after, before, 'Headless installation modified its signed resource bundle')
         self.assertEqual((self.root/'selected-args').read_text().splitlines(), ['--retry-components','control'])
         info = bundle.parent.parent/'Info.plist'
         info.write_bytes(plistlib.dumps({'IPStudioLocalBeta':'1'}))

@@ -18,6 +18,11 @@ cmp -s "${APP}/Contents/Resources/AppIcon.icns" "${ROOT}/Sources/iProteinStudio/
   || fail "app icon missing or stale"
 [[ -s "${BUNDLE}/pipeline/PIPELINE_VERSION" ]] \
   || fail "SwiftPM resource bundle is missing its pipeline sentinel"
+for resource in WORKFLOW_RELEASE.json scripts/workflow_release.py scripts/esmfold2_predict.py scripts/rfd4/metal.py scripts/rfd4/triangle_metal.py; do
+  cmp -s "${BUNDLE}/pipeline/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/pipeline/${resource}" \
+    || fail "workflow release resource is missing or stale: ${resource}"
+done
+/usr/bin/python3 "${BUNDLE}/pipeline/scripts/workflow_release.py" "${BUNDLE}/pipeline" >/dev/null
 [[ -s "${BUNDLE}/pipeline/scripts/storage_policy.py" ]] \
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
 for resource in prediction_profiles.json prediction_profiles.py inference_optimizations.py openfold_mps.py openfold_session.py mpnn_worker.py openfold_positions.py prediction_resume.py resident_predictor.py validate_prediction_geometry.py prediction_output_reporting.py laser_sampling.py run_lasermpnn_seeded.py nise/proposal_pipeline.py runtime_package.py runtime_view.py engine_registry.py engine_registry.json engine_adapters.py engine_progress.py progress_bootstrap/sitecustomize.py setup_portable.py runtime_releases.json runtime_assets.json; do
