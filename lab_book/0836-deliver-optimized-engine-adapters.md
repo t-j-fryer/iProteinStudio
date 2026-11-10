@@ -4,7 +4,7 @@ title: Deliver optimized engine adapters across app and headless workflows
 date: 2026-11-10
 author: Codex
 type: implementation
-status: in-progress
+status: complete
 machine: Apple M4 Max, 40 GPU cores, 64 GB unified memory
 tags: [esmfold2, rfd4, release, cli, mcp, provenance]
 ---
@@ -85,13 +85,37 @@ bash Tests/test_packaged_resource_bundle.sh 'build/iProteinStudio Beta.app'
 
 ## Limits and what was not tested
 
-No new GPU inference or benchmark yet, no Enverge/M5 connection, no claim of
+No new GPU inference or benchmark for this delivery, no Enverge/M5 connection, no claim of
 universal speedup or cross-hardware numerical equivalence. Running scientific
 work and immutable prior outputs have not been changed. Public publication and
 app replacement are not complete until recorded below.
 
+## Public delivery
+
+The user explicitly approved publication and both app replacements on2026-11-10.
+[Release0.2.42/build95](https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.42-beta)
+is tagged at clean packaging commit b829135d050c29d860e46e4c4f417d25d2281bf9.
+Source qualification passed71/71 hosted commands with no failures:
+[GitHub run](https://github.com/t-j-fryer/iProteinStudio/actions/runs/42881502747).
+
+Independently downloaded ZIP/DMG, checksums and provenance match the prepared
+assets. CryptoKit verifies the ZIP's Ed25519 update signature; all changed bundled
+resources and the optimized manifest match source, with no model weights. The
+published-archives receipt records verification before activating this commit's
+signed update feed. Source, tag and feed are kept distinct for reproducibility.
+
+Installed public0.2.42 and Beta0.2.42-dev both report build95, pass strict signatures
+and were reopened using quit/open commands only. Previous bundles are retained.
+All three adapter hashes match both bundles and the shared staged pipeline after
+launch. A fresh production code snapshot verifies the same release and its full
+inventory. Fresh CLI/MCP sessions report bridge59/server1.20.0 and checked release
+generation2026111001. The existing MCP connection attached to this chat remains
+loaded with the previous server and requires reconnecting; new sessions use the
+updated code. No workspace UI or confidential molecules were viewed, no existing
+job snapshot/raw output was changed, and no new model inference was run.
+
 ## Next
 
-Complete validation, inspect the isolated public diff, build/package both app
-variants, obtain explicit public delivery/restart authorization if needed, then
-verify installed files, bridge diagnostics and newly retained snapshot identities.
+Use a new accepted plan/campaign for the optimized implementation; reconnect
+already-open MCP clients. Existing campaigns intentionally keep their recorded
+code. Enverge/M5 qualification remains a separate task after remote access.

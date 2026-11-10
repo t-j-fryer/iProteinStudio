@@ -1,6 +1,6 @@
 # Public release candidate to do
 
-- [ ] Deliver ESMFold2 BF16/RFD4 tiled-pair optimizations as0.2.42/build95 with bridge59 and checked deployment/snapshot identities (Lab0836).
+- [x] Publish/install ESMFold2 BF16/RFD4 tiled-pair optimizations as0.2.42/build95 with bridge59 and checked deployment/snapshot identities (Lab0836).
 
 - [x] Publish qualified headless GitHub/app-bundle installation and CLI onboarding as0.2.41/build94; verify actual downloads and public source archive installation (Lab0832).
 
