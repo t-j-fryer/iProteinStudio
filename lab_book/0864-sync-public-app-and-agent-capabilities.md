@@ -146,3 +146,40 @@ The revised oversized-plan regression passes through the actual MCP recipe
 schema and retained plan, and explicit enforce still refuses the same workload.
 The earlier fake-worker fixture suite also passes under simulated7GiB admission;
 production memory-admission27/27and override8/8tests remain green.
+
+## Public delivery completed; Beta restart pending
+
+Public0.2.44/build102 is published at
+https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.44-beta
+Shipping source/tag is301405ee00b4e220f49f59d45f18f676d694db30. The exact
+shipping commit passes the hosted73-command suite (run43378350757); the local
+73-command suite and22synthetic spatial/result tests also pass. The composed
+recipe regression verifies retained override and active enforce refusal.
+
+The public ZIP/DMG were independently downloaded and match the checked candidate,
+including the CryptoKit-verified Sparkle signature, strict extracted-app signature
+and complete59-file bridge/review resource inventory. Actual GitHub README and
+shipping source archive match; the source archive and sealed app bundle both
+install CLI/MCP61 headlessly. The old0.2.43draft was removed without publishing
+or moving its retained audit tag.
+
+The public app was observed closed and replaced from the verified public ZIP;
+its installed version is0.2.44/build102. Its own headless installer transactionally
+staged shared CLI/MCP61, preserving engine packages, weights, jobs and projects.
+Fresh actual installed read/run MCP processes report server1.21.1, expose the
+correct profile tools and serve refreshed skills. A newly captured production
+code snapshot verifies378files, generation2026111302 and the exact release's
+optimized adapters/review bridge. No private workspace was viewed and no job was
+paused, resumed or altered. The public app remains closed.
+
+Matching Beta0.2.44-dev/build102 is built, signed and resource-verified. Installed
+Beta99 is still running; the asynchronous restart-approval question remains
+pending. Its previous bundle and the previous public95 bundle are backed up.
+This entry stays in progress solely for that remaining user-controlled restart.
+Reconnect existing MCP clients to load new tool schemas; separately copied skills
+must be refreshed, though no standalone Studio skill copies were found locally.
+
+The signed update feed is activated only after this public-download verification.
+Delivery receipts are under`artifacts/0864-public-sync/release44/`; earlier receipts
+are the explicitly superseded, unpublished0.2.43candidate. Structural clustering,
+private experiments and unqualified backlog remain outside this promotion.

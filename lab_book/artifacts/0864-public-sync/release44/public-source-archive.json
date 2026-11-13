@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "passed": true,
+  "source_commit": "301405ee00b4e220f49f59d45f18f676d694db30",
+  "source_archive_sha256": "5f3ae66ebb26f984af5308255108bec690aaab81c55292d7435586520b0111ca",
+  "bridge": 61,
+  "generation": 2026111302,
+  "source_and_installed_versions_verified": true
+}

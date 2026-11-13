@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "status": "public-delivered-beta-restart-pending",
+  "version": "0.2.44",
+  "build": 102,
+  "bridge": 61,
+  "server": "1.21.1",
+  "shipping_commit": "301405ee00b4e220f49f59d45f18f676d694db30",
+  "release_url": "https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.44-beta",
+  "local_offline_commands": {
+    "passed": 73,
+    "total": 73
+  },
+  "hosted_shipping_checks": "success",
+  "hosted_run": "https://github.com/t-j-fryer/iProteinStudio/actions/runs/43378350757",
+  "synthetic_spatial_result_tests": {
+    "passed": 22,
+    "total": 22
+  },
+  "actual_bundle_bridge_resources": 59,
+  "production_snapshot_files": 378,
+  "public_app_installed": true,
+  "beta_build_ready": 102,
+  "beta_installed_build": 99,
+  "beta_restart_approval_pending": true,
+  "private_workspaces_viewed": false,
+  "existing_jobs_changed": false,
+  "not_tested": [
+    "New real-model inference/throughput",
+    "Private-molecule GUI soak",
+    "Another physical Mac"
+  ]
+}

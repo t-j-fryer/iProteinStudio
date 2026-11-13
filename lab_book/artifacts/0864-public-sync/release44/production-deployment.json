@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "passed": true,
+  "public_app_version": "0.2.44",
+  "public_app_build": 102,
+  "bridge": 61,
+  "server": "1.21.1",
+  "workflow_generation": 2026111302,
+  "read_run_profiles_verified": true,
+  "skills_verified": true,
+  "code_snapshot_sha256": "65a2d7eec75e810d3d0c0bae2989616cdbde9bf2445e8a3cb0802bd03b3d7106",
+  "code_snapshot_files": 378,
+  "optimized_adapter_hashes_unchanged": true,
+  "private_workspaces_viewed": false,
+  "existing_jobs_changed": false
+}

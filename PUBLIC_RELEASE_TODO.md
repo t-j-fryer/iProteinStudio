@@ -1,6 +1,6 @@
 # Public release candidate to do
 
-- [x] Prepare and qualify0.2.44/build102: memory review, managed-workspace discovery, bounded results, retrospective/spatial filters, CSV, Paper pocket and ChimeraX; bridge61/CLI/skills/README refreshed. Publication and approved installation pending (Lab0864).
+- [x] Publish/install0.2.44/build102 with bridge61: reviewed Beta feature promotion, recipe-memory parity, updated README/skills, verified public downloads/feed and actual local CLI/MCP deployment (Lab0864).
 
 - [x] Publish/install ESMFold2 BF16/RFD4 tiled-pair optimizations as0.2.42/build95 with bridge59 and checked deployment/snapshot identities (Lab0836).
 

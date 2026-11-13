@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "version": "0.2.44",
+  "build": 102,
+  "bridge": 61,
+  "source_commit": "301405ee00b4e220f49f59d45f18f676d694db30",
+  "sparkle_signature_verified": true,
+  "archive_sha256": "2ff10d2dad64d5b70d72bc2eb9aaac75f1d8414796532a20b25f5ad35682e0c6",
+  "dmg_sha256": "02379c9a5db56fa497dec810261fc7554efc2f7227eb5dfa01ec0a5f85f00104"
+}
