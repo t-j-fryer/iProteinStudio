@@ -104,3 +104,17 @@ The public candidate excludes all unrelated private experiments/research; the
 preserved paper baseline remains unchanged. New source is backed up privately
 at5091da25. ZIP/DMG packaging, hosted checks, published downloads/feed and approved
 local app installation are the remaining delivery steps.
+
+## Hosted fixture correction
+
+Hosted run43375528858passed72/73commands. Two cases within the newly enabled
+composition/export suite used inert fake workers but inherited real-model memory
+admission; live preflight correctly refused their7.8GiB model profile on the
+runner's14GiB host under its5.6GiB budget. The test now explicitly records an
+inert-job memory override in the frozen plan. Production memory admission,
+shipping code and scientific settings are unchanged. Local actual worker tests
+and a new hosted run verify the correction.
+
+The app source/tag remains9043cf62; its signed ZIP/DMG already match that source.
+The following public commit changes the test fixture and qualification record
+only. The draft release stays unpublished until hosted qualification passes.

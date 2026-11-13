@@ -46,7 +46,10 @@ print('Completed fixture',flush=True)
     def arguments(self):
         return {'project':'demo','run_name':'batch','common':{'template_path':str(self.template),'arguments':['--workflow','protein','--sequence-designer','solublempnn','--num-opt-cycles','1','--iptm-threshold','0.7','--predictor-seed','42']},'engines':[{'predictor':'boltz'},{'predictor':'intellifold','model':'v2-flash'}],'trajectories_per_engine':2}
     def test_batch_executes_and_checkpoint_does_not_repeat_children(self):
-        plan=composition.iterative_batch_plan(self.arguments())
+        # Inert subprocesses load no model; record their explicit test override
+        # so host RAM/ambient load cannot block this protocol/resume fixture.
+        # Production admission is exercised separately in the memory suite.
+        plan=composition.iterative_batch_plan(dict(self.arguments(), memory_policy='override'))
         job=broker.start_job(plan['id'],plan['sha256'])
         deadline=time.monotonic()+25
         while time.monotonic()<deadline:
@@ -71,7 +74,7 @@ print('Completed fixture',flush=True)
         self.fail(str(state))
     def test_failed_batch_resumes_only_incomplete_child(self):
         marker=self.root/'projects/demo/fail-second';marker.write_text('fail')
-        plan=composition.iterative_batch_plan(self.arguments());job=broker.start_job(plan['id'],plan['sha256'])
+        plan=composition.iterative_batch_plan(dict(self.arguments(), memory_policy='override'));job=broker.start_job(plan['id'],plan['sha256'])
         self.assertEqual(self.terminal(job['id'])['status'],'failed')
         marker.unlink();broker.resume_job(job['id'])
         self.assertEqual(self.terminal(job['id'])['status'],'completed')
