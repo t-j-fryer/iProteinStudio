@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "passed": true,
+  "verified_at": "2026-11-13T16:00:34.218504+00:00",
+  "beta_version": "0.2.44-dev",
+  "beta_build": 102,
+  "beta_reopened": true,
+  "quit_open_commands_only": true,
+  "old_bundle_backup_verified": true,
+  "workspace_viewed": false,
+  "scientific_jobs_changed": false,
+  "shared_bridge": 61,
+  "shared_workflow_generation": 2026111302
+}

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "public-delivered-beta-restart-pending",
+  "status": "complete",
   "version": "0.2.44",
   "build": 102,
   "bridge": 61,
@@ -21,13 +21,15 @@
   "production_snapshot_files": 378,
   "public_app_installed": true,
   "beta_build_ready": 102,
-  "beta_installed_build": 99,
-  "beta_restart_approval_pending": true,
+  "beta_installed_build": 102,
+  "beta_restart_approval_pending": false,
   "private_workspaces_viewed": false,
   "existing_jobs_changed": false,
   "not_tested": [
     "New real-model inference/throughput",
     "Private-molecule GUI soak",
     "Another physical Mac"
-  ]
+  ],
+  "beta_reopened": true,
+  "beta_activation_receipt": "beta-activation.json"
 }

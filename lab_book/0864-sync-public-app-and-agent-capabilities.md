@@ -4,7 +4,7 @@ title: Synchronise public app and agent capabilities
 date: 2026-11-13
 author: Codex
 type: implementation
-status: in-progress
+status: complete
 machine: Apple M4 Max; CPU contract tests and packaging only
 tags: [release, app, mcp, cli, results, documentation]
 ---
@@ -183,3 +183,21 @@ The signed update feed is activated only after this public-download verification
 Delivery receipts are under`artifacts/0864-public-sync/release44/`; earlier receipts
 are the explicitly superseded, unpublished0.2.43candidate. Structural clustering,
 private experiments and unqualified backlog remain outside this promotion.
+
+## Approved Beta activation completed —2026-11-13
+
+The user approved the pending Beta restart. The final102candidate supersedes
+101with the composed-memory-policy fix, as explained before activation.
+Using quit/open commands only, closed Beta99, verified the retained99backup,
+installed the already signed/resource-qualified0.2.44-dev/build102 bundle,
+verified its strict signature and full59-file packaged bridge inventory, and
+reopened the installed app. Lifecycle metadata confirms it is running.
+
+Installed Beta reports102and its critical adapter/review/server files match
+source. Shared CLI/MCP remains61at workflow generation2026111302; Beta did not
+stage or alter shared engines. No workspace was viewed and no scientific job
+was paused, resumed or changed. The initial activation receipt write lacked
+its output directory; the directory was created and running/version/resource
+state rechecked without a second restart. `release44/beta-activation.json`
+records the completed activation. All requested delivery/activation work is
+now complete; existing MCP clients still reconnect to refresh cached schemas.
