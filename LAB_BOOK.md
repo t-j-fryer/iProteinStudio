@@ -1,5 +1,7 @@
 # Lab Book
 
+- [0864 — Synchronise public app and agent capabilities](lab_book/0864-sync-public-app-and-agent-capabilities.md): reviewed results/memory/viewer promotion, bridge60 parity and0.2.43 release qualification.
+
 - [0836 — Deliver optimized adapters across app and headless workflows](lab_book/0836-deliver-optimized-engine-adapters.md): checked release identities, downgrade rejection and deployed/snapshot provenance; packaging and installation qualification.
 
 - [0827 — Public power controls and GitHub audit](lab_book/0827-publish-power-and-audit-github.md): reviewed power UI, private branch backup, CI status and public0.2.40/build93 delivery.

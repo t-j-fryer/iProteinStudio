@@ -32,7 +32,7 @@ final class RFD4Controller: ObservableObject {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try RunNaming.write(name, to: directory)
             _ = try AppPaths.createPipelineSnapshot(in: directory)
-            var frozen = request
+            var frozen = request.newRunRequest
             let imports = directory.appendingPathComponent("imports")
             try FileManager.default.createDirectory(at: imports, withIntermediateDirectories: true)
             func copy(_ path: String) throws -> String {

@@ -30,7 +30,7 @@ class ReleaseTests(unittest.TestCase):
         value = workflow_release(self.source)
         self.assertTrue(value['verified'])
         self.assertEqual(value['esmfold2']['trunk_weight_dtype'], 'bfloat16')
-        self.assertEqual(value['generation'], 2026111001)
+        self.assertEqual(value['generation'], 2026111301)
         (self.source / 'scripts/esmfold2_predict.py').write_text('stale adapter')
         with self.assertRaisesRegex(StudioError, 'differs from its release'):
             workflow_release(self.source)
@@ -64,7 +64,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_bridge_freezes_release_and_preserves_historical_snapshots(self):
         spec = code_snapshot.capture(self.source, self.root / 'objects', pipeline=self.source)
-        self.assertEqual(spec['workflow_release']['generation'], 2026111001)
+        self.assertEqual(spec['workflow_release']['generation'], 2026111301)
         frozen = Path(spec['path'])
         self.assertEqual(release.read(frozen), release.read(self.source))
         (self.source / 'scripts/rfd4/metal.py').write_text('later code')
@@ -80,7 +80,7 @@ class ReleaseTests(unittest.TestCase):
     def test_cli_doctor_reports_the_executable_release(self):
         result = subprocess.run([sys.executable, str(PIPE / 'mcp/studioctl.py'), 'doctor'],
                                 capture_output=True, text=True, check=True)
-        self.assertEqual(json.loads(result.stdout)['workflow_release']['generation'], 2026111001)
+        self.assertEqual(json.loads(result.stdout)['workflow_release']['generation'], 2026111301)
 
 
 if __name__ == '__main__':

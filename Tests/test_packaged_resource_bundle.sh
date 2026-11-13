@@ -23,6 +23,12 @@ for resource in WORKFLOW_RELEASE.json scripts/workflow_release.py scripts/esmfol
     || fail "workflow release resource is missing or stale: ${resource}"
 done
 /usr/bin/python3 "${BUNDLE}/pipeline/scripts/workflow_release.py" "${BUNDLE}/pipeline" >/dev/null
+for resource in viewer.html studio-adapter.js studio-pocket.js; do
+  cmp -s "${BUNDLE}/web/py2dmol/${resource}" "${ROOT}/Sources/iProteinStudio/Resources/web/py2dmol/${resource}" \
+    || fail "shared structure viewer resource is missing or stale: ${resource}"
+done
+cmp -s "${BUNDLE}/web/mol/3Dmol-min.js" "${ROOT}/Sources/iProteinStudio/Resources/web/mol/3Dmol-min.js" \
+  || fail "surface renderer is missing or stale"
 [[ -s "${BUNDLE}/pipeline/scripts/storage_policy.py" ]] \
   || fail "SwiftPM resource bundle is missing the lossless storage policy"
 for resource in prediction_profiles.json prediction_profiles.py inference_optimizations.py openfold_mps.py openfold_session.py mpnn_worker.py openfold_positions.py prediction_resume.py resident_predictor.py validate_prediction_geometry.py prediction_output_reporting.py laser_sampling.py run_lasermpnn_seeded.py nise/proposal_pipeline.py runtime_package.py runtime_view.py engine_registry.py engine_registry.json engine_adapters.py engine_progress.py progress_bootstrap/sitecustomize.py setup_portable.py runtime_releases.json runtime_assets.json; do
@@ -71,6 +77,22 @@ for resource in ligand_atoms.py atom_geometry.py nesso_worker.py nesso_screen.py
                 nesso_assets/protocol.json nesso_assets/requirements.lock nesso_assets/nesso_mps.patch nesso_assets/LICENSE; do
   [[ -s "${BUNDLE}/pipeline/scripts/nise/${resource}" ]] || fail "missing NESSO resource: ${resource}"
 done
+# Verify the full bridge/skill/template payload, not only its version sentinel.
+/usr/bin/python3 - "${ROOT}/Sources/iProteinStudio/Resources/pipeline" "${BUNDLE}/pipeline" <<'PYRESOURCES'
+import hashlib, sys
+from pathlib import Path
+source, bundle = map(Path, sys.argv[1:])
+files = [source/'scripts/results_spatial.py'] + sorted((source/'mcp').rglob('*'))
+checked = 0
+for path in files:
+    if not path.is_file() or '__pycache__' in path.parts or path.suffix == '.pyc': continue
+    relative = path.relative_to(source)
+    target = bundle/relative
+    if not target.is_file() or hashlib.sha256(path.read_bytes()).digest() != hashlib.sha256(target.read_bytes()).digest():
+        raise SystemExit('FAIL bridge/review resource missing or stale: '+str(relative))
+    checked += 1
+print('PASS complete packaged bridge/review resource inventory:',checked,'files')
+PYRESOURCES
 [[ -s "${BUNDLE}/pipeline/mcp/server.py" ]] \
   || fail "resource bundle is missing the MCP server"
 [[ "$(tr -d '[:space:]' < "${BUNDLE}/pipeline/mcp/MCP_VERSION")" == "$(tr -d '[:space:]' < "${ROOT}/Sources/iProteinStudio/Resources/pipeline/mcp/MCP_VERSION")" ]] \

@@ -432,18 +432,6 @@ struct RFD4ConfigurationFields: View {
                 DisclosureGroup("Execution") {
                     VStack(alignment: .leading, spacing: 8) {
                         DisclosureGroup("Mac power mode") { MacPowerModeControl() }
-                        Toggle("Use optimized GPU operations (default for new jobs)", isOn: request.optimized_kernels)
-                        Text("Combines GPU operations while preserving the model, weights and sampling steps. The tested outputs were identical to the standard implementation, including sequences and coordinates. This is a speed option; biological accuracy was not independently compared.").font(.caption)
-                        Text("Reference comparisons run during developer validation, not during your design job. Each requested design is generated once; completed outputs are checked for finite values, sequence identity and complete sampling before reuse.").font(.caption).foregroundStyle(.secondary)
-                        DisclosureGroup("Measured speed and output agreement") {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("M4 Max · 40 GPU cores · 64 GB · warmed 64/128-residue generation")
-                                    .font(.caption.weight(.semibold))
-                                Text("Triangle operations: 5.5–12.9% less generation time in the seven consistently faster test settings. One other setting was inconclusive. The added pair operations saved a further 8.2–12.2% against that triangle baseline in a separate test. These are separate comparisons, not a measured combined speedup.")
-                                Text("All saved output tensors matched exactly in those comparisons (0 Å coordinate difference). For a 216-token SUMO–binder first-call check, standard/optimized generation took 41.50/41.67 seconds: identical outputs, but no speed advantage in that single comparison.")
-                                Text("These timings exclude model loading, input preparation, export and downstream prediction. They do not establish a whole-workflow speedup or unchanged binding success across targets. Sources: Lab Books 0502, 0506 and 0514; details in docs/RFD4.md.")
-                            }.font(.caption).foregroundStyle(.secondary)
-                        }
                         MemoryPolicyControl()
                     }.padding(8)
                 }

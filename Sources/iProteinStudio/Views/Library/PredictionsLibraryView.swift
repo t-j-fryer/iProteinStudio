@@ -198,6 +198,9 @@ struct PredictionRow: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            if let path = predictions.cifPath(for: record) {
+                ExternalStructureViewerButton(structureURL: URL(fileURLWithPath: path))
+            }
             Menu {
                 Button("Rename…", action: rename)
                 Button("Reveal in Finder", action: reveal)

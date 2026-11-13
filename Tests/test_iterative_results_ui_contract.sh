@@ -29,8 +29,10 @@ rg -q 'LiveGroupedRunResultsPane' "${LIVE}" \
   || fail "live Structures/Hits tabs do not share the durable grouped browser"
 rg -q 'StudioResultVariantSection' "${GROUPED}" \
   || fail "grouped browser does not nest iterative cycles and RFD3 derivatives"
-rg -q 'StructurePreview' "${GROUPED}" \
-  || fail "compact comparison cards still use the control-heavy structure viewer"
+! rg -q 'StructurePreview' "${GROUPED}" \
+  || fail "compact comparison cards allocate a molecular web view"
+rg -q 'StudioResultArtifactSummaryCard' "${GROUPED}" \
+  || fail "compact comparison cards have no lightweight summary"
 rg -q 'SelectedResultViewer' "${GROUPED}" \
   || fail "grouped browser has no spacious interactive structure viewer"
 rg -q 'StructureTrajectoryViewer' "${GROUPED}" \

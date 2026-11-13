@@ -28,7 +28,8 @@ struct RunResultsView: View {
     }
     @State private var selectedID: String?
     @State private var section: ResultsSection = .overview
-    @State private var selectedMetric: StudioResultMetric.Kind = .iptm
+    @StateObject private var overview = ResultOverviewModel()
+    @State private var selectedMetric: StudioResultMetric.Kind?
 
     init(root: URL, workflow: StudioWorkflow, title: String? = nil, embedded: Bool = false) {
         self.root = root
@@ -55,7 +56,7 @@ struct RunResultsView: View {
         items.first { $0.id == selectedID } ?? items.first
     }
 
-    private var groups: [StudioResultGroup] { RunResultsLoader.groups(from: items) }
+    private var groups: [StudioResultGroup] { overview.index.groups }
 
     private var iterativeHitSummary: String? {
         guard workflow == .iterative, !items.isEmpty else { return nil }
@@ -131,7 +132,7 @@ struct RunResultsView: View {
             Divider()
             Group {
                 Picker("Results section", selection: $section) {
-                    ForEach(ResultsSection.allCases.filter { workflow != .prediction || $0 != .hits }) { Text($0.rawValue).tag($0) }
+                    ForEach(ResultsSection.allCases) { Text(workflow == .prediction && $0 == .hits ? "Filter & export" : $0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -140,12 +141,13 @@ struct RunResultsView: View {
                 switch section {
                 case .overview: resultsOverview
                 case .structures: GroupedRunResultsBrowser(items: items)
-                case .hits: GroupedRunResultsBrowser(items: items, hitsOnly: true)
+                case .hits: ResultHitReviewView(items: items, root: root, initialMetric: effectiveDistributionMetric, reviewAllByDefault: workflow == .prediction)
                 }
             }
         }
         .frame(minWidth: 760, idealWidth: 1100, minHeight: 560, idealHeight: 780)
         .accessibilityIdentifier("run-results-browser")
+        .onChange(of: items, initial: true) { _, value in overview.update(value) }
         .task(id: root.path) {
             while !Task.isCancelled {
                 await refresh()
@@ -172,7 +174,7 @@ struct RunResultsView: View {
             }
             Spacer()
             Group {
-                Button { Task { await refresh() } } label: {
+                Button { Task { await refresh(forceReload: true) } } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
             }
@@ -221,29 +223,22 @@ struct RunResultsView: View {
     }
 
     private var availableMetrics: [StudioResultMetric.Kind] {
-        StudioResultMetric.Kind.allCases.filter { kind in
-            !distributionValues(for: kind).isEmpty
-        }
+        StudioResultMetric.Kind.allCases.filter { overview.index.distributions[$0]?.isEmpty == false }
     }
 
     private func distributionValues(for kind: StudioResultMetric.Kind) -> [Double] {
-        groups.flatMap { group -> [Double] in
-            if group.variants.isEmpty {
-                return group.metric(kind).map { [$0.value] } ?? []
-            }
-            return group.variants.compactMap { $0.metric(kind)?.value }
-        }
+        overview.index.distributions[kind] ?? []
     }
 
     /// A campaign can move from backbone-only metrics to predictor metrics
     /// while this sheet is open. Never leave the chart bound to a metric that
     /// disappeared during that stage transition.
     private var effectiveDistributionMetric: StudioResultMetric.Kind? {
-        if availableMetrics.contains(selectedMetric),
+        if let selectedMetric, availableMetrics.contains(selectedMetric),
            !distributionValues(for: selectedMetric).isEmpty {
             return selectedMetric
         }
-        return Self.preferredDistributionMetric(in: items)
+        return overview.index.defaultMetric
     }
 
     private var resultsOverview: some View {
@@ -266,7 +261,7 @@ struct RunResultsView: View {
                         }
                     }
                 } else if workflow == .rfdiffusion3 {
-                    Text("Backbone → MPNN sequence derivative → complex and binder-alone checks. Completed models remain visible even when outside the ranked shortlist; only recorded filter verdicts count as hits.")
+                    Text("Backbone → MPNN sequence derivative → complex and binder-alone checks. Completed models remain visible even when outside the ranked shortlist; saved hit verdicts remain available alongside custom retrospective filters in Hits.")
                         .font(.caption).foregroundStyle(.secondary)
                 } else if workflow == .rfd4 {
                     Text("Families group generated backbones, native refolds and search proposals. Use stage and score-source filters to distinguish generation from prediction. Search gates are not experimental hit verdicts.")
@@ -300,14 +295,20 @@ struct RunResultsView: View {
                         Spacer()
                         Picker("Metric", selection: Binding(
                             get: { metric }, set: { selectedMetric = $0 })) {
-                            ForEach(availableMetrics, id: \.self) { kind in Text(kind.label).tag(kind) }
+                            ForEach(Array(Set(availableMetrics + [metric])).sorted { $0.label < $1.label }, id: \.self) { kind in Text(kind.label).tag(kind) }
                         }
                         .frame(width: 230)
                     }
-                    MetricDistributionChart(kind: metric, values: distributionValues(for: metric))
-                        .frame(minHeight: 320)
-                        .padding(14)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(.quaternary.opacity(0.20)))
+                    if distributionValues(for: metric).isEmpty {
+                        Text("\(metric.label) has not been recorded for this selection. Choose another metric to inspect available scores.")
+                            .font(.callout).foregroundStyle(.secondary)
+                    } else {
+                        MetricDistributionChart(kind: metric, values: distributionValues(for: metric))
+                            .frame(minHeight: 320)
+                            .padding(14)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(.quaternary.opacity(0.20)))
+                    }
+                    ResultCycleMedianChart(items: [], metric: metric, prepared: overview.index.medians[metric] ?? [])
                 }
 
                 HStack {
@@ -319,7 +320,6 @@ struct RunResultsView: View {
                     Button { section = .hits } label: {
                         Label("Browse Hits", systemImage: "checkmark.seal")
                     }
-                    .disabled(!groups.contains { $0.isHit == true })
                     }
                     Spacer()
                     Text("Updates automatically while the campaign is running")
@@ -330,23 +330,11 @@ struct RunResultsView: View {
         }
     }
 
-    private func refresh() async {
-        let loaded = await ResultsRepository.shared.load(root: root, workflow: workflow)
+    private func refresh(forceReload: Bool = false) async {
+        let loaded = await ResultsRepository.shared.load(root: root, workflow: workflow, forceReload: forceReload)
         guard !Task.isCancelled else { return }
-        allItems = loaded
+        if loaded != allItems { allItems = loaded }
         if !loaded.contains(where: { $0.id == selectedID }) { selectedID = loaded.first?.id }
-        if !availableMetrics.contains(selectedMetric),
-           let preferred = Self.preferredDistributionMetric(in: loaded) {
-            selectedMetric = preferred
-        }
-    }
-
-    private static func preferredDistributionMetric(in items: [StudioResultItem]) -> StudioResultMetric.Kind? {
-        let order: [StudioResultMetric.Kind] = [.iptm, .ipsaeMinimum, .motifInputRMSD, .motifCandidateRMSD, .motifPredictionRMSD,
-                                                .motifInsertionRMSD, .plddt, .rankingScore,
-                                                .backboneCAValidity]
-        return order.first { kind in items.contains { $0.metrics.contains { $0.kind == kind } } }
-            ?? items.first?.metrics.first?.kind
     }
 }
 
@@ -501,6 +489,7 @@ private struct RunResultDetail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             detailHeader
+            ExternalStructureViewerButton(structureURL: item.structureURL, recordedChains: item.recordedDesignChains).padding(.horizontal, 14).padding(.bottom, 8)
             Divider()
             LigandGeometryStructureViewer(structureURL: item.structureURL)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -664,7 +653,9 @@ private struct MetricTile: View {
              .complexRMSD, .binderBackboneRMSD, .binderRMSD,
              .motifInsertionRMSD, .motifPredictionRMSD, .motifInputRMSD, .motifPartnerRMSD, .motifCandidateRMSD, .motifMaximumDrift: return .orange
         case .pocketFractionWithinCutoff: return .indigo
-        case .bindingProbability: return .purple
+        case .spatialMinimumDistance, .spatialMaximumDistance: return .orange
+        case .ligandBuriedPercent, .ligandFreeSASA, .ligandBoundSASA, .recordedGeometryPass: return .purple
+        case .bindingProbability, .boltzCombinedScore: return .purple
         case .psichicBindingProxy, .psichicAffinity, .psichicNonbinder, .psichicAntagonist, .psichicAgonist, .nessoBindingProbability, .nessoAffinity, .nessoPlacementEntropy, .nessoInterfaceEntropy, .nessoScreeningScore: return .indigo
         case .backboneCAValidity: return .cyan
         case .rankingScore: return .secondary

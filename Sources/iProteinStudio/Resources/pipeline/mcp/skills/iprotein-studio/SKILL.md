@@ -86,6 +86,11 @@ do not choose a different best cycle per arm without declaring that analysis.
 Do not pool engine-specific scores as though calibrated. Return the result,
 candidate IDs, artifact references and remaining uncertainty succinctly.
 
+For retrospective filtering, scored-sequence CSV, exact-pose proximity/burial or
+manuscript-style ChimeraX exports, read [result review](references/results-review.md)
+(`iprotein://skills/studio/results`).
+Discover bridge60 tools before calling them; reconnect clients after deployment.
+
 ## Pipeline composition
 
 Use `pipeline_catalog` and `pipeline_recipe_plan` for supported executable v2

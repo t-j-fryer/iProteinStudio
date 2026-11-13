@@ -22,7 +22,7 @@ from iprotein_mcp.nise import nise_plan
 from iprotein_mcp.rfd4 import plan as rfd4_plan
 from iprotein_mcp.motif_beta import plan as motif_beta_plan, catalog as motif_beta_catalog
 from iprotein_mcp.plans import admin_plan, iterative_plan, load_plan, prediction_plan, rfd3_plan, target_prepare_plan
-from iprotein_mcp import exports, research, composition
+from iprotein_mcp import exports, research, composition, review
 from iprotein_mcp.recipes import SCHEMA as RECIPE_SCHEMA, recipe_catalog, recipe_check, recipe_compare
 
 
@@ -54,7 +54,9 @@ SERVER_INSTRUCTIONS = (
     "derivative, not automatically to its parent. Read iprotein://skills/studio for the portable operating "
     "instructions. Use pipeline_catalog for supported executable v2 recipes; workshop v1 recipes are not plans. "
     "Use candidates_list and candidate_export to preserve exact identities, and export_read to deliver files "
-    "to remote clients. RCSB queries contact public services; select an explicit biological assembly and map "
+    "to remote clients. Use results_review for retrospective filters/medians and results_review_export for CSV; "
+    "viewer_script_export provides manuscript-style ChimeraX handoff. Spatial analysis requires "
+    "results_spatial_plan then job_start; apply completed spatial_job_id in results_review. RCSB queries contact public services; select an explicit biological assembly and map "
     "residue numbering before translating hotspots."
 )
 
@@ -184,8 +186,18 @@ TOOLS.update({
     "pipeline_recipe_plan": tool("Compile a typed v2 recipe through the existing scientific planner and bind its recipe digest into an immutable plan. Call workflow_guide first. Does not start compute; use job_start after reviewing the plan.", object_schema({"recipe": composition.PIPELINE_SCHEMA}, ["recipe"])),
     "iterative_batch_plan": tool("Freeze a ProteinHunter engine/scaffold batch with equal total trajectory budgets per engine and explicit scaffold allocations. Same-family independent checks are excluded; an empty checker set fails preflight. Uses the shared execution lock and resumable child receipts.", schema("iterative-batch-v1.json")),
 })
-NEW_READ_TOOLS = ["motif_beta_catalog", "rcsb_status", "rcsb_tools", "rcsb_query", "candidates_list", "export_read", "candidates_compare", "pipeline_catalog"]
-NEW_RUN_TOOLS = ["rcsb_import_structure", "candidate_export", "pipeline_recipe_plan", "iterative_batch_plan"]
+REVIEW_SCHEMA = schema("results-review-v1.json")
+PAGE_REVIEW_SCHEMA = copy.deepcopy(REVIEW_SCHEMA)
+PAGE_REVIEW_SCHEMA["properties"].update(limit={"type": "integer", "minimum": 1, "maximum": 100}, offset={"type": "integer", "minimum": 0})
+TOOLS.update({
+    "results_review": tool("Retrospective saved/custom metric filters, ranking, per-family caps and cycle medians. Original verdicts stay unchanged; metric sources and missing values are explicit. Page against snapshot_sha256.", PAGE_REVIEW_SCHEMA),
+    "results_review_export": tool("Export every matching retrospective result as a sequence/score CSV plus source-aware review JSON in a portable ZIP. Retrieve with export_read.", REVIEW_SCHEMA),
+    "viewer_script_export": tool("Export an exact coordinate artifact plus hash-bound manuscript-style ChimeraX script. Extract together, then open manuscript_style.py in installed ChimeraX. Does not launch an app or upload structures.", object_schema({"run_id": {"type": "string"}, "candidate_id": DIGEST, "snapshot_sha256": DIGEST, "artifact_index": {"type": "integer", "minimum": 0}, "emphasized_chains": {"type": "string"}}, ["run_id", "candidate_id", "snapshot_sha256"])),
+    "results_spatial_plan": tool("Preflight explicit CPU review of1–100 exact saved complex poses: target-residue or ligand-atom proximity, whole-ligand SASA burial and verified original geometry receipts. No prediction; uses immutable plan, pinned analysis environment, shared queue, keep-awake and resumable units. Inspect artifact chain numbering first. Start with job_start, then pass completed spatial_job_id into results_review.", schema("results-spatial-v1.json")),
+    "memory_estimate": tool("Report fitted memory estimates, profile assumptions and unknowns for an immutable plan. Does not bypass admission or start compute.", object_schema({"plan_id": {"type": "string"}, "plan_sha256": DIGEST}, ["plan_id", "plan_sha256"])),
+})
+NEW_READ_TOOLS = ["results_review", "memory_estimate", "motif_beta_catalog", "rcsb_status", "rcsb_tools", "rcsb_query", "candidates_list", "export_read", "candidates_compare", "pipeline_catalog"]
+NEW_RUN_TOOLS = ["results_review_export", "viewer_script_export", "results_spatial_plan", "rcsb_import_structure", "candidate_export", "pipeline_recipe_plan", "iterative_batch_plan"]
 
 
 # Versioned structured contracts for the new result-facing tools. Scientific
@@ -196,9 +208,11 @@ OUTPUTS = {
     "export_read": {"schema_version": {"const": 1}, "export_sha256": DIGEST, "offset": {"type": "integer"}, "total_bytes": {"type": "integer"}, "chunk_sha256": DIGEST, "data_base64": {"type": "string"}, "next_offset": {"type": ["integer", "null"]}},
     "candidates_compare": {"schema_version": {"const": 1}, "metric": {"type": "string"}, "summaries": {"type": "array", "items": {"type": "object"}}, "interpretation": {"type": "string"}},
 }
+for name in ("results_review_export", "viewer_script_export"):
+    OUTPUTS[name] = OUTPUTS["candidate_export"]
 for name, properties in OUTPUTS.items():
     TOOLS[name]["outputSchema"] = object_schema(properties, properties)
-for name in ("pipeline_recipe_plan", "iterative_batch_plan"):
+for name in ("pipeline_recipe_plan", "iterative_batch_plan", "results_spatial_plan"):
     TOOLS[name]["outputSchema"] = {"type": "object", "required": ["id", "sha256", "kind", "normalized_request"], "properties": {"id": {"type": "string"}, "sha256": DIGEST, "kind": {"type": "string"}, "normalized_request": {"type": "object"}}}
 
 # Explicit user choice is bound into each immutable scientific plan.
@@ -237,7 +251,12 @@ class MCPServer:
         if not isinstance(arguments, dict):
             raise StudioError("Tool arguments must be a JSON object.")
         validate_schema(arguments, TOOLS[name]["inputSchema"])
-        if name == "rcsb_status": result = research.status()
+        if name == "results_review": result = review.results_review(**arguments)
+        elif name == "results_review_export": result = review.results_review_export(**arguments)
+        elif name == "viewer_script_export": result = review.viewer_script_export(**arguments)
+        elif name == "results_spatial_plan": result = review.results_spatial_plan(**arguments)
+        elif name == "memory_estimate": result = review.memory_estimate(**arguments)
+        elif name == "rcsb_status": result = research.status()
         elif name == "rcsb_tools": result = research.tools_list()
         elif name == "rcsb_query": result = research.query(**arguments)
         elif name == "rcsb_import_structure": result = research.import_structure(**arguments)
@@ -329,12 +348,12 @@ class MCPServer:
                 append_audit(name, arguments if isinstance(arguments, dict) else {}, {"ok": False, "error": str(exc)})
                 return {"content": [{"type": "text", "text": str(exc)}], "isError": True}
         if method == "resources/list":
-            return {"resources": [{"uri": "iprotein://skills/studio/evidence", "name": "Workflow evidence and qualification", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio/workflows", "name": "Workflow routing", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio/integrations", "name": "Discovery, composition and export", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio", "name": "Studio assistant skill", "mimeType": "text/markdown"}, {"uri": "iprotein://capabilities", "name": "Capabilities", "mimeType": "application/json"}, {"uri": "iprotein://engines", "name": "Installed engines", "mimeType": "application/json"}, {"uri": "iprotein://projects", "name": "Projects", "mimeType": "application/json"}]}
+            return {"resources": [{"uri": "iprotein://skills/studio/results", "name": "Retrospective result and viewer review", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio/evidence", "name": "Workflow evidence and qualification", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio/workflows", "name": "Workflow routing", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio/integrations", "name": "Discovery, composition and export", "mimeType": "text/markdown"}, {"uri": "iprotein://skills/studio", "name": "Studio assistant skill", "mimeType": "text/markdown"}, {"uri": "iprotein://capabilities", "name": "Capabilities", "mimeType": "application/json"}, {"uri": "iprotein://engines", "name": "Installed engines", "mimeType": "application/json"}, {"uri": "iprotein://projects", "name": "Projects", "mimeType": "application/json"}]}
         if method == "resources/templates/list":
             return {"resourceTemplates": [{"uriTemplate": "iprotein://exports/{export_sha256}", "name": "Export first chunk (continue with export_read)", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/status", "name": "Run status", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/manifest", "name": "Run manifest", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/overview", "name": "Grouped run results", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/metrics", "name": "Run metrics", "mimeType": "application/json"}, {"uriTemplate": "iprotein://runs/{run_id}/artifacts", "name": "Run artifacts", "mimeType": "application/json"}]}
         if method == "resources/read":
             uri = params.get("uri", "")
-            skill_resources = {"iprotein://skills/studio/evidence": "references/evidence.md", "iprotein://skills/studio": "SKILL.md", "iprotein://skills/studio/workflows": "references/workflows.md", "iprotein://skills/studio/integrations": "references/integrations.md"}
+            skill_resources = {"iprotein://skills/studio/results": "references/results-review.md", "iprotein://skills/studio/evidence": "references/evidence.md", "iprotein://skills/studio": "SKILL.md", "iprotein://skills/studio/workflows": "references/workflows.md", "iprotein://skills/studio/integrations": "references/integrations.md"}
             if uri in skill_resources:
                 return {"contents": [{"uri": uri, "mimeType": "text/markdown", "text": (SCHEMAS.parent / "skills/iprotein-studio" / skill_resources[uri]).read_text()}]}
             value = exports.export_read(uri.removeprefix("iprotein://exports/")) if uri.startswith("iprotein://exports/") else read_resource(uri)

@@ -115,6 +115,10 @@ struct StudioResultItem: Identifiable, Hashable {
     var campaignID: String? = nil
     var designEngine: String? = nil
     var designHitThreshold: Double? = nil
+    var recordedDesignChains: [String] = []
+    var coordinateStamp: String? = nil
+    var cycle: Int? = nil
+    var smallMoleculeDesign = false
 
     init(id: String, title: String, subtitle: String, structureURL: URL,
          sequence: String?, metrics: [StudioResultMetric], confidenceURL: URL?,
@@ -123,13 +127,23 @@ struct StudioResultItem: Identifiable, Hashable {
          motifResidueRMSDs: [String: Double] = [:], groupID: String? = nil,
          groupTitle: String? = nil,
          variantID: String? = nil, variantTitle: String? = nil,
-         artifactRole: StudioResultArtifactRole = .prediction) {
+         artifactRole: StudioResultArtifactRole = .prediction, cycle: Int? = nil) {
         self.id = id
         self.title = title
         self.subtitle = subtitle
         self.structureURL = structureURL
         self.sequence = sequence
-        self.metrics = metrics
+        var scores = metrics
+        // Canonical ligand confidence is 0–100. Combine only values belonging
+        // to this same assessment, never components from different structures.
+        if !scores.contains(where: { $0.kind == .boltzCombinedScore }),
+           let p = scores.first(where: { $0.kind == .bindingProbability })?.value,
+           let l = scores.first(where: { $0.kind == .ligandPLDDT })?.value,
+           p.isFinite, l.isFinite, (0...1).contains(p), (0...100).contains(l) {
+            scores.append(.init(kind: .boltzCombinedScore, value: p + l / 100))
+        }
+        self.metrics = scores
+        self.cycle = cycle
         self.confidenceURL = confidenceURL
         self.stage = stage
         self.scoreSource = scoreSource
@@ -258,7 +272,7 @@ struct StudioResultGroup: Identifiable, Hashable {
         return preferred.compactMap { item in item.metrics.first { $0.kind == kind } }.first
     }
 
-    fileprivate static func metricPriority(_ role: StudioResultArtifactRole) -> Int {
+    static func metricPriority(_ role: StudioResultArtifactRole) -> Int {
         switch role {
         case .complexReprediction: return 0
         case .designedComplex, .generatedBackbone: return 1
@@ -269,7 +283,9 @@ struct StudioResultGroup: Identifiable, Hashable {
 }
 
 struct StudioResultMetric: Identifiable, Hashable {
-    enum Kind: String, CaseIterable, Hashable {
+    enum Kind: String, CaseIterable, Hashable, Codable {
+        case spatialMinimumDistance, spatialMaximumDistance, ligandBuriedPercent, ligandFreeSASA, ligandBoundSASA, recordedGeometryPass
+        case boltzCombinedScore
         case plddt
         case ligandPLDDT, ligandRMSD, pocketPreorgRMSD, preorgScore
         case iptm
@@ -298,6 +314,13 @@ struct StudioResultMetric: Identifiable, Hashable {
 
         var label: String {
             switch self {
+            case .spatialMinimumDistance: return "Minimum selected-site distance"
+            case .spatialMaximumDistance: return "Maximum selected-site distance"
+            case .ligandBuriedPercent: return "Ligand buried SASA"
+            case .ligandFreeSASA: return "Isolated ligand SASA"
+            case .ligandBoundSASA: return "Bound ligand SASA"
+            case .recordedGeometryPass: return "Recorded ligand geometry pass"
+            case .boltzCombinedScore: return "Boltz combined score"
             case .ligandPLDDT: return "ligand pLDDT"
             case .ligandRMSD: return "ligand pose RMSD"
             case .pocketPreorgRMSD: return "pocket preorganisation RMSD"
@@ -340,6 +363,11 @@ struct StudioResultMetric: Identifiable, Hashable {
 
         var explanation: String {
             switch self {
+            case .spatialMinimumDistance, .spatialMaximumDistance: return "Nearest binder heavy-atom distance for each selected target residue or ligand atom, in the exact assessed pose."
+            case .ligandBuriedPercent: return "100 × (1 − bound/isolated ligand SASA); same saved conformation, heavy-atom RDKit FreeSASA and1.4 Å probe."
+            case .ligandFreeSASA, .ligandBoundSASA: return "Heavy-atom solvent-accessible area in Å² using the existing RDKit FreeSASA protocol."
+            case .recordedGeometryPass: return "A verified geometry receipt for this exact pose:1=pass,0=fail; missing receipts remain unavailable."
+            case .boltzCombinedScore: return "P(bind) + ligand pLDDT/100 from the same assessment (0–2); higher is better."
             case .ligandPLDDT: return "Mean ligand-atom confidence on the 0–100 scale."
             case .ligandRMSD: return "Ligand heavy-atom RMSD in the fitted binder frame relative to its parent design."
             case .pocketPreorgRMSD: return "Apo/holo pocket heavy-atom RMSD after fitting pocket backbone atoms."

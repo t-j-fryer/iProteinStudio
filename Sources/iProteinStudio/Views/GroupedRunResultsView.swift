@@ -7,10 +7,12 @@ import AppKit
 struct GroupedRunResultsBrowser: View {
     let items: [StudioResultItem]
     var hitsOnly = false
+    @StateObject private var presentation = ResultOverviewModel()
+    @State private var page = 0
     @State private var selectedGroupID: String?
 
     private var groups: [StudioResultGroup] {
-        let all = RunResultsLoader.groups(from: items)
+        let all = presentation.index.groups
         return hitsOnly ? all.filter { $0.isHit == true } : all
     }
 
@@ -27,14 +29,18 @@ struct GroupedRunResultsBrowser: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 HSplitView {
-                    List(selection: $selectedGroupID) {
-                        ForEach(groups) { group in
-                            StudioResultGroupRow(group: group).tag(group.id)
+                    VStack(spacing: 0) {
+                        ResultPageControls(count: groups.count, page: $page)
+                        let range = ResultPage(count: groups.count, requested: page).range
+                        List(selection: $selectedGroupID) {
+                            ForEach(Array(groups[range])) { group in
+                                StudioResultGroupRow(group: group).tag(group.id)
+                            }
                         }
-                    }
-                    .listStyle(.sidebar)
-                    .frame(minWidth: 220, idealWidth: 250, maxWidth: 300)
-                    .accessibilityLabel(hitsOnly ? "Hit backbones and runs" : "Backbones and runs")
+                        .listStyle(.sidebar)
+                        .frame(minWidth: 220, idealWidth: 250, maxWidth: 300)
+                        .accessibilityLabel(hitsOnly ? "Hit backbones and runs" : "Backbones and runs")
+                    }.frame(minWidth: 220, idealWidth: 250, maxWidth: 320)
 
                     if let selectedGroup {
                         StudioResultGroupDetail(group: selectedGroup, hitsOnly: hitsOnly)
@@ -43,6 +49,11 @@ struct GroupedRunResultsBrowser: View {
                     }
                 }
             }
+        }
+        .onChange(of: items, initial: true) { _, value in presentation.update(value, includeScores: false) }
+        .onChange(of: page) { _, _ in
+            let range = ResultPage(count: groups.count, requested: page).range
+            selectedGroupID = groups[range].first?.id
         }
         .onAppear { repairSelection() }
         .onChange(of: groups.map(\.id)) { _, _ in repairSelection() }
@@ -53,8 +64,9 @@ struct GroupedRunResultsBrowser: View {
     }
 
     private func repairSelection() {
-        if !groups.contains(where: { $0.id == selectedGroupID }) {
-            selectedGroupID = groups.first?.id
+        let visible = groups[ResultPage(count: groups.count, requested: page).range]
+        if !visible.contains(where: { $0.id == selectedGroupID }) {
+            selectedGroupID = visible.first?.id
         }
     }
 }
@@ -77,13 +89,14 @@ struct LiveGroupedRunResultsPane: View {
     var body: some View {
         VStack(spacing: 0) {
             ResultBrowserControls(items: items, filter: $filter)
-            GroupedRunResultsBrowser(items: items.filter(filter.includes), hitsOnly: hitsOnly)
+            if hitsOnly { ResultHitReviewView(items: items.filter(filter.includes), root: root) }
+            else { GroupedRunResultsBrowser(items: items.filter(filter.includes)) }
         }
             .task(id: root.path) {
                 while !Task.isCancelled {
                     let loaded = await ResultsRepository.shared.load(root: root, workflow: workflow)
                     guard !Task.isCancelled else { return }
-                    items = loaded
+                    if items != loaded { items = loaded }
                     try? await Task.sleep(nanoseconds: 2_000_000_000)
                 }
             }
@@ -128,10 +141,11 @@ private struct StudioResultGroupRow: View {
     }
 }
 
-private struct StudioResultGroupDetail: View {
+struct StudioResultGroupDetail: View {
     let group: StudioResultGroup
     let hitsOnly: Bool
     @State private var selectedArtifactID: String?
+    @State private var variantPage = 0
 
     private var visibleVariants: [StudioResultVariant] {
         hitsOnly ? group.variants.filter { $0.isHit == true } : group.variants
@@ -171,13 +185,19 @@ private struct StudioResultGroupDetail: View {
                                                selectedArtifactID: $selectedArtifactID)
                     }
 
-                    ForEach(visibleVariants) { variant in
+                    ResultPageControls(count: visibleVariants.count, page: $variantPage)
+                    let range = ResultPage(count: visibleVariants.count, requested: variantPage).range
+                    ForEach(Array(visibleVariants[range])) { variant in
                         StudioResultVariantSection(variant: variant,
                                                    selectedArtifactID: $selectedArtifactID)
                     }
                 }
                 .padding(16)
             }
+        }
+        .onChange(of: variantPage) { _, _ in
+            let range = ResultPage(count: visibleVariants.count, requested: variantPage).range
+            selectedArtifactID = visibleVariants[range].first?.sortedItems.first?.id
         }
         .onAppear { repairArtifactSelection() }
         .onChange(of: visibleItems.map(\.id)) { _, _ in repairArtifactSelection() }
@@ -278,6 +298,7 @@ private struct SelectedResultViewer: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if !showsTrajectory {
+                    ExternalStructureViewerButton(structureURL: item.structureURL, recordedChains: item.recordedDesignChains)
                     Button {
                         NSWorkspace.shared.activateFileViewerSelecting([item.structureURL])
                     } label: { Label("Reveal structure", systemImage: "doc") }
@@ -412,13 +433,11 @@ private struct StudioResultArtifactSummaryCard: View {
                 }
             }
 
-            StructurePreview(structurePath: item.structureURL.path)
-                .frame(height: 175)
-                .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.025)))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .contentShape(Rectangle())
-                .onTapGesture(perform: select)
-                .help("Show this structure in the large interactive viewer")
+            Button(action: select) {
+                Label("View structure", systemImage: "cube.transparent")
+                    .frame(maxWidth: .infinity, minHeight: 50)
+            }.buttonStyle(.bordered)
+                .help("Loads only this structure in the interactive viewer above")
 
             if item.metrics.isEmpty {
                 Text("No supported score was emitted for this artifact.")

@@ -786,6 +786,9 @@ def run_worker(job_id: str) -> int:
                 code = _execute_desktop(job_id, plan)
             elif kind in {"prediction", "target_prepare"}:
                 code = _execute_prediction(job_id, plan)
+            elif kind == "results_spatial":
+                from .review import execute_spatial
+                code = execute_spatial(job_id, plan)
             elif kind == "iterative_design":
                 code = _execute_iterative(job_id, plan)
             elif kind == "iterative_batch":

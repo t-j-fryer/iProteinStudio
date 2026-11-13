@@ -26,6 +26,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Stable JSON front controller for iProteinStudio workflows.")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor")
+    tools_list = sub.add_parser("tools", help="Discover the exact deployed MCP tool schemas")
+    tools_list.add_argument("--profile", choices=["read", "run"], default="read")
+    call = sub.add_parser("call", help="Invoke any deployed read/run MCP tool using a JSON request file")
+    call.add_argument("tool")
+    call.add_argument("request_json")
+    call.add_argument("--profile", choices=["read", "run"], default="read")
     sub.add_parser("motif-catalog")
     sub.add_parser("evidence")
     guide = sub.add_parser("guide")
@@ -55,6 +61,12 @@ def main() -> int:
         command.add_argument("request_json")
     desktop = sub.add_parser("_desktop-submit")
     desktop.add_argument("request_json")
+    review = sub.add_parser("_desktop-prepare")
+    review.add_argument("request_json")
+    confirmed = sub.add_parser("_desktop-confirm")
+    confirmed.add_argument("plan_id")
+    confirmed.add_argument("plan_sha256")
+    confirmed.add_argument("report_sha256")
     start = sub.add_parser("start")
     start.add_argument("plan_id")
     start.add_argument("plan_sha256")
@@ -72,7 +84,13 @@ def main() -> int:
     worker.add_argument("--job-id", required=True)
     args = parser.parse_args()
     try:
-        if args.command == "motif-catalog":
+        if args.command == "tools":
+            from server import TOOLS
+            server = MCPServer(args.profile)
+            emit({"profile": args.profile, "tools": [{"name": name, **TOOLS[name]} for name in sorted(set(server.allowed))]})
+        elif args.command == "call":
+            emit(MCPServer(args.profile).tool_call(args.tool, json.loads(Path(args.request_json).read_text())))
+        elif args.command == "motif-catalog":
             emit(MCPServer("read").tool_call("motif_beta_catalog", {}))
         elif args.command == "guide":
             emit(MCPServer("read").tool_call("workflow_guide", {"workflow": args.workflow}))
@@ -139,10 +157,13 @@ def main() -> int:
                 "plan-rfd3-partial": "rfd3_partial_diffusion_plan", "plan-rfd3-motif": "rfd3_motif_scaffolding_plan", "plan-rfd4": "rfd4_plan", "plan-motif-beta": "motif_beta_plan",
             }
             emit(MCPServer("run").tool_call(tool_names[args.command], request))
-        elif args.command == "_desktop-submit":
+        elif args.command in ("_desktop-submit", "_desktop-prepare"):
             from iprotein_mcp.submission import submit
             request = json.loads(Path(args.request_json).read_text())
-            emit(submit(request))
+            emit(submit(request, prepare_only=args.command == "_desktop-prepare"))
+        elif args.command == "_desktop-confirm":
+            from iprotein_mcp.submission import confirm
+            emit(confirm(args.plan_id, args.plan_sha256, args.report_sha256))
         elif args.command == "start":
             emit(start_job(args.plan_id, args.plan_sha256))
         elif args.command == "wait":
@@ -154,7 +175,7 @@ def main() -> int:
         elif args.command == "_run-job":
             return run_worker(args.job_id)
         return 0
-    except StudioError as exc:
+    except (StudioError, OSError, json.JSONDecodeError) as exc:
         print(json.dumps({"error": str(exc)}), file=sys.stderr)
         return 2
 

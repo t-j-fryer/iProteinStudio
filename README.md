@@ -11,6 +11,10 @@ required for supported local workflows.
 **[Walkthroughs](docs/QUICKSTART.md)** · **[Documentation](docs/README.md)** ·
 **[AI assistants](docs/AI_ASSISTANTS.md)**
 
+Current delivery: **0.2.43/build101**, with CLI/MCP bridge60. This release
+brings the recent Beta result-review, memory-confirmation and viewer features
+into the public app. See [what changed](CHANGELOG.md#0243-build101).
+
 ## Install and update
 
 Download the Apple-silicon DMG from the newest **app** release (`v…-beta`), move
@@ -81,11 +85,11 @@ time budget; queue time does not count toward active design time.
 | **Template-guided Boltz motif beta** | Design → Motif scaffolding → Atomic motif beta. Pinned AME-41 motifs, explicit residue maps, RFD3 starts, mapped template guidance and separate untemplated ranking checks. Bounded 1–5-root pilots. |
 | **Predict** | Complete sequences, FASTA or CSV, with per-chain alignments and templates where supported. |
 
-The detailed RFD4 form accepts sequence targets, balanced length ranges or custom
+RFD3 and RFD4 share the backbone-design form; the generator selector controls
+which native settings are available. The detailed RFD4 form accepts sequence targets, balanced length ranges or custom
 counts, and optional saved hit filters. Predictors are grouped by model family,
-including optional installed engines. Choose any of eight bundled nanobody
-frameworks; its CDR boundaries load automatically, with an explicit advanced
-override. Protein/nanobody targets can carry noncovalent small molecules through generation and each prediction, with saved chemical identities, atom maps and complete-assembly checks. All populated fields retain their labels. See
+including optional installed engines. Choose one or several of the eight bundled nanobody frameworks and adjust their
+allocation weights; CDR boundaries load for each framework, with an explicit override. Protein/nanobody targets can carry noncovalent small molecules through generation and each prediction, with saved chemical identities, atom maps and complete-assembly checks. All populated fields retain their labels. See
 [detailed configuration](docs/RFD4.md#detailed-configuration).
 
 RFD3 fixed-framework nanobody generation was tried unsuccessfully and is excluded.
@@ -114,8 +118,11 @@ selection passed installation and detection in an isolated, initially empty root
 with no preseeded model files or external developer tools. A second physical Mac
 remains outside this qualification. See
 [release qualification](lab_book/0579-qualify-and-release-studio-027.md). RFD4 and guided beta memory
-estimates are not calibrated, so their visible memory override is an explicit,
-recorded choice. Existing installed workflows and their saved runtime identities
+estimates are not calibrated. Before each app submission, a Proceed/Cancel
+review shows the complete-assembly size, available fitted memory estimates and
+unknown stages; consent is bound to that exact plan. Fitted profiles come from
+an M4 Max and are estimates, not guarantees of installed RAM. Headless admission
+keeps its explicit per-plan override. See [memory estimates](docs/MEMORY_ESTIMATES.md). Existing installed workflows and their saved runtime identities
 remain separate from these qualification limits.
 
 ## Engines
@@ -151,10 +158,28 @@ Submitted jobs continue when the app closes. Completed checkpoints remain on
 disk; supported **Resume** actions use the saved settings and retained runtime.
 Projects, alignments and results live under `~/.iproteinstudio`, outside the app.
 
+CLI/MCP-created managed workspaces are discovered in app History automatically.
 Results keep trajectories, cycles, backbones and sequence derivatives together.
 A saved hit belongs to its exact scored output. RFD4 search-hit filters label optimization feedback; independent validation remains a separate step. Cycle 00 is an initial
 structure, not an optimized design. See [Job queue](docs/JOB_QUEUE.md),
 [Results](docs/RESULTS.md) and [Storage](docs/OUTPUT_STORAGE.md).
+
+Overview defaults to **ipSAE(min)** for protein design and **P(bind) + ligand
+pLDDT/100** for small-molecule design, using components from the same assessment.
+It also plots median scores by recorded cycle. Hits supports retrospective
+metric thresholds, ascending/descending ranking, per-family limits and scored
+sequence CSV export, without changing the original saved hit verdicts.
+Large results use bounded pages, background analysis and one selected 3D viewer.
+See [result review](docs/RESULTS_REVIEW.md).
+
+Optional [spatial review](docs/RESULTS_SPATIAL_REVIEW.md) filters exact saved
+poses by protein epitope residue or ligand atom distances, whole-ligand SASA
+burial and an existing verified ligand-geometry verdict. It runs explicitly on
+CPU and retains per-pose receipts. The shared offline viewer adds a **Paper
+pocket** surface preset, opacity/cutaway controls and PNG export. Optional
+ChimeraX handoff and script export apply the manuscript grey/teal protein or
+grey/gold pocket style in both design and prediction results. Third-party
+viewers are installed separately; coordinates are not uploaded.
 
 ## AI assistants and automation
 
@@ -168,6 +193,11 @@ Optional [RCSB discovery](docs/AI_ASSISTANTS.md#optional-rcsb-discovery) adds
 structure search and residue mapping through the official RCSB MCP server.
 
 The CLI and MCP expose typed RFD4 and motif-beta plans through the shared queue.
+Bridge60 adds retrospective review/CSV, cycle medians, portable ChimeraX-script
+exports, immutable spatial-analysis plans and fitted memory reports. Run
+`studioctl tools --profile run` to discover schemas or
+`studioctl call TOOL request.json --profile run` to invoke any supported read/run
+tool. Admin remains separate. Reconnect existing MCP clients after updating.
 The bundled [workflow evidence reference](Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/references/evidence.md)
 helps assistants distinguish measured findings, bounded technical checks and
 user-defined presets. Current campaign data is reviewed through the result tools,

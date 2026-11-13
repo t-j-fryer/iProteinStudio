@@ -332,7 +332,12 @@ def _filters(value: Any) -> List[str]:
 def _metrics(row: Dict[str, str]) -> Dict[str, float]:
     result: Dict[str, float] = {}
     row = {**(row.get("metrics") or {}), **row}
-    for key in RESULT_METRICS:
+    # Preserve all measured scalar columns, including optional ligand/geometry
+    # metrics. Identifiers and scheduling inputs are not scientific scores.
+    metadata = {'run', 'cycle', 'seed', 'sample', 'model', 'id', 'index',
+                'trajectory', 'family', 'is_hit', 'hit', 'passed', 'metrics'}
+    for key in sorted(set(RESULT_METRICS) | (set(row) - metadata)):
+        if isinstance(row.get(key), bool): continue
         try:
             value = float(row.get(key, ""))
         except (TypeError, ValueError):
@@ -735,7 +740,7 @@ def _nise_overview(root, limit):
         key = f"trajectory-{tid}" if tid is not None else "broad-search"
         group = groups.setdefault(key, {"id": key, "title": f"Trajectory {tid + 1}" if tid is not None else "Broad search", "variants": [], "is_hit": None})
         masked = row.get("branch") == "masked-backbone"
-        artifacts = [{"role": "masked_backbone" if masked else "designed_complex", "path": structure, "predictor": row.get("generator", row.get("folding_engine", "boltz"))}]
+        artifacts = [{"role": "masked_backbone" if masked else "designed_complex", "path": structure, "predictor": row.get("generator", row.get("folding_engine", "boltz")), "metrics": _metrics(row)}]
         check = checks.get(row["name"])
         if check:
             apo = _run_artifact_reference(root, check.get("apo_pdb"))
@@ -832,6 +837,8 @@ def _rfd4_rows(root):
             for row in json.loads(path.read_text()):
                 oracle = feedback.get(row['id'], {})
                 candidates.append({**row, 'metrics':oracle.get('metrics', row.get('metrics', {})),
+                    'design_metrics': row.get('metrics', {}),
+                    'oracle_engine': oracle.get('engine') or oracle.get('predictor'),
                     'oracle_structure':oracle.get('structure', row.get('oracle_structure'))})
     rows = []
     for row in candidates:
@@ -906,15 +913,16 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
                 binders = [v for v in chains.values() if v != config['target_sequence']]
                 if len(binders) == 1: sequence = binders[0]
             if not sequence: sequence = chains.get(config.get('settings', {}).get('binder_chain'))
-            metrics = {k:row[k] for k in ("ipsae_min", "score") if k in row}
-            metrics.update({k:v for k,v in row.get('metrics',{}).items() if type(v) in (int,float)})
+            metrics = {} if row.get('oracle_structure') else {k:row[k] for k in ("ipsae_min", "score") if k in row}
+            own_metrics = row.get('design_metrics', {}) if row.get('oracle_structure') else row.get('metrics', {})
+            metrics.update({k:v for k,v in own_metrics.items() if type(v) in (int,float)})
             confidence = row.get('confidence')
             if confidence:
                 path = Path(confidence).resolve()
                 if root.resolve() in path.parents and path.is_file():
                     document = load_json(path)
                     metrics.update({k:v for k,v in document.items() if k in
-                        {'ptm', 'iptm', 'complex_plddt', 'chain_plddt', 'ligand_plddt', 'ipsae_min', 'confidence_score'}})
+                        {'ptm', 'iptm', 'complex_plddt', 'chain_plddt', 'ligand_plddt', 'ipsae_min', 'confidence_score', 'pbind', 'affinity_probability_binary'}})
             # Report only the saved gate verdict; never infer a hit from a score.
             verdict = row.get('hit_filter_passed')
             if type(verdict) is not bool: verdict = None
@@ -930,7 +938,9 @@ def results_overview(run_id: str, hit_only: bool = False, limit: int = 100,
                 for relative,role in [(structure.with_suffix('.atom_map.json'),'ligand_atom_mapping'),(structure.parent/'assembly_audit.json','complete_assembly_audit')]:
                     if (root/relative).is_file():artifacts.append(dict(role=role,path=relative.as_posix(),is_hit=None))
             if row.get('oracle_structure'):
-                artifacts.append(dict(role='selection_oracle', path=row['oracle_structure'], metrics=row.get('metrics', {}), is_hit=None))
+                artifacts.append(dict(role='selection_oracle', path=row['oracle_structure'],
+                    predictor=row.get('oracle_engine') or config.get('settings', {}).get('predictor'),
+                    metrics=row.get('metrics', {}), is_hit=None))
             group = grouped.setdefault(row["family"], dict(id=row["family"], title=row["family"], is_hit=None, variants=[]))
             group["variants"].append(dict(id=row["id"], parent_id=row.get("parent_id"), cycle=row.get("cycle"), sequence=sequence, is_hit=verdict,
                 artifacts=artifacts, **gate))
@@ -1135,7 +1145,7 @@ def workflow_guide(workflow: str) -> Dict[str, Any]:
 
 def read_resource(uri: str) -> Dict[str, Any]:
     if uri == "iprotein://capabilities":
-        return {"server_profiles": ["read", "run", "admin"], "workflows": ["prediction", "iterative_design", "iterative_batch", "nise", "rfd3_de_novo", "rfd3_partial_diffusion", "rfd3_motif_scaffolding", "rfd4", "motif_beta"], "transport": "stdio", "pipeline_catalog": "pipeline_catalog", "candidate_exports": True, "optional_discovery": "RCSB MCP (separate installation)", "operating_skill": "iprotein://skills/studio"}
+        return {"server_profiles": ["read", "run", "admin"], "workflows": ["prediction", "iterative_design", "iterative_batch", "nise", "rfd3_de_novo", "rfd3_partial_diffusion", "rfd3_motif_scaffolding", "rfd4", "motif_beta"], "transport": "stdio", "pipeline_catalog": "pipeline_catalog", "candidate_exports": True, "retrospective_results": "results_review", "spatial_review": "results_spatial_plan", "viewer_scripts": "viewer_script_export", "memory_estimates": "memory_estimate", "optional_discovery": "RCSB MCP (separate installation)", "operating_skill": "iprotein://skills/studio"}
     if uri == "iprotein://engines":
         return detect_engines()
     if uri == "iprotein://projects":

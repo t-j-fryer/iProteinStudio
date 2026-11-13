@@ -13,8 +13,8 @@ struct LigandGeometryStructureViewer: View {
                     Toggle("Show linker-exit cone", isOn: $showGeometry).toggleStyle(.switch)
                     if let exit = result["linker_exit"] as? [String: Any], let label = exit["label"] as? String { Text("Exit: " + label).font(.caption) }
                 }.padding(.horizontal, 8)
-                if showGeometry { LigandSpatialViewer(payload: payload) }
-                else { StructureViewer(structurePath: structureURL.path) }
+                StructureViewer(structurePath: structureURL.path,
+                                pocketGeometryPayload: showGeometry ? payload : nil)
             } else {
                 if LigandGeometryPreview.hasRecordedGeometry(structureURL) {
                     HStack {

@@ -7,6 +7,7 @@ struct NISEResultsView: View {
     let title: String
     var embedded = false
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var overviewModel = ResultOverviewModel()
     @State private var snapshot = NISESnapshot()
     @State private var phase: NISEPhase = .preparation
     @State private var stageID = ""
@@ -14,7 +15,7 @@ struct NISEResultsView: View {
     @State private var search = ""
     @State private var section = "overview"
     @State private var loaded = false
-    @State private var selectedMetric: StudioResultMetric.Kind = .ligandPLDDT
+    @State private var selectedMetric: StudioResultMetric.Kind?
     @State private var updatedAt: Date?
 
     private var stages: [NISEStageProgress] { snapshot.stages.filter { $0.phase == phase } }
@@ -45,7 +46,8 @@ struct NISEResultsView: View {
         return StudioResultMetric.Kind.allCases.filter { recorded.contains($0) }
     }
     private var metric: StudioResultMetric.Kind? {
-        metricKinds.contains(selectedMetric) ? selectedMetric : metricKinds.first
+        if let selectedMetric, metricKinds.contains(selectedMetric) { return selectedMetric }
+        return .boltzCombinedScore
     }
 
     var body: some View {
@@ -85,6 +87,7 @@ struct NISEResultsView: View {
                 Picker("Results section", selection: $section) {
                     Text("Overview").tag("overview")
                     Text("Structures (\(records.count))").tag("structures")
+                    Text("Hits").tag("hits")
                     if !snapshot.screening.isEmpty { Text("Screening scores").tag("nesso") }
                 }.pickerStyle(.segmented)
             }.padding(14)
@@ -94,6 +97,8 @@ struct NISEResultsView: View {
             }
             if section == "nesso" {
                 screeningTable
+            } else if section == "hits" {
+                ResultHitReviewView(items: items, root: root, initialMetric: metric)
             } else if section == "structures" {
                 if items.isEmpty { emptyState }
                 else { GroupedRunResultsBrowser(items: items) }
@@ -101,6 +106,7 @@ struct NISEResultsView: View {
         }
         .frame(minWidth: 900, idealWidth: 1150, minHeight: 650, idealHeight: 820)
         .accessibilityIdentifier("nise-results-browser")
+        .onChange(of: items, initial: true) { _, value in overviewModel.update(value) }
         .onChange(of: phase) { _, _ in
             stageID = stages.last(where: { $0.completed > 0 })?.id ?? stages.first?.id ?? ""
             status = "all"; search = ""
@@ -109,7 +115,7 @@ struct NISEResultsView: View {
             while !Task.isCancelled {
                 let next = await ResultsRepository.shared.niseSnapshot(root: root)
                 guard !Task.isCancelled else { return }
-                snapshot = next; updatedAt = Date()
+                if snapshot.revision != next.revision { snapshot = next; updatedAt = Date() }
                 if !loaded {
                     loaded = true
                     phase = next.records.contains { $0.phase == .optimisation } ? .optimisation : .preparation
@@ -161,15 +167,22 @@ struct NISEResultsView: View {
                         Text("Score distribution").font(.headline)
                         Spacer()
                         Picker("Metric", selection: Binding(get: { metric }, set: { selectedMetric = $0 })) {
-                            ForEach(metricKinds, id: \.self) { Text($0.label).tag($0) }
+                            ForEach(Array(Set(metricKinds + [metric])).sorted { $0.label < $1.label }, id: \.self) { Text($0.label).tag($0) }
                         }.frame(width: 260)
                     }
                     Text(metric.explanation).font(.caption).foregroundStyle(.secondary)
                     Text("Only recorded values are included. Missing scores are not zero; geometry-only stages may omit affinity. Choose one stage for like-for-like comparisons.")
                         .font(.caption).foregroundStyle(.secondary)
-                    MetricDistributionChart(kind: metric, values: records.compactMap { record in
+                    let values = records.compactMap { record in
                         record.item.metrics.first { $0.kind == metric }?.value
-                    }).frame(height: 240)
+                    }.filter(\.isFinite)
+                    if values.isEmpty {
+                        Text("\(metric.label) has not been recorded for this selection. Choose another metric to inspect available scores.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        MetricDistributionChart(kind: metric, values: values).frame(height: 240)
+                    }
+                    if phase != .finalChecks { ResultCycleMedianChart(items: [], metric: metric, prepared: overviewModel.index.medians[metric] ?? []) }
                 } else if !records.isEmpty {
                     Text("These structures do not yet have scores for a distribution. They can still be inspected in Structures.")
                         .foregroundStyle(.secondary)

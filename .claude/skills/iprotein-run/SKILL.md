@@ -36,3 +36,9 @@ material decisions in the project Lab Book, including what was not tested. Read
 recipe tools nor a new skill imply deployment to the user's installed app.
 
 Read the portable skill’s [evidence reference](../../../Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/references/evidence.md) when advising on methods. Full CDR-only starts are supported; RFD3 fixed-framework nanobody generation was tried unsuccessfully and is excluded.
+
+For retrospective metric filters/CSV, exact-pose spatial analysis and portable
+ChimeraX scripts, use the portable skill's
+[result-review reference](../../../Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/references/results-review.md).
+Discover bridge60 schemas before calling these operations; source edits do not
+refresh an already-running server.

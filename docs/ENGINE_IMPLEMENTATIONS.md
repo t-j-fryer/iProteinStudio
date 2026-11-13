@@ -10,7 +10,8 @@ The release contains Claude's qualified ESMFold2 folding-trunk BF16 change and
 RFD4 tiled gate/layout transpose, fused triangle output gate, redundant transition
 mask removal and in-place ReLU. These run through the existing shared adapters
 in prediction, native generation and supported iterative/beam workflows. RFD4's
-existing optimized-kernel switch still controls its fast path.
+optimized kernels are automatic in new app requests; the compatibility setting
+remains available to CLI/MCP and historical frozen requests.
 
 ESMFold2 defaults to BF16 trunk weights for Full, Fast and Fast-600M. Every new
 prediction confidence file records `trunk_weight_dtype` and `trunk_modules`.
@@ -48,3 +49,9 @@ mix old/new timing records when comparing performance.
 For future adapter changes, increment the workflow release generation, update
 its checksums, run the contracts and build/package checks, then verify installed
 copies and a newly captured snapshot. Source commits alone do not deploy code.
+
+Release0.2.43/build101 uses workflow generation2026111301 and bridge60. Its
+three optimized adapter hashes and engine packages are unchanged from0.2.42;
+the generation also prevents an older app from re-staging the newer review
+bridge. The complete pipeline/bridge inventory is verified in retained code
+snapshots and transactional asset receipts.

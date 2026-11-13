@@ -329,3 +329,19 @@ model profiles, eight catalogue frameworks with automatic CDR ranges, and saved
 protein hit filters. See the [RFD4 guide](../../../../../docs/RFD4.md) and
 [CLI field definitions](../../../../../docs/CLI.md#rfd4-configuration-shared-with-the-app).
 Use the connected `workflow_guide` and schema before authoring a request.
+
+## Bridge60 review tools and complete CLI access
+
+Use `studioctl tools --profile read` or `--profile run` for full deployed schemas;
+`studioctl call TOOL request.json --profile run` invokes the same validation,
+profile gates and auditing. Admin remains a separate maintenance profile.
+
+- `results_review`: retrospective metric rules, ranking, family caps and cycle medians.
+- `results_review_export`: whole-selection scored-sequence CSV and provenance JSON ZIP.
+- `viewer_script_export`: exact structure plus portable manuscript-style ChimeraX script ZIP.
+- `results_spatial_plan`: immutable queued CPU contact/burial/recorded-geometry analysis, started with `job_start` and applied using completed `spatial_job_id`.
+- `memory_estimate`: fitted report for a frozen plan, without changing admission.
+
+Read `iprotein://skills/studio/results` for interpretation and delivery rules.
+Reconnect clients after deployment; replace separately copied skill directories.
+No viewer application is installed or launched by MCP. No raw verdict is changed.

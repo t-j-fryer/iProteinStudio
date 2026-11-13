@@ -172,6 +172,8 @@
     });
   }
 
+  window.studioSurfaceBridge = {renderer, rigidlyAlignCoordinates};
+
   // Bounded diagnostic used by the native WebKit contract harness. It tests
   // the exact same fit routine without exposing file-system or renderer state.
   window.studioRigidFitMaximumDeviation = function (moving, reference) {

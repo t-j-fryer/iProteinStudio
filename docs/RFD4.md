@@ -324,7 +324,9 @@ tested cases, not biological accuracy or equal binding yield across targets.
 Normal jobs no longer repeat designs against the reference. Developer validation
 retains matched standard/optimized comparisons; production retains output-integrity
 and resume checks. Existing saved plans keep their frozen behavior. The optimized
-option is on by default for new requests; explicit saved choices are preserved.
+implementation is always used for fresh app submissions; there is no GUI switch
+or performance-help disclosure. Explicit historical job settings are preserved
+on retry/resume. The CLI flag remains available for developer comparisons.
 
 ### Guided RFD4 motif authoring
 

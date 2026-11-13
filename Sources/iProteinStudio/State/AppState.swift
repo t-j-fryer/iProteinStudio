@@ -10,6 +10,7 @@ final class AppState: ObservableObject {
     @Published private(set) var archivedProjects: [Project] = []
     @Published private(set) var runtimeNotice: String?
     private var observers = Set<AnyCancellable>()
+    private var workspaceDiscoveryTask: Task<Void, Never>?
     @Published var storageMessage: String?
     @Published private(set) var storageAvailable = true
     @Published var scaffolds: [Scaffold] = []
@@ -47,6 +48,7 @@ final class AppState: ObservableObject {
 
     init() {
         load()
+        discoverManagedWorkspaces()
         // Refresh vendored scripts on every launch so app updates ship pipeline
         // fixes without requiring a full reinstall. Only touches pipeline/
         // (scripts + examples); never the installed venvs or cloned tools.
@@ -63,7 +65,9 @@ final class AppState: ObservableObject {
         installer.detectComponents()
         JobCenter.shared.start()
         JobCenter.shared.$jobs.sink { [weak self] jobs in
-            guard let self, self.runtimeNotice != nil, !jobs.contains(where: \.isActive) else { return }
+            guard let self else { return }
+            self.discoverManagedWorkspaces()
+            guard self.runtimeNotice != nil, !jobs.contains(where: \.isActive) else { return }
             do {
                 try AppPaths.stagePipelineAssets()
                 self.scaffolds = ScaffoldCatalog.load()
@@ -206,7 +210,42 @@ final class AppState: ObservableObject {
 
     func reloadSavedWorkspaces() {
         load()
+        discoverManagedWorkspaces()
         if storageAvailable { history.refresh(projects: projects) }
+    }
+
+    /// CLI/MCP create managed directories without editing either app's forms.
+    /// Merge their saved work into this library without rewriting preferences or
+    /// moving outputs. Live jobs refresh the directory inventory as well.
+    private func discoverManagedWorkspaces() {
+        guard storageAvailable, workspaceDiscoveryTask == nil else { return }
+        let root = AppPaths.projects
+        workspaceDiscoveryTask = Task {
+            let found = await Task.detached(priority: .utility) {
+                ManagedWorkspaceDiscovery.discover(in: root)
+            }.value
+            defer { workspaceDiscoveryTask = nil }
+            guard !Task.isCancelled, storageAvailable else { return }
+            // Read current state here: an archive/edit may occur during scanning.
+            var known = Set((projects + archivedProjects).map { $0.slug.lowercased() })
+            var added = false
+            for item in found where !known.contains(item.slug.lowercased()) {
+                let mode: WorkspaceMode
+                switch item.workflow {
+                case .rfd4, .rfd3: mode = .rfdiffusion
+                case .prediction: mode = .predict
+                case .nise: mode = .nise
+                case .iterative: mode = .iterative
+                }
+                var project = Project(name: item.slug, preferredMode: mode)
+                project.slug = item.slug; project.id = item.id; project.createdAt = item.createdAt
+                if item.workflow == .rfd4 { project.diffusionEngine = "rfd4" }
+                projects.append(project); known.insert(item.slug.lowercased()); added = true
+            }
+            guard added else { return }
+            if selectedProjectID == nil { selectedProjectID = projects.first?.id }
+            history.refresh(projects: projects)
+        }
     }
 
     private func load() {

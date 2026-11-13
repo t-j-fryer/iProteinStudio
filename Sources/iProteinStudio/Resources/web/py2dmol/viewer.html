@@ -217,6 +217,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif
 .studio-compact #mainContainer { padding: 0; gap: 0; }
 .studio-compact #canvasContainer { border: 0; border-radius: 0; min-width: 0; min-height: 0; }
 .studio-compact #viewerWrapper { width: 100% !important; }
+/* Studio surface image style, alongside the upstream illustration controls. */
+#pocketCanvas { position:absolute; inset:0; display:none; background:white; }
+#pocketPanel { display:grid; gap:8px; margin-top:8px; font-size:12px; }
+#pocketPanel[hidden] { display:none; }
+#pocketPanel label { display:block; line-height:1.4; }
+#pocketPanel select, #pocketPanel input[type=range], #imageStyle { width:100%; }
+#pocketNote { color:#626971; line-height:1.4; }
+.studio-pocket #canvas { visibility:hidden; }
+.studio-pocket #pocketCanvas { display:block; }
+.studio-pocket label:has(#rotationCheckbox) { display:none; }
+.studio-pocket #styleToggle, .studio-pocket #stylePanel { display:none !important; }
 </style>
 </head>
 <body>
@@ -226,6 +237,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif
     <div id="viewerWrapper">
         <div id="canvasContainer">
             <canvas id="canvas" role="img" aria-label="Molecular structure. The selected result's sequence, scores and provenance are available in the result details."></canvas>
+            <div id="pocketCanvas" role="img" aria-label="Interactive molecular surface and ligand pocket"></div>
             <div class="resize-handle"></div>
         </div>
         <div id="controlsContainer">
@@ -245,10 +257,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif
     </div>
     <div id="rightPanelContainer">
         <div class="control-group">
+            <label for="imageStyle" style="font-size:12px">Image style</label>
+            <select id="imageStyle" aria-label="Image style">
+                <option value="illustration">Illustration</option>
+                <option value="pocket">Paper pocket</option>
+            </select>
             <div class="btn-row auto">
                 <button id="styleToggle" class="controlButton" aria-expanded="false" aria-controls="stylePanel"
                     title="Render style and its settings">Style</button>
                 <button id="saveImageButton" class="controlButton" title="Save an image or a video">Save</button>
+            </div>
+            <div id="pocketPanel" hidden>
+                <label>Ligand <select id="pocketLigand" aria-label="Pocket ligand"></select></label>
+                <label>Display <select id="pocketRegion"><option value="pocket">Pocket only</option><option value="whole">Whole polymer</option></select></label>
+                <label>Pocket radius <output id="pocketRadiusValue">7 Å</output><input id="pocketRadius" aria-label="Pocket radius" type="range" min="4" max="16" step="0.5" value="7"></label>
+                <label>Surface opacity <output id="pocketOpacityValue">100%</output><input id="pocketOpacity" aria-label="Surface opacity" type="range" min="0.1" max="1" step="0.05" value="1"></label>
+                <label><input id="pocketCutaway" type="checkbox" checked> Front cutaway</label>
+                <label>Cutaway depth <output id="pocketDepthValue">0.7 Å</output><input id="pocketDepth" aria-label="Cutaway depth" type="range" min="-5" max="15" step="0.1" value="0.7"></label>
+                <label>Edge fade <output id="pocketFadeValue">1.4 Å</output><input id="pocketFade" aria-label="Cutaway edge fade" type="range" min="0" max="4" step="0.2" value="1.4"></label>
+                <label id="pocketConeRow" hidden><input id="pocketCone" type="checkbox" checked> Recorded exit samples</label>
+                <div id="pocketConeLegend" hidden>Teal: wide · amber: limited · red: clash. Recorded samples, not binding probability.</div>
+                <button id="pocketFit" class="controlButton">Fit pocket</button>
+                <div id="pocketNote" role="status"></div>
+                <div style="color:#626971;line-height:1.4">Drag to rotate · scroll to zoom · Control-drag to pan. Display settings change the image only. Paper-style colours and projection; export rendering may differ from the paper.</div>
             </div>
             <!-- MIRRORS index.html's #stylePanel row for row: same rows, same
                  pairing, same ids and data-style / data-needs-* attributes, so
@@ -411,6 +442,7 @@ window.py2dmol_staticData = window.py2dmol_staticData || {studio: []};
 <script src="viewer-mol.min.js"></script>
 <script src="viewer-cartoon.min.js"></script>
 <script src="studio-adapter.js"></script>
+<script src="studio-pocket.js"></script>
 </div>
 </body>
 </html>

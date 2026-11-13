@@ -37,6 +37,10 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
             SOURCE + "Core/ResumeContract.swift", SOURCE + "Core/TemplateWriter.swift", SOURCE + "Core/CommandBuilder.swift",
             SOURCE + "Core/MetricsWatcher.swift", SOURCE + "Core/Results/RunResultsLoader.swift", SOURCE + "Core/Results/NISEResults.swift", "Tests/IterativeCommandContractHarness.swift"],
     }
+    cases["spatial_policy"] = [SOURCE + "Models/RunResult.swift", SOURCE + "Models/ResultSpatialPolicy.swift", SOURCE + "Core/Results/ResultFileStamp.swift", "Tests/ResultSpatialPolicyHarness.swift"]
+    cases["chimerax_style"] = [SOURCE + "Core/ChimeraXPublicationStyle.swift", "Tests/ChimeraXStyleHarness.swift"]
+    cases["results_presentation"] = [SOURCE + name for name in ["Models/RunResult.swift", "Models/ResultAnalysis.swift", "Models/ResultPage.swift", "Core/Results/RunResultsLoader.swift", "Core/Results/NISEResults.swift", "Core/Results/ResultsRepository.swift", "Core/Results/ResultPresentationModel.swift", "Core/ExternalStructureViewer.swift"]] + ["Tests/ResultPresentationHarness.swift"]
+    cases["result_analysis"] = [SOURCE + "Models/RunResult.swift", SOURCE + "Models/ResultAnalysis.swift", "Tests/ResultAnalysisHarness.swift"]
     cases['rfd4_configuration'] = [SOURCE + 'Models/RFD4Request.swift', 'Tests/RFD4ConfigurationHarness.swift']
     selected = os.environ.get('STUDIO_SWIFT_CASES', '').split(',')
     for name, sources in cases.items():
@@ -47,6 +51,12 @@ with tempfile.TemporaryDirectory(prefix="studio-swift-contracts-") as raw:
             sources.append(SOURCE + 'Core/LigandGeometryResult.swift')
         if SOURCE + 'Models/RFD4Request.swift' in sources:
             sources.append(SOURCE + 'Models/RFD4LengthPlan.swift')
+        if SOURCE + 'Core/ExternalStructureViewer.swift' in sources:
+            sources.append(SOURCE + 'Core/ChimeraXPublicationStyle.swift')
+        if SOURCE + 'Models/ResultAnalysis.swift' in sources:
+            sources.append(SOURCE + 'Models/ResultSpatialPolicy.swift')
+        if SOURCE + 'Core/Results/RunResultsLoader.swift' in sources:
+            sources.append(SOURCE + 'Core/Results/ResultFileStamp.swift')
         sources += [SOURCE + "Core/ControlPython.swift"]
         binary = tmp / name
         subprocess.run(flags + ["-parse-as-library"] + sources + ["-o", str(binary)], cwd=ROOT, check=True)

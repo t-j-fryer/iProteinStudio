@@ -14,6 +14,7 @@ FAST_PYTHON = [
     "test_workflow_release.py",
     "test_design_workflows.py", "test_rfd4_multichain.py", "test_rfd4_result_filters.py",
     "test_motif_beta_bridge.py",
+    "test_memory_confirmation.py", "test_mcp_composition_exports.py",
     "test_memory_admission.py",
     "test_memory_override.py",
     "test_hunter_msa_auto.py",
@@ -49,6 +50,7 @@ FAST_SHELL = [
     "test_process_runner_cancellation.sh", "test_workspace_organization.sh", "test_pipeline_snapshot.sh",
 ]
 SCIENCE = [
+    "test_results_spatial.py", "test_results_review_bridge.py",
     "test_motif_beta.py", "test_motif_beta_native.py", "test_motif_template_features.py",
     "test_hunter_stages.py", "test_hunter_epitope_guidance.py",
     "test_live_iterative_results.py",

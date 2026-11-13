@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import UniformTypeIdentifiers
 
 /// The shared offline py2Dmol structure view used everywhere Studio presents
 /// a protein structure. Its built-in Style panel exposes rendering, colour,
@@ -7,9 +8,11 @@ import WebKit
 /// in SwiftUI.
 struct StructureViewer: View {
     let structurePath: String?
+    var pocketGeometryPayload: String? = nil
 
     var body: some View {
-        Py2DmolViewer(structurePath: structurePath, selection: nil, showsControls: true)
+        Py2DmolViewer(structurePath: structurePath, selection: nil, showsControls: true,
+                      pocketGeometryPayload: pocketGeometryPayload)
     }
 }
 
@@ -49,6 +52,7 @@ struct Py2DmolViewer: NSViewRepresentable {
     var trajectoryFrames: [StructureTrajectoryFrame] = []
     var selection: Binding<[String]>?
     var showsControls: Bool
+    var pocketGeometryPayload: String? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(selection: selection)
@@ -58,13 +62,14 @@ struct Py2DmolViewer: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         config.userContentController.add(context.coordinator, name: "hotspots")
         config.userContentController.add(context.coordinator, name: "viewerStatus")
+        config.userContentController.add(context.coordinator, name: "pocketPNG")
         let web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = context.coordinator
         web.setValue(false, forKey: "drawsBackground")
         context.coordinator.web = web
         if let html = AppPaths.webRoot?.appendingPathComponent("py2dmol/viewer.html"),
            let dir = AppPaths.webRoot?.appendingPathComponent("py2dmol") {
-            web.loadFileURL(html, allowingReadAccessTo: dir)
+            web.loadFileURL(html, allowingReadAccessTo: dir.deletingLastPathComponent())
         }
         return web
     }
@@ -74,12 +79,17 @@ struct Py2DmolViewer: NSViewRepresentable {
         context.coordinator.selection = selection
         context.coordinator.apply(structurePath: structurePath,
                                   trajectoryFrames: trajectoryFrames,
-                                  showsControls: showsControls)
+                                  showsControls: showsControls, pocketGeometryPayload: pocketGeometryPayload)
     }
 
     static func dismantleNSView(_ web: WKWebView, coordinator: Coordinator) {
+        web.stopLoading()
+        web.navigationDelegate = nil
         web.configuration.userContentController.removeScriptMessageHandler(forName: "hotspots")
         web.configuration.userContentController.removeScriptMessageHandler(forName: "viewerStatus")
+        web.configuration.userContentController.removeScriptMessageHandler(forName: "pocketPNG")
+        // Tear down canvases/animation loops instead of retaining a hidden scene.
+        web.loadHTMLString("", baseURL: nil)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -91,6 +101,8 @@ struct Py2DmolViewer: NSViewRepresentable {
         private var pendingTrajectory: [StructureTrajectoryFrame] = []
         private var pendingControls = true
         private var lastPushed = Set<String>()
+        private var pendingGeometry: String?
+        private var lastGeometry: String?
 
         init(selection: Binding<[String]>?) {
             self.selection = selection
@@ -99,15 +111,16 @@ struct Py2DmolViewer: NSViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             ready = true
             apply(structurePath: pendingPath, trajectoryFrames: pendingTrajectory,
-                  showsControls: pendingControls, force: true)
+                  showsControls: pendingControls, pocketGeometryPayload: pendingGeometry, force: true)
         }
 
         func apply(structurePath: String?,
                    trajectoryFrames: [StructureTrajectoryFrame] = [],
-                   showsControls: Bool, force: Bool = false) {
+                   showsControls: Bool, pocketGeometryPayload: String? = nil, force: Bool = false) {
             pendingPath = structurePath
             pendingTrajectory = trajectoryFrames
             pendingControls = showsControls
+            pendingGeometry = pocketGeometryPayload
             guard ready, let web else { return }
 
             let trajectoryIdentity = trajectoryFrames.map {
@@ -147,6 +160,10 @@ struct Py2DmolViewer: NSViewRepresentable {
                 web.evaluateJavaScript(script, completionHandler: nil)
             }
 
+            if force || lastGeometry != pocketGeometryPayload {
+                lastGeometry = pocketGeometryPayload
+                web.evaluateJavaScript("studioSetPocketGeometryB64(\(Self.js(pocketGeometryPayload ?? "")))", completionHandler: nil)
+            }
             guard let selection else { return }
             let values = Set(selection.wrappedValue)
             guard force || values != lastPushed else { return }
@@ -158,6 +175,21 @@ struct Py2DmolViewer: NSViewRepresentable {
 
         func userContentController(_ controller: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
+            if message.name == "pocketPNG" {
+                guard let uri = message.body as? String, uri.hasPrefix("data:image/png;base64,"),
+                      uri.utf8.count < 80_000_000,
+                      let data = Data(base64Encoded: String(uri.dropFirst("data:image/png;base64,".count))),
+                      data.starts(with: [137, 80, 78, 71, 13, 10, 26, 10]) else { return }
+                let panel = NSSavePanel()
+                panel.allowedContentTypes = [.png]
+                panel.nameFieldStringValue = "Pocket.png"
+                panel.begin { response in
+                    guard response == .OK, let url = panel.url else { return }
+                    do { try data.write(to: url, options: .atomic) }
+                    catch { NSAlert(error: error).runModal() }
+                }
+                return
+            }
             if message.name == "viewerStatus" {
                 if let text = message.body as? String { print("py2Dmol: \(text)") }
                 return

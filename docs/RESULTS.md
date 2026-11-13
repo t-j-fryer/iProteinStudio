@@ -40,3 +40,9 @@ a hit verdict. Parent backbones remain available throughout.
 
 See [NISE](NISE.md#viewing-progress-and-structures) for preparation-stage progress,
 sequence-only screening and the interpretation of intentionally omitted affinity.
+
+Overview metric defaults, cycle medians, retrospective hit selection, CSV export
+and bounded large-result browsing are described in [Results review](RESULTS_REVIEW.md).
+Optional [spatial review](RESULTS_SPATIAL_REVIEW.md) adds exact-pose epitope/ligand
+contacts, SASA burial, verified geometry receipts and manuscript-style ChimeraX
+handoff in design and prediction results.

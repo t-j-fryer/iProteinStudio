@@ -9,7 +9,32 @@ enum RunResultsLoader {
 
     static func load(root: URL, workflow: StudioWorkflow) -> [StudioResultItem] {
         let required = LigandGeometryResult.required(root: root)
-        return rawLoad(root: root, workflow: workflow).map { LigandGeometryResult.apply($0, required: required) }
+        let smallMolecule = isSmallMoleculeDesign(root: root, workflow: workflow)
+        let settings = jsonObject(at: root.appendingPathComponent("rfd4_config.json"))?["settings"] as? [String: Any] ?? [:]
+        let recordedChain = workflow == .rfd4 ? settings["binder_chain"] as? String : nil
+        return rawLoad(root: root, workflow: workflow).map {
+            var item = LigandGeometryResult.apply($0, required: required)
+            if let recordedChain, !recordedChain.isEmpty { item.recordedDesignChains = [recordedChain] }
+            item.coordinateStamp = ResultFileStamp.read(item.structureURL)
+            item.smallMoleculeDesign = item.smallMoleculeDesign || smallMolecule
+            return item
+        }
+    }
+
+    static func isSmallMoleculeDesign(root: URL, workflow: StudioWorkflow) -> Bool {
+        if workflow == .nise { return true }
+        if let cfg = jsonObject(at: root.appendingPathComponent("rfd4_config.json")),
+           let settings = cfg["settings"] as? [String: Any], settings["task"] as? String == "ligand" { return true }
+        for name in ["config/studio_request.json", "config/campaign.json"] {
+            if let cfg = jsonObject(at: root.appendingPathComponent(name)), cfg["target_kind"] as? String == "small_molecule" { return true }
+        }
+        if let cfg = jsonObject(at: root.appendingPathComponent("studio_run.json")) {
+            for key in ["request", "savedFormState"] {
+                let request = cfg[key] as? [String: Any] ?? [:]
+                if ["ligand", "smallMolecule", "small_molecule"].contains(request["targetKind"] as? String ?? "") { return true }
+            }
+        }
+        return false
     }
 
     private static func rawLoad(root: URL, workflow: StudioWorkflow) -> [StudioResultItem] {
@@ -75,8 +100,12 @@ enum RunResultsLoader {
             let assessmentMode = row["assessment_mode"] as? String
             if let value = oracleMetrics["motif_rmsd_angstrom"] { metrics.append(.init(kind: .motifInputRMSD, value: value)) }
             if let value = oracleMetrics["partner_aligned_motif_rmsd_angstrom"] { metrics.append(.init(kind: .motifPartnerRMSD, value: value)) }
-            if let value = oracleMetrics["boltz.pbind"] { metrics.append(.init(kind: .bindingProbability, value: value)) }
-            if let value = oracleMetrics["boltz.ligand_plddt"] ?? oracleMetrics["ligand_plddt"] { metrics.append(.init(kind: .ligandPLDDT, value: value)) }
+            if let value = oracleMetrics["boltz.pbind"] {
+                metrics.removeAll { $0.kind == .bindingProbability }; metrics.append(.init(kind: .bindingProbability, value: value))
+            }
+            if let value = oracleMetrics["boltz.ligand_plddt"] ?? oracleMetrics["ligand_plddt"] {
+                metrics.removeAll { $0.kind == .ligandPLDDT }; metrics.append(.init(kind: .ligandPLDDT, value: value))
+            }
             for (key, kind) in [("iptm", StudioResultMetric.Kind.iptm), ("complex_plddt", StudioResultMetric.Kind.plddt)] {
                 if let value = oracleMetrics[key], !metrics.contains(where: { $0.kind == kind }) { metrics.append(.init(kind: kind, value: value)) }
             }
@@ -91,7 +120,8 @@ enum RunResultsLoader {
                 failedFilters: row["hit_filter_failures"] as? [String] ?? [],
                 motifMapping: row["motif_mapping"] as? [String: String] ?? [:],
                 groupID: family, groupTitle: family, variantID: assessmentMode == nil ? id : parent, variantTitle: assessmentMode == nil ? id : parent,
-                artifactRole: assessmentMode == "apo" ? .binderAlone : assessmentMode == "holo" ? .complexReprediction : parent == nil ? .generatedBackbone : .designedComplex)
+                artifactRole: assessmentMode == "apo" ? .binderAlone : assessmentMode == "holo" ? .complexReprediction : parent == nil ? .generatedBackbone : .designedComplex,
+                cycle: (row["cycle"] as? NSNumber)?.intValue)
         }
     }
 
@@ -201,7 +231,8 @@ enum RunResultsLoader {
                     motifResidueRMSDs: item.motifResidueRMSDs,
                     groupID: "iterative|" + child.id + "|" + item.groupID,
                     groupTitle: child.frameworkName + " · " + child.engine + " · " + item.groupTitle,
-                    variantID: item.variantID, variantTitle: item.variantTitle, artifactRole: item.artifactRole)
+                    variantID: item.variantID, variantTitle: item.variantTitle, artifactRole: item.artifactRole, cycle: item.cycle)
+                value.smallMoleculeDesign = isSmallMoleculeDesign(root: child.root, workflow: .iterative)
                 value.frameworkID = child.frameworkID; value.frameworkName = child.frameworkName
                 value.campaignID = child.id; value.designEngine = child.engine
                 value.designHitThreshold = iterativeHitThreshold(root: child.root)
@@ -428,7 +459,7 @@ enum RunResultsLoader {
                 failedFilters: splitFilters(row["failed_filters"]),
                 groupID: groupID, groupTitle: groupTitle,
                 variantID: variantID, variantTitle: variantTitle,
-                artifactRole: role
+                artifactRole: role, cycle: cycle
             )]
 
             if isPost, let binderPath = nonempty(row["binder_structure_path"]),
@@ -454,7 +485,7 @@ enum RunResultsLoader {
                     failedFilters: splitFilters(row["failed_filters"]),
                     groupID: groupID, groupTitle: groupTitle,
                     variantID: variantID, variantTitle: variantTitle,
-                    artifactRole: .binderAlone
+                    artifactRole: .binderAlone, cycle: cycle
                 ))
             }
             return results
@@ -971,7 +1002,11 @@ enum RunResultsLoader {
         for document in documents {
             guard let object = jsonObject(at: document) else { continue }
             add(.plddt, number(in: object, keys: ["complex_plddt", "protein_plddt", "mean_plddt", "plddt"]))
-            add(.ligandPLDDT, number(in: object, keys: ["ligand_plddt"]))
+            // Predictor confidence JSON may use Boltz's 0–1 representation;
+            // canonical CSV/oracle ligand_plddt is already on the 0–100 scale.
+            if let value = number(in: object, keys: ["ligand_plddt"]) {
+                add(.ligandPLDDT, value <= 1.000001 ? value * 100 : value)
+            }
             add(.iptm, number(in: object, keys: ["iptm", "ipTM"]))
             add(.ptm, number(in: object, keys: ["ptm", "pTM"]))
             add(.interfacePAEMinimum, number(in: object, keys: ["ipae_min", "interface_pae_min", "min_interface_pae"]))

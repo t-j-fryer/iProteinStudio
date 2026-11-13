@@ -9,6 +9,8 @@ import Foundation
         motifRequest.optimized_kernels = false
         let motifCopy = try JSONDecoder().decode(RFD4Request.self, from: JSONEncoder().encode(motifRequest))
         precondition(motifCopy == motifRequest && !motifCopy.optimized_kernels)
+        precondition(motifCopy.newRunRequest.optimized_kernels)
+        precondition(!motifCopy.optimized_kernels, "Fresh defaults must not mutate a historical request")
         motifRequest.motif_assessment = RFD4MotifAssessment()
         precondition(motifRequest.validationIssues.isEmpty && motifRequest.predictions == 1)
         motifRequest.motif_assessment?.holo = true

@@ -1,0 +1,60 @@
+# iProteinStudio manuscript style v1. Local exact-pose handoff.
+# Based on manuscript publication_style.cxc and Figure4 surface settings.
+# Does not close existing models or modify molecular coordinates.
+import json, hashlib
+from pathlib import Path
+from chimerax.core.commands import run, StringArg
+from chimerax.atomic import AtomicStructure, AtomsArg, Residue
+cfg = json.loads(__STUDIO_CONFIG_JSON_LITERAL__)
+if hashlib.sha256(Path(cfg['source']).read_bytes()).hexdigest() != cfg['sha256']:
+    raise ValueError('Source coordinates changed after the style script was prepared.')
+models = [m for m in run(session, 'open ' + StringArg.unparse(cfg['source'])) if isinstance(m, AtomicStructure)]
+if not models: raise ValueError('The file did not open as an atomic structure.')
+run(session, 'set bgColor white')
+run(session, 'camera ortho')
+run(session, 'lighting soft')
+for model in models:
+    spec = model.atomspec
+    protein = spec + '&protein'
+    ligand = spec + '&ligand'
+    nucleic = spec + '&nucleic'
+    protein_chains = [c.chain_id for c in model.chains if c.polymer_type == Residue.PT_AMINO]
+    highlight = cfg['emphasized_chains']
+    if not set(highlight) <= set(protein_chains):
+        raise ValueError('An emphasized chain is absent or is not protein; check the exact structure chain IDs.')
+    has_ligand = len(AtomsArg.parse(ligand, session)[0]) > 0
+    run(session, 'hide ' + spec + ' atoms')
+    if len(AtomsArg.parse(nucleic, session)[0]):
+        run(session, 'cartoon ' + nucleic)
+        run(session, 'color ' + nucleic + ' #0072B2 target c')
+    if protein_chains:
+        run(session, 'cartoon ' + protein)
+        run(session, 'color ' + protein + ' #B8BFC5 target c')
+    if has_ligand:
+        run(session, 'graphics silhouettes false')
+        if protein_chains:
+            run(session, 'surface ' + protein)
+            run(session, 'color ' + protein + ' #B8BFC5 target s')
+            run(session, 'transparency ' + protein + ' 60 target s')
+        run(session, 'show ' + ligand + ' atoms')
+        run(session, 'style ' + ligand + ' stick')
+        run(session, 'color ' + ligand + ' #E6AD3C')
+        run(session, 'surface ' + ligand)
+        run(session, 'color ' + ligand + ' #E6AD3C target s')
+        run(session, 'transparency ' + ligand + ' 55 target s')
+    else:
+        run(session, 'graphics silhouettes true color black width 1')
+        if len(protein_chains) == 1 and not highlight:
+            highlight = protein_chains
+        targets = [c for c in protein_chains if c not in highlight]
+        if targets:
+            selected = spec + '/' + ','.join(targets)
+            run(session, 'surface ' + selected)
+            run(session, 'color ' + selected + ' #B8BFC5 target s')
+            run(session, 'transparency ' + selected + ' 40 target s')
+        if highlight:
+            run(session, 'color ' + spec + '/' + ','.join(highlight) + ' #479D91 target c')
+    run(session, 'view ' + spec)
+    run(session, 'zoom 0.90')
+if hashlib.sha256(Path(cfg['source']).read_bytes()).hexdigest() != cfg['sha256']:
+    raise ValueError('Source changed while opening the structure.')

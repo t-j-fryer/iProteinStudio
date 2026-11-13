@@ -153,3 +153,28 @@ identity, reparenting and unrelated-process exclusion. Native-job fixtures also
 stop a separate-session child that ignores TERM and inherits the execution lease,
 then require the next queued job to run. These are process-control regressions,
 not engine throughput or student-machine qualification.
+
+Bridge60 result review is exercised with synthetic CPU fixtures, including an
+actual immutable spatial plan/broker execution, changed-pose refusal, snapshot
+pagination, retrospective rules/family caps, same-assessment combined scoring,
+formula-safe complete CSV, remote chunk retrieval and portable viewer scripts:
+
+```bash
+"$HOME/.iproteinstudio/venvs/NanoHunter_boltz/bin/python" -B -m unittest discover -s Tests -p 'test_results*py'
+```
+
+These tests need the existing Gemmi/RDKit/SciPy analysis environment and process
+inspection for the broker. They use isolated managed roots and do not run a
+predictor or inspect private molecules. The Swift manuscript recipe and shipped
+Python template are compared to prevent style drift. Fixture contracts do not
+establish an interactive large-private-run GUI soak or inference performance.
+
+Optional portable ChimeraX graphics acceptance uses only the shipped T4 example,
+an isolated process, an empty startup-script directory and local output:
+
+```bash
+python3 Tests/qualify_viewer_export.py --chimerax /path/to/ChimeraX --out /path/to/fresh-output
+```
+
+This is separate from CPU/CI contracts and requires a working desktop graphics
+session. It does not capture or open an existing user's workspace.

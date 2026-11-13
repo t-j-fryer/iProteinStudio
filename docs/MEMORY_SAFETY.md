@@ -1,11 +1,11 @@
 # Memory admission
 
-Studio estimates memory before creating a prediction/design plan and checks
-again after the job obtains the shared execution lock. Predict also displays the
-same estimate beside Start and disables Start for blocked inputs unless the user
-explicitly overrides memory admission. Target Prep
-uses the same broker. `predict_batch.py` checks before MSA work and before each
-engine stage, including direct CLI use.
+The native app now shows a per-run fitted RAM estimate with Proceed/Cancel before
+queueing new work; see [Memory estimates](MEMORY_ESTIMATES.md). It uses a saved
+explicit override only after the user confirms that exact run. Unmatched profiles
+remain clearly unknown. CLI/MCP admission still checks at planning and dispatch;
+`predict_batch.py` checks before MSA work and each engine stage, including direct
+CLI use. All routes retain the same broker and memory sampling.
 
 The estimate is a conservative screening policy, not a guarantee against every
 allocation spike, driver failure, or change in another app's usage after start.
@@ -14,10 +14,11 @@ the prediction batch runner do not acquire this policy automatically.
 
 ## Optional override and measurement
 
-**Settings → Memory → Override memory check for new runs** is off by default.
-The same control is visible in Predict and Atomic motif beta. It applies across
-Studio and is copied into the submission when the user starts a new run.
-Queued/resumed jobs keep the policy saved in their immutable plan.
+New app submissions ask for confirmation per run instead of using the global
+override toggle. The review includes installed RAM, maximum complex size and
+matched profile estimates with uncertainty. Cancel queues nothing; Proceed is
+bound to the saved plan and review digest. Queued/resumed jobs keep their original
+policy. A previous global preference does not suppress the new confirmation.
 
 MCP scientific planners accept top-level `"memory_policy": "override"` (default
 `"enforce"`), including recipes and engine batches. The bridge records this in

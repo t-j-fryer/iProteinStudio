@@ -1,16 +1,12 @@
 import SwiftUI
 
 struct MemoryPolicyControl: View {
-    @AppStorage("overrideMemoryCheck") private var overrideMemoryCheck = false
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Toggle("Override memory check for new runs", isOn: $overrideMemoryCheck)
-            Text(overrideMemoryCheck
-                 ? "Runs may proceed even when memory is insufficient or the estimate is unavailable. Your choice and sampled usage are saved with each job."
-                 : "Memory checks are enabled. You can override them to run an uncalibrated workload.")
-                .font(.caption).foregroundStyle(overrideMemoryCheck ? Color.orange : Color.secondary)
-            Text("Applies across Studio. Queued and resumed jobs keep their saved choice.")
+            Label("Review memory before starting", systemImage: "memorychip")
+            Text("Studio will show estimated peak memory for the saved settings and largest complex, then ask whether to proceed. Estimates without a matching measured profile are marked unavailable.")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("Your choice applies to that run. Existing jobs keep their saved settings.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .accessibilityIdentifier("memory-policy-control")

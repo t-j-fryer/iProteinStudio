@@ -1,0 +1,448 @@
+{
+  "metric": "sampled warmed-request process-tree physical footprint; loading excluded",
+  "models": {
+    "boltz_app__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370,
+        916
+      ],
+      "anchor_median_gib": [
+        3.767123155295849,
+        4.763735793530941,
+        9.462451316416264,
+        26.385258197784424
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        0.2227689335586151,
+        28.129037987576332
+      ],
+      "cv_mae_gib": 2.0242508934005206,
+      "cv_mape_percent": 16.742387726850964,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "boltz_app",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "boltz_app__process_footprint",
+      "kind": "prediction",
+      "label": "Boltz-2",
+      "max_aa": 916,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 20,
+      "n_sizes": 4,
+      "observed_peak_residual_gib": 1.8499025120961199,
+      "power": 1,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "esm600_low_memory_bf16__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370,
+        916,
+        1622,
+        1694
+      ],
+      "anchor_median_gib": [
+        4.962986625730991,
+        5.721516311168671,
+        6.580189518630505,
+        13.219853550195694,
+        33.3364317715168,
+        37.33487555384636
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        4.880616900776405,
+        11.035881883888642
+      ],
+      "cv_mae_gib": 0.8103570678436139,
+      "cv_mape_percent": 5.651811482202095,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "esm600_low_memory_bf16",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "esm600_low_memory_bf16__process_footprint",
+      "kind": "prediction",
+      "label": "ESMFold2 Fast 600M low-memory BF16",
+      "max_aa": 1694,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 30,
+      "n_sizes": 6,
+      "observed_peak_residual_gib": 2.9153606476357794,
+      "power": 2,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "esm600_standard_bf16__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370,
+        916
+      ],
+      "anchor_median_gib": [
+        6.642491713166237,
+        7.094518236815929,
+        9.600895762443542,
+        19.151921577751637
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        4.586022023570051,
+        15.61820129100721
+      ],
+      "cv_mae_gib": 1.4119013004958707,
+      "cv_mape_percent": 11.388343715397522,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "esm600_standard_bf16",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "esm600_standard_bf16__process_footprint",
+      "kind": "prediction",
+      "label": "ESMFold2 Fast 600M standard BF16",
+      "max_aa": 916,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 20,
+      "n_sizes": 4,
+      "observed_peak_residual_gib": 0.5576619066429558,
+      "power": 1,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "esmfold2_fast_bf16__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370,
+        916
+      ],
+      "anchor_median_gib": [
+        18.95972479879856,
+        19.087928853929043,
+        20.188116900622845,
+        29.912406131625175
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        18.65600908902884,
+        13.362877127683404
+      ],
+      "cv_mae_gib": 0.9232958171972765,
+      "cv_mape_percent": 3.44622389766826,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "esmfold2_fast_bf16",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "esmfold2_fast_bf16__process_footprint",
+      "kind": "prediction",
+      "label": "ESMFold2 Fast BF16",
+      "max_aa": 916,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 20,
+      "n_sizes": 4,
+      "observed_peak_residual_gib": 0.9540306044287554,
+      "power": 2,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "esmfold2_full_bf16__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370,
+        916
+      ],
+      "anchor_median_gib": [
+        19.41428430378437,
+        19.317741118371487,
+        21.54590532183647,
+        40.562918961048126
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        18.62452854964991,
+        26.028622094998383
+      ],
+      "cv_mae_gib": 2.0562750819616946,
+      "cv_mape_percent": 6.1535481737833315,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "esmfold2_full_bf16",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "esmfold2_full_bf16__process_footprint",
+      "kind": "prediction",
+      "label": "ESMFold2 Full BF16",
+      "max_aa": 916,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 20,
+      "n_sizes": 4,
+      "observed_peak_residual_gib": 2.3105582304506456,
+      "power": 2,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "intellifold_flash_app__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370,
+        916
+      ],
+      "anchor_median_gib": [
+        4.299091637134552,
+        4.413441114127636,
+        7.475941449403763,
+        23.319341883063316
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        4.057838061634849,
+        22.9989129556412
+      ],
+      "cv_mae_gib": 0.7918084187055365,
+      "cv_mape_percent": 6.352987834350218,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "intellifold_flash_app",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "intellifold_flash_app__process_footprint",
+      "kind": "prediction",
+      "label": "IntelliFold Flash",
+      "max_aa": 916,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 20,
+      "n_sizes": 4,
+      "observed_peak_residual_gib": 0.9349988841996719,
+      "power": 2,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "intellifold_full_app__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370,
+        916
+      ],
+      "anchor_median_gib": [
+        7.205602042376995,
+        8.301534317433834,
+        15.959402173757551,
+        60.99887815862894
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        6.738693465645749,
+        64.72948737596121
+      ],
+      "cv_mae_gib": 1.0841538980544219,
+      "cv_mape_percent": 3.7137067911200017,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "intellifold_full_app",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "intellifold_full_app__process_footprint",
+      "kind": "prediction",
+      "label": "IntelliFold Full",
+      "max_aa": 916,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 20,
+      "n_sizes": 4,
+      "observed_peak_residual_gib": 0.409565462077806,
+      "power": 2,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "openfold3_app__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370,
+        916
+      ],
+      "anchor_median_gib": [
+        7.846731834113598,
+        8.026037819683552,
+        16.222235709428787,
+        78.4749519303441
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        5.7892442543620515,
+        86.3706591613625
+      ],
+      "cv_mae_gib": 4.536807077853079,
+      "cv_mape_percent": 14.323510603328199,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "openfold3_app",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "openfold3_app__process_footprint",
+      "kind": "prediction",
+      "label": "OpenFold3",
+      "max_aa": 916,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 20,
+      "n_sizes": 4,
+      "observed_peak_residual_gib": 1.268957132771992,
+      "power": 2,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "protenix_constraint_app__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370,
+        916
+      ],
+      "anchor_median_gib": [
+        5.881305813789368,
+        5.8379098400473595,
+        9.93166010826826,
+        44.236608661711216
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        4.5557391565681,
+        47.096171203460436
+      ],
+      "cv_mae_gib": 3.414053524150603,
+      "cv_mape_percent": 15.983405223932941,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "protenix_constraint_app",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "protenix_constraint_app__process_footprint",
+      "kind": "prediction",
+      "label": "Protenix Constraint",
+      "max_aa": 916,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 20,
+      "n_sizes": 4,
+      "observed_peak_residual_gib": 3.8718199822361257,
+      "power": 2,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "protenix_mini_app__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370,
+        916
+      ],
+      "anchor_median_gib": [
+        4.708301059901714,
+        4.6992984637618065,
+        8.964511811733246,
+        43.28349831700325
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        3.445171426063446,
+        47.30405856933153
+      ],
+      "cv_mae_gib": 3.073128837295921,
+      "cv_mape_percent": 16.452004994725918,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "protenix_mini_app",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "protenix_mini_app__process_footprint",
+      "kind": "prediction",
+      "label": "Protenix Mini",
+      "max_aa": 916,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 20,
+      "n_sizes": 4,
+      "observed_peak_residual_gib": 0.9014705410638468,
+      "power": 2,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "protenix_v2_app__process_footprint": {
+      "anchor_aa": [
+        96,
+        164,
+        370
+      ],
+      "anchor_median_gib": [
+        6.325657278299332,
+        6.487217538058758,
+        13.44388273358345
+      ],
+      "batch_size": 1,
+      "coefficients": [
+        6.025845379311957,
+        146.19149928122823
+      ],
+      "cv_mae_gib": 1.8499001460116353,
+      "cv_mape_percent": 15.700913818853286,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "formula": "GiB = a + b * (total_aa / 1000)^power",
+      "group": "protenix_v2_app",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "protenix_v2_app__process_footprint",
+      "kind": "prediction",
+      "label": "Protenix v2",
+      "max_aa": 370,
+      "method": "nonnegative_power",
+      "metric": "process_footprint",
+      "min_aa": 96,
+      "n_requests": 15,
+      "n_sizes": 3,
+      "observed_peak_residual_gib": 0.5715038285617027,
+      "power": 3,
+      "residual_note": "Adding this covers observed request peaks only; not a prediction interval or safety margin",
+      "selection": "Minimum retrospective leave-one-size-out MAPE among powers 1,2,3"
+    },
+    "protenix_v2_chunked__process_footprint": {
+      "anchor_aa": [
+        916
+      ],
+      "anchor_median_gib": 46.859563894569874,
+      "batch_size": 1,
+      "evidence": "Exploratory same-host estimates; not a device safety limit",
+      "group": "protenix_v2_chunked",
+      "hardware": "Apple M4 Max, 40 GPU cores, 64 GB unified memory",
+      "id": "protenix_v2_chunked__process_footprint",
+      "kind": "prediction",
+      "label": "Protenix v2 (attention chunking)",
+      "max_aa": 916,
+      "method": "single_size_anchor",
+      "metric": "process_footprint",
+      "min_aa": 916,
+      "n_requests": 5,
+      "n_sizes": 1
+    }
+  },
+  "models_sha256": "c92582b33e3e4e214dfafef8155d22275fe24ae250ea6754183e61e5688084a8",
+  "observations_sha256": "496aaf3d7a3f90af7436a951569a21f481d66c02a5411c5ce9d8c50b1df8df75",
+  "schema": 1,
+  "source": "Lab0851 / Validation memory_scaling_models_v1"
+}

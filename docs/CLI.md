@@ -1212,3 +1212,21 @@ Cones are idealized sampled hypotheses, not a continuous accessible region or a
 binding probability. The molecule selector offers 2D atom picking and an offline
 3D input conformer: drag rotates, scroll/pinch or +/− zooms, Control-drag pans,
 and Reset view refits. The preview is not a predicted bound pose.
+
+## Complete read/run tool access (bridge60)
+
+```bash
+"$ROOT/bin/studioctl" tools --profile run
+"$ROOT/bin/studioctl" call results_review review.json --profile read
+"$ROOT/bin/studioctl" call results_review_export review.json --profile run
+```
+
+`tools` returns names and full deployed schemas. `call` takes an object from a
+JSON file and uses the MCP server's validation, profile boundaries and auditing.
+Its default profile is read; run must be explicit. Admin is separate and is not
+accepted by this generic entry point. Existing plan/start/status/resume commands
+are unchanged. New spatial work uses `results_spatial_plan`, review of its frozen
+plan, then `job_start`; use its completed job ID as `spatial_job_id` in result
+review. No predictor runs during that CPU analysis. All exports are retrieved
+with `export_read`, including CSV/review and portable ChimeraX ZIPs.
+See [review contracts](RESULTS_REVIEW.md) and [spatial semantics](RESULTS_SPATIAL_REVIEW.md).

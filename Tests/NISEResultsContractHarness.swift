@@ -43,6 +43,7 @@ struct NISEResultsContractHarness {
         try structure("phase0/cycle01/fold/L000_c1_1/yaml/input.yaml")
         try write("phase0/cycle01/nesso/selection.json", ["input": ["sequences": ["a": "AAA", "b": "ACA", "c": "ADA"]], "result": ["a", "b"]])
         var snapshot = NISEResultsLoader.load(root: root)
+        precondition(snapshot.records.allSatisfy { $0.item.cycle == $0.cycle && $0.item.smallMoleculeDesign })
         precondition(snapshot.records.count == 3)
         precondition(snapshot.records.first { $0.item.title == "L000" }!.item.subtitle.contains("linker exit: restricted"))
         let initial = snapshot.stages.first { $0.id == "0|0" }!

@@ -240,7 +240,6 @@ final class ManagedJobSession {
     func submit(project: String, workflow: String, output: URL,
                 preparing: @escaping (String) -> Void = { _ in },
                 update: @escaping (ManagedJob) -> Void, failure: @escaping (String) -> Void) {
-        let memoryPolicy = UserDefaults.standard.bool(forKey: "overrideMemoryCheck") ? "override" : "enforce"
         self.update = update; self.failure = failure
         id = nil; cancellationRequested = false; hasSession = true
         task?.cancel()
@@ -264,9 +263,25 @@ final class ManagedJobSession {
             defer { progressTask.cancel() }
             do {
                 let request = output.appendingPathComponent("studio_submission.json")
-                try JSONEncoder().encode(["project": project, "workflow": workflow, "output": output.path, "memory_policy": memoryPolicy])
+                try JSONEncoder().encode(["project": project, "workflow": workflow, "output": output.path])
                     .write(to: request, options: .atomic)
-                let job = try await BrokerClient.call(["_desktop-submit", request.path], as: ManagedJob.self)
+                let review = try await BrokerClient.call(["_desktop-prepare", request.path], as: PreparedMemoryRun.self)
+                guard !Task.isCancelled else { return }
+                progressTask.cancel()
+                preparing("Review estimated memory use. No job has been queued yet.")
+                guard !cancellationRequested && review.confirm() else {
+                    hasSession = false
+                    let bytes = try JSONSerialization.data(withJSONObject: [
+                        "id": "", "project": project, "kind": workflow, "status": "cancelled",
+                        "message": "Run cancelled before submission. No job was queued."
+                    ])
+                    update(try JSONDecoder().decode(ManagedJob.self, from: bytes))
+                    return
+                }
+                guard !Task.isCancelled, !cancellationRequested else { return }
+                preparing("Registering the confirmed run in the shared queue…")
+                let job = try await BrokerClient.call(["_desktop-confirm", review.plan_id,
+                    review.plan_sha256, review.report_sha256], as: ManagedJob.self)
                 progressTask.cancel()
                 guard !Task.isCancelled else { return }
                 id = job.id

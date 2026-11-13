@@ -69,7 +69,7 @@ struct PipelineSnapshotContractHarness {
         try AppPaths.stagePipelineAssets()
         guard let release = firstMetadata?["workflow_release"] as? [String: Any],
               let files = release["files"] as? [String: String], files.count == 3,
-              release["generation"] as? Int == 2026111001
+              release["generation"] as? Int == 2026111301
         else { fail("snapshot did not retain the optimized workflow release") }
         for name in files.keys {
             guard try Data(contentsOf: first.appendingPathComponent(name)) == Data(contentsOf: root.appendingPathComponent(name))
@@ -78,7 +78,7 @@ struct PipelineSnapshotContractHarness {
         let stamp = root.appendingPathComponent("WORKFLOW_RELEASE.json")
         let savedStamp = try Data(contentsOf: stamp)
         var future = release
-        future["generation"] = 2026111002
+        future["generation"] = (release["generation"] as! Int) + 1
         try JSONSerialization.data(withJSONObject: future).write(to: stamp)
         do {
             try AppPaths.stagePipelineAssets()

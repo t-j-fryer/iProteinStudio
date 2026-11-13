@@ -53,6 +53,7 @@ struct NISEStageProgress: Identifiable {
 }
 
 struct NISESnapshot {
+    var revision = UUID()
     var objectiveDescription = "Selection: Boltz ligand pLDDT/100 + P(bind)"
     var records: [NISERecord] = []
     var stages: [NISEStageProgress] = []
@@ -349,7 +350,9 @@ enum NISEResultsLoader {
                 isHit: settings["ligand_geometry"] is [String: Any] && (geometry == false || eligible == false || isInitial) ? false : nil,
                 failedFilters: ((row["atom_checks"] as? [String: Any] ?? initialAtoms[name] as? [String: Any])?["failures"] as? [String]) ?? [],
                 groupID: groupID, groupTitle: groupTitle, variantID: "cycle-\(cycle)-\(name)",
-                variantTitle: "Cycle \(cycle) · \(name)", artifactRole: isInitial ? .startingStructure : .designedComplex)
+                variantTitle: "Cycle \(cycle) · \(name)", artifactRole: isInitial ? .startingStructure : .designedComplex,
+                cycle: phase == .finalChecks ? nil : cycle)
+            item.smallMoleculeDesign = true
             item = LigandGeometryResult.apply(item, required: settings["ligand_geometry"] is [String: Any])
             snapshot.records.append(NISERecord(item: item, phase: phase, cycle: cycle, geometryPassed: geometry,
                 eligible: candidateNames.contains(name) || isInitial ? eligible : nil, advanced: selection[name]))

@@ -174,9 +174,9 @@ def _persist(kind: str, project: str, normalized: Dict[str, Any], preview: List[
         bindings = capture(provenance=provenance, normalized=normalized)
         if bindings: body["runtime_bindings"] = bindings
         from .code_snapshot import capture as capture_code, provenance as code_provenance
-        code_root = Path(normalized["pipeline_snapshot"]) if kind == "desktop_rfd4" else runtime_root()
+        code_root = Path(normalized["pipeline_snapshot"]) if kind in {"desktop_rfd4", "results_spatial"} else runtime_root()
         snapshot = (capture_code(runtime_root(), agent_root() / "code", pipeline=code_root)
-                    if kind == "desktop_rfd4" else capture_code(runtime_root(), agent_root() / "code"))
+                    if kind in {"desktop_rfd4", "results_spatial"} else capture_code(runtime_root(), agent_root() / "code"))
         body["code_snapshot"] = snapshot
         body["provenance"] = code_provenance(code_root, snapshot, provenance)
     # Identity is derived before assigning a view path. A random path here made

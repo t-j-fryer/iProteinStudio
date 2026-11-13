@@ -62,6 +62,10 @@ Skills do not grant extra tool permissions.
 | Find installed capabilities | `system_detect`, `workflow_guide`; `iprotein://capabilities` | Read |
 | Find saved work | `projects_list`, `runs_list`, `run_status` | Read |
 | Interpret results | `results_overview`, then `results_query` or paginated `candidates_list`; `candidates_compare` | Read |
+| Retrospective metric filters, ranking, family caps and cycle medians | `results_review` | Read |
+| Fitted RAM report for a saved plan | `memory_estimate` | Read |
+| Scored-sequence CSV / manuscript-style viewer ZIP | `results_review_export`, `viewer_script_export` | Run |
+| Exact-pose contact, burial and geometry review | `results_spatial_plan` → `job_start`; completed `spatial_job_id` → `results_review` | Run → Read |
 | Retrieve a saved export | `export_read` | Read |
 | Export selected candidates | `candidate_export` | Run |
 | Discover structures and residue mappings | `rcsb_status`, `rcsb_tools`, `rcsb_query` | Read; optional installation |
@@ -174,7 +178,7 @@ These additions are bundled source features; the connected server's tool list
 is authoritative until an updated app is deployed.
 
 
-## Current design routes and evidence (bridge 46)
+## Current design routes and evidence
 
 Discover `rfd4_plan`, `motif_beta_catalog` and `motif_beta_plan` in the connected
 server before using them. Both planners also have executable v2 recipe routes.
@@ -215,3 +219,19 @@ or MCP `system_detect` and confirm the checked workflow release identity. Source
 commits and the upstream model revision alone do not establish deployment. See
 [workflow implementations](ENGINE_IMPLEMENTATIONS.md) for the manifest, snapshot
 fields, downgrade guard, legacy jobs and MCP reconnection after updates.
+
+## Bridge60 result review and CLI parity
+
+See [result review](RESULTS_REVIEW.md) and [spatial/style review](RESULTS_SPATIAL_REVIEW.md).
+`studioctl tools --profile read` or `--profile run` returns the deployed schemas;
+`studioctl call TOOL request.json --profile run` validates and invokes the same
+MCP operation. Admin is deliberately excluded from this generic CLI entry point.
+Existing explicit plan/job commands remain supported. `memory_estimate` reads an
+immutable plan; it does not grant an admission override. The app's per-submission
+Proceed/Cancel report records consent, while headless planners retain explicit
+`memory_policy` admission. See [memory estimates](MEMORY_ESTIMATES.md).
+
+Clients must reconnect to load bridge60 and refreshed skill resources. If a
+client copied the portable skill into its own skill directory, replace that copy
+with the newly shipped directory; registration alone cannot update copied skills.
+No external-viewer app is installed or started by the bridge.

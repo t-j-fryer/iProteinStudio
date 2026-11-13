@@ -77,7 +77,7 @@ struct PredictionResultsContractHarness {
             let child = csvRoot.appendingPathComponent(name)
             try FileManager.default.createDirectory(at: child, withIntermediateDirectories: true)
             try "data_fixture".write(to: child.appendingPathComponent("model.cif"), atomically: true, encoding: .utf8)
-            try JSONSerialization.data(withJSONObject: ["request": ["scaffoldID": name, "designPredictor": "boltz", "numDesigns": 1]])
+            try JSONSerialization.data(withJSONObject: ["request": ["scaffoldID": name, "designPredictor": "boltz", "numDesigns": 1, "targetKind": name == "framework-a" ? "smallMolecule" : "protein"]])
                 .write(to: child.appendingPathComponent("studio_run.json"))
             try "run,cycle,stage,predictor,structure_path,iptm,is_hit\n1,0,design,boltz,model.cif,0.8,\n1,1,design,boltz,model.cif,0.9,\n1,1,post,boltz,model.cif,0.9,true\n"
                 .write(to: child.appendingPathComponent("comparison_scores_long.csv"), atomically: true, encoding: .utf8)
@@ -90,6 +90,9 @@ struct PredictionResultsContractHarness {
         precondition(combinedGroups.count == 2 && combinedGroups.allSatisfy { $0.iterativeTrajectoryItems.count == 2 })
         precondition(combined.filter { $0.frameworkID == "framework-a" }.count == 3)
         precondition(combined.allSatisfy { $0.designEngine == "boltz" && $0.campaignID != nil })
+        precondition(combined.filter { $0.frameworkID == "framework-a" }.allSatisfy(\.smallMoleculeDesign))
+        precondition(combined.filter { $0.frameworkID == "framework-b" }.allSatisfy { !$0.smallMoleculeDesign })
+        precondition(Set(combined.compactMap(\.cycle)) == [0, 1])
         // A later child refresh must preserve the earlier child's records and verdict.
         let again = RunResultsLoader.load(root: batch, workflow: .iterative)
         precondition(again == combined)
@@ -538,6 +541,7 @@ struct PredictionResultsContractHarness {
         try JSONSerialization.data(withJSONObject: ["target_sequence": "GG", "settings": ["binder_chain": "B"]]).write(to: rfd4.appendingPathComponent("rfd4_config.json"))
         let items = RunResultsLoader.load(root: rfd4, workflow: .rfd4)
         precondition(items.count == 1 && items[0].sequence == "AA" && items[0].metrics.isEmpty)
+        precondition(items[0].recordedDesignChains == ["B"])
         precondition(items[0].isHit == false && items[0].failedFilters == ["ipsae_min"])
         var independent = items[0]; independent.isHit = true; independent.failedFilters = []
         func writeGeometryReceipt(_ passed: Bool) throws {
@@ -555,6 +559,23 @@ struct PredictionResultsContractHarness {
         try FileManager.default.removeItem(atPath: structure.path + ".ligand_geometry.json")
         precondition(LigandGeometryResult.apply(independent, required: true).isHit == false)
         print("PASS geometry AND-gates, disabled-policy preservation and missing-receipt rejection")
+        var ligandRow = row
+        ligandRow["cycle"] = 2
+        ligandRow["metrics"] = ["boltz.pbind": 0.7, "boltz.ligand_plddt": 85.0]
+        ligandRow["confidence"] = unit.appendingPathComponent("confidence.json").path
+        try JSONSerialization.data(withJSONObject: ["ligand_plddt": 0.6, "affinity_probability_binary": 0.2]).write(to: unit.appendingPathComponent("confidence.json"))
+        try JSONSerialization.data(withJSONObject: ["result": ligandRow]).write(to: unit.appendingPathComponent("completed.json"))
+        try JSONSerialization.data(withJSONObject: ["settings": ["task": "ligand", "binder_chain": "B"]]).write(to: rfd4.appendingPathComponent("rfd4_config.json"))
+        let ligandItems = RunResultsLoader.load(root: rfd4, workflow: .rfd4)
+        precondition(ligandItems.count == 1 && ligandItems[0].cycle == 2 && ligandItems[0].smallMoleculeDesign)
+        let oracleCombined: Double = ligandItems[0].metrics.first { $0.kind == .boltzCombinedScore }!.value
+        precondition(abs(oracleCombined - 1.55) < 0.000001)
+        ligandRow.removeValue(forKey: "metrics")
+        try JSONSerialization.data(withJSONObject: ["result": ligandRow]).write(to: unit.appendingPathComponent("completed.json"))
+        let ligandConfidenceItems = RunResultsLoader.load(root: rfd4, workflow: .rfd4)
+        let confidenceCombined: Double = ligandConfidenceItems[0].metrics.first { $0.kind == .boltzCombinedScore }!.value
+        precondition(abs(confidenceCombined - 0.8) < 0.000001)
+        print("PASS ligand task/cycle metadata, canonical oracle priority and normalized confidence combined score")
         try Data("changed".utf8).write(to: structure)
         precondition(RunResultsLoader.load(root: rfd4, workflow: .rfd4).isEmpty)
         print("PASS RFD4 target-role sequence identity and changed-structure exclusion")

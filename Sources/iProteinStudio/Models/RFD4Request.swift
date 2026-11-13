@@ -137,6 +137,13 @@ struct RFD4Request: Codable, Hashable {
     var omit_amino_acids = "C"
     var temperature = 0.1
     var optimized_kernels = true
+    /// Fresh GUI submissions use the standard app implementation. Keep decoding
+    /// historical requests losslessly so retries/resumes retain frozen settings.
+    var newRunRequest: RFD4Request {
+        var request = self
+        request.optimized_kernels = true
+        return request
+    }
     var annotated_input = false
     var assess_native = false
     var starting_structures: [String] = []
