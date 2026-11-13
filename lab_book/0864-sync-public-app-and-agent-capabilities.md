@@ -118,3 +118,11 @@ and a new hosted run verify the correction.
 The app source/tag remains9043cf62; its signed ZIP/DMG already match that source.
 The following public commit changes the test fixture and qualification record
 only. The draft release stays unpublished until hosted qualification passes.
+
+Hosted rerun43376329571used a7GiB Mac and exposed additional plan-only fixture
+cases whose real-model profile could not fit even before a worker launched.
+The initial correction covered worker requests only. The explicit inert-job
+policy is now scoped through the test suite's existing ContextVar, reset after
+each test and retained in every frozen plan, including nested recipe planning.
+No production code is changed. A local simulation of7GiB admission and the real
+memory protection suites qualify this correction before the next hosted run.

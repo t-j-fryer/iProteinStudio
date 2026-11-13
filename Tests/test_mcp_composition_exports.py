@@ -15,13 +15,18 @@ from unittest.mock import patch
 
 MCP=Path(__file__).resolve().parents[1]/'Sources/iProteinStudio/Resources/pipeline/mcp'
 sys.path.insert(0,str(MCP))
-from iprotein_mcp import common,composition,exports,broker,plans,research
+from iprotein_mcp import common,composition,exports,broker,plans,research,memory
 from server import MCPServer
 
 class IntegrationTests(unittest.TestCase):
     def setUp(self):
         # Synthetic protocol jobs have no real model/sequence memory footprint.
         # Admission itself is covered by the memory suite and bridge fixtures.
+        # Scope the choice to every inert planner (including recipe nesting),
+        # so plan-only cases work on the hosted7/14GiB machines as well. The
+        # persisted choice also reaches fresh worker subprocesses.
+        policy_token=memory.POLICY.set('override')
+        self.addCleanup(memory.POLICY.reset,policy_token)
         memory_fixture=patch('iprotein_mcp.memory.configs_for_plan',return_value=[{'predictors':['boltz'],'jobs':[{'name':'protocol-fixture','chains':[{'kind':'protein','id':'A','sequence':'ACDEFG','msa':'empty'}]}]}])
         memory_fixture.start();self.addCleanup(memory_fixture.stop)
         self.temp=tempfile.TemporaryDirectory(prefix='studio-contract-')
