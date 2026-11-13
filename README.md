@@ -11,9 +11,9 @@ required for supported local workflows.
 **[Walkthroughs](docs/QUICKSTART.md)** · **[Documentation](docs/README.md)** ·
 **[AI assistants](docs/AI_ASSISTANTS.md)**
 
-Current delivery: **0.2.43/build101**, with CLI/MCP bridge60. This release
+Current delivery: **0.2.44/build102**, with CLI/MCP bridge61. This release
 brings the recent Beta result-review, memory-confirmation and viewer features
-into the public app. See [what changed](CHANGELOG.md#0243-build101).
+into the public app. See [what changed](CHANGELOG.md#0244-build102).
 
 ## Install and update
 
@@ -193,11 +193,12 @@ Optional [RCSB discovery](docs/AI_ASSISTANTS.md#optional-rcsb-discovery) adds
 structure search and residue mapping through the official RCSB MCP server.
 
 The CLI and MCP expose typed RFD4 and motif-beta plans through the shared queue.
-Bridge60 adds retrospective review/CSV, cycle medians, portable ChimeraX-script
+Bridge61 adds retrospective review/CSV, cycle medians, portable ChimeraX-script
 exports, immutable spatial-analysis plans and fitted memory reports. Run
 `studioctl tools --profile run` to discover schemas or
 `studioctl call TOOL request.json --profile run` to invoke any supported read/run
-tool. Admin remains separate. Reconnect existing MCP clients after updating.
+tool. Admin remains separate. Reconnect existing MCP clients after updating. Bridge61 also preserves an explicit
+memory policy when planning composed workflows.
 The bundled [workflow evidence reference](Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/references/evidence.md)
 helps assistants distinguish measured findings, bounded technical checks and
 user-defined presets. Current campaign data is reviewed through the result tools,

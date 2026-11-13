@@ -1,4 +1,4 @@
-# Retrospective results and viewer exports (bridge60)
+# Retrospective results and viewer exports (bridge61)
 
 Read `results_overview` first. `results_review` selects saved hits or applies
 custom AND metric rules, sorting and per-family caps without rewriting original
@@ -47,3 +47,7 @@ are measured M4 Max footprints, not installed-RAM guarantees on every Mac.
 For CLI access discover `studioctl tools --profile run`, then invoke the same
 schemas using `studioctl call TOOL request.json --profile read` (or explicit run).
 Admin remains separate. Do not substitute direct scripts for broker execution.
+
+Bridge61 preserves the explicit memory policy for composed recipes too. Supply
+it at the tool request level; inspect the returned normalized policy in the
+immutable plan. It does not belong inside recipe parameters.

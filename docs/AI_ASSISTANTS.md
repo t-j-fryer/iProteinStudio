@@ -220,7 +220,7 @@ commits and the upstream model revision alone do not establish deployment. See
 [workflow implementations](ENGINE_IMPLEMENTATIONS.md) for the manifest, snapshot
 fields, downgrade guard, legacy jobs and MCP reconnection after updates.
 
-## Bridge60 result review and CLI parity
+## Bridge61 result review and CLI parity
 
 See [result review](RESULTS_REVIEW.md) and [spatial/style review](RESULTS_SPATIAL_REVIEW.md).
 `studioctl tools --profile read` or `--profile run` returns the deployed schemas;
@@ -231,7 +231,11 @@ immutable plan; it does not grant an admission override. The app's per-submissio
 Proceed/Cancel report records consent, while headless planners retain explicit
 `memory_policy` admission. See [memory estimates](MEMORY_ESTIMATES.md).
 
-Clients must reconnect to load bridge60 and refreshed skill resources. If a
+Clients must reconnect to load bridge61 and refreshed skill resources. If a
 client copied the portable skill into its own skill directory, replace that copy
 with the newly shipped directory; registration alone cannot update copied skills.
 No external-viewer app is installed or started by the bridge.
+
+Bridge61/server1.21.1 preserves explicit `memory_policy` through composed recipe
+planning as well as direct planners. The policy is saved in the immutable plan;
+`enforce` still refuses unsupported/oversized workloads.

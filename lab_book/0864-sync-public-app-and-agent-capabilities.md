@@ -126,3 +126,23 @@ policy is now scoped through the test suite's existing ContextVar, reset after
 each test and retained in every frozen plan, including nested recipe planning.
 No production code is changed. A local simulation of7GiB admission and the real
 memory protection suites qualify this correction before the next hosted run.
+
+## Composed-plan parity correction and final candidate
+
+A final isolated MCP boundary check demonstrated that `pipeline_recipe_plan`
+accepted but discarded the top-level explicit memory policy. This is a production
+parity bug, separate from the inert test fixtures. Forward the choice through
+the existing decorated recipe planner, preserving it in the immutable plan.
+Extend the real oversized-workload plan test to exercise the MCP composed route,
+verify the retained override and verify explicit enforce still refuses it.
+
+Rebuild as0.2.44/build102, bridge61/server1.21.1, generation2026111302. The
+unpublished0.2.43draft will be removed; retain its source tag/artifact receipts
+as historical qualification. No public appcast was activated and no published
+binary was replaced. Optimized adapter and runtime/weight identities remain
+unchanged. Final source, bundle, CLI/MCP and release checks target this candidate.
+
+The revised oversized-plan regression passes through the actual MCP recipe
+schema and retained plan, and explicit enforce still refuses the same workload.
+The earlier fake-worker fixture suite also passes under simulated7GiB admission;
+production memory-admission27/27and override8/8tests remain green.

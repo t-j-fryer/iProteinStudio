@@ -64,7 +64,7 @@ results, the Predict pane and reusable prediction-library entries.
 
 ## CLI and MCP
 
-Bridge60 exposes `results_review` with the current run ID, optional metric,
+Bridge61 exposes `results_review` with the current run ID, optional metric,
 `mode` (`all`, `saved`, `custom`), AND `rules` (`metric`, `comparison` from
 `>=`, `<=`, `>`, `<`, numeric `threshold`), sort direction and `max_per_family`.
 Missing/nonfinite scores fail rules and sort last. The first page returns a

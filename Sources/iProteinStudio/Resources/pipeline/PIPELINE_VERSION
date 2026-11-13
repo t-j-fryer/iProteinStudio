@@ -1,5 +1,5 @@
 # Provenance of the vendored NanoHunter pipeline. Regenerate with tools/sync_pipeline.sh.
-studio_workflow_release: WORKFLOW_RELEASE.json; generation2026111301; results-review-bridge60-optimized-adapters-v1
+studio_workflow_release: WORKFLOW_RELEASE.json; generation2026111302; results-review-bridge61-recipe-memory-v1
 studio_headless_install: transactional-resource-staging-v1; cli-project-create; lab_book/0832-qualify-headless-installation.md
 upstream_repo:   https://github.com/t-j-fryer/iProteinHunter.git
 upstream_commit: 434b8fff6d7d220db57ccafb4b0bd3883dbfe18e (working tree dirty — vendored copy may not match any commit)
@@ -132,3 +132,5 @@ studio_ligand_geometry_state_mapping: verified-native-Boltz-standardization-v1; 
 studio_ligand_geometry_stereo_mapping: annotation-free-CIP-v2; Lab0793; MCP58
 
 studio_results_review: bounded-retrospective-metrics-csv-spatial-style-v1; MCP60; lab_book/0864-sync-public-app-and-agent-capabilities.md
+
+studio_recipe_memory: explicit-MCP-policy-propagation-v1; MCP61

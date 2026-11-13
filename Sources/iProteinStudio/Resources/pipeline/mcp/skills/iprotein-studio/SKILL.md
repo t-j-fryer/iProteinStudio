@@ -89,7 +89,7 @@ candidate IDs, artifact references and remaining uncertainty succinctly.
 For retrospective filtering, scored-sequence CSV, exact-pose proximity/burial or
 manuscript-style ChimeraX exports, read [result review](references/results-review.md)
 (`iprotein://skills/studio/results`).
-Discover bridge60 tools before calling them; reconnect clients after deployment.
+Discover bridge61 tools before calling them; reconnect clients after deployment.
 
 ## Pipeline composition
 

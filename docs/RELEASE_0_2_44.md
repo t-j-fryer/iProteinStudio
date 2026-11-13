@@ -1,6 +1,6 @@
-# 0.2.43 synchronization audit
+# 0.2.44 synchronization audit
 
-| Capability | Previously public |0.2.43 delivery |
+| Capability | Previously public |0.2.44 delivery |
 | --- | --- | --- |
 | Unified RFD3/RFD4 form, weighted frameworks, objectives and motif/partner assessment |0.2.32–0.2.34 | Retained; native request schemas and immutable jobs preserved |
 | Optional ligand geometry gates, cone overlays and molecule navigation/resize |0.2.35–0.2.38 | Retained; add exact-pose retrospective spatial review |
@@ -10,7 +10,7 @@
 | ESMFold2 BF16 and RFD4 optimized pair kernels |0.2.42 | Same qualified adapter hashes; new app forms use them automatically |
 | Fitted per-run RAM confirmation | Beta96 only | Public native app; `memory_estimate` for frozen CLI/MCP plans |
 | CLI workspace discovery in History | Beta97 only | Public app |
-| Metric defaults, cycle medians, custom hit rules, sort/caps and CSV | Beta98 only | Public app and bridge60 result tools |
+| Metric defaults, cycle medians, custom hit rules, sort/caps and CSV | Beta98 only | Public app and bridge61 result tools |
 | Large-result paging/background analysis and optional viewers | Beta99 only | Public app; bounded bridge index/export contracts retained |
 | Exact-pose epitope/ligand proximity, SASA and geometry review | Beta100 only | Public app and immutable CPU analysis plans through CLI/MCP |
 | Manuscript-style ChimeraX scripts in prediction/design results | Beta100 only | Public app and portable script/structure ZIP exports |
@@ -37,3 +37,8 @@ claim a long interactive soak of a confidential beam-search workspace.
 Current distribution remains an ad-hoc signed trusted beta with Sparkle-signed
 archives, not Apple Developer ID signed/notarized. Publication/installation
 identities and exact checks are recorded in the project Lab Book release entry.
+
+The initial0.2.43/build101 candidate was not published. Final control-path review
+found that composed recipes dropped an explicit memory policy. Release0.2.44/
+build102/bridge61 corrects that boundary and preserves the immutable plan choice.
+The old candidate tag remains an audit record; no published archive was replaced.

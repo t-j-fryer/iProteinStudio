@@ -265,7 +265,11 @@ class MCPServer:
         elif name == "export_read": result = exports.export_read(**arguments)
         elif name == "candidates_compare": result = exports.candidates_compare(**arguments)
         elif name == "pipeline_catalog": result = composition.pipeline_catalog()
-        elif name == "pipeline_recipe_plan": result = composition.recipe_plan(arguments["recipe"])
+        elif name == "pipeline_recipe_plan":
+            recipe = dict(arguments["recipe"])
+            if "memory_policy" in arguments:
+                recipe["memory_policy"] = arguments["memory_policy"]
+            result = composition.recipe_plan(recipe)
         elif name == "iterative_batch_plan": result = composition.iterative_batch_plan(arguments)
         elif name == "recipe_catalog": result = recipe_catalog()
         elif name == "recipe_check": result = recipe_check(arguments["recipe"])

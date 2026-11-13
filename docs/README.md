@@ -48,3 +48,5 @@ or promises about supported hardware.
 
 The bundled [workflow evidence reference](../Sources/iProteinStudio/Resources/pipeline/mcp/skills/iprotein-studio/references/evidence.md)
 connects workflow choices to measured findings, technical checks and their limits.
+
+- [Current capability synchronization audit](RELEASE_0_2_44.md)

@@ -1,13 +1,14 @@
 # iProteinStudio release notes
 
-## 0.2.43 (build101)
+## 0.2.44 (build102)
 
 - Promote qualified Beta96–100 features: per-run memory review/consent, managed CLI-workspace discovery and automatic optimized GPU defaults. Existing frozen jobs retain their settings.
 - Add context-aware result defaults, cycle medians, retrospective metric filters, sort direction, family caps and scored-sequence CSV export.
 - Keep large results responsive with bounded rendering, background cached analysis, unchanged-result reuse and one selected 3D viewer.
 - Add explicit CPU epitope/ligand-atom proximity, whole-ligand SASA burial and original geometry-receipt review without changing raw run verdicts.
 - Promote the Paper pocket viewer preset, cutaway/opacity controls, PNG export and recorded cone overlays; add optional manuscript-style ChimeraX opening/script export throughout prediction and design results.
-- Bridge60/server1.21 adds result review/export, portable viewer scripts, queued spatial analysis, fitted memory reports and schema-complete read/run CLI calls; update the bundled operating skill and public documentation.
+- Bridge61/server1.21.1 adds result review/export, portable viewer scripts, queued spatial analysis, fitted memory reports and schema-complete read/run CLI calls; update the bundled operating skill and public documentation.
+- Preserve explicit memory-policy choices through composed CLI/MCP plans; retain the choice in the exact immutable plan.
 - Preserve the qualified ESMFold2 BF16 and RFD4 tiled/fused adapters; no engine package, weights or scientific default precision changes in this release.
 
 ## 0.2.42 (build95)

@@ -50,7 +50,7 @@ For future adapter changes, increment the workflow release generation, update
 its checksums, run the contracts and build/package checks, then verify installed
 copies and a newly captured snapshot. Source commits alone do not deploy code.
 
-Release0.2.43/build101 uses workflow generation2026111301 and bridge60. Its
+Release0.2.44/build102 uses workflow generation2026111302 and bridge61. Its
 three optimized adapter hashes and engine packages are unchanged from0.2.42;
 the generation also prevents an older app from re-staging the newer review
 bridge. The complete pipeline/bridge inventory is verified in retained code

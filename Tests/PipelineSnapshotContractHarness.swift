@@ -69,7 +69,7 @@ struct PipelineSnapshotContractHarness {
         try AppPaths.stagePipelineAssets()
         guard let release = firstMetadata?["workflow_release"] as? [String: Any],
               let files = release["files"] as? [String: String], files.count == 3,
-              release["generation"] as? Int == 2026111301
+              release["generation"] as? Int == 2026111302
         else { fail("snapshot did not retain the optimized workflow release") }
         for name in files.keys {
             guard try Data(contentsOf: first.appendingPathComponent(name)) == Data(contentsOf: root.appendingPathComponent(name))

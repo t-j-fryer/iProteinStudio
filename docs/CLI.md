@@ -1213,7 +1213,7 @@ binding probability. The molecule selector offers 2D atom picking and an offline
 3D input conformer: drag rotates, scroll/pinch or +/− zooms, Control-drag pans,
 and Reset view refits. The preview is not a predicted bound pose.
 
-## Complete read/run tool access (bridge60)
+## Complete read/run tool access (bridge61)
 
 ```bash
 "$ROOT/bin/studioctl" tools --profile run
@@ -1230,3 +1230,7 @@ plan, then `job_start`; use its completed job ID as `spatial_job_id` in result
 review. No predictor runs during that CPU analysis. All exports are retrieved
 with `export_read`, including CSV/review and portable ChimeraX ZIPs.
 See [review contracts](RESULTS_REVIEW.md) and [spatial semantics](RESULTS_SPATIAL_REVIEW.md).
+
+Bridge61 forwards an explicit `memory_policy` from `pipeline_recipe_plan` into
+the recipe planner and its saved plan. This also applies through `studioctl call`;
+otherwise headless admission continues to default to `enforce`.

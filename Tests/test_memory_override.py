@@ -50,6 +50,7 @@ class OverrideTests(unittest.TestCase):
         self.assertEqual(bridge.POLICY.get(), 'enforce')
 
     def test_native_and_mcp_override_are_frozen_but_other_validation_remains(self):
+        from server import MCPServer
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); output = root/'projects/demo/prediction_runs/native'; output.mkdir(parents=True)
             scripts = root/'rfd3_scripts'; scripts.mkdir()
@@ -59,11 +60,20 @@ class OverrideTests(unittest.TestCase):
             with patch.dict(os.environ, NANOHUNTER_ROOT=str(root), IPROTEINSTUDIO_AGENT_ROOT=str(root/'agent')), \
                  patch.object(bridge,'contract',return_value=memory), patch.object(memory,'machine_memory',return_value=machine()):
                 for plan in (plans.prediction_plan({'project':'demo','request':cfg,'memory_policy':'override'}),
-                             desktop_plan({'project':'demo','workflow':'prediction','output':str(output),'memory_policy':'override'})):
+                             desktop_plan({'project':'demo','workflow':'prediction','output':str(output),'memory_policy':'override'}),
+                             MCPServer('run').tool_call('pipeline_recipe_plan', {
+                                 'recipe': {'schema_version':2, 'route':'prediction',
+                                            'parameters': {'project':'demo','request':{k:v for k,v in cfg.items() if k != 'output'}}},
+                                 'memory_policy':'override'})):
                     self.assertEqual(plan['normalized_request']['memory_policy'], 'override')
                     self.assertEqual(plan['normalized_request']['memory_admission']['would_be_status'], 'blocked')
                     self.assertEqual(plans.load_plan(plan['id'],plan['sha256'])['sha256'],plan['sha256'])
                     self.assertEqual(bridge.check_saved_plan(plan)['status'], 'overridden')
+                with self.assertRaisesRegex(common.StudioError, 'Estimated model memory'):
+                    MCPServer('run').tool_call('pipeline_recipe_plan', {
+                        'recipe': {'schema_version':2, 'route':'prediction',
+                                   'parameters': {'project':'demo','request':{k:v for k,v in cfg.items() if k != 'output'}}},
+                        'memory_policy':'enforce'})
                 bad = {**cfg,'predictors':['missing-model']}
                 with self.assertRaises(common.StudioError): plans.prediction_plan({'project':'demo','request':bad,'memory_policy':'override'})
 

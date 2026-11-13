@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "passed": true,
+  "scope": "Shipped T4 lysozyme; isolated ChimeraX process; no user workspace or inference",
+  "export_sha256": "2c82f602316119cf6d10b5e3ecdfc4152579a7c7b13ca5e6c0f510fa0f7f5460",
+  "source_sha256": "52265ae69a6ab7968bbe7e37433ae34a923610ca512f00eb38b0a40d5a0a630f",
+  "template_sha256": "2c428dfb1513d31b9adc3d468d3d4656e9df3196697251e4c0163689c6feb648",
+  "render_sha256": "37de2daedd504f636651dec4a90ab86992639d8d4103a350cef73336eb700c4d"
+}

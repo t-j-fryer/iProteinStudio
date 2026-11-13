@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "passed": true,
+  "scope": "Actual fresh headless control install; synthetic T4 result files; no predictor",
+  "bridge": 60,
+  "server": "1.21.0",
+  "selected_count": 1,
+  "csv_export_sha256": "9505dd8db2d30aa94bf21db3b21812642764f73a919768b8dc7c685618e3f4e7",
+  "viewer_export_sha256": "aae5f4c6ba889f32810c1efae10a31f27c9071279a507877a149941062a9c13b",
+  "stdio_skill_and_tool_verified": true
+}

@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "version": "0.2.43",
+  "build": 101,
+  "source_commit": "9043cf62d74cf5d057be7dfac7e30ac539f0f368",
+  "sparkle_signature_verified": true,
+  "archive_sha256": "fc3c620a25535df3ca958b7618bfa0ee163d157817900475482ac474147de829",
+  "dmg_sha256": "82f39624c717f9147bc344fdbe8ecd2ac00f3a378e6f15f492c5524a436b74fd"
+}

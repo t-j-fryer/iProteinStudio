@@ -330,7 +330,7 @@ protein hit filters. See the [RFD4 guide](../../../../../docs/RFD4.md) and
 [CLI field definitions](../../../../../docs/CLI.md#rfd4-configuration-shared-with-the-app).
 Use the connected `workflow_guide` and schema before authoring a request.
 
-## Bridge60 review tools and complete CLI access
+## Bridge61 review tools and complete CLI access
 
 Use `studioctl tools --profile read` or `--profile run` for full deployed schemas;
 `studioctl call TOOL request.json --profile run` invokes the same validation,

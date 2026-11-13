@@ -8,8 +8,8 @@
     "scripts/rfd4/metal.py": "d73f22eb5ae6b2ec9071b1197a7826b250358adfedccb370b707f721d631acd5",
     "scripts/rfd4/triangle_metal.py": "f344a5ad8448f674d6ab42fe0e15641c4d6dde67e31e7ed4c12e95da1a57b1a1"
   },
-  "generation": 2026111301,
-  "release": "results-review-bridge60-optimized-adapters-v1",
+  "generation": 2026111302,
+  "release": "results-review-bridge61-recipe-memory-v1",
   "rfd4": {
     "optimized_kernels": "tiled-layout-fused-output-gate-unmasked-transition-v2"
   },

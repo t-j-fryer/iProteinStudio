@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "passed": true,
+  "source_archive_sha256": "e0595d5eb933af984ef4fcea749101ce736d8766a08e0d4de4c97aa4740a1b14",
+  "bridge": 60,
+  "generation": 2026111301,
+  "readme_matches": true,
+  "bridge_review_matches": true
+}
