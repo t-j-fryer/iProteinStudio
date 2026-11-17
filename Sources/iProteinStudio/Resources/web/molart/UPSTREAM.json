@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "repository": "https://github.com/martin-steinegger/molart",
+  "commit": "a200691c2432fcb005ae2206352891b74847e64b",
+  "license": "MIT",
+  "three": "0.187.0",
+  "upstream_lock_sha256": "923c745cd9f3a7175a37f171dbf1a6811bcef1526f5c5d63f0bedbd041a56f01",
+  "adapter_sha256": "8c5aaaa96d26e1e21f806be684c6b8df978a0c715514fc168a2c6258915a8069",
+  "build_script_sha256": "693de2d8796a62c37d89a5d46833dfc74d905ba3fcc38ce5d26fea4978093faf",
+  "bundle_sha256": "af6775d7cbf8c6254610c075eb876894356ed88af418ed18c1976e6cb5a9598f",
+  "lifecycle_patch": "Retain and disconnect upstream ResizeObserver; release cached WebGL resources on renderer switch; apply native input when RAF is throttled",
+  "runtime_network": false
+}

@@ -178,3 +178,16 @@ python3 Tests/qualify_viewer_export.py --chimerax /path/to/ChimeraX --out /path/
 
 This is separate from CPU/CI contracts and requires a working desktop graphics
 session. It does not capture or open an existing user's workspace.
+
+The optional Molart native harness runs the actual offline WKWebView renderer
+on bundled T4 and synthetic rigidly transformed complexes:
+
+```bash
+bash Tests/test_molart_viewer.sh
+```
+
+It renders every pinned style, checks nonblank pixel output, source-coordinate
+fingerprints, PDB/mmCIF, per-chain options, explicit Art mode, camera interaction,
+PNG export, cycle scrubbing, selector disposal/recreation and stale-input refusal.
+No private workspace or scientific inference is used. This requires a desktop
+WebKit/WebGL2 session; upstream Node parser/geometry tests run separately.

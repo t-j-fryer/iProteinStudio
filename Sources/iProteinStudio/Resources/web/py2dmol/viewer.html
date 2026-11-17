@@ -218,6 +218,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif
 .studio-compact #canvasContainer { border: 0; border-radius: 0; min-width: 0; min-height: 0; }
 .studio-compact #viewerWrapper { width: 100% !important; }
 /* Studio surface image style, alongside the upstream illustration controls. */
+#molartCanvas {position:absolute;inset:0;display:none;background:white;}
+#molartCanvas canvas {width:100%;height:100%;display:block;}
+#molartPanel {display:grid;gap:8px;margin-top:8px;font-size:12px;line-height:1.4;}
+#molartPanel[hidden] {display:none;}
+#molartPanel select,#molartPanel input[type=range] {width:100%;}
+#molartArtWarning {color:#944a16;}
+.studio-molart #canvas {visibility:hidden;}
+.studio-molart #molartCanvas {display:block;}
+.studio-molart #styleToggle,.studio-molart #stylePanel,.studio-molart label:has(#rotationCheckbox) {display:none!important;}
 #pocketCanvas { position:absolute; inset:0; display:none; background:white; }
 #pocketPanel { display:grid; gap:8px; margin-top:8px; font-size:12px; }
 #pocketPanel[hidden] { display:none; }
@@ -237,6 +246,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif
     <div id="viewerWrapper">
         <div id="canvasContainer">
             <canvas id="canvas" role="img" aria-label="Molecular structure. The selected result's sequence, scores and provenance are available in the result details."></canvas>
+            <div id="molartCanvas" role="img" aria-label="Molart protein illustration"></div>
             <div id="pocketCanvas" role="img" aria-label="Interactive molecular surface and ligand pocket"></div>
             <div class="resize-handle"></div>
         </div>
@@ -261,11 +271,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif
             <select id="imageStyle" aria-label="Image style">
                 <option value="illustration">Illustration</option>
                 <option value="pocket">Paper pocket</option>
+                <option value="molart">Molart</option>
             </select>
             <div class="btn-row auto">
                 <button id="styleToggle" class="controlButton" aria-expanded="false" aria-controls="stylePanel"
                     title="Render style and its settings">Style</button>
                 <button id="saveImageButton" class="controlButton" title="Save an image or a video">Save</button>
+            </div>
+            <div id="molartPanel" hidden>
+                <label>Apply to <select id="molartChain" aria-label="Molart chain"><option value="">Every chain</option></select></label>
+                <label>Chain style <select id="molartChainStyle" aria-label="Molart chain style"><option value="normal">Scientific</option><option value="glass">Glass</option><option value="frosted">Frosted</option><option value="surface">Surface</option><option value="schiele">Schiele</option><option value="picasso">Picasso</option><option value="klimt">Klimt</option><option value="vangogh">Van Gogh</option><option value="dali">Dalí</option><option value="monet">Monet</option><option value="hokusai">Hokusai</option><option value="okeeffe">O’Keeffe</option><option value="warhol">Warhol</option><option value="pollock">Pollock</option><option value="kandinsky">Kandinsky</option><option value="matisse">Matisse</option><option value="mondrian">Mondrian</option><option value="sumie">Sumi-e</option><option value="davinci">Da Vinci</option><option value="asciifold">ASCII Fold</option><option value="toon">Cartoon</option></select></label>
+                <label><input type="checkbox" id="molartArt"> Art mode · reshape drawn ribbons</label>
+                <div id="molartArtWarning" role="status" hidden></div>
+                <label>Art amount <input id="molartDeform" type="range" min="0" max="1" step="0.05" value="0.5" disabled></label>
+                <label>Illustration seed <input id="molartSeed" type="number" min="0" max="2147483647" step="1" value="7" style="width:100%"></label>
+                <label><input id="molartFaces" type="checkbox"> Cartoon faces and arms</label>
+                <label><input id="molartSun" type="checkbox"> Sun · cast shadows</label>
+                <label>Light direction <input id="molartLight" type="range" min="-180" max="180" value="0"></label>
+                <label>PNG size <select id="molartExportSize"><option value="1024">1024 × 1024</option><option value="2048" selected>2048 × 2048</option><option value="4096">4096 × 4096</option></select></label>
+                <button id="molartFit" class="controlButton">Fit view</button>
+                <div>Drag to rotate · scroll to zoom · right-drag to pan.</div>
+                <div id="molartNote" role="status" hidden></div>
             </div>
             <div id="pocketPanel" hidden>
                 <label>Ligand <select id="pocketLigand" aria-label="Pocket ligand"></select></label>
@@ -443,6 +469,7 @@ window.py2dmol_staticData = window.py2dmol_staticData || {studio: []};
 <script src="viewer-cartoon.min.js"></script>
 <script src="studio-adapter.js"></script>
 <script src="studio-pocket.js"></script>
+<script src="studio-molart.js"></script>
 </div>
 </body>
 </html>

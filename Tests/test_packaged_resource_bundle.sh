@@ -16,6 +16,19 @@ for artwork in terra-loop branching-possibilities hunter-trajectories nise backb
 done
 cmp -s "${APP}/Contents/Resources/AppIcon.icns" "${ROOT}/Sources/iProteinStudio/Resources/Brand/AppIcon.icns" \
   || fail "app icon missing or stale"
+/usr/bin/python3 - "${ROOT}" "${BUNDLE}" <<'PYMOLART'
+import hashlib,json,sys
+from pathlib import Path
+root,bundle=map(Path,sys.argv[1:]);source=root/'Sources/iProteinStudio/Resources/web'
+for name in ('py2dmol/viewer.html','py2dmol/studio-molart.js','molart/molart.js','molart/UPSTREAM.json','molart/UPSTREAM.md','molart/LICENSE-Molart.txt','molart/LICENSE-Three.txt'):
+    assert (bundle/'web'/name).is_file(), 'Missing Molart asset: '+name
+    assert (bundle/'web'/name).read_bytes()==(source/name).read_bytes(), 'Stale Molart asset: '+name
+manifest=json.loads((source/'molart/UPSTREAM.json').read_text())
+assert hashlib.sha256((source/'molart/molart.js').read_bytes()).hexdigest()==manifest['bundle_sha256']
+assert hashlib.sha256((root/'tools/molart/entry.ts').read_bytes()).hexdigest()==manifest['adapter_sha256']
+assert hashlib.sha256((root/'tools/molart/build.mjs').read_bytes()).hexdigest()==manifest['build_script_sha256']
+print('PASS offline Molart bundle, licences, host and source-adapter identities')
+PYMOLART
 [[ -s "${BUNDLE}/pipeline/PIPELINE_VERSION" ]] \
   || fail "SwiftPM resource bundle is missing its pipeline sentinel"
 for resource in WORKFLOW_RELEASE.json scripts/workflow_release.py scripts/esmfold2_predict.py scripts/rfd4/metal.py scripts/rfd4/triangle_metal.py; do

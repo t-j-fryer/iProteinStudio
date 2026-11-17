@@ -1,5 +1,7 @@
 # Public release candidate to do
 
+- [ ] Publish/install 0.2.45/build105: offline Molart with simplified Image style/Chain style controls, public README/notices and native viewer qualification (Lab0872).
+
 - [x] Publish/install0.2.44/build102 with bridge61: reviewed Beta feature promotion, recipe-memory parity, updated README/skills, verified public downloads/feed and actual local CLI/MCP deployment (Lab0864).
 
 - [x] Publish/install ESMFold2 BF16/RFD4 tiled-pair optimizations as0.2.42/build95 with bridge59 and checked deployment/snapshot identities (Lab0836).

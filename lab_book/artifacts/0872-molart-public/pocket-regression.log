@@ -1,0 +1,7 @@
+PASS paper pocket: real SES surface, explicit ligand choice, opacity/cutaway, selection, PNG and illustration return; coordinates unchanged
+PASS PDB/mmCIF and explicit apo whole-surface behavior
+Check trajectory load
+Check illustration-to-pocket return
+PASS target-aligned trajectory and cycle scrubbing; playback explicitly uses illustration mode
+py2Dmol: Could not display this structure: No protein, nucleic-acid or ligand coordinates could be read.
+PASS stale-scene rejection and source-file preservation

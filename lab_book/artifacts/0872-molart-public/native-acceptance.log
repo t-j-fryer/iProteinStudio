@@ -1,0 +1,5 @@
+PASS all21upstream styles render nonblank pixels in native offline WebKit; source coordinate fingerprint unchanged
+PASS camera interaction, explicit art mode warning, sun controls and actual PNG export
+PASS exact PDB/CIF coordinates, per-chain style, target-aligned cycle scrubbing and explicit playback limits
+py2Dmol: Could not display this structure: No protein, nucleic-acid or ligand coordinates could be read.
+PASS lazy load, repeated disposal/recreation, pocket handoff, stale-scene rejection, offline resource use and immutable files

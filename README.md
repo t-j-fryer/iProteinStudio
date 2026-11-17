@@ -11,9 +11,9 @@ required for supported local workflows.
 **[Walkthroughs](docs/QUICKSTART.md)** · **[Documentation](docs/README.md)** ·
 **[AI assistants](docs/AI_ASSISTANTS.md)**
 
-Current delivery: **0.2.44/build102**, with CLI/MCP bridge61. This release
-brings the recent Beta result-review, memory-confirmation and viewer features
-into the public app. See [what changed](CHANGELOG.md#0244-build102).
+Current delivery: **0.2.45/build105**, with CLI/MCP bridge61. This release
+adds the offline Molart viewer with simplified style controls to the public app,
+alongside the existing results and memory tools. See [what changed](CHANGELOG.md#0245-build105).
 
 ## Install and update
 
@@ -302,3 +302,12 @@ sequence, original experimental PDB/mmCIF and a chain-B target PDB are bundled
 under `Sources/iProteinStudio/Resources/examples/t4_lysozyme/`. Template guidance
 in Predict is an explicit on/off switch, off when the example is selected.
 No precomputed T4 alignment is bundled; alignment policy remains explicit.
+
+### Molart protein illustrations
+
+Molart's 21 protein illustration styles are available in the shared
+**Image style** menu as one **Molart** option beside Illustration and Paper
+pocket. Its **Chain style** control chooses the preset, with explicit
+Science/Art mode, per-chain styling and local PNG export. Included in public
+0.2.45/build105 and local Beta104. Molart renders proteins; use Illustration or
+Paper pocket for ligands, atom selections and cones. See [Molart viewer](docs/MOLART_VIEWER.md).

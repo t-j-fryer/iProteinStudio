@@ -8,3 +8,7 @@ Sources/iProteinStudio/Resources/pipeline/scripts/motif_beta/data/upstream/* -wh
 
 # Preserve the unchanged RCSB mmCIF download and its recorded hash.
 Sources/iProteinStudio/Resources/examples/t4_lysozyme/2LZM.cif -whitespace
+
+# Generated Molart/Three.js bundle embeds upstream GLSL shader strings.
+# Keep their exact build bytes and verify them through UPSTREAM.json.
+Sources/iProteinStudio/Resources/web/molart/molart.js -whitespace

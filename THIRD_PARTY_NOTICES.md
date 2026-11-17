@@ -144,3 +144,15 @@ reuses the existing MLX port. Source licences and checkpoint notices are retaine
 in [the bundled pipeline notices](Sources/iProteinStudio/Resources/pipeline/THIRD_PARTY_NOTICES.md)
 and `scripts/licenses/esmfold2-600/` within that pipeline. No learned weights
 are distributed in the app or repository.
+
+## Molart and Three.js (optional protein illustration viewer)
+
+- Molart: <https://github.com/martin-steinegger/molart>, revision
+  `a200691c2432fcb005ae2206352891b74847e64b`, copyright2026Martin Steinegger, MIT.
+- Three.js0.187.0: copyright2010–2026Three.js authors, MIT.
+
+Both complete licence texts and the pinned build/hash record ship under
+`web/molart/`. Studio supplies the native menu/pose/export adapter and renderer
+lifecycle cleanup; upstream parsers, style geometry and shaders are preserved.
+See `tools/molart/` for reproducible source validation and build commands.
+This renderer is local and does not send structures to the upstream website.

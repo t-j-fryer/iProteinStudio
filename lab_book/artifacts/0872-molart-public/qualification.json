@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "version": "0.2.45",
+  "build": 105,
+  "promoted_commits": [
+    "63593a90df2e0f9cde21a37ec1277aa07bb21358",
+    "42f7fb023dcc7afcf31f1b140e206c9422f919fe"
+  ],
+  "native_molart": "passed all21 upstream presets, simple menus, PNG, camera, offline lifecycle and immutable source",
+  "native_pocket_regression": "passed T4 plus synthetic benzene fixture",
+  "swift_build": "passed",
+  "documentation_links": {
+    "passed": 265,
+    "guides": 53
+  },
+  "scientific_pipeline_diff": false,
+  "matches_installed_beta_feature_source": true,
+  "full_regression_suite": "pending",
+  "public_diff_files": [
+    ".gitattributes",
+    "BUILD_NUMBER",
+    "CHANGELOG.md",
+    "LAB_BOOK.md",
+    "PUBLIC_RELEASE_TODO.md",
+    "README.md",
+    "Sources/iProteinStudio/Resources/web/molart/LICENSE-Molart.txt",
+    "Sources/iProteinStudio/Resources/web/molart/LICENSE-Three.txt",
+    "Sources/iProteinStudio/Resources/web/molart/UPSTREAM.json",
+    "Sources/iProteinStudio/Resources/web/molart/UPSTREAM.md",
+    "Sources/iProteinStudio/Resources/web/molart/molart.js",
+    "Sources/iProteinStudio/Resources/web/py2dmol/studio-molart.js",
+    "Sources/iProteinStudio/Resources/web/py2dmol/viewer.html",
+    "Sources/iProteinStudio/Views/Structure/StructureViewer.swift",
+    "THIRD_PARTY_NOTICES.md",
+    "Tests/MolartViewerHarness.swift",
+    "Tests/test_molart_viewer.sh",
+    "Tests/test_packaged_resource_bundle.sh",
+    "VERSION",
+    "docs/MOLART_VIEWER.md",
+    "docs/README.md",
+    "docs/TESTING.md",
+    "tools/molart/README.md",
+    "tools/molart/build.mjs",
+    "tools/molart/entry.ts",
+    "tools/molart/upstream-manifest.json"
+  ]
+}

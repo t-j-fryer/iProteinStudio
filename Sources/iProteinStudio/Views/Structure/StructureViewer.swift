@@ -2,7 +2,8 @@ import SwiftUI
 import WebKit
 import UniformTypeIdentifiers
 
-/// The shared offline py2Dmol structure view used everywhere Studio presents
+/// The shared offline structure view with py2Dmol, Paper pocket and optional
+/// Molart illustration styles, used everywhere Studio presents
 /// a protein structure. Its built-in Style panel exposes rendering, colour,
 /// projection, rotation and export controls without duplicating those settings
 /// in SwiftUI.
@@ -176,13 +177,14 @@ struct Py2DmolViewer: NSViewRepresentable {
         func userContentController(_ controller: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
             if message.name == "pocketPNG" {
-                guard let uri = message.body as? String, uri.hasPrefix("data:image/png;base64,"),
+                let payload = message.body as? [String: String]
+                guard let uri = (message.body as? String) ?? payload?["uri"], uri.hasPrefix("data:image/png;base64,"),
                       uri.utf8.count < 80_000_000,
                       let data = Data(base64Encoded: String(uri.dropFirst("data:image/png;base64,".count))),
                       data.starts(with: [137, 80, 78, 71, 13, 10, 26, 10]) else { return }
                 let panel = NSSavePanel()
                 panel.allowedContentTypes = [.png]
-                panel.nameFieldStringValue = "Pocket.png"
+                panel.nameFieldStringValue = payload?["filename"] == "Molart.png" ? "Molart.png" : "Pocket.png"
                 panel.begin { response in
                     guard response == .OK, let url = panel.url else { return }
                     do { try data.write(to: url, options: .atomic) }

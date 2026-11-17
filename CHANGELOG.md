@@ -1,5 +1,13 @@
 # iProteinStudio release notes
 
+## 0.2.45 (build105)
+
+- Add the offline Molart renderer to prediction and design structure viewers, with 21 upstream protein illustration styles, per-chain choices, Science/Art modes, lighting and PNG export.
+- Keep one Molart option in Image style; select its presets through Chain style. Remove routine style descriptions, counts and parser/attribution paragraphs from the viewer controls; retain bundled licence notices.
+- Preserve Illustration and Paper pocket for ligands, nucleic acids, atom/residue selections and recorded cones. Molart styling does not change source coordinates, scores or saved run results.
+- Pin and bundle MIT-licensed Molart and Three.js with reproducible build tools and native offline viewer qualification. No runtime downloads or additional installations.
+- CLI/MCP bridge61, server1.21.1, bundled skills and optimized scientific adapters remain unchanged.
+
 ## 0.2.44 (build102)
 
 - Promote qualified Beta96–100 features: per-run memory review/consent, managed CLI-workspace discovery and automatic optimized GPU defaults. Existing frozen jobs retain their settings.
