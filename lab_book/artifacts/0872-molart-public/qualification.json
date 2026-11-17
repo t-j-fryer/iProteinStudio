@@ -61,11 +61,13 @@
   "shipping_commit": "51bfb5e16def13d9be89ab42939a58f785c8d24b",
   "public_downloads": "byte-identical archives/provenance/checksums; CryptoKit signature and extracted app/resource verification passed",
   "ci": {
-    "run": 44161206595,
-    "status": "queued; no runner assigned",
+    "run": 44161751087,
+    "commit": "291628b2e6bb7fd848cb10f3798317dbc5f3914f",
+    "status": "completed",
+    "conclusion": "success",
     "prior_main_failure": "hosted runner not acquired; GitHub annotation cites macOS arm64 capacity constraints"
   },
-  "local_public_installation": "awaiting running-app restart approval",
+  "local_public_installation": "user-approved normal restart; installed and reopened build105; strict signature,resource inventory and actual binary/viewer identity passed",
   "local_beta": "installed build104 matches promoted renderer; signature/resources verified",
-  "cli_mcp": "installed doctor ok; bridge61 and workflow generation2026111302 verified; scientific source unchanged"
+  "cli_mcp": "post-launch installed doctor ok; bridge61 and workflow generation2026111302 verified"
 }

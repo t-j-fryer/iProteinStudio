@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-11-17T20:38:20.427862+00:00",
+  "version": "0.2.45",
+  "build": 105,
+  "approval": "user explicitly approved public-app restart for build105",
+  "lifecycle": "normal AppleScript quit, verified install from public download, LaunchServices open; running confirmed",
+  "signature": "strict deep verification passed",
+  "resources": "packaged resource inventory passed; main executable and viewer bytes match public download",
+  "previous_public_build": 102,
+  "backup": "build/release-audit-0.2.45/local-install/previous-public102.app",
+  "beta": "104 unchanged; already matches feature",
+  "cli_mcp": {
+    "ok": true,
+    "bridge": "61",
+    "workflow_generation": 2026111302,
+    "verified": true
+  },
+  "privacy": "no UI snapshots or workspace content inspected; no scientific job changes requested"
+}

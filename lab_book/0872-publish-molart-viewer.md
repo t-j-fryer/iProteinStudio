@@ -4,7 +4,7 @@ title: Publish simplified Molart viewer
 date: 2026-11-17
 author: Codex
 type: port
-status: in-progress
+status: complete
 machine: Apple M4 Max, macOS
 tags: [ui, viewer, molart, release]
 ---
@@ -39,8 +39,8 @@ targets across53 guides. All73/73 fast regression commands passed. Signed ZIP/DM
 verification and independent CryptoKit Ed25519 verification passed. The public
 release/tag points to51bfb5e16def13d9be89ab42939a58f785c8d24b; actual public
 downloads are byte-identical, and the extracted app passes strict codesign and
-resource checks. GitHub CI44161206595 remains queued without a runner; prior
-main CI failure was hosted-runner capacity, not a test failure.
+resource checks. Public GitHub macOS CI44161751087 passed on291628b2;
+prior main CI failure was hosted-runner capacity, not a test failure.
 No performance measurements. See [qualification](artifacts/0872-molart-public/qualification.json).
 
 ## Decision and rationale
@@ -71,6 +71,12 @@ Distribution remains ad-hoc signed and Sparkle EdDSA verified, not Apple notariz
 
 ## Next
 
-Public source, release archives and update feed are published. Running public
-app restart approval is pending; Beta104 already carries identical renderer code
-and its installed signature/resources pass. Monitor queued GitHub macOS CI.
+Public source, release archives and update feed are published. The user explicitly
+approved restarting public: build105 is installed from the verified public
+download and reopened. Strict signature, packaged resources and executable/viewer
+byte identities passed. Post-launch installed CLI/MCP doctor is healthy with
+bridge61 and the unchanged optimized workflow hashes. Beta104 already carries
+identical renderer code and its installed signature/resources pass.
+
+See [activation](artifacts/0872-molart-public/activation.json). No workspace UI
+was captured or private molecule inspected; no scientific jobs were changed.
