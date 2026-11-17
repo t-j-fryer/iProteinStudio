@@ -15,7 +15,18 @@
   },
   "scientific_pipeline_diff": false,
   "matches_installed_beta_feature_source": true,
-  "full_regression_suite": "pending",
+  "full_regression_suite": {
+    "passed": 73,
+    "total": 73,
+    "failed": [],
+    "not_run": [
+      "Live network ligand acceptance",
+      "Real-model inference campaigns",
+      "Interactive VoiceOver/GUI acceptance",
+      "Packaged app/Gatekeeper/Sparkle acceptance",
+      "Science fixture suite (use --suite all --science-python PATH)"
+    ]
+  },
   "public_diff_files": [
     ".gitattributes",
     "BUILD_NUMBER",
@@ -43,5 +54,18 @@
     "tools/molart/build.mjs",
     "tools/molart/entry.ts",
     "tools/molart/upstream-manifest.json"
-  ]
+  ],
+  "packaged_assets": "passed native resource byte equality,59-file bridge inventory,strict codesign,checksums,DMG verify and independent CryptoKit Ed25519 verification",
+  "installed_beta104_resources": "passed",
+  "public_release": "https://github.com/t-j-fryer/iProteinStudio/releases/tag/v0.2.45-beta",
+  "shipping_commit": "51bfb5e16def13d9be89ab42939a58f785c8d24b",
+  "public_downloads": "byte-identical archives/provenance/checksums; CryptoKit signature and extracted app/resource verification passed",
+  "ci": {
+    "run": 44161206595,
+    "status": "queued; no runner assigned",
+    "prior_main_failure": "hosted runner not acquired; GitHub annotation cites macOS arm64 capacity constraints"
+  },
+  "local_public_installation": "awaiting running-app restart approval",
+  "local_beta": "installed build104 matches promoted renderer; signature/resources verified",
+  "cli_mcp": "installed doctor ok; bridge61 and workflow generation2026111302 verified; scientific source unchanged"
 }

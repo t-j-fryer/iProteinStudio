@@ -35,7 +35,12 @@ Native offline Molart acceptance passed all21 upstream styles, simple menus,
 PDB/mmCIF, PNG export, camera handlers, per-chain styling, trajectory scrubbing,
 renderer disposal and source preservation. Existing Paper pocket native
 regression also passed. `swift build` passed; documentation links passed265
-targets across53 guides. Full fast regression and delivery audit are pending.
+targets across53 guides. All73/73 fast regression commands passed. Signed ZIP/DMG checksums, DMG
+verification and independent CryptoKit Ed25519 verification passed. The public
+release/tag points to51bfb5e16def13d9be89ab42939a58f785c8d24b; actual public
+downloads are byte-identical, and the extracted app passes strict codesign and
+resource checks. GitHub CI44161206595 remains queued without a runner; prior
+main CI failure was hosted-runner capacity, not a test failure.
 No performance measurements. See [qualification](artifacts/0872-molart-public/qualification.json).
 
 ## Decision and rationale
@@ -66,5 +71,6 @@ Distribution remains ad-hoc signed and Sparkle EdDSA verified, not Apple notariz
 
 ## Next
 
-Complete public source CI, signed archive checks, download/feed verification and
-approved local app activation. Beta104 already carries identical renderer code.
+Public source, release archives and update feed are published. Running public
+app restart approval is pending; Beta104 already carries identical renderer code
+and its installed signature/resources pass. Monitor queued GitHub macOS CI.
